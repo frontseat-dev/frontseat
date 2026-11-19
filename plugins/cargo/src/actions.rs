@@ -6,9 +6,13 @@ use crate::manifest::{Example, Lib};
 /// The tool every action runs with: the Rust the repository pins, which
 /// brings cargo, clippy and rustfmt with it.
 pub(super) const RUST: &str = "rust";
-/// The standard library a wasm module is linked against, pinned beside
-/// Rust where a repository builds one.
-pub(super) const WASM_STD: &str = "rust-std-wasm32-wasip1";
+/// The option that has a library and the examples that are a C-style
+/// dynamic library (`cdylib`) built to wasm32-wasip1 modules, beside
+/// what is built for the worker.
+pub(super) const WASM: &str = "wasm";
+/// The standard library a wasm module is linked against, which the
+/// repository pins beside Rust where it builds one.
+const WASM_STD: &str = "rust-std-wasm32-wasip1";
 const WASM_TARGET: &str = "wasm32-wasip1";
 
 /// Where cargo reads crates from when the whole lock is fetched at once:
@@ -72,25 +76,14 @@ fn fetch(c: &Crate) -> Action {
 /// replacement, and writing nothing of the workspace but into the
 /// package's own target directory.
 fn cargo(arguments: &[&str]) -> Command {
-    Command {
-        arguments: ["cargo"]
-            .iter()
-            .chain(arguments)
-            .map(|a| a.to_string())
-            .collect(),
-        environment: [
-            // cargo keeps what it builds in the workspace root's target
-            // directory, above the package; here it keeps it in the
-            // package's, where an output is found.
-            ("CARGO_TARGET_DIR", "target"),
-            // A worker builds once; what incremental compilation keeps
-            // is never read again.
-            ("CARGO_INCREMENTAL", "0"),
-        ]
-        .map(|(name, value)| (name.to_string(), value.to_string()))
-        .into(),
-        ..Default::default()
-    }
+    Command::new(["cargo"].iter().chain(arguments).copied())
+        // cargo keeps what it builds in the workspace root's target
+        // directory, above the package; here it keeps it in the
+        // package's, where an output is found.
+        .env("CARGO_TARGET_DIR", "target")
+        // A worker builds once; what incremental compilation keeps is
+        // never read again.
+        .env("CARGO_INCREMENTAL", "0")
 }
 
 /// The actions of a package. Its crates are fetched each on its own
@@ -100,6 +93,7 @@ fn cargo(arguments: &[&str]) -> Command {
 /// registry, which every action then names.
 pub(super) fn actions(
     repo: &Repository,
+    manifest: &str,
     lib: Option<&Lib>,
     examples: &[Example],
     package: &str,
@@ -110,20 +104,15 @@ pub(super) fn actions(
         Fetching::Whole => {
             // Fetches what the lock names into cargo's home, which is
             // handed on: the one action that reaches the registry,
-            // through the proxy.
-            let mut whole = Action {
-                name: "fetch".into(),
-                command: Some(cargo(&["fetch", "--locked", "--config", REPLACE])),
-                inputs: vec![Input::set("package"), Input::dependencies("{root}")],
-                tools: vec![RUST.into()],
+            // through the proxy. A package of path dependencies alone
+            // fetches nothing.
+            let whole = Action {
                 fetch: true,
-                ..Default::default()
+                ..Action::new("fetch", cargo(&["fetch", "--locked", "--config", REPLACE]))
+                    .tool(RUST)
+                    .inputs([Input::set("package"), Input::dependencies("{root}")])
+                    .output(Output::optional("~/.cargo/"))
             };
-            whole.outputs.push(Output {
-                path: "~/.cargo/".into(),
-                // A package of path dependencies alone fetches nothing.
-                optional: true,
-            });
             (vec![whole], vec!["--config", REPLACE])
         }
     };
@@ -134,23 +123,20 @@ pub(super) fn actions(
         .chain(fetches.iter().map(|f| Input::output(&f.name)))
         .chain([Input::dependencies("{root}")])
         .collect();
-    let action = |name: &str, arguments: &[&str]| Action {
-        name: name.into(),
-        command: Some(cargo(&[arguments, &replace].concat())),
-        inputs: inputs.clone(),
-        tools: vec![RUST.into()],
-        ..Default::default()
+    let action = |name: &str, arguments: &[&str]| {
+        Action::new(name, cargo(&[arguments, &replace].concat()))
+            .tool(RUST)
+            .inputs(inputs.clone())
     };
     let mut compile_arguments = vec!["build", "--locked", "--offline"];
     if repo.profile()? == Profile::Production {
         compile_arguments.push("--release");
     }
     let compile = action("compile", &compile_arguments);
-    let mut test = action("test", &["test", "--locked", "--offline"]);
-    test.test = true;
+    let test = action("test", &["test", "--locked", "--offline"]).test();
     // clippy's findings are read from what it prints, a line each, and
     // a warning fails the check as an error does.
-    let mut lint = action(
+    let lint = action(
         "lint",
         &[
             "clippy",
@@ -163,55 +149,26 @@ pub(super) fn actions(
             "-D",
             "warnings",
         ],
-    );
-    lint.check = true;
+    )
+    .check();
     // rustfmt names what it would change and writes nothing: a check.
     // Its fix, cargo fmt, runs where the checkout is and nowhere else.
     // Formatting reads no dependency, so it reads nothing of a fetch.
-    let mut format = action("format", &["fmt", "--", "--check"]);
-    format.command = Some(cargo(&["fmt", "--", "--check"]));
-    format.check = true;
-    format.inputs = vec![Input::set("package"), Input::dependencies("{root}")];
-    format.fix = Some(cargo(&["fmt"]));
-    format.rewrites = vec!["**/*.rs".into()];
+    let format = Action::new("format", cargo(&["fmt", "--", "--check"]))
+        .tool(RUST)
+        .inputs([Input::set("package"), Input::dependencies("{root}")])
+        .check()
+        .fix(cargo(&["fmt"]), ["**/*.rs"]);
     let mut actions = fetches;
     actions.extend([compile, test, lint, format]);
-    // A library built as a C-style dynamic library is a wasm module where
-    // the repository pins the standard library for wasm: built in
-    // release, as a module is shipped.
-    if let Some(lib) = lib.filter(|lib| lib.crate_type.iter().any(|kind| kind == "cdylib")) {
-        if repo.tool_version(WASM_STD).is_some() {
-            let mut wasm = action(
-                "wasm",
-                &[
-                    "build",
-                    "--locked",
-                    "--offline",
-                    "--release",
-                    "--target",
-                    WASM_TARGET,
-                ],
-            );
-            wasm.tools.push(WASM_STD.into());
-            let name = lib
-                .name
-                .clone()
-                .unwrap_or_else(|| package.replace('-', "_"));
-            wasm.outputs.push(Output {
-                path: format!("target/{WASM_TARGET}/release/{name}.wasm"),
-                optional: false,
-            });
-            actions.push(wasm);
-        }
+    // A library built as a C-style dynamic library is a wasm module, and
+    // so are its examples so built, where the option says so: built in
+    // release, as a module is shipped, the examples together.
+    if !repo.bool(WASM)? {
+        return Ok(actions);
     }
-    // So are its examples built so, together, as the library is.
-    let modules: Vec<&Example> = examples
-        .iter()
-        .filter(|example| example.crate_type.iter().any(|kind| kind == "cdylib"))
-        .collect();
-    if !modules.is_empty() && repo.tool_version(WASM_STD).is_some() {
-        let mut wasm = action(
-            "wasm-examples",
+    let wasm = |name: &str, more: &[&str]| {
+        let arguments = [
             &[
                 "build",
                 "--locked",
@@ -219,21 +176,42 @@ pub(super) fn actions(
                 "--release",
                 "--target",
                 WASM_TARGET,
-                "--examples",
             ],
-        );
-        wasm.tools.push(WASM_STD.into());
-        wasm.outputs = modules
+            more,
+        ]
+        .concat();
+        action(name, &arguments).tool(WASM_STD)
+    };
+    let cdylib = |kinds: &[String]| kinds.iter().any(|kind| kind == "cdylib");
+    let modules: Vec<&Example> = examples
+        .iter()
+        .filter(|example| cdylib(&example.crate_type))
+        .collect();
+    let lib = lib.filter(|lib| cdylib(&lib.crate_type));
+    if lib.is_some() || !modules.is_empty() {
+        repo.pinned(WASM_STD, manifest)?;
+    }
+    if let Some(lib) = lib {
+        let name = lib
+            .name
+            .clone()
+            .unwrap_or_else(|| package.replace('-', "_"));
+        actions.push(wasm("wasm", &[]).output(Output::required(format!(
+            "target/{WASM_TARGET}/release/{name}.wasm"
+        ))));
+    }
+    if !modules.is_empty() {
+        let mut examples = wasm("wasm-examples", &["--examples"]);
+        examples.outputs = modules
             .iter()
-            .map(|example| Output {
-                path: format!(
+            .map(|example| {
+                Output::required(format!(
                     "target/{WASM_TARGET}/release/examples/{}.wasm",
                     example.name
-                ),
-                optional: false,
+                ))
             })
             .collect();
-        actions.push(wasm);
+        actions.push(examples);
     }
     Ok(actions)
 }
@@ -253,57 +231,46 @@ pub(super) fn report(
 }
 
 /// clippy's short messages, one a line: a path relative to the workspace
-/// root, a line, a column, a level and the message.
+/// root, a line, a column, a level and the message. What is not a
+/// warning or an error is no finding.
 fn clippy(workspace: &str, printed: &Printed) -> Vec<Diagnostic> {
+    const CLIPPY: Finding = Finding {
+        rule_id: "cargo/clippy",
+        help: "Fix what clippy reports; its lints are explained at https://rust-lang.github.io/rust-clippy/.",
+    };
     String::from_utf8_lossy(&printed.stderr)
         .lines()
         .filter_map(|line| {
-            let (path, rest) = line.split_once(':')?;
-            let (number, rest) = rest.split_once(':')?;
-            let (_column, rest) = rest.split_once(':')?;
-            let number: i32 = number.trim().parse().ok()?;
-            let (level, message) = rest.trim_start().split_once(": ")?;
-            if !matches!(level, "warning" | "error") || path.is_empty() || path.starts_with('/') || path.split('/').any(|part| part == ".." || part.is_empty()) {
+            let at = Located::read(line)?;
+            let (level, message) = at.message.split_once(": ")?;
+            if !matches!(level, "warning" | "error") {
                 return None;
             }
-            Some(Diagnostic {
-                rule_id: "cargo/clippy".into(),
-                message: message.trim().into(),
-                source_location: Some(SourceLocation {
-                    repository: String::new(),
-                    path: frontseat_plugin::repository::join(workspace, path),
-                    line: number,
-                }),
-                help: "Fix what clippy reports; its lints are explained at https://rust-lang.github.io/rust-clippy/.".into(),
-            })
+            CLIPPY.at(workspace, at.path, at.line, message.trim())
         })
         .collect()
 }
 
 /// The files rustfmt --check names, each with a diff it would make:
-/// "Diff in <path>:<line>:" or, from an older rustfmt, "Diff in <path>
-/// at line <line>:". The path is the worker's full path; the part from
-/// the project's directory on names the file here, where the project is
-/// not the repository's root.
+/// "Diff in <path>:<line>:". The path is the worker's full path; the
+/// part from the project's directory on names the file here, where the
+/// project is not the repository's root.
 fn unformatted(root: &str, printed: &Printed) -> Vec<Diagnostic> {
-    const FORMAT: Unformatted = Unformatted {
+    let help = Unformatted::fixed_by("cargo fmt");
+    let format = Unformatted {
         rule_id: "cargo/format",
         message: "it is not formatted as rustfmt formats it",
-        help: "Run `frontseat build --fix`, which runs cargo fmt where the checkout is.",
+        help: &help,
     };
     let mut seen = std::collections::BTreeSet::new();
     String::from_utf8_lossy(&printed.stdout)
         .lines()
         .filter_map(|line| {
-            let rest = line.strip_prefix("Diff in ")?;
-            let full = if let Some((path, _)) = rest.split_once(" at line ") {
-                path
-            } else {
-                let without_colon = rest.strip_suffix(':')?;
-                let (path, number) = without_colon.rsplit_once(':')?;
-                number.parse::<u32>().ok()?;
-                path
-            };
+            let (full, number) = line
+                .strip_prefix("Diff in ")?
+                .strip_suffix(':')?
+                .rsplit_once(':')?;
+            number.parse::<u32>().ok()?;
             if !seen.insert(full.to_string()) {
                 return None;
             }
@@ -317,12 +284,12 @@ fn unformatted(root: &str, printed: &Printed) -> Vec<Diagnostic> {
             // with nowhere in the repository to point at.
             Some(
                 within
-                    .and_then(|within| FORMAT.file(root, within))
+                    .and_then(|within| format.file(root, within))
                     .unwrap_or_else(|| Diagnostic {
-                        rule_id: FORMAT.rule_id.into(),
+                        rule_id: format.rule_id.into(),
                         message: format!("{full} is not formatted as rustfmt formats it"),
                         source_location: None,
-                        help: FORMAT.help.into(),
+                        help: help.clone(),
                     }),
             )
         })

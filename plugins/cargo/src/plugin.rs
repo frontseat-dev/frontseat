@@ -1,8 +1,8 @@
 use frontseat_plugin::prelude::*;
-use frontseat_plugin::repository::{join, TomlTable};
-use toml::Value;
+use frontseat_plugin::repository::{beneath, join, resolve, TomlTable};
+use frontseat_plugin::toml::{self, Value};
 
-use crate::actions::{actions, report, RUST};
+use crate::actions::{actions, report, RUST, WASM};
 use crate::inputs::input_sets;
 use crate::lock::Lock;
 use crate::manifest::{read, workspace_root};
@@ -37,12 +37,14 @@ impl Plugin for CargoPlugin {
                 "**/clippy.toml",
                 "**/.clippy.toml",
                 "!**/target/**",
-                // A testdata directory holds fixtures, as Go has it: what
-                // is in one is no package, however it looks.
-                "!**/testdata/**",
             ]
             .map(str::to_string)
             .to_vec(),
+            options: vec![PluginOption {
+                name: WASM,
+                default: frontseat_plugin::Value::Bool(false),
+                entity_settable: true,
+            }],
             ..Default::default()
         }
     }
@@ -63,23 +65,14 @@ impl Plugin for CargoPlugin {
         _actions: &[String],
         handed: &[Handed],
     ) -> Result<Vec<File>, Error> {
-        if repo.tool_version(RUST).is_none() {
-            return Err(Error {
-                reason: "unpinned-tool".into(),
-                message: "the repository pins no rust, so a package cannot be built".into(),
-                path: join(root, "Cargo.toml"),
-                help: "Pin rust in mise.toml.".into(),
-                ..Error::default()
-            });
-        }
+        repo.pinned(RUST, &join(root, "Cargo.toml"))?;
         let Some(mut own) = read(repo, root)? else {
-            return Err(Error {
-                reason: "invalid-manifest".into(),
-                message: "there is no Cargo.toml here".into(),
-                path: join(root, "Cargo.toml"),
-                help: "Add a Cargo.toml with a [package] table.".into(),
-                ..Error::default()
-            });
+            return Err(Error::invalid(
+                "invalid-manifest",
+                &join(root, "Cargo.toml"),
+                "there is no Cargo.toml here",
+                "Add a Cargo.toml with a [package] table.",
+            ));
         };
         let Some(ws) = workspace_root(repo, root, &mut own)? else {
             return Ok(Vec::new());
@@ -93,14 +86,7 @@ impl Plugin for CargoPlugin {
         };
         let lock = join(&ws.dir, "Cargo.lock");
         let Some(parsed) = Lock::read(repo, &lock)? else {
-            return Err(Error {
-                code: Code::FailedPrecondition,
-                reason: "missing-lock".into(),
-                message: format!("the workspace at {manifest} has no Cargo.lock, and a package is built from its lock alone"),
-                path: join(root, "Cargo.toml"),
-                help: "Run `cargo generate-lockfile` and commit Cargo.lock.".into(),
-                ..Error::default()
-            });
+            return Err(missing_lock(&manifest, &join(root, "Cargo.toml")));
         };
         let mut present: Vec<String> = handed
             .iter()
@@ -119,12 +105,9 @@ impl Plugin for CargoPlugin {
         }
         let mut members: Vec<String> = handed
             .iter()
-            .map(|each| normalized(&join(root, &each.into)))
+            .filter_map(|each| resolve(root, &each.into))
             .chain([root.to_string()])
-            .map(|dir| {
-                dir.strip_prefix(&ws.dir)
-                    .map_or(dir.clone(), |rest| rest.trim_start_matches('/').to_string())
-            })
+            .map(|dir| beneath(&ws.dir, &dir).unwrap_or(&dir).to_string())
             .collect();
         members.sort();
         members.dedup();
@@ -138,12 +121,13 @@ impl Plugin for CargoPlugin {
             "members".into(),
             Value::Array(members.into_iter().map(Value::String).collect()),
         );
-        let content = toml::to_string(&narrowed).map_err(|error| Error {
-            reason: "invalid-manifest".into(),
-            message: format!("the workspace manifest cannot be written back: {error}"),
-            path: manifest.clone(),
-            help: "Keep the workspace manifest to what cargo documents.".into(),
-            ..Error::default()
+        let content = toml::to_string(&narrowed).map_err(|error| {
+            Error::invalid(
+                "invalid-manifest",
+                &manifest,
+                format!("the workspace manifest cannot be written back: {error}"),
+                "Keep the workspace manifest to what cargo documents.",
+            )
         })?;
         let narrowed = parsed.narrowed(&present);
         Ok(vec![
@@ -191,27 +175,18 @@ impl Plugin for CargoPlugin {
         let ws = workspace_root(repo, root, &mut own)?;
         if let Some(ws) = &ws {
             if ws.dir == root && !ws.workspace.members.is_empty() {
-                return Err(Error {
-                    code: Code::FailedPrecondition,
-                    reason: "unsupported-manifest".into(),
-                    message: "the package is also the root of a workspace with members, which is not built: its manifest would have to be both the package's and the workspace's narrowed to the packages present".into(),
-                    path: manifest,
-                    help: "Make the root a workspace alone, with the package as a member, or a package alone.".into(),
-                    ..Error::default()
-                });
+                return Err(Error::not_served(
+                    "package-at-a-workspace-root",
+                    "the package is also the root of a workspace with members, which is not built: its manifest would have to be both the package's and the workspace's narrowed to the packages present",
+                )
+                .at(manifest)
+                .help("Make the root a workspace alone, with the package as a member, or a package alone."));
             }
         }
         let ws_dir = ws.as_ref().map_or(root, |ws| ws.dir.as_str());
         let lock_path = join(ws_dir, "Cargo.lock");
         let Some(lock) = Lock::read(repo, &lock_path)? else {
-            return Err(Error {
-                code: Code::FailedPrecondition,
-                reason: "missing-lock".into(),
-                message: format!("the workspace at {} has no Cargo.lock, and a package is built from its lock alone", join(ws_dir, "Cargo.toml")),
-                path: manifest,
-                help: "Run `cargo generate-lockfile` and commit Cargo.lock.".into(),
-                ..Error::default()
-            });
+            return Err(missing_lock(&join(ws_dir, "Cargo.toml"), &manifest));
         };
         // What the package depends on from outside, and how it is
         // fetched: each crate on its own, or the whole lock at once.
@@ -258,7 +233,14 @@ impl Plugin for CargoPlugin {
                 ..Default::default()
             }],
             requires,
-            actions: actions(repo, lib.as_ref(), &examples, &package.name, &fetching)?,
+            actions: actions(
+                repo,
+                &manifest,
+                lib.as_ref(),
+                &examples,
+                &package.name,
+                &fetching,
+            )?,
             input_sets: input_sets(repo, root)?,
             manifest,
             workspace_files,
@@ -274,17 +256,12 @@ impl Plugin for CargoPlugin {
     }
 }
 
-/// A path with its ".." and "." steps resolved, as a place in the repository.
-fn normalized(path: &str) -> String {
-    let mut parts: Vec<&str> = Vec::new();
-    for part in path.split('/') {
-        match part {
-            "" | "." => {}
-            ".." => {
-                parts.pop();
-            }
-            other => parts.push(other),
-        }
-    }
-    parts.join("/")
+/// A workspace with no lock, refused about the package's own manifest.
+fn missing_lock(workspace: &str, manifest: &str) -> Error {
+    Error::invalid(
+        "missing-lock",
+        manifest,
+        format!("the workspace at {workspace} has no Cargo.lock, and a package is built from its lock alone"),
+        "Run `cargo generate-lockfile` and commit Cargo.lock.",
+    )
 }

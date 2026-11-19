@@ -8,8 +8,8 @@
 
 use frontseat_plugin::prelude::*;
 use frontseat_plugin::repository::line_of;
+use frontseat_plugin::toml::{self, Spanned};
 use serde::Deserialize;
-use toml::Spanned;
 
 /// A lock, read.
 pub(super) struct Lock {
@@ -86,13 +86,14 @@ impl Lock {
             return Ok(None);
         };
         let text = typed.text;
-        let refused = |at: usize, what: String| Error {
-            reason: "invalid-lock".into(),
-            message: format!("the Cargo.lock holds {what}"),
-            path: path.to_string(),
-            line: line_of(&text, Some(at)),
-            help: "Write the Cargo.lock as cargo does: `cargo generate-lockfile`.".into(),
-            ..Error::default()
+        let refused = |at: usize, what: String| {
+            Error::invalid(
+                "invalid-lock",
+                path,
+                format!("the Cargo.lock holds {what}"),
+                "Write the Cargo.lock as cargo does: `cargo generate-lockfile`.",
+            )
+            .at_line(path, line_of(&text, Some(at)))
         };
         // Where each package's text ends: at the line of the next thing
         // that begins after it, a package or anything else at the top,
@@ -157,11 +158,7 @@ impl Lock {
                 None => None,
                 Some(checksum) => {
                     let (at, sum) = (checksum.span(), checksum.into_inner());
-                    if sum.len() != 64
-                        || !sum
-                            .bytes()
-                            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
-                    {
+                    if !frontseat_plugin::checksum::is_hex(&sum, 32) {
                         return Err(refused(
                             at.start,
                             format!("the checksum {sum:?}, which is no hex sha256"),
@@ -442,7 +439,7 @@ mod tests {
                 narrowed.contains("\n[[patch.unused]]\nname = \"zz\""),
                 "{present:?}: {narrowed}"
             );
-            toml::from_str::<toml::Table>(&narrowed)
+            frontseat_plugin::toml::from_str::<frontseat_plugin::toml::Table>(&narrowed)
                 .unwrap_or_else(|e| panic!("{present:?} narrowed to no TOML: {e}\n{narrowed}"));
         }
         // Packages written as an inline array are no lock cargo writes,
