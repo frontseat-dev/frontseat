@@ -356,11 +356,8 @@ message RepositorySource {
   // Remote is its URL.
   string remote = 1 [(google.api.field_behavior) = REQUIRED];
   // Ref is the branch, tag or commit to stand at; empty for the remote's
-  // default branch.
+  // default branch. It is cloned whole, and the workspace names it as
+  // its version control system names a clone of the remote: by the last
+  // element of the remote's path.
   string ref = 2;
-  // Roots are the directories to take of it; empty for all of it.
-  repeated string roots = 3;
-  // Name is the workspace's name for it; empty for the last element of
-  // the remote's path.
-  string name = 4;
 }

@@ -118,14 +118,11 @@ func (s *programService) WaitRun(ctx context.Context, request *buildv1.WaitRunRe
 // StreamRunLogs sends what a run's program prints, as it prints
 // it, until the run has ended and every line is sent.
 func (s *programService) StreamRunLogs(ctx context.Context, request *buildv1.StreamRunLogsRequest, stream buildv1alpha1connect.RunServiceStreamRunLogsServerStream) error {
-	if request.GetStartLine() < 0 {
-		return refuse(connect.CodeInvalidArgument, "START_LINE_INVALID", fmt.Sprintf("%d is no line to start from", request.GetStartLine()))
-	}
 	found, err := s.find(request.GetRunId())
 	if err != nil {
 		return err
 	}
-	next := request.GetStartLine()
+	var next int64
 	for {
 		var lines []*typev1.LogLine
 		var ended bool
@@ -139,7 +136,7 @@ func (s *programService) StreamRunLogs(ctx context.Context, request *buildv1.Str
 				size += sent(lines[n])
 				n++
 			}
-			if err := stream.Send(&buildv1.StreamRunLogsResponse{Lines: lines[:n], NextLine: next - int64(len(lines)-n)}); err != nil {
+			if err := stream.Send(&buildv1.StreamRunLogsResponse{Lines: lines[:n]}); err != nil {
 				return err
 			}
 			lines = lines[n:]

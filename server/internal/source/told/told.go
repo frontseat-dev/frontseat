@@ -39,18 +39,14 @@ type Resolved struct {
 }
 
 // Spec is what a workspace's spec asks its daemon to hold, at a
-// generation: the repositories it was asked for, each named as it was or
-// as nameOf names it from its remote, and those its entities resolved
+// generation: the repositories it was asked for, each named as nameOf names it
+// from its remote, and those its entities resolved
 // to, whole where the spec asks for them whole; and where its entities
 // are. Nothing of what it may do or who asks is told.
 func Spec(spec *workspacev1.WorkspaceSpec, generation int64, resolved Resolved, nameOf func(remote string) string) *sourcev1.SourceSpec {
 	out := &sourcev1.SourceSpec{Generation: generation}
 	for _, r := range spec.GetRepositories() {
-		name := r.GetName()
-		if name == "" {
-			name = nameOf(r.GetRemote())
-		}
-		out.Repositories = append(out.Repositories, &sourcev1.Checkout{Remote: r.GetRemote(), Ref: r.GetRef(), Roots: r.GetRoots(), Name: name})
+		out.Repositories = append(out.Repositories, &sourcev1.Checkout{Remote: r.GetRemote(), Ref: r.GetRef(), Name: nameOf(r.GetRemote())})
 	}
 	for _, c := range resolved.Checkouts {
 		roots := c.Roots

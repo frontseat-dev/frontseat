@@ -442,9 +442,6 @@ func wanted(spec *sandboxv1.SandboxSpec) (out driver.Sandbox, err error) {
 		Writable:    spec.GetWritable(),
 		Environment: spec.GetEnvironment(),
 		Labels:      spec.GetLabels(),
-		MilliCPUs:   int(spec.GetShape().GetMilliCpus()),
-		MemoryBytes: spec.GetShape().GetMemoryBytes(),
-		DiskBytes:   spec.GetShape().GetDiskBytes(),
 	}
 	if gate := spec.GetBeforeContainers(); gate != nil {
 		if len(spec.GetContainers()) == 0 || len(gate.GetArguments()) == 0 || gate.GetArguments()[0] == "" || gate.GetTimeout() == nil || gate.GetTimeout().CheckValid() != nil || gate.GetTimeout().AsDuration() <= 0 || gate.GetTimeout().AsDuration() > 2*time.Minute {
@@ -456,12 +453,6 @@ func wanted(spec *sandboxv1.SandboxSpec) (out driver.Sandbox, err error) {
 			}
 		}
 		out.BeforeContainers = &driver.StartupGate{Arguments: slices.Clone(gate.GetArguments()), Timeout: gate.GetTimeout().AsDuration()}
-	}
-	// What limits a sandbox is taken as it was written. A value this
-	// server does not know is refused: taken for nothing, the sandbox
-	// would run with less than was asked for.
-	if out.MilliCPUs < 0 || out.MemoryBytes < 0 || out.DiskBytes < 0 {
-		return driver.Sandbox{}, errors.New("a sandbox's size is not less than nothing")
 	}
 	// A user is a number, and never root's: no sandbox runs as root.
 	if out.User != "" {
@@ -541,13 +532,7 @@ func wanted(spec *sandboxv1.SandboxSpec) (out driver.Sandbox, err error) {
 		if err := imageOf(c.GetImage()); err != nil {
 			return driver.Sandbox{}, fmt.Errorf("the container %q: %w", c.GetName(), err)
 		}
-		container := driver.SandboxContainer{
-			Name: c.GetName(), Image: c.GetImage(), Arguments: c.GetArguments(), Environment: c.GetEnvironment(),
-			MilliCPUs: int(c.GetShape().GetMilliCpus()), MemoryBytes: c.GetShape().GetMemoryBytes(),
-		}
-		if container.MilliCPUs < 0 || container.MemoryBytes < 0 || c.GetShape().GetDiskBytes() != 0 {
-			return driver.Sandbox{}, fmt.Errorf("the container %q is sized by CPUs and memory, neither less than nothing", c.GetName())
-		}
+		container := driver.SandboxContainer{Name: c.GetName(), Image: c.GetImage(), Arguments: c.GetArguments(), Environment: c.GetEnvironment()}
 		if container.Volumes, err = volumesOf(c.GetVolumes()); err != nil {
 			return driver.Sandbox{}, err
 		}
@@ -825,14 +810,14 @@ func (s *service) ExecSandbox(ctx context.Context, req *sandboxv1.ExecSandboxReq
 	}
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	exit, output, truncated, err := execer.Exec(ctx, req.GetSandboxId(), container, req.GetArguments(), execOutput)
+	exit, output, _, err := execer.Exec(ctx, req.GetSandboxId(), container, req.GetArguments(), execOutput)
 	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 		return nil, refuse(connect.CodeDeadlineExceeded, "COMMAND_TIMED_OUT", fmt.Sprintf("the command ran past %s, and was ended", timeout))
 	}
 	if err != nil {
 		return nil, refused(err)
 	}
-	return &sandboxv1.ExecSandboxResponse{ExitCode: int32(exit), Output: output, Truncated: truncated}, nil
+	return &sandboxv1.ExecSandboxResponse{ExitCode: int32(exit), Output: output}, nil
 }
 
 // held reads which sandbox and which port of it a request names, and

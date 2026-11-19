@@ -109,9 +109,6 @@ func TestASpecThatWouldBeRunWeakerIsRefused(t *testing.T) {
 			s.Egress = &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_LISTED}
 		}, connect.CodeFailedPrecondition},
 		{"an egress mode nobody defined", func(s *sandboxv1.SandboxSpec) { s.Egress = &sandboxv1.Egress{Mode: 99} }, connect.CodeInvalidArgument},
-		{"less than no CPU", func(s *sandboxv1.SandboxSpec) { s.Shape = &sandboxv1.Shape{MilliCpus: -1} }, connect.CodeInvalidArgument},
-		{"less than no memory", func(s *sandboxv1.SandboxSpec) { s.Shape = &sandboxv1.Shape{MemoryBytes: -1} }, connect.CodeInvalidArgument},
-		{"less than no disk", func(s *sandboxv1.SandboxSpec) { s.Shape = &sandboxv1.Shape{DiskBytes: -1} }, connect.CodeInvalidArgument},
 		{"a volume that starts empty and cannot be written", func(s *sandboxv1.SandboxSpec) {
 			s.Volumes = []*sandboxv1.Volume{{Name: "scratch", Path: "/scratch", ReadOnly: true}}
 		}, connect.CodeInvalidArgument},

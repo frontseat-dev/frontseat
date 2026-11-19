@@ -209,7 +209,11 @@ func deletePOC(p *serviceRoutePOC, id string) {
 func buildApplicationPOC(t *testing.T) (string, string) {
 	t.Helper()
 	testgrid.Address(t)
-	root := t.TempDir()
+	// The repository's directory is what the workspace names it by.
+	root := filepath.Join(t.TempDir(), "fixture")
+	if err := os.Mkdir(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
 	testpins.Go(t, root)
 	// The probe imports the production relay. Give its isolated repository
 	// that source too, under its real internal package path: a host build
@@ -337,7 +341,7 @@ func artifactWorkspacePOC(t *testing.T, root string) string {
 		}
 		spec := found.GetWorkspace().GetSpec()
 		repositories := spec.GetRepositories()
-		if spec.GetImage() != image || spec.GetLifetime().AsDuration() != 15*time.Minute || len(repositories) != 1 || repositories[0].GetRemote() != remote || repositories[0].GetName() != "fixture" {
+		if spec.GetImage() != image || spec.GetLifetime().AsDuration() != 15*time.Minute || len(repositories) != 1 || repositories[0].GetRemote() != remote {
 			t.Error("refusing to end an artifact workspace whose spec is not this probe's")
 			return
 		}
@@ -364,7 +368,7 @@ func artifactWorkspacePOC(t *testing.T, root string) string {
 	})
 	created, err := workspaces.CreateWorkspace(ctx, &workspacev1.CreateWorkspaceRequest{Name: name, Spec: &workspacev1.WorkspaceSpec{
 		Image: image, Lifetime: durationpb.New(15 * time.Minute),
-		Repositories: []*workspacev1.RepositorySource{{Remote: remote, Name: "fixture"}},
+		Repositories: []*workspacev1.RepositorySource{{Remote: remote}},
 	}})
 	if err != nil {
 		t.Fatal(err)

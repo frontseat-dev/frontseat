@@ -280,11 +280,11 @@ func TestAMountedCheckoutIsNotPopulated(t *testing.T) {
 // refused as what was asked, before anything is cloned.
 func TestARepositoryNamedOutOfTheWorkspaceIsNotCloned(t *testing.T) {
 	forge := testforge.Make(t)
-	for name, source := range map[string]*workspacev1.RepositorySource{
+	for name, checkout := range map[string]*sourcev1.Checkout{
 		"named out of the workspace":                 {Name: "../elsewhere", Remote: forge.Remote, Ref: "main"},
 		"named by a path":                            {Name: "a/b", Remote: forge.Remote, Ref: "main"},
 		"named where the workspace keeps its record": {Name: ".frontseat", Remote: forge.Remote, Ref: "main"},
-		"a remote that names no directory":           {Remote: "file:///", Ref: "main"},
+		"a remote that names no directory":           {Name: source.Fetching().NameOf("file:///"), Remote: "file:///", Ref: "main"},
 		"a directory out of the repository":          {Remote: forge.Remote, Ref: "main", Roots: []string{"../other"}},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -297,7 +297,8 @@ func TestARepositoryNamedOutOfTheWorkspaceIsNotCloned(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 			defer cancel()
 
-			generation, err := c.set(ctx, &workspacev1.WorkspaceSpec{Repositories: []*workspacev1.RepositorySource{source}})
+			generation := generations.Add(1)
+			_, err := c.source.SetSource(ctx, &sourcev1.SetSourceRequest{Spec: &sourcev1.SourceSpec{Generation: generation, Repositories: []*sourcev1.Checkout{checkout}}})
 
 			if connect.CodeOf(err) != connect.CodeInvalidArgument {
 				t.Errorf("err = %v, want what was asked refused as invalid", err)

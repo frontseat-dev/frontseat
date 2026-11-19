@@ -408,15 +408,18 @@ func TestAFailedActionFailsTheRunAndTheOthersStillRun(t *testing.T) {
 		t.Errorf("the run ended %s with %d passed and %d failed, want BUILD_FAILURE with 2 and 1", ended.GetExitCode().GetName(), ended.GetCounts().GetPassed(), ended.GetCounts().GetFailed())
 	}
 
-	failed, err := client.ListBuildActions(context.Background(), &buildv1.ListBuildActionsRequest{
-		BuildId:  run.GetId(),
-		Outcomes: []buildv1.Outcome{buildv1.Outcome_OUTCOME_FAILED},
-	})
+	listed, err := client.ListBuildActions(context.Background(), &buildv1.ListBuildActionsRequest{BuildId: run.GetId()})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(failed.GetActions()) != 1 || failed.GetActions()[0].GetLabel() != "//hello:go.lint" {
-		t.Fatalf("the failed actions are %v, want //hello:go.lint alone", failed.GetActions())
+	var failed []string
+	for _, action := range listed.GetActions() {
+		if action.GetOutcome() == buildv1.Outcome_OUTCOME_FAILED {
+			failed = append(failed, action.GetLabel())
+		}
+	}
+	if len(failed) != 1 || failed[0] != "//hello:go.lint" {
+		t.Fatalf("the failed actions are %v, want //hello:go.lint alone", failed)
 	}
 
 	logs, err := logsOf(client, run.GetId(), "//hello:go.lint")

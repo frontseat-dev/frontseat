@@ -83,18 +83,16 @@ service RunService {
   // StreamRunLogs sends what a run's program prints, standard
   // output and standard error, in parts, each some whole lines, as it
   // prints them, and ends when the run has ended and every line is
-  // sent. Call it again from the next line if the stream breaks. A
-  // daemon keeps the newest ten thousand lines of a program, and of
-  // those no more than eight mebibytes: a line before the first it
-  // still keeps is answered from that one.
+  // sent. A daemon keeps the newest ten thousand lines of a program,
+  // and of those no more than eight mebibytes: the stream begins at the
+  // first line it still keeps.
   //
   // A line's text is UTF-8: bytes a program printed that are not are
   // given as U+FFFD. A line longer than 64 KiB is sent as several, each
   // a part of it, in order.
   //
   // ### Errors
-  // - INVALID_ARGUMENT: the line to start from is before the first.
-  // - NOT_FOUND: no run has that id.
+  // - NOT_FOUND: no run has that id (RUN_NOT_FOUND).
   rpc StreamRunLogs(StreamRunLogsRequest) returns (stream StreamRunLogsResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
@@ -229,19 +227,14 @@ message WaitRunResponse {
   Run run = 1;
 }
 
-// StreamRunLogsRequest names a run and where to start.
+// StreamRunLogsRequest names a run.
 message StreamRunLogsRequest {
   // Run_id is the run's id.
   string run_id = 1 [(google.api.field_behavior) = REQUIRED];
-  // Start_line is the first line to send, from 0.
-  int64 start_line = 2;
 }
 
 // StreamRunLogsResponse is the next lines of what the program printed.
 message StreamRunLogsResponse {
   // Lines are the next lines, in order.
   repeated frontseat.type.v1alpha1.LogLine lines = 1;
-  // Next_line is the line after the last sent: where to start again if
-  // the stream breaks.
-  int64 next_line = 2;
 }

@@ -405,14 +405,11 @@ func derived(spec *workspacev1.WorkspaceSpec) string {
 		from = spec.GetEntities()[0].GetName()
 	case len(spec.GetRepositories()) > 0:
 		first := spec.GetRepositories()[0]
-		from = first.GetName()
-		if from == "" {
-			at := first.GetRemote()
-			if parsed, err := url.Parse(at); err == nil && parsed.Path != "" {
-				at = parsed.Path
-			}
-			from = strings.TrimSuffix(path.Base(strings.TrimRight(at, "/")), ".git")
+		at := first.GetRemote()
+		if parsed, err := url.Parse(at); err == nil && parsed.Path != "" {
+			at = parsed.Path
 		}
+		from = strings.TrimSuffix(path.Base(strings.TrimRight(at, "/")), ".git")
 		if first.GetRef() != "" {
 			from += "-" + first.GetRef()
 		}
@@ -792,8 +789,8 @@ func lacks(has, wanted *workspacev1.WorkspaceSpec) string {
 		kept := false
 		for _, each := range wanted.GetRepositories() {
 			// A repository is kept where it is named again, by its
-			// address, its ref and its name.
-			if each.GetRemote() == repository.GetRemote() && each.GetRef() == repository.GetRef() && each.GetName() == repository.GetName() {
+			// address and its ref.
+			if each.GetRemote() == repository.GetRemote() && each.GetRef() == repository.GetRef() {
 				kept = true
 			}
 		}

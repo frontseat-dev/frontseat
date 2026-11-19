@@ -770,13 +770,11 @@ func (x *WaitRunResponse) GetRun() *Run {
 	return nil
 }
 
-// StreamRunLogsRequest names a run and where to start.
+// StreamRunLogsRequest names a run.
 type StreamRunLogsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Run_id is the run's id.
-	RunId string `protobuf:"bytes,1,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
-	// Start_line is the first line to send, from 0.
-	StartLine     int64 `protobuf:"varint,2,opt,name=start_line,json=startLine,proto3" json:"start_line,omitempty"`
+	RunId         string `protobuf:"bytes,1,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -818,21 +816,11 @@ func (x *StreamRunLogsRequest) GetRunId() string {
 	return ""
 }
 
-func (x *StreamRunLogsRequest) GetStartLine() int64 {
-	if x != nil {
-		return x.StartLine
-	}
-	return 0
-}
-
 // StreamRunLogsResponse is the next lines of what the program printed.
 type StreamRunLogsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Lines are the next lines, in order.
-	Lines []*v1alpha1.LogLine `protobuf:"bytes,1,rep,name=lines,proto3" json:"lines,omitempty"`
-	// Next_line is the line after the last sent: where to start again if
-	// the stream breaks.
-	NextLine      int64 `protobuf:"varint,2,opt,name=next_line,json=nextLine,proto3" json:"next_line,omitempty"`
+	Lines         []*v1alpha1.LogLine `protobuf:"bytes,1,rep,name=lines,proto3" json:"lines,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -872,13 +860,6 @@ func (x *StreamRunLogsResponse) GetLines() []*v1alpha1.LogLine {
 		return x.Lines
 	}
 	return nil
-}
-
-func (x *StreamRunLogsResponse) GetNextLine() int64 {
-	if x != nil {
-		return x.NextLine
-	}
-	return 0
 }
 
 var File_frontseat_build_v1alpha1_run_proto protoreflect.FileDescriptor
@@ -935,14 +916,11 @@ const file_frontseat_build_v1alpha1_run_proto_rawDesc = "" +
 	"\x0eWaitRunRequest\x12\x1b\n" +
 	"\x06run_id\x18\x01 \x01(\tB\x04\xe2A\x01\x02R\x05runId\"B\n" +
 	"\x0fWaitRunResponse\x12/\n" +
-	"\x03run\x18\x01 \x01(\v2\x1d.frontseat.build.v1alpha1.RunR\x03run\"R\n" +
+	"\x03run\x18\x01 \x01(\v2\x1d.frontseat.build.v1alpha1.RunR\x03run\"3\n" +
 	"\x14StreamRunLogsRequest\x12\x1b\n" +
-	"\x06run_id\x18\x01 \x01(\tB\x04\xe2A\x01\x02R\x05runId\x12\x1d\n" +
-	"\n" +
-	"start_line\x18\x02 \x01(\x03R\tstartLine\"l\n" +
+	"\x06run_id\x18\x01 \x01(\tB\x04\xe2A\x01\x02R\x05runId\"O\n" +
 	"\x15StreamRunLogsResponse\x126\n" +
-	"\x05lines\x18\x01 \x03(\v2 .frontseat.type.v1alpha1.LogLineR\x05lines\x12\x1b\n" +
-	"\tnext_line\x18\x02 \x01(\x03R\bnextLine2\x94\x05\n" +
+	"\x05lines\x18\x01 \x03(\v2 .frontseat.type.v1alpha1.LogLineR\x05lines2\x94\x05\n" +
 	"\n" +
 	"RunService\x12d\n" +
 	"\tCreateRun\x12*.frontseat.build.v1alpha1.CreateRunRequest\x1a+.frontseat.build.v1alpha1.CreateRunResponse\x12o\n" +

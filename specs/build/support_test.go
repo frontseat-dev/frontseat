@@ -21,6 +21,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -915,15 +916,20 @@ func (b *Build) state() string {
 	return strings.ToLower(strings.TrimPrefix(now.GetState().String(), "STATE_"))
 }
 
-// results are what the build says of its actions.
+// results are what the build says of its actions: those that ended in
+// any of the outcomes, or all where none is given.
 func (b *Build) results(outcomes ...buildv1.Outcome) []*buildv1.ActionResult {
 	b.scenario.Helper()
 	// Every page of them.
 	var all []*buildv1.ActionResult
 	for token := ""; ; {
-		listed, err := buildsAt(b.of.at).ListBuildActions(context.Background(), &buildv1.ListBuildActionsRequest{PageSize: 1000, PageToken: token, BuildId: b.run.GetId(), Outcomes: outcomes})
+		listed, err := buildsAt(b.of.at).ListBuildActions(context.Background(), &buildv1.ListBuildActionsRequest{PageSize: 1000, PageToken: token, BuildId: b.run.GetId()})
 		b.scenario.Expect(err).NotTo(HaveOccurred())
-		all = append(all, listed.GetActions()...)
+		for _, action := range listed.GetActions() {
+			if len(outcomes) == 0 || slices.Contains(outcomes, action.GetOutcome()) {
+				all = append(all, action)
+			}
+		}
 		if token = listed.GetNextPageToken(); token == "" {
 			return all
 		}
@@ -2055,11 +2061,6 @@ func (u *Unit) grouping() string {
 	return strings.ToLower(strings.TrimPrefix(u.unit.GetGrouping().String(), "GROUPING_"))
 }
 
-// included is why it is in the plan: "asked" or "dependent".
-func (u *Unit) included() string {
-	return strings.ToLower(strings.TrimPrefix(u.unit.GetIncluded().String(), "INCLUSION_"))
-}
-
 // last is its last release; empty if it has none.
 func (u *Unit) last() string { return u.unit.GetLastVersion() }
 
@@ -2074,9 +2075,6 @@ func (u *Unit) tag() string { return u.unit.GetTag() }
 
 // dependsOn are the names of the plan's units it depends on.
 func (u *Unit) dependsOn() []string { return names(u.unit.GetDependsOn()) }
-
-// prerelease is whether it releases a prerelease.
-func (u *Unit) prerelease() bool { return u.unit.GetPrerelease() }
 
 // channel is what it is published under.
 func (u *Unit) channel() string { return u.unit.GetChannel() }

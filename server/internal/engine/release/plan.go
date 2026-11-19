@@ -551,7 +551,7 @@ func planUnit(ctx context.Context, w Workspace, resolved *Resolved, strategies S
 	}
 	planned := &buildv1.ReleaseUnit{
 		Entity: entity.Proto(unit), Members: entity.Protos(members), Group: entity.Proto(settings.Group),
-		Grouping: buildv1.Grouping_GROUPING_INDEPENDENT, Included: buildv1.Inclusion_INCLUSION_ASKED,
+		Grouping:           buildv1.Grouping_GROUPING_INDEPENDENT,
 		VersioningStrategy: settings.Versioning, BranchingStrategy: settings.Branching, Branch: standing.Branch, Bump: typev1.Bump_BUMP_NONE,
 	}
 	if settings.Synced {

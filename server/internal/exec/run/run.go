@@ -249,12 +249,11 @@ func nothingToDo(tree source.Tree, action plan.Action, handed []schedule.Handed)
 // record as skipped, and says which action stopped it.
 func (ing running) Skip(action plan.Action, need model.Label, how schedule.Outcome) {
 	ing.events.Finished(&buildv1.ActionResult{
-		Label:     action.Label.String(),
-		Entity:    ing.events.owner(action),
-		Name:      action.Name(),
-		Outcome:   buildv1.Outcome_OUTCOME_SKIPPED,
-		BlockedBy: need.String(),
-		Message:   "not run: " + need.String() + " " + stopped[how],
+		Label:   action.Label.String(),
+		Entity:  ing.events.owner(action),
+		Name:    action.Name(),
+		Outcome: buildv1.Outcome_OUTCOME_SKIPPED,
+		Message: "not run: " + need.String() + " " + stopped[how],
 	})
 }
 

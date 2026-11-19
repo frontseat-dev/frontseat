@@ -166,7 +166,7 @@ func (x Egress_Mode) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Egress_Mode.Descriptor instead.
 func (Egress_Mode) EnumDescriptor() ([]byte, []int) {
-	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{5, 0}
+	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{4, 0}
 }
 
 // Kind is what becomes of a volume.
@@ -220,7 +220,7 @@ func (x Volume_Kind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Volume_Kind.Descriptor instead.
 func (Volume_Kind) EnumDescriptor() ([]byte, []int) {
-	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{8, 0}
+	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{7, 0}
 }
 
 // Sandbox is an isolated machine.
@@ -346,8 +346,6 @@ type SandboxSpec struct {
 	Writable []string `protobuf:"bytes,17,rep,name=writable,proto3" json:"writable,omitempty"`
 	// Environment is the environment its first process starts with.
 	Environment map[string]string `protobuf:"bytes,3,rep,name=environment,proto3" json:"environment,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	// Shape is its size.
-	Shape *Shape `protobuf:"bytes,4,opt,name=shape,proto3" json:"shape,omitempty"`
 	// Egress is what it may reach.
 	Egress *Egress `protobuf:"bytes,7,opt,name=egress,proto3" json:"egress,omitempty"`
 	// Ports are the ports of it to make reachable.
@@ -438,13 +436,6 @@ func (x *SandboxSpec) GetWritable() []string {
 func (x *SandboxSpec) GetEnvironment() map[string]string {
 	if x != nil {
 		return x.Environment
-	}
-	return nil
-}
-
-func (x *SandboxSpec) GetShape() *Shape {
-	if x != nil {
-		return x.Shape
 	}
 	return nil
 }
@@ -558,8 +549,6 @@ type Container struct {
 	Arguments []string `protobuf:"bytes,3,rep,name=arguments,proto3" json:"arguments,omitempty"`
 	// Environment is the environment its first process starts with.
 	Environment map[string]string `protobuf:"bytes,4,rep,name=environment,proto3" json:"environment,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	// Shape is its size, within the sandbox's.
-	Shape *Shape `protobuf:"bytes,5,opt,name=shape,proto3" json:"shape,omitempty"`
 	// Volumes are the volumes mounted in it.
 	Volumes       []*Volume `protobuf:"bytes,6,rep,name=volumes,proto3" json:"volumes,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -624,82 +613,11 @@ func (x *Container) GetEnvironment() map[string]string {
 	return nil
 }
 
-func (x *Container) GetShape() *Shape {
-	if x != nil {
-		return x.Shape
-	}
-	return nil
-}
-
 func (x *Container) GetVolumes() []*Volume {
 	if x != nil {
 		return x.Volumes
 	}
 	return nil
-}
-
-// Shape is a sandbox's size.
-type Shape struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Cpus is how many CPUs it is given, in thousandths.
-	MilliCpus int32 `protobuf:"varint,1,opt,name=milli_cpus,json=milliCpus,proto3" json:"milli_cpus,omitempty"`
-	// Memory_bytes is how much memory it is given.
-	MemoryBytes int64 `protobuf:"varint,2,opt,name=memory_bytes,json=memoryBytes,proto3" json:"memory_bytes,omitempty"`
-	// Disk_bytes is how much disk it is given.
-	DiskBytes     int64 `protobuf:"varint,3,opt,name=disk_bytes,json=diskBytes,proto3" json:"disk_bytes,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *Shape) Reset() {
-	*x = Shape{}
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[4]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *Shape) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*Shape) ProtoMessage() {}
-
-func (x *Shape) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[4]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use Shape.ProtoReflect.Descriptor instead.
-func (*Shape) Descriptor() ([]byte, []int) {
-	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{4}
-}
-
-func (x *Shape) GetMilliCpus() int32 {
-	if x != nil {
-		return x.MilliCpus
-	}
-	return 0
-}
-
-func (x *Shape) GetMemoryBytes() int64 {
-	if x != nil {
-		return x.MemoryBytes
-	}
-	return 0
-}
-
-func (x *Shape) GetDiskBytes() int64 {
-	if x != nil {
-		return x.DiskBytes
-	}
-	return 0
 }
 
 // Egress is what a sandbox may reach.
@@ -722,7 +640,7 @@ type Egress struct {
 
 func (x *Egress) Reset() {
 	*x = Egress{}
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[5]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -734,7 +652,7 @@ func (x *Egress) String() string {
 func (*Egress) ProtoMessage() {}
 
 func (x *Egress) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[5]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -747,7 +665,7 @@ func (x *Egress) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Egress.ProtoReflect.Descriptor instead.
 func (*Egress) Descriptor() ([]byte, []int) {
-	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{5}
+	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *Egress) GetMode() Egress_Mode {
@@ -790,7 +708,7 @@ type EgressRule struct {
 
 func (x *EgressRule) Reset() {
 	*x = EgressRule{}
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[6]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -802,7 +720,7 @@ func (x *EgressRule) String() string {
 func (*EgressRule) ProtoMessage() {}
 
 func (x *EgressRule) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[6]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -815,7 +733,7 @@ func (x *EgressRule) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EgressRule.ProtoReflect.Descriptor instead.
 func (*EgressRule) Descriptor() ([]byte, []int) {
-	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{6}
+	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *EgressRule) GetHost() string {
@@ -862,7 +780,7 @@ type EgressRequest struct {
 
 func (x *EgressRequest) Reset() {
 	*x = EgressRequest{}
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[7]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -874,7 +792,7 @@ func (x *EgressRequest) String() string {
 func (*EgressRequest) ProtoMessage() {}
 
 func (x *EgressRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[7]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -887,7 +805,7 @@ func (x *EgressRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EgressRequest.ProtoReflect.Descriptor instead.
 func (*EgressRequest) Descriptor() ([]byte, []int) {
-	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{7}
+	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *EgressRequest) GetMethod() string {
@@ -935,7 +853,7 @@ type Volume struct {
 
 func (x *Volume) Reset() {
 	*x = Volume{}
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[8]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -947,7 +865,7 @@ func (x *Volume) String() string {
 func (*Volume) ProtoMessage() {}
 
 func (x *Volume) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[8]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -960,7 +878,7 @@ func (x *Volume) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Volume.ProtoReflect.Descriptor instead.
 func (*Volume) Descriptor() ([]byte, []int) {
-	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{8}
+	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *Volume) GetName() string {
@@ -1018,7 +936,7 @@ type Endpoint struct {
 
 func (x *Endpoint) Reset() {
 	*x = Endpoint{}
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[9]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1030,7 +948,7 @@ func (x *Endpoint) String() string {
 func (*Endpoint) ProtoMessage() {}
 
 func (x *Endpoint) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[9]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1043,7 +961,7 @@ func (x *Endpoint) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Endpoint.ProtoReflect.Descriptor instead.
 func (*Endpoint) Descriptor() ([]byte, []int) {
-	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{9}
+	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *Endpoint) GetPort() int32 {
@@ -1073,7 +991,7 @@ type CreateSandboxRequest struct {
 
 func (x *CreateSandboxRequest) Reset() {
 	*x = CreateSandboxRequest{}
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[10]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1085,7 +1003,7 @@ func (x *CreateSandboxRequest) String() string {
 func (*CreateSandboxRequest) ProtoMessage() {}
 
 func (x *CreateSandboxRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[10]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1098,7 +1016,7 @@ func (x *CreateSandboxRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateSandboxRequest.ProtoReflect.Descriptor instead.
 func (*CreateSandboxRequest) Descriptor() ([]byte, []int) {
-	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{10}
+	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *CreateSandboxRequest) GetSpec() *SandboxSpec {
@@ -1126,7 +1044,7 @@ type CreateSandboxResponse struct {
 
 func (x *CreateSandboxResponse) Reset() {
 	*x = CreateSandboxResponse{}
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[11]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1138,7 +1056,7 @@ func (x *CreateSandboxResponse) String() string {
 func (*CreateSandboxResponse) ProtoMessage() {}
 
 func (x *CreateSandboxResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[11]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1151,7 +1069,7 @@ func (x *CreateSandboxResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateSandboxResponse.ProtoReflect.Descriptor instead.
 func (*CreateSandboxResponse) Descriptor() ([]byte, []int) {
-	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{11}
+	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *CreateSandboxResponse) GetSandbox() *Sandbox {
@@ -1172,7 +1090,7 @@ type DescribeSandboxRequest struct {
 
 func (x *DescribeSandboxRequest) Reset() {
 	*x = DescribeSandboxRequest{}
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[12]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1184,7 +1102,7 @@ func (x *DescribeSandboxRequest) String() string {
 func (*DescribeSandboxRequest) ProtoMessage() {}
 
 func (x *DescribeSandboxRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[12]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1197,7 +1115,7 @@ func (x *DescribeSandboxRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DescribeSandboxRequest.ProtoReflect.Descriptor instead.
 func (*DescribeSandboxRequest) Descriptor() ([]byte, []int) {
-	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{12}
+	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *DescribeSandboxRequest) GetSandboxId() string {
@@ -1218,7 +1136,7 @@ type DescribeSandboxResponse struct {
 
 func (x *DescribeSandboxResponse) Reset() {
 	*x = DescribeSandboxResponse{}
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[13]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1230,7 +1148,7 @@ func (x *DescribeSandboxResponse) String() string {
 func (*DescribeSandboxResponse) ProtoMessage() {}
 
 func (x *DescribeSandboxResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[13]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1243,7 +1161,7 @@ func (x *DescribeSandboxResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DescribeSandboxResponse.ProtoReflect.Descriptor instead.
 func (*DescribeSandboxResponse) Descriptor() ([]byte, []int) {
-	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{13}
+	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *DescribeSandboxResponse) GetSandbox() *Sandbox {
@@ -1271,7 +1189,7 @@ type ListSandboxesRequest struct {
 
 func (x *ListSandboxesRequest) Reset() {
 	*x = ListSandboxesRequest{}
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[14]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1283,7 +1201,7 @@ func (x *ListSandboxesRequest) String() string {
 func (*ListSandboxesRequest) ProtoMessage() {}
 
 func (x *ListSandboxesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[14]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1296,7 +1214,7 @@ func (x *ListSandboxesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSandboxesRequest.ProtoReflect.Descriptor instead.
 func (*ListSandboxesRequest) Descriptor() ([]byte, []int) {
-	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{14}
+	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *ListSandboxesRequest) GetLabelSelector() string {
@@ -1333,7 +1251,7 @@ type ListSandboxesResponse struct {
 
 func (x *ListSandboxesResponse) Reset() {
 	*x = ListSandboxesResponse{}
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[15]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1345,7 +1263,7 @@ func (x *ListSandboxesResponse) String() string {
 func (*ListSandboxesResponse) ProtoMessage() {}
 
 func (x *ListSandboxesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[15]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1358,7 +1276,7 @@ func (x *ListSandboxesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSandboxesResponse.ProtoReflect.Descriptor instead.
 func (*ListSandboxesResponse) Descriptor() ([]byte, []int) {
-	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{15}
+	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ListSandboxesResponse) GetSandboxes() []*Sandbox {
@@ -1386,7 +1304,7 @@ type DeleteSandboxRequest struct {
 
 func (x *DeleteSandboxRequest) Reset() {
 	*x = DeleteSandboxRequest{}
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[16]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1398,7 +1316,7 @@ func (x *DeleteSandboxRequest) String() string {
 func (*DeleteSandboxRequest) ProtoMessage() {}
 
 func (x *DeleteSandboxRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[16]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1411,7 +1329,7 @@ func (x *DeleteSandboxRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteSandboxRequest.ProtoReflect.Descriptor instead.
 func (*DeleteSandboxRequest) Descriptor() ([]byte, []int) {
-	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{16}
+	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *DeleteSandboxRequest) GetSandboxId() string {
@@ -1430,7 +1348,7 @@ type DeleteSandboxResponse struct {
 
 func (x *DeleteSandboxResponse) Reset() {
 	*x = DeleteSandboxResponse{}
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[17]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1442,7 +1360,7 @@ func (x *DeleteSandboxResponse) String() string {
 func (*DeleteSandboxResponse) ProtoMessage() {}
 
 func (x *DeleteSandboxResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[17]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1455,7 +1373,7 @@ func (x *DeleteSandboxResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteSandboxResponse.ProtoReflect.Descriptor instead.
 func (*DeleteSandboxResponse) Descriptor() ([]byte, []int) {
-	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{17}
+	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{16}
 }
 
 // PauseSandboxRequest names a sandbox to pause.
@@ -1469,7 +1387,7 @@ type PauseSandboxRequest struct {
 
 func (x *PauseSandboxRequest) Reset() {
 	*x = PauseSandboxRequest{}
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[18]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1481,7 +1399,7 @@ func (x *PauseSandboxRequest) String() string {
 func (*PauseSandboxRequest) ProtoMessage() {}
 
 func (x *PauseSandboxRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[18]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1494,7 +1412,7 @@ func (x *PauseSandboxRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PauseSandboxRequest.ProtoReflect.Descriptor instead.
 func (*PauseSandboxRequest) Descriptor() ([]byte, []int) {
-	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{18}
+	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *PauseSandboxRequest) GetSandboxId() string {
@@ -1515,7 +1433,7 @@ type PauseSandboxResponse struct {
 
 func (x *PauseSandboxResponse) Reset() {
 	*x = PauseSandboxResponse{}
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[19]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1527,7 +1445,7 @@ func (x *PauseSandboxResponse) String() string {
 func (*PauseSandboxResponse) ProtoMessage() {}
 
 func (x *PauseSandboxResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[19]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1540,7 +1458,7 @@ func (x *PauseSandboxResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PauseSandboxResponse.ProtoReflect.Descriptor instead.
 func (*PauseSandboxResponse) Descriptor() ([]byte, []int) {
-	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{19}
+	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *PauseSandboxResponse) GetSandbox() *Sandbox {
@@ -1561,7 +1479,7 @@ type ResumeSandboxRequest struct {
 
 func (x *ResumeSandboxRequest) Reset() {
 	*x = ResumeSandboxRequest{}
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[20]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1573,7 +1491,7 @@ func (x *ResumeSandboxRequest) String() string {
 func (*ResumeSandboxRequest) ProtoMessage() {}
 
 func (x *ResumeSandboxRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[20]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1586,7 +1504,7 @@ func (x *ResumeSandboxRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResumeSandboxRequest.ProtoReflect.Descriptor instead.
 func (*ResumeSandboxRequest) Descriptor() ([]byte, []int) {
-	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{20}
+	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ResumeSandboxRequest) GetSandboxId() string {
@@ -1607,7 +1525,7 @@ type ResumeSandboxResponse struct {
 
 func (x *ResumeSandboxResponse) Reset() {
 	*x = ResumeSandboxResponse{}
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[21]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1619,7 +1537,7 @@ func (x *ResumeSandboxResponse) String() string {
 func (*ResumeSandboxResponse) ProtoMessage() {}
 
 func (x *ResumeSandboxResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[21]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1632,7 +1550,7 @@ func (x *ResumeSandboxResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResumeSandboxResponse.ProtoReflect.Descriptor instead.
 func (*ResumeSandboxResponse) Descriptor() ([]byte, []int) {
-	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{21}
+	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *ResumeSandboxResponse) GetSandbox() *Sandbox {
@@ -1653,7 +1571,7 @@ type WaitSandboxRequest struct {
 
 func (x *WaitSandboxRequest) Reset() {
 	*x = WaitSandboxRequest{}
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[22]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1665,7 +1583,7 @@ func (x *WaitSandboxRequest) String() string {
 func (*WaitSandboxRequest) ProtoMessage() {}
 
 func (x *WaitSandboxRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[22]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1678,7 +1596,7 @@ func (x *WaitSandboxRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WaitSandboxRequest.ProtoReflect.Descriptor instead.
 func (*WaitSandboxRequest) Descriptor() ([]byte, []int) {
-	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{22}
+	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *WaitSandboxRequest) GetSandboxId() string {
@@ -1699,7 +1617,7 @@ type WaitSandboxResponse struct {
 
 func (x *WaitSandboxResponse) Reset() {
 	*x = WaitSandboxResponse{}
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[23]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1711,7 +1629,7 @@ func (x *WaitSandboxResponse) String() string {
 func (*WaitSandboxResponse) ProtoMessage() {}
 
 func (x *WaitSandboxResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[23]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1724,7 +1642,7 @@ func (x *WaitSandboxResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WaitSandboxResponse.ProtoReflect.Descriptor instead.
 func (*WaitSandboxResponse) Descriptor() ([]byte, []int) {
-	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{23}
+	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *WaitSandboxResponse) GetSandbox() *Sandbox {
@@ -1752,7 +1670,7 @@ type ExecSandboxRequest struct {
 
 func (x *ExecSandboxRequest) Reset() {
 	*x = ExecSandboxRequest{}
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[24]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1764,7 +1682,7 @@ func (x *ExecSandboxRequest) String() string {
 func (*ExecSandboxRequest) ProtoMessage() {}
 
 func (x *ExecSandboxRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[24]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1777,7 +1695,7 @@ func (x *ExecSandboxRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExecSandboxRequest.ProtoReflect.Descriptor instead.
 func (*ExecSandboxRequest) Descriptor() ([]byte, []int) {
-	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{24}
+	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *ExecSandboxRequest) GetSandboxId() string {
@@ -1813,17 +1731,16 @@ type ExecSandboxResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Exit_code is its exit status.
 	ExitCode int32 `protobuf:"varint,1,opt,name=exit_code,json=exitCode,proto3" json:"exit_code,omitempty"`
-	// Output is what it printed, stdout and stderr as written, up to 1 MiB.
-	Output []byte `protobuf:"bytes,2,opt,name=output,proto3" json:"output,omitempty"`
-	// Truncated says output was cut at 1 MiB.
-	Truncated     bool `protobuf:"varint,3,opt,name=truncated,proto3" json:"truncated,omitempty"`
+	// Output is what it printed, stdout and stderr as written: the first
+	// 1 MiB of it.
+	Output        []byte `protobuf:"bytes,2,opt,name=output,proto3" json:"output,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ExecSandboxResponse) Reset() {
 	*x = ExecSandboxResponse{}
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[25]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1835,7 +1752,7 @@ func (x *ExecSandboxResponse) String() string {
 func (*ExecSandboxResponse) ProtoMessage() {}
 
 func (x *ExecSandboxResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[25]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1848,7 +1765,7 @@ func (x *ExecSandboxResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExecSandboxResponse.ProtoReflect.Descriptor instead.
 func (*ExecSandboxResponse) Descriptor() ([]byte, []int) {
-	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{25}
+	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *ExecSandboxResponse) GetExitCode() int32 {
@@ -1863,13 +1780,6 @@ func (x *ExecSandboxResponse) GetOutput() []byte {
 		return x.Output
 	}
 	return nil
-}
-
-func (x *ExecSandboxResponse) GetTruncated() bool {
-	if x != nil {
-		return x.Truncated
-	}
-	return false
 }
 
 // Credential is a secret for one host, kept by the server outside every
@@ -1905,7 +1815,7 @@ type Credential struct {
 
 func (x *Credential) Reset() {
 	*x = Credential{}
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[26]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1917,7 +1827,7 @@ func (x *Credential) String() string {
 func (*Credential) ProtoMessage() {}
 
 func (x *Credential) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[26]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1930,7 +1840,7 @@ func (x *Credential) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Credential.ProtoReflect.Descriptor instead.
 func (*Credential) Descriptor() ([]byte, []int) {
-	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{26}
+	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *Credential) GetName() string {
@@ -1979,7 +1889,7 @@ type SetCredentialRequest struct {
 
 func (x *SetCredentialRequest) Reset() {
 	*x = SetCredentialRequest{}
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[27]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1991,7 +1901,7 @@ func (x *SetCredentialRequest) String() string {
 func (*SetCredentialRequest) ProtoMessage() {}
 
 func (x *SetCredentialRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[27]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2004,7 +1914,7 @@ func (x *SetCredentialRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetCredentialRequest.ProtoReflect.Descriptor instead.
 func (*SetCredentialRequest) Descriptor() ([]byte, []int) {
-	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{27}
+	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *SetCredentialRequest) GetCredential() *Credential {
@@ -2025,7 +1935,7 @@ type SetCredentialResponse struct {
 
 func (x *SetCredentialResponse) Reset() {
 	*x = SetCredentialResponse{}
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[28]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2037,7 +1947,7 @@ func (x *SetCredentialResponse) String() string {
 func (*SetCredentialResponse) ProtoMessage() {}
 
 func (x *SetCredentialResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[28]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2050,7 +1960,7 @@ func (x *SetCredentialResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetCredentialResponse.ProtoReflect.Descriptor instead.
 func (*SetCredentialResponse) Descriptor() ([]byte, []int) {
-	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{28}
+	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *SetCredentialResponse) GetCredential() *Credential {
@@ -2071,7 +1981,7 @@ type DeleteCredentialRequest struct {
 
 func (x *DeleteCredentialRequest) Reset() {
 	*x = DeleteCredentialRequest{}
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[29]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2083,7 +1993,7 @@ func (x *DeleteCredentialRequest) String() string {
 func (*DeleteCredentialRequest) ProtoMessage() {}
 
 func (x *DeleteCredentialRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[29]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2096,7 +2006,7 @@ func (x *DeleteCredentialRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteCredentialRequest.ProtoReflect.Descriptor instead.
 func (*DeleteCredentialRequest) Descriptor() ([]byte, []int) {
-	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{29}
+	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *DeleteCredentialRequest) GetName() string {
@@ -2116,7 +2026,7 @@ type DeleteCredentialResponse struct {
 
 func (x *DeleteCredentialResponse) Reset() {
 	*x = DeleteCredentialResponse{}
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[30]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2128,7 +2038,7 @@ func (x *DeleteCredentialResponse) String() string {
 func (*DeleteCredentialResponse) ProtoMessage() {}
 
 func (x *DeleteCredentialResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[30]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2141,7 +2051,7 @@ func (x *DeleteCredentialResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteCredentialResponse.ProtoReflect.Descriptor instead.
 func (*DeleteCredentialResponse) Descriptor() ([]byte, []int) {
-	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{30}
+	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{29}
 }
 
 // DescribeCredentialRequest names the credential asked after.
@@ -2155,7 +2065,7 @@ type DescribeCredentialRequest struct {
 
 func (x *DescribeCredentialRequest) Reset() {
 	*x = DescribeCredentialRequest{}
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[31]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2167,7 +2077,7 @@ func (x *DescribeCredentialRequest) String() string {
 func (*DescribeCredentialRequest) ProtoMessage() {}
 
 func (x *DescribeCredentialRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[31]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2180,7 +2090,7 @@ func (x *DescribeCredentialRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DescribeCredentialRequest.ProtoReflect.Descriptor instead.
 func (*DescribeCredentialRequest) Descriptor() ([]byte, []int) {
-	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{31}
+	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *DescribeCredentialRequest) GetName() string {
@@ -2202,7 +2112,7 @@ type DescribeCredentialResponse struct {
 
 func (x *DescribeCredentialResponse) Reset() {
 	*x = DescribeCredentialResponse{}
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[32]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2214,7 +2124,7 @@ func (x *DescribeCredentialResponse) String() string {
 func (*DescribeCredentialResponse) ProtoMessage() {}
 
 func (x *DescribeCredentialResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[32]
+	mi := &file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2227,7 +2137,7 @@ func (x *DescribeCredentialResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DescribeCredentialResponse.ProtoReflect.Descriptor instead.
 func (*DescribeCredentialResponse) Descriptor() ([]byte, []int) {
-	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{32}
+	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *DescribeCredentialResponse) GetCredential() *Credential {
@@ -2257,15 +2167,14 @@ const file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDesc = "" +
 	"\rSTATE_RUNNING\x10\x02\x12\x10\n" +
 	"\fSTATE_PAUSED\x10\x03\x12\x10\n" +
 	"\fSTATE_FAILED\x10\x04\x12\x10\n" +
-	"\fSTATE_ENDING\x10\x06\"\x9b\x06\n" +
+	"\fSTATE_ENDING\x10\x06\"\xe2\x05\n" +
 	"\vSandboxSpec\x12\x1a\n" +
 	"\x05image\x18\x01 \x01(\tB\x04\xe2A\x01\x02R\x05image\x12\x1c\n" +
 	"\targuments\x18\x02 \x03(\tR\targuments\x12\x18\n" +
 	"\awrapper\x18\x0f \x03(\tR\awrapper\x12\x12\n" +
 	"\x04user\x18\x10 \x01(\tR\x04user\x12\x1a\n" +
 	"\bwritable\x18\x11 \x03(\tR\bwritable\x12Z\n" +
-	"\venvironment\x18\x03 \x03(\v28.frontseat.sandbox.v1alpha1.SandboxSpec.EnvironmentEntryR\venvironment\x127\n" +
-	"\x05shape\x18\x04 \x01(\v2!.frontseat.sandbox.v1alpha1.ShapeR\x05shape\x12:\n" +
+	"\venvironment\x18\x03 \x03(\v28.frontseat.sandbox.v1alpha1.SandboxSpec.EnvironmentEntryR\venvironment\x12:\n" +
 	"\x06egress\x18\a \x01(\v2\".frontseat.sandbox.v1alpha1.EgressR\x06egress\x12\x14\n" +
 	"\x05ports\x18\t \x03(\x05R\x05ports\x12<\n" +
 	"\avolumes\x18\n" +
@@ -2283,23 +2192,16 @@ const file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDesc = "" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"`\n" +
 	"\vStartupGate\x12\x1c\n" +
 	"\targuments\x18\x01 \x03(\tR\targuments\x123\n" +
-	"\atimeout\x18\x02 \x01(\v2\x19.google.protobuf.DurationR\atimeout\"\xf0\x02\n" +
+	"\atimeout\x18\x02 \x01(\v2\x19.google.protobuf.DurationR\atimeout\"\xb7\x02\n" +
 	"\tContainer\x12\x18\n" +
 	"\x04name\x18\x01 \x01(\tB\x04\xe2A\x01\x02R\x04name\x12\x1a\n" +
 	"\x05image\x18\x02 \x01(\tB\x04\xe2A\x01\x02R\x05image\x12\x1c\n" +
 	"\targuments\x18\x03 \x03(\tR\targuments\x12X\n" +
-	"\venvironment\x18\x04 \x03(\v26.frontseat.sandbox.v1alpha1.Container.EnvironmentEntryR\venvironment\x127\n" +
-	"\x05shape\x18\x05 \x01(\v2!.frontseat.sandbox.v1alpha1.ShapeR\x05shape\x12<\n" +
+	"\venvironment\x18\x04 \x03(\v26.frontseat.sandbox.v1alpha1.Container.EnvironmentEntryR\venvironment\x12<\n" +
 	"\avolumes\x18\x06 \x03(\v2\".frontseat.sandbox.v1alpha1.VolumeR\avolumes\x1a>\n" +
 	"\x10EnvironmentEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"h\n" +
-	"\x05Shape\x12\x1d\n" +
-	"\n" +
-	"milli_cpus\x18\x01 \x01(\x05R\tmilliCpus\x12!\n" +
-	"\fmemory_bytes\x18\x02 \x01(\x03R\vmemoryBytes\x12\x1d\n" +
-	"\n" +
-	"disk_bytes\x18\x03 \x01(\x03R\tdiskBytes\"\xdc\x01\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xdc\x01\n" +
 	"\x06Egress\x12;\n" +
 	"\x04mode\x18\x01 \x01(\x0e2'.frontseat.sandbox.v1alpha1.Egress.ModeR\x04mode\x12<\n" +
 	"\x05rules\x18\x03 \x03(\v2&.frontseat.sandbox.v1alpha1.EgressRuleR\x05rules\"W\n" +
@@ -2382,11 +2284,10 @@ const file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDesc = "" +
 	"sandbox_id\x18\x01 \x01(\tB\x04\xe2A\x01\x02R\tsandboxId\x12\x1c\n" +
 	"\tcontainer\x18\x02 \x01(\tR\tcontainer\x12\"\n" +
 	"\targuments\x18\x03 \x03(\tB\x04\xe2A\x01\x02R\targuments\x123\n" +
-	"\atimeout\x18\x04 \x01(\v2\x19.google.protobuf.DurationR\atimeout\"h\n" +
+	"\atimeout\x18\x04 \x01(\v2\x19.google.protobuf.DurationR\atimeout\"J\n" +
 	"\x13ExecSandboxResponse\x12\x1b\n" +
 	"\texit_code\x18\x01 \x01(\x05R\bexitCode\x12\x16\n" +
-	"\x06output\x18\x02 \x01(\fR\x06output\x12\x1c\n" +
-	"\ttruncated\x18\x03 \x01(\bR\ttruncated\"\x9d\x01\n" +
+	"\x06output\x18\x02 \x01(\fR\x06output\"\x9d\x01\n" +
 	"\n" +
 	"Credential\x12\x18\n" +
 	"\x04name\x18\x01 \x01(\tB\x04\xe2A\x01\x02R\x04name\x12\x18\n" +
@@ -2439,7 +2340,7 @@ func file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP() []byte {
 }
 
 var file_frontseat_sandbox_v1alpha1_sandbox_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes = make([]protoimpl.MessageInfo, 37)
+var file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes = make([]protoimpl.MessageInfo, 36)
 var file_frontseat_sandbox_v1alpha1_sandbox_proto_goTypes = []any{
 	(Sandbox_State)(0),                 // 0: frontseat.sandbox.v1alpha1.Sandbox.State
 	(Egress_Mode)(0),                   // 1: frontseat.sandbox.v1alpha1.Egress.Mode
@@ -2448,101 +2349,98 @@ var file_frontseat_sandbox_v1alpha1_sandbox_proto_goTypes = []any{
 	(*SandboxSpec)(nil),                // 4: frontseat.sandbox.v1alpha1.SandboxSpec
 	(*StartupGate)(nil),                // 5: frontseat.sandbox.v1alpha1.StartupGate
 	(*Container)(nil),                  // 6: frontseat.sandbox.v1alpha1.Container
-	(*Shape)(nil),                      // 7: frontseat.sandbox.v1alpha1.Shape
-	(*Egress)(nil),                     // 8: frontseat.sandbox.v1alpha1.Egress
-	(*EgressRule)(nil),                 // 9: frontseat.sandbox.v1alpha1.EgressRule
-	(*EgressRequest)(nil),              // 10: frontseat.sandbox.v1alpha1.EgressRequest
-	(*Volume)(nil),                     // 11: frontseat.sandbox.v1alpha1.Volume
-	(*Endpoint)(nil),                   // 12: frontseat.sandbox.v1alpha1.Endpoint
-	(*CreateSandboxRequest)(nil),       // 13: frontseat.sandbox.v1alpha1.CreateSandboxRequest
-	(*CreateSandboxResponse)(nil),      // 14: frontseat.sandbox.v1alpha1.CreateSandboxResponse
-	(*DescribeSandboxRequest)(nil),     // 15: frontseat.sandbox.v1alpha1.DescribeSandboxRequest
-	(*DescribeSandboxResponse)(nil),    // 16: frontseat.sandbox.v1alpha1.DescribeSandboxResponse
-	(*ListSandboxesRequest)(nil),       // 17: frontseat.sandbox.v1alpha1.ListSandboxesRequest
-	(*ListSandboxesResponse)(nil),      // 18: frontseat.sandbox.v1alpha1.ListSandboxesResponse
-	(*DeleteSandboxRequest)(nil),       // 19: frontseat.sandbox.v1alpha1.DeleteSandboxRequest
-	(*DeleteSandboxResponse)(nil),      // 20: frontseat.sandbox.v1alpha1.DeleteSandboxResponse
-	(*PauseSandboxRequest)(nil),        // 21: frontseat.sandbox.v1alpha1.PauseSandboxRequest
-	(*PauseSandboxResponse)(nil),       // 22: frontseat.sandbox.v1alpha1.PauseSandboxResponse
-	(*ResumeSandboxRequest)(nil),       // 23: frontseat.sandbox.v1alpha1.ResumeSandboxRequest
-	(*ResumeSandboxResponse)(nil),      // 24: frontseat.sandbox.v1alpha1.ResumeSandboxResponse
-	(*WaitSandboxRequest)(nil),         // 25: frontseat.sandbox.v1alpha1.WaitSandboxRequest
-	(*WaitSandboxResponse)(nil),        // 26: frontseat.sandbox.v1alpha1.WaitSandboxResponse
-	(*ExecSandboxRequest)(nil),         // 27: frontseat.sandbox.v1alpha1.ExecSandboxRequest
-	(*ExecSandboxResponse)(nil),        // 28: frontseat.sandbox.v1alpha1.ExecSandboxResponse
-	(*Credential)(nil),                 // 29: frontseat.sandbox.v1alpha1.Credential
-	(*SetCredentialRequest)(nil),       // 30: frontseat.sandbox.v1alpha1.SetCredentialRequest
-	(*SetCredentialResponse)(nil),      // 31: frontseat.sandbox.v1alpha1.SetCredentialResponse
-	(*DeleteCredentialRequest)(nil),    // 32: frontseat.sandbox.v1alpha1.DeleteCredentialRequest
-	(*DeleteCredentialResponse)(nil),   // 33: frontseat.sandbox.v1alpha1.DeleteCredentialResponse
-	(*DescribeCredentialRequest)(nil),  // 34: frontseat.sandbox.v1alpha1.DescribeCredentialRequest
-	(*DescribeCredentialResponse)(nil), // 35: frontseat.sandbox.v1alpha1.DescribeCredentialResponse
-	nil,                                // 36: frontseat.sandbox.v1alpha1.SandboxSpec.EnvironmentEntry
-	nil,                                // 37: frontseat.sandbox.v1alpha1.SandboxSpec.LabelsEntry
-	nil,                                // 38: frontseat.sandbox.v1alpha1.Container.EnvironmentEntry
-	nil,                                // 39: frontseat.sandbox.v1alpha1.EgressRequest.QueryEntry
-	(*timestamppb.Timestamp)(nil),      // 40: google.protobuf.Timestamp
-	(*durationpb.Duration)(nil),        // 41: google.protobuf.Duration
+	(*Egress)(nil),                     // 7: frontseat.sandbox.v1alpha1.Egress
+	(*EgressRule)(nil),                 // 8: frontseat.sandbox.v1alpha1.EgressRule
+	(*EgressRequest)(nil),              // 9: frontseat.sandbox.v1alpha1.EgressRequest
+	(*Volume)(nil),                     // 10: frontseat.sandbox.v1alpha1.Volume
+	(*Endpoint)(nil),                   // 11: frontseat.sandbox.v1alpha1.Endpoint
+	(*CreateSandboxRequest)(nil),       // 12: frontseat.sandbox.v1alpha1.CreateSandboxRequest
+	(*CreateSandboxResponse)(nil),      // 13: frontseat.sandbox.v1alpha1.CreateSandboxResponse
+	(*DescribeSandboxRequest)(nil),     // 14: frontseat.sandbox.v1alpha1.DescribeSandboxRequest
+	(*DescribeSandboxResponse)(nil),    // 15: frontseat.sandbox.v1alpha1.DescribeSandboxResponse
+	(*ListSandboxesRequest)(nil),       // 16: frontseat.sandbox.v1alpha1.ListSandboxesRequest
+	(*ListSandboxesResponse)(nil),      // 17: frontseat.sandbox.v1alpha1.ListSandboxesResponse
+	(*DeleteSandboxRequest)(nil),       // 18: frontseat.sandbox.v1alpha1.DeleteSandboxRequest
+	(*DeleteSandboxResponse)(nil),      // 19: frontseat.sandbox.v1alpha1.DeleteSandboxResponse
+	(*PauseSandboxRequest)(nil),        // 20: frontseat.sandbox.v1alpha1.PauseSandboxRequest
+	(*PauseSandboxResponse)(nil),       // 21: frontseat.sandbox.v1alpha1.PauseSandboxResponse
+	(*ResumeSandboxRequest)(nil),       // 22: frontseat.sandbox.v1alpha1.ResumeSandboxRequest
+	(*ResumeSandboxResponse)(nil),      // 23: frontseat.sandbox.v1alpha1.ResumeSandboxResponse
+	(*WaitSandboxRequest)(nil),         // 24: frontseat.sandbox.v1alpha1.WaitSandboxRequest
+	(*WaitSandboxResponse)(nil),        // 25: frontseat.sandbox.v1alpha1.WaitSandboxResponse
+	(*ExecSandboxRequest)(nil),         // 26: frontseat.sandbox.v1alpha1.ExecSandboxRequest
+	(*ExecSandboxResponse)(nil),        // 27: frontseat.sandbox.v1alpha1.ExecSandboxResponse
+	(*Credential)(nil),                 // 28: frontseat.sandbox.v1alpha1.Credential
+	(*SetCredentialRequest)(nil),       // 29: frontseat.sandbox.v1alpha1.SetCredentialRequest
+	(*SetCredentialResponse)(nil),      // 30: frontseat.sandbox.v1alpha1.SetCredentialResponse
+	(*DeleteCredentialRequest)(nil),    // 31: frontseat.sandbox.v1alpha1.DeleteCredentialRequest
+	(*DeleteCredentialResponse)(nil),   // 32: frontseat.sandbox.v1alpha1.DeleteCredentialResponse
+	(*DescribeCredentialRequest)(nil),  // 33: frontseat.sandbox.v1alpha1.DescribeCredentialRequest
+	(*DescribeCredentialResponse)(nil), // 34: frontseat.sandbox.v1alpha1.DescribeCredentialResponse
+	nil,                                // 35: frontseat.sandbox.v1alpha1.SandboxSpec.EnvironmentEntry
+	nil,                                // 36: frontseat.sandbox.v1alpha1.SandboxSpec.LabelsEntry
+	nil,                                // 37: frontseat.sandbox.v1alpha1.Container.EnvironmentEntry
+	nil,                                // 38: frontseat.sandbox.v1alpha1.EgressRequest.QueryEntry
+	(*timestamppb.Timestamp)(nil),      // 39: google.protobuf.Timestamp
+	(*durationpb.Duration)(nil),        // 40: google.protobuf.Duration
 }
 var file_frontseat_sandbox_v1alpha1_sandbox_proto_depIdxs = []int32{
 	4,  // 0: frontseat.sandbox.v1alpha1.Sandbox.spec:type_name -> frontseat.sandbox.v1alpha1.SandboxSpec
 	0,  // 1: frontseat.sandbox.v1alpha1.Sandbox.state:type_name -> frontseat.sandbox.v1alpha1.Sandbox.State
-	12, // 2: frontseat.sandbox.v1alpha1.Sandbox.endpoints:type_name -> frontseat.sandbox.v1alpha1.Endpoint
-	40, // 3: frontseat.sandbox.v1alpha1.Sandbox.create_time:type_name -> google.protobuf.Timestamp
-	36, // 4: frontseat.sandbox.v1alpha1.SandboxSpec.environment:type_name -> frontseat.sandbox.v1alpha1.SandboxSpec.EnvironmentEntry
-	7,  // 5: frontseat.sandbox.v1alpha1.SandboxSpec.shape:type_name -> frontseat.sandbox.v1alpha1.Shape
-	8,  // 6: frontseat.sandbox.v1alpha1.SandboxSpec.egress:type_name -> frontseat.sandbox.v1alpha1.Egress
-	11, // 7: frontseat.sandbox.v1alpha1.SandboxSpec.volumes:type_name -> frontseat.sandbox.v1alpha1.Volume
-	37, // 8: frontseat.sandbox.v1alpha1.SandboxSpec.labels:type_name -> frontseat.sandbox.v1alpha1.SandboxSpec.LabelsEntry
-	6,  // 9: frontseat.sandbox.v1alpha1.SandboxSpec.containers:type_name -> frontseat.sandbox.v1alpha1.Container
-	5,  // 10: frontseat.sandbox.v1alpha1.SandboxSpec.before_containers:type_name -> frontseat.sandbox.v1alpha1.StartupGate
-	41, // 11: frontseat.sandbox.v1alpha1.StartupGate.timeout:type_name -> google.protobuf.Duration
-	38, // 12: frontseat.sandbox.v1alpha1.Container.environment:type_name -> frontseat.sandbox.v1alpha1.Container.EnvironmentEntry
-	7,  // 13: frontseat.sandbox.v1alpha1.Container.shape:type_name -> frontseat.sandbox.v1alpha1.Shape
-	11, // 14: frontseat.sandbox.v1alpha1.Container.volumes:type_name -> frontseat.sandbox.v1alpha1.Volume
-	1,  // 15: frontseat.sandbox.v1alpha1.Egress.mode:type_name -> frontseat.sandbox.v1alpha1.Egress.Mode
-	9,  // 16: frontseat.sandbox.v1alpha1.Egress.rules:type_name -> frontseat.sandbox.v1alpha1.EgressRule
-	10, // 17: frontseat.sandbox.v1alpha1.EgressRule.requests:type_name -> frontseat.sandbox.v1alpha1.EgressRequest
-	39, // 18: frontseat.sandbox.v1alpha1.EgressRequest.query:type_name -> frontseat.sandbox.v1alpha1.EgressRequest.QueryEntry
-	2,  // 19: frontseat.sandbox.v1alpha1.Volume.kind:type_name -> frontseat.sandbox.v1alpha1.Volume.Kind
-	4,  // 20: frontseat.sandbox.v1alpha1.CreateSandboxRequest.spec:type_name -> frontseat.sandbox.v1alpha1.SandboxSpec
-	3,  // 21: frontseat.sandbox.v1alpha1.CreateSandboxResponse.sandbox:type_name -> frontseat.sandbox.v1alpha1.Sandbox
-	3,  // 22: frontseat.sandbox.v1alpha1.DescribeSandboxResponse.sandbox:type_name -> frontseat.sandbox.v1alpha1.Sandbox
-	3,  // 23: frontseat.sandbox.v1alpha1.ListSandboxesResponse.sandboxes:type_name -> frontseat.sandbox.v1alpha1.Sandbox
-	3,  // 24: frontseat.sandbox.v1alpha1.PauseSandboxResponse.sandbox:type_name -> frontseat.sandbox.v1alpha1.Sandbox
-	3,  // 25: frontseat.sandbox.v1alpha1.ResumeSandboxResponse.sandbox:type_name -> frontseat.sandbox.v1alpha1.Sandbox
-	3,  // 26: frontseat.sandbox.v1alpha1.WaitSandboxResponse.sandbox:type_name -> frontseat.sandbox.v1alpha1.Sandbox
-	41, // 27: frontseat.sandbox.v1alpha1.ExecSandboxRequest.timeout:type_name -> google.protobuf.Duration
-	29, // 28: frontseat.sandbox.v1alpha1.SetCredentialRequest.credential:type_name -> frontseat.sandbox.v1alpha1.Credential
-	29, // 29: frontseat.sandbox.v1alpha1.SetCredentialResponse.credential:type_name -> frontseat.sandbox.v1alpha1.Credential
-	29, // 30: frontseat.sandbox.v1alpha1.DescribeCredentialResponse.credential:type_name -> frontseat.sandbox.v1alpha1.Credential
-	13, // 31: frontseat.sandbox.v1alpha1.SandboxService.CreateSandbox:input_type -> frontseat.sandbox.v1alpha1.CreateSandboxRequest
-	15, // 32: frontseat.sandbox.v1alpha1.SandboxService.DescribeSandbox:input_type -> frontseat.sandbox.v1alpha1.DescribeSandboxRequest
-	17, // 33: frontseat.sandbox.v1alpha1.SandboxService.ListSandboxes:input_type -> frontseat.sandbox.v1alpha1.ListSandboxesRequest
-	19, // 34: frontseat.sandbox.v1alpha1.SandboxService.DeleteSandbox:input_type -> frontseat.sandbox.v1alpha1.DeleteSandboxRequest
-	21, // 35: frontseat.sandbox.v1alpha1.SandboxService.PauseSandbox:input_type -> frontseat.sandbox.v1alpha1.PauseSandboxRequest
-	23, // 36: frontseat.sandbox.v1alpha1.SandboxService.ResumeSandbox:input_type -> frontseat.sandbox.v1alpha1.ResumeSandboxRequest
-	25, // 37: frontseat.sandbox.v1alpha1.SandboxService.WaitSandbox:input_type -> frontseat.sandbox.v1alpha1.WaitSandboxRequest
-	27, // 38: frontseat.sandbox.v1alpha1.SandboxService.ExecSandbox:input_type -> frontseat.sandbox.v1alpha1.ExecSandboxRequest
-	30, // 39: frontseat.sandbox.v1alpha1.SandboxService.SetCredential:input_type -> frontseat.sandbox.v1alpha1.SetCredentialRequest
-	34, // 40: frontseat.sandbox.v1alpha1.SandboxService.DescribeCredential:input_type -> frontseat.sandbox.v1alpha1.DescribeCredentialRequest
-	32, // 41: frontseat.sandbox.v1alpha1.SandboxService.DeleteCredential:input_type -> frontseat.sandbox.v1alpha1.DeleteCredentialRequest
-	14, // 42: frontseat.sandbox.v1alpha1.SandboxService.CreateSandbox:output_type -> frontseat.sandbox.v1alpha1.CreateSandboxResponse
-	16, // 43: frontseat.sandbox.v1alpha1.SandboxService.DescribeSandbox:output_type -> frontseat.sandbox.v1alpha1.DescribeSandboxResponse
-	18, // 44: frontseat.sandbox.v1alpha1.SandboxService.ListSandboxes:output_type -> frontseat.sandbox.v1alpha1.ListSandboxesResponse
-	20, // 45: frontseat.sandbox.v1alpha1.SandboxService.DeleteSandbox:output_type -> frontseat.sandbox.v1alpha1.DeleteSandboxResponse
-	22, // 46: frontseat.sandbox.v1alpha1.SandboxService.PauseSandbox:output_type -> frontseat.sandbox.v1alpha1.PauseSandboxResponse
-	24, // 47: frontseat.sandbox.v1alpha1.SandboxService.ResumeSandbox:output_type -> frontseat.sandbox.v1alpha1.ResumeSandboxResponse
-	26, // 48: frontseat.sandbox.v1alpha1.SandboxService.WaitSandbox:output_type -> frontseat.sandbox.v1alpha1.WaitSandboxResponse
-	28, // 49: frontseat.sandbox.v1alpha1.SandboxService.ExecSandbox:output_type -> frontseat.sandbox.v1alpha1.ExecSandboxResponse
-	31, // 50: frontseat.sandbox.v1alpha1.SandboxService.SetCredential:output_type -> frontseat.sandbox.v1alpha1.SetCredentialResponse
-	35, // 51: frontseat.sandbox.v1alpha1.SandboxService.DescribeCredential:output_type -> frontseat.sandbox.v1alpha1.DescribeCredentialResponse
-	33, // 52: frontseat.sandbox.v1alpha1.SandboxService.DeleteCredential:output_type -> frontseat.sandbox.v1alpha1.DeleteCredentialResponse
-	42, // [42:53] is the sub-list for method output_type
-	31, // [31:42] is the sub-list for method input_type
-	31, // [31:31] is the sub-list for extension type_name
-	31, // [31:31] is the sub-list for extension extendee
-	0,  // [0:31] is the sub-list for field type_name
+	11, // 2: frontseat.sandbox.v1alpha1.Sandbox.endpoints:type_name -> frontseat.sandbox.v1alpha1.Endpoint
+	39, // 3: frontseat.sandbox.v1alpha1.Sandbox.create_time:type_name -> google.protobuf.Timestamp
+	35, // 4: frontseat.sandbox.v1alpha1.SandboxSpec.environment:type_name -> frontseat.sandbox.v1alpha1.SandboxSpec.EnvironmentEntry
+	7,  // 5: frontseat.sandbox.v1alpha1.SandboxSpec.egress:type_name -> frontseat.sandbox.v1alpha1.Egress
+	10, // 6: frontseat.sandbox.v1alpha1.SandboxSpec.volumes:type_name -> frontseat.sandbox.v1alpha1.Volume
+	36, // 7: frontseat.sandbox.v1alpha1.SandboxSpec.labels:type_name -> frontseat.sandbox.v1alpha1.SandboxSpec.LabelsEntry
+	6,  // 8: frontseat.sandbox.v1alpha1.SandboxSpec.containers:type_name -> frontseat.sandbox.v1alpha1.Container
+	5,  // 9: frontseat.sandbox.v1alpha1.SandboxSpec.before_containers:type_name -> frontseat.sandbox.v1alpha1.StartupGate
+	40, // 10: frontseat.sandbox.v1alpha1.StartupGate.timeout:type_name -> google.protobuf.Duration
+	37, // 11: frontseat.sandbox.v1alpha1.Container.environment:type_name -> frontseat.sandbox.v1alpha1.Container.EnvironmentEntry
+	10, // 12: frontseat.sandbox.v1alpha1.Container.volumes:type_name -> frontseat.sandbox.v1alpha1.Volume
+	1,  // 13: frontseat.sandbox.v1alpha1.Egress.mode:type_name -> frontseat.sandbox.v1alpha1.Egress.Mode
+	8,  // 14: frontseat.sandbox.v1alpha1.Egress.rules:type_name -> frontseat.sandbox.v1alpha1.EgressRule
+	9,  // 15: frontseat.sandbox.v1alpha1.EgressRule.requests:type_name -> frontseat.sandbox.v1alpha1.EgressRequest
+	38, // 16: frontseat.sandbox.v1alpha1.EgressRequest.query:type_name -> frontseat.sandbox.v1alpha1.EgressRequest.QueryEntry
+	2,  // 17: frontseat.sandbox.v1alpha1.Volume.kind:type_name -> frontseat.sandbox.v1alpha1.Volume.Kind
+	4,  // 18: frontseat.sandbox.v1alpha1.CreateSandboxRequest.spec:type_name -> frontseat.sandbox.v1alpha1.SandboxSpec
+	3,  // 19: frontseat.sandbox.v1alpha1.CreateSandboxResponse.sandbox:type_name -> frontseat.sandbox.v1alpha1.Sandbox
+	3,  // 20: frontseat.sandbox.v1alpha1.DescribeSandboxResponse.sandbox:type_name -> frontseat.sandbox.v1alpha1.Sandbox
+	3,  // 21: frontseat.sandbox.v1alpha1.ListSandboxesResponse.sandboxes:type_name -> frontseat.sandbox.v1alpha1.Sandbox
+	3,  // 22: frontseat.sandbox.v1alpha1.PauseSandboxResponse.sandbox:type_name -> frontseat.sandbox.v1alpha1.Sandbox
+	3,  // 23: frontseat.sandbox.v1alpha1.ResumeSandboxResponse.sandbox:type_name -> frontseat.sandbox.v1alpha1.Sandbox
+	3,  // 24: frontseat.sandbox.v1alpha1.WaitSandboxResponse.sandbox:type_name -> frontseat.sandbox.v1alpha1.Sandbox
+	40, // 25: frontseat.sandbox.v1alpha1.ExecSandboxRequest.timeout:type_name -> google.protobuf.Duration
+	28, // 26: frontseat.sandbox.v1alpha1.SetCredentialRequest.credential:type_name -> frontseat.sandbox.v1alpha1.Credential
+	28, // 27: frontseat.sandbox.v1alpha1.SetCredentialResponse.credential:type_name -> frontseat.sandbox.v1alpha1.Credential
+	28, // 28: frontseat.sandbox.v1alpha1.DescribeCredentialResponse.credential:type_name -> frontseat.sandbox.v1alpha1.Credential
+	12, // 29: frontseat.sandbox.v1alpha1.SandboxService.CreateSandbox:input_type -> frontseat.sandbox.v1alpha1.CreateSandboxRequest
+	14, // 30: frontseat.sandbox.v1alpha1.SandboxService.DescribeSandbox:input_type -> frontseat.sandbox.v1alpha1.DescribeSandboxRequest
+	16, // 31: frontseat.sandbox.v1alpha1.SandboxService.ListSandboxes:input_type -> frontseat.sandbox.v1alpha1.ListSandboxesRequest
+	18, // 32: frontseat.sandbox.v1alpha1.SandboxService.DeleteSandbox:input_type -> frontseat.sandbox.v1alpha1.DeleteSandboxRequest
+	20, // 33: frontseat.sandbox.v1alpha1.SandboxService.PauseSandbox:input_type -> frontseat.sandbox.v1alpha1.PauseSandboxRequest
+	22, // 34: frontseat.sandbox.v1alpha1.SandboxService.ResumeSandbox:input_type -> frontseat.sandbox.v1alpha1.ResumeSandboxRequest
+	24, // 35: frontseat.sandbox.v1alpha1.SandboxService.WaitSandbox:input_type -> frontseat.sandbox.v1alpha1.WaitSandboxRequest
+	26, // 36: frontseat.sandbox.v1alpha1.SandboxService.ExecSandbox:input_type -> frontseat.sandbox.v1alpha1.ExecSandboxRequest
+	29, // 37: frontseat.sandbox.v1alpha1.SandboxService.SetCredential:input_type -> frontseat.sandbox.v1alpha1.SetCredentialRequest
+	33, // 38: frontseat.sandbox.v1alpha1.SandboxService.DescribeCredential:input_type -> frontseat.sandbox.v1alpha1.DescribeCredentialRequest
+	31, // 39: frontseat.sandbox.v1alpha1.SandboxService.DeleteCredential:input_type -> frontseat.sandbox.v1alpha1.DeleteCredentialRequest
+	13, // 40: frontseat.sandbox.v1alpha1.SandboxService.CreateSandbox:output_type -> frontseat.sandbox.v1alpha1.CreateSandboxResponse
+	15, // 41: frontseat.sandbox.v1alpha1.SandboxService.DescribeSandbox:output_type -> frontseat.sandbox.v1alpha1.DescribeSandboxResponse
+	17, // 42: frontseat.sandbox.v1alpha1.SandboxService.ListSandboxes:output_type -> frontseat.sandbox.v1alpha1.ListSandboxesResponse
+	19, // 43: frontseat.sandbox.v1alpha1.SandboxService.DeleteSandbox:output_type -> frontseat.sandbox.v1alpha1.DeleteSandboxResponse
+	21, // 44: frontseat.sandbox.v1alpha1.SandboxService.PauseSandbox:output_type -> frontseat.sandbox.v1alpha1.PauseSandboxResponse
+	23, // 45: frontseat.sandbox.v1alpha1.SandboxService.ResumeSandbox:output_type -> frontseat.sandbox.v1alpha1.ResumeSandboxResponse
+	25, // 46: frontseat.sandbox.v1alpha1.SandboxService.WaitSandbox:output_type -> frontseat.sandbox.v1alpha1.WaitSandboxResponse
+	27, // 47: frontseat.sandbox.v1alpha1.SandboxService.ExecSandbox:output_type -> frontseat.sandbox.v1alpha1.ExecSandboxResponse
+	30, // 48: frontseat.sandbox.v1alpha1.SandboxService.SetCredential:output_type -> frontseat.sandbox.v1alpha1.SetCredentialResponse
+	34, // 49: frontseat.sandbox.v1alpha1.SandboxService.DescribeCredential:output_type -> frontseat.sandbox.v1alpha1.DescribeCredentialResponse
+	32, // 50: frontseat.sandbox.v1alpha1.SandboxService.DeleteCredential:output_type -> frontseat.sandbox.v1alpha1.DeleteCredentialResponse
+	40, // [40:51] is the sub-list for method output_type
+	29, // [29:40] is the sub-list for method input_type
+	29, // [29:29] is the sub-list for extension type_name
+	29, // [29:29] is the sub-list for extension extendee
+	0,  // [0:29] is the sub-list for field type_name
 }
 
 func init() { file_frontseat_sandbox_v1alpha1_sandbox_proto_init() }
@@ -2556,7 +2454,7 @@ func file_frontseat_sandbox_v1alpha1_sandbox_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDesc), len(file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   37,
+			NumMessages:   36,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
