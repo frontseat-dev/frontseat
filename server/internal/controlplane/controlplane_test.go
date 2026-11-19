@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/frontseat-dev/frontseat/sdk/go"
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"net"
 	"net/http"
@@ -1223,7 +1224,7 @@ func TestWhatADaemonRefusesToBringIsNotKept(t *testing.T) {
 	refused.Entities = []*typev1.EntityRef{{Kind: "component", Namespace: "default", Name: "payments"}}
 	if _, err := client.UpdateWorkspace(ctx, &workspacev1.UpdateWorkspaceRequest{Name: "kept", Spec: refused}); connect.CodeOf(err) != connect.CodeInvalidArgument || !strings.Contains(err.Error(), "payments") {
 		t.Fatalf("what the daemon refuses: %v, want its refusal", err)
-	} else if reason, domain := refusal.Reason(err); reason != "SOURCE_UNFIT" || domain != refusal.Workspace {
+	} else if reason, domain := frontseat.Reason(err); reason != "SOURCE_UNFIT" || domain != refusal.Workspace {
 		t.Errorf("what the daemon refused by name is said with the reason %q of %q, want SOURCE_UNFIT of the workspace API", reason, domain)
 	}
 	got, err := client.DescribeWorkspace(ctx, &workspacev1.DescribeWorkspaceRequest{Name: "kept"})
@@ -1406,6 +1407,6 @@ func TestADaemonThatIsLongBringingIsPopulatingAndNotFailed(t *testing.T) {
 // server refuses it: UNIMPLEMENTED, with the reason that names it, in the
 // workspace API's domain.
 func refusedAsNotServed(err error, reason string) bool {
-	said, domain := refusal.Reason(err)
+	said, domain := frontseat.Reason(err)
 	return connect.CodeOf(err) == connect.CodeUnimplemented && said == reason && domain == refusal.Workspace
 }

@@ -19,6 +19,10 @@ type RunRequest struct {
 	// Profile is the profile the program is built with: development, the
 	// default, or production.
 	Profile string
+	// RequestID makes the request safe to send again, as
+	// BuildRequest.RequestID does a build's: one sent again with the
+	// same id is the run the first made.
+	RequestID string
 }
 
 // Run is one run of a program, by its id: the program is built, then
@@ -39,7 +43,7 @@ func (w *Workspace) Run(ctx context.Context, request RunRequest) (*Run, error) {
 	if err != nil {
 		return nil, err
 	}
-	created, err := api.CreateRun(ctx, &buildv1.CreateRunRequest{Target: request.Target, Arguments: request.Arguments, Profile: request.Profile})
+	created, err := api.CreateRun(ctx, &buildv1.CreateRunRequest{Target: request.Target, Arguments: request.Arguments, Profile: request.Profile, RequestId: request.RequestID})
 	if err != nil {
 		return nil, err
 	}

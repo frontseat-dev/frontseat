@@ -7,6 +7,7 @@ import (
 
 	connect "connectrpc.com/connect/v2"
 
+	"github.com/frontseat-dev/frontseat/sdk/go"
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/refusal"
 )
@@ -36,7 +37,7 @@ func TestARunAskedAgainWithItsRequestIDIsTheRunTheFirstMade(t *testing.T) {
 		t.Errorf("two calls with no request id made %s and %s; want two runs of their own", none, more)
 	}
 	_, err := c.runs.CreateBuild(context.Background(), &buildv1.CreateBuildRequest{RequestId: strings.Repeat("r", requestIDMost+1)})
-	if reason, domain := refusal.Reason(err); connect.CodeOf(err) != connect.CodeInvalidArgument || reason != "REQUEST_ID_INVALID" || domain != refusal.Build {
+	if reason, domain := frontseat.Reason(err); connect.CodeOf(err) != connect.CodeInvalidArgument || reason != "REQUEST_ID_INVALID" || domain != refusal.Build {
 		t.Errorf("a request id too long: %v (%s, %s); want it refused by name", err, reason, domain)
 	}
 }
@@ -66,11 +67,11 @@ func TestRunsAreListedAPageAtATime(t *testing.T) {
 		t.Errorf("listed %v over pages of two (next %q, then %q); want %v newest first", listed, first.GetNextPageToken(), rest.GetNextPageToken(), made)
 	}
 	_, err = c.runs.ListBuilds(context.Background(), &buildv1.ListBuildsRequest{PageToken: "made-up"})
-	if reason, _ := refusal.Reason(err); connect.CodeOf(err) != connect.CodeInvalidArgument || reason != refusal.PageTokenInvalid {
+	if reason, _ := frontseat.Reason(err); connect.CodeOf(err) != connect.CodeInvalidArgument || reason != refusal.PageTokenInvalid {
 		t.Errorf("a token no list gave: %v (%s); want it refused by name", err, reason)
 	}
 	_, err = c.runs.DescribeBuild(context.Background(), &buildv1.DescribeBuildRequest{BuildId: "build_none"})
-	if reason, domain := refusal.Reason(err); connect.CodeOf(err) != connect.CodeNotFound || reason != "BUILD_NOT_FOUND" || domain != refusal.Build {
+	if reason, domain := frontseat.Reason(err); connect.CodeOf(err) != connect.CodeNotFound || reason != "BUILD_NOT_FOUND" || domain != refusal.Build {
 		t.Errorf("a run no one made: %v (%s, %s); want it refused by name", err, reason, domain)
 	}
 }

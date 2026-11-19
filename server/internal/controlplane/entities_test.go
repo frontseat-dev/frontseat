@@ -9,6 +9,7 @@ import (
 	connect "connectrpc.com/connect/v2"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/frontseat-dev/frontseat/sdk/go"
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/backstage"
@@ -100,7 +101,7 @@ func TestAWorkspaceOfEntitiesIsRefusedWhereNoneAreServed(t *testing.T) {
 	client, _, _ := served(t, s, t.TempDir(), nil)
 	ctx := context.Background()
 	_, err := client.CreateWorkspace(ctx, &workspacev1.CreateWorkspaceRequest{Name: "by-entity", Spec: byEntity("gateway")})
-	if reason, domain := refusal.Reason(err); connect.CodeOf(err) != connect.CodeUnimplemented || reason != "ENTITIES_NOT_SERVED" || domain != refusal.Workspace || !strings.Contains(err.Error(), "--backstage") {
+	if reason, domain := frontseat.Reason(err); connect.CodeOf(err) != connect.CodeUnimplemented || reason != "ENTITIES_NOT_SERVED" || domain != refusal.Workspace || !strings.Contains(err.Error(), "--backstage") {
 		t.Errorf("a workspace of entities where none are served: %v (%s of %s)", err, reason, domain)
 	}
 	if len(s.asked()) != 0 {
@@ -250,7 +251,7 @@ metadata:
 		"secretive": {connect.CodeInvalidArgument, "ENTITY_INVALID"},
 	} {
 		_, err := client.CreateWorkspace(ctx, &workspacev1.CreateWorkspaceRequest{Name: "refused", Spec: byEntity(name)})
-		if reason, domain := refusal.Reason(err); connect.CodeOf(err) != want.code || reason != want.reason || domain != refusal.Workspace || strings.Contains(err.Error(), "a-made-up-secret") {
+		if reason, domain := frontseat.Reason(err); connect.CodeOf(err) != want.code || reason != want.reason || domain != refusal.Workspace || strings.Contains(err.Error(), "a-made-up-secret") {
 			t.Errorf("%s: %v (%s of %s), want %v %s", name, err, reason, domain, want.code, want.reason)
 		}
 	}
@@ -258,7 +259,7 @@ metadata:
 	gone, _, _ := served(t, s, t.TempDir(), resolving(t, away))
 	away.Close()
 	_, err := gone.CreateWorkspace(ctx, &workspacev1.CreateWorkspaceRequest{Name: "refused", Spec: byEntity("gateway")})
-	if reason, _ := refusal.Reason(err); connect.CodeOf(err) != connect.CodeUnavailable || reason != "ENTITIES_UNAVAILABLE" {
+	if reason, _ := frontseat.Reason(err); connect.CodeOf(err) != connect.CodeUnavailable || reason != "ENTITIES_UNAVAILABLE" {
 		t.Errorf("a catalog that does not answer: %v", err)
 	}
 	if len(s.asked()) != 0 {
@@ -289,7 +290,7 @@ metadata:
 	elsewhere.Repositories = of("https://forge.example/acme/code.git").Repositories
 	for what, spec := range map[string]*workspacev1.WorkspaceSpec{"one repository at two branches": elsewhere, "a path of the sandbox's own": byEntity("inside")} {
 		_, err := client.CreateWorkspace(ctx, &workspacev1.CreateWorkspaceRequest{Name: "refused", Spec: spec})
-		if reason, _ := refusal.Reason(err); connect.CodeOf(err) != connect.CodeInvalidArgument || reason != "ENTITY_INVALID" {
+		if reason, _ := frontseat.Reason(err); connect.CodeOf(err) != connect.CodeInvalidArgument || reason != "ENTITY_INVALID" {
 			t.Errorf("%s: %v, want it refused ENTITY_INVALID", what, err)
 		}
 	}

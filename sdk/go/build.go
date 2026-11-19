@@ -31,6 +31,11 @@ type BuildRequest struct {
 	// declared them say, and what they need. A build of targets that
 	// hold none ends with the exit code NO_TESTS_FOUND, 4.
 	Tests bool
+	// RequestID makes the request safe to send again: one sent again
+	// with the same id, where the first was lost on the way back, is
+	// the build the first made, not another. At most 128 bytes; empty,
+	// every request is a build of its own.
+	RequestID string
 }
 
 // Build is one build of a workspace, by its id.
@@ -47,7 +52,7 @@ func (w *Workspace) Build(ctx context.Context, request BuildRequest) (*Build, er
 	if err != nil {
 		return nil, err
 	}
-	created, err := api.CreateBuild(ctx, &buildv1.CreateBuildRequest{Targets: request.Targets, Only: request.Only, Profile: request.Profile, Fix: request.Fix, Tests: request.Tests})
+	created, err := api.CreateBuild(ctx, &buildv1.CreateBuildRequest{Targets: request.Targets, Only: request.Only, Profile: request.Profile, Fix: request.Fix, Tests: request.Tests, RequestId: request.RequestID})
 	if err != nil {
 		return nil, err
 	}

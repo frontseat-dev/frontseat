@@ -3,8 +3,8 @@ package source
 import (
 	"testing"
 
+	"github.com/frontseat-dev/frontseat/sdk/go"
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
-	"github.com/frontseat-dev/frontseat/server/internal/refusal"
 	"github.com/frontseat-dev/frontseat/server/internal/source/internal/vcs/git"
 	"github.com/frontseat-dev/frontseat/server/internal/source/told"
 	sourcev1 "github.com/frontseat-dev/frontseat/server/internal/sourceapi/frontseat/source/v1alpha1"
@@ -30,7 +30,7 @@ func TestWhatTheDaemonIsToldIsWholeOrRefused(t *testing.T) {
 		"an entity of no kind":        {&sourcev1.SourceSpec{Generation: 1, Repositories: named, Located: []*sourcev1.LocatedEntity{{Ref: &typev1.EntityRef{Namespace: "default", Name: "hello"}, Repository: "services"}}}, told.Unfit},
 		"entities alone":              {&sourcev1.SourceSpec{Generation: 1, Located: []*sourcev1.LocatedEntity{{Ref: &typev1.EntityRef{Kind: "component", Namespace: "default", Name: "hello"}, Repository: "services"}}}, told.Missing},
 	} {
-		if reason, _ := refusal.Reason(brought(held, c.spec)); reason != c.reason {
+		if reason, _ := frontseat.Reason(brought(held, c.spec)); reason != c.reason {
 			t.Errorf("%s: refused %q, want %s", what, reason, c.reason)
 		}
 	}

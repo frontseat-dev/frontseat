@@ -1,12 +1,10 @@
 // Package refusal says what a service refuses by name: a canonical code,
 // a message for a person, and google.rpc.ErrorInfo with the reason and
 // the domain of the service that refused, which a client reads instead
-// of the message.
+// of the message, by the Go SDK's one reader of it (frontseat.Reason).
 package refusal
 
 import (
-	"errors"
-
 	"connectrpc.com/connect/v2"
 	"connectrpc.com/connect/v2/connectproto"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
@@ -38,23 +36,4 @@ func New(domain string, code connect.Code, reason, message string) *connect.Erro
 		refused = refused.WithDetail(detail)
 	}
 	return refused
-}
-
-// Reason is the reason and the domain an error carries as ErrorInfo;
-// empty for an error that carries none.
-func Reason(err error) (reason, domain string) {
-	var refused *connect.Error
-	if !errors.As(err, &refused) {
-		return "", ""
-	}
-	for _, detail := range refused.Details() {
-		message, err := connectproto.UnmarshalErrorDetail(detail)
-		if err != nil {
-			continue
-		}
-		if info, ok := message.(*errdetails.ErrorInfo); ok {
-			return info.GetReason(), info.GetDomain()
-		}
-	}
-	return "", ""
 }
