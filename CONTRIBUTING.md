@@ -3,11 +3,76 @@
 Frontseat is under active development and has no published release from
 this checkout yet. Reproducible bug reports, documentation corrections
 and focused changes are useful contributions. This is the getting-started
-guide for contributors; the [README](README.md#getting-started) covers
-trying Frontseat as a user. Each package says what it is for in its doc
+guide for contributors; to try Frontseat as a user, see the
+[README](README.md). Each package says what it is for in its doc
 comment; read it before changing the package.
 
-## Getting started as a contributor
+## Quick start
+
+You need:
+
+- Git.
+- [mise](https://mise.jdx.dev/), activated in your shell
+  (`mise activate`, as its documentation says for your shell), so that
+  this repository's `dist/bin`, where `mise run build` puts what it
+  builds, is on your `PATH` here. Without it, run the command line as
+  `mise x -- frontseat …`.
+- A native C compiler and linker with development headers: Xcode
+  Command Line Tools on macOS, your distribution's build toolchain on
+  Linux. Rust build scripts and the Go race detector need it.
+- A container runtime answering `docker` that runs Linux containers:
+  OrbStack, Docker Desktop, or Docker or Podman on Linux.
+
+Then, in order:
+
+```sh
+git clone https://github.com/frontseat-dev/frontseat.git   # your fork, or this repository
+cd frontseat
+mise trust            # let mise read this repository's mise.toml
+mise install          # install the pinned Go, Rust and tools
+mise run check        # the checks that need no containers
+mise start            # build Frontseat into dist/ and bring the local stack up
+frontseat workspace credential github.com --username YOU < token.txt
+                      # only where your remote needs it: see below
+git switch -c your-change && git push -u origin your-change
+frontseat workspace open    # a workspace of the branch you pushed, and a shell in it
+frontseat test              # build what the tests need and run them on the grid
+mise stop             # bring the local stack down when you are done
+```
+
+`mise tasks` lists every task, each with what it does.
+
+A workspace fetches your branch from its remote; it never reads your
+checkout. Where the remote needs a credential to fetch from, as a
+private fork does, or to push to, give the control plane one first:
+`frontseat workspace credential HOST --username YOU`, the token read
+from standard input and never given as an argument. Give a
+fine-grained token that reads (and, to push, writes) only the
+repository it is for. `frontseat workspace credential HOST --forget`
+lets go of it.
+
+`frontseat test` is the first thing to try in a workspace. `frontseat
+build` pointed at the whole repository asks for more than Frontseat
+builds of itself today; what it does build is below, under "Bootstrap
+with mise".
+
+## When something goes wrong
+
+- `mise start` first runs `frontseat-local ready` (`mise run ready`
+  alone), which asks whether the container runtime answers and whether
+  the local stack that is up was started from another checkout. Where
+  the runtime does not answer, start it and run `mise start` again.
+  Where another checkout started the stack, `mise stop`, from any
+  checkout, stops it; then start it from yours.
+- Every service of the local stack runs in its one container,
+  `frontseat-local`: `docker logs frontseat-local` reads what they said.
+- `frontseat workspace list` lists your workspaces, and `frontseat
+  workspace describe --workspace NAME` says where one is and what it
+  holds.
+- `mise run test` fails at once, naming the local stack, where none
+  answers: start it first (`mise start`).
+
+## Getting started as a contributor, in full
 
 Install Git, [mise](https://mise.jdx.dev/) and a native C compiler/linker
 with development headers. On macOS, Xcode Command Line Tools provide the
@@ -71,9 +136,15 @@ At a terminal, `workspace open` leaves you in a shell in the workspace. Build th
 or from your own shell with `--workspace NAME`:
 
 ```sh
+frontseat test
 frontseat build --only compile --only lint --only generate-sdk --only generate-daemon --only generate-runner --only generate-source --only wasm --only depends-on
 frontseat builds
 ```
+
+The build is held to the actions of those names because they are what
+the self-build spec proves Frontseat builds of itself today
+(`specs/build/self_test.go`); the rest of what the repository is made
+with still runs through mise, as below.
 
 `frontseat test` builds what the tests need and runs the test actions of
 what it is pointed at, and exits 4 where it points at none. Pointed at
@@ -99,8 +170,8 @@ depends-on` writes it in the workspace; commit and push it from there.
 What Frontseat does not build of itself yet still runs through mise: the
 gates (`mise run check`, and `mise run test`, which runs the specs that
 need the local stack), the generation of the contracts' Go and Rust
-(`mise run protos`), the box and worker images (`mise run build`), and
-the documentation.
+(`mise run protos`), the box image (`mise run build`), and the
+documentation.
 
 The stack mounts nothing of this checkout: it runs the images built from
 it, and keeps what it keeps in its own volume (`frontseat-local`). Do not
@@ -110,7 +181,7 @@ checkout started.
 To preview documentation, run `mise run docs:serve` and open
 `http://localhost:8000`. When finished with an unshared grid, run
 `mise stop`, which stops the stack whichever checkout
-started it; named cache volumes remain.
+started it; its one volume (`frontseat-local`) remains.
 
 ## Make a focused change
 

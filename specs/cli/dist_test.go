@@ -38,8 +38,7 @@ func ran(t *testing.T, dir string, timeout time.Duration, name string, args ...s
 }
 
 // TestTheLocalBuildMakesAWorkspaceAndBuildsIt is the journey a person
-// takes with this checkout, as CONTRIBUTING.md's "Getting started as a
-// contributor" writes it: `mise run
+// takes with this checkout, as CONTRIBUTING.md's "Quick start" writes it: `mise run
 // build` makes dist/ and the box image (frontseat-local box), mise puts
 // dist/bin on the PATH here, frontseat-local serves sandboxes, and the
 // frontseat just built makes a workspace of a checkout and builds it.

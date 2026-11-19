@@ -62,14 +62,13 @@ CARGO_TARGET_WASM32_WASIP1_RUSTFLAGS = { value = "{% if tools['http:rust-std-was
 # and the local control plane for this machine, the plugins as wasm, and
 # the box image a workspace sandbox runs, tagged by what it holds and
 # frontseat-box:local beside, for a person to ask for it by. It is what a
-# contributor tries frontseat with (CONTRIBUTING.md, "Getting started as
-# a contributor"), and what
-# specs/cli proves. A run with nothing changed does nothing. The plugins
+# contributor tries frontseat with (CONTRIBUTING.md, "Quick start"), and
+# what specs/cli proves. A run with nothing changed does nothing. The plugins
 # are built by the program that builds them for the tests
 # (specs/cmd/prepare-modules), which reads which there are from the Cargo
 # workspace; the box by its one build (local/box, frontseat-local box).
 [tasks.build]
-description = "Build frontseat from this checkout into dist/ (on the PATH here) and the box image, tagged frontseat-box:local too"
+description = "Build Frontseat from this checkout into dist/ (on the PATH here), and the image each workspace runs (the box), tagged frontseat-box:local too"
 sources = ["api/**", "cli/**", "server/**", "local/**", "sdk/**", "specs/cmd/**", "specs/internal/**", "plugins/**", "Cargo.toml", "Cargo.lock", "go.work", "go.work.sum", "mise.lock"]
 outputs = ["dist/bin/frontseat", "dist/bin/frontseatd", "dist/bin/frontseat-local", "dist/plugins"]
 run = [
@@ -91,13 +90,20 @@ run = [
 # is mise's own and upgrades the tools; `mise run start` says the same
 # should mise ever take one of the names.
 [tasks.start]
-description = "Build frontseat and bring the local stack up from this checkout, running the box built from it"
+description = "Build Frontseat and bring the local stack (one container: the build grid and the control plane) up from this checkout"
 # Whether this checkout may start the stack is asked before anything is
 # built.
-run = ["go run ./server/cmd/frontseat-local ready", { task = "build" }, "dist/bin/frontseat-local up --plugins dist/plugins"]
+run = [{ task = "ready" }, { task = "build" }, "dist/bin/frontseat-local up --plugins dist/plugins"]
+
+# Whether this checkout may bring the stack up: the container runtime
+# answers, and no stack another checkout started is up. `start` asks it
+# first; it is a task of its own for a person to ask alone.
+[tasks.ready]
+description = "Say whether the local stack can be started from this checkout: the container runtime answers, and no stack another checkout started is up"
+run = "go run ./server/cmd/frontseat-local ready"
 
 [tasks.stop]
-description = "Bring the local stack down, whichever checkout started it; its named volumes are kept"
+description = "Bring the local stack down, whichever checkout started it; its volume, and what it kept there, stays"
 # The program built last stops it, where there is one, so that a tree
 # that does not compile does not keep the stack up.
 run = "if [ -x dist/bin/frontseat-local ]; then dist/bin/frontseat-local down; else go run ./server/cmd/frontseat-local down; fi"
@@ -117,13 +123,13 @@ run = "if [ -x dist/bin/frontseat-local ]; then dist/bin/frontseat-local down; e
 # go test by hand, over modules built a moment before: what follows
 # `--` is go test's own (`mise run go:test -- -race -run TestName ./server/internal/build/`).
 [tasks."go:test"]
-description = "Run go test with what follows --, over the wasm modules of this checkout"
+description = "Run go test with what follows --, the plugins built from this checkout first, as the tests load them"
 run = "go run ./specs/cmd/gate go-test"
 
 # What "done" is checked with. `check` needs no containers; `test` needs
 # the local stack (mise start).
 [tasks.check]
-description = "What must always pass: contracts lint, code is formatted, everything compiles, the layers hold, and every test that needs no stack"
+description = "What must always pass, with no containers: the contracts lint, the code is formatted and compiles, the architecture rules hold, and every test that needs no local stack passes"
 run = [
   "cd api && buf lint",
   # What is generated from the contracts and committed is what the
@@ -168,7 +174,7 @@ run = [
 ]
 
 [tasks.bench]
-description = "Measure what is budgeted, ten samples each, in the form benchstat compares"
+description = "Measure the code that has a time and allocation budget, ten samples each, in the form benchstat compares"
 run = "go run ./specs/cmd/gate bench"
 
 [tasks.compare]
@@ -180,7 +186,7 @@ description = "Hold frontseat to Bazel on the local grid, each tool's actions ru
 run = "go run ./specs/cmd/gate go-test -count=1 -timeout 120m -run TestPerf -v ./specs/compare/ -args -perf"
 
 [tasks.test]
-description = "Everything, against the local grid and a container runtime"
+description = "Every test, against the local stack (start it first: mise start)"
 # The build specs take tens of minutes, the self-build among them the
 # most; their deadline leaves room for all of it.
 #
