@@ -5,14 +5,18 @@
 // request give the same answer. It runs nothing: it declares actions, and
 // the host runs them on the grid.
 //
-// This file, host.proto, abi.proto and the ABI document beside them are
-// the whole contract. A plugin in any language that compiles to wasm needs
-// nothing else, and an SDK is a convenience over the types generated from
-// these files.
+// This file, host.proto, release.proto, abi.proto and the ABI document
+// beside them (ABI.md) are the whole contract. A plugin in any language
+// that compiles to wasm needs nothing else, and an SDK is a convenience
+// over the types generated from these files.
 //
-// A plugin says what it is (Describe), finds projects and declares their
-// actions (Analyze), tells its tool what they were handed (Arrange), and
-// says what a check of its found (Report).
+// A plugin says what it is (Describe), and serves what of the rest it is
+// for: it finds projects and declares their actions (Analyze), tells its
+// tool what they were handed (Arrange) and says what a check of its found
+// (Report); it finds catalog entities (Analyze) and says what their files
+// should say (Reconcile); it says how a service is started for a test
+// (Service); it is a release strategy (Branch, Version). A method it does
+// not serve it answers UNIMPLEMENTED.
 syntax = "proto3";
 
 package frontseat.plugin.v1alpha1;
@@ -161,8 +165,8 @@ message DescribeResponse {
   // the range it sent.
   uint32 abi = 3;
   // Interests are patterns of the files it reads, relative to a
-  // repository. The host calls Analyze only for a directory that holds a
-  // file one matches.
+  // repository, in the pattern language host.proto says. The host calls
+  // Analyze only for a directory that holds a file they select.
   repeated string interests = 5;
   // Options are the options it takes. A repository or an entity can set
   // these and no others.
@@ -429,19 +433,19 @@ message Action {
   // action's name is that, a slash, and what it is of, in letters,
   // digits and "._~+@-/": fetch/github.com/spf13/cobra@v1.8.1.
   //
-  // A project's tests may be several actions, each an atom of them the
+  // A project's tests may be several actions, each a piece of them the
   // project's tool tests by itself: a test is named "test", or "test", a
-  // slash and what atom it is, in the same letters, digits and
+  // slash and what piece it is, in the same letters, digits and
   // "._~+@-/", as its tool spells it: test/internal/ledger for a
   // package of a Go module, test/. for the package at its root. A run
-  // asked for the actions named "test" is asked for every atom, and
+  // asked for the actions named "test" is asked for every piece, and
   // the label that ends in "test" points at them all. Only a test is
-  // named so, and a project has "test" or atoms of it, never both.
+  // named so, and a project has "test" or pieces of it, never both.
   //
-  // An atom may be cut into shards, each an action that runs a share of
-  // the atom's tests: a shard is named its atom, "@", which of them it
-  // is and of how many, from 1, as test/internal/ledger@2of4. No atom's
-  // own name holds "@". The label of an atom that is cut into shards
+  // A piece may be cut into shards, each an action that runs a share of
+  // the piece's tests: a shard is named its piece, "@", which of them it
+  // is and of how many, from 1, as test/internal/ledger@2of4. No piece's
+  // own name holds "@". The label of a piece that is cut into shards
   // points at its shards.
   string name = 1;
   // Command is what it runs.
@@ -523,8 +527,9 @@ message Action {
   // given first; whoever runs it gives the rest. It runs where the
   // daemon is, in the daemon's own sandbox, in its project's directory
   // there, until it ends or is stopped. What it reads is what its inputs
-  // name of what other actions left (":compile", ":~/go/bin/"), brought
-  // from the grid: a run builds those first, as any build does. Its
+  // name of what other actions left (the output inputs "compile" and
+  // "~/go/bin/"), brought from the grid: a run builds those first, as
+  // any build does. Its
   // program is named by where one of them left it, beneath the project
   // or in the action's home ("~/go/bin/greeter"), never a program of
   // the system's.
@@ -564,8 +569,9 @@ message Action {
 message Input {
   // Kind distinguishes source selection from produced files and dependencies.
   oneof kind {
-    // Source is a glob relative to the project, with an optional ! exclusion.
-    // Its contents are always a pattern, including a leading : or = character.
+    // Source is a pattern relative to the project, in the pattern language
+    // host.proto says, with an optional ! exclusion. Its contents are
+    // always a pattern, including a leading : or = character.
     string source = 1;
     // Input_set is the name of a source input set declared by the project.
     string input_set = 2;

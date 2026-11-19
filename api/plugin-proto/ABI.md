@@ -2,9 +2,11 @@
 
 How the messages of `frontseat.plugin.v1alpha1` cross between the host and
 a plugin. With the four `.proto` files beside it, this is the whole
-wire contract. Plugins are written in Rust against the plugin SDK (`sdk/plugin`, the crate `frontseat-plugin`);
-the SDK implements this ABI once. Plugin authors implement its `Plugin` trait
-and use `serve!`, rather than maintaining their own dispatch or host imports.
+wire contract: a plugin in any language that compiles to wasm needs
+nothing else. The Rust plugin SDK (`sdk/plugin`, the crate
+`frontseat-plugin`) implements this ABI once; a plugin written against it
+implements its `Plugin` trait and uses `serve!`, and maintains no dispatch
+or host imports of its own.
 
 ## A plugin is a wasm module
 
@@ -19,7 +21,7 @@ and use `serve!`, rather than maintaining their own dispatch or host imports.
 
 | Export | Signature | What it does |
 |---|---|---|
-| `frontseat_abi` | `() -> i32` | The ABI the module speaks. The host loads no module outside the range it supports. This document is ABI 19. |
+| `frontseat_abi` | `() -> i32` | The ABI the module speaks. The host loads no module outside the range it supports. This document is ABI 20. |
 | `frontseat_alloc` | `(size: i32) -> i32` | Returns the address of `size` bytes the host may write to. |
 | `frontseat_free` | `(ptr: i32, size: i32)` | Gives back what `frontseat_alloc` returned. |
 | `frontseat_call` | `(ptr: i32, size: i32) -> i64` | Takes a serialized `Call`, returns a serialized `Reply`. |
@@ -50,7 +52,8 @@ Its Rust `read` and `glob` interfaces return `Result`, preserving source failure
 in native hosts as well; absence remains a successful `None`.
 
 `glob` takes a literal repository-relative directory separately from patterns
-relative to that directory. The empty directory means the repository root.
+relative to that directory, in the pattern language `host.proto` says, which
+is the whole of what a pattern may be. The empty directory means the repository root.
 Returned paths are relative to the repository. The host records both directory
 and patterns when deciding whether a previously computed answer still holds.
 
@@ -62,7 +65,8 @@ and patterns when deciding whether a previously computed answer still holds.
 3. The module answers with a `Reply`: the response or a `google.rpc.Status`
    failure. A method it does not serve returns `UNIMPLEMENTED`.
 
-The methods are `Describe`, `Analyze`, `Arrange`, `Report`, `Reconcile` and `Service`. `Report` is
+The methods are `Describe`, `Analyze`, `Arrange`, `Report`, `Reconcile`,
+`Service`, `Branch` and `Version`. `Report` is
 asked of a check once it has ended, with its exit code and what it
 printed, each cut to its first MiB; a plugin that answers it
 `UNIMPLEMENTED` has checks with no findings but their exit code and what
@@ -85,6 +89,18 @@ RetryInfo, DebugInfo, QuotaFailure, PreconditionFailure, BadRequest, RequestInfo
 ResourceInfo, Help and LocalizedMessage. Unknown types, nested statuses and
 malformed payloads are refused. Plugins extend reasons and rule IDs, not message
 schemas that a generic JSON client would be unable to read.
+
+What a plugin finds valid and does not build yet it refuses as every
+server of Frontseat refuses what it does not serve: `UNIMPLEMENTED`, for
+the reason `<WHAT>_NOT_SERVED` (`WORKSPACES_NOT_SERVED`), with the file it
+is about. A file that is not as the plugin reads one is
+`FAILED_PRECONDITION`, for a reason of the plugin's own.
+
+A plugin's interests are patterns of the language `host.proto` says, of
+files beneath the repository's root; the host refuses a plugin whose
+interest is not one. The Rust SDK adds `!**/testdata/**` to any plugin's
+interests, last: a `testdata` directory holds fixtures, and what is in
+one is no project.
 
 A module never traps to report a failure. A trap is a bug in the module,
 and the host reports it as one.
@@ -186,7 +202,7 @@ the checkout already holds is kept in step with what the worker generated, and
 
 ## What an action reads
 
-There is no `Action.needs`. `Action.inputs` is the one list of what an
+`Action.inputs` is the one list of what an
 action reads, encoded as `Input` messages with an explicit `kind`:
 
 - `source`: a project-relative source glob, including exclusions. No reference
@@ -248,8 +264,10 @@ the host.
   root to give itself to a user of its own is told that user), and
   `writable` the directories of its image it writes. A service that says
   neither runs as the sandbox's own user, writing its temporary and
-  working directories and the routes it is reached by alone. Added in
-  ABI 19.
+  working directories and the routes it is reached by alone.
+- **A service may serve its Component's APIs.** It binds an API its
+  Component provides to a port it names and to what a consumer is told,
+  and the host checks that a plugin's answer keeps those bindings.
 - **Endpoints are told to the test.** Each test given services is told,
   in `FRONTSEAT_ENDPOINTS`, a JSON object of each service by its entity
   reference, holding each endpoint it can reach with `{host}` and its
@@ -357,12 +375,6 @@ runs.
 - **Not served yet, and refused by name**: a `directory` said by a fix or
   by a program to run.
 
-## Prepared programs
-
-A program prepared for a test service may read declared source inputs and
-use pinned tools. A service may bind provided APIs to named ports and
-consumer exports; the host checks that a service plugin keeps those bindings.
-
 ## Artifacts
 
 `Provide.artifacts` names exact outputs of the provider's own finite
@@ -370,8 +382,3 @@ actions, handed to consumers through their coordinates and dependency
 placement. Outputs are worker-owned immutable artifacts; source patterns
 never select them. Optionality is the producer's output's: an absent
 optional output contributes no files, and a missing required output fails.
-
-## Profiles
-
-`Profile`, development or production, is defined in the plugin contract
-itself.

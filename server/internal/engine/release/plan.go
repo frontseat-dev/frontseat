@@ -708,7 +708,7 @@ func planUnit(ctx context.Context, w Workspace, resolved *Resolved, strategies S
 			return nil, "", none, fmt.Errorf("the versioning strategy %s answered %s for %s, which is not above its last release %s", settings.Versioning, next, unit.Name, core(last.version))
 		}
 		if next.Prerelease() != "" || next.Metadata() != "" {
-			return nil, "", none, fmt.Errorf("the versioning strategy %s answered %s for %s; a prerelease is the branch's to say", settings.Versioning, next, unit.Name)
+			return nil, "", none, fmt.Errorf("the versioning strategy %s answered %s for %s, which is more than three dotted numbers", settings.Versioning, next, unit.Name)
 		}
 		planned.Bump = answered.GetBump()
 	}
@@ -752,13 +752,10 @@ func checkBranch(strategy, branch string, unit entity.Ref, answered *pluginv1.Br
 			return wrong("the branch releases nothing, and it does not say why")
 		case len(answered.GetReason()) > summaryAtMost || strings.ContainsAny(answered.GetReason(), "\r\n\x00"):
 			return wrong("its reason is not one line of at most %d bytes", summaryAtMost)
-		case answered.GetLine() != "" || answered.GetChannel() != "" || answered.GetPrerelease() || answered.GetPrereleaseLabel() != "":
+		case answered.GetLine() != "" || answered.GetChannel() != "":
 			return wrong("the branch releases nothing, and it says what it releases")
 		}
 		return nil, nil
-	}
-	if answered.GetPrerelease() || answered.GetPrereleaseLabel() != "" {
-		return nil, &Refusal{Unserved: true, Message: fmt.Sprintf("%s releases a prerelease of %s, which is not served yet", branch, unit.Name)}
 	}
 	if answered.GetReason() != "" {
 		return wrong("the branch releases, and it gives a reason it does not")

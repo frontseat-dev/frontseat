@@ -8,8 +8,8 @@
 // beside its others:
 //
 //   - A branching strategy (Branch) says what a branch releases: whether
-//     it releases at all, stable or prerelease, held to which line. GitHub
-//     Flow, GitLab Flow's release branches and Release Flow are three such.
+//     it releases at all, and held to which line. GitHub Flow, GitLab
+//     Flow's release branches and Release Flow are three such.
 //   - A versioning strategy (Version) says what a unit's next version is,
 //     and why, from its commits. Conventional commits is one such.
 //
@@ -261,24 +261,15 @@ type BranchResponse struct {
 	Releases bool `protobuf:"varint,1,opt,name=releases,proto3" json:"releases,omitempty"`
 	// Reason says why it does not, where it does not.
 	Reason string `protobuf:"bytes,2,opt,name=reason,proto3" json:"reason,omitempty"`
-	// Prerelease is whether what it releases is a prerelease.
-	Prerelease bool `protobuf:"varint,3,opt,name=prerelease,proto3" json:"prerelease,omitempty"`
-	// Prerelease_label is what a prerelease is spelled with after the
-	// version's hyphen, before the host's counter: "rc", "feat-greet". The
-	// host spells "<version>-<label>.<n>", n one more than the highest of
-	// the unit's tags of that version and label anywhere in the repository,
-	// reachable or not, and 1 where there is none. A prerelease is never
-	// a unit's last release.
-	PrereleaseLabel string `protobuf:"bytes,4,opt,name=prerelease_label,json=prereleaseLabel,proto3" json:"prerelease_label,omitempty"`
 	// Line is what every version the branch releases begins with, as
 	// dotted numbers: "1.26" holds it to 1.26.x. Empty holds it to none. A
 	// unit whose last release is below the line, as on a branch cut for a
 	// line not yet released, is released at the line's first version,
 	// 1.26.0, whatever its commits call for.
-	Line string `protobuf:"bytes,5,opt,name=line,proto3" json:"line,omitempty"`
+	Line string `protobuf:"bytes,3,opt,name=line,proto3" json:"line,omitempty"`
 	// Channel is the name of what it releases: "latest", "next", a
 	// branch's name.
-	Channel       string `protobuf:"bytes,6,opt,name=channel,proto3" json:"channel,omitempty"`
+	Channel       string `protobuf:"bytes,4,opt,name=channel,proto3" json:"channel,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -323,20 +314,6 @@ func (x *BranchResponse) GetReleases() bool {
 func (x *BranchResponse) GetReason() string {
 	if x != nil {
 		return x.Reason
-	}
-	return ""
-}
-
-func (x *BranchResponse) GetPrerelease() bool {
-	if x != nil {
-		return x.Prerelease
-	}
-	return false
-}
-
-func (x *BranchResponse) GetPrereleaseLabel() string {
-	if x != nil {
-		return x.PrereleaseLabel
 	}
 	return ""
 }
@@ -532,8 +509,8 @@ func (x *ReleaseCommit) GetTime() int64 {
 // VersionResponse is a unit's next version.
 type VersionResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Version is its next version; empty if it holds. A prerelease is
-	// spelled by the host from the branch's label, after this.
+	// Version is its next version, three dotted numbers and nothing
+	// after them; empty if it holds.
 	Version string `protobuf:"bytes,1,opt,name=version,proto3" json:"version,omitempty"`
 	// Bump is how far it moves.
 	Bump v1alpha1.Bump `protobuf:"varint,2,opt,name=bump,proto3,enum=frontseat.type.v1alpha1.Bump" json:"bump,omitempty"`
@@ -686,16 +663,12 @@ const file_frontseat_plugin_v1alpha1_release_proto_rawDesc = "" +
 	"\x06branch\x18\x03 \x01(\tR\x06branch\x12!\n" +
 	"\flast_version\x18\x04 \x01(\tR\vlastVersion\x12B\n" +
 	"\acommits\x18\x05 \x03(\v2(.frontseat.plugin.v1alpha1.ReleaseCommitR\acommits\x12%\n" +
-	"\x0edefault_branch\x18\x06 \x01(\tR\rdefaultBranch\"\xbd\x01\n" +
+	"\x0edefault_branch\x18\x06 \x01(\tR\rdefaultBranch\"r\n" +
 	"\x0eBranchResponse\x12\x1a\n" +
 	"\breleases\x18\x01 \x01(\bR\breleases\x12\x16\n" +
-	"\x06reason\x18\x02 \x01(\tR\x06reason\x12\x1e\n" +
-	"\n" +
-	"prerelease\x18\x03 \x01(\bR\n" +
-	"prerelease\x12)\n" +
-	"\x10prerelease_label\x18\x04 \x01(\tR\x0fprereleaseLabel\x12\x12\n" +
-	"\x04line\x18\x05 \x01(\tR\x04line\x12\x18\n" +
-	"\achannel\x18\x06 \x01(\tR\achannel\"\xb1\x02\n" +
+	"\x06reason\x18\x02 \x01(\tR\x06reason\x12\x12\n" +
+	"\x04line\x18\x03 \x01(\tR\x04line\x12\x18\n" +
+	"\achannel\x18\x04 \x01(\tR\achannel\"\xb1\x02\n" +
 	"\x0eVersionRequest\x12\x1a\n" +
 	"\bstrategy\x18\x01 \x01(\tR\bstrategy\x12?\n" +
 	"\x04unit\x18\x02 \x01(\v2+.frontseat.plugin.v1alpha1.ReleaseUnitFactsR\x04unit\x12!\n" +

@@ -8,8 +8,8 @@
 // beside its others:
 //
 //   - A branching strategy (Branch) says what a branch releases: whether
-//     it releases at all, stable or prerelease, held to which line. GitHub
-//     Flow, GitLab Flow's release branches and Release Flow are three such.
+//     it releases at all, and held to which line. GitHub Flow, GitLab
+//     Flow's release branches and Release Flow are three such.
 //   - A versioning strategy (Version) says what a unit's next version is,
 //     and why, from its commits. Conventional commits is one such.
 //
@@ -72,24 +72,15 @@ message BranchResponse {
   bool releases = 1;
   // Reason says why it does not, where it does not.
   string reason = 2;
-  // Prerelease is whether what it releases is a prerelease.
-  bool prerelease = 3;
-  // Prerelease_label is what a prerelease is spelled with after the
-  // version's hyphen, before the host's counter: "rc", "feat-greet". The
-  // host spells "<version>-<label>.<n>", n one more than the highest of
-  // the unit's tags of that version and label anywhere in the repository,
-  // reachable or not, and 1 where there is none. A prerelease is never
-  // a unit's last release.
-  string prerelease_label = 4;
   // Line is what every version the branch releases begins with, as
   // dotted numbers: "1.26" holds it to 1.26.x. Empty holds it to none. A
   // unit whose last release is below the line, as on a branch cut for a
   // line not yet released, is released at the line's first version,
   // 1.26.0, whatever its commits call for.
-  string line = 5;
+  string line = 3;
   // Channel is the name of what it releases: "latest", "next", a
   // branch's name.
-  string channel = 6;
+  string channel = 4;
 }
 
 // VersionRequest asks a unit's next version.
@@ -125,8 +116,8 @@ message ReleaseCommit {
 
 // VersionResponse is a unit's next version.
 message VersionResponse {
-  // Version is its next version; empty if it holds. A prerelease is
-  // spelled by the host from the branch's label, after this.
+  // Version is its next version, three dotted numbers and nothing
+  // after them; empty if it holds.
   string version = 1;
   // Bump is how far it moves.
   frontseat.type.v1alpha1.Bump bump = 2;
