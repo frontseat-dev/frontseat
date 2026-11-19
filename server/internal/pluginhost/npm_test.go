@@ -24,10 +24,10 @@ func npmFixture() conformance.Fixture {
 	context := npmContext()
 	return arrangingNothing(context, conformance.Fixture{
 		Name: "npm",
-		Description: &pluginv1.DescribeResponse{Name: "npm", Abi: 19,
+		Description: &pluginv1.DescribeResponse{Name: "npm", Abi: 20,
 			Interests: []string{"**/package.json", "!**/node_modules/**", "!**/testdata/**"}},
 		Source: files{"app/package.json": npmPackage, "app/package-lock.json": npmLock},
-		Absent: files{}, Malformed: files{"app/package.json": `{"name":"web","workspaces":["packages/*"]}`}, ErrorCode: "INVALID_MANIFEST",
+		Absent: files{}, Malformed: files{"app/package.json": `{"name":"web"}`}, ErrorCode: "INVALID_MANIFEST",
 		Analyze: &pluginv1.AnalyzeRequest{Context: context, Roots: []string{"app"}},
 		Projects: []*pluginv1.Project{{Root: "app", Name: "web", Kind: "npm-package", Manifest: "app/package.json", Provides: []*pluginv1.Provide{{Coordinate: &pluginv1.Coordinate{Ecosystem: "javascript-install", Name: "web"}, Artifacts: []*pluginv1.Produced{{Action: "install", Output: "node_modules/"}}}}, Actions: []*pluginv1.Action{
 			{Name: "fetch", Command: &pluginv1.Command{Arguments: []string{"npm", "ci", "--ignore-scripts", "--no-audit", "--no-fund"}}, Inputs: []*pluginv1.Input{pluginhost.SourceInput("package.json"), pluginhost.SourceInput("package-lock.json")}, Outputs: []*pluginv1.Output{{Path: "~/.npm/_cacache/", Optional: true}}, Tools: []string{"node"}, Fetch: true},
@@ -90,7 +90,19 @@ func TestNpmRefusesPreparationSemanticsItDoesNotServe(t *testing.T) {
 			source, context := valid(), npmContext()
 			change(source, context)
 			var failure *pluginhost.Error
-			if err := invoke(source, context); !errors.As(err, &failure) || failure.Reason != "INVALID_MANIFEST" {
+			// What npm reads and the plugin does not build yet is refused
+			// as not served, each by its own reason; what is wrong, as
+			// invalid.
+			want := map[string]string{
+				"workspace": "WORKSPACES_NOT_SERVED", "package manager": "PACKAGE_MANAGER_NOT_SERVED",
+				"install hook": "INSTALL_HOOKS_NOT_SERVED", "shrinkwrap": "SHRINKWRAP_NOT_SERVED",
+				"alternate lock": "PNPM_NOT_SERVED", "config": "NPMRC_NOT_SERVED",
+				"implicit root build": "NATIVE_ADDONS_NOT_SERVED",
+			}[name]
+			if want == "" {
+				want = "INVALID_MANIFEST"
+			}
+			if err := invoke(source, context); !errors.As(err, &failure) || failure.Reason != want {
 				t.Fatalf("unsupported npm preparation not refused by name: %v", err)
 			}
 		})

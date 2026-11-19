@@ -64,11 +64,7 @@ fn over_module(command: &[&str], tags: &[String]) -> Vec<String> {
 /// A fetch of an archive leaves the archive, its hash and the module
 /// unpacked; a fetch of a go.mod alone leaves that.
 fn kept(entry: &Entry) -> Vec<String> {
-    let (module, version) = entry
-        .module
-        .rsplit_once('@')
-        .expect("an entry is a module and a version");
-    let (module, version) = (escaped(module), escaped(version));
+    let (module, version) = (escaped(&entry.path), escaped(&entry.version));
     let at = format!("~/go/pkg/mod/cache/download/{module}/@v/{version}");
     let mut kept = vec![format!("{at}.info"), format!("{at}.mod")];
     if entry.archive {
@@ -142,22 +138,14 @@ fn fetch(entry: &Entry) -> Action {
     } else {
         ("metadata", vec!["go", "list", "-x", "-m", "-json"])
     };
-    let mut arguments: Vec<String> = arguments.into_iter().map(str::to_string).collect();
-    arguments.push(entry.module.clone());
+    let command = Command::new(arguments.into_iter().chain([entry.module.as_str()]))
+        .env("GOFLAGS", "-modcacherw")
+        .env("GOSUMDB", "off")
+        .env("GOWORK", "off");
     Action {
-        command: Some(Command {
-            arguments,
-            environment: [
-                ("GOFLAGS", "-modcacherw"),
-                ("GOSUMDB", "off"),
-                ("GOWORK", "off"),
-            ]
-            .map(|(name, value)| (name.to_string(), value.to_string()))
-            .into(),
-            ..Default::default()
-        }),
+        command: Some(command),
         files: told(entry),
-        tools: ["go"].map(str::to_string).to_vec(),
+        tools: vec!["go".into()],
         ..Action::fetch(format!("{name}/{}", entry.module), kept(entry))
     }
 }
@@ -179,90 +167,85 @@ pub(super) fn actions(
     // this one requires of the workspace, and waits for the ones it
     // requires from outside. It reaches nothing, and is told so, so that
     // a module that was not fetched is said to be missing.
-    let action = |name: &str, arguments: Vec<String>| Action {
-        name: name.into(),
+    let action = |name: &str, arguments: Vec<String>| {
         // Pure Go: with cgo, the go command reaches for whatever C compiler
         // the worker has, which is no input of the action.
-        command: Some(Command {
-            arguments,
-            environment: [
-                ("CGO_ENABLED", "0"),
-                ("GOPROXY", "off"),
-                ("GOSUMDB", "off"),
-                // mise points the go command's GOBIN into the directory
-                // of the tool itself unless it is told not to. Told so,
-                // the go command installs a program where it keeps
-                // programs: go/bin in the action's home.
-                ("MISE_GO_SET_GOBIN", "false"),
-            ]
-            .map(|(name, value)| (name.to_string(), value.to_string()))
-            .into(),
-            ..Default::default()
-        }),
-        // Its sources, and all each fetch left: what it reads is what
-        // it waits for.
-        inputs: [Input::set("sources")]
-            .into_iter()
-            .chain(fetches.iter().map(|fetch| Input::output(&fetch.name)))
-            .chain([Input::dependencies(format!("{REQUIRED}/{{name}}"))])
-            .collect(),
-        tools: ["go"].map(str::to_string).to_vec(),
-        ..Default::default()
+        let command = Command::new(arguments)
+            .env("CGO_ENABLED", "0")
+            .env("GOPROXY", "off")
+            .env("GOSUMDB", "off")
+            // mise points the go command's GOBIN into the directory of
+            // the tool itself unless it is told not to. Told so, the go
+            // command installs a program where it keeps programs: go/bin
+            // in the action's home.
+            .env("MISE_GO_SET_GOBIN", "false");
+        // Its sources, and all each fetch left: what it reads is what it
+        // waits for.
+        Action::new(name, command)
+            .tool("go")
+            .inputs([Input::set("sources")])
+            .inputs(fetches.iter().map(|fetch| Input::output(&fetch.name)))
+            .inputs([Input::dependencies(format!("{REQUIRED}/{{name}}"))])
     };
     let shards = repo.int("test-shards")?;
     if shards < 1 {
         // A plugin is told what an option is set to and not where: the
         // mistake is said of the module it was set for.
-        return Err(Error {
-            reason: "invalid-test-shards".into(),
-            message: format!(
+        return Err(Error::invalid(
+            "invalid-test-shards",
+            &join(root, "go.mod"),
+            format!(
                 "test-shards is {shards} for this module: a package's tests are cut into one action or more"
             ),
-            path: join(root, "go.mod"),
-            help: "Set test-shards to 1 or more, in frontseat.yaml or the entity's catalog file."
-                .into(),
-            ..Error::default()
-        });
+            "Set test-shards to 1 or more, in frontseat.yaml or the entity's catalog file.",
+        ));
     }
     let fetched: Vec<String> = fetches.iter().map(|fetch| fetch.name.clone()).collect();
-    let tests = tests(
+    let testing = Testing {
         root,
         module,
         packages,
         nested,
         tested,
-        &fetched,
+        fetched: &fetched,
         // More than a worker's word holds is more than any package has
         // tests: as many as there are.
-        usize::try_from(shards).unwrap_or(usize::MAX),
+        shards: usize::try_from(shards).unwrap_or(usize::MAX),
         timeout,
         tags,
-        &action,
-    )?;
-    let mut compile = action("compile", over_module(compile(repo.profile()?), tags));
-    compile.outputs.push(Output {
-        path: PROGRAMS.into(),
-        optional: true,
-    });
-    // A check passes or fails on what it finds, and what it found is read
-    // from what it printed (report). What gofmt would change, it changes
-    // on the copy it is given, and the host compares.
-    let mut lint = action("lint", over_module(&["go", "vet"], tags));
-    lint.check = true;
+    };
+    let tests = tests(&testing, &action)?;
+    let compile = action("compile", over_module(compile(repo.profile()?), tags))
+        .output(Output::optional(PROGRAMS));
+    // vet passes or fails on what it finds, and what it found is read
+    // from what it printed (report).
+    let lint = action("lint", over_module(&["go", "vet"], tags)).check();
     // gofmt -l names what it would change and writes nothing: a check.
     // Its fix, gofmt -w, runs where the checkout is and nowhere else.
-    let mut format = action("format", ["gofmt", "-l", "."].map(str::to_string).to_vec());
-    format.check = true;
-    format.fix = Some(Command {
-        arguments: ["gofmt", "-w", "."].map(str::to_string).to_vec(),
-        environment: Default::default(),
-        ..Default::default()
-    });
-    format.rewrites = vec!["**/*.go".into()];
+    let format = action("format", ["gofmt", "-l", "."].map(str::to_string).to_vec())
+        .check()
+        .fix(Command::new(["gofmt", "-w", "."]), ["**/*.go"]);
     let mut actions = fetches;
     actions.extend([lint, format, compile]);
     actions.extend(tests);
     Ok(actions)
+}
+
+/// What a module's tests are made of: the module, as it was read, and
+/// how its tests are run.
+#[derive(Clone, Copy)]
+struct Testing<'a> {
+    root: &'a str,
+    module: &'a str,
+    packages: &'a [String],
+    // The modules nested in it, each a module of its own.
+    nested: &'a [String],
+    tested: &'a [Tested],
+    // The modules its module's compile is given.
+    fetched: &'a [String],
+    shards: usize,
+    timeout: &'a str,
+    tags: &'a [String],
 }
 
 /// A module's tests: one action for each package that has tests, which
@@ -282,7 +265,7 @@ pub(super) fn actions(
 /// Which packages have tests is the go command's to say, on the worker:
 /// by each test file's build constraint and the worker's platform.
 /// Nothing here foretells it. A directory that holds a file named as a
-/// test file is has a test; the go command builds a program for those
+/// test file has a test; the go command builds a program for those
 /// whose tests it builds there, and passes by the rest. Each program is
 /// an output the build may not leave, and a test whose program was not
 /// left has nothing to do and is not run (`idle_without_inputs`): one
@@ -301,20 +284,21 @@ pub(super) fn actions(
 /// one name is handed apart, into an action and a directory each. A
 /// package added may move another's program to another action, and its
 /// test is then run again.
-#[allow(clippy::too_many_arguments)]
 fn tests(
-    root: &str,
-    module: &str,
-    packages: &[String],
-    nested: &[String],
-    tested: &[Tested],
-    // The modules its module's compile is given.
-    fetched: &[String],
-    shards: usize,
-    timeout: &str,
-    tags: &[String],
+    testing: &Testing,
     action: &impl Fn(&str, Vec<String>) -> Action,
 ) -> Result<Vec<Action>, Error> {
+    let Testing {
+        root,
+        module,
+        packages,
+        nested,
+        tested,
+        fetched,
+        shards,
+        timeout,
+        tags,
+    } = *testing;
     let beneath = |directory: &str, package: &str| {
         directory.is_empty()
             || package == directory
@@ -330,12 +314,12 @@ fn tests(
     // generated source above all (analysis reads none), and two of those
     // named alike are refused by the go command whether or not they have
     // tests.
-    struct Handed<'a> {
+    struct Given<'a> {
         argument: String,
         name: String,
         tested: &'a Tested,
     }
-    let mut handed: Vec<Handed> = Vec::new();
+    let mut handed: Vec<Given> = Vec::new();
     for each in tested {
         let directory = &each.directory;
         // "@" parts a shard's name from its package's, and a path that
@@ -363,7 +347,7 @@ fn tests(
             (at, true) => format!("./{at}/..."),
             (at, false) => format!("./{at}"),
         };
-        handed.push(Handed {
+        handed.push(Given {
             argument,
             name,
             tested: each,
@@ -371,7 +355,7 @@ fn tests(
     }
     // Each group holds what the go command may be handed together: no
     // two programs it may write there are named alike.
-    let mut groups: Vec<Vec<Handed>> = Vec::new();
+    let mut groups: Vec<Vec<Given>> = Vec::new();
     for each in handed {
         match groups
             .iter_mut()
@@ -407,10 +391,7 @@ fn tests(
             let program = format!("{TESTS}/{number}/{name}.test");
             // Left where the go command builds one for the package on
             // this worker, which is its to say.
-            build.outputs.push(Output {
-                path: program.clone(),
-                optional: true,
-            });
+            build.outputs.push(Output::optional(program.clone()));
             // From the package's directory back to the module's, where
             // the program was left.
             let up = if directory.is_empty() {
@@ -458,7 +439,7 @@ fn tests(
                     }
                     arguments.push(selection);
                 }
-                let mut test = action(&named, arguments);
+                let mut test = action(&named, arguments).test();
                 if let Some(command) = test.command.as_mut() {
                     command.directory = directory.to_string();
                 }
@@ -494,7 +475,6 @@ fn tests(
                 .chain([Input::source(join(&literal(directory), "testdata/**"))])
                 .chain(fetched.iter().map(Input::output))
                 .collect();
-                test.test = true;
                 test.idle_without_inputs = true;
                 pieces.push(test);
             }
@@ -514,13 +494,12 @@ fn mistake(root: &str, directory: &str, reason: &str, what: String, help: &str) 
     } else {
         (directory, directory)
     };
-    Error {
-        reason: reason.into(),
-        message: format!("the package in {said} {what}"),
-        path: join(root, at),
-        help: help.into(),
-        ..Error::default()
-    }
+    Error::invalid(
+        reason,
+        &join(root, at),
+        format!("the package in {said} {what}"),
+        help,
+    )
 }
 
 /// What one shard of a package's tests is told to run, of the tests
@@ -548,6 +527,51 @@ fn selecting(names: &[&str], shard: usize, count: usize) -> String {
         if last { "skip" } else { "run" },
         chosen.join("|")
     )
+}
+
+/// What a check found, read from what it printed, each finding named
+/// with the module's root, as the repository names its files. The go
+/// command's vet writes each as `path:line:col: message`, the path
+/// relative to the module, under a `# package` line for each package.
+/// gofmt -l names each file it would change, one a line.
+pub(super) fn report(root: &str, action: &str, printed: &Printed) -> Vec<Diagnostic> {
+    match action {
+        "lint" => String::from_utf8_lossy(&printed.stderr)
+            .lines()
+            .filter_map(|line| vet(root, line))
+            .collect(),
+        "format" => unformatted(root, printed),
+        _ => Vec::new(),
+    }
+}
+
+/// The files gofmt -l names: each is not as gofmt would have it.
+fn unformatted(root: &str, printed: &Printed) -> Vec<Diagnostic> {
+    let text = String::from_utf8_lossy(&printed.stdout);
+    let files = text
+        .lines()
+        .map(str::trim)
+        .map(|line| line.strip_prefix("./").unwrap_or(line))
+        .filter(|line| line.ends_with(".go"));
+    let help = Unformatted::fixed_by("gofmt -w");
+    Unformatted {
+        rule_id: "go/format",
+        message: "it is not formatted as gofmt formats it",
+        help: &help,
+    }
+    .files(root, files)
+}
+
+/// One finding of vet's, from a line it printed: `path:line:col:
+/// message` or `path:line: message`, the path relative to the module,
+/// with no directory above it. Any other line is no finding.
+fn vet(root: &str, line: &str) -> Option<Diagnostic> {
+    const VET: Finding = Finding {
+        rule_id: "go/vet",
+        help: "Fix what vet reports; see `go doc cmd/vet`.",
+    };
+    let at = Located::read(line)?;
+    VET.at(root, at.path, at.line, at.message)
 }
 
 #[cfg(test)]
@@ -1050,93 +1074,9 @@ mod tests {
     }
 }
 
-/// What a check found, read from what it printed, each finding named
-/// with the module's root, as the repository names its files. The go
-/// command's vet writes each as `path:line:col: message`, the path
-/// relative to the module, under a `# package` line for each package.
-/// gofmt -l names each file it would change, one a line.
-pub(super) fn report(root: &str, action: &str, printed: &Printed) -> Vec<Diagnostic> {
-    match action {
-        "lint" => vet(root, printed),
-        "format" => unformatted(root, printed),
-        _ => Vec::new(),
-    }
-}
-
-/// The files gofmt -l names: each is not as gofmt would have it.
-fn unformatted(root: &str, printed: &Printed) -> Vec<Diagnostic> {
-    let text = String::from_utf8_lossy(&printed.stdout);
-    let files = text
-        .lines()
-        .map(str::trim)
-        .map(|line| line.strip_prefix("./").unwrap_or(line))
-        .filter(|line| line.ends_with(".go"));
-    Unformatted {
-        rule_id: "go/format",
-        message: "it is not formatted as gofmt formats it",
-        help: "frontseat build --fix formats it.",
-    }
-    .files(root, files)
-}
-
-/// The findings vet printed.
-fn vet(root: &str, printed: &Printed) -> Vec<Diagnostic> {
-    let text = String::from_utf8_lossy(&printed.stderr);
-    let mut found = Vec::new();
-    for line in text.lines() {
-        let Some((path, line_number, message)) = finding(line) else {
-            continue;
-        };
-        found.push(Diagnostic {
-            rule_id: "go/vet".into(),
-            message: message.into(),
-            source_location: Some(SourceLocation {
-                repository: String::new(),
-                path: frontseat_plugin::repository::join(root, path),
-                line: line_number,
-            }),
-            help: "Fix what vet reports; see `go doc cmd/vet`.".into(),
-        });
-    }
-    found
-}
-
-/// One finding as vet prints it: `path:line:col: message` or
-/// `path:line: message`, the path relative to the module, with no
-/// directory above it. Anything else is not a finding.
-fn finding(line: &str) -> Option<(&str, i32, &str)> {
-    let line = line.trim_end();
-    if line.starts_with('#') || line.starts_with("vet:") || line.is_empty() {
-        return None;
-    }
-    let (path, rest) = line.split_once(':')?;
-    let path = path.strip_prefix("./").unwrap_or(path);
-    if path.is_empty()
-        || path.starts_with('/')
-        || path.split('/').any(|part| part == ".." || part.is_empty())
-    {
-        return None;
-    }
-    let (number, rest) = rest.split_once(':')?;
-    let line_number: i32 = number.trim().parse().ok()?;
-    if line_number < 1 {
-        return None;
-    }
-    let message = match rest.split_once(':') {
-        // `col: message`, where what comes before the colon is a column.
-        Some((column, message)) if column.trim().parse::<u32>().is_ok() => message,
-        _ => rest,
-    };
-    let message = message.trim();
-    if message.is_empty() {
-        return None;
-    }
-    Some((path, line_number, message))
-}
-
 #[cfg(test)]
 mod report_tests {
-    use super::{finding, report};
+    use super::{report, vet};
     use frontseat_plugin::Printed;
 
     #[test]
@@ -1186,7 +1126,7 @@ mod report_tests {
             "main.go:0:1: x",
             "main.go:3:4:   ",
         ] {
-            assert!(finding(line).is_none(), "{line:?}");
+            assert!(vet("app", line).is_none(), "{line:?}");
         }
         let formatted = report(
             "app",

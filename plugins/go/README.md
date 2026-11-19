@@ -1,10 +1,16 @@
-# Go reference plugin
+# Go plugin
 
-This is the reference for implementing a Frontseat plugin. It discovers Go
-modules, declares actions for the Go tool and arranges inferred local source
-dependencies. One Rust crate produces one Wasm module. The current contract is
-Describe, Analyze and Arrange; it does not claim every capability of the old
-repository.
+It builds Go modules: it finds a module wherever a `go.mod` is, declares
+the go command's actions for it (fetch, lint, format, compile, test, and
+a program to run for each `package main`), arranges the modules it was
+handed as a Go workspace, and reads what its checks found from what they
+printed. One Rust crate produces one wasm module. It serves Describe,
+Analyze, Arrange and Report; the rest of the contract it answers
+`UNIMPLEMENTED`.
+
+It is the largest plugin, not the place to start writing one: the small
+example is `sdk/plugin/examples/make.rs`, and how a plugin is written,
+built, enabled and tested is in `sdk/plugin/README.md`.
 
 ## Ownership
 
@@ -14,7 +20,8 @@ repository.
 | `src/plugin.rs` | Composition of the plugin methods; `arrange` writes the `go.work` bytes for inferred local dependencies |
 | `src/manifest.rs` | `go.mod`, dependency origins, and archive/metadata entries from `go.sum` |
 | `src/inputs.rs` | Named source sets, embedded assets and test-data selection |
-| `src/actions.rs` | Go fetch, metadata, lint, format, compile and test actions, a test for each package that has any, run with a program built apart; the format check's fix; profile choices |
+| `src/actions.rs` | Go fetch, metadata, lint, format, compile and test actions, a test for each package that has any, run with a program built apart; the format check's fix; profile choices; the findings `report` reads |
+| `src/programs.rs` | Which directories are programs, read as go/build reads them and held to the go command by a differential test, and the action that runs each |
 | `src/composition_tests.rs` | Native tests through the registered `served()` plugin |
 | `testdata/` | Independent valid and malformed ecosystem fixtures |
 
@@ -51,8 +58,9 @@ encoding do not belong in a plugin.
 | Method | Go behavior | Error/control |
 |---|---|---|
 | Describe | Names the plugin, interests, `test-timeout`, `test-shards` and `tags` options | Shared SDK refuses incompatible ABI; method reads no source |
-| Analyze | Finds a module, provides/requires coordinates with origins, named inputs and complete actions | Absent manifest yields no project; malformed or unsupported directives yield coded diagnostics with paths/help |
-| Arrange | Writes a workspace using the pinned Go version and replacements for handed modules | Missing tool pin or invalid handover is refused; valid calls work afterwards |
+| Analyze | Finds a module, provides/requires coordinates with origins, named inputs and complete actions | Absent manifest yields no project; a malformed go.mod or go.sum is refused `invalid-manifest`, and a `replace` or a directive it does not read `directive-not-served` (`UNIMPLEMENTED`), each with its path, line and help |
+| Arrange | Writes a workspace using the pinned Go version and replacements for handed modules | Missing tool pin (`unpinned-tool`) or invalid handover is refused; valid calls work afterwards |
+| Report | Reads `go vet`'s `path:line[:col]: message` lines and `gofmt -l`'s files into findings | A line that names no file beneath the module is no finding |
 
 The host resolves project requirements. Users never write their own dependency
 graph. Each module the `go.sum` locks is fetched by a shared
@@ -97,27 +105,14 @@ Pass a literal directory separately from glob patterns. `repo.glob(root,
 patterns)` delegates selection to the host snapshot; it also records the scope
 for dependency replay. A name such as `pkg[1]` is not a pattern.
 
-## Tests a new plugin must supply
+## Tests
 
-1. Add the crate to the root Cargo workspace and depend on `sdk/plugin/`. Use `serve!`.
-2. Keep ecosystem unit tests beside their module. Exercise composition through
-   `served()` with a test host; do not recreate ABI dispatch in the plugin.
-3. Put input fixtures under the plugin's `testdata/` directory. Register them in
-   `server/internal/pluginhost/conformance_test.go`. Expectations are
-   independent typed declarations, required host reads, and exact arranged bytes.
-4. Supply valid, absent and malformed Analyze sources, plus valid and invalid
-   Arrange requests. An empty arrangement is an explicit empty expected slice.
-   Every plugin runs the same real-Wasm suite; there are no per-plugin skip flags.
-5. Add API acceptance specs under `specs/build/` that execute the actual declared
-   work on the grid. A native composition test cannot prove hermetic execution.
-
-The common harness owns setup, assertions and cleanup. It checks Describe,
-Analyze and Arrange, deterministic answers, recovery after errors/cancellation,
-concurrent calls and tracked reads. Inventory controls reject an unregistered
-crate and missing method/error coverage. Shared SDK tests separately exercise
-wire encoding, dispatch, repository access and context interpretation.
-The harness also rejects unspecified/unknown profiles before source access and
-injects failures at each declared read/glob, including optional absent files.
+Its own logic is tested natively, beside each module, and through
+`served()` with the testkit (`frontseat-plugin-test`) in
+`src/composition_tests.rs`. The built module is held to the real-wasm
+conformance harness every plugin is (`server/internal/pluginhost`,
+`conformance_test.go`), with the fixtures in `testdata/`; what it builds
+on the grid is held by the API specs below.
 
 ## Capability evidence
 
@@ -140,7 +135,6 @@ use standard Go tests with Gomega assertions. Independent build cases run
 concurrently with bounded admission; the acceptance harness itself still runs
 on the host while its builds execute on the grid.
 
-Remediation skills are not implemented yet. The
-other plugins (Backstage, Buf, Cargo, apko, release, container, postgres)
-are held to the same real-Wasm conformance harness; each README says what
-it serves.
+Every other plugin (apko, Backstage, Buf, Cargo, container, Jest, npm,
+postgres, release) is held to the same real-wasm conformance harness; each
+README says what it serves.

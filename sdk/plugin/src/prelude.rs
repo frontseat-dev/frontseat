@@ -1,6 +1,6 @@
 //! What a plugin is written with, in one import:
 //!
-//! ```ignore
+//! ```
 //! use frontseat_plugin::prelude::*;
 //! ```
 //!
@@ -10,7 +10,7 @@
 //! now and then, `repository`, `entity`, `checksum` and `javascript`,
 //! are named where they are used.
 
-pub use crate::diagnostics::Unformatted;
+pub use crate::diagnostics::{Finding, Located, Unformatted};
 pub use crate::{
     service_ready, Action, Analysis, BranchRequest, BranchResponse, Bump, Code, Command,
     Coordinate, Description, Diagnostic, Download, Duration, Edit, Entity, EntityRef,

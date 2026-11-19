@@ -13,3 +13,6 @@ crate-type = ["cdylib"]
 frontseat-plugin = { path = "../../sdk/plugin" }
 serde = { version = "1", features = ["derive"] }
 url = { version = "2.5.8", default-features = false, features = ["std"] }
+
+[dev-dependencies]
+frontseat-plugin-test = { path = "../../sdk/plugin-test" }

@@ -54,10 +54,18 @@ on the worker instead; it is one download for a package where ranges are two.
 
 ## Not served yet, each refused by name
 
-- `include`: a configuration in more than one file.
-- `contents.baseimage`.
-- A repository that is a directory, or a key that is a file, as images built
-  from local melange packages use. Only `https` repositories and keys are read.
+What a configuration says that is valid and not built yet is refused
+`UNIMPLEMENTED`, each by a reason of its own:
+
+- `include`: a configuration in more than one file (`include-not-served`).
+- `contents.baseimage` (`base-image-not-served`).
+- A repository that is a directory (`local-repository-not-served`), or a key
+  that is a file (`local-key-not-served`), as images built from local melange
+  packages use. Only `https` repositories and keys are read.
+
+What follows is refused as a lock that is not as apko writes one
+(`invalid-lock`):
+
 - A package or key address that is not plain: another scheme, a port, a query,
   an escape, a step with anything but letters, digits and `._+-@`; a key not
   named `*.rsa.pub`, or at its host's root.

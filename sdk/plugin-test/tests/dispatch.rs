@@ -144,13 +144,9 @@ impl Plugin for Example {
     }
     fn analyze(&self, repo: &Repository, root: &str) -> Result<Analysis, Error> {
         if root == "bad" {
-            return Err(Error {
-                reason: "invalid-manifest".into(),
-                path: "bad/manifest".into(),
-                line: 3,
-                help: "Repair it.".into(),
-                ..Default::default()
-            });
+            return Err(Error::new(Code::FailedPrecondition, "invalid-manifest", "")
+                .at_line("bad/manifest", 3)
+                .help("Repair it."));
         }
         repo.read(root)?;
         Ok(Analysis::default())
@@ -388,12 +384,11 @@ fn repository_preserves_literal_paths_context_and_absence() {
 #[test]
 fn failed_source_reads_never_become_absence_or_empty_documents() {
     fn failure() -> Error {
-        Error {
-            code: Code::Unavailable,
-            reason: "source-unavailable".into(),
-            message: "source is unavailable".into(),
-            ..Default::default()
-        }
+        Error::new(
+            Code::Unavailable,
+            "source-unavailable",
+            "source is unavailable",
+        )
     }
     let unavailable = source().fail_everything(failure());
     let repo = Repository::new(&unavailable, Some(example_context()));
@@ -542,6 +537,7 @@ fn a_plugin_declares_and_answers_the_release_strategies_it_serves() {
             .releases
     );
     let version = wire::VersionRequest {
+        strategy: "conventional-commits".into(),
         initial: "0.1.0".into(),
         ..Default::default()
     };
@@ -555,8 +551,39 @@ fn a_plugin_declares_and_answers_the_release_strategies_it_serves() {
     for method in ["Branch", "Version"] {
         let error = call(&Bare, method, Vec::new()).unwrap_err();
         assert_eq!(error.code, Code::Unimplemented, "{method}");
-        assert_eq!(error.reason, "unsupported-release-strategy", "{method}");
+        assert_eq!(
+            error.reason,
+            format!(
+                "{}-strategy-not-served",
+                if method == "Branch" {
+                    "branching"
+                } else {
+                    "versioning"
+                }
+            ),
+            "{method}"
+        );
     }
+    // A strategy it does not claim is not asked of it, as a service it
+    // does not claim is not: the SDK refuses it first.
+    let unclaimed = wire::BranchRequest {
+        strategy: "github-flow".into(),
+        ..branch
+    };
+    let error = call(&Strategies, "Branch", unclaimed.encode_to_vec()).unwrap_err();
+    assert_eq!(
+        (error.code, error.reason.as_str()),
+        (Code::InvalidArgument, "unclaimed-strategy")
+    );
+    let unclaimed = wire::VersionRequest {
+        strategy: "release-flow".into(),
+        ..version
+    };
+    let error = call(&Strategies, "Version", unclaimed.encode_to_vec()).unwrap_err();
+    assert_eq!(
+        (error.code, error.reason.as_str()),
+        (Code::InvalidArgument, "unclaimed-strategy")
+    );
 }
 
 /// A plugin that starts a service says so in Describe and is asked
@@ -598,7 +625,7 @@ fn a_plugin_declares_and_answers_the_services_it_starts() {
     );
     let refused = database
         .service("other", written.clone())
-        .refused("UNCLAIMED_SERVICE");
+        .refused("unclaimed-service");
     assert_eq!(refused.code, Code::InvalidArgument);
 
     // A plugin that claims none starts none, as every plugin answers
@@ -618,4 +645,67 @@ fn a_plugin_declares_and_answers_the_services_it_starts() {
     }
     let claims = TestPlugin::new(Claims);
     claims.service("database", written).unsupported();
+}
+
+/// A testdata directory holds fixtures, to every plugin: the SDK leaves
+/// every fixture out of a plugin's interests, last, and adds nothing to
+/// a plugin that has none.
+#[test]
+fn every_plugins_interests_leave_out_its_fixtures() {
+    use frontseat_plugin::repository::NOT_FIXTURES;
+    use frontseat_plugin_test::TestPlugin;
+    struct Reads(Vec<String>);
+    impl Plugin for Reads {
+        fn describe(&self) -> Description {
+            Description {
+                name: "reads".into(),
+                interests: self.0.clone(),
+                ..Default::default()
+            }
+        }
+    }
+    let described = TestPlugin::new(Reads(vec!["**/x.toml".into()])).describe();
+    assert_eq!(described.interests, ["**/x.toml", NOT_FIXTURES]);
+    let already = vec![NOT_FIXTURES.into(), "**/x.toml".into()];
+    let described = TestPlugin::new(Reads(already.clone())).describe();
+    assert_eq!(described.interests, already);
+    assert!(TestPlugin::new(Reads(Vec::new()))
+        .describe()
+        .interests
+        .is_empty());
+}
+
+/// A refusal is read back as it was written: the SDK's decoder is the
+/// inverse of its encoder, whatever of a refusal is said.
+#[test]
+fn a_refusal_is_read_back_as_it_was_written() {
+    for error in [
+        Error::invalid(
+            "invalid-manifest",
+            "app/go.mod",
+            "it is wrong.",
+            "Repair it.",
+        ),
+        Error::new(
+            Code::Unavailable,
+            "source-unavailable",
+            "the source is unavailable",
+        ),
+        Error::not_served("workspaces", "workspaces are not built").at_line("a/package.json", 2),
+    ] {
+        let status = error.clone().into_status("tool");
+        assert_eq!(Error::from_status(status.clone()), error);
+        // One stop between what went wrong and what to do.
+        assert!(!status.message.contains(".."), "{}", status.message);
+    }
+    // A status with no detail of a plugin's is read as far as it goes.
+    let bare = frontseat_plugin::google::rpc::Status {
+        code: Code::Internal as i32,
+        message: "trapped".into(),
+        details: Vec::new(),
+    };
+    assert_eq!(
+        Error::from_status(bare),
+        Error::new(Code::Internal, "", "trapped")
+    );
 }

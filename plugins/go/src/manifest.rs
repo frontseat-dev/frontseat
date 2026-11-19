@@ -55,7 +55,7 @@ impl Module {
         };
         let mut block: Option<String> = None;
         for (index, line) in raw.lines().enumerate() {
-            let number = index as i32 + 1;
+            let number = i32::try_from(index + 1).unwrap_or(i32::MAX);
             let text = line.split("//").next().unwrap_or("");
             let fields: Vec<&str> = text.split_whitespace().collect();
             let (directive, rest) = match (&block, fields.as_slice()) {
@@ -79,36 +79,25 @@ impl Module {
                     line: number,
                 }),
                 ("replace", _) => {
-                    return Err(Error {
-                        code: frontseat_plugin::Code::FailedPrecondition,
-                        reason: "unsupported-directive".into(),
-                        message: "the go.mod replaces a module it requires, and a replacement is not read: the module would be built with what the workspace hands it or what its lock fetches, and not with what this line names".into(),
-                        path: file.into(),
-                        line: number,
-                        help: "Remove the replace directive. A module the workspace holds is handed to whatever requires it without one.".into(),
-                    });
+                    return Err(Error::not_served("directive", "the go.mod replaces a module it requires, and a replacement is not read: the module would be built with what the workspace hands it or what its lock fetches, and not with what this line names")
+                        .at_line(file, number)
+                        .help("Remove the replace directive. A module the workspace holds is handed to whatever requires it without one."));
                 }
                 (known, _) if LEFT_TO_GO.contains(&known) => {}
                 _ => {
-                    return Err(Error {
-                        code: frontseat_plugin::Code::FailedPrecondition,
-                        reason: "unsupported-directive".into(),
-                        message: format!("the go.mod holds a line this plugin does not read: {}", text.trim()),
-                        path: file.into(),
-                        line: number,
-                        help: "A go.mod holds module, go, toolchain, godebug, require, exclude, retract, tool and ignore.".into(),
-                    });
+                    return Err(Error::not_served("directive", format!("the go.mod holds a line this plugin does not read: {}", text.trim()))
+                        .at_line(file, number)
+                        .help("A go.mod holds module, go, toolchain, godebug, require, exclude, retract, tool and ignore."));
                 }
             }
         }
         if module.path.is_empty() {
-            return Err(Error {
-                reason: "invalid-manifest".into(),
-                message: "the go.mod names no module".into(),
-                path: file.into(),
-                help: "Add a module directive, e.g. `module example.com/hello`.".into(),
-                ..Error::default()
-            });
+            return Err(Error::invalid(
+                "invalid-manifest",
+                file,
+                "the go.mod names no module",
+                "Add a module directive, e.g. `module example.com/hello`.",
+            ));
         }
         Ok(module)
     }
@@ -135,6 +124,10 @@ pub(super) struct Entry {
     /// The module and version, as the go command is asked for it:
     /// example.com/dep@v1.2.3.
     pub(super) module: String,
+    /// The module's path alone: example.com/dep.
+    pub(super) path: String,
+    /// The version alone: v1.2.3.
+    pub(super) version: String,
     /// Whether the go.sum locks the module's archive, and not its go.mod
     /// alone.
     pub(super) archive: bool,
@@ -158,13 +151,14 @@ impl Locked {
     /// Parses the text of a go.sum, refusing a line the go command would
     /// not write with its file and line.
     fn parse(file: &str, raw: &str) -> Result<Locked, Error> {
-        let refused = |number: i32, line: &str, what: &str| Error {
-            reason: "invalid-manifest".into(),
-            message: format!("the go.sum holds a line that {what}: {}", line.trim()),
-            path: file.to_string(),
-            line: number,
-            help: "Write the go.sum as the go command does: `go mod tidy`.".into(),
-            ..Error::default()
+        let refused = |number: i32, line: &str, what: &str| {
+            Error::invalid(
+                "invalid-manifest",
+                file,
+                format!("the go.sum holds a line that {what}: {}", line.trim()),
+                "Write the go.sum as the go command does: `go mod tidy`.",
+            )
+            .at_line(file, number)
         };
         let mut locked = Locked::default();
         let mut at = std::collections::BTreeMap::new();
@@ -207,10 +201,12 @@ impl Locked {
                     "names a version its module path does not allow",
                 ));
             }
-            let module = format!("{module}@{version}");
-            let i = *at.entry(module.clone()).or_insert_with(|| {
+            let both = format!("{module}@{version}");
+            let i = *at.entry(both.clone()).or_insert_with(|| {
                 locked.entries.push(Entry {
-                    module,
+                    module: both,
+                    path: module.to_string(),
+                    version: version.to_string(),
                     archive: false,
                     lines: String::new(),
                 });
@@ -380,6 +376,7 @@ fn number(n: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{Locked, Module, Required};
+    use frontseat_plugin::Code;
 
     #[test]
     fn a_go_sum_locks_each_module_at_each_version_with_its_own_lines() {
@@ -518,7 +515,7 @@ mod tests {
             ("module example.com/hello\n\nreplace (\n\texample.com/greet v0.0.0 => example.com/fork v1.0.0\n)\n", 4),
         ] {
             let refused = Module::parse("hello/go.mod", raw).unwrap_err();
-            assert_eq!((refused.reason.as_str(), refused.path.as_str(), refused.line), ("unsupported-directive", "hello/go.mod", line));
+            assert_eq!((refused.code, refused.reason.as_str(), refused.path.as_str(), refused.line), (Code::Unimplemented, "directive-not-served", "hello/go.mod", line));
         }
     }
 
@@ -530,8 +527,8 @@ mod tests {
         )
         .unwrap_err();
         assert_eq!(
-            (refused.reason.as_str(), refused.line),
-            ("unsupported-directive", 3)
+            (refused.code, refused.reason.as_str(), refused.line),
+            (Code::Unimplemented, "directive-not-served", 3)
         );
         assert!(refused.message.contains("vendor example.com/greet"));
     }

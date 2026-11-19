@@ -293,7 +293,7 @@ mod tests {
     }
 
     #[test]
-    fn a_kind_that_is_not_a_location_states_no_specification_as_before() {
+    fn a_component_needs_a_type_and_a_kind_of_another_api_needs_no_specification() {
         let component = json!({"apiVersion": "backstage.io/v1alpha1", "kind": "Component", "metadata": {"name": "app"}});
         let error = read(component).expect_err("a component with no type");
         assert!(

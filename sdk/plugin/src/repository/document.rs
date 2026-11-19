@@ -17,12 +17,13 @@ impl Repository<'_> {
     pub fn text(&self, path: &str) -> Result<Option<String>, Error> {
         self.read(path)?
             .map(|bytes| {
-                String::from_utf8(bytes).map_err(|_| Error {
-                    reason: "invalid-text".into(),
-                    message: "the file is not valid UTF-8".into(),
-                    path: path.into(),
-                    help: "Save this file as UTF-8.".into(),
-                    ..Default::default()
+                String::from_utf8(bytes).map_err(|_| {
+                    Error::invalid(
+                        "invalid-text",
+                        path,
+                        "the file is not valid UTF-8",
+                        "Save this file as UTF-8.",
+                    )
                 })
             })
             .transpose()
@@ -33,23 +34,8 @@ impl Repository<'_> {
     pub fn toml(&self, path: &str) -> Result<Option<TomlTable>, Error> {
         self.document_text(path)?
             .map(|text| {
-                text.parse::<TomlTable>().map_err(|error| {
-                    let line = error.span().map_or(0, |span| {
-                        text.as_bytes()[..span.start.min(text.len())]
-                            .iter()
-                            .filter(|&&byte| byte == b'\n')
-                            .count()
-                            + 1
-                    });
-                    Error {
-                        reason: "invalid-toml".into(),
-                        message: error.message().into(),
-                        path: path.into(),
-                        line: i32::try_from(line).unwrap_or(0),
-                        help: "Correct the TOML syntax, keeping each key unique.".into(),
-                        ..Default::default()
-                    }
-                })
+                text.parse::<TomlTable>()
+                    .map_err(|error| invalid_toml(path, &text, &error))
             })
             .transpose()
     }
@@ -64,15 +50,8 @@ impl Repository<'_> {
     ) -> Result<Option<Typed<T>>, Error> {
         self.document_text(path)?
             .map(|text| {
-                let value = toml::from_str::<T>(&text).map_err(|error| Error {
-                    reason: "invalid-toml".into(),
-                    message: error.message().into(),
-                    path: path.into(),
-                    line: line_of(&text, error.span().map(|span| span.start)),
-                    help: "Correct the TOML, keeping each key unique and each value of its kind."
-                        .into(),
-                    ..Default::default()
-                })?;
+                let value = toml::from_str::<T>(&text)
+                    .map_err(|error| invalid_toml(path, &text, &error))?;
                 Ok(Typed { value, text })
             })
             .transpose()
@@ -106,13 +85,10 @@ impl Repository<'_> {
                         max_total_replayed_events: 16_384,
                     },
                 };
-                serde_saphyr::from_multiple_with_options(&text, options).map_err(|error| Error {
-                    reason: "invalid-yaml".into(),
-                    message: error.to_string(),
-                    path: path.into(),
-                    line: error.location().and_then(|location| i32::try_from(location.line()).ok()).unwrap_or(0),
-                    help: "Correct the YAML syntax and value types, keep keys unique, and keep aliases within the document limits.".into(),
-                    ..Default::default()
+                serde_saphyr::from_multiple_with_options(&text, options).map_err(|error| {
+                    let line = error.location().and_then(|location| i32::try_from(location.line()).ok()).unwrap_or(0);
+                    Error::invalid("invalid-yaml", path, error.to_string(), "Correct the YAML syntax and value types, keep keys unique, and keep aliases within the document limits.")
+                        .at_line(path, line)
                 })
             })
             .transpose()
@@ -125,13 +101,12 @@ impl Repository<'_> {
             return Ok(None);
         };
         if documents.len() != 1 {
-            return Err(Error {
-                reason: "invalid-yaml".into(),
-                message: "the manifest must contain exactly one nonempty YAML document".into(),
-                path: path.into(),
-                help: "Keep one manifest document in this file.".into(),
-                ..Default::default()
-            });
+            return Err(Error::invalid(
+                "invalid-yaml",
+                path,
+                "the manifest must contain exactly one nonempty YAML document",
+                "Keep one manifest document in this file.",
+            ));
         }
         Ok(documents.pop())
     }
@@ -146,14 +121,14 @@ impl Repository<'_> {
     pub fn json_document<T: DeserializeOwned>(&self, path: &str) -> Result<Option<T>, Error> {
         self.document_text(path)?
             .map(|text| {
-                serde_json::from_str(&text).map_err(|error| Error {
-                    reason: "invalid-json".into(),
-                    message: error.to_string(),
-                    path: path.into(),
-                    line: i32::try_from(error.line()).unwrap_or(0),
-                    help: "Correct the JSON syntax and value types, keeping each key unique."
-                        .into(),
-                    ..Default::default()
+                serde_json::from_str(&text).map_err(|error| {
+                    Error::invalid(
+                        "invalid-json",
+                        path,
+                        error.to_string(),
+                        "Correct the JSON syntax and value types, keeping each key unique.",
+                    )
+                    .at_line(path, i32::try_from(error.line()).unwrap_or(0))
                 })
             })
             .transpose()
@@ -165,13 +140,12 @@ impl Repository<'_> {
             .as_ref()
             .is_some_and(|text| text.len() > MAX_DOCUMENT_BYTES)
         {
-            return Err(Error {
-                reason: "document-too-large".into(),
-                message: "the manifest exceeds the 4 MiB document limit".into(),
-                path: path.into(),
-                help: "Split the manifest into smaller ecosystem documents.".into(),
-                ..Default::default()
-            });
+            return Err(Error::invalid(
+                "document-too-large",
+                path,
+                "the manifest exceeds the 4 MiB document limit",
+                "Split the manifest into smaller ecosystem documents.",
+            ));
         }
         Ok(text)
     }
@@ -191,15 +165,14 @@ fn validate_yaml_nulls(path: &str, text: &str) -> Result<(), Error> {
         flow_nesting_limit: MAX_YAML_DEPTH,
         block_nesting_limit: MAX_YAML_DEPTH,
     };
-    let invalid = |message: String, line: usize| Error {
-        reason: "invalid-yaml".into(),
-        message,
-        path: path.into(),
-        line: i32::try_from(line).unwrap_or(0),
-        help:
-            "Use valid YAML scalar values and keep the document within the shared parsing limits."
-                .into(),
-        ..Default::default()
+    let invalid = |message: String, line: usize| {
+        Error::invalid(
+            "invalid-yaml",
+            path,
+            message,
+            "Use valid YAML scalar values and keep the document within the shared parsing limits.",
+        )
+        .at_line(path, i32::try_from(line).unwrap_or(0))
     };
     for (count, event) in Parser::new_from_str_with_options(text, options).enumerate() {
         let (event, span) =
@@ -225,9 +198,23 @@ fn validate_yaml_nulls(path: &str, text: &str) -> Result<(), Error> {
     Ok(())
 }
 
+/// TOML that does not read: where it stops reading, and why. Read as a
+/// table or as a type, it is refused alike.
+fn invalid_toml(path: &str, text: &str, error: &toml::de::Error) -> Error {
+    Error::invalid(
+        "invalid-toml",
+        path,
+        error.message(),
+        "Correct the TOML, keeping each key unique and each value of its kind.",
+    )
+    .at_line(path, line_of(text, error.span().map(|span| span.start)))
+}
+
 /// A typed document with the text it was read from.
 pub struct Typed<T> {
+    /// The document, read as its type.
     pub value: T,
+    /// Its text, for the line a value is on ([`line_of`]).
     pub text: String,
 }
 

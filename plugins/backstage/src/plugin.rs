@@ -11,9 +11,7 @@ impl Plugin for BackstagePlugin {
     fn describe(&self) -> Description {
         Description {
             name: "backstage".into(),
-            // A testdata directory holds fixtures, as Go has it: what is
-            // in one is no project, however it looks.
-            interests: vec!["**/catalog-info.yaml".into(), "!**/testdata/**".into()],
+            interests: vec!["**/catalog-info.yaml".into()],
             ..Default::default()
         }
     }
@@ -55,10 +53,16 @@ impl Plugin for BackstagePlugin {
                 ));
             };
             let document = &documents[index];
+            let index = i32::try_from(index).map_err(|_| {
+                catalog::invalid(
+                    manifest,
+                    "the file holds more documents than can be counted",
+                )
+            })?;
             let spec = document.specification(manifest);
             edits.push(Edit {
                 path: manifest.into(),
-                document: index as i32,
+                document: index,
                 keys: vec!["spec".into(), "dependsOn".into()],
                 values: should_say(
                     spec.list("dependsOn")?,
@@ -69,7 +73,7 @@ impl Plugin for BackstagePlugin {
             if document.states("dependencyOf") {
                 edits.push(Edit {
                     path: manifest.into(),
-                    document: index as i32,
+                    document: index,
                     keys: vec!["spec".into(), "dependencyOf".into()],
                     values: should_say(
                         spec.list("dependencyOf")?,
@@ -101,12 +105,8 @@ impl Plugin for BackstagePlugin {
 /// source still names stays as written, and what the source names beyond
 /// that is added in canonical order. A bare reference is a component of
 /// the entity's namespace, as Backstage reads one.
-fn should_say(
-    written: Vec<&str>,
-    components: &[frontseat_plugin::EntityRef],
-    namespace: &str,
-) -> Vec<String> {
-    let mut remaining: Vec<&frontseat_plugin::EntityRef> = components.iter().collect();
+fn should_say(written: Vec<&str>, components: &[EntityRef], namespace: &str) -> Vec<String> {
+    let mut remaining: Vec<&EntityRef> = components.iter().collect();
     let mut out = Vec::with_capacity(written.len() + components.len());
     for entry in written {
         match entity::parse(entry, Some("component"), namespace) {
@@ -140,7 +140,7 @@ fn should_say(
 mod tests {
     use super::*;
 
-    fn component(namespace: &str, name: &str) -> frontseat_plugin::EntityRef {
+    fn component(namespace: &str, name: &str) -> EntityRef {
         entity::parse(&format!("component:{namespace}/{name}"), None, "default").unwrap()
     }
 

@@ -4,7 +4,7 @@
 mod fixture;
 
 use frontseat_plugin::{
-    Action, Analysis, Command, Coordinate, Description, Error, File, Handed, Input, InputSet,
+    Action, Analysis, Code, Command, Coordinate, Description, Error, File, Handed, Input, InputSet,
     Origin, Output, Plugin, Produced, Project, Provide, Repository, Requirement,
 };
 
@@ -115,12 +115,12 @@ impl Plugin for RuntimeInputs {
                 ];
             }
             _ => {
-                return Err(Error {
-                    reason: "unknown-role".into(),
-                    message: "expected source, runtime or consumer".into(),
-                    path: manifest,
-                    ..Default::default()
-                })
+                return Err(Error::new(
+                    Code::FailedPrecondition,
+                    "unknown-role",
+                    "expected source, runtime or consumer",
+                )
+                .at(manifest))
             }
         }
         Ok(Analysis {
@@ -145,12 +145,15 @@ impl Plugin for RuntimeInputs {
             || handed[0].coordinate.as_ref() != Some(&coordinate(expected))
             || handed[0].into != format!("deps/{expected}")
         {
-            return Err(Error {
-                reason: "wrong-handoff".into(),
-                message: "each action must be arranged with exactly its selected dependency".into(),
-                path: frontseat_plugin::repository::join(root, "input-fixture.toml"),
-                ..Default::default()
-            });
+            return Err(Error::new(
+                Code::FailedPrecondition,
+                "wrong-handoff",
+                "each action must be arranged with exactly its selected dependency",
+            )
+            .at(frontseat_plugin::repository::join(
+                root,
+                "input-fixture.toml",
+            )));
         }
         Ok(Vec::new())
     }

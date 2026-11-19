@@ -6,8 +6,8 @@ mod fixture;
 
 use frontseat_plugin::Input;
 use frontseat_plugin::{
-    Action, Analysis, Command, Coordinate, Description, Error, File, Handed, InputSet, Origin,
-    Plugin, Project, Provide, Repository, Requirement,
+    Action, Analysis, Code, Command, Coordinate, Description, Error, File, Handed, InputSet,
+    Origin, Plugin, Project, Provide, Repository, Requirement,
 };
 
 struct Cohabiting;
@@ -25,11 +25,13 @@ impl Plugin for Cohabiting {
                 .and_then(|value| value.as_str())
                 .filter(|value| !value.is_empty())
                 .map(String::from)
-                .ok_or_else(|| Error {
-                    reason: "missing-coordinate".into(),
-                    message: format!("{name} must name a module"),
-                    path: manifest.clone(),
-                    ..Default::default()
+                .ok_or_else(|| {
+                    Error::new(
+                        Code::FailedPrecondition,
+                        "missing-coordinate",
+                        format!("{name} must name a module"),
+                    )
+                    .at(&manifest)
                 })
         };
         let provided = field("provides")?;

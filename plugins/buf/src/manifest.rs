@@ -1,5 +1,5 @@
 use frontseat_plugin::prelude::*;
-use frontseat_plugin::repository::join;
+use frontseat_plugin::repository::{beneath, join, resolve};
 use serde::de::IgnoredAny;
 use serde::Deserialize;
 use std::collections::BTreeMap;
@@ -26,11 +26,12 @@ struct Generation {
     version: String,
     plugins: Vec<Generator>,
     #[serde(default)]
-    inputs: Vec<Input>,
+    inputs: Vec<GenerationInput>,
 }
 
+/// What a template generates from: a directory of the workspace.
 #[derive(Deserialize)]
-struct Input {
+struct GenerationInput {
     directory: String,
     #[serde(flatten)]
     options: BTreeMap<String, IgnoredAny>,
@@ -77,6 +78,13 @@ pub(super) struct Manifest {
     pub templates: Vec<Template>,
 }
 
+/// What a workspace says that is valid and not built yet.
+fn not_served(what: &str, path: &str, message: &str) -> Error {
+    Error::not_served(what, message)
+        .at(path)
+        .help("Use repository-local modules and pinned local Go generators.")
+}
+
 fn invalid(path: &str, message: impl Into<String>) -> Error {
     Error::invalid(
         "invalid-manifest",
@@ -109,10 +117,21 @@ pub(super) fn read(repo: &Repository, root: &str) -> Result<Option<Manifest>, Er
     let Some(workspace) = repo.yaml_document::<Workspace>(&path)? else {
         return Ok(None);
     };
-    if workspace.version != "v2" || !workspace.deps.is_empty() || !workspace.plugins.is_empty() {
-        return Err(invalid(
+    if workspace.version != "v2" {
+        return Err(invalid(&path, "this Buf workspace must use v2"));
+    }
+    if !workspace.deps.is_empty() {
+        return Err(not_served(
+            "dependencies",
             &path,
-            "this Buf workspace must use v2 and repository-local modules",
+            "a Buf workspace that depends on a module of the Buf Schema Registry is not built yet",
+        ));
+    }
+    if !workspace.plugins.is_empty() {
+        return Err(not_served(
+            "check-plugins",
+            &path,
+            "a Buf workspace's check plugins are not run yet",
         ));
     }
     if workspace
@@ -125,8 +144,7 @@ pub(super) fn read(repo: &Repository, root: &str) -> Result<Option<Manifest>, Er
             "module paths must stay inside this Buf workspace",
         ));
     }
-    let mut files = repo.glob(root, &["buf.gen.yaml", "buf.gen.*.yaml"])?;
-    files.sort();
+    let files = repo.glob(root, &["buf.gen.yaml", "buf.gen.*.yaml"])?;
     let mut templates = Vec::with_capacity(files.len());
     for path in files {
         let file = path.rsplit('/').next().unwrap_or(&path).to_string();
@@ -182,6 +200,13 @@ fn template(
     // workspace when it is there.
     let mut placed = Vec::with_capacity(generation.plugins.len());
     for generator in generation.plugins {
+        if generator.options.contains_key("remote") {
+            return Err(not_served(
+                "remote-generators",
+                path,
+                "a generator of the Buf Schema Registry is not run yet",
+            ));
+        }
         if generator.options.keys().any(|key| {
             ![
                 "opt",
@@ -213,7 +238,7 @@ fn template(
         // The directory as the host names an output: plainly, so that
         // "./gen/go" and "gen/go" are one place. Neither the workspace
         // nor the repository is an output.
-        let Some(at) = within_repository(root, &generator.out) else {
+        let Some(at) = resolve(root, &generator.out) else {
             return Err(invalid(
                 path,
                 format!(
@@ -272,10 +297,13 @@ fn template(
         });
     result.base = apart.as_deref().map(|apart| join(apart, root));
     for (at, place, patterns) in placed {
+        // A destination is written apart, so where nothing is, each is a
+        // directory of the workspace.
         let left = match (&apart, &place) {
             (Some(apart), _) => join(apart, &at),
-            (None, Place::Directory(directory)) => directory.clone(),
-            (None, Place::Destination(_)) => unreachable!("a destination is written apart"),
+            (None, Place::Directory(directory) | Place::Destination(directory)) => {
+                directory.clone()
+            }
         };
         if let Some(output) = result.outputs.iter_mut().find(|output| output.path == left) {
             for pattern in patterns {
@@ -294,35 +322,6 @@ fn template(
     Ok(Some(result))
 }
 
-/// Where a template's output is in the repository: the Buf workspace's
-/// directory and the output joined, plainly. None where that leaves the
-/// repository or is written from its root.
-fn within_repository(root: &str, out: &str) -> Option<String> {
-    let mut parts: Vec<&str> = root.split('/').filter(|part| !part.is_empty()).collect();
-    for part in Path::new(out).components() {
-        match part {
-            Component::Normal(name) => parts.push(name.to_str()?),
-            Component::CurDir => {}
-            Component::ParentDir => {
-                parts.pop()?;
-            }
-            Component::RootDir | Component::Prefix(_) => return None,
-        }
-    }
-    Some(parts.join("/"))
-}
-
-/// A directory of the repository relative to the Buf workspace, where it
-/// is beneath it.
-fn beneath<'a>(root: &str, at: &'a str) -> Option<&'a str> {
-    if root.is_empty() {
-        return (!at.is_empty()).then_some(at);
-    }
-    at.strip_prefix(root)?
-        .strip_prefix('/')
-        .filter(|rest| !rest.is_empty())
-}
-
 // Buf's directory input is literal, not a glob. The standard path library
 // rejects absolute paths and traversal; the host validates declared outputs
 // again and confines every source read and action on the worker.
@@ -336,38 +335,27 @@ fn local_directory(value: &str) -> bool {
 
 #[cfg(test)]
 mod place_tests {
-    use super::{action_of, beneath, within_repository};
+    use super::action_of;
+    use frontseat_plugin::repository::resolve;
 
     #[test]
     fn an_output_is_where_the_repository_has_it_whatever_its_spelling() {
         for spelled in ["gen/go", "./gen/go", "gen//go/", "gen/./go", "x/../gen/go"] {
             assert_eq!(
-                within_repository("api", spelled).as_deref(),
+                resolve("api", spelled).as_deref(),
                 Some("api/gen/go"),
                 "{spelled}"
             );
         }
+        assert_eq!(resolve("api", "../lib/gen").as_deref(), Some("lib/gen"));
         assert_eq!(
-            within_repository("api", "../lib/gen").as_deref(),
-            Some("lib/gen")
-        );
-        assert_eq!(
-            within_repository("proto/api", "../../lib/gen").as_deref(),
+            resolve("proto/api", "../../lib/gen").as_deref(),
             Some("lib/gen")
         );
         for outside in ["../../outside", "/abs/gen", "../x/../../y"] {
-            assert_eq!(within_repository("api", outside), None, "{outside}");
+            assert_eq!(resolve("api", outside), None, "{outside}");
         }
-        assert_eq!(within_repository("", "../gen"), None);
-    }
-
-    #[test]
-    fn an_output_beneath_the_workspace_is_named_from_it() {
-        assert_eq!(beneath("api", "api/gen/go"), Some("gen/go"));
-        assert_eq!(beneath("", "gen/go"), Some("gen/go"));
-        for apart in ["api", "apis/gen", "lib/gen", ""] {
-            assert_eq!(beneath("api", apart), None, "{apart}");
-        }
+        assert_eq!(resolve("", "../gen"), None);
     }
 
     #[test]
@@ -390,5 +378,47 @@ mod place_tests {
         ] {
             assert_eq!(action_of(refused), None, "{refused}");
         }
+    }
+}
+
+#[cfg(test)]
+mod served_tests {
+    use frontseat_plugin::prelude::*;
+    use frontseat_plugin_test::{Files, TestHost, TestPlugin};
+
+    /// What a Buf workspace says that is valid and not built yet is
+    /// refused as not served, each by its own reason, and a file that is
+    /// wrong is refused as invalid; the control is a workspace of local
+    /// modules and local generators, which is built.
+    #[test]
+    fn what_a_workspace_says_that_is_not_built_yet_is_refused_as_not_served() {
+        let plugin = TestPlugin::new(crate::served());
+        let context = plugin.context(Profile::Development);
+        let analyze = |files: Files| plugin.analyze(&TestHost::new(files), &context, &["proto"]);
+        let workspace = |buf: &str| Files::new().with("proto/buf.yaml", buf);
+        let generating = |generator: &str| {
+            workspace("version: v2\n").with(
+                "proto/buf.gen.yaml",
+                format!("version: v2\nplugins:\n  - {generator}\n"),
+            )
+        };
+        analyze(generating("local: protoc-gen-go\n    out: gen")).answered();
+        for (files, reason) in [
+            (
+                workspace("version: v2\ndeps: [buf.build/x/y]\n"),
+                "dependencies-not-served",
+            ),
+            (
+                workspace("version: v2\nplugins: [{plugin: buf-plugin-x}]\n"),
+                "check-plugins-not-served",
+            ),
+            (
+                generating("remote: buf.build/protocolbuffers/go\n    out: gen"),
+                "remote-generators-not-served",
+            ),
+        ] {
+            assert_eq!(analyze(files).refused(reason).code, Code::Unimplemented);
+        }
+        analyze(workspace("version: v1\n")).refused("invalid-manifest");
     }
 }

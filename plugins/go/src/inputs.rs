@@ -1,5 +1,5 @@
 use frontseat_plugin::prelude::*;
-use frontseat_plugin::repository::{join, literal};
+use frontseat_plugin::repository::{beneath, join, literal, NOT_FIXTURES};
 
 /// What the go command reads of a module besides what its files embed:
 /// its Go files, and with them the assembly beside them, the headers
@@ -15,7 +15,7 @@ const SOURCES: &[&str] = &[
     "**/*.s",
     "**/*.h",
     "**/*.syso",
-    "!**/testdata/**",
+    NOT_FIXTURES,
 ];
 
 /// What one reading of a module's Go files says of it.
@@ -67,17 +67,14 @@ pub(super) fn input_sets(repo: &Repository, root: &str) -> Result<Read, Error> {
     module.push("!**/*_test.go".into());
     // A module nested in this one is a module of its own: the go command
     // stops at its go.mod, and so does this module's reading.
-    let nested = nested_modules(repo, root)?;
+    let nested = repo.nested(root, "go.mod", &[])?;
     for directory in &nested {
         // A directory's name is a name, and is written as one.
         sources.push(format!("!{}/**", literal(directory)));
         module.push(format!("!{}/**", literal(directory)));
     }
-    for file in repo.glob(root, &["**/*.go", "!**/testdata/**"])? {
-        let within = file
-            .strip_prefix(root)
-            .unwrap_or(&file)
-            .trim_start_matches('/');
+    for file in repo.glob(root, &["**/*.go", NOT_FIXTURES])? {
+        let within = beneath(root, &file).unwrap_or(&file);
         if nested
             .iter()
             .any(|directory| within.starts_with(&format!("{directory}/")))
@@ -219,7 +216,7 @@ fn quoted(letters: &mut impl Iterator<Item = char>) -> Option<String> {
                     'r' => bytes.push(b'\r'),
                     't' => bytes.push(b'\t'),
                     'v' => bytes.push(11),
-                    '\\' | '"' => bytes.push(escape as u8),
+                    '\\' | '"' => bytes.push(u8::try_from(escape).ok()?),
                     'x' | 'u' | 'U' => {
                         let digits = match escape {
                             'x' => 2,
@@ -231,7 +228,7 @@ fn quoted(letters: &mut impl Iterator<Item = char>) -> Option<String> {
                             value = value * 16 + letters.next()?.to_digit(16)?;
                         }
                         if escape == 'x' {
-                            bytes.push(value as u8);
+                            bytes.push(u8::try_from(value).ok()?);
                         } else {
                             bytes.extend_from_slice(
                                 char::from_u32(value)?.encode_utf8(&mut [0; 4]).as_bytes(),
@@ -252,23 +249,6 @@ fn quoted(letters: &mut impl Iterator<Item = char>) -> Option<String> {
         }
     }
     None
-}
-
-/// The directories of the modules nested in a module, relative to it:
-/// each holds a go.mod of its own, which is not this module's.
-fn nested_modules(repo: &Repository, root: &str) -> Result<Vec<String>, Error> {
-    let mut out = Vec::new();
-    for file in repo.glob(root, &["**/go.mod", "!**/testdata/**"])? {
-        let within = file
-            .strip_prefix(root)
-            .unwrap_or(&file)
-            .trim_start_matches('/');
-        if let Some(directory) = within.strip_suffix("/go.mod") {
-            out.push(directory.to_string());
-        }
-    }
-    out.sort();
-    Ok(out)
 }
 
 #[cfg(test)]

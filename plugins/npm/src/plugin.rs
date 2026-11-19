@@ -1,20 +1,11 @@
 use frontseat_plugin::prelude::*;
+use frontseat_plugin::repository::join;
 
 pub(crate) struct NpmPlugin;
 
 impl Plugin for NpmPlugin {
     fn describe(&self) -> Description {
-        Description {
-            name: "npm".into(),
-            // A testdata directory holds fixtures, as Go has it: what is
-            // in one is no project, however it looks.
-            interests: vec![
-                "**/package.json".into(),
-                "!**/node_modules/**".into(),
-                "!**/testdata/**".into(),
-            ],
-            ..Default::default()
-        }
+        frontseat_plugin::javascript::description("npm")
     }
 
     fn analyze(&self, repo: &Repository, root: &str) -> Result<Analysis, Error> {
@@ -34,7 +25,7 @@ impl Plugin for NpmPlugin {
                 }],
                 name: package.name,
                 kind: "npm-package".into(),
-                manifest: frontseat_plugin::repository::join(root, "package.json"),
+                manifest: join(root, "package.json"),
                 actions: crate::actions::of(),
                 ..Default::default()
             }],

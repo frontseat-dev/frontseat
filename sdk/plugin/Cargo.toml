@@ -3,6 +3,9 @@ name = "frontseat-plugin"
 version = "0.0.0"
 edition.workspace = true
 license.workspace = true
+readme = "README.md"
+repository = "https://github.com/frontseat-dev/frontseat"
+documentation = "https://docs.rs/frontseat-plugin"
 description = "What a frontseat plugin is written against."
 
 [dependencies]
@@ -11,7 +14,6 @@ prost-types = "0.14"
 toml = { version = "1.2.1", default-features = false, features = ["parse", "display", "std", "serde"] }
 serde = { version = "1", features = ["derive"] }
 serde-saphyr = { version = "2.1.1", default-features = false, features = ["deserialize"] }
-url = { version = "2.5.8", default-features = false, features = ["std"] }
 serde_json = { version = "1", default-features = false, features = ["std"] }
 # Native lock checksums are decoded once for the ecosystem plugins.
 base64 = { version = "0.23", default-features = false, features = ["alloc"] }
@@ -30,4 +32,9 @@ crate-type = ["cdylib"]
 
 [[example]]
 name = "runtime_inputs"
+crate-type = ["cdylib"]
+
+# The example a plugin's author starts from (README.md).
+[[example]]
+name = "make"
 crate-type = ["cdylib"]

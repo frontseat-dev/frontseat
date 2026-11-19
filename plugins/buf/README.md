@@ -12,8 +12,11 @@ from its file: `buf.gen.yaml` by `generate`, `buf.gen.<name>.yaml` by
 `generate-<name>` (`buf.gen.sdk.yaml` by `generate-sdk`); a `<name>` is
 lower-case letters, digits and dashes, and any other is refused.
 Native managed mode and generator options are passed to Buf. Generation inputs
-must be local directories; output archives, remote generators, built-ins,
-workspace check plugins and external Buf module dependencies are refused.
+must be local directories; output archives and built-ins are refused
+(`invalid-manifest`). Valid and not built yet, and refused `UNIMPLEMENTED` by
+name: external Buf module dependencies (`dependencies-not-served`), workspace
+check plugins (`check-plugins-not-served`) and remote generators
+(`remote-generators-not-served`).
 Tools come from the repository's checksum-locked mise pins. Generation runs
 without network; provisioning uses the existing proxy-confined fetch path.
 

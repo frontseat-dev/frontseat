@@ -12,9 +12,9 @@ impl Plugin for GoPlugin {
     fn describe(&self) -> Description {
         Description {
             name: "go".into(),
-            // What the go command looks at, and not what it leaves out:
-            // a directory named testdata is a fixture's, whatever it holds.
-            interests: ["**/go.mod", "**/go.sum", "**/*.go", "!**/testdata/**"]
+            // What the go command looks at. A directory named testdata
+            // is a fixture's, whatever it holds: the SDK leaves it out.
+            interests: ["**/go.mod", "**/go.sum", "**/*.go"]
                 .map(str::to_string)
                 .to_vec(),
             options: vec![
@@ -55,17 +55,8 @@ impl Plugin for GoPlugin {
         _actions: &[String],
         handed: &[Handed],
     ) -> Result<Vec<File>, Error> {
-        let Some(version) = repo.tool_version("go") else {
-            return Err(Error {
-                reason: "unpinned-tool".into(),
-                message:
-                    "the repository pins no go, so a workspace of its modules cannot be written"
-                        .into(),
-                path: join(root, "go.mod"),
-                help: "Pin go in mise.toml.".into(),
-                ..Error::default()
-            });
-        };
+        let manifest = join(root, "go.mod");
+        let version = repo.pinned("go", &manifest)?;
         // Only the action's project is a main module. Every inferred dependency
         // is a local replacement, including transitive requirements. A use entry
         // alone may still make Go read an unpublished required version's go.mod.
@@ -73,12 +64,13 @@ impl Plugin for GoPlugin {
         if !handed.is_empty() {
             work.push_str("\nreplace (\n");
             for each in handed {
-                let coordinate = each.coordinate.as_ref().ok_or_else(|| Error {
-                    reason: "invalid-handover".into(),
-                    message: "a handed Go module has no coordinate".into(),
-                    path: join(root, "go.mod"),
-                    help: "Hand a module with its Go coordinate.".into(),
-                    ..Error::default()
+                let coordinate = each.coordinate.as_ref().ok_or_else(|| {
+                    Error::invalid(
+                        "invalid-handover",
+                        &manifest,
+                        "a handed Go module has no coordinate",
+                        "Hand a module with its Go coordinate.",
+                    )
                 })?;
                 work.push_str(&format!("\t{} => ./{}\n", coordinate.name, each.into));
             }

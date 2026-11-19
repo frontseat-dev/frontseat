@@ -60,6 +60,6 @@ mod tests {
         assert_eq!(plugin.describe().services, ["container"]);
         plugin
             .service("postgres", Service::default())
-            .refused("UNCLAIMED_SERVICE");
+            .refused("unclaimed-service");
     }
 }

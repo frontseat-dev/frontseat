@@ -5,32 +5,19 @@ use frontseat_plugin::repository::join;
 pub(crate) struct JestPlugin;
 
 fn invalid(path: &str, message: impl Into<String>) -> Error {
-    Error::invalid(
-        "invalid-manifest",
-        path,
-        message,
-        "Declare Jest as a direct dependency and scripts.test as jest; keep options in native Jest configuration. One configured suite is one atom.",
-    )
+    Error::invalid("invalid-manifest", path, message, HELP)
+}
+
+const HELP: &str = "Declare Jest as a direct dependency and scripts.test as jest; keep options in native Jest configuration. One configured suite is one piece.";
+
+/// What a package says that Jest runs and this plugin does not run yet.
+fn not_served(what: &str, path: &str, message: impl Into<String>) -> Error {
+    Error::not_served(what, message).at(path).help(HELP)
 }
 
 impl Plugin for JestPlugin {
     fn describe(&self) -> Description {
-        Description {
-            name: "jest".into(),
-            // A testdata directory holds fixtures, as Go has it: what is
-            // in one is no project, however it looks.
-            interests: vec![
-                "**/package.json".into(),
-                "!**/node_modules/**".into(),
-                "!**/testdata/**".into(),
-            ],
-            options: vec![PluginOption {
-                name: "test-shards",
-                default: Value::Int(1),
-                entity_settable: true,
-            }],
-            ..Default::default()
-        }
+        frontseat_plugin::javascript::description("jest")
     }
 
     fn analyze(&self, repo: &Repository, root: &str) -> Result<Analysis, Error> {
@@ -42,15 +29,10 @@ impl Plugin for JestPlugin {
             return Ok(Analysis::default());
         }
         if package.workspaces.is_some() {
-            return Err(invalid(
+            return Err(not_served(
+                "workspaces",
                 &manifest,
-                "Jest workspace installations are not supported yet",
-            ));
-        }
-        if repo.int("test-shards")? != 1 {
-            return Err(invalid(
-                &manifest,
-                "Jest runs one configured suite atom; test-shards must be 1",
+                "Jest workspace installations are not run yet",
             ));
         }
         if package.scripts.get("test").map(String::as_str) != Some("jest") {
@@ -58,15 +40,18 @@ impl Plugin for JestPlugin {
         }
         for hook in ["pretest", "posttest"] {
             if package.scripts.contains_key(hook) {
-                return Err(invalid(
+                return Err(not_served(
+                    "test-hooks",
                     &manifest,
-                    format!("the {hook} lifecycle is not supported yet"),
+                    format!("the {hook} lifecycle is not run yet"),
                 ));
             }
         }
-        let manager = package.manager(&manifest)?;
+        let script = package.script(&manifest, "test", &["--ci"])?;
         let installation = package.installation();
-        // Its own installation, which no lock gives a version.
+        // Its own installation, which no lock gives a version. The host
+        // requires a requirement to say the line it is said on; no line
+        // of package.json says it, and it is said of the file, from 1.
         let requirement = Requirement {
             coordinate: Some(installation.clone()),
             origin: Some(Origin {
@@ -75,6 +60,14 @@ impl Plugin for JestPlugin {
             }),
             version: String::new(),
         };
+        let test = Action::new("test", Command::new(script))
+            .tool("node")
+            .inputs([
+                Input::source("**"),
+                Input::source("!node_modules/**"),
+                Input::dependency(installation, "{root}"),
+            ])
+            .test();
         Ok(Analysis {
             projects: vec![Project {
                 root: root.into(),
@@ -83,21 +76,7 @@ impl Plugin for JestPlugin {
                 manifest,
                 requires: vec![requirement],
                 always_arranged: true,
-                actions: vec![Action {
-                    name: "test".into(),
-                    command: Some(Command {
-                        arguments: manager.script("test", &["--ci"]),
-                        ..Default::default()
-                    }),
-                    inputs: vec![
-                        Input::source("**"),
-                        Input::source("!node_modules/**"),
-                        Input::dependency(installation, "{root}"),
-                    ],
-                    tools: vec!["node".into()],
-                    test: true,
-                    ..Default::default()
-                }],
+                actions: vec![test],
                 ..Default::default()
             }],
             ..Default::default()
@@ -128,11 +107,74 @@ impl Plugin for JestPlugin {
             || handed[0].coordinate.as_ref() != Some(&package.installation())
             || handed[0].into != "."
         {
-            return Err(Error { reason: "missing-installation".into(), path: manifest,
-                message: "Jest requires the installed dependencies of this package at its own root".into(),
-                help: "Enable the npm plugin beside jest; the current adapter serves standalone npm installations.".into(),
-                ..Default::default() });
+            return Err(Error::invalid("missing-installation", &manifest,
+                "Jest requires the installed dependencies of this package at its own root",
+                "Enable the npm plugin beside jest; the current adapter serves standalone npm installations."));
         }
         Ok(Vec::new())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use frontseat_plugin::prelude::*;
+    use frontseat_plugin_test::{Files, TestHost, TestPlugin};
+
+    const PACKAGE: &str =
+        r#"{"name":"web","scripts":{"test":"jest"},"devDependencies":{"jest":"30.5.2"}}"#;
+
+    /// What a package says that Jest runs and this plugin does not run
+    /// yet is refused as not served, each by its own reason; a test
+    /// script that is not jest is refused as invalid; the control is a
+    /// package whose test script is jest, which is a suite. It takes no
+    /// option: one configured suite is one piece, never cut into shards.
+    #[test]
+    fn what_jest_runs_and_is_not_run_yet_is_refused_as_not_served() {
+        let plugin = TestPlugin::new(crate::served());
+        let context = plugin.context(Profile::Development);
+        let analyze = |package: String| {
+            let host = TestHost::new(Files::new().with("app/package.json", package));
+            plugin.analyze(&host, &context, &["app"])
+        };
+        analyze(PACKAGE.into()).answered();
+        for (from, to, reason) in [
+            (
+                r#""name":"web""#,
+                r#""name":"web","workspaces":["packages/*"]"#,
+                "workspaces-not-served",
+            ),
+            (
+                r#""name":"web""#,
+                r#""name":"web","packageManager":"pnpm@11""#,
+                "package-manager-not-served",
+            ),
+            (
+                r#""test":"jest""#,
+                r#""test":"jest","pretest":"node setup.js""#,
+                "test-hooks-not-served",
+            ),
+            (
+                r#""test":"jest""#,
+                r#""test":"jest","posttest":"node finish.js""#,
+                "test-hooks-not-served",
+            ),
+        ] {
+            let refused = analyze(PACKAGE.replace(from, to)).refused(reason);
+            assert_eq!(
+                (refused.code, refused.path.as_str()),
+                (Code::Unimplemented, "app/package.json")
+            );
+        }
+        analyze(PACKAGE.replace(r#""test":"jest""#, r#""test":"jest --ci""#))
+            .refused("invalid-manifest");
+        assert!(plugin.describe().options.is_empty());
+        let host = TestHost::new(Files::new().with("app/package.json", PACKAGE));
+        plugin
+            .analyze(
+                &host,
+                &context.option("test-shards", Value::Int(1)),
+                &["app"],
+            )
+            .refused("invalid-option");
     }
 }

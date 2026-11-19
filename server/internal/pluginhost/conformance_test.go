@@ -31,7 +31,7 @@ func pluginFixtures(t *testing.T) map[string]conformance.Fixture {
 		"jest":      jestFixture(),
 		"release":   releaseFixture(),
 		"go": {
-			Description: &pluginv1.DescribeResponse{Name: "go", Abi: 19, Interests: []string{"**/go.mod", "**/go.sum", "**/*.go", "!**/testdata/**"}, Options: []*pluginv1.Option{{Name: "test-timeout", Kind: pluginv1.Option_KIND_STRING, Default: &typev1.OptionValue{Value: &typev1.OptionValue_StringValue{StringValue: "10m"}}, EntitySettable: true}, {Name: "test-shards", Kind: pluginv1.Option_KIND_INT, Default: &typev1.OptionValue{Value: &typev1.OptionValue_IntValue{IntValue: 1}}, EntitySettable: true}, {Name: "tags", Kind: pluginv1.Option_KIND_STRING_LIST, Default: &typev1.OptionValue{Value: &typev1.OptionValue_StringListValue{StringListValue: &typev1.OptionValue_StringList{}}}, EntitySettable: true}}},
+			Description: &pluginv1.DescribeResponse{Name: "go", Abi: 20, Interests: []string{"**/go.mod", "**/go.sum", "**/*.go", "!**/testdata/**"}, Options: []*pluginv1.Option{{Name: "test-timeout", Kind: pluginv1.Option_KIND_STRING, Default: &typev1.OptionValue{Value: &typev1.OptionValue_StringValue{StringValue: "10m"}}, EntitySettable: true}, {Name: "test-shards", Kind: pluginv1.Option_KIND_INT, Default: &typev1.OptionValue{Value: &typev1.OptionValue_IntValue{IntValue: 1}}, EntitySettable: true}, {Name: "tags", Kind: pluginv1.Option_KIND_STRING_LIST, Default: &typev1.OptionValue{Value: &typev1.OptionValue_StringListValue{StringListValue: &typev1.OptionValue_StringList{}}}, EntitySettable: true}}},
 			Name:        "go", Source: fixtureSource(t, "go", "valid"),
 			Absent: files{}, Malformed: fixtureSource(t, "go", "malformed"), ErrorCode: "INVALID_MANIFEST",
 			Projects:       []*pluginv1.Project{{Root: "app", Name: "example.com/hello", Kind: "go-module", Manifest: "app/go.mod", Actions: expectedGoActions(), InputSets: []*pluginv1.InputSet{{Name: "sources", AcceptsGenerated: true, Inputs: []*pluginv1.Input{pluginhost.SourceInput("go.mod"), pluginhost.SourceInput("go.sum"), pluginhost.SourceInput("**/*.go"), pluginhost.SourceInput("**/*.s"), pluginhost.SourceInput("**/*.h"), pluginhost.SourceInput("**/*.syso"), pluginhost.SourceInput("!**/testdata/**")}}, {Name: "module", AcceptsGenerated: true, Inputs: []*pluginv1.Input{pluginhost.SourceInput("go.mod"), pluginhost.SourceInput("go.sum"), pluginhost.SourceInput("**/*.go"), pluginhost.SourceInput("**/*.s"), pluginhost.SourceInput("**/*.h"), pluginhost.SourceInput("**/*.syso"), pluginhost.SourceInput("!**/testdata/**"), pluginhost.SourceInput("!**/*_test.go")}}}, Provides: []*pluginv1.Provide{{Coordinate: &pluginv1.Coordinate{Ecosystem: "go", Name: "example.com/hello"}, Sources: "module"}}, Requires: []*pluginv1.Requirement{{Coordinate: &pluginv1.Coordinate{Ecosystem: "go", Name: "example.com/dep"}, Origin: &pluginv1.Origin{Path: "app/go.mod", Line: 5}, Version: "v0.0.0"}}}},
@@ -280,7 +280,7 @@ func TestAStrategyFixtureThatProvesTooLittleIsRefused(t *testing.T) {
 			f.Versions = append(f.Versions, conformance.VersionCase{Request: &pluginv1.VersionRequest{Strategy: "conventional-commits"}})
 		},
 		"no release roles": func(f *conformance.Fixture) {
-			f.Description = &pluginv1.DescribeResponse{Name: "release", Abi: 19}
+			f.Description = &pluginv1.DescribeResponse{Name: "release", Abi: 20}
 		},
 		"interests": func(f *conformance.Fixture) {
 			f.Description = proto.Clone(f.Description).(*pluginv1.DescribeResponse)

@@ -106,11 +106,12 @@ fn moved(last: &Version, bump: Bump) -> Version {
 }
 
 fn version(text: &str, what: &str) -> Result<Version, Error> {
-    Version::parse(text).map_err(|_| Error {
-        code: Code::InvalidArgument,
-        reason: "invalid-version".into(),
-        message: format!("{what} {text:?} is no semantic version"),
-        help: "Write a version as major.minor.patch.".into(),
-        ..Default::default()
+    Version::parse(text).map_err(|_| {
+        Error::new(
+            Code::InvalidArgument,
+            "invalid-version",
+            format!("{what} {text:?} is no semantic version"),
+        )
+        .help("Write a version as major.minor.patch.")
     })
 }

@@ -14,27 +14,20 @@ impl Plugin for ReleasePlugin {
         }
     }
 
+    // The SDK asks Branch and Version only of a strategy the plugin
+    // says it serves, and refuses any other (`unclaimed-strategy`) before
+    // the plugin is asked; what is left of each match is never reached.
     fn branch(&self, request: &BranchRequest) -> Result<BranchResponse, Error> {
         match request.strategy.as_str() {
             branching::RELEASE_FLOW => Ok(branching::release_flow(request)),
-            other => Err(unknown("branching", other)),
+            other => Err(Error::not_served("branching-strategy", other)),
         }
     }
 
     fn version(&self, request: &VersionRequest) -> Result<VersionResponse, Error> {
         match request.strategy.as_str() {
             versioning::CONVENTIONAL_COMMITS => versioning::conventional_commits(request),
-            other => Err(unknown("versioning", other)),
+            other => Err(Error::not_served("versioning-strategy", other)),
         }
-    }
-}
-
-fn unknown(kind: &str, strategy: &str) -> Error {
-    Error {
-        code: Code::InvalidArgument,
-        reason: "unknown-strategy".into(),
-        message: format!("release serves no {kind} strategy {strategy:?}"),
-        help: "Name a strategy the plugin says it serves.".into(),
-        ..Default::default()
     }
 }
