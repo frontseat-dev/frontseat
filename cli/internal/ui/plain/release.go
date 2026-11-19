@@ -2,10 +2,11 @@ package plain
 
 import (
 	"fmt"
-	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"strings"
 
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
+	"github.com/frontseat-dev/frontseat/sdk/go/entity"
 )
 
 // Plan writes what releasing would do: each unit, what it moves from and
@@ -56,7 +57,7 @@ func (p Printer) reason(reason *buildv1.ReleaseReason) {
 	case buildv1.ReasonKind_REASON_KIND_OWN_CHANGE:
 		fmt.Fprintf(p.Out, "  %s  (%.12s)\n", shown(reason.GetSummary()), shown(reason.GetCommit().GetCommit()))
 	default:
-		fmt.Fprintf(p.Out, "  %s\n", strings.ToLower(strings.ReplaceAll(strings.TrimPrefix(reason.GetKind().String(), "REASON_KIND_"), "_", " ")))
+		fmt.Fprintf(p.Out, "  %s\n", Word(reason.GetKind()))
 	}
 }
 
@@ -71,7 +72,7 @@ func held(reasons []*buildv1.ReleaseReason) string {
 	case buildv1.ReasonKind_REASON_KIND_BRANCH:
 		return reason.GetSummary()
 	default:
-		return strings.ToLower(strings.ReplaceAll(strings.TrimPrefix(reason.GetKind().String(), "REASON_KIND_"), "_", " "))
+		return Word(reason.GetKind())
 	}
 }
 
@@ -88,7 +89,7 @@ func (p Printer) Release(release *buildv1.Release) {
 			fmt.Fprintf(p.Out, "%s  %s  %s %s in %s  (%.12s)\n", named(unit.GetEntity()), shown(unit.GetVersion()), did, shown(tag.GetName()), shown(tag.GetRepository()), shown(tag.GetCommit()))
 		}
 	}
-	state := strings.ToLower(strings.TrimPrefix(release.GetState().String(), "STATE_"))
+	state := Word(release.GetState())
 	switch release.GetState() {
 	case buildv1.Release_STATE_UNPUBLISHED:
 		fmt.Fprintf(p.Out, "%s  unpublished: its tags are in the workspace and are not pushed\n", shown(release.GetId()))
@@ -99,19 +100,8 @@ func (p Printer) Release(release *buildv1.Release) {
 	}
 }
 
-// named is an entity as a line names it: a component of the default
-// namespace by its name alone, and any other with what tells it apart,
-// so that a system and a component of one name are two lines.
-func named(ref *typev1.EntityRef) string {
-	name := ref.GetName()
-	if ns := ref.GetNamespace(); ns != "" && ns != "default" {
-		name = ns + "/" + name
-	}
-	if kind := ref.GetKind(); kind != "" && kind != "component" {
-		name = kind + ":" + name
-	}
-	return shown(name)
-}
+// named is an entity as a line names it (entity.Ref.Short).
+func named(ref *typev1.EntityRef) string { return shown(entity.FromProto(ref).Short()) }
 
 // Began writes that a release has begun, by its id, so that whoever is
 // interrupted can find it again.

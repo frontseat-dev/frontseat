@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"regexp"
 	"slices"
 	"strings"
 	"sync"
@@ -57,6 +58,15 @@ type Spec struct {
 	Lifetime time.Duration
 }
 
+// workspaceName is a workspace's name, as IsWorkspaceName says it.
+var workspaceName = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,46}[a-z0-9])?$`)
+
+// IsWorkspaceName is whether a name is one a workspace may have:
+// lower-case letters, digits and dashes, at most 48, beginning and ending
+// with a letter or a digit. A control plane refuses any other, and a
+// client may say so before it asks.
+func IsWorkspaceName(name string) bool { return workspaceName.MatchString(name) }
+
 // Repository is a repository to clone: its remote, over http or https,
 // and the branch or tag to stand at, empty for its default branch.
 type Repository struct {
@@ -96,7 +106,7 @@ func refs(typed []string) ([]*typev1.EntityRef, error) {
 	for _, written := range typed {
 		ref, err := entity.Typed(written)
 		if err != nil {
-			return nil, fmt.Errorf("%q names no entity: %w", written, err)
+			return nil, err
 		}
 		out = append(out, entity.Proto(ref))
 	}

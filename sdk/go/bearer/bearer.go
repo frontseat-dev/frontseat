@@ -51,10 +51,38 @@ type presenting struct {
 }
 
 func (p presenting) RoundTrip(r *http.Request) (*http.Response, error) {
-	if p.origin == nil || !strings.EqualFold(r.URL.Scheme, p.origin.Scheme) || !strings.EqualFold(r.URL.Host, p.origin.Host) {
+	if p.origin == nil || !Of(r.URL, p.origin) {
 		return p.next.RoundTrip(r)
 	}
 	carried := r.Clone(r.Context())
-	carried.Header.Set("Authorization", "Bearer "+p.token)
+	Present(carried.Header, p.token)
 	return p.next.RoundTrip(carried)
+}
+
+// Present sets a token in headers as a bearer's (Authorization: Bearer).
+func Present(headers http.Header, token string) {
+	headers.Set("Authorization", "Bearer "+token)
+}
+
+// Of is whether an address is of an origin: the same scheme, host and
+// port, a WebSocket's address (ws, wss) being of the HTTP origin it is
+// opened over (http, https). An address or an origin with no host is of
+// none.
+func Of(address, origin *url.URL) bool {
+	if address == nil || origin == nil || address.Host == "" || origin.Host == "" {
+		return false
+	}
+	return strings.EqualFold(httpScheme(address.Scheme), httpScheme(origin.Scheme)) && strings.EqualFold(address.Host, origin.Host)
+}
+
+// httpScheme is the HTTP scheme a WebSocket's is opened over, and any
+// other scheme as it is.
+func httpScheme(scheme string) string {
+	switch strings.ToLower(scheme) {
+	case "ws":
+		return "http"
+	case "wss":
+		return "https"
+	}
+	return scheme
 }

@@ -95,6 +95,20 @@ func (r Ref) String() string {
 	return r.Kind + ":" + r.Namespace + "/" + r.Name
 }
 
+// Short is the reference as a person reads it on a line: a component's
+// kind and the default namespace are left out, and anything else is
+// said, so that a system and a component of one name are two.
+func (r Ref) Short() string {
+	short := r
+	if short.Kind == KindComponent {
+		short.Kind = ""
+	}
+	if short.Namespace == NamespaceDefault {
+		short.Namespace = ""
+	}
+	return short.Written()
+}
+
 // MarshalText writes the reference in full, for a file that holds one.
 func (r Ref) MarshalText() ([]byte, error) { return []byte(r.String()), nil }
 

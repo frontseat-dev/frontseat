@@ -6,7 +6,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"strings"
 
 	"github.com/coder/websocket"
 	"go.opentelemetry.io/otel/propagation"
@@ -30,7 +29,7 @@ func Tunnel(ctx context.Context, address string, reach Reach) (net.Conn, error) 
 	propagation.TraceContext{}.Inject(ctx, propagation.HeaderCarrier(headers))
 	over := reach.HTTP
 	if Presents(address, reach) {
-		headers.Set("Authorization", "Bearer "+reach.Token)
+		bearer.Present(headers, reach.Token)
 		// A redirect is not followed: it would take the token where the
 		// server chose.
 		if over == nil {
@@ -58,19 +57,16 @@ func Presents(address string, reach Reach) bool {
 	return reach.Token != "" && sameOrigin(address, reach.Origin)
 }
 
-// sameOrigin is whether an address, http or ws, is of an origin: one
-// host and port, over TLS or not alike.
+// sameOrigin is whether an address, http or ws, is of an origin
+// (bearer.Of).
 func sameOrigin(address, origin string) bool {
 	a, err := url.Parse(address)
-	if err != nil || a.Host == "" {
+	if err != nil {
 		return false
 	}
 	o, err := url.Parse(origin)
-	if err != nil || o.Host == "" {
+	if err != nil {
 		return false
 	}
-	secure := func(scheme string) bool {
-		return strings.EqualFold(scheme, "https") || strings.EqualFold(scheme, "wss")
-	}
-	return secure(a.Scheme) == secure(o.Scheme) && strings.EqualFold(a.Host, o.Host)
+	return bearer.Of(a, o)
 }

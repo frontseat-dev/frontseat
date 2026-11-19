@@ -31,7 +31,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"regexp"
 	"slices"
 	"sort"
 	"strings"
@@ -391,10 +390,6 @@ func (h *held) show(w *workspacev1.Workspace) {
 	h.seen.Store(w)
 }
 
-// name is a workspace's name: lower-case letters, digits and dashes, at
-// most 48, beginning and ending with a letter or a digit.
-var name = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,46}[a-z0-9])?$`)
-
 // derived is the name given to what was asked for where none is given:
 // the first entity's name, or else the first repository's, with its ref
 // where one is given. It is "" where that is no name.
@@ -508,7 +503,7 @@ func (s *service) CreateWorkspace(ctx context.Context, req *workspacev1.CreateWo
 			return nil, refusedFor(connect.CodeInvalidArgument, "NAME_INVALID", "what is asked for gives the workspace no name: give one")
 		}
 	}
-	if !name.MatchString(called) {
+	if !frontseat.IsWorkspaceName(called) {
 		return nil, refusedFor(connect.CodeInvalidArgument, "NAME_INVALID", fmt.Sprintf("%q is no workspace's name: one is lower-case letters, digits and dashes, at most 48", called))
 	}
 	// One at a time for a name: whoever asks second finds the first's.
@@ -1245,7 +1240,7 @@ func (s *service) recover() error {
 	}
 	for _, entry := range entries {
 		called, is := strings.CutSuffix(entry.Name(), suffix)
-		if !is || !name.MatchString(called) {
+		if !is || !frontseat.IsWorkspaceName(called) {
 			// What was being written when the control plane stopped.
 			continue
 		}
