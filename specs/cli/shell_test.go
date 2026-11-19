@@ -1,4 +1,4 @@
-package e2e
+package cli_test
 
 import (
 	"encoding/json"

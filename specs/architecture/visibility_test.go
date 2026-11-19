@@ -28,8 +28,8 @@ var public = map[string]string{
 	"server/sandbox/driver/openshell": "the one OpenShell driver, which frontseat-enterprise composes around and never copies (owner's ruling)",
 	"server/git":                      "git, run hardened: the command line's version control runs it too",
 	"server/telemetry":                "OpenTelemetry: the command line instruments what it asks with it",
-	"local":                           "what the local stack is, read from its files: the box's build, the stack's control plane and the test support read it; and the checkout a program is started at (Checkout), which the stack's program, the gate and what prepares the plugins find alike",
-	"local/ports":                     "the ports a box and the local stack are reached on, each said once: the server, the command line and the test support read them",
+	"local":                           "what the local stack is, read from its files: the box's build, the stack's control plane and the test support read it; and the checkout a program is started at (Checkout), which the stack's program, the gate and what prepares the plugins find alike; and whether the container runtime answers and the stack's Podman, asked one way by the box's build, the gate and the test support",
+	"local/ports":                     "the ports a box and the local stack are reached on, each said once, and where the command line keeps the token that reaches the stack: the server, the command line, the stack and the test support read them",
 	"local/box":                       "the box's one build: the stack's program (frontseat-local box, up) and the gate build it here, and a spec holds it to what it was built with",
 	"local/stack":                     "the local stack brought up and down from a checkout: the stack's program (frontseat-local up, down) runs it",
 }
@@ -229,13 +229,13 @@ func TestAPublicPackageOnNoListIsFound(t *testing.T) {
 		refused goPackage
 		says    string
 	}{
-		// The commands beneath the binary's own directory (P5-08).
+		// The commands beneath the binary's own directory.
 		{goPackage{"cli/cmd/frontseat/cmd", "cmd", []string{"root.go"}, nil}, "cli/cmd/frontseat/cmd is public and in no SDK"},
 		// A server package outside internal/ that no other module needs.
 		{goPackage{"server/controlplane", "controlplane", []string{"controlplane.go"}, nil}, "server/controlplane is public and in no SDK"},
-		// A driver for tests, public (P5-02).
+		// A driver for tests, public.
 		{goPackage{"server/sandbox/driver/memory", "memory", []string{"memory.go"}, nil}, "server/sandbox/driver/memory is public and in no SDK"},
-		// A program that is not cmd/<binary>, though internal (P5-11).
+		// A program that is not cmd/<binary>, though internal.
 		{goPackage{"server/testsupport/modules/prepare", "main", []string{"main.go"}, nil}, "server/testsupport/modules/prepare is a program that is not cmd/<binary>"},
 		// A package of tests that has grown a file.
 		{goPackage{"specs/compare", "compare", []string{"helper.go"}, nil}, "specs/compare is public and in no SDK"},

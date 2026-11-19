@@ -2,11 +2,11 @@ local common = import 'common.libsonnet';
 
 {
   clientGrpcServers: [{
-    listenAddresses: ['127.0.0.1:8982'],
+    listenAddresses: [common.internal.scheduler],
     authenticationPolicy: { allow: {} },
   }],
   workerGrpcServers: [{
-    listenAddresses: ['127.0.0.1:8986'],
+    listenAddresses: [common.internal.workers],
     authenticationPolicy: { allow: {} },
   }],
   buildQueueStateGrpcServers: [{

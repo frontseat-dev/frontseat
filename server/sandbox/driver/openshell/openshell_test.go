@@ -17,9 +17,9 @@ import (
 
 	sdk "github.com/ai-openshell/sdk-go/openshell/v1"
 	"github.com/frontseat-dev/frontseat/server/sandbox/driver"
-	"github.com/frontseat-dev/frontseat/server/testsupport/commits"
 	"github.com/frontseat-dev/frontseat/server/testsupport/drivertest"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testbox"
+	"github.com/frontseat-dev/frontseat/server/testsupport/testcommits"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testfiles"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testforge"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testgateway"
@@ -174,7 +174,7 @@ func pushable(t *testing.T, repositories ...string) string {
 	t.Helper()
 	root := private(t, repositories...)
 	for _, repository := range repositories {
-		commits.Git(t, filepath.Join(root, repository), "config", "http.receivepack", "true")
+		testcommits.Git(t, filepath.Join(root, repository), "config", "http.receivepack", "true")
 	}
 	return root
 }
@@ -430,11 +430,11 @@ func TestASandboxFetchesAPrivateRepositoryAndNeverHoldsItsPassword(t *testing.T)
 	}
 	// A push from outside, with the password, is taken by the forge: the
 	// control. The sandbox's push never reaches it.
-	commits.Git(t, filepath.Join(root, "code"), "push", "--quiet", outside+"/code", "HEAD:refs/heads/from-outside")
+	testcommits.Git(t, filepath.Join(root, "code"), "push", "--quiet", outside+"/code", "HEAD:refs/heads/from-outside")
 	if exit, printed := in("cd /tmp/fetched && git -c user.name=x -c user.email=x@example.com commit --quiet --allow-empty -m x && GIT_TERMINAL_PROMPT=0 git push origin HEAD:refs/heads/pushed 2>&1"); exit == 0 || !strings.Contains(printed, "403") {
 		t.Errorf("the sandbox's push was not turned away by the proxy (exit %d): %s", exit, printed)
 	}
-	branches := commits.Git(t, filepath.Join(root, "code"), "branch", "--list", "--format=%(refname:short)")
+	branches := testcommits.Git(t, filepath.Join(root, "code"), "branch", "--list", "--format=%(refname:short)")
 	if !strings.Contains(branches, "from-outside") || strings.Contains(branches, "pushed") {
 		t.Errorf("the forge's repository holds the branches %q, want the one pushed from outside and not the sandbox's", branches)
 	}
@@ -498,7 +498,7 @@ func TestASandboxPushesToTheRepositoryItIsLetAndToNoOther(t *testing.T) {
 		t.Errorf("the push to a repository only fetched was not turned away by the proxy (exit %d): %s", exit, printed)
 	}
 	for repository, held := range map[string]bool{"code": true, "other": false} {
-		branches := commits.Git(t, filepath.Join(root, repository), "branch", "--list", "--format=%(refname:short)")
+		branches := testcommits.Git(t, filepath.Join(root, repository), "branch", "--list", "--format=%(refname:short)")
 		if strings.Contains(branches, "pushed") != held {
 			t.Errorf("the forge's %s holds the branches %q; that it holds the sandbox's: want %v", repository, branches, held)
 		}
@@ -601,7 +601,7 @@ func TestASandboxReachesWhatItsRulesSayAndNoMore(t *testing.T) {
 	if _, printed := in("curl -s -o /dev/null -w 'answered %{http_code}' '" + forge + "/code/info/refs?service=git-upload-pack' 2>&1; true"); !strings.Contains(printed, "answered 000") {
 		t.Errorf("a program the rule does not name reached the host: %s", printed)
 	}
-	if branches := commits.Git(t, filepath.Join(root, "code"), "branch", "--list", "--format=%(refname:short)"); strings.Contains(branches, "pushed") {
+	if branches := testcommits.Git(t, filepath.Join(root, "code"), "branch", "--list", "--format=%(refname:short)"); strings.Contains(branches, "pushed") {
 		t.Errorf("the forge holds the sandbox's push: %s", branches)
 	}
 }

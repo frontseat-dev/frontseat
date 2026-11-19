@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
-	"github.com/frontseat-dev/frontseat/server/testsupport/commits"
+	"github.com/frontseat-dev/frontseat/server/testsupport/testcommits"
 )
 
 // givenACheckout is a daemon given a checkout of a repository to
@@ -18,7 +18,7 @@ func givenACheckout(t *testing.T, branch string, how ...string) (clients, string
 	t.Helper()
 	remote := releasingRemote(t, nil)
 	checkout := filepath.Join(t.TempDir(), "checkout")
-	commits.Git(t, filepath.Dir(checkout), append(append([]string{"clone", "--quiet", "--branch", branch}, how...), "file://"+remote, checkout)...)
+	testcommits.Git(t, filepath.Dir(checkout), append(append([]string{"clone", "--quiet", "--branch", branch}, how...), "file://"+remote, checkout)...)
 	return serveAs(t, configuration{Workspace: checkout, Mounted: true, Executor: scripted{}}), checkout, remote
 }
 
@@ -28,7 +28,7 @@ func givenACheckout(t *testing.T, branch string, how ...string) (clients, string
 // checkout. A second release finds the unit released.
 func TestADaemonGivenACheckoutReleasesFromIt(t *testing.T) {
 	c, checkout, remote := givenACheckout(t, "release/1.0")
-	head := commits.Git(t, checkout, "rev-parse", "HEAD")
+	head := testcommits.Git(t, checkout, "rev-parse", "HEAD")
 	s := &releaseService{graph: c.daemon.releases.graph, releases: c.daemon.releases}
 	release := releaseEnded(t, s, releaseBegun(t, s, "greet").GetId())
 	if release.GetState() != buildv1.Release_STATE_SUCCEEDED || len(release.GetUnits()) != 1 {
@@ -37,7 +37,7 @@ func TestADaemonGivenACheckoutReleasesFromIt(t *testing.T) {
 	if unit := release.GetUnits()[0]; unit.GetVersion() != "1.0.0" || len(unit.GetTags()) != 1 || unit.GetTags()[0].GetName() != "greet/v1.0.0" || unit.GetTags()[0].GetCommit() != head {
 		t.Errorf("the unit was released as %v, want greet/v1.0.0 at %s", unit, head)
 	}
-	if at := commits.Git(t, remote, "rev-parse", "greet/v1.0.0^{commit}"); at != head || tagsOf(t, checkout) != "greet/v1.0.0" {
+	if at := testcommits.Git(t, remote, "rev-parse", "greet/v1.0.0^{commit}"); at != head || tagsOf(t, checkout) != "greet/v1.0.0" {
 		t.Errorf("the remote has greet/v1.0.0 at %s, and the checkout the tags %q; want it at %s", at, tagsOf(t, checkout), head)
 	}
 	again := releaseEnded(t, s, releaseBegun(t, s, "greet").GetId())
@@ -60,13 +60,13 @@ func TestWhatAGivenCheckoutSaysOfItselfIsNotFollowed(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			c, checkout, remote := givenACheckout(t, "release/1.0")
 			elsewhere := filepath.Join(t.TempDir(), "elsewhere.git")
-			commits.Git(t, t.TempDir(), "init", "--quiet", "--bare", elsewhere)
+			testcommits.Git(t, t.TempDir(), "init", "--quiet", "--bare", elsewhere)
 			hooks, ran := t.TempDir(), filepath.Join(t.TempDir(), "ran")
 			if err := os.WriteFile(filepath.Join(hooks, "pre-push"), []byte("#!/bin/sh\ntouch "+ran+"\n"), 0o755); err != nil {
 				t.Fatal(err)
 			}
 			value := strings.NewReplacer("ELSEWHERE", elsewhere, "HOOKS", hooks).Replace(plant[1])
-			commits.Git(t, checkout, "config", plant[0], value)
+			testcommits.Git(t, checkout, "config", plant[0], value)
 			s := &releaseService{graph: c.daemon.releases.graph, releases: c.daemon.releases}
 			release := releaseEnded(t, s, releaseBegun(t, s, "greet").GetId())
 			if strings.Contains(release.String(), "c2VjcmV0") {
@@ -83,7 +83,7 @@ func TestWhatAGivenCheckoutSaysOfItselfIsNotFollowed(t *testing.T) {
 				t.Errorf("it ended %v (%s), and the remote has the tags %q", release.GetState(), release.GetFailure(), tagsOf(t, remote))
 			}
 			// Control: git asked plainly follows what the checkout says.
-			commits.Git(t, checkout, "push", "--quiet", "origin", "refs/tags/greet/v1.0.0")
+			testcommits.Git(t, checkout, "push", "--quiet", "origin", "refs/tags/greet/v1.0.0")
 			switch name {
 			case "another address to push to":
 				if tagsOf(t, elsewhere) != "greet/v1.0.0" {
@@ -131,28 +131,28 @@ func TestACheckoutThatCouldNotBePushedFromIsNotPlannedFrom(t *testing.T) {
 		says  string
 	}{
 		"a credential of its own for an address": {func(t *testing.T, checkout string) string {
-			commits.Git(t, checkout, "config", "http.https://github.com/.extraheader", "AUTHORIZATION: basic "+secret)
+			testcommits.Git(t, checkout, "config", "http.https://github.com/.extraheader", "AUTHORIZATION: basic "+secret)
 			return checkout
 		}, "persist-credentials: false"},
 		"a credential of its own in a file it includes": {func(t *testing.T, checkout string) string {
 			kept := filepath.Join(t.TempDir(), "credentials")
 			write(t, filepath.Dir(kept), "credentials", "[http \"https://github.com/\"]\n\textraheader = AUTHORIZATION: basic "+secret+"\n")
-			commits.Git(t, checkout, "config", "include.path", kept)
+			testcommits.Git(t, checkout, "config", "include.path", kept)
 			return checkout
 		}, "persist-credentials: false"},
 		"an origin with a password": {func(t *testing.T, checkout string) string {
-			commits.Git(t, checkout, "config", "remote.origin.url", "https://x-access-token:"+secret+"@forge.example/acme/code")
+			testcommits.Git(t, checkout, "config", "remote.origin.url", "https://x-access-token:"+secret+"@forge.example/acme/code")
 			return checkout
 		}, "written with a password"},
 		"no origin": {func(t *testing.T, checkout string) string {
-			commits.Git(t, checkout, "remote", "remove", "origin")
+			testcommits.Git(t, checkout, "remote", "remove", "origin")
 			return checkout
 		}, "says no origin it was brought from"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			remote := releasingRemote(t, nil)
 			checkout := filepath.Join(t.TempDir(), "checkout")
-			commits.Git(t, filepath.Dir(checkout), "clone", "--quiet", "--branch", "release/1.0", "file://"+remote, checkout)
+			testcommits.Git(t, filepath.Dir(checkout), "clone", "--quiet", "--branch", "release/1.0", "file://"+remote, checkout)
 			given := c.plant(t, checkout)
 			served := serveAs(t, configuration{Workspace: given, Mounted: true, Executor: scripted{}})
 			s := &releaseService{graph: served.daemon.releases.graph, releases: served.daemon.releases}

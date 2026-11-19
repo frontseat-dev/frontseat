@@ -48,7 +48,8 @@ type Build struct {
 	// run this build's box names it.
 	Tag string
 	// Architecture is the container runtime's: "aarch64" or "arm64" for
-	// arm64, anything else for amd64. Empty, the runtime is asked.
+	// arm64, "x86_64" or "amd64" for amd64; any other is refused. Empty,
+	// the runtime is asked.
 	Architecture string
 	// Plugins are the wasm modules the daemon loads, by name: the image
 	// holds each as plugins/<name>.wasm, and the daemon loads every one.
@@ -308,27 +309,25 @@ func PluginsIn(plugins string) (map[string][]byte, error) {
 	return modules, nil
 }
 
-// Answers returns where the container runtime does not answer, and why.
-func Answers(ctx context.Context) error {
-	_, err := goarchOf(ctx, "")
-	return err
-}
-
 // goarchOf is the Go name of the container runtime's architecture, as
-// given ("aarch64" or "arm64" for arm64, anything else for amd64), or
+// given ("aarch64" or "arm64" for arm64, "x86_64" or "amd64" for amd64,
+// and no other, the grid having workers of no other), or
 // asked of the runtime where none is given.
 func goarchOf(ctx context.Context, architecture string) (string, error) {
 	if architecture == "" {
-		out, err := exec.CommandContext(ctx, "docker", "info", "--format", "{{.Architecture}}").Output()
+		asked, err := local.Architecture(ctx)
 		if err != nil {
-			return "", fmt.Errorf("asking the container runtime its architecture: %w", err)
+			return "", err
 		}
-		architecture = strings.TrimSpace(string(out))
+		architecture = asked
 	}
-	if architecture == "aarch64" || architecture == "arm64" {
+	switch architecture {
+	case "aarch64", "arm64":
 		return "arm64", nil
+	case "x86_64", "amd64":
+		return "amd64", nil
 	}
-	return "amd64", nil
+	return "", fmt.Errorf("the container runtime is of %q, an architecture the grid has no workers of", architecture)
 }
 
 // programs are the programs the box holds, by their command's name, each
@@ -407,10 +406,9 @@ func InstallConfiner(ctx context.Context, root string) (string, error) {
 // frontseat, whose Podman it is: the box, which each workspace's sandbox
 // runs.
 func Give(ctx context.Context, image string) error {
-	podman := []string{"exec", "-i", "-u", "frontseat", "-e", "XDG_RUNTIME_DIR=/run/user/1000", "-e", "HOME=/home/frontseat", local.Container, "podman"}
 	// The stack's Podman answers once the container has laid out what is
 	// frontseat's, which a container just started has yet to do.
-	for tries := 0; exec.CommandContext(ctx, "docker", append(podman, "info", "--format", "{{.Host.Arch}}")...).Run() != nil; tries++ {
+	for tries := 0; exec.CommandContext(ctx, "docker", local.Podman(local.Container, "info", "--format", "{{.Host.Arch}}")...).Run() != nil; tries++ {
 		if tries >= 120 {
 			return fmt.Errorf("the stack's Podman did not answer in two minutes: docker logs %s", local.Container)
 		}
@@ -421,7 +419,7 @@ func Give(ctx context.Context, image string) error {
 		}
 	}
 	save := exec.CommandContext(ctx, "docker", "save", image)
-	load := exec.CommandContext(ctx, "docker", append(podman, "load", "-q")...)
+	load := exec.CommandContext(ctx, "docker", local.Podman(local.Container, "load", "-q")...)
 	piped, err := save.StdoutPipe()
 	if err != nil {
 		return err

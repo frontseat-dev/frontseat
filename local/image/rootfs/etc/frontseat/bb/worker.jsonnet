@@ -91,7 +91,7 @@ local runner = {
     },
   },
   maximumMessageSizeBytes: common.maximumMessageSizeBytes,
-  scheduler: { address: '127.0.0.1:8986' },
+  scheduler: { address: common.internal.workers },
   global: common.global,
   // An action's root is a mount of the storage: a file of it costs
   // nothing until the action reads it, however many there are, and is

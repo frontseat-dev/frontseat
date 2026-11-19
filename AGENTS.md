@@ -139,8 +139,11 @@ the change that fixes it.
   every system.
 - **A port is said once**, in `local/ports`: the daemon's defaults, the
   control plane, the command line and the test support read it there;
-  the stack's image's files (`local/image`) and `local/box.Dockerfile`,
-  which cannot, are held to it by `local/ports_test.go`.
+  the stack's image's files (`local/image`, its services' flags among
+  them) and `local/box.Dockerfile`, which cannot, are held to it by
+  `TestTheStacksImageListensWhereThePortsAreSaid`. So is where the
+  command line keeps what reaches the stack, its owner's token
+  (`ports.Config`), for the command line, the stack and the test support.
 - **The local stack is one container** of `local/image`, for anyone who
   runs Frontseat locally and for contributors alike: the grid, the
   OpenShell gateway and the control plane, each a process s6-overlay
@@ -866,9 +869,9 @@ mise run docs:serve       # serve the TechDocs site on http://localhost:8000
 | `server/internal/page` | A List cut into pages, by `page_size` and `page_token` |
 | `server/internal/source/vcs` | What a workspace asks of a version control system |
 | `server/internal/forge` | What publishing a release asks of a forge: its hosts and the requests of each |
-| `local` | What the local stack is, read from its files: the workers' image and platform, what a sandbox is told; the checkout a program is started at (`Checkout`) |
-| `local/ports` | Every port a box and the local stack are reached on |
-| `server/testsupport/*` | Test facilities: pins, Wasm modules, the grid, fixtures (`testfiles`, `testforge`, `commits`), budgets |
+| `local` | What the local stack is, read from its files: the workers' image and platform, what a sandbox is told; the checkout a program is started at (`Checkout`); whether the container runtime answers (`Architecture`) and the stack's Podman run (`Podman`) |
+| `local/ports` | Every port a box and the local stack are reached on, and where the command line keeps what reaches it (`Config`) |
+| `server/testsupport/*` | Test facilities: pins, Wasm modules, the grid, fixtures (`testfiles`, `testforge`, `testcommits`), budgets |
 | `server/testsupport/buildtest`, `server/testsupport/controlplanetest` | A daemon and a control plane started for a test, as `frontseatd` and `frontseat-local` start them |
 | `server/testsupport/drivertest` | What any sandbox driver is tested with: the conformance, a running sandbox of the test's own, the driver that holds sandboxes in memory |
 | `server/testsupport/testsandbox` | The sandbox API's client and a tunnel to a sandbox's port, for tests: the SDK has none |

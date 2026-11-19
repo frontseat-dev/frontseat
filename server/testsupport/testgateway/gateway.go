@@ -19,10 +19,10 @@ import (
 
 // Address is where the local stack's gateway answers, on this machine's
 // loopback.
-var Address = "https://" + Listens
+var Address = "https://" + listens
 
-// Listens is the host and port of Address.
-var Listens = net.JoinHostPort("127.0.0.1", strconv.Itoa(ports.OpenShell))
+// listens is the host and port of Address.
+var listens = net.JoinHostPort("127.0.0.1", strconv.Itoa(ports.OpenShell))
 
 // held is the container the gateway runs in, the stack's one, and kept
 // where it keeps what it and its callers are known by
@@ -66,12 +66,12 @@ func Files(identity string) (authority, certificate, key string) {
 func identity(t testing.TB, needed bool, directory string) string {
 	t.Helper()
 	testrequired.Stack(t)
-	conn, err := net.DialTimeout("tcp", Listens, time.Second)
+	conn, err := net.DialTimeout("tcp", listens, time.Second)
 	if err != nil {
 		if needed {
-			t.Fatalf("no OpenShell gateway answers on %s, and the test was asked to run over one: %v", Listens, err)
+			t.Fatalf("no OpenShell gateway answers on %s, and the test was asked to run over one: %v", listens, err)
 		}
-		t.Skipf("no OpenShell gateway answers on %s: %v", Listens, err)
+		t.Skipf("no OpenShell gateway answers on %s: %v", listens, err)
 	}
 	_ = conn.Close()
 	if err := os.MkdirAll(directory, 0o700); err != nil {
@@ -96,5 +96,5 @@ func identity(t testing.TB, needed bool, directory string) string {
 // sandboxes with, the stack container's Podman, as the user whose Podman
 // it is, and returns what it printed, its error output beside.
 func Runtime(ctx context.Context, arguments ...string) ([]byte, error) {
-	return exec.CommandContext(ctx, "docker", append([]string{"exec", "--user", "frontseat", "--env", "XDG_RUNTIME_DIR=/run/user/1000", "--env", "HOME=/home/frontseat", held, "podman"}, arguments...)...).CombinedOutput()
+	return exec.CommandContext(ctx, "docker", local.Podman(held, arguments...)...).CombinedOutput()
 }

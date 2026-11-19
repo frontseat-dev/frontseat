@@ -4,9 +4,9 @@
 package testgrid
 
 import (
+	"context"
 	"net"
 	"os"
-	"os/exec"
 	"strconv"
 	"sync"
 	"testing"
@@ -22,7 +22,7 @@ import (
 // answers there. It is where the local stack serves the Remote
 // Execution API, or FRONTSEAT_TEST_GRID where that is set. Where it is
 // the local stack's, the workers are first given this checkout's
-// confiner, frontseat-action (Confiner): a daemon this checkout builds starts every
+// confiner, frontseat-action (confiner): a daemon this checkout builds starts every
 // action by it, and a grid that another checkout's stack runs has only
 // what that checkout installed. A grid FRONTSEAT_TEST_GRID names is given
 // nothing: it must hold this checkout's form already, or its actions are
@@ -41,7 +41,7 @@ func Address(t testing.TB) string {
 	}
 	conn.Close()
 	if given == "" {
-		Confiner(t)
+		confiner(t)
 	}
 	return address
 }
@@ -49,7 +49,8 @@ func Address(t testing.TB) string {
 // runtimeAnswers is whether the container runtime answers, asked once
 // for the test process.
 var runtimeAnswers = sync.OnceValue(func() error {
-	return exec.Command("docker", "info", "--format", "{{.Architecture}}").Run()
+	_, err := local.Architecture(context.Background())
+	return err
 })
 
 // ConfinerVariable names where the gate installed this checkout's
@@ -57,14 +58,14 @@ var runtimeAnswers = sync.OnceValue(func() error {
 // tests it runs: the path they run it by.
 const ConfinerVariable = "FRONTSEAT_TEST_CONFINER"
 
-// Confiner returns the path the local stack's workers run this
+// confiner returns the path the local stack's workers run this
 // checkout's confiner by. The gate installs it before the tests run
 // (box.InstallConfiner, beside the forms there, and a confiner of its
 // form already there, of whatever build, is left as it is), never a
 // test: it is built from the source of the server, and a test of the
 // server that built it would depend on itself unseen. A test the gate did not
 // run fails, saying how it is run.
-func Confiner(t testing.TB) string {
+func confiner(t testing.TB) string {
 	t.Helper()
 	testrequired.Stack(t)
 	if err := runtimeAnswers(); err != nil {
@@ -84,12 +85,12 @@ func Confiner(t testing.TB) string {
 // other command.
 func Confined(t testing.TB) []string {
 	t.Helper()
-	confiner := Confiner(t)
+	at := confiner(t)
 	spec, err := confine.Encode(confine.Spec{Home: ".frontseat/home", Temporary: ".frontseat/tmp"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return []string{confiner, spec, "."}
+	return []string{at, spec, "."}
 }
 
 // InSandbox returns what a daemon in a sandbox on this machine is told
@@ -109,15 +110,11 @@ func InSandbox(t testing.TB) local.Grid {
 }
 
 // Assets returns the asset service's address, and skips the test where
-// none answers there: where the local stack serves the Remote
-// Asset API, or FRONTSEAT_TEST_ASSETS where that is set.
+// none answers there: where the local stack serves the Remote Asset API.
 func Assets(t testing.TB) string {
 	t.Helper()
 	testrequired.Stack(t)
 	address := net.JoinHostPort("localhost", strconv.Itoa(ports.Assets))
-	if given := os.Getenv("FRONTSEAT_TEST_ASSETS"); given != "" {
-		address = given
-	}
 	conn, err := net.DialTimeout("tcp", address, time.Second)
 	if err != nil {
 		t.Skipf("no asset service at %s; start the stack with: mise start", address)

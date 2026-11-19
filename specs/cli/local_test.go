@@ -1,13 +1,11 @@
-// Package e2e holds what is proven only by every part together: a client,
+// Package cli_test holds what is proven only by every part together: a client,
 // the sandbox API over the OpenShell gateway, and the daemon in a box.
-package e2e
+package cli_test
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/frontseat-dev/frontseat/local/ports"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testidentity"
 	"net"
 	"net/http"
 	"os"
@@ -20,8 +18,7 @@ import (
 
 	connect "connectrpc.com/connect/v2"
 	"connectrpc.com/connect/v2/connectproto"
-	"google.golang.org/genproto/googleapis/rpc/errdetails"
-
+	"github.com/frontseat-dev/frontseat/local/ports"
 	"github.com/frontseat-dev/frontseat/sdk/go"
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
@@ -31,8 +28,10 @@ import (
 	"github.com/frontseat-dev/frontseat/server/testsupport/testforge"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testgateway"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testgrid"
+	"github.com/frontseat-dev/frontseat/server/testsupport/testidentity"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testowner"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testpins"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 )
 
 // madeWorkspace makes a workspace of a control plane, as the client
@@ -122,7 +121,7 @@ func TestAWorkspaceClonesARepositoryAndBuildsIt(t *testing.T) {
 	image := testbox.Image(t)
 	checkout := helloModule(t)
 
-	at := local(t)
+	at := controlPlane(t)
 	made, held := madeWorkspace(t, frontseat.New(at.URL, at.Owner), frontseat.Spec{Image: image, Repositories: cloned(t, checkout)})
 
 	// Its daemon is reached through the control plane by the workspace's
@@ -145,7 +144,7 @@ func TestAnEditorOpensTheWorkspaceOverSSHThroughTheSandboxAPI(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(checkout, "main.go"), []byte("package main\n"), 0o666); err != nil {
 		t.Fatal(err)
 	}
-	at := local(t)
+	at := controlPlane(t)
 	made, _ := madeWorkspace(t, frontseat.New(at.URL, at.Owner), frontseat.Spec{Image: image, Repositories: cloned(t, checkout)})
 
 	// What an editor does first: log in, look at the machine, and reach

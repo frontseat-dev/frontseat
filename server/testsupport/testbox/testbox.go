@@ -12,6 +12,7 @@
 package testbox
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"testing"
@@ -28,15 +29,31 @@ const Variable = "FRONTSEAT_TEST_BOX"
 // fails, saying how it is run.
 func Image(t testing.TB) string {
 	t.Helper()
-	testrequired.Stack(t)
-	if _, err := exec.Command("docker", "info", "--format", "{{.Architecture}}").Output(); err != nil {
-		t.Skipf("no container runtime answers: %v", err)
-	}
+	Runtime(t)
 	tag := os.Getenv(Variable)
 	if tag == "" {
 		t.Fatalf("%s names no box image: the gate builds it before the tests it runs (`mise run go:test -- ...`)", Variable)
 	}
 	return tag
+}
+
+// Runtime is said by a test that needs the container runtime, before it
+// asks it anything: it skips the test where the gate runs with no stack,
+// or where no runtime answers (local.Architecture, the one way it is
+// asked).
+func Runtime(t testing.TB) {
+	t.Helper()
+	testrequired.Stack(t)
+	if _, err := local.Architecture(context.Background()); err != nil {
+		t.Skipf("no container runtime answers: %v", err)
+	}
+}
+
+// Podman runs the Podman of a container of the stack's image as
+// frontseat, whose Podman it is (local.Podman), with the arguments
+// given, and returns what it printed, its error output beside.
+func Podman(ctx context.Context, container string, arguments ...string) ([]byte, error) {
+	return exec.CommandContext(ctx, "docker", local.Podman(container, arguments...)...).CombinedOutput()
 }
 
 // Plain returns an image that runs what it is told, with what the box

@@ -2,11 +2,12 @@ package local
 
 import (
 	"fmt"
+	"maps"
 	"net"
 	"os"
 	"path/filepath"
 	"runtime"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -38,9 +39,9 @@ func Read(root string) (Files, error) {
 // Container is the local stack's one container's name.
 const Container = "frontseat-local"
 
-// Confiners is the directory of the stack's container bb_runner and each
-// form of the confiner (frontseat-action) are installed into, which every
-// runner sandbox holds at /bb.
+// Confiners is the directory of the stack's container Frontseat's runner
+// (frontseat-runner) and each form of the confiner (frontseat-action) are
+// installed into, which every runner sandbox holds at /bb.
 const Confiners = "/var/lib/frontseat/bb"
 
 // Image returns the image every runner sandbox of the grid is made of, at
@@ -108,7 +109,7 @@ func (g Grid) Arguments() []string {
 	if g.Assets != "" {
 		arguments = append(arguments, "--assets="+g.Assets)
 	}
-	for _, name := range sorted(g.Platform) {
+	for _, name := range slices.Sorted(maps.Keys(g.Platform)) {
 		arguments = append(arguments, "--platform="+name+"="+g.Platform[name])
 	}
 	return arguments
@@ -124,16 +125,6 @@ func (g Grid) Hosts() []string {
 		}
 	}
 	return hosts
-}
-
-// sorted is a map's keys, in order.
-func sorted(m map[string]string) []string {
-	keys := make([]string, 0, len(m))
-	for key := range m {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	return keys
 }
 
 // Checkout returns the checkout of Frontseat a program is started at, as

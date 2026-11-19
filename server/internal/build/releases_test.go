@@ -15,7 +15,7 @@ import (
 	"github.com/frontseat-dev/frontseat/sdk/go/entity"
 	"github.com/frontseat-dev/frontseat/server/internal/exec"
 	"github.com/frontseat-dev/frontseat/server/internal/exec/tools/toolstest"
-	"github.com/frontseat-dev/frontseat/server/testsupport/commits"
+	"github.com/frontseat-dev/frontseat/server/testsupport/testcommits"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testpins"
 )
 
@@ -67,10 +67,10 @@ func releasingRemote(t *testing.T, written func(remote string)) string {
 	if written != nil {
 		written(remote)
 	}
-	commits.Git(t, remote, "init", "--quiet", "--initial-branch", "main")
-	commits.Git(t, remote, "add", "--all")
-	commits.Git(t, remote, "commit", "--quiet", "-m", "feat: begin")
-	commits.Git(t, remote, "branch", "release/1.0")
+	testcommits.Git(t, remote, "init", "--quiet", "--initial-branch", "main")
+	testcommits.Git(t, remote, "add", "--all")
+	testcommits.Git(t, remote, "commit", "--quiet", "-m", "feat: begin")
+	testcommits.Git(t, remote, "branch", "release/1.0")
 	return remote
 }
 
@@ -122,7 +122,7 @@ func releasedAlone(t *testing.T, c clients, name string) (*releaseService, *buil
 
 func tagsOf(t *testing.T, clone string) string {
 	t.Helper()
-	return strings.Join(strings.Fields(commits.Git(t, clone, "tag", "--list")), " ")
+	return strings.Join(strings.Fields(testcommits.Git(t, clone, "tag", "--list")), " ")
 }
 
 func TestAReleaseBuildsThenTagsWhatMoves(t *testing.T) {
@@ -137,7 +137,7 @@ func TestAReleaseBuildsThenTagsWhatMoves(t *testing.T) {
 	if release.GetState() != buildv1.Release_STATE_SUCCEEDED || release.GetBuildId() == "" || tagsOf(t, clone) != "greet/v1.0.0" {
 		t.Fatalf("the release ended %v (%s), run %q, tags %q", release.GetState(), release.GetFailure(), release.GetBuildId(), tagsOf(t, clone))
 	}
-	if at := commits.Git(t, clone, "rev-parse", "greet/v1.0.0^{commit}"); at != commits.Git(t, clone, "rev-parse", "HEAD") || release.GetUnits()[0].GetTags()[0].GetCommit() != at {
+	if at := testcommits.Git(t, clone, "rev-parse", "greet/v1.0.0^{commit}"); at != testcommits.Git(t, clone, "rev-parse", "HEAD") || release.GetUnits()[0].GetTags()[0].GetCommit() != at {
 		t.Errorf("the tag names %s", at)
 	}
 }
@@ -243,11 +243,11 @@ func (e entering) Execute(ctx context.Context, action exec.Action) (exec.Result,
 func TestASourceThatMovedWhileItWasBuiltIsNotTagged(t *testing.T) {
 	for name, moved := range map[string]func(t *testing.T, clone string){
 		"by a commit of no file": func(t *testing.T, clone string) {
-			commits.Git(t, clone, "commit", "--quiet", "--allow-empty", "-m", "chore: later")
+			testcommits.Git(t, clone, "commit", "--quiet", "--allow-empty", "-m", "chore: later")
 		},
 		"by a commit of a file it builds": func(t *testing.T, clone string) {
 			write(t, clone, "greet/greet.go", "package greet\n\n// Later.\n")
-			commits.Git(t, clone, "commit", "--quiet", "--all", "-m", "fix: later")
+			testcommits.Git(t, clone, "commit", "--quiet", "--all", "-m", "fix: later")
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -324,8 +324,8 @@ func TestWhatABuildReadsThatIsNotCommittedIsRefused(t *testing.T) {
 	}
 	// Named in the repository's own ignore file, it is no part of a run.
 	write(t, clone, ".frontseatignore", "gen.go\n")
-	commits.Git(t, clone, "add", ".frontseatignore")
-	commits.Git(t, clone, "commit", "--quiet", "-m", "chore: ignore what is generated")
+	testcommits.Git(t, clone, "add", ".frontseatignore")
+	testcommits.Git(t, clone, "commit", "--quiet", "-m", "chore: ignore what is generated")
 	if err := create(); err != nil {
 		t.Errorf("a file frontseat is told to ignore refused the release: %v", err)
 	}
@@ -334,7 +334,7 @@ func TestWhatABuildReadsThatIsNotCommittedIsRefused(t *testing.T) {
 // remoteOf is where a daemon's clone was brought from.
 func remoteOf(t *testing.T, clone string) string {
 	t.Helper()
-	return commits.Git(t, clone, "config", "--get", "remote.origin.url")
+	return testcommits.Git(t, clone, "config", "--get", "remote.origin.url")
 }
 
 // A release sends each tag it writes to where its repository was
@@ -345,34 +345,34 @@ func remoteOf(t *testing.T, clone string) string {
 func TestAReleasePushesItsTagsAndSaysWhichItCouldNot(t *testing.T) {
 	s, _, clone := releasingDaemon(t, scripted{})
 	remote := remoteOf(t, clone)
-	head := commits.Git(t, clone, "rev-parse", "HEAD")
+	head := testcommits.Git(t, clone, "rev-parse", "HEAD")
 	release := releaseEnded(t, s, releaseBegun(t, s, "greet").GetId())
 	if release.GetState() != buildv1.Release_STATE_SUCCEEDED || release.GetFailure() != "" {
 		t.Fatalf("the release ended %v (%s)", release.GetState(), release.GetFailure())
 	}
-	if at := commits.Git(t, remote, "rev-parse", "greet/v1.0.0^{commit}"); at != head || tagsOf(t, remote) != "greet/v1.0.0" {
+	if at := testcommits.Git(t, remote, "rev-parse", "greet/v1.0.0^{commit}"); at != head || tagsOf(t, remote) != "greet/v1.0.0" {
 		t.Errorf("the remote has greet/v1.0.0 at %s, and the tags %q; want it at %s, alone", at, tagsOf(t, remote), head)
 	}
 	// The remote names another commit log/v1.0.0: it is not pushed over.
 	write(t, remote, "log/later.go", "package log\n")
-	commits.Git(t, remote, "add", "--all")
-	commits.Git(t, remote, "commit", "--quiet", "-m", "feat: later")
-	commits.Git(t, remote, "tag", "log/v1.0.0")
-	elsewhere := commits.Git(t, remote, "rev-parse", "log/v1.0.0^{commit}")
+	testcommits.Git(t, remote, "add", "--all")
+	testcommits.Git(t, remote, "commit", "--quiet", "-m", "feat: later")
+	testcommits.Git(t, remote, "tag", "log/v1.0.0")
+	elsewhere := testcommits.Git(t, remote, "rev-parse", "log/v1.0.0^{commit}")
 	refused := releaseEnded(t, s, releaseBegun(t, s, "log").GetId())
 	if refused.GetState() != buildv1.Release_STATE_UNPUBLISHED || !strings.Contains(refused.GetFailure(), "log/v1.0.0 was not pushed from services") || !strings.Contains(refused.GetFailure(), "the release made again sends them") {
 		t.Errorf("a release whose tag the remote has at another commit ended %v (%s)", refused.GetState(), refused.GetFailure())
 	}
-	if at := commits.Git(t, remote, "rev-parse", "log/v1.0.0^{commit}"); at != elsewhere || !strings.Contains(tagsOf(t, clone), "log/v1.0.0") {
+	if at := testcommits.Git(t, remote, "rev-parse", "log/v1.0.0^{commit}"); at != elsewhere || !strings.Contains(tagsOf(t, clone), "log/v1.0.0") {
 		t.Errorf("the remote's tag moved to %s, or the workspace has not the tag: %q", at, tagsOf(t, clone))
 	}
 	// Once the remote does not, the release made again sends it.
-	commits.Git(t, remote, "tag", "--delete", "log/v1.0.0")
+	testcommits.Git(t, remote, "tag", "--delete", "log/v1.0.0")
 	again := releaseEnded(t, s, releaseBegun(t, s, "log").GetId())
 	if again.GetState() != buildv1.Release_STATE_SUCCEEDED || len(again.GetUnits()) != 1 || !again.GetUnits()[0].GetAlready() {
 		t.Errorf("the release made again ended %v (%s) with %v", again.GetState(), again.GetFailure(), again.GetUnits())
 	}
-	if at := commits.Git(t, remote, "rev-parse", "log/v1.0.0^{commit}"); at != head {
+	if at := testcommits.Git(t, remote, "rev-parse", "log/v1.0.0^{commit}"); at != head {
 		t.Errorf("the release made again left the remote's log/v1.0.0 at %s, want %s", at, head)
 	}
 }

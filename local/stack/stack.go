@@ -31,6 +31,7 @@ import (
 
 	"github.com/frontseat-dev/frontseat/local"
 	"github.com/frontseat-dev/frontseat/local/box"
+	"github.com/frontseat-dev/frontseat/local/ports"
 )
 
 // Name is the stack's container's, and Volume the one volume it keeps
@@ -220,15 +221,11 @@ func (s Stack) layOut(ctx context.Context) error {
 	if err != nil {
 		return errors.New("reading the owner's token the control plane minted failed")
 	}
-	config := os.Getenv("XDG_CONFIG_HOME")
-	if config == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return err
-		}
-		config = filepath.Join(home, ".config")
+	config, err := ports.Config()
+	if err != nil {
+		return err
 	}
-	kept := filepath.Join(config, "frontseat", "local")
+	kept := filepath.Dir(filepath.Join(config, ports.Token))
 	if err := os.MkdirAll(kept, 0o700); err != nil {
 		return err
 	}
@@ -237,7 +234,7 @@ func (s Stack) layOut(ctx context.Context) error {
 	}
 	// Whole or as it was: a command reading it meanwhile reads one or
 	// the other.
-	laying := filepath.Join(kept, ".token")
+	laying := filepath.Join(kept, "."+filepath.Base(ports.Token))
 	if err := os.Remove(laying); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
@@ -247,10 +244,10 @@ func (s Stack) layOut(ctx context.Context) error {
 	// The token is the stack's, and is presented to the stack's control
 	// plane: what named another server (frontseat/local/server) is not
 	// left beside it.
-	if err := os.Remove(filepath.Join(kept, "server")); err != nil && !errors.Is(err, os.ErrNotExist) {
+	if err := os.Remove(filepath.Join(config, ports.Server)); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
-	return os.Rename(laying, filepath.Join(kept, "token"))
+	return os.Rename(laying, filepath.Join(config, ports.Token))
 }
 
 // run runs the container runtime's command.

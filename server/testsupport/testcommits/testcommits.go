@@ -1,7 +1,7 @@
-// Package commits makes the history a test is given: it runs git in a
+// Package testcommits makes the history a test is given: it runs git in a
 // directory as the one who writes a fixture's commits, and fails the test
 // where git fails.
-package commits
+package testcommits
 
 import (
 	"os/exec"

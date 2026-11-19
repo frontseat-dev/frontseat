@@ -3,8 +3,10 @@
 // its shell) and the local stack's (one container of local/image). The
 // daemon listens on a box's by default and the control plane opens and
 // dials them; the command line asks the stack's control plane, or,
-// inside a box, the daemon there (Lock); the stack's image's files, which
-// cannot read Go, are held to these by its test (local, ports_test).
+// inside a box, the daemon there (Lock), presenting the token the stack
+// lays out where the command line keeps what it keeps (Config); the
+// stack's image's files, which cannot read Go, are held to these by its
+// test (local, ports_test).
 package ports
 
 // Lock is the one lock of a box's sandbox, at one path whatever its

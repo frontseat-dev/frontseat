@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/frontseat-dev/frontseat/server/internal/source/internal/vcs/git"
-	"github.com/frontseat-dev/frontseat/server/testsupport/commits"
+	"github.com/frontseat-dev/frontseat/server/testsupport/testcommits"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testfiles"
 )
 
@@ -23,7 +23,7 @@ func remote(t *testing.T) string {
 		"greet/go.mod":  "module example.com/greet\n\ngo 1.27\n",
 		"docs/guide.md": "# guide\n",
 	})
-	commits.First(t, dir)
+	testcommits.First(t, dir)
 	return "file://" + dir
 }
 

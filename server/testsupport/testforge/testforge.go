@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/frontseat-dev/frontseat/server/testsupport/commits"
+	"github.com/frontseat-dev/frontseat/server/testsupport/testcommits"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testfiles"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testpins"
 )
@@ -752,8 +752,8 @@ func (f Forge) Remove(t testing.TB, repository, file string) {
 func (f Forge) record(t testing.TB, repository string) {
 	t.Helper()
 	directory := filepath.Join(f.Dir, repository)
-	commits.Git(t, directory, "add", "--all")
-	commits.Git(t, directory, "commit", "--quiet", "-m", "change")
+	testcommits.Git(t, directory, "add", "--all")
+	testcommits.Git(t, directory, "commit", "--quiet", "-m", "change")
 }
 
 // commit makes a directory a git repository with one commit on main,
@@ -765,7 +765,7 @@ func commit(t testing.TB, repository string, pinned bool) {
 	}
 	// What holds secrets is ignored, as in most repositories.
 	write(t, repository, ".gitignore", ".env\n")
-	commits.First(t, repository)
+	testcommits.First(t, repository)
 }
 
 func write(t testing.TB, root, name, content string) {

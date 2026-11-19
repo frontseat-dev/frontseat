@@ -11,7 +11,7 @@ import (
 
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/exec"
-	"github.com/frontseat-dev/frontseat/server/testsupport/commits"
+	"github.com/frontseat-dev/frontseat/server/testsupport/testcommits"
 )
 
 // noting is a grid that notes what each action was sent as, by its
@@ -76,7 +76,7 @@ func TestWhatAReleaseBuildsIsGivenItsVersion(t *testing.T) {
 	grid := noting{mu: &sync.Mutex{}, sent: map[string][]string{}}
 	c, clone := releasingClients(t, grid, "release/1.0", versionedSource(t))
 	s := &releaseService{graph: c.daemon.releases.graph, releases: c.daemon.releases}
-	head := commits.Git(t, clone, "rev-parse", "HEAD")
+	head := testcommits.Git(t, clone, "rev-parse", "HEAD")
 	const says, compile = "//services/greet:custom.says", "//services/greet:go.compile"
 	development := func(when string) {
 		t.Helper()
@@ -126,8 +126,8 @@ func TestAPrereleaseIsBuiltAtItsVersionAndNotTagged(t *testing.T) {
 	grid := noting{mu: &sync.Mutex{}, sent: map[string][]string{}}
 	c, clone := releasingClients(t, grid, "main", versionedSource(t))
 	s := &releaseService{graph: c.daemon.releases.graph, releases: c.daemon.releases}
-	head := commits.Git(t, clone, "rev-parse", "HEAD")
-	committed, err := strconv.ParseInt(commits.Git(t, clone, "show", "--no-patch", "--format=%ct", "HEAD"), 10, 64)
+	head := testcommits.Git(t, clone, "rev-parse", "HEAD")
+	committed, err := strconv.ParseInt(testcommits.Git(t, clone, "show", "--no-patch", "--format=%ct", "HEAD"), 10, 64)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -187,6 +187,35 @@ func TestTheOwnersTokenIsLaidOutForTheCommandLineAlone(t *testing.T) {
 	}
 }
 
+// A relative XDG_CONFIG_HOME is ignored, as the specification says and
+// the command line ignores it: the token is laid out beneath the home's
+// .config, where the command line reads it, and nothing beneath the
+// relative directory. The control is an absolute one, which is used.
+func TestARelativeConfigurationDirectoryIsIgnoredAsTheCommandLineIgnoresIt(t *testing.T) {
+	_, s, _ := stackOf(t, "")
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Chdir(t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", "relative")
+	if err := s.Up(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(home, ".config", "frontseat", "local", "token")); err != nil {
+		t.Errorf("the token is not where the command line reads it: %v", err)
+	}
+	if _, err := os.Stat("relative"); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("the stack laid out beneath a relative XDG_CONFIG_HOME: %v", err)
+	}
+	absolute := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", absolute)
+	if err := s.Up(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(absolute, "frontseat", "local", "token")); err != nil {
+		t.Errorf("the control: the token is not beneath an absolute XDG_CONFIG_HOME: %v", err)
+	}
+}
+
 // Down brings the stack down by its name, from any checkout, and keeps
 // its volume.
 func TestDownRemovesTheContainerAndKeepsItsVolume(t *testing.T) {

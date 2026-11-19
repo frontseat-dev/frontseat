@@ -1,15 +1,19 @@
-package e2e
+package cli_test
 
 import (
 	"context"
-	"github.com/frontseat-dev/frontseat/local/ports"
+	"net"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/frontseat-dev/frontseat/local/ports"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testbox"
+	"github.com/frontseat-dev/frontseat/server/testsupport/testmodule"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testrequired"
 )
 
@@ -31,7 +35,7 @@ func TestTheStackBootsAsOneContainer(t *testing.T) {
 		if token != "" {
 			arguments = append(arguments, "-H", "Authorization: Bearer "+token)
 		}
-		out, _ := exec.CommandContext(ctx, "docker", append(arguments, "http://127.0.0.1:7700/frontseat.workspace.v1alpha1.WorkspaceService/ListWorkspaces")...).Output()
+		out, _ := exec.CommandContext(ctx, "docker", append(arguments, "http://"+net.JoinHostPort("127.0.0.1", strconv.Itoa(ports.ControlPlane))+"/frontseat.workspace.v1alpha1.WorkspaceService/ListWorkspaces")...).Output()
 		return strings.TrimSpace(string(out))
 	}
 	var token string
@@ -53,7 +57,7 @@ func TestTheStackBootsAsOneContainer(t *testing.T) {
 	}
 	// Each service has stayed up a while: one that s6 restarts over and
 	// over is up for a moment at a time, never for long.
-	for _, service := range []string{"dns", "podman", "gateway", "controlplane", "storage", "scheduler", "frontend", "assets", "worker"} {
+	for _, service := range longruns(t) {
 		out, err := exec.CommandContext(ctx, "docker", "exec", own, "/command/s6-svstat", "-o", "up,updownfor", "/run/service/"+service).Output()
 		fields := strings.Fields(string(out))
 		if err != nil || len(fields) != 2 || fields[0] != "true" {
@@ -78,7 +82,7 @@ func TestTheStackBootsAsOneContainer(t *testing.T) {
 		t.Errorf("the container asks %v for names, not its own resolver alone: %v", named, err)
 	}
 	podman := func(arguments ...string) ([]byte, error) {
-		return exec.CommandContext(ctx, "docker", append([]string{"exec", "-u", "frontseat", "-e", "XDG_RUNTIME_DIR=/run/user/1000", own, "podman"}, arguments...)...).CombinedOutput()
+		return testbox.Podman(ctx, own, arguments...)
 	}
 	// Its command is a file that is there and may be run, which crun
 	// looks for when the container is initialised; it is never started.
@@ -123,3 +127,33 @@ func nameservers(resolv string) []string {
 // steady is how long, in seconds, a service has stayed up to be held
 // running, rather than restarted over and over by s6.
 const steady = 10
+
+// longruns are the services of the stack's image that run for as long as
+// it does, as its files say: each the user bundle holds whose type is
+// longrun, so that one added is held here too.
+func longruns(t *testing.T) []string {
+	t.Helper()
+	root, err := testmodule.Root()
+	if err != nil {
+		t.Fatal(err)
+	}
+	services := filepath.Join(root, "local", "image", "rootfs", "etc", "s6-overlay", "s6-rc.d")
+	held, err := os.ReadDir(filepath.Join(services, "user", "contents.d"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out []string
+	for _, each := range held {
+		kind, err := os.ReadFile(filepath.Join(services, each.Name(), "type"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.TrimSpace(string(kind)) == "longrun" {
+			out = append(out, each.Name())
+		}
+	}
+	if len(out) == 0 {
+		t.Fatalf("the stack's image holds no longrun in %s", services)
+	}
+	return out
+}

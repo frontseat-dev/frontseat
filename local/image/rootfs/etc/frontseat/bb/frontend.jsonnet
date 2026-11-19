@@ -8,7 +8,7 @@ local common = import 'common.libsonnet';
   schedulers: {
     '': {
       endpoint: {
-        address: '127.0.0.1:8982',
+        address: common.internal.scheduler,
         addMetadataJmespathExpression: {
           expression: |||
             {

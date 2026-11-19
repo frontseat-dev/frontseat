@@ -66,3 +66,19 @@ func TestAContextIsNamedByWhatItHolds(t *testing.T) {
 		}
 	}
 }
+
+// The runtime's architecture is a Go architecture the grid has workers
+// of, as either name it is said by, and any other is refused naming it,
+// never taken for one of them.
+func TestARuntimeOfAnArchitectureTheGridHasNoWorkersOfIsRefused(t *testing.T) {
+	for said, want := range map[string]string{"aarch64": "arm64", "arm64": "arm64", "x86_64": "amd64", "amd64": "amd64"} {
+		if got, err := goarchOf(context.Background(), said); err != nil || got != want {
+			t.Errorf("goarchOf(%q) = %q, %v; want %s", said, got, err, want)
+		}
+	}
+	for _, said := range []string{"riscv64", "s390x", "ppc64le"} {
+		if got, err := goarchOf(context.Background(), said); err == nil || !strings.Contains(err.Error(), said) {
+			t.Errorf("goarchOf(%q) = %q, %v; want it refused naming it", said, got, err)
+		}
+	}
+}

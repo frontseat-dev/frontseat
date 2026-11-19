@@ -26,15 +26,11 @@ var Stack = "http://" + net.JoinHostPort("127.0.0.1", strconv.Itoa(ports.Control
 // directory of the XDG base directory specification.
 func File(t testing.TB) string {
 	t.Helper()
-	config := os.Getenv("XDG_CONFIG_HOME")
-	if config == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			t.Fatal(err)
-		}
-		config = filepath.Join(home, ".config")
+	config, err := ports.Config()
+	if err != nil {
+		t.Fatal(err)
 	}
-	return filepath.Join(config, "frontseat", "local", "token")
+	return filepath.Join(config, ports.Token)
 }
 
 // LayOut makes a directory for the command line to keep what it keeps
@@ -47,7 +43,7 @@ func File(t testing.TB) string {
 func LayOut(t testing.TB, token, server string) string {
 	t.Helper()
 	config := t.TempDir()
-	kept := filepath.Join(config, "frontseat", "local")
+	kept := filepath.Join(config, "frontseat", filepath.Dir(ports.Token))
 	if err := os.MkdirAll(kept, 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -56,12 +52,12 @@ func LayOut(t testing.TB, token, server string) string {
 		if err != nil {
 			t.Fatalf("the owner's token to lay out: %v", err)
 		}
-		if err := os.WriteFile(filepath.Join(kept, "token"), raw, 0o600); err != nil {
+		if err := os.WriteFile(filepath.Join(config, "frontseat", ports.Token), raw, 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
 	if server != "" {
-		if err := os.WriteFile(filepath.Join(kept, "server"), []byte(server+"\n"), 0o600); err != nil {
+		if err := os.WriteFile(filepath.Join(config, "frontseat", ports.Server), []byte(server+"\n"), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}

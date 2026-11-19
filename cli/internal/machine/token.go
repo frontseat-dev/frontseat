@@ -19,7 +19,7 @@ import (
 // tokenFile is where the local stack lays out its owner's token
 // (frontseat-local up): frontseat/local/token.
 func tokenFile() (string, error) {
-	return beneath("local", "token")
+	return beneath(ports.Token)
 }
 
 // serverFile names the control plane the command line asks, where it
@@ -27,7 +27,7 @@ func tokenFile() (string, error) {
 // token for another control plane writes it beside the token, and the
 // local stack removes it when it lays out its own.
 func serverFile() (string, error) {
-	return beneath("local", "server")
+	return beneath(ports.Server)
 }
 
 // written is a token as its file holds it: one word of what a header
