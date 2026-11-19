@@ -36,8 +36,8 @@ host_gateway_ip       = "127.0.0.1"
 # No sandbox is made without naming its image (the driver always names
 # one): this one is never run.
 default_image         = "busybox:1.37@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec"
-sandbox_runtime_image = "ghcr.io/nvidia/openshell/sandbox:0.1.8@sha256:f0fe7dbf18d833acb5da99c405231124718f23b524aa8e3c0108e6f37530033b"
-supervisor_image      = "ghcr.io/nvidia/openshell/supervisor:0.1.8@sha256:deadeacfdba6d12ca27e538d0002696369d4de5a4fcad075ab503495503af9d1"
+sandbox_runtime_image = "ghcr.io/nvidia/openshell/sandbox:0.1.9@sha256:e57d07cd6cc1fc314b80368d6b51ec6fbf825fb62cd8f081312941180846866f"
+supervisor_image      = "ghcr.io/nvidia/openshell/supervisor:0.1.9@sha256:f1ec231b5dbe5b6a40c33acb2ac847995aabb959a56134ef6d7d7aa4f43199d3"
 image_pull_policy     = "if_not_present"
 # The grid's runner sandboxes are given directories of this container
 # (frontseat-runner pool): their slot of the worker and /bb. A bind mount
