@@ -1,6 +1,6 @@
 # [Frontseat](https://www.frontseat.dev)
 
-**Build orchestrator for the agentic era.**
+**A build orchestrator for the AI age.**
 
 Agents write code at machine speed. Your builds should keep up. Frontseat gives every agent and developer the freedom to build, test and experiment at full speed, without slowing each other down.
 
