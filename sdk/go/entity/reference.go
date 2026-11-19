@@ -17,7 +17,7 @@ const (
 // "component:default/gateway". Adapters map provider identities to this key;
 // provider-native identifiers and schemas are not part of its grammar.
 type Ref struct {
-	// Kind is its kind, in lower case: "component", "system", "group".
+	// Kind is its kind, in lower case: "component", "system", "domain".
 	Kind string
 	// Namespace is its namespace.
 	Namespace string
