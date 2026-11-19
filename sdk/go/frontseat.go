@@ -64,7 +64,7 @@ type Client struct {
 // http://127.0.0.1:7700. Nothing is asked of the server until a call is
 // made.
 func New(server string, options ...Option) *Client {
-	reach := transport.Reach{Origin: server}
+	var reach transport.Reach
 	for _, option := range options {
 		if option.apply != nil {
 			option.apply(&reach)

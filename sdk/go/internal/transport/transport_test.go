@@ -198,7 +198,8 @@ func TestATunnelIsNotLedElsewhereByARedirect(t *testing.T) {
 // no origin at all is presented nothing.
 func TestAnOriginIsItsSchemeHostAndPort(t *testing.T) {
 	for origin, address := range map[string]string{
-		"https://127.0.0.1:1": "http://127.0.0.1:1/shell",
+		"https://127.0.0.1:1": "ws://127.0.0.1:1/shell",
+		"ftp://127.0.0.1:1":   "http://127.0.0.1:1/shell",
 		"http://127.0.0.1:2":  "http://127.0.0.1:1/shell",
 		"":                    "http://127.0.0.1:1/shell",
 		"not a url":           "http://127.0.0.1:1/shell",

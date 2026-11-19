@@ -63,3 +63,18 @@ func TestAReferenceReadsBackAsItIsWritten(t *testing.T) {
 		t.Errorf("%q read back as %v, %v, want %v", text, got, err, want)
 	}
 }
+
+// A reference is said on a line without what every component of the
+// default namespace has, and with whatever else tells it apart.
+func TestAReferenceIsSaidShortWithWhatTellsItApart(t *testing.T) {
+	for want, ref := range map[string]Ref{
+		"gateway":                   New("component", "default", "gateway"),
+		"system:gateway":            New("system", "default", "gateway"),
+		"frontseat/gateway":         New("component", "frontseat", "gateway"),
+		"api:frontseat/gateway-api": New("api", "frontseat", "gateway-api"),
+	} {
+		if got := ref.Short(); got != want {
+			t.Errorf("%v is said %q, want %q", ref, got, want)
+		}
+	}
+}

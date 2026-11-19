@@ -120,6 +120,10 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		{"server/internal/build/logs_test.go", "sdk/go", true},
 		{"server/internal/build/runs.go", "sdk/go", false},
 		{"server/internal/source/service_test.go", "sdk/go", true},
+		// What the command line prints names an entity as the SDK's one
+		// reader and writer of references does, and asks no server.
+		{"cli/internal/ui/plain/release.go", "sdk/go/entity", true},
+		{"cli/internal/ui/plain/release.go", "sdk/go", false},
 		{"server/internal/source/service.go", "sdk/go", false},
 		{"server/internal/build/logs_test.go", "sdk/go/api/frontseat/build/v1alpha1/buildv1alpha1connect", true},
 		// The specs are what nothing depends on: they use the rest, and

@@ -116,7 +116,7 @@ func plan(cmd *cobra.Command, w *frontseat.Workspace, names []string) (string, e
 func typed(names []string) error {
 	for _, name := range names {
 		if _, err := entity.Typed(name); err != nil {
-			return fmt.Errorf("%q names no entity: %w", name, err)
+			return err
 		}
 	}
 	return nil

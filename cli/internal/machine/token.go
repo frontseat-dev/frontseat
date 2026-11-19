@@ -30,8 +30,10 @@ func serverFile() (string, error) {
 	return beneath("local", "server")
 }
 
-// written is a token as its file holds it.
-var written = regexp.MustCompile(`^[0-9a-f]{64}\n?$`)
+// written is a token as its file holds it: one word of what a header
+// carries as it is, on one line. Its form is the control plane's to
+// choose, and is not read here.
+var written = regexp.MustCompile(`^[\x21-\x7e]{1,126}\n?$`)
 
 // Stack is the control plane of the local stack, the one the command
 // line asks where nothing names another.
@@ -68,7 +70,7 @@ func Token() (string, error) {
 	if !written.Match(raw) {
 		return "", fmt.Errorf("%s holds no token: mise start lays the local stack's out again", path)
 	}
-	return string(raw[:64]), nil
+	return strings.TrimSuffix(string(raw), "\n"), nil
 }
 
 // Server is the control plane the command line asks: the one

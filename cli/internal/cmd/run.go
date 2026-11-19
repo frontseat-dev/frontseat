@@ -60,9 +60,7 @@ longer, it stops the program.`,
 				return
 			case <-ctx.Done():
 			}
-			stopping, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
-			defer cancel()
-			_, _ = run.Cancel(stopping)
+			stop(ctx, run)
 		}()
 		ended, err := followRun(cmd, run)
 		if ctx.Err() != nil {
@@ -73,9 +71,7 @@ longer, it stops the program.`,
 		if err != nil {
 			// The program is the daemon's, and would go on unseen where
 			// the command can follow it no longer: it is stopped.
-			stopping, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
-			defer cancel()
-			_, _ = run.Cancel(stopping)
+			stop(ctx, run)
 			return err
 		}
 		switch ended.GetState() {
@@ -128,4 +124,12 @@ func followRun(cmd *cobra.Command, run *frontseat.Run) (*buildv1.Run, error) {
 		printer.Line(line)
 	}
 	return run.Wait(cmd.Context())
+}
+
+// stop cancels a run in a moment of its own, half a minute, whatever
+// became of the context the command ran in.
+func stop(ctx context.Context, run *frontseat.Run) {
+	stopping, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+	defer cancel()
+	_, _ = run.Cancel(stopping)
 }

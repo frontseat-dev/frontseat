@@ -53,7 +53,7 @@ var policies = []policy{
 	{"cli/internal/machine", []string{"sdk/go/api/**", "sdk/go", "cli/internal/vcs", "cli/internal/vcs/git", "local/ports"}},
 	{"cli/internal/vcs", []string{}},
 	{"cli/internal/vcs/git", []string{"cli/internal/vcs", "server/git"}},
-	{"cli/internal/ui/**", []string{"sdk/go/api/**", "cli/internal/ui/**"}},
+	{"cli/internal/ui/**", []string{"sdk/go/api/**", "sdk/go/entity", "cli/internal/ui/**"}},
 	// The binary is a thin main over the commands, which are the command
 	// line's own (cli/internal/cmd).
 	{"cli/cmd/frontseat", []string{"cli/internal/cmd", "server/telemetry"}},

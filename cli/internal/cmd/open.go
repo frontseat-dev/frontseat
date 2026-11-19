@@ -109,10 +109,6 @@ func left(err error, workspace *frontseat.Workspace) error {
 	return fmt.Errorf("%w\nthe workspace is %s: `frontseat workspace open` again goes on with it, and `frontseat workspace delete %s` ends it, with what it holds", err, workspace.Name(), workspace.Name())
 }
 
-// workspaceName is one word that can be a workspace's name, and so is
-// read as one: an entity is written with its kind.
-var workspaceName = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,46}[a-z0-9])?$`)
-
 // openNamed opens what was named: a workspace there is, by its name, or
 // a workspace of the repositories or the entities named.
 func openNamed(ctx context.Context, fs *frontseat.Client, args []string, flags *pflag.FlagSet) error {
@@ -121,7 +117,9 @@ func openNamed(ctx context.Context, fs *frontseat.Client, args []string, flags *
 		return err
 	}
 	spec := frontseat.Spec{AuthorizedKey: key}
-	if len(args) == 1 && workspaceName.MatchString(args[0]) {
+	// One word that can be a workspace's name is read as one: an entity
+	// is written with its kind.
+	if len(args) == 1 && frontseat.IsWorkspaceName(args[0]) {
 		// What a workspace is was said when it was made, and is not asked
 		// again of one that is there.
 		for _, said := range []string{"name", "push", "image", "whole"} {
