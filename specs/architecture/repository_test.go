@@ -17,6 +17,9 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"unicode"
+
+	"github.com/frontseat-dev/frontseat/server/testsupport/testmodule"
 )
 
 // repositoryFiles are the files of the repository as git sees them: what
@@ -582,6 +585,194 @@ func TestATestFileNamedForAnOccasionIsFound(t *testing.T) {
 	} {
 		if got := occasioned(file); got != want {
 			t.Errorf("%s: named for an occasion %v, want %v", file, got, want)
+		}
+	}
+}
+
+// words are the words a Go name is written in, by its case and its
+// underscores: TestMiseServicePOCRejects is Test, Mise, Service, POC and
+// Rejects.
+func words(name string) []string {
+	var out []string
+	runes := []rune(name)
+	start := 0
+	for i := 1; i <= len(runes); i++ {
+		if i < len(runes) && runes[i] != '_' {
+			upper := unicode.IsUpper(runes[i])
+			afterLower := !unicode.IsUpper(runes[i-1]) && runes[i-1] != '_'
+			beforeLower := i+1 < len(runes) && unicode.IsLower(runes[i+1]) && unicode.IsUpper(runes[i-1])
+			if !upper || !(afterLower || beforeLower) {
+				continue
+			}
+		}
+		if word := strings.Trim(string(runes[start:i]), "_"); word != "" {
+			out = append(out, word)
+		}
+		start = i
+	}
+	return out
+}
+
+// parsedGo is a Go file as go/parser reads it; the test fails where it
+// is not Go.
+func parsedGo(t *testing.T, file string, src []byte) *ast.File {
+	t.Helper()
+	parsed, err := parser.ParseFile(token.NewFileSet(), file, src, parser.SkipObjectResolution)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return parsed
+}
+
+// foundInGo is what find finds in each Go file of the repository that
+// keep keeps, by the file, where it finds anything.
+func foundInGo(t *testing.T, keep func(file string) bool, find func(*ast.File) []string) map[string][]string {
+	t.Helper()
+	root := repositoryRoot(t)
+	out := map[string][]string{}
+	for _, file := range repositoryFiles(t, root) {
+		if !keep(file) {
+			continue
+		}
+		src, err := os.ReadFile(filepath.Join(root, file))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if found := find(parsedGo(t, file, src)); len(found) > 0 {
+			out[file] = found
+		}
+	}
+	return out
+}
+
+// occasionedTests returns each test, benchmark, fuzz test and example a
+// Go test file declares that is named for an occasion, a word of its
+// name being one.
+func occasionedTests(parsed *ast.File) []string {
+	var out []string
+	for _, declared := range parsed.Decls {
+		function, ok := declared.(*ast.FuncDecl)
+		if !ok || function.Recv != nil {
+			continue
+		}
+		name := function.Name.Name
+		if !strings.HasPrefix(name, "Test") && !strings.HasPrefix(name, "Benchmark") && !strings.HasPrefix(name, "Fuzz") && !strings.HasPrefix(name, "Example") {
+			continue
+		}
+		for _, word := range words(name) {
+			if slices.Contains(anOccasion, strings.ToLower(word)) {
+				out = append(out, name)
+				break
+			}
+		}
+	}
+	return out
+}
+
+// A test is named for its subject, never for the occasion it was written
+// on, as its file is: no word of a Go test's name is an occasion's.
+func TestATestIsNamedForItsSubject(t *testing.T) {
+	tests := func(file string) bool {
+		return strings.HasSuffix(file, "_test.go") && !slices.Contains(strings.Split(file, "/"), "testdata")
+	}
+	for file, named := range foundInGo(t, tests, occasionedTests) {
+		for _, name := range named {
+			t.Errorf("%s: %s is named for an occasion (%v): name it for what it holds", file, name, anOccasion)
+		}
+	}
+}
+
+func TestATestNamedForAnOccasionIsFound(t *testing.T) {
+	src := `package a
+
+import "testing"
+
+func TestReviewAPartIsHeld(t *testing.T)              {}
+func TestMiseServicePOCRejectsAWrongChecksum(t *testing.T) {}
+func TestProductionReviewSpellings(t *testing.T)       {}
+func TestAProofIsKept(t *testing.T)                    {}
+func Test_review_by_underscores(t *testing.T)          {}
+func BenchmarkReviewOfParts(b *testing.B)              {}
+func TestAReviewerIsNamed(t *testing.T)                {}
+func TestProofreadingIsASubject(t *testing.T)          {}
+func TestAPocketHoldsIt(t *testing.T)                  {}
+func TestAPartIsHeld(t *testing.T)                     {}
+func reviewHelper(t *testing.T)                        {}
+
+type s struct{}
+
+func (s) TestReviewOfAMethod() {}
+`
+	got := occasionedTests(parsedGo(t, "a/a_test.go", []byte(src)))
+	want := []string{"TestReviewAPartIsHeld", "TestMiseServicePOCRejectsAWrongChecksum", "TestProductionReviewSpellings", "TestAProofIsKept", "Test_review_by_underscores", "BenchmarkReviewOfParts"}
+	if !slices.Equal(got, want) {
+		t.Errorf("found %q named for an occasion, want %q", got, want)
+	}
+}
+
+// kept are the variables of Frontseat's own a production program may
+// name, each where a process boundary forces it (AGENTS.md, "A program
+// is configured by its flags"): a credential's stand-in inside a
+// sandbox, the services a test is given, where a test's repository is,
+// and the prefix itself, which what checks a name refuses.
+var kept = []string{"FRONTSEAT_", "FRONTSEAT_CRED_", "FRONTSEAT_ENDPOINTS", testmodule.SourceVariable}
+
+// variablesNamed returns each variable of Frontseat's own a Go file
+// names in a string, but those kept.
+func variablesNamed(parsed *ast.File) []string {
+	var out []string
+	ast.Inspect(parsed, func(node ast.Node) bool {
+		literal, ok := node.(*ast.BasicLit)
+		if !ok || literal.Kind != token.STRING {
+			return true
+		}
+		text, err := strconv.Unquote(literal.Value)
+		if err != nil || !strings.HasPrefix(text, "FRONTSEAT_") {
+			return true
+		}
+		name, _, _ := strings.Cut(text, "=")
+		if !slices.Contains(kept, name) {
+			out = append(out, name)
+		}
+		return true
+	})
+	return out
+}
+
+// production reports whether a Go file is of a program: no test, no
+// test support, no spec and no fixture.
+func production(file string) bool {
+	return strings.HasSuffix(file, ".go") && !strings.HasSuffix(file, "_test.go") &&
+		!strings.HasPrefix(file, "server/testsupport/") && !strings.HasPrefix(file, "specs/") &&
+		!slices.Contains(strings.Split(file, "/"), "testdata")
+}
+
+// No production program reads a variable of Frontseat's own to decide
+// what it does, but those a process boundary forces (kept): it names
+// none in its source.
+func TestNoProgramIsConfiguredByAVariableOfItsOwn(t *testing.T) {
+	for file, named := range foundInGo(t, production, variablesNamed) {
+		for _, name := range named {
+			t.Errorf("%s names %s: a program is configured by its flags", file, name)
+		}
+	}
+}
+
+func TestAVariableOfFrontseatsOwnAProgramNamesIsFound(t *testing.T) {
+	src := "package a\n\nimport \"os\"\n\n" +
+		"var _ = os.Getenv(\"FRONTSEAT_DEBUG\")\n" +
+		"var _ = []string{\"FRONTSEAT_TEST_GRID=x\"}\n" +
+		"var _ = os.Getenv(\"" + testmodule.SourceVariable + "\")\n" +
+		"var _ = \"FRONTSEAT_CRED_\" + \"AB\"\n" +
+		"var _ = os.Getenv(\"FRONTSEAT_ENDPOINTS\")\n" +
+		"var _ = os.Getenv(\"HOME\")\n"
+	got := variablesNamed(parsedGo(t, "a/a.go", []byte(src)))
+	if want := []string{"FRONTSEAT_DEBUG", "FRONTSEAT_TEST_GRID"}; !slices.Equal(got, want) {
+		t.Errorf("found %q, want %q", got, want)
+	}
+	for file, want := range map[string]bool{"server/cmd/frontseatd/main.go": true, "server/a_test.go": false, "server/testsupport/testgrid/testgrid.go": false, "specs/cmd/gate/main.go": false, "plugins/go/testdata/a/a.go": false} {
+		if got := production(file); got != want {
+			t.Errorf("production(%q) = %v, want %v", file, got, want)
 		}
 	}
 }

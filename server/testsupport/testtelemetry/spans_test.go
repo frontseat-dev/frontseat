@@ -22,7 +22,7 @@ import (
 )
 
 func TestCollectorTypedObserverRefusals(t *testing.T) {
-	if mode := os.Getenv("FRONTSEAT_REVIEW_ATTRIBUTE_REFUSAL"); mode != "" {
+	if mode := os.Getenv("FRONTSEAT_TELEMETRY_ATTRIBUTE_REFUSAL"); mode != "" {
 		span := &tracepb.Span{}
 		if strings.HasSuffix(mode, "wrong") {
 			span.Attributes = []*commonpb.KeyValue{{Key: "value", Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: "0"}}}}
@@ -50,7 +50,7 @@ func TestCollectorTypedObserverRefusals(t *testing.T) {
 			ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 			defer cancel()
 			cmd := exec.CommandContext(ctx, executable, "-test.run=^TestCollectorTypedObserverRefusals$", "-test.count=1")
-			cmd.Env = append(os.Environ(), "FRONTSEAT_REVIEW_ATTRIBUTE_REFUSAL="+mode)
+			cmd.Env = append(os.Environ(), "FRONTSEAT_TELEMETRY_ATTRIBUTE_REFUSAL="+mode)
 			out, err := cmd.CombinedOutput()
 			if ctx.Err() != nil {
 				t.Fatalf("refusal child did not finish: %s", out)

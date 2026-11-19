@@ -100,7 +100,11 @@ the change that fixes it.
   runs (the gate gives its root whole), so that no test looks up for it
   (`TestATestIsToldWhereItsRepositoryIs`, `TestNoTestLooksUpForWhatItReads`,
   `TestWhatATestIsToldOfItsRepositoryIsSaidByOneName`). The control plane tells a box's daemon by the
-  arguments it starts it with (`SandboxSpec.arguments`).
+  arguments it starts it with (`SandboxSpec.arguments`). The gate tells
+  the tests it runs what it built and prepared for them
+  (`FRONTSEAT_TEST_*`: the box, the confiner, the stack's image, the
+  wasm modules, whether it runs with no stack), which test support
+  alone reads. Held by: `TestNoProgramIsConfiguredByAVariableOfItsOwn`.
 - **The command line asks one server, chosen one way.** Every command
   that asks a server (`version` and `completion` ask none) asks the
   control plane `$XDG_CONFIG_HOME/frontseat/local/server` names,
@@ -651,8 +655,9 @@ the change that fixes it.
 
 - A package or crate is named for what it is: no `util`, `common` or
   `helpers`. A test file is named for its subject, never for the
-  occasion it was written on (a review, a proof of concept, a proof):
-  `TestATestFileIsNamedForItsSubject`.
+  occasion it was written on (a review, a proof of concept, a proof),
+  and so is a test: `TestATestFileIsNamedForItsSubject`,
+  `TestATestIsNamedForItsSubject` (a Go test's name, word by word).
 - Test support for one package is `<package>test` beside it
   (`sourcetest`, `reapitest`, `plantest`, `toolstest`), as Go's
   `httptest`; test support shared across packages, and what starts a
