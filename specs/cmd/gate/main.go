@@ -15,8 +15,12 @@
 //	gate go-test [go test arguments]    go test as it is given
 //
 // What runs tests is told the wasm modules prepared for it from this
-// checkout (FRONTSEAT_TEST_ARTIFACTS, which prepare prints). Where it
-// runs with the stack and a container runtime answers, it first builds
+// checkout (FRONTSEAT_TEST_ARTIFACTS, which prepare prints). test, with
+// the stack, first asks that the stack answers (the container runtime,
+// and the stack's control plane and grid where local/ports says), and
+// fails naming it where none does, before anything is built or run: a
+// test that needs the stack is never left to skip. Where it runs with
+// the stack and a container runtime answers, it first builds
 // the box image of this checkout and installs its frontseat-action for
 // the stack's workers (local/box, the one build of the box), and tells
 // the tests both (FRONTSEAT_TEST_BOX, the box's tag of its content, and
@@ -43,21 +47,24 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/frontseat-dev/frontseat/local"
 	"go/ast"
 	"go/parser"
 	"go/token"
 	"io"
 	"io/fs"
 	"maps"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/frontseat-dev/frontseat/local"
 	"github.com/frontseat-dev/frontseat/local/box"
+	"github.com/frontseat-dev/frontseat/local/ports"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testbox"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testbudget"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testgrid"
@@ -95,6 +102,11 @@ func gate(arguments []string) int {
 		selected, err := selection(root, dirs, command.Except, command.Only)
 		if err != nil {
 			return failed(err)
+		}
+		if !command.NoStack {
+			if err := stackAnswers(context.Background()); err != nil {
+				return failed(err)
+			}
 		}
 		artifacts, err := prepared(root)
 		if err != nil {
@@ -144,6 +156,32 @@ func gate(arguments []string) int {
 		return run(root, environment(os.Environ(), false, append([]string{artifacts, source(root)}, boxes...)...), "go", append([]string{"test"}, command.Go...)...)
 	}
 	return failed(fmt.Errorf("gate does not %s", command.Verb))
+}
+
+// stackAnswers returns where no local stack answers the tests a gate
+// runs with it: the container runtime does not, or the stack's control
+// plane or grid does not on this machine's loopback, where local/ports
+// says. A gate that runs the tests with the stack asks it before
+// anything is built or run, so that a test that needs the stack is
+// never left to skip and the gate to end green with none.
+func stackAnswers(ctx context.Context) error {
+	refused := func(why error) error {
+		return fmt.Errorf("no local stack answers (%w): mise run test runs against it, so start it first (mise start); mise run check runs what needs none", why)
+	}
+	if _, err := local.Architecture(ctx); err != nil {
+		return refused(err)
+	}
+	for _, each := range []struct {
+		name string
+		port int
+	}{{"the control plane", ports.ControlPlane}, {"the grid", ports.Grid}} {
+		conn, err := net.DialTimeout("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(each.port)), time.Second)
+		if err != nil {
+			return refused(fmt.Errorf("%s does not answer at port %d: %w", each.name, each.port, err))
+		}
+		conn.Close()
+	}
+	return nil
 }
 
 func failed(err error) int {
@@ -317,11 +355,13 @@ func prepared(root string) (string, error) {
 // prepared for the tests, hands it to the local stack's Podman, which
 // runs the sandboxes the tests make of it, and installs its confiner,
 // frontseat-action, for the stack's workers, and returns the environment
-// that tells a test both. Where no container runtime answers it does neither, and a
-// test that needs either is skipped as one that needs the runtime is.
+// that tells a test both. Where no container runtime answers it does
+// neither, and a test that needs either is skipped as one that needs the
+// runtime is: only go-test, run by hand, gets so far, since test, with
+// the stack, asks first that the stack answers (stackAnswers).
 func boxed(root, artifacts string) ([]string, error) {
 	ctx := context.Background()
-	if box.Answers(ctx) != nil {
+	if _, err := local.Architecture(ctx); err != nil {
 		return nil, nil
 	}
 	_, dir, _ := strings.Cut(artifacts, "=")

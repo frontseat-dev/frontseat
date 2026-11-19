@@ -276,6 +276,29 @@ func TestAGateWithNoStackReachesNoContainerRuntime(t *testing.T) {
 	}
 }
 
+// A gate that runs the tests with the stack fails, naming it, where no
+// stack answers, before it runs a test: a test that needs the stack is
+// never left to skip, and the gate to end green with no spec of the
+// stack run. Here the container runtime is named as an engine nothing
+// listens at, so no stack answers whatever this machine runs. The
+// control is the same gate with -no-stack, which runs.
+func TestAGateThatNeedsTheStackFailsWhereNoneAnswers(t *testing.T) {
+	runsTheGate(t)
+	t.Setenv("DOCKER_HOST", NoEngine)
+	t.Setenv("DOCKER_CONTEXT", "")
+	only := []string{"-only", "specs/cmd/gate", "--", "-count=1", "-run", "^TestTheStackWordAsTheGateGaveIt$"}
+	code, printed := quietly(t, func() int { return gate(append([]string{"test"}, only...)) })
+	if code == 0 || !strings.Contains(printed, "no local stack answers") {
+		t.Fatalf("a gate that needs the stack ran with none (exit %d):\n%s", code, printed)
+	}
+	if strings.Contains(printed, "ok ") || strings.Contains(printed, "PASS") {
+		t.Errorf("a gate that needs the stack ran a test before it found none:\n%s", printed)
+	}
+	if code, printed := quietly(t, func() int { return gate(append([]string{"test", "-no-stack"}, only...)) }); code != 0 {
+		t.Fatalf("the control, a gate with no stack, failed (exit %d):\n%s", code, printed)
+	}
+}
+
 func TestTheRuntimeAsATestMightReachIt(t *testing.T) {
 	if os.Getenv(reachTheRuntime) == "" {
 		return

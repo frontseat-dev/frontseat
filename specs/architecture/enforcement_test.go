@@ -190,6 +190,10 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		// stack beyond it is the gate's to reach for.
 		{"specs/cmd/prepare-modules/main.go", "local", true},
 		{"specs/cmd/prepare-modules/main.go", "local/stack", false},
+		// The gate asks the stack where its ports are said, before the
+		// tests that need it; what prepares the plugins asks it nothing.
+		{"specs/cmd/gate/main.go", "local/ports", true},
+		{"specs/cmd/prepare-modules/main.go", "local/ports", false},
 		{"server/testsupport/testgrid/testgrid.go", "server/sandbox", false},
 		{"server/testsupport/drivertest/drivertest_test.go", "server/testsupport/drivertest", true},
 		// The container driver is the sandbox service's to name, and its
