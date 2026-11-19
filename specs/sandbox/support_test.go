@@ -307,7 +307,7 @@ func (spec *scenario) cloning(directory string) making {
 	testforge.Committed(spec.TB, directory)
 	at, err := filepath.Rel(sources, directory)
 	spec.Expect(err).NotTo(HaveOccurred())
-	return making{Spec: frontseat.Spec{Repositories: []frontseat.Repository{{Remote: forge + "/" + filepath.ToSlash(at)}}, AuthorizedKeys: testidentity.Authorized()}}
+	return making{Spec: frontseat.Spec{Repositories: []frontseat.Repository{{Remote: forge + "/" + filepath.ToSlash(at)}}, AuthorizedKey: testidentity.Authorized()}}
 }
 
 // ready follows a workspace, for five minutes at most, until the control
@@ -412,8 +412,8 @@ func (spec *scenario) inASandboxOfItsOwn(create making) *Workspace {
 		create.Image = image
 	}
 	// The spec's key opens a shell in it, as a person's does in theirs.
-	if create.AuthorizedKeys == nil {
-		create.AuthorizedKeys = testidentity.Authorized()
+	if create.AuthorizedKey == "" {
+		create.AuthorizedKey = testidentity.Authorized()
 	}
 	// A name of the spec's own: specs clone repositories of one name, and
 	// each is to have its own workspace.

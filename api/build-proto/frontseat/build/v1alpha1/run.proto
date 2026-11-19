@@ -32,12 +32,14 @@ service RunService {
   // none.
   //
   // ### Errors
-  // - INVALID_ARGUMENT: no target is given, or the profile is one nobody
-  //   defined.
-  // - FAILED_PRECONDITION: the daemon holds no workspace to build.
+  // - INVALID_ARGUMENT: no target is given (TARGET_MISSING), the profile
+  //   is one nobody defined (PROFILE_UNKNOWN), or the request_id is
+  //   longer than 128 bytes (REQUEST_ID_INVALID).
+  // - FAILED_PRECONDITION: the daemon holds no workspace to build
+  //   (WORKSPACE_NOT_READY).
   // - RESOURCE_EXHAUSTED: the daemon has thirty-two runs that have
-  //   not ended.
-  // - UNAVAILABLE: the daemon is ending.
+  //   not ended (RUNS_EXHAUSTED).
+  // - UNAVAILABLE: the daemon is ending (DAEMON_ENDING).
   //
   // A target that is no program, and a build that fails, are not errors
   // of the call: the run is made and fails, and says why.
@@ -46,7 +48,7 @@ service RunService {
   // DescribeRun returns one run, as it is now.
   //
   // ### Errors
-  // - NOT_FOUND: no run has that id.
+  // - NOT_FOUND: no run has that id (RUN_NOT_FOUND).
   rpc DescribeRun(DescribeRunRequest) returns (DescribeRunResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
@@ -56,7 +58,8 @@ service RunService {
   // that have.
   //
   // ### Errors
-  // - INVALID_ARGUMENT: the page token is not one this call gave.
+  // - INVALID_ARGUMENT: the page token is not one this call gave
+  //   (PAGE_TOKEN_INVALID).
   rpc ListRuns(ListRunsRequest) returns (ListRunsResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
@@ -67,7 +70,7 @@ service RunService {
   // changes nothing and succeeds.
   //
   // ### Errors
-  // - NOT_FOUND: no run has that id.
+  // - NOT_FOUND: no run has that id (RUN_NOT_FOUND).
   rpc CancelRun(CancelRunRequest) returns (CancelRunResponse) {
     option idempotency_level = IDEMPOTENT;
   }
@@ -75,7 +78,7 @@ service RunService {
   // WaitRun returns a run once it has ended.
   //
   // ### Errors
-  // - NOT_FOUND: no run has that id.
+  // - NOT_FOUND: no run has that id (RUN_NOT_FOUND).
   rpc WaitRun(WaitRunRequest) returns (WaitRunResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }

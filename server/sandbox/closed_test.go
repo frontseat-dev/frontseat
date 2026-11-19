@@ -126,7 +126,7 @@ func TestUnderADriverThatLetsNothingBeReachedUnnamedASandboxReachesWhatItLists(t
 	_, err := client.CreateSandbox(ctx, &sandboxv1.CreateSandboxRequest{Spec: &sandboxv1.SandboxSpec{
 		Image: "box", Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_ALL},
 	}})
-	if connect.CodeOf(err) != connect.CodeFailedPrecondition || !strings.Contains(err.Error(), "a sandbox that reaches anything") {
+	if connect.CodeOf(err) != connect.CodeUnimplemented || !strings.Contains(err.Error(), "a sandbox that reaches anything") {
 		t.Errorf("asking to reach anything: %v, want it refused by name", err)
 	}
 	if len(d.asked) != 1 {
@@ -205,12 +205,12 @@ func TestACredentialIsKeptByTheDriverAndAFetchIsAskedOfIt(t *testing.T) {
 
 	// The control: a driver that keeps no credential outside its sandboxes.
 	open, _ := serve(t)
-	if _, err := open.SetCredential(ctx, &sandboxv1.SetCredentialRequest{Credential: &sandboxv1.Credential{Name: "adas-forge", Host: "forge.example", Secret: "a-made-up-secret"}}); connect.CodeOf(err) != connect.CodeFailedPrecondition || !strings.Contains(err.Error(), "a credential kept outside its sandboxes") {
+	if _, err := open.SetCredential(ctx, &sandboxv1.SetCredentialRequest{Credential: &sandboxv1.Credential{Name: "adas-forge", Host: "forge.example", Secret: "a-made-up-secret"}}); connect.CodeOf(err) != connect.CodeUnimplemented || !strings.Contains(err.Error(), "a credential kept outside its sandboxes") {
 		t.Errorf("a credential given to a driver that keeps none: %v, want it refused by name", err)
 	}
 	if _, err := open.CreateSandbox(ctx, &sandboxv1.CreateSandboxRequest{Spec: &sandboxv1.SandboxSpec{
 		Image: "box", Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_LISTED, Rules: []*sandboxv1.EgressRule{{Host: "forge.example", Credential: "adas-forge", Requests: []*sandboxv1.EgressRequest{{Method: "GET", Path: "/acme/code/refs"}}}}},
-	}}); connect.CodeOf(err) != connect.CodeFailedPrecondition || !strings.Contains(err.Error(), "a credential kept outside its sandboxes") {
+	}}); connect.CodeOf(err) != connect.CodeUnimplemented || !strings.Contains(err.Error(), "a credential kept outside its sandboxes") {
 		t.Errorf("a sandbox that fetches, under a driver that keeps no credential: %v, want it refused by name", err)
 	}
 	if listed, err := open.ListSandboxes(ctx, &sandboxv1.ListSandboxesRequest{}); err != nil || len(listed.GetSandboxes()) != 0 {
@@ -279,7 +279,7 @@ func TestWhatASandboxMayReachIsAskedOfTheDriverRuleByRule(t *testing.T) {
 	}
 	// The control: a driver that keeps none says so, by name.
 	open, _ := serve(t)
-	if _, err := open.DescribeCredential(ctx, &sandboxv1.DescribeCredentialRequest{Name: "beas-forge"}); connect.CodeOf(err) != connect.CodeFailedPrecondition {
+	if _, err := open.DescribeCredential(ctx, &sandboxv1.DescribeCredentialRequest{Name: "beas-forge"}); connect.CodeOf(err) != connect.CodeUnimplemented {
 		t.Errorf("a credential asked after under a driver that keeps none: %v, want it refused by name", err)
 	}
 }

@@ -588,8 +588,8 @@ func volumesOf(volumes []*sandboxv1.Volume) ([]driver.Volume, error) {
 	return out, nil
 }
 
-// refused turns a driver's refusal into the contract's: a failed
-// precondition that names the capability.
+// refused turns a driver's refusal into the contract's: a capability not
+// served, named, or a sandbox that is ending.
 func refused(err error) error {
 	if mend := callers(err); mend != nil {
 		return mend
@@ -775,7 +775,7 @@ func (s *service) ExecSandbox(ctx context.Context, req *sandboxv1.ExecSandboxReq
 	}
 	execer, ok := s.driver.(driver.Execer)
 	if !ok {
-		return nil, refuse(connect.CodeFailedPrecondition, "CAPABILITY_UNSUPPORTED", (&driver.Unsupported{Driver: s.driver.Name(), Capability: "a command run in a sandbox"}).Error())
+		return nil, refuse(connect.CodeUnimplemented, "CAPABILITY_NOT_SERVED", (&driver.Unsupported{Driver: s.driver.Name(), Capability: "a command run in a sandbox"}).Error())
 	}
 	s.mu.Lock()
 	r, ok := s.records[req.GetSandboxId()]
@@ -951,7 +951,7 @@ func newID() string {
 func (s *service) credentialed() (driver.Credentialed, error) {
 	keeps, ok := s.driver.(driver.Credentialed)
 	if !ok || !s.driver.Capabilities().Credentials {
-		return nil, refuse(connect.CodeFailedPrecondition, "CAPABILITY_UNSUPPORTED", (&driver.Unsupported{Driver: s.driver.Name(), Capability: "a credential kept outside its sandboxes"}).Error())
+		return nil, refuse(connect.CodeUnimplemented, "CAPABILITY_NOT_SERVED", (&driver.Unsupported{Driver: s.driver.Name(), Capability: "a credential kept outside its sandboxes"}).Error())
 	}
 	return keeps, nil
 }
@@ -1043,13 +1043,13 @@ func said(err error) error {
 }
 
 // callers is a driver's failure where it is the caller's to mend, as the
-// contract says it: a capability the driver has not, which is a failed
-// precondition that names it, and what is not well formed; and nil where
+// contract says it: a capability the driver has not, which is not served
+// and is named, and what is not well formed; and nil where
 // it is neither.
 func callers(err error) error {
 	var unsupported *driver.Unsupported
 	if errors.As(err, &unsupported) {
-		return refuse(connect.CodeFailedPrecondition, "CAPABILITY_UNSUPPORTED", unsupported.Error())
+		return refuse(connect.CodeUnimplemented, "CAPABILITY_NOT_SERVED", unsupported.Error())
 	}
 	if errors.Is(err, driver.ErrInvalid) {
 		return refuse(connect.CodeInvalidArgument, "SPEC_INVALID", err.Error())

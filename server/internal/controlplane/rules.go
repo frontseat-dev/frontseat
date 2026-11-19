@@ -45,8 +45,10 @@ func malformed(format string, a ...any) error {
 	return &unmet{connect.CodeInvalidArgument, "SPEC_INVALID", fmt.Sprintf(format, a...)}
 }
 
-func ungiven(format string, a ...any) error {
-	return &unmet{connect.CodeFailedPrecondition, "SPEC_UNSERVED", fmt.Sprintf(format, a...)}
+// unserved is what this control plane does not serve, refused by the
+// reason that names it (AGENTS.md, "APIs": <WHAT>_NOT_SERVED).
+func unserved(reason, format string, a ...any) error {
+	return &unmet{connect.CodeUnimplemented, reason, fmt.Sprintf(format, a...)}
 }
 
 // origin is where a repository is fetched from over HTTP: its scheme, its
@@ -117,7 +119,7 @@ func (s *service) sandbox(ctx context.Context, name, owner string, spec *workspa
 	image := spec.GetImage()
 	if image == "" {
 		if image = s.Box; image == "" {
-			return nil, ungiven("the control plane names no box image of its own: name one")
+			return nil, unserved("IMAGE_NOT_SERVED", "the control plane names no box image of its own: name one")
 		}
 	}
 	environment := map[string]string{}
@@ -140,14 +142,11 @@ func (s *service) sandbox(ctx context.Context, name, owner string, spec *workspa
 			environment[told] = value
 		}
 	}
-	switch keys := spec.GetAuthorizedKeys(); {
-	case len(keys) > 1:
-		return nil, ungiven("a workspace's shell lets in one key, and more than one is not served")
-	case len(keys) == 1:
-		if strings.ContainsAny(keys[0], "\r\n\x00") || strings.TrimSpace(keys[0]) == "" {
+	if key := spec.GetAuthorizedKey(); key != "" {
+		if strings.ContainsAny(key, "\r\n\x00") || strings.TrimSpace(key) == "" {
 			return nil, malformed("a key let into a workspace's shell is one line")
 		}
-		arguments = append(arguments, "--authorized-key="+strings.TrimSpace(keys[0]))
+		arguments = append(arguments, "--authorized-key="+strings.TrimSpace(key))
 	}
 	out := &sandboxv1.SandboxSpec{
 		Image:     image,
@@ -192,10 +191,10 @@ func (s *service) sandbox(ctx context.Context, name, owner string, spec *workspa
 		}
 	}
 	if spec.GetPush() && (fetchable == 0 || fetchable != len(spec.GetRepositories())) {
-		return nil, ungiven("a workspace pushes to repositories it is given by their address over http or https, and each of these is not one")
+		return nil, unserved("PUSH_NOT_SERVED", "a workspace pushes to repositories it is given by their address over http or https, and each of these is not one")
 	}
 	if len(order) > 0 && s.Fetching == nil {
-		return nil, ungiven("the control plane was told of no version control system, and so lets no workspace fetch a repository")
+		return nil, unserved("FETCH_NOT_SERVED", "the control plane was told of no version control system, and so lets no workspace fetch a repository")
 	}
 	sort.Strings(order)
 	for _, host := range order {
@@ -238,9 +237,9 @@ func (s *service) sandbox(ctx context.Context, name, owner string, spec *workspa
 			kept = said.GetCredential()
 		}
 		switch connect.CodeOf(err) {
-		case connect.CodeNotFound, connect.CodeFailedPrecondition:
-			// None is kept: its repositories are fetched as anyone fetches
-			// them.
+		case connect.CodeNotFound, connect.CodeUnimplemented:
+			// None is kept, or none can be: its repositories are fetched
+			// as anyone fetches them.
 		default:
 			if err != nil {
 				return nil, err

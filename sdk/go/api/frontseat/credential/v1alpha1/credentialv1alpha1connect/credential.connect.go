@@ -90,8 +90,8 @@ type CredentialServiceClient interface {
 	//   the username is no username (CREDENTIAL_USERNAME_INVALID), or no
 	//   secret is given, or one of more than one line
 	//   (CREDENTIAL_SECRET_INVALID).
-	// - FAILED_PRECONDITION: what makes sandboxes keeps no credential
-	//   outside them.
+	// - UNIMPLEMENTED: what makes sandboxes keeps no credential outside
+	//   them.
 	// - UNAVAILABLE: it could not be kept.
 	SetCredential(context.Context, *v1alpha1.SetCredentialRequest) (*v1alpha1.SetCredentialResponse, error)
 	// ListCredentials returns the caller's credentials, by host, a page at
@@ -132,8 +132,8 @@ type CredentialServiceHandler interface {
 	//   the username is no username (CREDENTIAL_USERNAME_INVALID), or no
 	//   secret is given, or one of more than one line
 	//   (CREDENTIAL_SECRET_INVALID).
-	// - FAILED_PRECONDITION: what makes sandboxes keeps no credential
-	//   outside them.
+	// - UNIMPLEMENTED: what makes sandboxes keeps no credential outside
+	//   them.
 	// - UNAVAILABLE: it could not be kept.
 	SetCredential(context.Context, *v1alpha1.SetCredentialRequest) (*v1alpha1.SetCredentialResponse, error)
 	// ListCredentials returns the caller's credentials, by host, a page at

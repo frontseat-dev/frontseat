@@ -49,8 +49,8 @@ func TestWhatASpecNamesOfContainersAndSubpathsIsChecked(t *testing.T) {
 	// The control: a plain subpath and a plainly named container are no
 	// mistake; this driver cannot give them, and says so.
 	_, err := client.CreateSandbox(context.Background(), &sandboxv1.CreateSandboxRequest{Spec: &sandboxv1.SandboxSpec{Image: "box", Containers: []*sandboxv1.Container{{Name: "db", Image: "box"}}}})
-	if codeOf(err) != connect.CodeFailedPrecondition || !strings.Contains(err.Error(), "further containers") {
-		t.Errorf("further containers of a driver that has none: %v, want a failed precondition naming them", err)
+	if codeOf(err) != connect.CodeUnimplemented || !strings.Contains(err.Error(), "further containers") {
+		t.Errorf("further containers of a driver that has none: %v, want them refused as not served, by name", err)
 	}
 }
 
@@ -58,8 +58,8 @@ func TestADriverThatCannotRunACommandInASandboxSaysSo(t *testing.T) {
 	client, _ := serve(t)
 	made := create(t, client, &sandboxv1.SandboxSpec{Image: "box"})
 	_, err := client.ExecSandbox(context.Background(), &sandboxv1.ExecSandboxRequest{SandboxId: made.GetId(), Arguments: []string{"true"}})
-	if codeOf(err) != connect.CodeFailedPrecondition {
-		t.Errorf("exec where the driver cannot: %v, want a failed precondition", err)
+	if codeOf(err) != connect.CodeUnimplemented {
+		t.Errorf("exec where the driver cannot: %v, want it refused as not served", err)
 	}
 	if _, err := client.ExecSandbox(context.Background(), &sandboxv1.ExecSandboxRequest{SandboxId: made.GetId()}); codeOf(err) != connect.CodeInvalidArgument {
 		t.Errorf("exec of no command: %v, want an invalid argument", err)
@@ -117,7 +117,7 @@ func TestOverTheContainerRuntimeNoCredentialIsKept(t *testing.T) {
 	client, _ := serving(t, func(address string) (http.Handler, error) { return sandbox.Runner(address, nil, t.TempDir()) })
 	ctx := context.Background()
 	const says = "a credential kept outside its sandboxes"
-	if _, err := client.SetCredential(ctx, &sandboxv1.SetCredentialRequest{Credential: &sandboxv1.Credential{Name: "a-credential", Host: "forge.example", Secret: "a-made-up-secret"}}); connect.CodeOf(err) != connect.CodeFailedPrecondition || !strings.Contains(err.Error(), says) {
+	if _, err := client.SetCredential(ctx, &sandboxv1.SetCredentialRequest{Credential: &sandboxv1.Credential{Name: "a-credential", Host: "forge.example", Secret: "a-made-up-secret"}}); connect.CodeOf(err) != connect.CodeUnimplemented || !strings.Contains(err.Error(), says) {
 		t.Errorf("a credential given: %v, want it refused saying %q", err, says)
 	}
 	made, err := client.CreateSandbox(ctx, &sandboxv1.CreateSandboxRequest{Spec: &sandboxv1.SandboxSpec{
@@ -128,7 +128,7 @@ func TestOverTheContainerRuntimeNoCredentialIsKept(t *testing.T) {
 		// Made after all: it is not left behind.
 		_, _ = client.DeleteSandbox(ctx, &sandboxv1.DeleteSandboxRequest{SandboxId: made.GetSandbox().GetId()})
 	}
-	if connect.CodeOf(err) != connect.CodeFailedPrecondition {
+	if connect.CodeOf(err) != connect.CodeUnimplemented {
 		t.Errorf("a sandbox whose rule attaches a credential: %v, want it refused by name", err)
 	}
 }

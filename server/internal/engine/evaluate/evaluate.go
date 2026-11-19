@@ -232,11 +232,11 @@ func evaluate(ctx context.Context, src Source, plugins []*pluginhost.Plugin, ans
 	if err != nil {
 		var conflict *catalog.Conflict
 		if errors.As(err, &conflict) {
-			rule, help := "catalog/conflicting-ownership", "Place components in distinct source directories and keep each identity in one repository."
+			rule, reason, help := "catalog/conflicting-ownership", "CONFLICTING_OWNERSHIP", "Place components in distinct source directories and keep each identity in one repository."
 			if conflict.Duplicate {
-				rule, help = "catalog/duplicate-entity", "Give each catalog entity one descriptor; use distinct namespaces for different entities with the same name."
+				rule, reason, help = "catalog/duplicate-entity", "DUPLICATE_ENTITY", "Give each catalog entity one descriptor; use distinct namespaces for different entities with the same name."
 			}
-			err = wire.SourceMistake(conflict.Repository, conflict.Manifest, rule, conflict.Message, help)
+			err = wire.SourceMistake(conflict.Repository, conflict.Manifest, rule, reason, conflict.Message, help)
 		}
 		return out, err
 	}

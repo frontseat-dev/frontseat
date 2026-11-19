@@ -347,9 +347,9 @@ func frontseatInASandbox(t *testing.T, shape testworkload.Shape) tool {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	opened, err := frontseat.New(srv.URL, served.Owner).Open(ctx, frontseat.Spec{
-		Image:          testbox.Image(t),
-		Repositories:   []frontseat.Repository{{Remote: testforge.Serve(t, remotes) + "/" + repository, Ref: "main"}},
-		AuthorizedKeys: testidentity.Authorized(),
+		Image:         testbox.Image(t),
+		Repositories:  []frontseat.Repository{{Remote: testforge.Serve(t, remotes) + "/" + repository, Ref: "main"}},
+		AuthorizedKey: testidentity.Authorized(),
 	})
 	if err != nil {
 		t.Fatal(err)

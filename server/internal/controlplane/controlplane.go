@@ -459,7 +459,7 @@ func more(there, asked *workspacev1.WorkspaceSpec) string {
 		return "it was made without push, and what a workspace may reach is said when it is made"
 	case asked.GetImage() != "" && asked.GetImage() != there.GetImage():
 		return "it runs another image than is asked for"
-	case len(asked.GetAuthorizedKeys()) > 0 && !slices.Equal(asked.GetAuthorizedKeys(), there.GetAuthorizedKeys()):
+	case asked.GetAuthorizedKey() != "" && asked.GetAuthorizedKey() != there.GetAuthorizedKey():
 		return "it lets another key into its shell than is asked for, which is said when it is made"
 	}
 	return ""
@@ -721,7 +721,7 @@ func (s *service) UpdateWorkspace(ctx context.Context, req *workspacev1.UpdateWo
 		return nil, refusedFor(connect.CodeInvalidArgument, "SPEC_INCOMPLETE", "the spec leaves out "+left+", which the workspace has: one is given whole, with what is added")
 	}
 	once := func(spec *workspacev1.WorkspaceSpec) *workspacev1.WorkspaceSpec {
-		return &workspacev1.WorkspaceSpec{Push: spec.GetPush(), Author: spec.GetAuthor(), Image: spec.GetImage(), Lifetime: spec.GetLifetime(), AuthorizedKeys: spec.GetAuthorizedKeys()}
+		return &workspacev1.WorkspaceSpec{Push: spec.GetPush(), Author: spec.GetAuthor(), Image: spec.GetImage(), Lifetime: spec.GetLifetime(), AuthorizedKey: spec.GetAuthorizedKey()}
 	}
 	asked := once(wanted)
 	if asked.GetImage() == "" {
@@ -748,7 +748,7 @@ func (s *service) UpdateWorkspace(ctx context.Context, req *workspacev1.UpdateWo
 		return nil, err
 	}
 	if beyond := reaches(h.made, h.resolved, wanted, resolved); beyond != "" {
-		return nil, refusedFor(connect.CodeFailedPrecondition, "SPEC_UNSERVED", beyond)
+		return nil, refusedFor(connect.CodeUnimplemented, "REACH_NOT_SERVED", beyond)
 	}
 	if err := s.heldOnce(wanted, resolved); err != nil {
 		return nil, err

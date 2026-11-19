@@ -14,6 +14,16 @@
 // to no one else: whoever may ask it may run anything in any of its
 // sandboxes. The control plane serves workspaces over it and serves none
 // of it on its own endpoint.
+//
+// What it refuses by name carries ErrorInfo of the domain
+// sandbox.frontseat.dev, with the reason each call names. A call about a
+// sandbox that is being changed by another, and that gives up waiting
+// its turn, is refused CANCELED or DEADLINE_EXCEEDED with the reason
+// SANDBOX_BUSY. What a driver cannot enforce is refused UNIMPLEMENTED
+// with the reason CAPABILITY_NOT_SERVED, the message naming it; what a
+// driver finds not well formed, INVALID_ARGUMENT with SPEC_INVALID; and
+// a sandbox the driver is ending, FAILED_PRECONDITION with
+// SANDBOX_ENDING.
 syntax = "proto3";
 
 package frontseat.sandbox.v1alpha1;
@@ -30,15 +40,17 @@ service SandboxService {
   //
   // ### Errors
   // - INVALID_ARGUMENT: the spec names no image, or holds something this
-  //   server does not know.
-  // - FAILED_PRECONDITION: the spec asks for what the driver cannot
-  //   enforce; the message names it.
+  //   server does not know (SPEC_INVALID).
+  // - UNIMPLEMENTED: the spec asks for what the driver cannot enforce;
+  //   the message names it (CAPABILITY_NOT_SERVED).
+  // - FAILED_PRECONDITION: the sandbox the same request_id made is
+  //   ending; the request is sent again once it is gone (SANDBOX_ENDING).
   rpc CreateSandbox(CreateSandboxRequest) returns (CreateSandboxResponse);
 
   // DescribeSandbox returns one sandbox, as it is now.
   //
   // ### Errors
-  // - NOT_FOUND: no sandbox has that id.
+  // - NOT_FOUND: no sandbox has that id (SANDBOX_NOT_FOUND).
   rpc DescribeSandbox(DescribeSandboxRequest) returns (DescribeSandboxResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
@@ -47,7 +59,8 @@ service SandboxService {
   //
   // ### Errors
   // - INVALID_ARGUMENT: the label selector is not name=value, separated
-  //   by commas, or the page token is not one this call gave.
+  //   by commas (LABEL_SELECTOR_INVALID), or the page token is not one
+  //   this call gave (PAGE_TOKEN_INVALID).
   rpc ListSandboxes(ListSandboxesRequest) returns (ListSandboxesResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
@@ -56,7 +69,7 @@ service SandboxService {
   // lost. Only a sandbox this service made is its to delete.
   //
   // ### Errors
-  // - NOT_FOUND: no sandbox has that id.
+  // - NOT_FOUND: no sandbox has that id (SANDBOX_NOT_FOUND).
   rpc DeleteSandbox(DeleteSandboxRequest) returns (DeleteSandboxResponse) {
     option idempotency_level = IDEMPOTENT;
   }
@@ -65,8 +78,8 @@ service SandboxService {
   // and its memory where the driver snapshots machines.
   //
   // ### Errors
-  // - NOT_FOUND: no sandbox has that id.
-  // - FAILED_PRECONDITION: the driver cannot pause.
+  // - NOT_FOUND: no sandbox has that id (SANDBOX_NOT_FOUND).
+  // - UNIMPLEMENTED: the driver cannot pause (CAPABILITY_NOT_SERVED).
   rpc PauseSandbox(PauseSandboxRequest) returns (PauseSandboxResponse) {
     option idempotency_level = IDEMPOTENT;
   }
@@ -74,7 +87,7 @@ service SandboxService {
   // ResumeSandbox starts a paused sandbox again.
   //
   // ### Errors
-  // - NOT_FOUND: no sandbox has that id.
+  // - NOT_FOUND: no sandbox has that id (SANDBOX_NOT_FOUND).
   rpc ResumeSandbox(ResumeSandboxRequest) returns (ResumeSandboxResponse) {
     option idempotency_level = IDEMPOTENT;
   }
@@ -83,7 +96,7 @@ service SandboxService {
   // running, paused, failed or ending. It is cheap to call again.
   //
   // ### Errors
-  // - NOT_FOUND: no sandbox has that id.
+  // - NOT_FOUND: no sandbox has that id (SANDBOX_NOT_FOUND).
   rpc WaitSandbox(WaitSandboxRequest) returns (WaitSandboxResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
@@ -94,11 +107,16 @@ service SandboxService {
   // service whether it is ready, and has it set itself up.
   //
   // ### Errors
-  // - NOT_FOUND: no sandbox has that id, or it has no container of that
-  //   name.
-  // - INVALID_ARGUMENT: no command is given.
-  // - FAILED_PRECONDITION: the sandbox is not running.
-  // - DEADLINE_EXCEEDED: the command ran past its timeout, and was ended.
+  // - NOT_FOUND: no sandbox has that id (SANDBOX_NOT_FOUND), or it has
+  //   no container of that name (CONTAINER_NOT_FOUND).
+  // - INVALID_ARGUMENT: no command is given (COMMAND_MISSING), or the
+  //   timeout is not more than nothing (TIMEOUT_INVALID).
+  // - FAILED_PRECONDITION: the sandbox is not running
+  //   (SANDBOX_NOT_RUNNING).
+  // - UNIMPLEMENTED: the driver runs no command in a sandbox
+  //   (CAPABILITY_NOT_SERVED).
+  // - DEADLINE_EXCEEDED: the command ran past its timeout, and was ended
+  //   (COMMAND_TIMED_OUT).
   rpc ExecSandbox(ExecSandboxRequest) returns (ExecSandboxResponse);
 
   // SetCredential gives the server a credential for a host, under a name
@@ -110,11 +128,12 @@ service SandboxService {
   // for the same host alone. It is never read back.
   //
   // ### Errors
-  // - INVALID_ARGUMENT: the name is no credential's, the host is no
-  //   host's name, or no secret is given; the name is kept for another
-  //   host.
-  // - FAILED_PRECONDITION: the driver keeps no credential outside its
-  //   sandboxes.
+  // - INVALID_ARGUMENT: the name is no credential's
+  //   (CREDENTIAL_NAME_INVALID); no host or no secret is given
+  //   (CREDENTIAL_INVALID); the host is no host's name, or the name is
+  //   kept for another host (SPEC_INVALID).
+  // - UNIMPLEMENTED: the driver keeps no credential outside its
+  //   sandboxes (CAPABILITY_NOT_SERVED).
   // - UNAVAILABLE: the driver could not keep it.
   rpc SetCredential(SetCredentialRequest) returns (SetCredentialResponse) {
     option idempotency_level = IDEMPOTENT;
@@ -126,10 +145,12 @@ service SandboxService {
   // secret.
   //
   // ### Errors
-  // - INVALID_ARGUMENT: the name is no credential's.
-  // - NOT_FOUND: no credential is kept under the name.
-  // - FAILED_PRECONDITION: the driver keeps no credential outside its
-  //   sandboxes.
+  // - INVALID_ARGUMENT: the name is no credential's
+  //   (CREDENTIAL_NAME_INVALID).
+  // - NOT_FOUND: no credential is kept under the name
+  //   (CREDENTIAL_NOT_FOUND).
+  // - UNIMPLEMENTED: the driver keeps no credential outside its
+  //   sandboxes (CAPABILITY_NOT_SERVED).
   rpc DescribeCredential(DescribeCredentialRequest) returns (DescribeCredentialResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
@@ -139,9 +160,12 @@ service SandboxService {
   // server holds none under is no error.
   //
   // ### Errors
-  // - INVALID_ARGUMENT: the name is no credential's.
-  // - FAILED_PRECONDITION: the driver keeps no credential outside its
-  //   sandboxes, or a sandbox is still let through with the credential.
+  // - INVALID_ARGUMENT: the name is no credential's
+  //   (CREDENTIAL_NAME_INVALID).
+  // - UNIMPLEMENTED: the driver keeps no credential outside its
+  //   sandboxes (CAPABILITY_NOT_SERVED).
+  // - FAILED_PRECONDITION: a sandbox is still let through with the
+  //   credential (CREDENTIAL_IN_USE).
   // - UNAVAILABLE: the driver could not let go of it.
   rpc DeleteCredential(DeleteCredentialRequest) returns (DeleteCredentialResponse) {
     option idempotency_level = IDEMPOTENT;

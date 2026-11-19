@@ -46,13 +46,14 @@ type Spec struct {
 	Push bool
 	// Author is who commits there; nobody where it is empty.
 	Author Author
-	// AuthorizedKeys are the public keys, each a line of
-	// authorized_keys, that may open a shell in it (Workspace.Shell).
-	// They are said when it is made: one opened again with another key
-	// is refused, and one opened again with none is as it was made.
-	AuthorizedKeys []string
-	// Lifetime is how long it lasts once nobody uses it; zero for the
-	// control plane's own.
+	// AuthorizedKey is the public key, a line of authorized_keys, that
+	// may open a shell in it (Workspace.Shell); empty for none. It is
+	// said when it is made: one opened again with another key is
+	// refused, and one opened again with none is as it was made.
+	AuthorizedKey string
+	// Lifetime is how long it lasts from when it was made, however much
+	// it is used, after which the control plane ends it; zero for one
+	// kept until it is ended.
 	Lifetime time.Duration
 }
 
@@ -69,7 +70,7 @@ type Author struct {
 
 // proto is the spec as the API carries it.
 func (s Spec) proto() (*workspacev1.WorkspaceSpec, error) {
-	spec := &workspacev1.WorkspaceSpec{Whole: s.Whole, Push: s.Push, Image: s.Image, AuthorizedKeys: s.AuthorizedKeys}
+	spec := &workspacev1.WorkspaceSpec{Whole: s.Whole, Push: s.Push, Image: s.Image, AuthorizedKey: s.AuthorizedKey}
 	for _, r := range s.Repositories {
 		spec.Repositories = append(spec.Repositories, &workspacev1.RepositorySource{Remote: r.Remote, Ref: r.Ref})
 	}
@@ -141,8 +142,8 @@ func (c *Client) Workspaces(ctx context.Context) ([]*workspacev1.Workspace, erro
 // Open gives the workspace a spec asks for: the one the control plane
 // keeps, as it was left, or a new one, whose daemon clones what the
 // spec names. It returns once the workspace can be worked in. A spec
-// that names a workspace and nothing more than the keys that may open
-// a shell in it opens the one there is by that name, and makes none.
+// that names a workspace and nothing more than the key that may open a
+// shell in it opens the one there is by that name, and makes none.
 //
 // It ends nothing, whatever fails: a workspace that is there may hold
 // work, and one that could not be opened is named in what is returned.
@@ -152,14 +153,14 @@ func (c *Client) Open(ctx context.Context, spec Spec) (Opened, error) {
 	if err != nil {
 		return Opened{}, err
 	}
-	if spec.Name != "" && proto.Equal(wanted, &workspacev1.WorkspaceSpec{AuthorizedKeys: spec.AuthorizedKeys}) {
+	if spec.Name != "" && proto.Equal(wanted, &workspacev1.WorkspaceSpec{AuthorizedKey: spec.AuthorizedKey}) {
 		// Asked for again as it is, it is the one there is.
 		there, err := api.DescribeWorkspace(ctx, &workspacev1.DescribeWorkspaceRequest{Name: spec.Name})
 		if err != nil {
 			return Opened{}, err
 		}
 		wanted = proto.Clone(there.GetWorkspace().GetSpec()).(*workspacev1.WorkspaceSpec)
-		wanted.AuthorizedKeys = spec.AuthorizedKeys
+		wanted.AuthorizedKey = spec.AuthorizedKey
 	}
 	said, err := api.CreateWorkspace(ctx, &workspacev1.CreateWorkspaceRequest{Name: spec.Name, Spec: wanted})
 	if err != nil {
@@ -314,7 +315,7 @@ func (w *Workspace) Delete(ctx context.Context) error {
 
 // Shell returns a connection to the workspace's shell, through the
 // control plane that keeps it: what an SSH client speaks over, logging
-// in with a key the workspace was made to let in (Spec.AuthorizedKeys).
+// in with a key the workspace was made to let in (Spec.AuthorizedKey).
 // The connection lasts as long as the context.
 func (w *Workspace) Shell(ctx context.Context) (net.Conn, error) {
 	if w.name == "" {

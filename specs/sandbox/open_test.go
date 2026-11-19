@@ -251,7 +251,7 @@ func (spec *scenario) openingAs(name string, checkout said) opened {
 func (spec *scenario) attemptingAs(name string, checkout said) (opened, error) {
 	spec.Helper()
 	at, got, err := made(context.Background(), making{Server: server, Spec: frontseat.Spec{
-		Name: name, Repositories: []frontseat.Repository{{Remote: checkout.remote, Ref: checkout.branch}}, Author: checkout.author, AuthorizedKeys: testidentity.Authorized(),
+		Name: name, Repositories: []frontseat.Repository{{Remote: checkout.remote, Ref: checkout.branch}}, Author: checkout.author, AuthorizedKey: testidentity.Authorized(),
 	}})
 	if got.Workspace != nil {
 		named := got.Workspace.Name()

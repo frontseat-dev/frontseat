@@ -60,10 +60,17 @@ type GraphServiceClient interface {
 	// a page at a time, in the order of their references.
 	//
 	// ### Errors
-	// - INVALID_ARGUMENT: the page token is not one this call gave.
+	// - INVALID_ARGUMENT: the page token is not one this call gave
+	//   (PAGE_TOKEN_INVALID).
 	// - FAILED_PRECONDITION: the workspace holds no repository that is
-	//   ready to build, or what a repository or an entity says of how it is
-	//   built is mistaken; the message says what.
+	//   ready to build (WORKSPACE_NOT_READY), or what a repository or an
+	//   entity says of how it is built is mistaken; the message says what.
+	//   A mistake of the catalog is refused by its own reason: two entities
+	//   own one directory (CONFLICTING_OWNERSHIP), an entity is described
+	//   twice (DUPLICATE_ENTITY), or what is generated is beyond what its
+	//   Component may write (GENERATED_WITHOUT_CONSENT); any other by
+	//   SOURCE_MISTAKEN.
+	// - UNAVAILABLE: the daemon is ending (DAEMON_ENDING).
 	ListEntities(context.Context, *v1alpha1.ListEntitiesRequest) (*v1alpha1.ListEntitiesResponse, error)
 	// ListProjects returns the projects the plugins found: a Go module, a
 	// Maven module, a package of a JavaScript workspace. Each says which
@@ -72,8 +79,10 @@ type GraphServiceClient interface {
 	// the order of their repositories, directories and plugins.
 	//
 	// ### Errors
-	// - INVALID_ARGUMENT: the page token is not one this call gave.
+	// - INVALID_ARGUMENT: the page token is not one this call gave
+	//   (PAGE_TOKEN_INVALID).
 	// - FAILED_PRECONDITION: as for ListEntities.
+	// - UNAVAILABLE: the daemon is ending (DAEMON_ENDING).
 	ListProjects(context.Context, *v1alpha1.ListProjectsRequest) (*v1alpha1.ListProjectsResponse, error)
 }
 
@@ -90,10 +99,17 @@ type GraphServiceHandler interface {
 	// a page at a time, in the order of their references.
 	//
 	// ### Errors
-	// - INVALID_ARGUMENT: the page token is not one this call gave.
+	// - INVALID_ARGUMENT: the page token is not one this call gave
+	//   (PAGE_TOKEN_INVALID).
 	// - FAILED_PRECONDITION: the workspace holds no repository that is
-	//   ready to build, or what a repository or an entity says of how it is
-	//   built is mistaken; the message says what.
+	//   ready to build (WORKSPACE_NOT_READY), or what a repository or an
+	//   entity says of how it is built is mistaken; the message says what.
+	//   A mistake of the catalog is refused by its own reason: two entities
+	//   own one directory (CONFLICTING_OWNERSHIP), an entity is described
+	//   twice (DUPLICATE_ENTITY), or what is generated is beyond what its
+	//   Component may write (GENERATED_WITHOUT_CONSENT); any other by
+	//   SOURCE_MISTAKEN.
+	// - UNAVAILABLE: the daemon is ending (DAEMON_ENDING).
 	ListEntities(context.Context, *v1alpha1.ListEntitiesRequest) (*v1alpha1.ListEntitiesResponse, error)
 	// ListProjects returns the projects the plugins found: a Go module, a
 	// Maven module, a package of a JavaScript workspace. Each says which
@@ -102,8 +118,10 @@ type GraphServiceHandler interface {
 	// the order of their repositories, directories and plugins.
 	//
 	// ### Errors
-	// - INVALID_ARGUMENT: the page token is not one this call gave.
+	// - INVALID_ARGUMENT: the page token is not one this call gave
+	//   (PAGE_TOKEN_INVALID).
 	// - FAILED_PRECONDITION: as for ListEntities.
+	// - UNAVAILABLE: the daemon is ending (DAEMON_ENDING).
 	ListProjects(context.Context, *v1alpha1.ListProjectsRequest) (*v1alpha1.ListProjectsResponse, error)
 }
 
