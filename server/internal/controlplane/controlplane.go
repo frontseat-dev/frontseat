@@ -1176,7 +1176,7 @@ func (s *service) step(ctx context.Context, h *held) *workspacev1.WorkspaceStatu
 		cancel()
 		// One that is bringing what it was told before is told again
 		// once that is done: it says so by its reason, never its words.
-		if reason, domain := refusal.Reason(err); domain == refusal.Source && reason == told.Populating {
+		if reason, domain := frontseat.Reason(err); domain == refusal.Source && reason == told.Populating {
 			return &workspacev1.WorkspaceStatus{State: workspacev1.WorkspaceStatus_STATE_POPULATING}
 		}
 		h.again = false
@@ -1328,7 +1328,7 @@ func relayed(err error) error {
 	if !errors.As(err, &said) {
 		return connect.NewError(connect.CodeUnavailable, err.Error())
 	}
-	if reason, domain := refusal.Reason(err); domain == refusal.Source && reason != "" {
+	if reason, domain := frontseat.Reason(err); domain == refusal.Source && reason != "" {
 		return refusedFor(said.Code(), reason, said.Message())
 	}
 	return connect.NewError(said.Code(), said.Message())

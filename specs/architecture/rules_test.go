@@ -306,6 +306,12 @@ func permits(file, imported string) bool {
 	if test && ofTheBuild(dir) && (beneath(path, "sdk/go/api") || path == "sdk/go/entity" || path == "sdk/go" || beneath(path, "server/internal/pluginapi") || path == "server/internal/engine/source" || path == "server/internal/exec/reapi") {
 		return true
 	}
+	// A server's test reads what it was refused by its reason as any
+	// client of the API does, with the SDK's one reader of it
+	// (frontseat.Reason).
+	if test && beneath(dir, "server") && path == "sdk/go" {
+		return true
+	}
 	// Evaluation's tests load a real plugin as the host's own tests do.
 	if test && (dir == "server/internal/pluginhost" || dir == "server/internal/engine/evaluate") && path == "server/internal/pluginhost/conformance" {
 		return true

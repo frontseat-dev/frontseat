@@ -454,7 +454,11 @@ the change that fixes it.
   `Duration`.
 - Errors carry a canonical code and `ErrorInfo{reason, domain}`, a domain
   per service; something refused by name has a reason that says so
-  (`server/internal/refusal`).
+  (`server/internal/refusal`), and every reason a server gives is named
+  in the contract of the call that gives it, which a client reads it by
+  (`frontseat.Reason`), never by the message. Held by:
+  `TestEveryReasonAServerGivesIsNamedInItsContract`, its control
+  `TestAReasonNoContractNamesIsFound`.
 - A call or a field may be served by an enterprise server alone, or only
   where the operator has configured what serves it; its comment in the
   contract says so. A server that does not serve it refuses it by name,
@@ -540,7 +544,7 @@ mise run docs:serve       # serve the TechDocs site on http://localhost:8000
 
 | Where | What it holds |
 |---|---|
-| `sdk/go` | The Go SDK's one client (`frontseat.New`), and the one reader of a stream to its end (`Received`) and of every page of a List (`Listed`) |
+| `sdk/go` | The Go SDK's one client (`frontseat.New`), and the one reader of a stream to its end (`Received`), of every page of a List (`Listed`) and of a refusal's reason (`Reason`) |
 | `sdk/go/api` | The API's generated Go and Connect clients and handlers |
 | `sdk/go/entity` | Entity references: the one parser and formatter |
 | `sdk/go/bearer` | A token presented to its origin alone, following no redirect: the SDK's and the server's |

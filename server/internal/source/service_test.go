@@ -9,6 +9,7 @@ import (
 	connect "connectrpc.com/connect/v2"
 	"connectrpc.com/connect/v2/connecthttp"
 
+	"github.com/frontseat-dev/frontseat/sdk/go"
 	"github.com/frontseat-dev/frontseat/server/internal/refusal"
 	"github.com/frontseat-dev/frontseat/server/internal/source"
 	"github.com/frontseat-dev/frontseat/server/internal/source/vcs"
@@ -45,7 +46,7 @@ func sourceOver(t *testing.T, mounted bool, system vcs.System) sourcev1alpha1con
 // API's domain.
 func reasonOf(t *testing.T, err error, code connect.Code, want string) {
 	t.Helper()
-	reason, domain := refusal.Reason(err)
+	reason, domain := frontseat.Reason(err)
 	if connect.CodeOf(err) != code || reason != want || domain != refusal.Source {
 		t.Errorf("refused %v with the reason %q of %q, want %v with %s of %s", err, reason, domain, code, want, refusal.Source)
 	}
