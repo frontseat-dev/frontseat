@@ -3,12 +3,16 @@ package source_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/frontseat-dev/frontseat/server/internal/engine/source"
+	"github.com/frontseat-dev/frontseat/server/internal/pattern"
 )
 
 // A change is applied over the file as the run read it, and nothing else.
@@ -133,5 +137,61 @@ func TestALinkIsNeitherDeletedNorCreatedThrough(t *testing.T) {
 	// The same file is created by its own name.
 	if err := run.Apply("", source.Change{Path: "sub/new.txt", Kind: source.Create, Content: []byte("x")}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// A run lists its files while a fix writes them: what is listed is the
+// files before a change or after it, and never names half moved. Under
+// the race detector, a listing read beside a change is found here.
+func TestAFileIsListedWhileAnotherIsCreatedOrDeleted(t *testing.T) {
+	tree := repository(t)
+	for i := range 64 {
+		write(t, filepath.Join(tree.Root, "kept", fmt.Sprintf("%03d", i)), "kept")
+	}
+	run := taken(t, tree)
+	ctx := context.Background()
+	done := make(chan struct{})
+	var listing sync.WaitGroup
+	for range 4 {
+		listing.Go(func() {
+			for {
+				select {
+				case <-done:
+					return
+				default:
+				}
+				names, err := run.Glob(ctx, "", []string{"kept/**"})
+				if err != nil || len(names) != 64 {
+					t.Errorf("the files nothing changed are listed as %d, %v", len(names), err)
+					return
+				}
+				for _, groups := range [][]pattern.Group{
+					{{Directory: "kept", Patterns: []string{"**"}}},
+					{{Directory: "kept", Patterns: []string{"**"}}, {Directory: "made", Patterns: []string{"**"}}},
+				} {
+					names, err := run.Select(ctx, "", groups)
+					if err != nil || len(names) < 64 || !slices.IsSorted(names) {
+						t.Errorf("the files selected are %d, sorted %v, %v", len(names), slices.IsSorted(names), err)
+						return
+					}
+				}
+			}
+		})
+	}
+	for i := range 200 {
+		name := fmt.Sprintf("made/%03d", i)
+		if err := run.Apply("", source.Change{Path: name, Kind: source.Create, Content: []byte("made")}); err != nil {
+			t.Fatal(err)
+		}
+		if i%2 == 0 {
+			if err := run.Apply("", source.Change{Path: name, Kind: source.Delete, From: hashed("made")}); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	close(done)
+	listing.Wait()
+	if names, _ := run.Glob(ctx, "", []string{"made/**"}); len(names) != 100 {
+		t.Fatalf("of 200 files created and 100 deleted, %d are listed", len(names))
 	}
 }
