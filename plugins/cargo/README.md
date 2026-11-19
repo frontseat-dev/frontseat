@@ -7,8 +7,9 @@ a project of its own, or a single package at a repository's root.
 
 A `Cargo.toml` with a `[package]` table is a project. The nearest
 manifest above it with a `[workspace]` table is its workspace root; a
-package the workspace leaves out of its members is refused, as cargo
-refuses to build it. A root manifest with no package is no project. The
+package the workspace neither has as a member nor excludes is refused,
+as cargo refuses to build it, and one it excludes is a package of its
+own, at its own root, as cargo has it. A root manifest with no package is no project. The
 project provides `cargo/<name>` and requires `cargo/<name>` for each
 dependency found by path, including one inherited through
 `[workspace.dependencies]`, with the line that says so. A package's
@@ -58,8 +59,14 @@ a registry the worker names), since only cargo fetches from those.
 | `test` | `cargo test --locked --offline` | test |
 | `lint` | `cargo clippy --all-targets -- -D warnings` | check; findings `cargo/clippy` with file and line |
 | `format` | `cargo fmt -- --check` | check; findings `cargo/format`; fix `cargo fmt` over `**/*.rs` |
-| `wasm` | `cargo build --release --target wasm32-wasip1` | where the library is a `cdylib` and the repository pins `rust-std-wasm32-wasip1`; output `target/wasm32-wasip1/release/<lib>.wasm` |
-| `wasm-examples` | `cargo build --release --target wasm32-wasip1 --examples` | where an `[[example]]` is a `cdylib` and the repository pins `rust-std-wasm32-wasip1`; output `target/wasm32-wasip1/release/examples/<example>.wasm` for each such example |
+| `wasm` | `cargo build --release --target wasm32-wasip1` | where the option `wasm` is set and the library is a `cdylib`; output `target/wasm32-wasip1/release/<lib>.wasm` |
+| `wasm-examples` | `cargo build --release --target wasm32-wasip1 --examples` | where the option `wasm` is set and an `[[example]]` is a `cdylib`; output `target/wasm32-wasip1/release/examples/<example>.wasm` for each such example |
+
+## Options
+
+| Option | Kind | Default | Set by | What it does |
+|---|---|---|---|---|
+| `wasm` | bool | false | the repository or an entity | Builds a library and the examples that are a `cdylib` to wasm32-wasip1 modules too (`wasm`, `wasm-examples`), with the `rust-std-wasm32-wasip1` the repository pins beside Rust; a package that has one, where the option is set and that standard library is not pinned, is refused (`unpinned-tool`). |
 
 `target/` is never handed on: build scripts and proc macros run code of
 what is built, so cargo's cache falls under the rule that such a cache
@@ -74,8 +81,8 @@ and `memchr`), the entry says so for every member, and a package that
 does not turn it on is refused by cargo under `--locked`. Such a
 workspace does not build yet.
 
-A package that is also its workspace's root with members is refused:
-its manifest would have to be both the package's and the workspace's
+A package that is also its workspace's root with members is refused as
+not served (`package-at-a-workspace-root-not-served`): its manifest would have to be both the package's and the workspace's
 narrowed one. A path dependency outside the repository, `[patch]` of a
 path, and features chosen per build are not read. A git dependency, or
 one from a registry other than crates.io, has the whole lock fetched by

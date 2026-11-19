@@ -1,6 +1,6 @@
 use frontseat_plugin::prelude::*;
-use frontseat_plugin_test::{Files, Refusal, TestContext, TestHost, TestPlugin};
-use toml::Value;
+use frontseat_plugin::toml::Value;
+use frontseat_plugin_test::{Files, TestContext, TestHost, TestPlugin};
 
 /// The fixture workspace: two packages, hello depending on greet by path,
 /// greet on one locked crate through the workspace's dependencies.
@@ -36,7 +36,7 @@ fn context(tools: &[(&str, &str)]) -> TestContext {
 }
 
 /// What the plugin finds under a root, asked as the host asks it.
-fn analyze(host: &TestHost, context: &TestContext, root: &str) -> Result<Analysis, Refusal> {
+fn analyze(host: &TestHost, context: &TestContext, root: &str) -> Result<Analysis, Error> {
     plugin()
         .analyze(host, context, &[root])
         .result
@@ -45,7 +45,7 @@ fn analyze(host: &TestHost, context: &TestContext, root: &str) -> Result<Analysi
 
 /// What the plugin finds of hello in a repository of these files, with
 /// rust pinned.
-fn analyze_hello(files: Files) -> Result<Analysis, Refusal> {
+fn analyze_hello(files: Files) -> Result<Analysis, Error> {
     analyze(
         &TestHost::new(files),
         &context(&[("rust", "1.99.1")]),
@@ -354,7 +354,7 @@ fn a_repository_pinning_no_rust_is_refused_at_arrange() {
     let host = TestHost::new(valid());
     let err = plugin()
         .arrange(&host, &context(&[]), "hello", &[], &[])
-        .refused("UNPINNED_TOOL");
+        .refused("unpinned-tool");
     assert_eq!(err.path, "hello/Cargo.toml");
 }
 
@@ -394,7 +394,7 @@ fn a_malformed_manifest_is_refused_with_its_line() {
     let err = analyze_hello(files).unwrap_err();
     assert_eq!(
         (err.reason.as_str(), err.path.as_str()),
-        ("INVALID_TOML", "hello/Cargo.toml")
+        ("invalid-toml", "hello/Cargo.toml")
     );
     assert!(err.line >= 1, "{err:?}");
 }
@@ -402,9 +402,41 @@ fn a_malformed_manifest_is_refused_with_its_line() {
 #[test]
 fn a_package_without_a_lock_or_outside_its_workspace_is_refused() {
     let files = valid().without("Cargo.lock");
-    assert_eq!(analyze_hello(files).unwrap_err().reason, "MISSING_LOCK");
+    assert_eq!(analyze_hello(files).unwrap_err().reason, "missing-lock");
     let files = valid().with("Cargo.toml", "[workspace]\nmembers = [\"greet\"]\n");
-    assert_eq!(analyze_hello(files).unwrap_err().reason, "NOT_A_MEMBER");
+    assert_eq!(analyze_hello(files).unwrap_err().reason, "not-a-member");
+}
+
+/// A package the workspace excludes is no member of it, and is the root
+/// of its own, as cargo has it: it is built alone, from a lock of its
+/// own. Following the refusal of a package that is no member, by
+/// excluding it, is accepted.
+#[test]
+fn a_package_the_workspace_excludes_is_built_as_a_package_of_its_own() {
+    let refused = analyze_hello(valid().with("Cargo.toml", "[workspace]\nmembers = [\"greet\"]\n"))
+        .unwrap_err();
+    assert!(refused.help.contains("exclude"), "{refused:?}");
+    for exclude in ["hello", "hello/"] {
+        let files = valid()
+            .with(
+                "Cargo.toml",
+                format!("[workspace]\nmembers = [\"greet\"]\nexclude = [\"{exclude}\"]\n"),
+            )
+            .with(
+                "hello/Cargo.toml",
+                "[package]\nname = \"hello\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+            )
+            .with(
+                "hello/Cargo.lock",
+                "version = 4\n\n[[package]]\nname = \"hello\"\nversion = \"0.1.0\"\n",
+            );
+        let got = analyze_hello(files).unwrap();
+        let project = &got.projects[0];
+        assert_eq!(project.name, "hello", "{exclude}");
+        // Its own root: no workspace manifest is written for it.
+        assert!(!project.always_arranged, "{exclude}");
+        assert!(project.workspace_files.is_empty(), "{exclude}");
+    }
 }
 
 /// The valid workspace with a member `module`, a package named
@@ -418,11 +450,17 @@ fn with_module(rest: &str) -> TestHost {
     )
 }
 
+/// A context that pins rust and the standard library for wasm, with
+/// the option `wasm` set as told.
+fn wasm_context(wasm: bool) -> TestContext {
+    context(&[("rust", "1.99.1"), ("rust-std-wasm32-wasip1", "1.99.1")])
+        .option("wasm", frontseat_plugin::Value::Bool(wasm))
+}
+
 #[test]
-fn a_cdylib_is_built_for_wasm_where_the_repository_pins_its_standard_library() {
+fn a_cdylib_is_built_for_wasm_where_the_option_says_so() {
     let host = with_module("[lib]\ncrate-type = [\"cdylib\"]\n");
-    let repo = context(&[("rust", "1.99.1"), ("rust-std-wasm32-wasip1", "1.99.1")]);
-    let got = analyze(&host, &repo, "module").unwrap();
+    let got = analyze(&host, &wasm_context(true), "module").unwrap();
     let wasm = got.projects[0]
         .actions
         .iter()
@@ -433,23 +471,35 @@ fn a_cdylib_is_built_for_wasm_where_the_repository_pins_its_standard_library() {
         wasm.outputs[0].path,
         "target/wasm32-wasip1/release/my_module.wasm"
     );
-    let repo = context(&[("rust", "1.99.1")]);
-    let got = analyze(&host, &repo, "module").unwrap();
+    // The control: the option unset, nothing is built for wasm, whatever
+    // the repository pins.
+    let got = analyze(&host, &wasm_context(false), "module").unwrap();
     assert!(
         got.projects[0].actions.iter().all(|a| a.name != "wasm"),
-        "built for wasm with no standard library pinned"
+        "built for wasm with the option unset"
     );
-    assert!(analyze(&host, &repo, "hello").unwrap().projects[0]
+    // A library that is no cdylib is built for no wasm.
+    assert!(analyze(&host, &wasm_context(true), "hello")
+        .unwrap()
+        .projects[0]
         .actions
         .iter()
         .all(|a| a.name != "wasm"));
+    // Set, with no standard library for wasm pinned, it is refused, and
+    // not built for nothing.
+    let unpinned =
+        context(&[("rust", "1.99.1")]).option("wasm", frontseat_plugin::Value::Bool(true));
+    let refused = analyze(&host, &unpinned, "module").unwrap_err();
+    assert_eq!(
+        (refused.reason.as_str(), refused.path.as_str()),
+        ("unpinned-tool", "module/Cargo.toml")
+    );
 }
 
 #[test]
 fn a_packages_cdylib_examples_are_built_for_wasm_together() {
     let host = with_module("[[example]]\nname = \"first\"\ncrate-type = [\"cdylib\"]\n\n[[example]]\nname = \"tool\"\n\n[[example]]\nname = \"second\"\ncrate-type = [\"cdylib\"]\n");
-    let repo = context(&[("rust", "1.99.1"), ("rust-std-wasm32-wasip1", "1.99.1")]);
-    let got = analyze(&host, &repo, "module").unwrap();
+    let got = analyze(&host, &wasm_context(true), "module").unwrap();
     let examples = got.projects[0]
         .actions
         .iter()
@@ -470,9 +520,10 @@ fn a_packages_cdylib_examples_are_built_for_wasm_together() {
             "target/wasm32-wasip1/release/examples/second.wasm"
         ]
     );
-    // The control: with no standard library for wasm pinned, none.
-    let repo = context(&[("rust", "1.99.1")]);
-    assert!(analyze(&host, &repo, "module").unwrap().projects[0]
+    // The control: with the option unset, none.
+    assert!(analyze(&host, &wasm_context(false), "module")
+        .unwrap()
+        .projects[0]
         .actions
         .iter()
         .all(|a| a.name != "wasm-examples"));

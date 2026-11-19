@@ -6,6 +6,9 @@
 # cannot build yet, the images, mise builds; CONTRIBUTING.md says which.
 plugins:
   go: {}
-  cargo: {}
+  # The plugins and the SDK's conformance examples are wasm modules:
+  # each cdylib is built to wasm32-wasip1 too.
+  cargo:
+    wasm: true
   buf: {}
   backstage: {}
