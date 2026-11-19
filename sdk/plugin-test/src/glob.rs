@@ -2,29 +2,28 @@
 //! `pattern.Select` and `pattern.Within` (`server/internal/pattern`),
 //! which match each pattern as doublestar does.
 //!
-//! Each pattern is matched by globset, given what doublestar means by it
-//! where the two read a pattern apart:
+//! Each pattern is first held to the contract's language (`spelled`),
+//! and one that is not selects nothing. What is left is matched by
+//! globset, given what doublestar means by it where the two read a
+//! pattern apart:
 //!
 //! - braces are expanded first, as doublestar expands them, each
-//!   alternative a pattern of its own: an empty alternative is one, and
-//!   a `}` that closes nothing is itself, where globset refuses both;
-//! - "a/**" selects a itself, in each alternative: "{a,b}/**" selects b,
-//!   and "a**/" a; but "x*/**" does not select x, as the path's end
-//!   inside a star is no pattern of nothing to doublestar, and a pattern
-//!   that ends in "/" or in three stars selects nothing by itself;
+//!   alternative a pattern of its own: an empty alternative is one;
+//! - "a/**" selects a itself, in each alternative: "{a,b}/**" selects
+//!   b; but "x*/**" does not select x, as the path's end inside a star is
+//!   no pattern of nothing to doublestar;
 //! - a class is read as doublestar reads it (a `\` escapes in it, `-`
 //!   after a range is itself, and an empty class is no pattern) and
 //!   written as globset reads the same class;
-//! - a run of stars is `**` only where it is two stars that are a whole
-//!   part of the path, and `*` anywhere else;
+//! - two stars are `**` only where they are a whole part of the path,
+//!   and `*` anywhere else;
 //! - `?` and a class stand for one character, not one byte: what globset
 //!   compiles is matched in Unicode.
 //!
-//! What is not held to doublestar, found by comparing the two over
-//! 200,000 random patterns: a pattern with empty braces, a run of three
-//! stars or more, a `/` within braces, or one that ends in `/` may still
-//! select otherwise than the host. No plugin of this repository writes
-//! one.
+//! What the language leaves out is where the two were found to differ,
+//! by comparing them over 200,000 random patterns: empty braces, a run
+//! of three stars, a `/` within braces, a pattern that ends in `/`. Over
+//! the rest, no difference is known.
 //!
 //! `testdata/select.json` is the table of cases both matchers run
 //! (`server/internal/pattern/select_test.go`), and each difference found
@@ -70,9 +69,55 @@ pub(crate) fn within(directory: &str, file: &str, patterns: &[&str]) -> bool {
     select(patterns, file)
 }
 
-/// One pattern against one path, as doublestar's `Match`: false for a
-/// pattern doublestar refuses.
+/// Whether a pattern is written in the language the plugin contract
+/// says (`host.proto`), as Go's `pattern.Spelled` holds it: no empty
+/// part, no run of three stars, no `/` in a class, in braces or escaped,
+/// no braces with nothing in them and no `}` that closes nothing. What
+/// doublestar refuses besides is refused where it is read (`expand`,
+/// `class_end`).
+fn spelled(pattern: &str) -> bool {
+    if pattern.is_empty()
+        || pattern.starts_with('/')
+        || pattern.ends_with('/')
+        || pattern.contains("//")
+        || pattern.contains("***")
+    {
+        return false;
+    }
+    let (mut class, mut braces) = (false, 0usize);
+    let mut chars = pattern.chars().peekable();
+    while let Some(c) = chars.next() {
+        match c {
+            '\\' => {
+                if chars.next() == Some('/') {
+                    return false;
+                }
+            }
+            _ if class => {
+                if c == '/' {
+                    return false;
+                }
+                class = c != ']';
+            }
+            '[' => class = true,
+            '{' if chars.peek() == Some(&'}') => return false,
+            '{' => braces += 1,
+            '}' if braces == 0 => return false,
+            '}' => braces -= 1,
+            '/' if braces > 0 => return false,
+            _ => {}
+        }
+    }
+    true
+}
+
+/// One pattern against one path, as the host's `Select` matches one it
+/// was asked with: false for a pattern the contract's language leaves
+/// out, or doublestar refuses.
 fn matches(pattern: &str, path: &str) -> bool {
+    if !spelled(pattern) {
+        return false;
+    }
     let chars: Vec<char> = pattern.chars().collect();
     let mut at = 0;
     let Some(alternatives) = expand(&chars, &mut at, false) else {
@@ -83,49 +128,29 @@ fn matches(pattern: &str, path: &str) -> bool {
         .any(|alternative| whole(alternative, path) || zero_length(alternative, path))
 }
 
-/// Whether one alternative, braces expanded, matches all of a path. A
-/// file's path never ends in "/", so an alternative that does matches
-/// none of it by itself. A run of three or more stars that ends the
-/// pattern stands for one character or more: doublestar takes the
-/// path's end inside it for "***", which is no pattern of nothing.
+/// Whether one alternative, braces expanded, matches all of a path.
 fn whole(alternative: &str, path: &str) -> bool {
-    if alternative.ends_with('/')
-        && !path.ends_with('/')
-        && !escaped_at_end(&alternative[..alternative.len() - 1])
-    {
-        return false;
-    }
-    let stars = alternative.chars().rev().take_while(|&c| c == '*').count();
-    let before = &alternative[..alternative.len() - stars];
-    let alternative = if stars >= 3 && !escaped_at_end(before) {
-        format!("{before}?*")
-    } else {
-        alternative.to_string()
-    };
-    translate(&alternative)
+    translate(alternative)
         .and_then(|glob| compile(&glob))
         .is_some_and(|glob| glob.is_match(path))
 }
 
-/// Whether the path ends where what is left of the alternative stands
-/// for nothing, as doublestar's `isZeroLengthPattern` says: "/**",
-/// "**/" or "/**/" after what matched all of the path, so that "a/**"
-/// and "a**/" select a itself. Stars just before them match a character
+/// Whether the path ends where what is left of the alternative, "/**",
+/// stands for nothing, as doublestar's `isZeroLengthPattern` says, so
+/// that "a/**" selects a itself. Stars just before it match a character
 /// or more: doublestar takes the path's end inside a star as what is
 /// left, so "x*/**" does not select x, and "*/**" selects a.
 fn zero_length(alternative: &str, path: &str) -> bool {
-    ["/**/", "/**", "**/"].iter().any(|tail| {
-        alternative.strip_suffix(tail).is_some_and(|before| {
-            let stars = before.chars().rev().take_while(|&c| c == '*').count();
-            let rest = &before[..before.len() - stars];
-            !before.is_empty()
-                && !escaped_at_end(before)
-                && if stars > 0 && !escaped_at_end(rest) {
-                    whole(&format!("{rest}?*"), path)
-                } else {
-                    whole(before, path)
-                }
-        })
+    alternative.strip_suffix("/**").is_some_and(|before| {
+        let stars = before.chars().rev().take_while(|&c| c == '*').count();
+        let rest = &before[..before.len() - stars];
+        !before.is_empty()
+            && !escaped_at_end(before)
+            && if stars > 0 && !escaped_at_end(rest) {
+                whole(&format!("{rest}?*"), path)
+            } else {
+                whole(before, path)
+            }
     })
 }
 

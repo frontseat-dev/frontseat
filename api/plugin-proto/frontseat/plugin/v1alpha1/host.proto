@@ -6,6 +6,59 @@
 // Each method is one wasm import of the module "frontseat", named for the
 // method in lower case: "read", "glob". It takes the request and returns
 // the response, each a serialized message, as the ABI document describes.
+//
+// # Patterns
+//
+// Every pattern of the contract is written in one language: what Glob is
+// asked with, a plugin's interests, an action's source inputs and its
+// rewrites, an input set, and a generated source's patterns. It is the
+// language of the Go library doublestar (github.com/bmatcuk/doublestar/v4,
+// its Match), cut to what follows, which is the whole of it.
+//
+// A pattern is matched against a whole path, relative to where the
+// pattern is written. Its parts are separated by "/"; it neither starts
+// nor ends with one, and no part is empty. A pattern and a path are
+// compared character by character, a character being a Unicode code
+// point, and upper and lower case are different characters. A name that
+// starts with "." is a name like any other.
+//
+//   - "*" stands for any run of characters within one part, none
+//     included: "*.go" matches "a.go" and ".go", and not "a/b.go".
+//   - "**", where it is a whole part of the pattern, stands for any
+//     number of parts, none included: "a/**/b" matches "a/b" and
+//     "a/x/y/b"; "**/b" matches "b" and "x/b"; "**" matches every path.
+//     "a/**" matches whatever is beneath a, and a itself; where the part
+//     before "/**" ends in "*", that "*" stands for one character or
+//     more there: "*/**" matches "a", and "x*/**" does not match "x".
+//     Two stars that are not a whole part, as in "a**" or "**.go", are
+//     "*". Three or more stars together are no pattern.
+//   - "?" stands for one character that is not "/".
+//   - "[...]" is a class, and stands for one character that is in it:
+//     each character it lists, and each from one to another written with
+//     "-" between them ("[a-z0-9_]"); a "-" that joins no two is itself.
+//     A class that starts with "!" or "^" stands for one character that
+//     is not in it, "/" included. A class lists at least one character,
+//     and no "/"; a "]" is in it only escaped.
+//   - "{a,b}" stands for either of the patterns between its commas, in
+//     the pattern it is written in: "*.{go,rs}" is "*.go" or "*.rs". An
+//     alternative may be empty, and may hold braces of its own; braces
+//     hold at least one comma or character, and no "/".
+//   - "\" before a character other than "/" makes it that character and
+//     nothing else, in a class and outside one: "a\*b" matches the name
+//     "a*b" alone.
+//   - A "]" or a "," outside a class and braces is itself. Any other
+//     character stands for itself.
+//
+// What is not written so is no pattern: a class or a brace that is never
+// closed, a "}" that closes nothing, an empty part, and the rest the list
+// above leaves out. Glob selects nothing by one; where a plugin answers
+// one, as an interest, an input or a rewrite, the host refuses the
+// answer.
+//
+// Patterns are given as a list, in order. A pattern that starts with "!"
+// excludes what the rest of it matches; a name that starts with "!" is
+// written "\!". The last pattern of a list to match a path decides
+// whether the path is selected, and a path none matches is not.
 syntax = "proto3";
 
 package frontseat.plugin.v1alpha1;
@@ -37,10 +90,8 @@ message ReadResponse {
 
 // GlobRequest selects files beneath a literal repository directory.
 message GlobRequest {
-  // Patterns are relative to directory. "*" stands
-  // for any run of characters within a name, and "**" for any
-  // directories, none included. One that starts with "!" excludes what
-  // it matches, and the last pattern to match a path decides.
+  // Patterns are a list of patterns, as this file's head says them,
+  // matched against each file's path relative to directory.
   repeated string patterns = 1;
   // Directory is a literal repository-relative directory, never a pattern.
   // Empty means the repository root. Absolute paths and paths leaving the

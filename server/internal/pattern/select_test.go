@@ -10,7 +10,9 @@ import (
 
 // TestTheRustTestHostSelectsAsTheHostDoes holds the matcher of the Rust
 // plugin testkit (sdk/plugin/test) to this one: both run the same table
-// of cases, and a case either disagrees on fails here or there. A case
+// of cases, and a case either disagrees on fails here or there. Each is
+// asked as the host globs for a plugin, its patterns held to the
+// contract's language first (Spelling). A case
 // with a directory is asked of Within, as the host's glob is; one without
 // of Select.
 func TestTheRustTestHostSelectsAsTheHostDoes(t *testing.T) {
@@ -37,9 +39,12 @@ func TestTheRustTestHostSelectsAsTheHostDoes(t *testing.T) {
 		t.Fatal("the table holds no case")
 	}
 	for _, c := range cases {
-		got, in := Select(c.Patterns, c.Path), "the root"
+		// As the host globs for a plugin: what the contract's language
+		// leaves out is no pattern, and selects nothing.
+		spelled := Spelling(c.Patterns)
+		got, in := Select(spelled, c.Path), "the root"
 		if c.Directory != nil {
-			got, in = Within(*c.Directory, c.Path, c.Patterns), *c.Directory
+			got, in = Within(*c.Directory, c.Path, spelled), *c.Directory
 		}
 		if got != c.Selected {
 			t.Errorf("%q beneath %q selects %q: %v, the table says %v", c.Patterns, in, c.Path, got, c.Selected)

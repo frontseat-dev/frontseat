@@ -228,7 +228,9 @@ func serveImports(ctx context.Context, rt wazero.Runtime) error {
 			if req.GetDirectory() != "" && !pattern.Local(req.GetDirectory()) {
 				return nil, fmt.Errorf("glob directory %q leaves the repository", req.GetDirectory())
 			}
-			paths, err := s.source.Glob(ctx, req.GetDirectory(), req.GetPatterns())
+			// A pattern the contract's language leaves out selects
+			// nothing, and is not asked of the source.
+			paths, err := s.source.Glob(ctx, req.GetDirectory(), pattern.Spelling(req.GetPatterns()))
 			if err != nil {
 				return nil, err
 			}
