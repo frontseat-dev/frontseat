@@ -20,7 +20,10 @@
 // workspace's build API and shell are held alike. A workspace is its
 // owner's, who asked for it first: another who names it is refused
 // PERMISSION_DENIED with the reason NOT_OWNER, and is listed none of
-// another's.
+// another's. What this service refuses by name carries ErrorInfo of the
+// domain workspace.frontseat.dev, with the reason each call names. A
+// call to a workspace's build API that is none of its calls is refused
+// UNIMPLEMENTED with the reason CALL_NOT_LED.
 //
 // A workspace is kept as what was asked for, its spec, and what is so,
 // its status. A call writes the spec and returns; the control plane then
@@ -235,17 +238,17 @@ type WorkspaceSpec struct {
 	Push bool `protobuf:"varint,5,opt,name=push,proto3" json:"push,omitempty"`
 	// Author is who commits there; empty for no one. It is said once.
 	Author *Author `protobuf:"bytes,6,opt,name=author,proto3" json:"author,omitempty"`
-	// Authorized_keys are the public keys let into its shell, each on one
-	// line as an SSH client writes its own; none for a workspace no one
-	// opens a shell in. More than one is not served. They are said once:
-	// a workspace asked for again with another key is refused, and one
-	// asked for again with none is as it was made.
-	AuthorizedKeys []string `protobuf:"bytes,7,rep,name=authorized_keys,json=authorizedKeys,proto3" json:"authorized_keys,omitempty"`
+	// Authorized_key is the public key let into its shell, on one line as
+	// an SSH client writes its own; empty for a workspace no one opens a
+	// shell in. It is said once: a workspace asked for again with another
+	// key is refused, and one asked for again with none is as it was made.
+	AuthorizedKey string `protobuf:"bytes,7,opt,name=authorized_key,json=authorizedKey,proto3" json:"authorized_key,omitempty"`
 	// Image is the box image its sandbox runs; empty for the control
 	// plane's own. It is said once.
 	Image string `protobuf:"bytes,8,opt,name=image,proto3" json:"image,omitempty"`
-	// Lifetime is how long it lasts from when it was made, after which the
-	// control plane ends it as DeleteWorkspace would: a job's workspace.
+	// Lifetime is how long it lasts from when it was made (its
+	// create_time), however much it is used, after which the control
+	// plane ends it as DeleteWorkspace would: a job's workspace.
 	// Empty for one that is kept until it is ended. It is said once: a
 	// workspace asked for again with another is refused, and one asked for
 	// again with none is as it was made.
@@ -319,11 +322,11 @@ func (x *WorkspaceSpec) GetAuthor() *Author {
 	return nil
 }
 
-func (x *WorkspaceSpec) GetAuthorizedKeys() []string {
+func (x *WorkspaceSpec) GetAuthorizedKey() string {
 	if x != nil {
-		return x.AuthorizedKeys
+		return x.AuthorizedKey
 	}
-	return nil
+	return ""
 }
 
 func (x *WorkspaceSpec) GetImage() string {
@@ -1286,14 +1289,14 @@ const file_frontseat_workspace_v1alpha1_workspace_proto_rawDesc = "" +
 	"\x06status\x18\x03 \x01(\v2-.frontseat.workspace.v1alpha1.WorkspaceStatusB\x04\xe2A\x01\x03R\x06status\x12A\n" +
 	"\vcreate_time\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\n" +
 	"createTime\x12\x1a\n" +
-	"\x05owner\x18\x05 \x01(\tB\x04\xe2A\x01\x03R\x05owner\"\x81\x03\n" +
+	"\x05owner\x18\x05 \x01(\tB\x04\xe2A\x01\x03R\x05owner\"\xff\x02\n" +
 	"\rWorkspaceSpec\x12R\n" +
 	"\frepositories\x18\x01 \x03(\v2..frontseat.workspace.v1alpha1.RepositorySourceR\frepositories\x12>\n" +
 	"\bentities\x18\x02 \x03(\v2\".frontseat.type.v1alpha1.EntityRefR\bentities\x12\x14\n" +
 	"\x05whole\x18\x04 \x01(\bR\x05whole\x12\x12\n" +
 	"\x04push\x18\x05 \x01(\bR\x04push\x12<\n" +
-	"\x06author\x18\x06 \x01(\v2$.frontseat.workspace.v1alpha1.AuthorR\x06author\x12'\n" +
-	"\x0fauthorized_keys\x18\a \x03(\tR\x0eauthorizedKeys\x12\x14\n" +
+	"\x06author\x18\x06 \x01(\v2$.frontseat.workspace.v1alpha1.AuthorR\x06author\x12%\n" +
+	"\x0eauthorized_key\x18\a \x01(\tR\rauthorizedKey\x12\x14\n" +
 	"\x05image\x18\b \x01(\tR\x05image\x125\n" +
 	"\blifetime\x18\t \x01(\v2\x19.google.protobuf.DurationR\blifetime\"2\n" +
 	"\x06Author\x12\x12\n" +

@@ -3,6 +3,9 @@
 // own (ReleaseService, release.proto). It is a
 // resource: it has an id, it outlives the call that made it, and anything
 // that may see it can watch it, read its results and cancel it.
+//
+// What the build API's services refuse by name carries ErrorInfo of the
+// domain build.frontseat.dev, with the reason each call names.
 syntax = "proto3";
 
 package frontseat.build.v1alpha1;
@@ -26,17 +29,19 @@ service BuildService {
   // made, and ends at once as a build that failed, saying what is wrong.
   //
   // ### Errors
-  // - INVALID_ARGUMENT: the profile is one nobody defined.
+  // - INVALID_ARGUMENT: the profile is one nobody defined
+  //   (PROFILE_UNKNOWN), or the request_id is longer than 128 bytes
+  //   (REQUEST_ID_INVALID).
   // - FAILED_PRECONDITION: the workspace holds no repository that is
-  //   ready to build.
-  // - UNAVAILABLE: the daemon is ending.
+  //   ready to build (WORKSPACE_NOT_READY).
+  // - UNAVAILABLE: the daemon is ending (DAEMON_ENDING).
   rpc CreateBuild(CreateBuildRequest) returns (CreateBuildResponse);
 
   // DescribeBuild returns one build, as it is now. Use ListBuildActions for what
   // each of its actions did.
   //
   // ### Errors
-  // - NOT_FOUND: no build has that id.
+  // - NOT_FOUND: no build has that id (BUILD_NOT_FOUND).
   rpc DescribeBuild(DescribeBuildRequest) returns (DescribeBuildResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
@@ -45,7 +50,8 @@ service BuildService {
   // time.
   //
   // ### Errors
-  // - INVALID_ARGUMENT: the page token is not one this call gave.
+  // - INVALID_ARGUMENT: the page token is not one this call gave
+  //   (PAGE_TOKEN_INVALID).
   rpc ListBuilds(ListBuildsRequest) returns (ListBuildsResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
@@ -55,7 +61,7 @@ service BuildService {
   // changes nothing.
   //
   // ### Errors
-  // - NOT_FOUND: no build has that id.
+  // - NOT_FOUND: no build has that id (BUILD_NOT_FOUND).
   rpc CancelBuild(CancelBuildRequest) returns (CancelBuildResponse) {
     option idempotency_level = IDEMPOTENT;
   }
@@ -64,7 +70,7 @@ service BuildService {
   // what the build does on the way.
   //
   // ### Errors
-  // - NOT_FOUND: no build has that id.
+  // - NOT_FOUND: no build has that id (BUILD_NOT_FOUND).
   rpc WaitBuild(WaitBuildRequest) returns (WaitBuildResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
@@ -76,9 +82,9 @@ service BuildService {
   // ended is replayed from zero.
   //
   // ### Errors
-  // - NOT_FOUND: no build has that id.
+  // - NOT_FOUND: no build has that id (BUILD_NOT_FOUND).
   // - OUT_OF_RANGE: the build has ended, and the sequence is beyond its last
-  //   event.
+  //   event (SEQUENCE_OUT_OF_RANGE).
   rpc StreamBuildEvents(StreamBuildEventsRequest) returns (stream StreamBuildEventsResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
@@ -88,8 +94,9 @@ service BuildService {
   // it printed. This is the build's checks: one entry per action.
   //
   // ### Errors
-  // - INVALID_ARGUMENT: the page token is not one this call gave.
-  // - NOT_FOUND: no build has that id.
+  // - INVALID_ARGUMENT: the page token is not one this call gave
+  //   (PAGE_TOKEN_INVALID).
+  // - NOT_FOUND: no build has that id (BUILD_NOT_FOUND).
   rpc ListBuildActions(ListBuildActionsRequest) returns (ListBuildActionsResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
@@ -502,9 +509,9 @@ message BuildEvent {
 
 // ExitCode is how a build ended, in Bazel's names and numbers.
 message ExitCode {
-  // Name is Bazel's name for it, e.g. "SUCCESS", "BUILD_FAILURE",
-  // "TESTS_FAILED", "INTERRUPTED". Bazel may add names; a client must
-  // accept one it does not know.
+  // Name is Bazel's name for it. A daemon says SUCCESS (0), BUILD_FAILURE
+  // (1), TESTS_FAILED (3), NO_TESTS_FOUND (4), INTERRUPTED (8) and
+  // INTERNAL_ERROR (37); a client must accept one it does not know.
   string name = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Code is the process exit code, e.g. 0 for SUCCESS.
   int32 code = 2 [(google.api.field_behavior) = OUTPUT_ONLY];

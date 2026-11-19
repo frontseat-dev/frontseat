@@ -115,12 +115,14 @@ type RunServiceClient interface {
 	// none.
 	//
 	// ### Errors
-	// - INVALID_ARGUMENT: no target is given, or the profile is one nobody
-	//   defined.
-	// - FAILED_PRECONDITION: the daemon holds no workspace to build.
+	// - INVALID_ARGUMENT: no target is given (TARGET_MISSING), the profile
+	//   is one nobody defined (PROFILE_UNKNOWN), or the request_id is
+	//   longer than 128 bytes (REQUEST_ID_INVALID).
+	// - FAILED_PRECONDITION: the daemon holds no workspace to build
+	//   (WORKSPACE_NOT_READY).
 	// - RESOURCE_EXHAUSTED: the daemon has thirty-two runs that have
-	//   not ended.
-	// - UNAVAILABLE: the daemon is ending.
+	//   not ended (RUNS_EXHAUSTED).
+	// - UNAVAILABLE: the daemon is ending (DAEMON_ENDING).
 	//
 	// A target that is no program, and a build that fails, are not errors
 	// of the call: the run is made and fails, and says why.
@@ -128,14 +130,15 @@ type RunServiceClient interface {
 	// DescribeRun returns one run, as it is now.
 	//
 	// ### Errors
-	// - NOT_FOUND: no run has that id.
+	// - NOT_FOUND: no run has that id (RUN_NOT_FOUND).
 	DescribeRun(context.Context, *v1alpha1.DescribeRunRequest) (*v1alpha1.DescribeRunResponse, error)
 	// ListRuns returns the workspace's runs, newest first, a page
 	// at a time: every one that has not ended, and the newest of those
 	// that have.
 	//
 	// ### Errors
-	// - INVALID_ARGUMENT: the page token is not one this call gave.
+	// - INVALID_ARGUMENT: the page token is not one this call gave
+	//   (PAGE_TOKEN_INVALID).
 	ListRuns(context.Context, *v1alpha1.ListRunsRequest) (*v1alpha1.ListRunsResponse, error)
 	// CancelRun ends a run: its build is cancelled, or its program is
 	// told to end and, where it has not within ten seconds, is ended. It
@@ -143,12 +146,12 @@ type RunServiceClient interface {
 	// changes nothing and succeeds.
 	//
 	// ### Errors
-	// - NOT_FOUND: no run has that id.
+	// - NOT_FOUND: no run has that id (RUN_NOT_FOUND).
 	CancelRun(context.Context, *v1alpha1.CancelRunRequest) (*v1alpha1.CancelRunResponse, error)
 	// WaitRun returns a run once it has ended.
 	//
 	// ### Errors
-	// - NOT_FOUND: no run has that id.
+	// - NOT_FOUND: no run has that id (RUN_NOT_FOUND).
 	WaitRun(context.Context, *v1alpha1.WaitRunRequest) (*v1alpha1.WaitRunResponse, error)
 	// StreamRunLogs sends what a run's program prints, standard
 	// output and standard error, in parts, each some whole lines, as it
@@ -203,12 +206,14 @@ type RunServiceHandler interface {
 	// none.
 	//
 	// ### Errors
-	// - INVALID_ARGUMENT: no target is given, or the profile is one nobody
-	//   defined.
-	// - FAILED_PRECONDITION: the daemon holds no workspace to build.
+	// - INVALID_ARGUMENT: no target is given (TARGET_MISSING), the profile
+	//   is one nobody defined (PROFILE_UNKNOWN), or the request_id is
+	//   longer than 128 bytes (REQUEST_ID_INVALID).
+	// - FAILED_PRECONDITION: the daemon holds no workspace to build
+	//   (WORKSPACE_NOT_READY).
 	// - RESOURCE_EXHAUSTED: the daemon has thirty-two runs that have
-	//   not ended.
-	// - UNAVAILABLE: the daemon is ending.
+	//   not ended (RUNS_EXHAUSTED).
+	// - UNAVAILABLE: the daemon is ending (DAEMON_ENDING).
 	//
 	// A target that is no program, and a build that fails, are not errors
 	// of the call: the run is made and fails, and says why.
@@ -216,14 +221,15 @@ type RunServiceHandler interface {
 	// DescribeRun returns one run, as it is now.
 	//
 	// ### Errors
-	// - NOT_FOUND: no run has that id.
+	// - NOT_FOUND: no run has that id (RUN_NOT_FOUND).
 	DescribeRun(context.Context, *v1alpha1.DescribeRunRequest) (*v1alpha1.DescribeRunResponse, error)
 	// ListRuns returns the workspace's runs, newest first, a page
 	// at a time: every one that has not ended, and the newest of those
 	// that have.
 	//
 	// ### Errors
-	// - INVALID_ARGUMENT: the page token is not one this call gave.
+	// - INVALID_ARGUMENT: the page token is not one this call gave
+	//   (PAGE_TOKEN_INVALID).
 	ListRuns(context.Context, *v1alpha1.ListRunsRequest) (*v1alpha1.ListRunsResponse, error)
 	// CancelRun ends a run: its build is cancelled, or its program is
 	// told to end and, where it has not within ten seconds, is ended. It
@@ -231,12 +237,12 @@ type RunServiceHandler interface {
 	// changes nothing and succeeds.
 	//
 	// ### Errors
-	// - NOT_FOUND: no run has that id.
+	// - NOT_FOUND: no run has that id (RUN_NOT_FOUND).
 	CancelRun(context.Context, *v1alpha1.CancelRunRequest) (*v1alpha1.CancelRunResponse, error)
 	// WaitRun returns a run once it has ended.
 	//
 	// ### Errors
-	// - NOT_FOUND: no run has that id.
+	// - NOT_FOUND: no run has that id (RUN_NOT_FOUND).
 	WaitRun(context.Context, *v1alpha1.WaitRunRequest) (*v1alpha1.WaitRunResponse, error)
 	// StreamRunLogs sends what a run's program prints, standard
 	// output and standard error, in parts, each some whole lines, as it

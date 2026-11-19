@@ -867,25 +867,7 @@ func sdkPackage(pkg protoreflect.FullName) string {
 func TestEveryCallOfTheAPIHasAHandler(t *testing.T) {
 	root := repositoryRoot(t)
 	c := contract{files: built(t, filepath.Join(root, "api")), served: served}
-	sources := map[string][]byte{}
-	err := filepath.WalkDir(filepath.Join(root, "server"), func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() && (d.Name() == "testdata" || d.Name() == "testsupport" || strings.HasPrefix(d.Name(), ".")) {
-			return filepath.SkipDir
-		}
-		if d.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
-			return nil
-		}
-		raw, err := os.ReadFile(path)
-		sources[path] = raw
-		return err
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, broken := range handled(c, sources) {
+	for _, broken := range handled(c, serverSources(t, root)) {
 		t.Error(broken)
 	}
 }

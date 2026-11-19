@@ -541,8 +541,8 @@ func TestTheSandboxAWorkspaceLivesInIsWrittenAsRules(t *testing.T) {
 			{Remote: "file:///remotes/e"},
 			{Remote: "https://192.0.2.7/f.git"},
 		},
-		Author:         &workspacev1.Author{Name: "Someone", Email: "someone@forge.example"},
-		AuthorizedKeys: []string{"ssh-ed25519 AAAA a-key"},
+		Author:        &workspacev1.Author{Name: "Someone", Email: "someone@forge.example"},
+		AuthorizedKey: "ssh-ed25519 AAAA a-key",
 	}
 	made, err := client.CreateWorkspace(ctx, &workspacev1.CreateWorkspaceRequest{Name: "a-workspace", Spec: spec})
 	if err != nil {
@@ -610,20 +610,17 @@ func TestTheSandboxAWorkspaceLivesInIsWrittenAsRules(t *testing.T) {
 	if len(requests) != 3 || requests[2].GetPath() != "/acme/a.git/a-push" {
 		t.Errorf("a workspace that pushes is let through for %v", requests)
 	}
-	for what, refused := range map[string]*workspacev1.WorkspaceSpec{
-		"a push to what is not fetched": {Repositories: of("https://forge.example/acme/a.git", "git@forge.example:acme/d.git").Repositories, Push: true},
-		"two keys":                      {Repositories: of("https://forge.example/acme/a.git").Repositories, AuthorizedKeys: []string{"ssh-ed25519 AAAA", "ssh-ed25519 BBBB"}},
-	} {
-		if _, err := client.CreateWorkspace(ctx, &workspacev1.CreateWorkspaceRequest{Name: "refused", Spec: refused}); connect.CodeOf(err) != connect.CodeFailedPrecondition {
-			t.Errorf("%s: %v, want it refused by name", what, err)
-		}
+	// What is not served is refused as not served, by what it is.
+	pushingWhatIsNotFetched := &workspacev1.WorkspaceSpec{Repositories: of("https://forge.example/acme/a.git", "git@forge.example:acme/d.git").Repositories, Push: true}
+	if _, err := client.CreateWorkspace(ctx, &workspacev1.CreateWorkspaceRequest{Name: "refused", Spec: pushingWhatIsNotFetched}); !refusedAsNotServed(err, "PUSH_NOT_SERVED") {
+		t.Errorf("a push to what is not fetched: %v, want it refused as not served", err)
 	}
-	if _, err := client.CreateWorkspace(ctx, &workspacev1.CreateWorkspaceRequest{Name: "refused", Spec: &workspacev1.WorkspaceSpec{Repositories: of("https://forge.example/acme/a.git").Repositories, AuthorizedKeys: []string{"ssh-ed25519 AAAA\nssh-ed25519 BBBB"}}}); connect.CodeOf(err) != connect.CodeInvalidArgument {
+	if _, err := client.CreateWorkspace(ctx, &workspacev1.CreateWorkspaceRequest{Name: "refused", Spec: &workspacev1.WorkspaceSpec{Repositories: of("https://forge.example/acme/a.git").Repositories, AuthorizedKey: "ssh-ed25519 AAAA\nssh-ed25519 BBBB"}}); connect.CodeOf(err) != connect.CodeInvalidArgument {
 		t.Errorf("a key of two lines: %v, want it refused", err)
 	}
 	none, _, _ := served(t, over(t), t.TempDir(), func(c *Config) { c.Box = "" })
-	if _, err := none.CreateWorkspace(ctx, &workspacev1.CreateWorkspaceRequest{Name: "no-image", Spec: of("https://forge.example/acme/a.git")}); connect.CodeOf(err) != connect.CodeFailedPrecondition {
-		t.Errorf("a control plane that names no box image: %v, want it refused by name", err)
+	if _, err := none.CreateWorkspace(ctx, &workspacev1.CreateWorkspaceRequest{Name: "no-image", Spec: of("https://forge.example/acme/a.git")}); !refusedAsNotServed(err, "IMAGE_NOT_SERVED") {
+		t.Errorf("a control plane that names no box image: %v, want it refused as not served", err)
 	}
 	if len(s.asked()) != 2 {
 		t.Errorf("%d sandboxes were asked for in all, want the two that were taken", len(s.asked()))
@@ -641,7 +638,7 @@ func TestAWorkspaceAskedForAgainIsTheOneThereIs(t *testing.T) {
 	ctx := context.Background()
 	spec := func(key string) *workspacev1.WorkspaceSpec {
 		out := of("https://forge.example/acme/code.git")
-		out.Push, out.AuthorizedKeys = true, []string{key}
+		out.Push, out.AuthorizedKey = true, key
 		return out
 	}
 	answers := make(chan *workspacev1.CreateWorkspaceResponse, 8)
@@ -998,8 +995,8 @@ func TestAWorkspaceIsBroughtMoreByItsSpec(t *testing.T) {
 	elsewhere := proto.Clone(twice).(*workspacev1.WorkspaceSpec)
 	elsewhere.Entities = append(elsewhere.Entities, &typev1.EntityRef{Name: "stranger"})
 	for what, wanted := range map[string]*workspacev1.WorkspaceSpec{"a repository its sandbox was not made to fetch": beyond, "an entity in a repository it does not reach": elsewhere} {
-		if _, err := client.UpdateWorkspace(ctx, &workspacev1.UpdateWorkspaceRequest{Name: "grows", Spec: wanted}); connect.CodeOf(err) != connect.CodeFailedPrecondition {
-			t.Errorf("%s: %v, want it refused by name", what, err)
+		if _, err := client.UpdateWorkspace(ctx, &workspacev1.UpdateWorkspaceRequest{Name: "grows", Spec: wanted}); !refusedAsNotServed(err, "REACH_NOT_SERVED") {
+			t.Errorf("%s: %v, want it refused as not served", what, err)
 		}
 	}
 	pushing := proto.Clone(twice).(*workspacev1.WorkspaceSpec)
@@ -1403,4 +1400,12 @@ func TestADaemonThatIsLongBringingIsPopulatingAndNotFailed(t *testing.T) {
 	if err != nil || got.GetWorkspace().GetStatus().GetState() != workspacev1.WorkspaceStatus_STATE_POPULATING {
 		t.Errorf("a daemon long bringing leaves the workspace %v (%v), want populating", got.GetWorkspace().GetStatus(), err)
 	}
+}
+
+// refusedAsNotServed is whether an error refuses what is not served, as every
+// server refuses it: UNIMPLEMENTED, with the reason that names it, in the
+// workspace API's domain.
+func refusedAsNotServed(err error, reason string) bool {
+	said, domain := refusal.Reason(err)
+	return connect.CodeOf(err) == connect.CodeUnimplemented && said == reason && domain == refusal.Workspace
 }

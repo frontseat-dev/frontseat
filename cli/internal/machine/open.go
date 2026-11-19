@@ -51,17 +51,17 @@ func OpenCheckout(ctx context.Context, fs *frontseat.Client, o Open, checkout vc
 	if err != nil {
 		return Opened{}, err
 	}
-	keys, err := AuthorizedKeys()
+	key, err := AuthorizedKey()
 	if err != nil {
 		return Opened{Standing: standing}, err
 	}
 	opened, err := fs.Open(ctx, frontseat.Spec{
-		Name:           o.Name,
-		Image:          o.Image,
-		Repositories:   []frontseat.Repository{{Remote: standing.Remote, Ref: standing.Branch}},
-		Author:         frontseat.Author(standing.Author),
-		Push:           o.Push,
-		AuthorizedKeys: keys,
+		Name:          o.Name,
+		Image:         o.Image,
+		Repositories:  []frontseat.Repository{{Remote: standing.Remote, Ref: standing.Branch}},
+		Author:        frontseat.Author(standing.Author),
+		Push:          o.Push,
+		AuthorizedKey: key,
 	})
 	out := Opened{Opened: opened, Standing: standing}
 	if err != nil {

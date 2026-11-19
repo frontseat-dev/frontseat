@@ -41,7 +41,7 @@ import (
 func madeWorkspace(t *testing.T, fs *frontseat.Client, create frontseat.Spec) (*frontseat.Workspace, *workspacev1.Workspace) {
 	t.Helper()
 	// The test's key opens a shell in it, as a person's does in theirs.
-	create.AuthorizedKeys = testidentity.Authorized()
+	create.AuthorizedKey = testidentity.Authorized()
 	// A name of the test's own: the stack's control plane outlives a run,
 	// and a name derived from a repository the tests all call alike would
 	// be another run's.

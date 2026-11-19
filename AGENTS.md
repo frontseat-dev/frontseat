@@ -459,8 +459,11 @@ the change that fixes it.
   where the operator has configured what serves it; its comment in the
   contract says so. A server that does not serve it refuses it by name,
   `UNIMPLEMENTED` with `ErrorInfo{reason: <WHAT>_NOT_SERVED}` in the
-  service's domain, and never ignores it. A spec proves the refusal, with
-  a control showing it served where it can be. Held by: those specs.
+  service's domain, and never ignores it: no other code and no other
+  suffix, a capability a driver lacks (`CAPABILITY_NOT_SERVED`) and what
+  an operator did not configure (`IMAGE_NOT_SERVED`, `FETCH_NOT_SERVED`)
+  alike. A spec proves the refusal, with a control showing it served
+  where it can be. Held by: those specs.
 - A contract names no other contract's types: what two need is
   `frontseat.type.v1alpha1`'s (an entity's reference, a version's bump).
   What is served by nothing, as what a runner is told

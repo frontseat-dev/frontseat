@@ -97,15 +97,21 @@ type ReleaseServiceClient interface {
 	// depends on. It reads the workspace as it stands and changes nothing.
 	//
 	// ### Errors
-	// - INVALID_ARGUMENT: no entity is named, or an entity is named twice.
-	// - NOT_FOUND: an entity the workspace does not hold.
+	// - INVALID_ARGUMENT: no entity is named, or an entity is named twice;
+	//   or what a release plugin answered is not what the plugin contract
+	//   lets it answer (RELEASE_INVALID).
+	// - NOT_FOUND: an entity the workspace does not hold (ENTITY_NOT_FOUND).
 	// - FAILED_PRECONDITION: what an entity says of how it is released is
 	//   mistaken; a repository the request reaches lists no release plugin;
 	//   a unit's members are in more than one repository; units depend on
 	//   each other in a cycle; a unit would be released against an
 	//   unreleased change of a unit it depends on that the request does not
 	//   release; a version is tagged on another commit already. The
-	//   message names what.
+	//   message names what (SOURCE_MISTAKEN, or the catalog's own reason,
+	//   as GraphService.ListEntities gives it).
+	// - UNIMPLEMENTED: what is released is part of a domain within a
+	//   domain, whose release is not served (RELEASE_NOT_SERVED).
+	// - UNAVAILABLE: the daemon is ending (DAEMON_ENDING).
 	PlanRelease(context.Context, *v1alpha1.PlanReleaseRequest) (*v1alpha1.PlanReleaseResponse, error)
 	// CreateRelease carries out a plan: it builds the plan's units for
 	// production and tags each unit that moves, at the commit it was
@@ -115,21 +121,26 @@ type ReleaseServiceClient interface {
 	// is already released changes nothing and succeeds, and asking again
 	// for a plan that is being released returns that release.
 	//
+	// A daemon makes one release at a time.
+	//
 	// ### Errors
-	// - INVALID_ARGUMENT: the plan's etag is missing.
+	// - INVALID_ARGUMENT: the plan's etag is missing (ETAG_MISSING); or as
+	//   for PlanRelease.
 	// - ABORTED (ETAG_MISMATCH): the plan is no longer what releasing the
 	//   same request would do now; plan again.
-	// - FAILED_PRECONDITION: as for PlanRelease.
+	// - FAILED_PRECONDITION: another release is being made (RELEASE_BUSY);
+	//   or as for PlanRelease.
+	// - NOT_FOUND, UNIMPLEMENTED, UNAVAILABLE: as for PlanRelease.
 	CreateRelease(context.Context, *v1alpha1.CreateReleaseRequest) (*v1alpha1.CreateReleaseResponse, error)
 	// DescribeRelease returns one release, as it is now.
 	//
 	// ### Errors
-	// - NOT_FOUND: no release has that id.
+	// - NOT_FOUND: no release has that id (RELEASE_NOT_FOUND).
 	DescribeRelease(context.Context, *v1alpha1.DescribeReleaseRequest) (*v1alpha1.DescribeReleaseResponse, error)
 	// WaitRelease returns a release once it has ended.
 	//
 	// ### Errors
-	// - NOT_FOUND: no release has that id.
+	// - NOT_FOUND: no release has that id (RELEASE_NOT_FOUND).
 	WaitRelease(context.Context, *v1alpha1.WaitReleaseRequest) (*v1alpha1.WaitReleaseResponse, error)
 }
 
@@ -147,15 +158,21 @@ type ReleaseServiceHandler interface {
 	// depends on. It reads the workspace as it stands and changes nothing.
 	//
 	// ### Errors
-	// - INVALID_ARGUMENT: no entity is named, or an entity is named twice.
-	// - NOT_FOUND: an entity the workspace does not hold.
+	// - INVALID_ARGUMENT: no entity is named, or an entity is named twice;
+	//   or what a release plugin answered is not what the plugin contract
+	//   lets it answer (RELEASE_INVALID).
+	// - NOT_FOUND: an entity the workspace does not hold (ENTITY_NOT_FOUND).
 	// - FAILED_PRECONDITION: what an entity says of how it is released is
 	//   mistaken; a repository the request reaches lists no release plugin;
 	//   a unit's members are in more than one repository; units depend on
 	//   each other in a cycle; a unit would be released against an
 	//   unreleased change of a unit it depends on that the request does not
 	//   release; a version is tagged on another commit already. The
-	//   message names what.
+	//   message names what (SOURCE_MISTAKEN, or the catalog's own reason,
+	//   as GraphService.ListEntities gives it).
+	// - UNIMPLEMENTED: what is released is part of a domain within a
+	//   domain, whose release is not served (RELEASE_NOT_SERVED).
+	// - UNAVAILABLE: the daemon is ending (DAEMON_ENDING).
 	PlanRelease(context.Context, *v1alpha1.PlanReleaseRequest) (*v1alpha1.PlanReleaseResponse, error)
 	// CreateRelease carries out a plan: it builds the plan's units for
 	// production and tags each unit that moves, at the commit it was
@@ -165,21 +182,26 @@ type ReleaseServiceHandler interface {
 	// is already released changes nothing and succeeds, and asking again
 	// for a plan that is being released returns that release.
 	//
+	// A daemon makes one release at a time.
+	//
 	// ### Errors
-	// - INVALID_ARGUMENT: the plan's etag is missing.
+	// - INVALID_ARGUMENT: the plan's etag is missing (ETAG_MISSING); or as
+	//   for PlanRelease.
 	// - ABORTED (ETAG_MISMATCH): the plan is no longer what releasing the
 	//   same request would do now; plan again.
-	// - FAILED_PRECONDITION: as for PlanRelease.
+	// - FAILED_PRECONDITION: another release is being made (RELEASE_BUSY);
+	//   or as for PlanRelease.
+	// - NOT_FOUND, UNIMPLEMENTED, UNAVAILABLE: as for PlanRelease.
 	CreateRelease(context.Context, *v1alpha1.CreateReleaseRequest) (*v1alpha1.CreateReleaseResponse, error)
 	// DescribeRelease returns one release, as it is now.
 	//
 	// ### Errors
-	// - NOT_FOUND: no release has that id.
+	// - NOT_FOUND: no release has that id (RELEASE_NOT_FOUND).
 	DescribeRelease(context.Context, *v1alpha1.DescribeReleaseRequest) (*v1alpha1.DescribeReleaseResponse, error)
 	// WaitRelease returns a release once it has ended.
 	//
 	// ### Errors
-	// - NOT_FOUND: no release has that id.
+	// - NOT_FOUND: no release has that id (RELEASE_NOT_FOUND).
 	WaitRelease(context.Context, *v1alpha1.WaitReleaseRequest) (*v1alpha1.WaitReleaseResponse, error)
 }
 

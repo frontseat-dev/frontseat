@@ -104,10 +104,10 @@ func TestASpecThatWouldBeRunWeakerIsRefused(t *testing.T) {
 	}{
 		{"only listed hosts, one listed", func(s *sandboxv1.SandboxSpec) {
 			s.Egress = &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_LISTED, Rules: []*sandboxv1.EgressRule{{Host: "example.com"}}}
-		}, connect.CodeFailedPrecondition},
+		}, connect.CodeUnimplemented},
 		{"only listed hosts, none listed", func(s *sandboxv1.SandboxSpec) {
 			s.Egress = &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_LISTED}
-		}, connect.CodeFailedPrecondition},
+		}, connect.CodeUnimplemented},
 		{"an egress mode nobody defined", func(s *sandboxv1.SandboxSpec) { s.Egress = &sandboxv1.Egress{Mode: 99} }, connect.CodeInvalidArgument},
 		{"a volume that starts empty and cannot be written", func(s *sandboxv1.SandboxSpec) {
 			s.Volumes = []*sandboxv1.Volume{{Name: "scratch", Path: "/scratch", ReadOnly: true}}

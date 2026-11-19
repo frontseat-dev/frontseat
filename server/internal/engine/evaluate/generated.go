@@ -151,7 +151,7 @@ func consented(out Evaluation, said map[string][]config.Generated) error {
 			// Component of it but the one at its root.
 			inner := path.Clean(entity.Path())
 			if entity.Ref != owner.Ref && inner != at && (at == "." || strings.HasPrefix(inner, at+"/")) {
-				return wire.SourceMistake(claim.Repository, "", "catalog/generated-without-consent", fmt.Sprintf("%s generates %s, which holds %s at %s: a claim never covers another Component's directory", claim.Producer, at, entity.Ref, inner), help)
+				return wire.SourceMistake(claim.Repository, "", "catalog/generated-without-consent", "GENERATED_WITHOUT_CONSENT", fmt.Sprintf("%s generates %s, which holds %s at %s: a claim never covers another Component's directory", claim.Producer, at, entity.Ref, inner), help)
 			}
 		}
 		// Within its own project and its own Component (or where there
@@ -162,10 +162,10 @@ func consented(out Evaluation, said map[string][]config.Generated) error {
 			continue
 		}
 		if !owned || owner.Repository != claim.Repository || owner.Ref.Kind != entity.KindComponent {
-			return wire.SourceMistake(claim.Repository, "", "catalog/generated-without-consent", fmt.Sprintf("%s generates %s, outside its Component, which no Component owns to say it may", claim.Producer, at), help)
+			return wire.SourceMistake(claim.Repository, "", "catalog/generated-without-consent", "GENERATED_WITHOUT_CONSENT", fmt.Sprintf("%s generates %s, outside its Component, which no Component owns to say it may", claim.Producer, at), help)
 		}
 		if !produced || producer.Repository != claim.Repository || producer.Ref.Kind != entity.KindComponent {
-			return wire.SourceMistake(claim.Repository, "", "catalog/generated-without-consent", fmt.Sprintf("%s generates %s, outside its project, and its project belongs to no Component that %s could say generates it", claim.Producer, at, owner.Ref), help)
+			return wire.SourceMistake(claim.Repository, "", "catalog/generated-without-consent", "GENERATED_WITHOUT_CONSENT", fmt.Sprintf("%s generates %s, outside its project, and its project belongs to no Component that %s could say generates it", claim.Producer, at, owner.Ref), help)
 		}
 		given := false
 		for _, consent := range said[claim.Repository] {
@@ -175,7 +175,7 @@ func consented(out Evaluation, said map[string][]config.Generated) error {
 			}
 		}
 		if !given {
-			return wire.SourceMistake(claim.Repository, "", "catalog/generated-without-consent", fmt.Sprintf("%s generates %s, outside its own Component, and %s does not say that %s generates it (spec.frontseat.generated in its catalog file)", claim.Producer, at, owner.Ref, producer.Ref), help)
+			return wire.SourceMistake(claim.Repository, "", "catalog/generated-without-consent", "GENERATED_WITHOUT_CONSENT", fmt.Sprintf("%s generates %s, outside its own Component, and %s does not say that %s generates it (spec.frontseat.generated in its catalog file)", claim.Producer, at, owner.Ref, producer.Ref), help)
 		}
 	}
 	return nil

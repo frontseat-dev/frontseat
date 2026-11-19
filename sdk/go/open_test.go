@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -89,7 +88,7 @@ func (p *plane) DescribeWorkspace(_ context.Context, asked *workspacev1.Describe
 // here is the workspace of a repository at a branch, asked for with a
 // key.
 var here = Spec{Repositories: []Repository{{Remote: "https://forge.example/acme/code.git", Ref: "main"}}, Author: Author{Name: "Someone", Email: "someone@forge.example"},
-	AuthorizedKeys: []string{"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl test"}}
+	AuthorizedKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl test"}
 
 // pushing is here, pushing or not.
 func pushing(push bool) Spec {
@@ -104,7 +103,7 @@ func there(state workspacev1.WorkspaceStatus_State, push bool) *workspacev1.Work
 
 // A workspace is asked for by what it is to hold, and by no name where
 // the spec gives none: the control plane names it, so that two who ask
-// alike are given one. It is told who commits and whose keys get into
+// alike are given one. It is told who commits and whose key gets into
 // its shell, and pushes only where that was asked.
 func TestAWorkspaceIsAskedForByWhatItIsToHold(t *testing.T) {
 	for _, push := range []bool{false, true} {
@@ -124,8 +123,8 @@ func TestAWorkspaceIsAskedForByWhatItIsToHold(t *testing.T) {
 		if spec.GetPush() != push || spec.GetAuthor().GetName() != "Someone" || spec.GetAuthor().GetEmail() != "someone@forge.example" {
 			t.Errorf("asked for with push %v by %v", spec.GetPush(), spec.GetAuthor())
 		}
-		if keys := spec.GetAuthorizedKeys(); !slices.Equal(keys, here.AuthorizedKeys) {
-			t.Errorf("asked for with the keys %q, want %q", keys, here.AuthorizedKeys)
+		if key := spec.GetAuthorizedKey(); key != here.AuthorizedKey {
+			t.Errorf("asked for with the key %q, want %q", key, here.AuthorizedKey)
 		}
 	}
 }
@@ -183,11 +182,11 @@ func TestAWorkspaceOpenedByItsNameIsAskedForAsItWasMade(t *testing.T) {
 	}
 	p := &plane{answers: &workspacev1.CreateWorkspaceResponse{Workspace: there(workspacev1.WorkspaceStatus_STATE_READY, true)}, kept: kept}
 	fs := New(served(t, p))
-	if _, err := fs.Open(context.Background(), Spec{Name: "a-workspace", AuthorizedKeys: []string{"key"}}); err != nil {
+	if _, err := fs.Open(context.Background(), Spec{Name: "a-workspace", AuthorizedKey: "key"}); err != nil {
 		t.Fatal(err)
 	}
 	want := proto.Clone(kept).(*workspacev1.WorkspaceSpec)
-	want.AuthorizedKeys = []string{"key"}
+	want.AuthorizedKey = "key"
 	if got := p.created[0]; got.GetName() != "a-workspace" || !proto.Equal(got.GetSpec(), want) {
 		t.Errorf("opened by its name as %q %v, want %v", got.GetName(), got.GetSpec(), want)
 	}

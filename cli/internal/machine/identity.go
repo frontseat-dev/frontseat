@@ -55,12 +55,12 @@ func Identity() (ssh.Signer, string, error) {
 	return signer, path, nil
 }
 
-// AuthorizedKeys are what a workspace made from this machine lets into
+// AuthorizedKey is what a workspace made from this machine lets into
 // its shell: this machine's key, as a line of authorized_keys.
-func AuthorizedKeys() ([]string, error) {
+func AuthorizedKey() (string, error) {
 	identity, _, err := Identity()
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return []string{strings.TrimSpace(string(ssh.MarshalAuthorizedKey(identity.PublicKey())))}, nil
+	return strings.TrimSpace(string(ssh.MarshalAuthorizedKey(identity.PublicKey()))), nil
 }

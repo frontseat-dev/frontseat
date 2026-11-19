@@ -116,11 +116,11 @@ var workspaceName = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,46}[a-z0-9])?$`)
 // openNamed opens what was named: a workspace there is, by its name, or
 // a workspace of the repositories or the entities named.
 func openNamed(ctx context.Context, fs *frontseat.Client, args []string, flags *pflag.FlagSet) error {
-	keys, err := machine.AuthorizedKeys()
+	key, err := machine.AuthorizedKey()
 	if err != nil {
 		return err
 	}
-	spec := frontseat.Spec{AuthorizedKeys: keys}
+	spec := frontseat.Spec{AuthorizedKey: key}
 	if len(args) == 1 && workspaceName.MatchString(args[0]) {
 		// What a workspace is was said when it was made, and is not asked
 		// again of one that is there.
@@ -131,7 +131,7 @@ func openNamed(ctx context.Context, fs *frontseat.Client, args []string, flags *
 		}
 		spec.Name = args[0]
 	} else {
-		spec = frontseat.Spec{Name: opened.Name, Image: opened.Image, Push: opened.Push, Whole: openWhole, AuthorizedKeys: keys}
+		spec = frontseat.Spec{Name: opened.Name, Image: opened.Image, Push: opened.Push, Whole: openWhole, AuthorizedKey: key}
 		for _, named := range args {
 			switch {
 			case strings.Contains(named, "://"):

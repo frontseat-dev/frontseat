@@ -89,12 +89,12 @@ func TestACheckoutsWorkspaceIsAskedForWithThisMachinesKey(t *testing.T) {
 	if spec.GetAuthor().GetName() != "Someone" || spec.GetAuthor().GetEmail() != "someone@forge.example" {
 		t.Errorf("asked for by %v", spec.GetAuthor())
 	}
-	keys, err := AuthorizedKeys()
+	key, err := AuthorizedKey()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := spec.GetAuthorizedKeys(); len(got) != 1 || got[0] != keys[0] || !strings.HasPrefix(got[0], "ssh-ed25519 ") || strings.ContainsAny(got[0], "\r\n") {
-		t.Errorf("asked for with the keys %q, want this machine's %q, on one line", got, keys)
+	if got := spec.GetAuthorizedKey(); got != key || !strings.HasPrefix(got, "ssh-ed25519 ") || strings.ContainsAny(got, "\r\n") {
+		t.Errorf("asked for with the key %q, want this machine's %q, on one line", got, key)
 	}
 }
 

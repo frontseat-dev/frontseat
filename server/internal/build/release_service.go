@@ -105,7 +105,7 @@ func releaseFailure(err error) error {
 	case errors.As(err, &refusal) && refusal.Unknown:
 		fallback, reason = codes.NotFound, "ENTITY_NOT_FOUND"
 	case errors.As(err, &refusal) && refusal.Unserved:
-		fallback, reason = codes.Unimplemented, "RELEASE_UNSERVED"
+		fallback, reason = codes.Unimplemented, "RELEASE_NOT_SERVED"
 	case errors.As(err, &refusal):
 		fallback, reason = codes.InvalidArgument, "RELEASE_INVALID"
 	case errors.As(err, &mistake):

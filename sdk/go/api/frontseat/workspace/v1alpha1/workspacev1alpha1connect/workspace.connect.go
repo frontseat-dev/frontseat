@@ -20,7 +20,10 @@
 // workspace's build API and shell are held alike. A workspace is its
 // owner's, who asked for it first: another who names it is refused
 // PERMISSION_DENIED with the reason NOT_OWNER, and is listed none of
-// another's.
+// another's. What this service refuses by name carries ErrorInfo of the
+// domain workspace.frontseat.dev, with the reason each call names. A
+// call to a workspace's build API that is none of its calls is refused
+// UNIMPLEMENTED with the reason CALL_NOT_LED.
 //
 // A workspace is kept as what was asked for, its spec, and what is so,
 // its status. A call writes the spec and returns; the control plane then
@@ -134,36 +137,44 @@ type WorkspaceServiceClient interface {
 	// ended by this call, whatever fails.
 	//
 	// ### Errors
-	// - INVALID_ARGUMENT: nothing is asked for; the name is not one; a
-	//   repository's address holds a user or a password, or is not written
-	//   plainly; a lifetime is no while to come. ENTITY_INVALID, an entity
-	//   is no entity's name, or the catalog says of it what cannot be held;
-	//   ENTITY_AMBIGUOUS, a name names several entities, each named.
+	// - INVALID_ARGUMENT: SOURCE_MISSING, nothing is asked for;
+	//   NAME_INVALID, the name is not one, or none is given and what is
+	//   asked for gives none; REMOTE_CREDENTIALED, a repository's address
+	//   holds a user or a password; SPEC_INVALID, an address is not written
+	//   plainly, a host is fetched from over both http and https, or a key
+	//   is not one line; LIFETIME_INVALID, a lifetime is no while to come.
+	//   ENTITY_INVALID, an entity is no entity's name, or the catalog says
+	//   of it what cannot be held; ENTITY_AMBIGUOUS, a name names several
+	//   entities, each named.
 	// - NOT_FOUND: ENTITY_NOT_FOUND, the catalog holds no entity named, or
 	//   none that one depends on.
 	// - UNIMPLEMENTED: ENTITIES_NOT_SERVED, entities are named and the
 	//   control plane resolves none: its operator gave it no catalog.
+	//   IMAGE_NOT_SERVED, no image is named and the control plane names
+	//   none of its own. FETCH_NOT_SERVED, a repository is to be fetched
+	//   and the control plane was told of no version control system.
+	//   PUSH_NOT_SERVED, a push is asked for and a repository is not given
+	//   by its address over http or https.
 	// - UNAVAILABLE: ENTITIES_UNAVAILABLE, the catalog did not answer as
 	//   one does; nothing is made.
-	// - ALREADY_EXISTS: a workspace of the name is there and is asked for
-	//   with more than it has, other source, a push it was made without,
-	//   another image, another key let into its shell or another
-	//   lifetime; the message says what differs.
-	//   One that is ending is so refused until it is gone.
-	// - FAILED_PRECONDITION: what is asked for cannot be given; the message
-	//   names it.
+	// - ALREADY_EXISTS: WORKSPACE_DIFFERS, a workspace of the name is there
+	//   and is asked for with more than it has, other source, a push it was
+	//   made without, another image, another key let into its shell or
+	//   another lifetime; the message says what differs. WORKSPACE_ENDING,
+	//   one of the name is ending, until it is gone.
 	CreateWorkspace(context.Context, *v1alpha1.CreateWorkspaceRequest) (*v1alpha1.CreateWorkspaceResponse, error)
 	// DescribeWorkspace returns one workspace: what was asked for, and what
 	// is so, as it was last found.
 	//
 	// ### Errors
-	// - NOT_FOUND: there is no workspace of the name.
+	// - NOT_FOUND: there is no workspace of the name (WORKSPACE_NOT_FOUND).
 	DescribeWorkspace(context.Context, *v1alpha1.DescribeWorkspaceRequest) (*v1alpha1.DescribeWorkspaceResponse, error)
 	// ListWorkspaces returns the caller's workspaces, oldest first, a page
 	// at a time.
 	//
 	// ### Errors
-	// - INVALID_ARGUMENT: the page token is not one this call gave.
+	// - INVALID_ARGUMENT: the page token is not one this call gave
+	//   (PAGE_TOKEN_INVALID).
 	ListWorkspaces(context.Context, *v1alpha1.ListWorkspacesRequest) (*v1alpha1.ListWorkspacesResponse, error)
 	// WaitWorkspace returns a workspace once it is ready, has failed or is
 	// paused. One whose sandbox does not come to run, or whose daemon does
@@ -172,7 +183,7 @@ type WorkspaceServiceClient interface {
 	// call again.
 	//
 	// ### Errors
-	// - NOT_FOUND: there is no workspace of the name.
+	// - NOT_FOUND: there is no workspace of the name (WORKSPACE_NOT_FOUND).
 	WaitWorkspace(context.Context, *v1alpha1.WaitWorkspaceRequest) (*v1alpha1.WaitWorkspaceResponse, error)
 	// UpdateWorkspace has a workspace hold more: its spec is given whole,
 	// with what it had and what is added, and the control plane tells its
@@ -184,19 +195,23 @@ type WorkspaceServiceClient interface {
 	// refused with the same reasons; those it had are not resolved again.
 	//
 	// ### Errors
-	// - NOT_FOUND: there is no workspace of the name; or, ENTITY_NOT_FOUND,
-	//   the catalog holds no entity added.
-	// - INVALID_ARGUMENT: the spec leaves out something the workspace has,
-	//   or changes what is said once: whether it pushes, who commits, whose
-	//   key gets in, its image, its lifetime. Or the daemon refuses what is
-	//   added, with the reason it gives: SOURCE_UNFIT. Or ENTITY_INVALID,
+	// - NOT_FOUND: there is no workspace of the name (WORKSPACE_NOT_FOUND);
+	//   or, ENTITY_NOT_FOUND, the catalog holds no entity added.
+	// - INVALID_ARGUMENT: SPEC_INCOMPLETE, the spec leaves out something
+	//   the workspace has; SPEC_FIXED, it changes what is said once:
+	//   whether it pushes, who commits, whose key gets in, its image, its
+	//   lifetime; REMOTE_CREDENTIALED, as CreateWorkspace. Or the daemon
+	//   refuses what is added, with the reason it gives: SOURCE_UNFIT,
+	//   SOURCE_MISSING, GENERATION_INVALID. Or ENTITY_INVALID,
 	//   ENTITY_AMBIGUOUS, as CreateWorkspace.
-	// - FAILED_PRECONDITION: a repository added, or one an entity added
-	//   resolved to, is beyond what the workspace's sandbox may reach, or
-	//   the workspace is not ready; the message names it. Or the daemon
-	//   refuses what is added, with the reason it gives: SOURCE_POPULATING,
+	// - FAILED_PRECONDITION: WORKSPACE_NOT_READY, the workspace is not
+	//   ready; WORKSPACE_ENDING, it is ending. Or the daemon refuses what
+	//   is added, with the reason it gives: SOURCE_POPULATING,
 	//   SOURCE_MOUNTED.
-	// - UNIMPLEMENTED: ENTITIES_NOT_SERVED, as CreateWorkspace.
+	// - UNIMPLEMENTED: REACH_NOT_SERVED, a repository added, or one an
+	//   entity added resolved to, is beyond what the workspace's sandbox
+	//   was made to reach, which is said when it is made; the message
+	//   names it. ENTITIES_NOT_SERVED, as CreateWorkspace.
 	// - UNAVAILABLE: ENTITIES_UNAVAILABLE, as CreateWorkspace.
 	UpdateWorkspace(context.Context, *v1alpha1.UpdateWorkspaceRequest) (*v1alpha1.UpdateWorkspaceResponse, error)
 	// DeleteWorkspace ends a workspace and its sandbox, with what it holds:
@@ -205,7 +220,7 @@ type WorkspaceServiceClient interface {
 	// NOT_FOUND.
 	//
 	// ### Errors
-	// - NOT_FOUND: there is no workspace of the name.
+	// - NOT_FOUND: there is no workspace of the name (WORKSPACE_NOT_FOUND).
 	DeleteWorkspace(context.Context, *v1alpha1.DeleteWorkspaceRequest) (*v1alpha1.DeleteWorkspaceResponse, error)
 }
 
@@ -229,36 +244,44 @@ type WorkspaceServiceHandler interface {
 	// ended by this call, whatever fails.
 	//
 	// ### Errors
-	// - INVALID_ARGUMENT: nothing is asked for; the name is not one; a
-	//   repository's address holds a user or a password, or is not written
-	//   plainly; a lifetime is no while to come. ENTITY_INVALID, an entity
-	//   is no entity's name, or the catalog says of it what cannot be held;
-	//   ENTITY_AMBIGUOUS, a name names several entities, each named.
+	// - INVALID_ARGUMENT: SOURCE_MISSING, nothing is asked for;
+	//   NAME_INVALID, the name is not one, or none is given and what is
+	//   asked for gives none; REMOTE_CREDENTIALED, a repository's address
+	//   holds a user or a password; SPEC_INVALID, an address is not written
+	//   plainly, a host is fetched from over both http and https, or a key
+	//   is not one line; LIFETIME_INVALID, a lifetime is no while to come.
+	//   ENTITY_INVALID, an entity is no entity's name, or the catalog says
+	//   of it what cannot be held; ENTITY_AMBIGUOUS, a name names several
+	//   entities, each named.
 	// - NOT_FOUND: ENTITY_NOT_FOUND, the catalog holds no entity named, or
 	//   none that one depends on.
 	// - UNIMPLEMENTED: ENTITIES_NOT_SERVED, entities are named and the
 	//   control plane resolves none: its operator gave it no catalog.
+	//   IMAGE_NOT_SERVED, no image is named and the control plane names
+	//   none of its own. FETCH_NOT_SERVED, a repository is to be fetched
+	//   and the control plane was told of no version control system.
+	//   PUSH_NOT_SERVED, a push is asked for and a repository is not given
+	//   by its address over http or https.
 	// - UNAVAILABLE: ENTITIES_UNAVAILABLE, the catalog did not answer as
 	//   one does; nothing is made.
-	// - ALREADY_EXISTS: a workspace of the name is there and is asked for
-	//   with more than it has, other source, a push it was made without,
-	//   another image, another key let into its shell or another
-	//   lifetime; the message says what differs.
-	//   One that is ending is so refused until it is gone.
-	// - FAILED_PRECONDITION: what is asked for cannot be given; the message
-	//   names it.
+	// - ALREADY_EXISTS: WORKSPACE_DIFFERS, a workspace of the name is there
+	//   and is asked for with more than it has, other source, a push it was
+	//   made without, another image, another key let into its shell or
+	//   another lifetime; the message says what differs. WORKSPACE_ENDING,
+	//   one of the name is ending, until it is gone.
 	CreateWorkspace(context.Context, *v1alpha1.CreateWorkspaceRequest) (*v1alpha1.CreateWorkspaceResponse, error)
 	// DescribeWorkspace returns one workspace: what was asked for, and what
 	// is so, as it was last found.
 	//
 	// ### Errors
-	// - NOT_FOUND: there is no workspace of the name.
+	// - NOT_FOUND: there is no workspace of the name (WORKSPACE_NOT_FOUND).
 	DescribeWorkspace(context.Context, *v1alpha1.DescribeWorkspaceRequest) (*v1alpha1.DescribeWorkspaceResponse, error)
 	// ListWorkspaces returns the caller's workspaces, oldest first, a page
 	// at a time.
 	//
 	// ### Errors
-	// - INVALID_ARGUMENT: the page token is not one this call gave.
+	// - INVALID_ARGUMENT: the page token is not one this call gave
+	//   (PAGE_TOKEN_INVALID).
 	ListWorkspaces(context.Context, *v1alpha1.ListWorkspacesRequest) (*v1alpha1.ListWorkspacesResponse, error)
 	// WaitWorkspace returns a workspace once it is ready, has failed or is
 	// paused. One whose sandbox does not come to run, or whose daemon does
@@ -267,7 +290,7 @@ type WorkspaceServiceHandler interface {
 	// call again.
 	//
 	// ### Errors
-	// - NOT_FOUND: there is no workspace of the name.
+	// - NOT_FOUND: there is no workspace of the name (WORKSPACE_NOT_FOUND).
 	WaitWorkspace(context.Context, *v1alpha1.WaitWorkspaceRequest) (*v1alpha1.WaitWorkspaceResponse, error)
 	// UpdateWorkspace has a workspace hold more: its spec is given whole,
 	// with what it had and what is added, and the control plane tells its
@@ -279,19 +302,23 @@ type WorkspaceServiceHandler interface {
 	// refused with the same reasons; those it had are not resolved again.
 	//
 	// ### Errors
-	// - NOT_FOUND: there is no workspace of the name; or, ENTITY_NOT_FOUND,
-	//   the catalog holds no entity added.
-	// - INVALID_ARGUMENT: the spec leaves out something the workspace has,
-	//   or changes what is said once: whether it pushes, who commits, whose
-	//   key gets in, its image, its lifetime. Or the daemon refuses what is
-	//   added, with the reason it gives: SOURCE_UNFIT. Or ENTITY_INVALID,
+	// - NOT_FOUND: there is no workspace of the name (WORKSPACE_NOT_FOUND);
+	//   or, ENTITY_NOT_FOUND, the catalog holds no entity added.
+	// - INVALID_ARGUMENT: SPEC_INCOMPLETE, the spec leaves out something
+	//   the workspace has; SPEC_FIXED, it changes what is said once:
+	//   whether it pushes, who commits, whose key gets in, its image, its
+	//   lifetime; REMOTE_CREDENTIALED, as CreateWorkspace. Or the daemon
+	//   refuses what is added, with the reason it gives: SOURCE_UNFIT,
+	//   SOURCE_MISSING, GENERATION_INVALID. Or ENTITY_INVALID,
 	//   ENTITY_AMBIGUOUS, as CreateWorkspace.
-	// - FAILED_PRECONDITION: a repository added, or one an entity added
-	//   resolved to, is beyond what the workspace's sandbox may reach, or
-	//   the workspace is not ready; the message names it. Or the daemon
-	//   refuses what is added, with the reason it gives: SOURCE_POPULATING,
+	// - FAILED_PRECONDITION: WORKSPACE_NOT_READY, the workspace is not
+	//   ready; WORKSPACE_ENDING, it is ending. Or the daemon refuses what
+	//   is added, with the reason it gives: SOURCE_POPULATING,
 	//   SOURCE_MOUNTED.
-	// - UNIMPLEMENTED: ENTITIES_NOT_SERVED, as CreateWorkspace.
+	// - UNIMPLEMENTED: REACH_NOT_SERVED, a repository added, or one an
+	//   entity added resolved to, is beyond what the workspace's sandbox
+	//   was made to reach, which is said when it is made; the message
+	//   names it. ENTITIES_NOT_SERVED, as CreateWorkspace.
 	// - UNAVAILABLE: ENTITIES_UNAVAILABLE, as CreateWorkspace.
 	UpdateWorkspace(context.Context, *v1alpha1.UpdateWorkspaceRequest) (*v1alpha1.UpdateWorkspaceResponse, error)
 	// DeleteWorkspace ends a workspace and its sandbox, with what it holds:
@@ -300,7 +327,7 @@ type WorkspaceServiceHandler interface {
 	// NOT_FOUND.
 	//
 	// ### Errors
-	// - NOT_FOUND: there is no workspace of the name.
+	// - NOT_FOUND: there is no workspace of the name (WORKSPACE_NOT_FOUND).
 	DeleteWorkspace(context.Context, *v1alpha1.DeleteWorkspaceRequest) (*v1alpha1.DeleteWorkspaceResponse, error)
 }
 

@@ -84,8 +84,8 @@ func TestWhatTheDriverCannotEnforceIsRefusedByNameAndNothingIsMade(t *testing.T)
 		Spec: &sandboxv1.SandboxSpec{Image: "box", Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_BLOCK}},
 	})
 
-	if connect.CodeOf(err) != connect.CodeFailedPrecondition || !strings.Contains(err.Error(), "blocked egress") {
-		t.Errorf("err = %v, want failed precondition naming blocked egress", err)
+	if connect.CodeOf(err) != connect.CodeUnimplemented || !strings.Contains(err.Error(), "blocked egress") {
+		t.Errorf("err = %v, want it refused as not served, naming blocked egress", err)
 	}
 	listed, err := client.ListSandboxes(context.Background(), &sandboxv1.ListSandboxesRequest{})
 	if err != nil || len(listed.GetSandboxes()) != 0 {
