@@ -33,6 +33,13 @@ func checkDescription(d *pluginv1.DescribeResponse) error {
 	if d.GetAbi() < MinABI || d.GetAbi() > MaxABI {
 		return fmt.Errorf("plugin %s says it speaks ABI %d, and this host loads %d to %d", d.GetName(), d.GetAbi(), MinABI, MaxABI)
 	}
+	// What it reads is said in the contract's pattern language, of files
+	// beneath the repository's root, as an action's source inputs are.
+	for _, interest := range d.GetInterests() {
+		if !pattern.Valid(interest) {
+			return fmt.Errorf("plugin %s has an interest that is not a pattern of files beneath the repository", d.GetName())
+		}
+	}
 	// A plugin says which branching and versioning strategies it serves,
 	// each by a name of its own.
 	if roles := d.GetRelease(); roles != nil {

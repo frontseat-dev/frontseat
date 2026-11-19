@@ -1,8 +1,9 @@
 // Package pattern is the patterns the contracts name files by: what a
 // plugin's interests, an action's inputs and a glob through the host are
-// written in. One pattern is matched as doublestar matches it, which is
-// what Gazelle globs with; that a pattern can exclude, and that the last
-// to match decides, is said here.
+// written in, in the language the plugin contract says (host.proto). One
+// pattern is matched as doublestar matches it, which is what Gazelle
+// globs with, once it is held to that language (Spelled); that a pattern
+// can exclude, and that the last to match decides, is said here.
 package pattern
 
 import (
@@ -28,11 +29,64 @@ func Local(at string) bool {
 }
 
 // Valid reports whether a pattern is one an action's inputs take: one
-// doublestar reads, with "!" before it or without, of files beneath
-// where it is written.
+// of the contract's language (Spelled), with "!" before it or without,
+// of files beneath where it is written.
 func Valid(p string) bool {
 	plain := strings.TrimPrefix(p, "!")
-	return doublestar.ValidatePattern(plain) && Local(plain)
+	return Spelled(plain) && Local(plain)
+}
+
+// Spelled reports whether a pattern is written in the language the
+// plugin contract says (host.proto): one doublestar reads, with none of
+// what the contract leaves out of it, where what doublestar makes of a
+// pattern is no rule a reader could write down: an empty part (a "/" at
+// either end, or two together), a run of three stars or more, a "/" in
+// a class, in braces or escaped, and braces with nothing in them. A
+// pattern that is not one selects nothing.
+func Spelled(p string) bool {
+	if p == "" || strings.HasPrefix(p, "/") || strings.HasSuffix(p, "/") || strings.Contains(p, "//") || strings.Contains(p, "***") || !doublestar.ValidatePattern(p) {
+		return false
+	}
+	class, braces := false, 0
+	for i := 0; i < len(p); i++ {
+		switch c := p[i]; {
+		case c == '\\':
+			if i+1 < len(p) && p[i+1] == '/' {
+				return false
+			}
+			i++
+		case class:
+			if c == '/' {
+				return false
+			}
+			class = c != ']'
+		case c == '[':
+			class = true
+		case c == '{':
+			if i+1 < len(p) && p[i+1] == '}' {
+				return false
+			}
+			braces++
+		case c == '}' && braces > 0:
+			braces--
+		case c == '/' && braces > 0:
+			return false
+		}
+	}
+	return true
+}
+
+// Spelling keeps of patterns those that are Spelled, in their order: as
+// a list, they select what they selected, since one that is not selects
+// nothing and decides nothing.
+func Spelling(patterns []string) []string {
+	kept := make([]string, 0, len(patterns))
+	for _, p := range patterns {
+		if Spelled(strings.TrimPrefix(p, "!")) {
+			kept = append(kept, p)
+		}
+	}
+	return kept
 }
 
 // Select reports whether patterns select a path. A pattern that starts

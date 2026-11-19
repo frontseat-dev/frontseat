@@ -26,6 +26,24 @@ func TestAPluginOfAnotherABIIsRefused(t *testing.T) {
 	}
 }
 
+// A plugin's interests are patterns of the contract's language
+// (host.proto), each of files beneath the repository's root: one that is
+// no pattern, or reaches out of the repository, is refused. The control
+// is a plugin whose interests select and exclude as the language allows.
+func TestAPluginWhoseInterestsAreNoPatternsIsRefused(t *testing.T) {
+	described := func(interests ...string) *pluginv1.DescribeResponse {
+		return &pluginv1.DescribeResponse{Name: "tool", Abi: MinABI, Interests: interests}
+	}
+	if err := checkDescription(described("**/go.mod", "*.{go,s}", "[a-z]?.txt", "!**/testdata/**", `\!name`)); err != nil {
+		t.Fatalf("a plugin with sound interests was refused: %v", err)
+	}
+	for _, interest := range []string{"[", "a/[]", "{a,b", `a\`, "/etc/passwd", "../x", "!../x", ""} {
+		if err := checkDescription(described("**/go.mod", interest)); err == nil || !strings.Contains(err.Error(), "interest") {
+			t.Errorf("the interest %q: err = %v, want it refused", interest, err)
+		}
+	}
+}
+
 // What a repository sets is held to the options a plugin declares, so a
 // plugin whose declarations do not hold together is not loaded.
 func TestAPluginWhoseOptionsDoNotHoldTogetherIsRefused(t *testing.T) {
