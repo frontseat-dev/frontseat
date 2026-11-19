@@ -4,12 +4,12 @@ package testtelemetry
 
 import (
 	"context"
-	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"net"
 	"net/http/httptest"
 	"sync"
 	"testing"
 
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	logs "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 	metrics "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
 	traces "go.opentelemetry.io/proto/otlp/collector/trace/v1"

@@ -54,8 +54,10 @@ func (c Container) Arguments(profile string) []string {
 		"--cgroupns", "private",
 		"--volume", c.Volume + ":/var/lib/frontseat",
 		// This machine, by the name Docker Desktop and OrbStack give it and
-		// Linux's runtimes give only when told: what a test's origin is
-		// reached at (testorigin).
+		// Linux's runtimes give only when told: where init reads the
+		// address it tells the gateway a sandbox's names of this machine
+		// lead to (machineAddress), where the person's own services are
+		// and the grid's ports are published.
 		"--add-host", "host.docker.internal:host-gateway",
 	}
 	for _, name := range slices.Sorted(maps.Keys(c.Labels)) {

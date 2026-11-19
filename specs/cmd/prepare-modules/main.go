@@ -28,7 +28,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/frontseat-dev/frontseat/local"
 	"maps"
 	"os"
 	"os/exec"
@@ -37,6 +36,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/frontseat-dev/frontseat/local"
 	"github.com/google/renameio/v2"
 
 	"github.com/frontseat-dev/frontseat/server/testsupport/testmodule"

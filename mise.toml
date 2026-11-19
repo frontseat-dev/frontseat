@@ -62,7 +62,8 @@ CARGO_TARGET_WASM32_WASIP1_RUSTFLAGS = { value = "{% if tools['http:rust-std-was
 # and the local control plane for this machine, the plugins as wasm, and
 # the box image a workspace sandbox runs, tagged by what it holds and
 # frontseat-box:local beside, for a person to ask for it by. It is what a
-# person tries frontseat with (README, "Getting Started"), and what
+# contributor tries frontseat with (CONTRIBUTING.md, "Getting started as
+# a contributor"), and what
 # specs/cli proves. A run with nothing changed does nothing. The plugins
 # are built by the program that builds them for the tests
 # (specs/cmd/prepare-modules), which reads which there are from the Cargo
@@ -126,8 +127,10 @@ description = "What must always pass: contracts lint, code is formatted, everyth
 run = [
   "cd api && buf lint",
   # What is generated from the contracts and committed is what the
-  # generators write now: the Go Buf writes (the Go SDK's, and the
-  # daemon's of the plugin contract), and the plugin SDK's Rust.
+  # generators write now: the Go Buf writes, by each template of
+  # api/buf.gen.*.yaml (the Go SDK's, and the server's of the plugin
+  # contract, of what a runner is told and of the daemon's source API),
+  # and the plugin SDK's Rust.
   "go run ./specs/cmd/gate generated",
   "cargo run --quiet --locked -p frontseat-plugin-generate -- --check",
   "go run ./specs/cmd/gate fmt",
@@ -225,8 +228,9 @@ run = "docker run --rm --user \"$(id -u):$(id -g)\" -v \"$PWD:/docs\" -w /docs s
 description = "Serve the TechDocs site of the checkout on http://localhost:8000, rebuilt on change"
 run = "docker run --rm --init --user \"$(id -u):$(id -g)\" -p 8000:8000 -v \"$PWD:/docs\" -w /docs spotify/techdocs@sha256:f9ed0de81496694c1de78bf18f1d9c5148cb1e6237ee3305685d08cfb5fb4301 serve --dev-addr 0.0.0.0:8000"
 
-# What is generated from the contracts: the Go SDK's Go and the daemon's
-# Go of the plugin contract, each by a template of its own, and the
+# What is generated from the contracts: the Go SDK's Go, and the
+# server's Go of the plugin contract, of what a runner is told and of the
+# daemon's source API, each by a template of its own, and the
 # plugin SDK's Rust, by its generator. `check` holds each to what this
 # writes.
 [tasks.protos]
