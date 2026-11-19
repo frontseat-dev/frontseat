@@ -82,6 +82,23 @@ func TestAGateWithNoStackSkipsWhatNeedsOne(t *testing.T) {
 	}
 }
 
+// A gate that runs against the stack fails a test whose helper finds what
+// it needs of the stack missing, and names what is missing. The controls
+// are the same helper where the gate says nothing, or another word, which
+// skips the test.
+func TestAGateAgainstTheStackFailsATestWhoseStackIsMissing(t *testing.T) {
+	out, err := child(t, "TestStackChild", "missing:", testrequired.Required)
+	if err == nil || strings.Contains(out, "--- SKIP") || !strings.Contains(out, "no grid answers at nowhere") {
+		t.Fatalf("missing, where the stack is required: exit=%v\n%s", err, out)
+	}
+	for _, word := range []string{"", "Required"} {
+		out, err := child(t, "TestStackChild", "missing:", word)
+		if err != nil || !strings.Contains(out, "--- SKIP") || !strings.Contains(out, "no grid answers at nowhere") {
+			t.Fatalf("missing, where the gate says %q: exit=%v\n%s", word, err, out)
+		}
+	}
+}
+
 func TestPrerequisiteChild(t *testing.T) {
 	mode, operation, child := strings.Cut(os.Getenv("FRONTSEAT_REQUIRED_PROBE"), ":")
 	if !child || strings.HasSuffix(mode, "stack") {
@@ -115,6 +132,10 @@ func TestStackChild(t *testing.T) {
 		tb = struct{ testing.TB }{TB: testrequired.TB(t)}
 	case "double-stack:":
 		tb = testrequired.TB(testrequired.TB(t))
+	case "missing:":
+		testrequired.Stack(tb)
+		testrequired.Missing(tb, "no grid answers at %s", "nowhere")
+		t.Fatal("a missing stack continued execution")
 	default:
 		return
 	}

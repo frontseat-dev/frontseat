@@ -15,8 +15,16 @@
 //	gate go-test [go test arguments]    go test as it is given
 //
 // What runs tests is told the wasm modules prepared for it from this
-// checkout (FRONTSEAT_TEST_ARTIFACTS, which prepare prints). Where it
-// runs with the stack and a container runtime answers, it first builds
+// checkout (FRONTSEAT_TEST_ARTIFACTS, which prepare-modules prints).
+// test, with the stack, first asks that the stack answers (the container
+// runtime, and the stack's control plane and grid where local/ports
+// says), and fails naming it where none does, before anything is built
+// or run. test with the stack, and go-test, tell the tests that the gate
+// runs against the stack (FRONTSEAT_TEST_STACK=required, package
+// testrequired): a test that finds what it needs of the stack not
+// answering fails, so neither ends green with a test of the stack
+// skipped. Where a gate runs with
+// the stack and a container runtime answers, it first builds
 // the box image of this checkout and installs its frontseat-action for
 // the stack's workers (local/box, the one build of the box), and tells
 // the tests both (FRONTSEAT_TEST_BOX, the box's tag of its content, and
@@ -43,21 +51,24 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/frontseat-dev/frontseat/local"
 	"go/ast"
 	"go/parser"
 	"go/token"
 	"io"
 	"io/fs"
 	"maps"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/frontseat-dev/frontseat/local"
 	"github.com/frontseat-dev/frontseat/local/box"
+	"github.com/frontseat-dev/frontseat/local/ports"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testbox"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testbudget"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testgrid"
@@ -88,13 +99,18 @@ func gate(arguments []string) int {
 	case "fmt":
 		return formatted(root, dirs)
 	case "vet":
-		return run(root, environment(os.Environ(), false), "go", append([]string{"vet"}, patterns(dirs)...)...)
+		return run(root, environment(os.Environ(), unsaid), "go", append([]string{"vet"}, patterns(dirs)...)...)
 	case "generated":
 		return compareGenerated(root)
 	case "test":
 		selected, err := selection(root, dirs, command.Except, command.Only)
 		if err != nil {
 			return failed(err)
+		}
+		if !command.NoStack {
+			if err := stackAnswers(context.Background()); err != nil {
+				return failed(err)
+			}
 		}
 		artifacts, err := prepared(root)
 		if err != nil {
@@ -106,9 +122,9 @@ func gate(arguments []string) int {
 			if err != nil {
 				return failed(err)
 			}
-			return run(root, environment(os.Environ(), false, append([]string{artifacts, source(root)}, boxes...)...), "go", arguments...)
+			return run(root, environment(os.Environ(), required, append([]string{artifacts, source(root)}, boxes...)...), "go", arguments...)
 		}
-		return run(root, environment(os.Environ(), true, artifacts, source(root)), "go", arguments...)
+		return run(root, environment(os.Environ(), none, artifacts, source(root)), "go", arguments...)
 	case "budget", "bench":
 		held, err := budgeted(root, dirs)
 		if err != nil {
@@ -131,7 +147,7 @@ func gate(arguments []string) int {
 		// Here alone is a budget's time held: the gate runs nothing else
 		// beside it.
 		timed := testbudget.Variable + "=" + testbudget.Timed
-		return run(root, environment(os.Environ(), false, artifacts, timed, source(root)), "go", append(arguments, held...)...)
+		return run(root, environment(os.Environ(), unsaid, artifacts, timed, source(root)), "go", append(arguments, held...)...)
 	case "go-test":
 		artifacts, err := prepared(root)
 		if err != nil {
@@ -141,9 +157,35 @@ func gate(arguments []string) int {
 		if err != nil {
 			return failed(err)
 		}
-		return run(root, environment(os.Environ(), false, append([]string{artifacts, source(root)}, boxes...)...), "go", append([]string{"test"}, command.Go...)...)
+		return run(root, environment(os.Environ(), required, append([]string{artifacts, source(root)}, boxes...)...), "go", append([]string{"test"}, command.Go...)...)
 	}
 	return failed(fmt.Errorf("gate does not %s", command.Verb))
+}
+
+// stackAnswers returns where no local stack answers the tests a gate
+// runs with it: the container runtime does not, or the stack's control
+// plane or grid does not on this machine's loopback, where local/ports
+// says. A gate that runs the tests with the stack asks it before
+// anything is built or run, so that a test that needs the stack is
+// never left to skip and the gate to end green with none.
+func stackAnswers(ctx context.Context) error {
+	refused := func(why error) error {
+		return fmt.Errorf("no local stack answers (%w): mise run test runs against it, so start it first (mise start); mise run check runs what needs none", why)
+	}
+	if err := box.Answers(ctx); err != nil {
+		return refused(err)
+	}
+	for _, each := range []struct {
+		name string
+		port int
+	}{{"the control plane", ports.ControlPlane}, {"the grid", ports.Grid}} {
+		conn, err := net.DialTimeout("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(each.port)), time.Second)
+		if err != nil {
+			return refused(fmt.Errorf("%s does not answer at port %d: %w", each.name, each.port, err))
+		}
+		conn.Close()
+	}
+	return nil
 }
 
 func failed(err error) int {
@@ -317,11 +359,14 @@ func prepared(root string) (string, error) {
 // prepared for the tests, hands it to the local stack's Podman, which
 // runs the sandboxes the tests make of it, and installs its confiner,
 // frontseat-action, for the stack's workers, and returns the environment
-// that tells a test both. Where no container runtime answers it does neither, and a
-// test that needs either is skipped as one that needs the runtime is.
+// that tells a test both. Where no container runtime answers it does
+// neither, and a test that needs either fails as one that needs the
+// runtime does, told that the gate runs against the stack: only go-test,
+// run by hand, gets so far, since test, with the stack, asks first that
+// the stack answers (stackAnswers).
 func boxed(root, artifacts string) ([]string, error) {
 	ctx := context.Background()
-	if box.Answers(ctx) != nil {
+	if err := box.Answers(ctx); err != nil {
 		return nil, nil
 	}
 	_, dir, _ := strings.Cut(artifacts, "=")
@@ -355,11 +400,23 @@ func boxed(root, artifacts string) ([]string, error) {
 	return append(told, testbox.StackVariable+"="+stack), nil
 }
 
+// stack is the gate's word on the local stack to what it runs: nothing
+// (unsaid), that the tests run against it (required), or that there is
+// none (none).
+type stack int
+
+const (
+	unsaid stack = iota
+	required
+	none
+)
+
 // environment is the environment a gate's program runs with: this one's,
 // but the gate's word on the stack, which the gate says itself (none,
-// where it runs with no stack, and nothing otherwise), but the box and
-// the confiner, which are the gate's to build and to name (boxed), and
-// but GOFLAGS, through which what runs the gate could add to go what its
+// where it runs with no stack, required where it runs the tests against
+// it, and nothing otherwise), but a grid a test's own process names in
+// the stack's place, but the box and the confiner, which are the gate's
+// to build and to name (boxed), and but GOFLAGS, through which what runs the gate could add to go what its
 // task does not say (-run, -short, -count, -race=false): what go is told
 // is the task's alone. Where it runs with no stack, the container
 // runtime is named as an engine at an address nothing can listen at, and
@@ -370,7 +427,7 @@ func boxed(root, artifacts string) ([]string, error) {
 // would answer it with what an earlier test, at another port of the same
 // address, left there, and keep what this one presents. Then what is
 // given.
-func environment(base []string, stackless bool, given ...string) []string {
+func environment(base []string, word stack, given ...string) []string {
 	var out []string
 	for _, each := range base {
 		name, _, _ := strings.Cut(each, "=")
@@ -378,18 +435,21 @@ func environment(base []string, stackless bool, given ...string) []string {
 			continue
 		}
 		switch name {
-		case testrequired.Variable, "GOFLAGS", testbox.Variable, testbox.StackVariable, testgrid.ConfinerVariable, testbudget.Variable, testmodule.SourceVariable,
+		case testrequired.Variable, "GOFLAGS", testbox.Variable, testbox.StackVariable, testgrid.Variable, testgrid.ConfinerVariable, testbudget.Variable, testmodule.SourceVariable,
 			"GIT_CONFIG_GLOBAL", "GIT_CONFIG_SYSTEM", "GIT_CONFIG_NOSYSTEM", "GIT_CONFIG_COUNT":
 			continue
 		case "DOCKER_HOST", "DOCKER_CONTEXT":
-			if stackless {
+			if word == none {
 				continue
 			}
 		}
 		out = append(out, each)
 	}
-	if stackless {
+	switch word {
+	case none:
 		out = append(out, testrequired.Variable+"="+testrequired.NoStack, "DOCKER_HOST="+NoEngine)
+	case required:
+		out = append(out, testrequired.Variable+"="+testrequired.Required)
 	}
 	out = append(out, isolated...)
 	return append(out, given...)

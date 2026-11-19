@@ -8,9 +8,14 @@
 // FRONTSEAT_TEST_STACK=none: then every test that needs the stack, by a
 // helper of the test support or by Stack, is skipped by Stack, required or
 // not, and the gate starts no container and asks no grid, whatever this
-// machine runs. Elsewhere a test that needs the stack uses whatever
-// answers. The gate program sets the variable for every test it runs, so
-// one exported by a person changes nothing.
+// machine runs. A gate that runs the tests against the stack (`mise run
+// test`, `mise run go:test`) says FRONTSEAT_TEST_STACK=required: then a
+// helper of the test support that finds what it needs of the stack not
+// answering fails the test (Missing), and no test that needs the stack
+// is skipped. Where nothing is said, as for a test run by go test alone,
+// a test that needs the stack uses whatever answers and is skipped where
+// nothing does. The gate program sets the variable for every test it
+// runs, so one exported by a person changes nothing.
 package testrequired
 
 import (
@@ -18,11 +23,13 @@ import (
 	"testing"
 )
 
-// Variable names the gate's word on the stack, and NoStack its value
-// where the gate runs with none.
+// Variable names the gate's word on the stack, NoStack its value where
+// the gate runs with none, and Required its value where the gate runs
+// the tests against the stack.
 const (
 	Variable = "FRONTSEAT_TEST_STACK"
 	NoStack  = "none"
+	Required = "required"
 )
 
 // Stackless reports whether the gate running the test runs with no stack.
@@ -45,6 +52,19 @@ func Stack(t testing.TB) {
 		required.skipForStack(reason)
 	}
 	t.Skip(reason)
+}
+
+// Missing is said by a helper of the test support where what it needs
+// of the stack does not answer, after Stack: it fails the test where the
+// gate said the stack is required, so that a gate against the stack
+// never ends green with a test of the stack not run, and skips it
+// elsewhere.
+func Missing(t testing.TB, format string, args ...any) {
+	t.Helper()
+	if os.Getenv(Variable) == Required {
+		t.Fatalf("the gate runs against the local stack ("+Variable+"="+Required+"), and "+format, args...)
+	}
+	t.Skipf(format, args...)
 }
 
 // TB preserves the test's cleanup and failure behavior, but treats a

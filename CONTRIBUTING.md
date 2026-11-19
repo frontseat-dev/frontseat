@@ -140,9 +140,12 @@ mise run check
 mise run test
 ```
 
-`check` needs no containers. `test` needs the working local grid and a
-container runtime. The Go tests run with the race detector. Read the
-command's exit status and the native Go per-test results; skipped
+`check` needs no containers. `test` needs the local stack up (`mise
+start`). The Go tests run with the race detector. Read the
+command's exit status and the native Go per-test results. `mise run
+test` fails before it runs anything where no local stack answers, and
+under it and `mise run go:test` a test that needs the stack fails where
+the stack is missing; only `go test` run by hand skips it, and skipped
 integration coverage is not a successful full validation. Report any
 unrun checks and their reason.
 

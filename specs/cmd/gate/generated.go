@@ -40,7 +40,7 @@ func compareGenerated(root string) int {
 		// Buf writes each output beneath what -o names, as it does beneath
 		// the workspace: the workspace's place in the scratch directory
 		// is its place in the repository.
-		if code := run(filepath.Join(root, generated.Contracts), environment(os.Environ(), false), "buf", "generate", "--template", filepath.Base(template), "-o", filepath.Join(scratch, generated.Contracts)); code != 0 {
+		if code := run(filepath.Join(root, generated.Contracts), environment(os.Environ(), unsaid), "buf", "generate", "--template", filepath.Base(template), "-o", filepath.Join(scratch, generated.Contracts)); code != 0 {
 			return code
 		}
 		for _, out := range outs {
