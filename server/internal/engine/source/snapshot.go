@@ -49,9 +49,11 @@ type Snapshot struct {
 	repositories map[string]*taken
 }
 
-// taken is one repository of a snapshot. What is listed and what is
-// held change as the run reads and rewrites, under the snapshot's lock;
-// the names do not.
+// taken is one repository of a snapshot. What is listed, what is held
+// and the names change as the run reads and rewrites, under the
+// snapshot's lock. A change gives the names a new slice and never writes
+// over the old one, so a reader that took the names under the lock reads
+// them after it without it (names).
 type taken struct {
 	// at is the repository's directory as the workspace names it, and
 	// directory the same with any link on the way to it followed: where
@@ -209,10 +211,7 @@ func (s *Snapshot) Digest(_ context.Context, repository, name string) (string, b
 // Glob returns the files of a repository that match patterns, sorted:
 // of those that were there when the run began.
 func (s *Snapshot) Glob(_ context.Context, repository string, patterns []string) ([]string, error) {
-	t := s.repositories[repository]
-	if t == nil {
-		return nil, nil
-	}
+	names := s.names(repository)
 	// The names are sorted, so those beneath a directory are together:
 	// only the directories the patterns are written beneath are looked
 	// in, each from its first name to its last, and a file of a
@@ -220,14 +219,14 @@ func (s *Snapshot) Glob(_ context.Context, repository string, patterns []string)
 	// taken in the order their names come in, which is not the order of
 	// the directories' own names, and none is looked at twice.
 	directories, anywhere := pattern.Under(patterns)
-	spans := [][2]int{{0, len(t.names)}}
+	spans := [][2]int{{0, len(names)}}
 	if !anywhere {
 		spans = spans[:0]
 		for _, directory := range directories {
-			if i := sort.SearchStrings(t.names, directory); i < len(t.names) && t.names[i] == directory {
+			if i := sort.SearchStrings(names, directory); i < len(names) && names[i] == directory {
 				spans = append(spans, [2]int{i, i + 1})
 			}
-			spans = append(spans, t.beneath(directory))
+			spans = append(spans, beneath(names, directory))
 		}
 		sort.Slice(spans, func(i, j int) bool { return spans[i][0] < spans[j][0] })
 	}
@@ -235,8 +234,8 @@ func (s *Snapshot) Glob(_ context.Context, repository string, patterns []string)
 	from := 0
 	for _, span := range spans {
 		for i := max(span[0], from); i < span[1]; i++ {
-			if pattern.Select(patterns, t.names[i]) {
-				out = append(out, t.names[i])
+			if pattern.Select(patterns, names[i]) {
+				out = append(out, names[i])
 			}
 		}
 		from = max(from, span[1])
@@ -244,12 +243,24 @@ func (s *Snapshot) Glob(_ context.Context, repository string, patterns []string)
 	return out, nil
 }
 
-// beneath returns where the names beneath a directory are among the
+// names returns the files of a repository listed now, sorted. What it
+// returns is never written over: a change replaces the names.
+func (s *Snapshot) names(repository string) []string {
+	t := s.repositories[repository]
+	if t == nil {
+		return nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return t.names
+}
+
+// beneath returns where the names beneath a directory are among sorted
 // names: from the first of them to after the last.
-func (t *taken) beneath(directory string) [2]int {
+func beneath(names []string, directory string) [2]int {
 	// "/" is followed by "0": every name beneath the directory is
 	// between the two.
-	return [2]int{sort.SearchStrings(t.names, directory+"/"), sort.SearchStrings(t.names, directory+"0")}
+	return [2]int{sort.SearchStrings(names, directory+"/"), sort.SearchStrings(names, directory+"0")}
 }
 
 // Within returns the files beneath a directory of a repository that
@@ -257,17 +268,14 @@ func (t *taken) beneath(directory string) [2]int {
 // what a project's actions name of the project's own files. The
 // directory is a name and no pattern, whatever characters it holds.
 func (s *Snapshot) Within(_ context.Context, repository, directory string, patterns []string) ([]string, error) {
-	t := s.repositories[repository]
-	if t == nil {
-		return nil, nil
-	}
+	names := s.names(repository)
 	directory = path.Clean(directory)
-	span, cut := [2]int{0, len(t.names)}, 0
+	span, cut := [2]int{0, len(names)}, 0
 	if directory != "." {
-		span, cut = t.beneath(directory), len(directory)+1
+		span, cut = beneath(names, directory), len(directory)+1
 	}
 	var out []string
-	for _, name := range t.names[span[0]:span[1]] {
+	for _, name := range names[span[0]:span[1]] {
 		if pattern.Select(patterns, name[cut:]) {
 			out = append(out, name)
 		}
@@ -514,7 +522,8 @@ func (s *Snapshot) write(t *taken, repository, key, file string, content []byte,
 	}
 	if !existed {
 		if i, there := slices.BinarySearch(t.names, key); !there {
-			t.names = slices.Insert(t.names, i, key)
+			// Clipped, the names are copied, never written over.
+			t.names = slices.Insert(slices.Clip(t.names), i, key)
 		}
 		delete(t.absent, key)
 	}
@@ -546,7 +555,7 @@ func (s *Snapshot) remove(t *taken, repository, key, file string) error {
 	delete(t.held, key)
 	delete(t.listed, key)
 	if i, there := slices.BinarySearch(t.names, key); there {
-		t.names = slices.Delete(t.names, i, i+1)
+		t.names = slices.Concat(t.names[:i], t.names[i+1:])
 	}
 	t.absent[key] = true
 	s.keeper.forget(filepath.Join(t.directory, filepath.FromSlash(key)))
