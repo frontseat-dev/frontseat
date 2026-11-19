@@ -53,7 +53,7 @@ func (l *programs) StreamRunLogs(ctx context.Context, _ *buildv1.StreamRunLogsRe
 	for _, text := range l.prints {
 		lines = append(lines, &typev1.LogLine{Text: text})
 	}
-	if err := stream.Send(&buildv1.StreamRunLogsResponse{Lines: lines, NextLine: int64(len(lines))}); err != nil {
+	if err := stream.Send(&buildv1.StreamRunLogsResponse{Lines: lines}); err != nil {
 		return err
 	}
 	if l.holds {

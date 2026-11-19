@@ -532,11 +532,9 @@ type ActionResult struct {
 	Provenance Provenance `protobuf:"varint,5,opt,name=provenance,proto3,enum=frontseat.build.v1alpha1.Provenance" json:"provenance,omitempty"`
 	// Exit_code is the command's exit code.
 	ExitCode int32 `protobuf:"varint,6,opt,name=exit_code,json=exitCode,proto3" json:"exit_code,omitempty"`
-	// Message says, for an outcome of error, what failed.
+	// Message says, for an outcome of error, what failed; for a skipped
+	// action, what it needed that did not pass.
 	Message string `protobuf:"bytes,7,opt,name=message,proto3" json:"message,omitempty"`
-	// Blocked_by is, for a skipped action, the label of what it needed that
-	// did not pass.
-	BlockedBy string `protobuf:"bytes,8,opt,name=blocked_by,json=blockedBy,proto3" json:"blocked_by,omitempty"`
 	// Action_digest is the action's digest on the grid: what a portal links
 	// to, and what two builds are compared by.
 	ActionDigest *Digest `protobuf:"bytes,9,opt,name=action_digest,json=actionDigest,proto3" json:"action_digest,omitempty"`
@@ -637,13 +635,6 @@ func (x *ActionResult) GetExitCode() int32 {
 func (x *ActionResult) GetMessage() string {
 	if x != nil {
 		return x.Message
-	}
-	return ""
-}
-
-func (x *ActionResult) GetBlockedBy() string {
-	if x != nil {
-		return x.BlockedBy
 	}
 	return ""
 }
@@ -1437,13 +1428,11 @@ func (x *StreamBuildEventsResponse) GetEvents() []*BuildEvent {
 	return nil
 }
 
-// ListBuildActionsRequest names a build, and which of its actions to keep.
+// ListBuildActionsRequest names a build whose actions are listed.
 type ListBuildActionsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Build_id is the build's id.
 	BuildId string `protobuf:"bytes,1,opt,name=build_id,json=buildId,proto3" json:"build_id,omitempty"`
-	// Outcomes keep actions that ended in any of these; empty is all.
-	Outcomes []Outcome `protobuf:"varint,2,rep,packed,name=outcomes,proto3,enum=frontseat.build.v1alpha1.Outcome" json:"outcomes,omitempty"`
 	// Page_size is the most actions to return; zero is a hundred, and more
 	// than a thousand is a thousand.
 	PageSize int32 `protobuf:"varint,3,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
@@ -1489,13 +1478,6 @@ func (x *ListBuildActionsRequest) GetBuildId() string {
 		return x.BuildId
 	}
 	return ""
-}
-
-func (x *ListBuildActionsRequest) GetOutcomes() []Outcome {
-	if x != nil {
-		return x.Outcomes
-	}
-	return nil
 }
 
 func (x *ListBuildActionsRequest) GetPageSize() int32 {
@@ -1567,15 +1549,13 @@ func (x *ListBuildActionsResponse) GetNextPageToken() string {
 	return ""
 }
 
-// StreamBuildLogsRequest names an action of a build and where to start.
+// StreamBuildLogsRequest names an action of a build.
 type StreamBuildLogsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Build_id is the build's id.
 	BuildId string `protobuf:"bytes,1,opt,name=build_id,json=buildId,proto3" json:"build_id,omitempty"`
 	// Label is the action's label.
-	Label string `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"`
-	// Start_line is the first line to send, from 0.
-	StartLine     int64 `protobuf:"varint,3,opt,name=start_line,json=startLine,proto3" json:"start_line,omitempty"`
+	Label         string `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1624,21 +1604,11 @@ func (x *StreamBuildLogsRequest) GetLabel() string {
 	return ""
 }
 
-func (x *StreamBuildLogsRequest) GetStartLine() int64 {
-	if x != nil {
-		return x.StartLine
-	}
-	return 0
-}
-
 // StreamBuildLogsResponse is the next lines of what an action printed.
 type StreamBuildLogsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Lines are the next lines, in order.
-	Lines []*v1alpha1.LogLine `protobuf:"bytes,1,rep,name=lines,proto3" json:"lines,omitempty"`
-	// Next_line is the line after the last sent: where to start again if the
-	// stream breaks.
-	NextLine      int64 `protobuf:"varint,2,opt,name=next_line,json=nextLine,proto3" json:"next_line,omitempty"`
+	Lines         []*v1alpha1.LogLine `protobuf:"bytes,1,rep,name=lines,proto3" json:"lines,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1678,13 +1648,6 @@ func (x *StreamBuildLogsResponse) GetLines() []*v1alpha1.LogLine {
 		return x.Lines
 	}
 	return nil
-}
-
-func (x *StreamBuildLogsResponse) GetNextLine() int64 {
-	if x != nil {
-		return x.NextLine
-	}
-	return 0
 }
 
 // BuildEvent is one thing that happened in a build. Every renderer and every
@@ -2404,7 +2367,7 @@ const file_frontseat_build_v1alpha1_build_proto_rawDesc = "" +
 	"\x10actions_executed\x18\x01 \x01(\x05R\x0factionsExecuted\x12:\n" +
 	"\vworker_time\x18\x02 \x01(\v2\x19.google.protobuf.DurationR\n" +
 	"workerTime\x126\n" +
-	"\twall_time\x18\x03 \x01(\v2\x19.google.protobuf.DurationR\bwallTime\"\x9c\a\n" +
+	"\twall_time\x18\x03 \x01(\v2\x19.google.protobuf.DurationR\bwallTime\"\xf7\x06\n" +
 	"\fActionResult\x12\x1a\n" +
 	"\x05label\x18\x01 \x01(\tB\x04\xe2A\x01\x03R\x05label\x12@\n" +
 	"\x06entity\x18\x02 \x01(\v2\".frontseat.type.v1alpha1.EntityRefB\x04\xe2A\x01\x03R\x06entity\x12\x18\n" +
@@ -2414,9 +2377,7 @@ const file_frontseat_build_v1alpha1_build_proto_rawDesc = "" +
 	"provenance\x18\x05 \x01(\x0e2$.frontseat.build.v1alpha1.ProvenanceB\x04\xe2A\x01\x03R\n" +
 	"provenance\x12!\n" +
 	"\texit_code\x18\x06 \x01(\x05B\x04\xe2A\x01\x03R\bexitCode\x12\x1e\n" +
-	"\amessage\x18\a \x01(\tB\x04\xe2A\x01\x03R\amessage\x12#\n" +
-	"\n" +
-	"blocked_by\x18\b \x01(\tB\x04\xe2A\x01\x03R\tblockedBy\x12K\n" +
+	"\amessage\x18\a \x01(\tB\x04\xe2A\x01\x03R\amessage\x12K\n" +
 	"\raction_digest\x18\t \x01(\v2 .frontseat.build.v1alpha1.DigestB\x04\xe2A\x01\x03R\factionDigest\x12?\n" +
 	"\n" +
 	"start_time\x18\n" +
@@ -2475,24 +2436,20 @@ const file_frontseat_build_v1alpha1_build_proto_rawDesc = "" +
 	"\bbuild_id\x18\x01 \x01(\tB\x04\xe2A\x01\x02R\abuildId\x12#\n" +
 	"\rfrom_sequence\x18\x02 \x01(\x03R\ffromSequence\"Y\n" +
 	"\x19StreamBuildEventsResponse\x12<\n" +
-	"\x06events\x18\x01 \x03(\v2$.frontseat.build.v1alpha1.BuildEventR\x06events\"\xb5\x01\n" +
+	"\x06events\x18\x01 \x03(\v2$.frontseat.build.v1alpha1.BuildEventR\x06events\"v\n" +
 	"\x17ListBuildActionsRequest\x12\x1f\n" +
-	"\bbuild_id\x18\x01 \x01(\tB\x04\xe2A\x01\x02R\abuildId\x12=\n" +
-	"\boutcomes\x18\x02 \x03(\x0e2!.frontseat.build.v1alpha1.OutcomeR\boutcomes\x12\x1b\n" +
+	"\bbuild_id\x18\x01 \x01(\tB\x04\xe2A\x01\x02R\abuildId\x12\x1b\n" +
 	"\tpage_size\x18\x03 \x01(\x05R\bpageSize\x12\x1d\n" +
 	"\n" +
 	"page_token\x18\x04 \x01(\tR\tpageToken\"\x84\x01\n" +
 	"\x18ListBuildActionsResponse\x12@\n" +
 	"\aactions\x18\x01 \x03(\v2&.frontseat.build.v1alpha1.ActionResultR\aactions\x12&\n" +
-	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"t\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"U\n" +
 	"\x16StreamBuildLogsRequest\x12\x1f\n" +
 	"\bbuild_id\x18\x01 \x01(\tB\x04\xe2A\x01\x02R\abuildId\x12\x1a\n" +
-	"\x05label\x18\x02 \x01(\tB\x04\xe2A\x01\x02R\x05label\x12\x1d\n" +
-	"\n" +
-	"start_line\x18\x03 \x01(\x03R\tstartLine\"n\n" +
+	"\x05label\x18\x02 \x01(\tB\x04\xe2A\x01\x02R\x05label\"Q\n" +
 	"\x17StreamBuildLogsResponse\x126\n" +
-	"\x05lines\x18\x01 \x03(\v2 .frontseat.type.v1alpha1.LogLineR\x05lines\x12\x1b\n" +
-	"\tnext_line\x18\x02 \x01(\x03R\bnextLine\"\xb4\n" +
+	"\x05lines\x18\x01 \x03(\v2 .frontseat.type.v1alpha1.LogLineR\x05lines\"\xb4\n" +
 	"\n" +
 	"\n" +
 	"BuildEvent\x12\x1a\n" +
@@ -2636,43 +2593,42 @@ var file_frontseat_build_v1alpha1_build_proto_depIdxs = []int32{
 	3,  // 27: frontseat.build.v1alpha1.CancelBuildResponse.build:type_name -> frontseat.build.v1alpha1.Build
 	3,  // 28: frontseat.build.v1alpha1.WaitBuildResponse.build:type_name -> frontseat.build.v1alpha1.Build
 	24, // 29: frontseat.build.v1alpha1.StreamBuildEventsResponse.events:type_name -> frontseat.build.v1alpha1.BuildEvent
-	38, // 30: frontseat.build.v1alpha1.ListBuildActionsRequest.outcomes:type_name -> frontseat.build.v1alpha1.Outcome
-	6,  // 31: frontseat.build.v1alpha1.ListBuildActionsResponse.actions:type_name -> frontseat.build.v1alpha1.ActionResult
-	42, // 32: frontseat.build.v1alpha1.StreamBuildLogsResponse.lines:type_name -> frontseat.type.v1alpha1.LogLine
-	35, // 33: frontseat.build.v1alpha1.BuildEvent.time:type_name -> google.protobuf.Timestamp
-	26, // 34: frontseat.build.v1alpha1.BuildEvent.stage_changed:type_name -> frontseat.build.v1alpha1.BuildEvent.StageChanged
-	27, // 35: frontseat.build.v1alpha1.BuildEvent.planned:type_name -> frontseat.build.v1alpha1.BuildEvent.Planned
-	29, // 36: frontseat.build.v1alpha1.BuildEvent.action_started:type_name -> frontseat.build.v1alpha1.BuildEvent.ActionStarted
-	30, // 37: frontseat.build.v1alpha1.BuildEvent.action_finished:type_name -> frontseat.build.v1alpha1.BuildEvent.ActionFinished
-	31, // 38: frontseat.build.v1alpha1.BuildEvent.patched:type_name -> frontseat.build.v1alpha1.BuildEvent.Patched
-	33, // 39: frontseat.build.v1alpha1.BuildEvent.finished:type_name -> frontseat.build.v1alpha1.BuildEvent.Finished
-	32, // 40: frontseat.build.v1alpha1.BuildEvent.started_over:type_name -> frontseat.build.v1alpha1.BuildEvent.StartedOver
-	1,  // 41: frontseat.build.v1alpha1.BuildEvent.StageChanged.stage:type_name -> frontseat.build.v1alpha1.Build.Stage
-	28, // 42: frontseat.build.v1alpha1.BuildEvent.Planned.actions:type_name -> frontseat.build.v1alpha1.BuildEvent.PlannedAction
-	37, // 43: frontseat.build.v1alpha1.BuildEvent.PlannedAction.entity:type_name -> frontseat.type.v1alpha1.EntityRef
-	6,  // 44: frontseat.build.v1alpha1.BuildEvent.ActionFinished.result:type_name -> frontseat.build.v1alpha1.ActionResult
-	3,  // 45: frontseat.build.v1alpha1.BuildEvent.Finished.build:type_name -> frontseat.build.v1alpha1.Build
-	8,  // 46: frontseat.build.v1alpha1.BuildService.CreateBuild:input_type -> frontseat.build.v1alpha1.CreateBuildRequest
-	10, // 47: frontseat.build.v1alpha1.BuildService.DescribeBuild:input_type -> frontseat.build.v1alpha1.DescribeBuildRequest
-	12, // 48: frontseat.build.v1alpha1.BuildService.ListBuilds:input_type -> frontseat.build.v1alpha1.ListBuildsRequest
-	14, // 49: frontseat.build.v1alpha1.BuildService.CancelBuild:input_type -> frontseat.build.v1alpha1.CancelBuildRequest
-	16, // 50: frontseat.build.v1alpha1.BuildService.WaitBuild:input_type -> frontseat.build.v1alpha1.WaitBuildRequest
-	18, // 51: frontseat.build.v1alpha1.BuildService.StreamBuildEvents:input_type -> frontseat.build.v1alpha1.StreamBuildEventsRequest
-	20, // 52: frontseat.build.v1alpha1.BuildService.ListBuildActions:input_type -> frontseat.build.v1alpha1.ListBuildActionsRequest
-	22, // 53: frontseat.build.v1alpha1.BuildService.StreamBuildLogs:input_type -> frontseat.build.v1alpha1.StreamBuildLogsRequest
-	9,  // 54: frontseat.build.v1alpha1.BuildService.CreateBuild:output_type -> frontseat.build.v1alpha1.CreateBuildResponse
-	11, // 55: frontseat.build.v1alpha1.BuildService.DescribeBuild:output_type -> frontseat.build.v1alpha1.DescribeBuildResponse
-	13, // 56: frontseat.build.v1alpha1.BuildService.ListBuilds:output_type -> frontseat.build.v1alpha1.ListBuildsResponse
-	15, // 57: frontseat.build.v1alpha1.BuildService.CancelBuild:output_type -> frontseat.build.v1alpha1.CancelBuildResponse
-	17, // 58: frontseat.build.v1alpha1.BuildService.WaitBuild:output_type -> frontseat.build.v1alpha1.WaitBuildResponse
-	19, // 59: frontseat.build.v1alpha1.BuildService.StreamBuildEvents:output_type -> frontseat.build.v1alpha1.StreamBuildEventsResponse
-	21, // 60: frontseat.build.v1alpha1.BuildService.ListBuildActions:output_type -> frontseat.build.v1alpha1.ListBuildActionsResponse
-	23, // 61: frontseat.build.v1alpha1.BuildService.StreamBuildLogs:output_type -> frontseat.build.v1alpha1.StreamBuildLogsResponse
-	54, // [54:62] is the sub-list for method output_type
-	46, // [46:54] is the sub-list for method input_type
-	46, // [46:46] is the sub-list for extension type_name
-	46, // [46:46] is the sub-list for extension extendee
-	0,  // [0:46] is the sub-list for field type_name
+	6,  // 30: frontseat.build.v1alpha1.ListBuildActionsResponse.actions:type_name -> frontseat.build.v1alpha1.ActionResult
+	42, // 31: frontseat.build.v1alpha1.StreamBuildLogsResponse.lines:type_name -> frontseat.type.v1alpha1.LogLine
+	35, // 32: frontseat.build.v1alpha1.BuildEvent.time:type_name -> google.protobuf.Timestamp
+	26, // 33: frontseat.build.v1alpha1.BuildEvent.stage_changed:type_name -> frontseat.build.v1alpha1.BuildEvent.StageChanged
+	27, // 34: frontseat.build.v1alpha1.BuildEvent.planned:type_name -> frontseat.build.v1alpha1.BuildEvent.Planned
+	29, // 35: frontseat.build.v1alpha1.BuildEvent.action_started:type_name -> frontseat.build.v1alpha1.BuildEvent.ActionStarted
+	30, // 36: frontseat.build.v1alpha1.BuildEvent.action_finished:type_name -> frontseat.build.v1alpha1.BuildEvent.ActionFinished
+	31, // 37: frontseat.build.v1alpha1.BuildEvent.patched:type_name -> frontseat.build.v1alpha1.BuildEvent.Patched
+	33, // 38: frontseat.build.v1alpha1.BuildEvent.finished:type_name -> frontseat.build.v1alpha1.BuildEvent.Finished
+	32, // 39: frontseat.build.v1alpha1.BuildEvent.started_over:type_name -> frontseat.build.v1alpha1.BuildEvent.StartedOver
+	1,  // 40: frontseat.build.v1alpha1.BuildEvent.StageChanged.stage:type_name -> frontseat.build.v1alpha1.Build.Stage
+	28, // 41: frontseat.build.v1alpha1.BuildEvent.Planned.actions:type_name -> frontseat.build.v1alpha1.BuildEvent.PlannedAction
+	37, // 42: frontseat.build.v1alpha1.BuildEvent.PlannedAction.entity:type_name -> frontseat.type.v1alpha1.EntityRef
+	6,  // 43: frontseat.build.v1alpha1.BuildEvent.ActionFinished.result:type_name -> frontseat.build.v1alpha1.ActionResult
+	3,  // 44: frontseat.build.v1alpha1.BuildEvent.Finished.build:type_name -> frontseat.build.v1alpha1.Build
+	8,  // 45: frontseat.build.v1alpha1.BuildService.CreateBuild:input_type -> frontseat.build.v1alpha1.CreateBuildRequest
+	10, // 46: frontseat.build.v1alpha1.BuildService.DescribeBuild:input_type -> frontseat.build.v1alpha1.DescribeBuildRequest
+	12, // 47: frontseat.build.v1alpha1.BuildService.ListBuilds:input_type -> frontseat.build.v1alpha1.ListBuildsRequest
+	14, // 48: frontseat.build.v1alpha1.BuildService.CancelBuild:input_type -> frontseat.build.v1alpha1.CancelBuildRequest
+	16, // 49: frontseat.build.v1alpha1.BuildService.WaitBuild:input_type -> frontseat.build.v1alpha1.WaitBuildRequest
+	18, // 50: frontseat.build.v1alpha1.BuildService.StreamBuildEvents:input_type -> frontseat.build.v1alpha1.StreamBuildEventsRequest
+	20, // 51: frontseat.build.v1alpha1.BuildService.ListBuildActions:input_type -> frontseat.build.v1alpha1.ListBuildActionsRequest
+	22, // 52: frontseat.build.v1alpha1.BuildService.StreamBuildLogs:input_type -> frontseat.build.v1alpha1.StreamBuildLogsRequest
+	9,  // 53: frontseat.build.v1alpha1.BuildService.CreateBuild:output_type -> frontseat.build.v1alpha1.CreateBuildResponse
+	11, // 54: frontseat.build.v1alpha1.BuildService.DescribeBuild:output_type -> frontseat.build.v1alpha1.DescribeBuildResponse
+	13, // 55: frontseat.build.v1alpha1.BuildService.ListBuilds:output_type -> frontseat.build.v1alpha1.ListBuildsResponse
+	15, // 56: frontseat.build.v1alpha1.BuildService.CancelBuild:output_type -> frontseat.build.v1alpha1.CancelBuildResponse
+	17, // 57: frontseat.build.v1alpha1.BuildService.WaitBuild:output_type -> frontseat.build.v1alpha1.WaitBuildResponse
+	19, // 58: frontseat.build.v1alpha1.BuildService.StreamBuildEvents:output_type -> frontseat.build.v1alpha1.StreamBuildEventsResponse
+	21, // 59: frontseat.build.v1alpha1.BuildService.ListBuildActions:output_type -> frontseat.build.v1alpha1.ListBuildActionsResponse
+	23, // 60: frontseat.build.v1alpha1.BuildService.StreamBuildLogs:output_type -> frontseat.build.v1alpha1.StreamBuildLogsResponse
+	53, // [53:61] is the sub-list for method output_type
+	45, // [45:53] is the sub-list for method input_type
+	45, // [45:45] is the sub-list for extension type_name
+	45, // [45:45] is the sub-list for extension extendee
+	0,  // [0:45] is the sub-list for field type_name
 }
 
 func init() { file_frontseat_build_v1alpha1_build_proto_init() }

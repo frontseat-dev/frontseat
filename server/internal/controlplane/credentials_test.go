@@ -116,23 +116,16 @@ func TestAPersonsCredentialsAreTheirsAlone(t *testing.T) {
 	if want := []string{"forge.example:443", "http://plain.example:80", "other.example:8443"}; err != nil || !slices.Equal(hosts, want) {
 		t.Errorf("Ada's credentials are listed as %v (%v), want %v", hosts, err, want)
 	}
-	described, err := credentials(owner).DescribeCredential(ctx, &credentialv1.DescribeCredentialRequest{Host: "forge.example"})
-	if err != nil || described.GetCredential().GetHost() != "forge.example:443" || described.GetCredential().GetSecret() != "" {
-		t.Errorf("Ada's credential for the forge is described as %v (%v)", described, err)
-	}
-	// Another lists none of hers, and describes none.
+	// Another lists none of hers.
 	if listed, err := credentials(another).ListCredentials(ctx, &credentialv1.ListCredentialsRequest{}); err != nil || len(listed.GetCredentials()) != 0 {
 		t.Errorf("Bea is listed %v (%v), want none of Ada's", listed, err)
-	}
-	if _, err := credentials(another).DescribeCredential(ctx, &credentialv1.DescribeCredentialRequest{Host: "forge.example"}); connect.CodeOf(err) != connect.CodeNotFound {
-		t.Errorf("Bea describing Ada's host: %v, want none of hers", err)
 	}
 	// Another's deleting the host lets go of nothing of Ada's.
 	if _, err := credentials(another).DeleteCredential(ctx, &credentialv1.DeleteCredentialRequest{Host: "forge.example"}); err != nil {
 		t.Errorf("Bea letting go of what she does not keep: %v, want no error", err)
 	}
-	if _, err := credentials(owner).DescribeCredential(ctx, &credentialv1.DescribeCredentialRequest{Host: "forge.example"}); err != nil {
-		t.Errorf("Ada's credential after Bea let go of the host: %v, want it kept", err)
+	if again, err := credentials(owner).ListCredentials(ctx, &credentialv1.ListCredentialsRequest{}); err != nil || len(again.GetCredentials()) != len(listed.GetCredentials()) {
+		t.Errorf("Ada's credentials after Bea let go of the host: %v (%v), want them kept", again, err)
 	}
 	for what, refused := range map[string]*credentialv1.Credential{
 		"no host":            {Secret: "s"},
@@ -167,8 +160,8 @@ func TestAPersonsCredentialsAreTheirsAlone(t *testing.T) {
 	if _, err := credentials(owner).DeleteCredential(ctx, &credentialv1.DeleteCredentialRequest{Host: "forge.example"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := credentials(owner).DescribeCredential(ctx, &credentialv1.DescribeCredentialRequest{Host: "forge.example"}); connect.CodeOf(err) != connect.CodeNotFound {
-		t.Errorf("a credential let go of: %v, want it not found", err)
+	if left, err := credentials(owner).ListCredentials(ctx, &credentialv1.ListCredentialsRequest{}); err != nil || slices.ContainsFunc(left.GetCredentials(), func(c *credentialv1.Credential) bool { return c.GetHost() == "forge.example:443" }) {
+		t.Errorf("a credential let go of is listed: %v (%v)", left, err)
 	}
 	s.mu.Lock()
 	_, still := s.kept[credentialID("ada", "forge.example:443")]

@@ -1223,13 +1223,10 @@ type RepositorySource struct {
 	// Remote is its URL.
 	Remote string `protobuf:"bytes,1,opt,name=remote,proto3" json:"remote,omitempty"`
 	// Ref is the branch, tag or commit to stand at; empty for the remote's
-	// default branch.
-	Ref string `protobuf:"bytes,2,opt,name=ref,proto3" json:"ref,omitempty"`
-	// Roots are the directories to take of it; empty for all of it.
-	Roots []string `protobuf:"bytes,3,rep,name=roots,proto3" json:"roots,omitempty"`
-	// Name is the workspace's name for it; empty for the last element of
-	// the remote's path.
-	Name          string `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
+	// default branch. It is cloned whole, and the workspace names it as
+	// its version control system names a clone of the remote: by the last
+	// element of the remote's path.
+	Ref           string `protobuf:"bytes,2,opt,name=ref,proto3" json:"ref,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1274,20 +1271,6 @@ func (x *RepositorySource) GetRemote() string {
 func (x *RepositorySource) GetRef() string {
 	if x != nil {
 		return x.Ref
-	}
-	return ""
-}
-
-func (x *RepositorySource) GetRoots() []string {
-	if x != nil {
-		return x.Roots
-	}
-	return nil
-}
-
-func (x *RepositorySource) GetName() string {
-	if x != nil {
-		return x.Name
 	}
 	return ""
 }
@@ -1372,12 +1355,10 @@ const file_frontseat_workspace_v1alpha1_workspace_proto_rawDesc = "" +
 	"\n" +
 	"repository\x18\x02 \x01(\tB\x04\xe2A\x01\x03R\n" +
 	"repository\x12\x18\n" +
-	"\x04root\x18\x03 \x01(\tB\x04\xe2A\x01\x03R\x04root\"l\n" +
+	"\x04root\x18\x03 \x01(\tB\x04\xe2A\x01\x03R\x04root\"B\n" +
 	"\x10RepositorySource\x12\x1c\n" +
 	"\x06remote\x18\x01 \x01(\tB\x04\xe2A\x01\x02R\x06remote\x12\x10\n" +
-	"\x03ref\x18\x02 \x01(\tR\x03ref\x12\x14\n" +
-	"\x05roots\x18\x03 \x03(\tR\x05roots\x12\x12\n" +
-	"\x04name\x18\x04 \x01(\tR\x04name2\xa6\x06\n" +
+	"\x03ref\x18\x02 \x01(\tR\x03ref2\xa6\x06\n" +
 	"\x10WorkspaceService\x12~\n" +
 	"\x0fCreateWorkspace\x124.frontseat.workspace.v1alpha1.CreateWorkspaceRequest\x1a5.frontseat.workspace.v1alpha1.CreateWorkspaceResponse\x12\x89\x01\n" +
 	"\x11DescribeWorkspace\x126.frontseat.workspace.v1alpha1.DescribeWorkspaceRequest\x1a7.frontseat.workspace.v1alpha1.DescribeWorkspaceResponse\"\x03\x90\x02\x01\x12\x80\x01\n" +

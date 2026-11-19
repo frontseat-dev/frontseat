@@ -141,7 +141,7 @@ except OSError as refused:
 func TestWhatCannotBeGivenIsRefusedNeverQuietlyWeakened(t *testing.T) {
 	spec := newScenario(t)
 
-	spec.Expect(askingForASandboxOfADiskSize()).To(BeRefusedSaying("a disk size"))
+	spec.Expect(askingForASandboxThatReachesAnything()).To(BeRefusedSaying("a sandbox that reaches anything"))
 }
 
 // Workspaces in sandboxes / A sandbox can be paused.

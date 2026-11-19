@@ -136,8 +136,6 @@ message ReleaseUnit {
   frontseat.type.v1alpha1.EntityRef group = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Grouping is how the unit's group versions its members.
   Grouping grouping = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // Included says why the unit is in the plan.
-  Inclusion included = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Last_version is the unit's last release; empty if it has none.
   string last_version = 6 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Next_version is what the release makes it; empty if it holds.
@@ -165,19 +163,9 @@ message ReleaseUnit {
   string branching_strategy = 14 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Branch is the branch it is planned from.
   string branch = 15 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // Prerelease is whether what it releases is a prerelease.
-  bool prerelease = 16 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Channel is the name its branching strategy gives what its branch
   // releases: "latest", "next", a branch's name.
   string channel = 17 [(google.api.field_behavior) = OUTPUT_ONLY];
-}
-
-// Inclusion is why a unit is in a plan.
-enum Inclusion {
-  // INCLUSION_UNSPECIFIED: not said.
-  INCLUSION_UNSPECIFIED = 0;
-  // INCLUSION_ASKED: the request named it, or one of its members.
-  INCLUSION_ASKED = 1;
 }
 
 // ReleaseReason is one reason a unit moves or holds.

@@ -747,14 +747,13 @@ func (w *Workspace) madeBy() string {
 	return now.GetSandbox().GetDriver()
 }
 
-// askingForASandboxOfADiskSize is why a sandbox whose disk is held to a
-// size was not given; nil where it was.
-func askingForASandboxOfADiskSize() error {
+// askingForASandboxThatReachesAnything is why a sandbox that may reach
+// anything was not given; nil where it was.
+func askingForASandboxThatReachesAnything() error {
 	created, err := testsandbox.Client(beneathOf(server)).CreateSandbox(context.Background(), &sandboxv1.CreateSandboxRequest{
 		Spec: &sandboxv1.SandboxSpec{
 			Image:  image,
-			Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_BLOCK},
-			Shape:  &sandboxv1.Shape{DiskBytes: 1 << 30},
+			Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_ALL},
 		},
 	})
 	if err == nil {

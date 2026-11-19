@@ -70,15 +70,9 @@ func (m *managing) was() (int, *workspacev1.WorkspaceSpec) {
 	if m.spec == nil {
 		return m.told, nil
 	}
-	// A repository it is told by the name the system gives it is one
-	// asked for without a name.
 	out := &workspacev1.WorkspaceSpec{}
 	for _, r := range m.spec.GetRepositories() {
-		name := r.GetName()
-		if name == (system{}).NameOf(r.GetRemote()) {
-			name = ""
-		}
-		out.Repositories = append(out.Repositories, &workspacev1.RepositorySource{Remote: r.GetRemote(), Ref: r.GetRef(), Roots: r.GetRoots(), Name: name})
+		out.Repositories = append(out.Repositories, &workspacev1.RepositorySource{Remote: r.GetRemote(), Ref: r.GetRef()})
 	}
 	return m.told, out
 }
@@ -494,7 +488,6 @@ func TestAWorkspaceIsNamedByWhatItWasAskedFor(t *testing.T) {
 		"code":                  of("https://forge.example/acme/code.git"),
 		"code-main":             {Repositories: []*workspacev1.RepositorySource{{Remote: "https://forge.example/acme/code.git", Ref: "main"}}},
 		"code-feature-x-y":      {Repositories: []*workspacev1.RepositorySource{{Remote: "https://forge.example/acme/Code/", Ref: "feature/X_y"}}},
-		"services":              {Repositories: []*workspacev1.RepositorySource{{Remote: "https://forge.example/acme/code.git", Name: "services"}}},
 		"payments":              {Entities: []*typev1.EntityRef{{Kind: "component", Namespace: "default", Name: "payments"}}, Repositories: of("https://forge.example/acme/code.git").Repositories},
 		"d":                     of("git@forge.example:acme/d.git"),
 		strings.Repeat("a", 48): of("https://forge.example/acme/" + strings.Repeat("a", 60)),
@@ -803,7 +796,7 @@ func TestAWorkspaceEndedWhileItIsUpdatedIsGonePromptly(t *testing.T) {
 	updated := make(chan error, 1)
 	go func() {
 		more := of("https://forge.example/acme/code.git")
-		more.Repositories = append(more.Repositories, &workspacev1.RepositorySource{Remote: "https://forge.example/acme/code.git", Ref: "main", Name: "again"})
+		more.Whole = true
 		_, err := client.UpdateWorkspace(context.Background(), &workspacev1.UpdateWorkspaceRequest{Name: "x", Spec: more})
 		updated <- err
 	}()
@@ -994,7 +987,6 @@ func TestAWorkspaceIsBroughtMoreByItsSpec(t *testing.T) {
 	}
 	asked := len(fake.Asked())
 	twice := proto.Clone(more).(*workspacev1.WorkspaceSpec)
-	twice.Repositories = append(twice.Repositories, &workspacev1.RepositorySource{Remote: "https://forge.example/acme/code.git", Ref: "main", Name: "again"})
 	if _, err := client.UpdateWorkspace(ctx, &workspacev1.UpdateWorkspaceRequest{Name: "grows", Spec: twice}); err != nil {
 		t.Fatalf("more again: %v", err)
 	}
@@ -1400,7 +1392,7 @@ func TestADaemonThatIsLongBringingIsPopulatingAndNotFailed(t *testing.T) {
 	daemon.bringing = true
 	daemon.mu.Unlock()
 	more := proto.Clone(spec).(*workspacev1.WorkspaceSpec)
-	more.Repositories = append(more.Repositories, &workspacev1.RepositorySource{Remote: "https://forge.example/acme/code.git", Name: "again"})
+	more.Whole = true
 	updated, err := client.UpdateWorkspace(ctx, &workspacev1.UpdateWorkspaceRequest{Name: "slow", Spec: more})
 	if err != nil || updated.GetWorkspace().GetStatus().GetState() != workspacev1.WorkspaceStatus_STATE_POPULATING {
 		t.Fatalf("what was added is said to be %v (%v), want it populating", updated.GetWorkspace().GetStatus().GetState(), err)

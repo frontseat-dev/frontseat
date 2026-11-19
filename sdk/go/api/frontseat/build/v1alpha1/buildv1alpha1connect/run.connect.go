@@ -153,18 +153,16 @@ type RunServiceClient interface {
 	// StreamRunLogs sends what a run's program prints, standard
 	// output and standard error, in parts, each some whole lines, as it
 	// prints them, and ends when the run has ended and every line is
-	// sent. Call it again from the next line if the stream breaks. A
-	// daemon keeps the newest ten thousand lines of a program, and of
-	// those no more than eight mebibytes: a line before the first it
-	// still keeps is answered from that one.
+	// sent. A daemon keeps the newest ten thousand lines of a program,
+	// and of those no more than eight mebibytes: the stream begins at the
+	// first line it still keeps.
 	//
 	// A line's text is UTF-8: bytes a program printed that are not are
 	// given as U+FFFD. A line longer than 64 KiB is sent as several, each
 	// a part of it, in order.
 	//
 	// ### Errors
-	// - INVALID_ARGUMENT: the line to start from is before the first.
-	// - NOT_FOUND: no run has that id.
+	// - NOT_FOUND: no run has that id (RUN_NOT_FOUND).
 	StreamRunLogs(context.Context, *v1alpha1.StreamRunLogsRequest) (RunServiceStreamRunLogsClientStream, error)
 }
 
@@ -243,18 +241,16 @@ type RunServiceHandler interface {
 	// StreamRunLogs sends what a run's program prints, standard
 	// output and standard error, in parts, each some whole lines, as it
 	// prints them, and ends when the run has ended and every line is
-	// sent. Call it again from the next line if the stream breaks. A
-	// daemon keeps the newest ten thousand lines of a program, and of
-	// those no more than eight mebibytes: a line before the first it
-	// still keeps is answered from that one.
+	// sent. A daemon keeps the newest ten thousand lines of a program,
+	// and of those no more than eight mebibytes: the stream begins at the
+	// first line it still keeps.
 	//
 	// A line's text is UTF-8: bytes a program printed that are not are
 	// given as U+FFFD. A line longer than 64 KiB is sent as several, each
 	// a part of it, in order.
 	//
 	// ### Errors
-	// - INVALID_ARGUMENT: the line to start from is before the first.
-	// - NOT_FOUND: no run has that id.
+	// - NOT_FOUND: no run has that id (RUN_NOT_FOUND).
 	StreamRunLogs(context.Context, *v1alpha1.StreamRunLogsRequest, RunServiceStreamRunLogsServerStream) error
 }
 

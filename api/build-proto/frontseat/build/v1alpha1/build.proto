@@ -94,21 +94,18 @@ service BuildService {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
 
-  // StreamBuildLogs streams what one action printed, line by line, from a
-  // line on: what it wrote to standard output, then what it wrote to
+  // StreamBuildLogs streams what one action printed, line by line, from
+  // its first: what it wrote to standard output, then what it wrote to
   // standard error. It is sent in parts, each some whole lines, so an
-  // action may have printed any amount. Call it again from the next line
-  // if the stream breaks. A line past the last is the end: the stream
-  // ends with nothing sent. An action the build has planned and that has
-  // not ended has printed nothing yet.
+  // action may have printed any amount. An action the build has planned
+  // and that has not ended has printed nothing yet.
   //
   // A line's text is UTF-8: bytes an action printed that are not are
   // given as U+FFFD.
   //
   // ### Errors
-  // - INVALID_ARGUMENT: the line to start from is before the first.
-  // - NOT_FOUND: no build has that id, or the build has planned no such
-  //   action.
+  // - NOT_FOUND: no build has that id (BUILD_NOT_FOUND), or the build
+  //   has planned no such action (ACTION_NOT_FOUND).
   // - INTERNAL: what the action printed is not there to be read.
   rpc StreamBuildLogs(StreamBuildLogsRequest) returns (stream StreamBuildLogsResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
@@ -216,11 +213,9 @@ message ActionResult {
   Provenance provenance = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Exit_code is the command's exit code.
   int32 exit_code = 6 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // Message says, for an outcome of error, what failed.
+  // Message says, for an outcome of error, what failed; for a skipped
+  // action, what it needed that did not pass.
   string message = 7 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // Blocked_by is, for a skipped action, the label of what it needed that
-  // did not pass.
-  string blocked_by = 8 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Action_digest is the action's digest on the grid: what a portal links
   // to, and what two builds are compared by.
   Digest action_digest = 9 [(google.api.field_behavior) = OUTPUT_ONLY];
@@ -378,12 +373,10 @@ message StreamBuildEventsResponse {
   repeated BuildEvent events = 1;
 }
 
-// ListBuildActionsRequest names a build, and which of its actions to keep.
+// ListBuildActionsRequest names a build whose actions are listed.
 message ListBuildActionsRequest {
   // Build_id is the build's id.
   string build_id = 1 [(google.api.field_behavior) = REQUIRED];
-  // Outcomes keep actions that ended in any of these; empty is all.
-  repeated Outcome outcomes = 2;
   // Page_size is the most actions to return; zero is a hundred, and more
   // than a thousand is a thousand.
   int32 page_size = 3;
@@ -400,23 +393,18 @@ message ListBuildActionsResponse {
   string next_page_token = 2;
 }
 
-// StreamBuildLogsRequest names an action of a build and where to start.
+// StreamBuildLogsRequest names an action of a build.
 message StreamBuildLogsRequest {
   // Build_id is the build's id.
   string build_id = 1 [(google.api.field_behavior) = REQUIRED];
   // Label is the action's label.
   string label = 2 [(google.api.field_behavior) = REQUIRED];
-  // Start_line is the first line to send, from 0.
-  int64 start_line = 3;
 }
 
 // StreamBuildLogsResponse is the next lines of what an action printed.
 message StreamBuildLogsResponse {
   // Lines are the next lines, in order.
   repeated frontseat.type.v1alpha1.LogLine lines = 1;
-  // Next_line is the line after the last sent: where to start again if the
-  // stream breaks.
-  int64 next_line = 2;
 }
 
 // BuildEvent is one thing that happened in a build. Every renderer and every

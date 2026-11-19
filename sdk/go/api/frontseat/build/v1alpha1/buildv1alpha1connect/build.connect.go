@@ -178,21 +178,18 @@ type BuildServiceClient interface {
 	// - INVALID_ARGUMENT: the page token is not one this call gave.
 	// - NOT_FOUND: no build has that id.
 	ListBuildActions(context.Context, *v1alpha1.ListBuildActionsRequest) (*v1alpha1.ListBuildActionsResponse, error)
-	// StreamBuildLogs streams what one action printed, line by line, from a
-	// line on: what it wrote to standard output, then what it wrote to
+	// StreamBuildLogs streams what one action printed, line by line, from
+	// its first: what it wrote to standard output, then what it wrote to
 	// standard error. It is sent in parts, each some whole lines, so an
-	// action may have printed any amount. Call it again from the next line
-	// if the stream breaks. A line past the last is the end: the stream
-	// ends with nothing sent. An action the build has planned and that has
-	// not ended has printed nothing yet.
+	// action may have printed any amount. An action the build has planned
+	// and that has not ended has printed nothing yet.
 	//
 	// A line's text is UTF-8: bytes an action printed that are not are
 	// given as U+FFFD.
 	//
 	// ### Errors
-	// - INVALID_ARGUMENT: the line to start from is before the first.
-	// - NOT_FOUND: no build has that id, or the build has planned no such
-	//   action.
+	// - NOT_FOUND: no build has that id (BUILD_NOT_FOUND), or the build
+	//   has planned no such action (ACTION_NOT_FOUND).
 	// - INTERNAL: what the action printed is not there to be read.
 	StreamBuildLogs(context.Context, *v1alpha1.StreamBuildLogsRequest) (BuildServiceStreamBuildLogsClientStream, error)
 }
@@ -306,21 +303,18 @@ type BuildServiceHandler interface {
 	// - INVALID_ARGUMENT: the page token is not one this call gave.
 	// - NOT_FOUND: no build has that id.
 	ListBuildActions(context.Context, *v1alpha1.ListBuildActionsRequest) (*v1alpha1.ListBuildActionsResponse, error)
-	// StreamBuildLogs streams what one action printed, line by line, from a
-	// line on: what it wrote to standard output, then what it wrote to
+	// StreamBuildLogs streams what one action printed, line by line, from
+	// its first: what it wrote to standard output, then what it wrote to
 	// standard error. It is sent in parts, each some whole lines, so an
-	// action may have printed any amount. Call it again from the next line
-	// if the stream breaks. A line past the last is the end: the stream
-	// ends with nothing sent. An action the build has planned and that has
-	// not ended has printed nothing yet.
+	// action may have printed any amount. An action the build has planned
+	// and that has not ended has printed nothing yet.
 	//
 	// A line's text is UTF-8: bytes an action printed that are not are
 	// given as U+FFFD.
 	//
 	// ### Errors
-	// - INVALID_ARGUMENT: the line to start from is before the first.
-	// - NOT_FOUND: no build has that id, or the build has planned no such
-	//   action.
+	// - NOT_FOUND: no build has that id (BUILD_NOT_FOUND), or the build
+	//   has planned no such action (ACTION_NOT_FOUND).
 	// - INTERNAL: what the action printed is not there to be read.
 	StreamBuildLogs(context.Context, *v1alpha1.StreamBuildLogsRequest, BuildServiceStreamBuildLogsServerStream) error
 }

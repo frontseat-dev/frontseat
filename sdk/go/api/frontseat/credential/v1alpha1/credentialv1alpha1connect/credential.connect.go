@@ -42,9 +42,6 @@ const (
 	// CredentialServiceSetCredentialProcedure is the procedure name of the CredentialService's
 	// SetCredential RPC.
 	CredentialServiceSetCredentialProcedure = "/frontseat.credential.v1alpha1.CredentialService/SetCredential"
-	// CredentialServiceDescribeCredentialProcedure is the procedure name of the CredentialService's
-	// DescribeCredential RPC.
-	CredentialServiceDescribeCredentialProcedure = "/frontseat.credential.v1alpha1.CredentialService/DescribeCredential"
 	// CredentialServiceListCredentialsProcedure is the procedure name of the CredentialService's
 	// ListCredentials RPC.
 	CredentialServiceListCredentialsProcedure = "/frontseat.credential.v1alpha1.CredentialService/ListCredentials"
@@ -60,14 +57,6 @@ var (
 			Schema:           v1alpha1.File_frontseat_credential_v1alpha1_credential_proto.Services().ByName("CredentialService").Methods().ByName("SetCredential"),
 			Procedure:        CredentialServiceSetCredentialProcedure,
 			IdempotencyLevel: connect.IdempotencyIdempotent,
-		}
-	})
-	credentialServiceDescribeCredentialSpec = sync.OnceValue(func() connect.Spec {
-		return connect.Spec{
-			StreamType:       connect.StreamTypeUnary,
-			Schema:           v1alpha1.File_frontseat_credential_v1alpha1_credential_proto.Services().ByName("CredentialService").Methods().ByName("DescribeCredential"),
-			Procedure:        CredentialServiceDescribeCredentialProcedure,
-			IdempotencyLevel: connect.IdempotencyNoSideEffects,
 		}
 	})
 	credentialServiceListCredentialsSpec = sync.OnceValue(func() connect.Spec {
@@ -105,14 +94,6 @@ type CredentialServiceClient interface {
 	//   outside them.
 	// - UNAVAILABLE: it could not be kept.
 	SetCredential(context.Context, *v1alpha1.SetCredentialRequest) (*v1alpha1.SetCredentialResponse, error)
-	// DescribeCredential returns the caller's credential for a host: never
-	// its secret.
-	//
-	// ### Errors
-	// - INVALID_ARGUMENT: the host is no host's name (CREDENTIAL_HOST_INVALID).
-	// - NOT_FOUND: the caller keeps no credential for the host
-	//   (CREDENTIAL_NOT_FOUND).
-	DescribeCredential(context.Context, *v1alpha1.DescribeCredentialRequest) (*v1alpha1.DescribeCredentialResponse, error)
 	// ListCredentials returns the caller's credentials, by host, a page at
 	// a time: never their secrets.
 	//
@@ -155,14 +136,6 @@ type CredentialServiceHandler interface {
 	//   outside them.
 	// - UNAVAILABLE: it could not be kept.
 	SetCredential(context.Context, *v1alpha1.SetCredentialRequest) (*v1alpha1.SetCredentialResponse, error)
-	// DescribeCredential returns the caller's credential for a host: never
-	// its secret.
-	//
-	// ### Errors
-	// - INVALID_ARGUMENT: the host is no host's name (CREDENTIAL_HOST_INVALID).
-	// - NOT_FOUND: the caller keeps no credential for the host
-	//   (CREDENTIAL_NOT_FOUND).
-	DescribeCredential(context.Context, *v1alpha1.DescribeCredentialRequest) (*v1alpha1.DescribeCredentialResponse, error)
 	// ListCredentials returns the caller's credentials, by host, a page at
 	// a time: never their secrets.
 	//
@@ -187,7 +160,6 @@ func RegisterCredentialServiceHandler(server *connect.Server, svc CredentialServ
 	adapter := credentialServiceHandler{svc: svc}
 	server.Register(
 		connect.Method{Spec: credentialServiceSetCredentialSpec(), Handler: adapter.setCredential},
-		connect.Method{Spec: credentialServiceDescribeCredentialSpec(), Handler: adapter.describeCredential},
 		connect.Method{Spec: credentialServiceListCredentialsSpec(), Handler: adapter.listCredentials},
 		connect.Method{Spec: credentialServiceDeleteCredentialSpec(), Handler: adapter.deleteCredential},
 	)
@@ -198,10 +170,6 @@ type UnimplementedCredentialServiceHandler struct{}
 
 func (UnimplementedCredentialServiceHandler) SetCredential(context.Context, *v1alpha1.SetCredentialRequest) (*v1alpha1.SetCredentialResponse, error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, "frontseat.credential.v1alpha1.CredentialService.SetCredential is not implemented")
-}
-
-func (UnimplementedCredentialServiceHandler) DescribeCredential(context.Context, *v1alpha1.DescribeCredentialRequest) (*v1alpha1.DescribeCredentialResponse, error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, "frontseat.credential.v1alpha1.CredentialService.DescribeCredential is not implemented")
 }
 
 func (UnimplementedCredentialServiceHandler) ListCredentials(context.Context, *v1alpha1.ListCredentialsRequest) (*v1alpha1.ListCredentialsResponse, error) {
@@ -219,14 +187,6 @@ type credentialServiceClient struct {
 func (c *credentialServiceClient) SetCredential(ctx context.Context, req *v1alpha1.SetCredentialRequest) (*v1alpha1.SetCredentialResponse, error) {
 	var res v1alpha1.SetCredentialResponse
 	if err := c.client.CallUnary(ctx, credentialServiceSetCredentialSpec(), req, &res); err != nil {
-		return nil, err
-	}
-	return &res, nil
-}
-
-func (c *credentialServiceClient) DescribeCredential(ctx context.Context, req *v1alpha1.DescribeCredentialRequest) (*v1alpha1.DescribeCredentialResponse, error) {
-	var res v1alpha1.DescribeCredentialResponse
-	if err := c.client.CallUnary(ctx, credentialServiceDescribeCredentialSpec(), req, &res); err != nil {
 		return nil, err
 	}
 	return &res, nil
@@ -256,18 +216,6 @@ func (h credentialServiceHandler) setCredential(ctx context.Context, _ connect.S
 		return err
 	}
 	res, err := h.svc.SetCredential(ctx, &req)
-	if err != nil {
-		return err
-	}
-	return stream.Send(res)
-}
-
-func (h credentialServiceHandler) describeCredential(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
-	var req v1alpha1.DescribeCredentialRequest
-	if err := stream.Receive(&req); err != nil {
-		return err
-	}
-	res, err := h.svc.DescribeCredential(ctx, &req)
 	if err != nil {
 		return err
 	}

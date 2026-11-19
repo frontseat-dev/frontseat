@@ -180,23 +180,6 @@ func (c *credentials) SetCredential(ctx context.Context, req *credentialv1.SetCr
 	return out, nil
 }
 
-func (c *credentials) DescribeCredential(ctx context.Context, req *credentialv1.DescribeCredentialRequest) (*credentialv1.DescribeCredentialResponse, error) {
-	out := &credentialv1.DescribeCredentialResponse{}
-	written := req.GetHost()
-	err := c.holding(ctx, &written, func(owner, host string, record credentialRecord) error {
-		username, ok := record[owner][host]
-		if !ok {
-			return refusal.New(refusal.Credential, connect.CodeNotFound, "CREDENTIAL_NOT_FOUND", fmt.Sprintf("you keep no credential for %s", host))
-		}
-		out.Credential = &credentialv1.Credential{Host: host, Username: username}
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *credentials) ListCredentials(ctx context.Context, req *credentialv1.ListCredentialsRequest) (*credentialv1.ListCredentialsResponse, error) {
 	out := &credentialv1.ListCredentialsResponse{}
 	err := c.holding(ctx, nil, func(owner, _ string, record credentialRecord) error {

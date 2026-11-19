@@ -98,7 +98,7 @@ func TestAClientBuildsInASandboxFromOutsideItAndFromInside(t *testing.T) {
 		},
 	}}
 	held := sourcev1alpha1connect.NewSourceServiceClient(connect.NewClient(connecthttp.NewTransport(telling, "http://sandbox")))
-	if _, err := held.SetSource(ctx, &sourcev1.SetSourceRequest{Spec: told.Spec(&workspacev1.WorkspaceSpec{Repositories: []*workspacev1.RepositorySource{{Remote: testforge.Serve(t, filepath.Dir(workspace)) + "/code", Name: "code"}}}, 1, told.Resolved{}, nil)}); err != nil {
+	if _, err := held.SetSource(ctx, &sourcev1.SetSourceRequest{Spec: told.Spec(&workspacev1.WorkspaceSpec{Repositories: []*workspacev1.RepositorySource{{Remote: testforge.Serve(t, filepath.Dir(workspace)) + "/code"}}}, 1, told.Resolved{}, func(string) string { return "code" })}); err != nil {
 		t.Fatal(err)
 	}
 	waited, err := held.WaitSource(ctx, &sourcev1.WaitSourceRequest{Generation: 1})

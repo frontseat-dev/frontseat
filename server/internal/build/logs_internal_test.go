@@ -7,7 +7,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"testing"
 
@@ -104,27 +103,22 @@ func TestWhatAnActionPrintedIsSentInPartsOfWholeLines(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			service, id := printedBy(t, printed.out, printed.err, printed.out, printed.err)
-			// From the first line, from the middle, from the last line,
-			// from the end and from beyond it.
-			for _, start := range slices.Compact([]int{0, len(printed.want) / 2, max(len(printed.want)-1, 0), len(printed.want), len(printed.want) + 7}) {
+			{
 				var got []said
 				parts := 0
-				err := service.logs(t.Context(), &buildv1.StreamBuildLogsRequest{BuildId: id, Label: "//a:b", StartLine: int64(start)}, func(sent *buildv1.StreamBuildLogsResponse) error {
+				err := service.logs(t.Context(), &buildv1.StreamBuildLogsRequest{BuildId: id, Label: "//a:b"}, func(sent *buildv1.StreamBuildLogsResponse) error {
 					parts++
 					if len(sent.GetLines()) == 0 {
-						t.Errorf("from %d: part %d has no line", start, parts)
+						t.Errorf("part %d has no line", parts)
 					}
 					if size := proto.Size(sent); size > part && len(sent.GetLines()) > 1 {
-						t.Errorf("from %d: part %d is %d bytes in %d lines, more than the %d a part is", start, parts, size, len(sent.GetLines()), part)
+						t.Errorf("part %d is %d bytes in %d lines, more than the %d a part is", parts, size, len(sent.GetLines()), part)
 					}
 					if _, err := proto.Marshal(sent); err != nil {
-						t.Errorf("from %d: part %d cannot be sent: %v", start, parts, err)
+						t.Errorf("part %d cannot be sent: %v", parts, err)
 					}
 					for _, line := range sent.GetLines() {
 						got = append(got, said{line.GetStream(), line.GetText()})
-					}
-					if next := int64(start + len(got)); sent.GetNextLine() != next {
-						t.Errorf("from %d: part %d says line %d is next, and %d is", start, parts, sent.GetNextLine(), next)
 					}
 					return nil
 				})
@@ -132,19 +126,19 @@ func TestWhatAnActionPrintedIsSentInPartsOfWholeLines(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				rest := printed.want[min(start, len(printed.want)):]
+				rest := printed.want
 				if len(got) != len(rest) {
-					t.Fatalf("from %d: %d lines came in %d parts, want the %d it printed from there", start, len(got), parts, len(rest))
+					t.Fatalf("%d lines came in %d parts, want the %d it printed", len(got), parts, len(rest))
 				}
 				for i := range rest {
 					if got[i] != rest[i] {
-						t.Fatalf("from %d: line %d is %v %.40q (%d bytes), want %v %.40q (%d bytes)", start, start+i, got[i].stream, got[i].text, len(got[i].text), rest[i].stream, rest[i].text, len(rest[i].text))
+						t.Fatalf("line %d is %v %.40q (%d bytes), want %v %.40q (%d bytes)", i, got[i].stream, got[i].text, len(got[i].text), rest[i].stream, rest[i].text, len(rest[i].text))
 					}
 				}
-				if start == 0 && printed.parts > 0 && parts != printed.parts {
+				if printed.parts > 0 && parts != printed.parts {
 					t.Errorf("it came in %d parts, want %d", parts, printed.parts)
 				}
-				if least := (len(printed.out) + len(printed.err)) / part; start == 0 && printed.parts == 0 && parts < least {
+				if least := (len(printed.out) + len(printed.err)) / part; printed.parts == 0 && parts < least {
 					t.Errorf("%d bytes came in %d parts", len(printed.out)+len(printed.err), parts)
 				}
 			}
@@ -152,21 +146,17 @@ func TestWhatAnActionPrintedIsSentInPartsOfWholeLines(t *testing.T) {
 	}
 }
 
-// A stream that breaks is called again from the line it was told is
-// next, and what the two gave is all of it. Nothing more is read or sent
-// once a part could not be sent.
-func TestAStreamOfLogsThatBreaksIsTakenUpFromTheNextLine(t *testing.T) {
+// Nothing more is read or sent once a part could not be sent.
+func TestAStreamOfLogsThatBreaksSendsNothingMore(t *testing.T) {
 	printed := strings.Repeat("0123456789\n", 50_000)
 	service, id := printedBy(t, printed, "last\n", printed, "last\n")
 	broke := errors.New("the stream broke")
-	var first, second []*typev1.LogLine
-	sends, next := 0, int64(0)
+	sends := 0
 
 	err := service.logs(t.Context(), &buildv1.StreamBuildLogsRequest{BuildId: id, Label: "//a:b"}, func(sent *buildv1.StreamBuildLogsResponse) error {
 		if sends++; sends > 2 {
 			return broke
 		}
-		first, next = append(first, sent.GetLines()...), sent.GetNextLine()
 		return nil
 	})
 
@@ -175,15 +165,6 @@ func TestAStreamOfLogsThatBreaksIsTakenUpFromTheNextLine(t *testing.T) {
 	}
 	if sends != 3 {
 		t.Errorf("%d parts were tried after one could not be sent", sends-3)
-	}
-	if err := service.logs(t.Context(), &buildv1.StreamBuildLogsRequest{BuildId: id, Label: "//a:b", StartLine: next}, func(sent *buildv1.StreamBuildLogsResponse) error {
-		second = append(second, sent.GetLines()...)
-		return nil
-	}); err != nil {
-		t.Fatal(err)
-	}
-	if int64(len(first)) != next || len(first)+len(second) != 50_001 || second[len(second)-1].GetText() != "last" || second[len(second)-1].GetStream() != toErr {
-		t.Errorf("a stream that broke after %d lines and was called again from line %d gave %d more, want 50001 in all, the last from standard error", len(first), next, len(second))
 	}
 }
 
@@ -226,15 +207,13 @@ func TestNoPartIsSentOfOutputThatIsNotAllThere(t *testing.T) {
 	}
 }
 
-// A line before the first is none, and an action nobody planned is not
-// found.
+// An action nobody planned is not found, nor a run nobody made.
 func TestLogsAreRefusedForWhatIsNotThere(t *testing.T) {
 	service, id := printedBy(t, "fine\n", "", "fine\n")
 	for name, asked := range map[string]struct {
 		request *buildv1.StreamBuildLogsRequest
 		want    connect.Code
 	}{
-		"a line before the first":  {&buildv1.StreamBuildLogsRequest{BuildId: id, Label: "//a:b", StartLine: -1}, connect.CodeInvalidArgument},
 		"an action nobody planned": {&buildv1.StreamBuildLogsRequest{BuildId: id, Label: "//a:c"}, connect.CodeNotFound},
 		"a run nobody made":        {&buildv1.StreamBuildLogsRequest{BuildId: "build_ffffffffffff", Label: "//a:b"}, connect.CodeNotFound},
 	} {

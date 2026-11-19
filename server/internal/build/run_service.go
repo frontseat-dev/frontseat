@@ -147,29 +147,11 @@ func (s *runService) ListBuildActions(_ context.Context, req *buildv1.ListBuildA
 	if err != nil {
 		return nil, err
 	}
-	var kept []*buildv1.ActionResult
-	for _, action := range r.actions() {
-		if keeps(req.GetOutcomes(), action.GetOutcome()) {
-			kept = append(kept, action)
-		}
-	}
-	listed, next, err := paged(kept, req.GetPageSize(), req.GetPageToken())
+	listed, next, err := paged(r.actions(), req.GetPageSize(), req.GetPageToken())
 	if err != nil {
 		return nil, err
 	}
 	return &buildv1.ListBuildActionsResponse{Actions: listed, NextPageToken: next}, nil
-}
-
-func keeps(outcomes []buildv1.Outcome, o buildv1.Outcome) bool {
-	if len(outcomes) == 0 {
-		return true
-	}
-	for _, want := range outcomes {
-		if want == o {
-			return true
-		}
-	}
-	return false
 }
 
 // part is how much of what an action printed is sent at once, in bytes:
@@ -181,13 +163,10 @@ func (s *runService) StreamBuildLogs(ctx context.Context, req *buildv1.StreamBui
 	return s.logs(ctx, req, stream.Send)
 }
 
-// logs sends what one action printed from a line on, in parts of whole
+// logs sends what one action printed, in parts of whole
 // lines. It is read as it is sent, so that what is held of it is a part
 // and a line, however much the action printed.
 func (s *runService) logs(ctx context.Context, req *buildv1.StreamBuildLogsRequest, send func(*buildv1.StreamBuildLogsResponse) error) error {
-	if req.GetStartLine() < 0 {
-		return refuse(connect.CodeInvalidArgument, "START_LINE_INVALID", fmt.Sprintf("%d is no line to start from", req.GetStartLine()))
-	}
 	r, err := s.find(req.GetBuildId())
 	if err != nil {
 		return err
@@ -212,7 +191,7 @@ func (s *runService) logs(ctx context.Context, req *buildv1.StreamBuildLogsReque
 				defer streams[i].from.Close()
 			}
 		}
-		sending := parts{send: send, skip: req.GetStartLine()}
+		sending := parts{send: send}
 		for _, stream := range streams {
 			if stream.from == nil {
 				continue
@@ -229,22 +208,14 @@ func (s *runService) logs(ctx context.Context, req *buildv1.StreamBuildLogsReque
 // parts gathers lines into parts and sends each as it fills.
 type parts struct {
 	send func(*buildv1.StreamBuildLogsResponse) error
-	// skip is how many lines are still to be passed over, and next the
-	// line after the last that was passed over or gathered.
-	skip, next int64
-	held       []*typev1.LogLine
-	size       int
+	held []*typev1.LogLine
+	size int
 }
 
 // add gathers a line, sending what was gathered first where the line
 // would make it more than a part. What of the line is not UTF-8, which
 // a message's text has to be, is given as U+FFFD, as Docker gives it.
 func (p *parts) add(stream typev1.LogStream, text []byte) error {
-	if p.skip > 0 {
-		p.skip--
-		p.next++
-		return nil
-	}
 	line := &typev1.LogLine{Stream: stream, Text: strings.ToValidUTF8(string(text), "\uFFFD")}
 	if len(p.held) > 0 && p.size+sent(line) > part {
 		if err := p.flush(); err != nil {
@@ -252,7 +223,6 @@ func (p *parts) add(stream typev1.LogStream, text []byte) error {
 		}
 	}
 	p.held, p.size = append(p.held, line), p.size+sent(line)
-	p.next++
 	return nil
 }
 
@@ -261,7 +231,7 @@ func (p *parts) flush() error {
 	if len(p.held) == 0 {
 		return nil
 	}
-	err := p.send(&buildv1.StreamBuildLogsResponse{Lines: p.held, NextLine: p.next})
+	err := p.send(&buildv1.StreamBuildLogsResponse{Lines: p.held})
 	p.held, p.size = nil, 0
 	return err
 }

@@ -200,99 +200,6 @@ func (x *SetCredentialResponse) GetCredential() *Credential {
 	return nil
 }
 
-// DescribeCredentialRequest names the host whose credential is asked
-// after.
-type DescribeCredentialRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Host is the host, written as it was to SetCredential.
-	Host          string `protobuf:"bytes,1,opt,name=host,proto3" json:"host,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *DescribeCredentialRequest) Reset() {
-	*x = DescribeCredentialRequest{}
-	mi := &file_frontseat_credential_v1alpha1_credential_proto_msgTypes[3]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *DescribeCredentialRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*DescribeCredentialRequest) ProtoMessage() {}
-
-func (x *DescribeCredentialRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_credential_v1alpha1_credential_proto_msgTypes[3]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use DescribeCredentialRequest.ProtoReflect.Descriptor instead.
-func (*DescribeCredentialRequest) Descriptor() ([]byte, []int) {
-	return file_frontseat_credential_v1alpha1_credential_proto_rawDescGZIP(), []int{3}
-}
-
-func (x *DescribeCredentialRequest) GetHost() string {
-	if x != nil {
-		return x.Host
-	}
-	return ""
-}
-
-// DescribeCredentialResponse is the caller's credential for the host.
-type DescribeCredentialResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Credential is the credential, without its secret.
-	Credential    *Credential `protobuf:"bytes,1,opt,name=credential,proto3" json:"credential,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *DescribeCredentialResponse) Reset() {
-	*x = DescribeCredentialResponse{}
-	mi := &file_frontseat_credential_v1alpha1_credential_proto_msgTypes[4]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *DescribeCredentialResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*DescribeCredentialResponse) ProtoMessage() {}
-
-func (x *DescribeCredentialResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_credential_v1alpha1_credential_proto_msgTypes[4]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use DescribeCredentialResponse.ProtoReflect.Descriptor instead.
-func (*DescribeCredentialResponse) Descriptor() ([]byte, []int) {
-	return file_frontseat_credential_v1alpha1_credential_proto_rawDescGZIP(), []int{4}
-}
-
-func (x *DescribeCredentialResponse) GetCredential() *Credential {
-	if x != nil {
-		return x.Credential
-	}
-	return nil
-}
-
 // ListCredentialsRequest asks for a page of the caller's credentials.
 type ListCredentialsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -308,7 +215,7 @@ type ListCredentialsRequest struct {
 
 func (x *ListCredentialsRequest) Reset() {
 	*x = ListCredentialsRequest{}
-	mi := &file_frontseat_credential_v1alpha1_credential_proto_msgTypes[5]
+	mi := &file_frontseat_credential_v1alpha1_credential_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -320,7 +227,7 @@ func (x *ListCredentialsRequest) String() string {
 func (*ListCredentialsRequest) ProtoMessage() {}
 
 func (x *ListCredentialsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_credential_v1alpha1_credential_proto_msgTypes[5]
+	mi := &file_frontseat_credential_v1alpha1_credential_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -333,7 +240,7 @@ func (x *ListCredentialsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListCredentialsRequest.ProtoReflect.Descriptor instead.
 func (*ListCredentialsRequest) Descriptor() ([]byte, []int) {
-	return file_frontseat_credential_v1alpha1_credential_proto_rawDescGZIP(), []int{5}
+	return file_frontseat_credential_v1alpha1_credential_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *ListCredentialsRequest) GetPageSize() int32 {
@@ -363,7 +270,7 @@ type ListCredentialsResponse struct {
 
 func (x *ListCredentialsResponse) Reset() {
 	*x = ListCredentialsResponse{}
-	mi := &file_frontseat_credential_v1alpha1_credential_proto_msgTypes[6]
+	mi := &file_frontseat_credential_v1alpha1_credential_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -375,7 +282,7 @@ func (x *ListCredentialsResponse) String() string {
 func (*ListCredentialsResponse) ProtoMessage() {}
 
 func (x *ListCredentialsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_credential_v1alpha1_credential_proto_msgTypes[6]
+	mi := &file_frontseat_credential_v1alpha1_credential_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -388,7 +295,7 @@ func (x *ListCredentialsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListCredentialsResponse.ProtoReflect.Descriptor instead.
 func (*ListCredentialsResponse) Descriptor() ([]byte, []int) {
-	return file_frontseat_credential_v1alpha1_credential_proto_rawDescGZIP(), []int{6}
+	return file_frontseat_credential_v1alpha1_credential_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *ListCredentialsResponse) GetCredentials() []*Credential {
@@ -416,7 +323,7 @@ type DeleteCredentialRequest struct {
 
 func (x *DeleteCredentialRequest) Reset() {
 	*x = DeleteCredentialRequest{}
-	mi := &file_frontseat_credential_v1alpha1_credential_proto_msgTypes[7]
+	mi := &file_frontseat_credential_v1alpha1_credential_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -428,7 +335,7 @@ func (x *DeleteCredentialRequest) String() string {
 func (*DeleteCredentialRequest) ProtoMessage() {}
 
 func (x *DeleteCredentialRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_credential_v1alpha1_credential_proto_msgTypes[7]
+	mi := &file_frontseat_credential_v1alpha1_credential_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -441,7 +348,7 @@ func (x *DeleteCredentialRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteCredentialRequest.ProtoReflect.Descriptor instead.
 func (*DeleteCredentialRequest) Descriptor() ([]byte, []int) {
-	return file_frontseat_credential_v1alpha1_credential_proto_rawDescGZIP(), []int{7}
+	return file_frontseat_credential_v1alpha1_credential_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *DeleteCredentialRequest) GetHost() string {
@@ -461,7 +368,7 @@ type DeleteCredentialResponse struct {
 
 func (x *DeleteCredentialResponse) Reset() {
 	*x = DeleteCredentialResponse{}
-	mi := &file_frontseat_credential_v1alpha1_credential_proto_msgTypes[8]
+	mi := &file_frontseat_credential_v1alpha1_credential_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -473,7 +380,7 @@ func (x *DeleteCredentialResponse) String() string {
 func (*DeleteCredentialResponse) ProtoMessage() {}
 
 func (x *DeleteCredentialResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_credential_v1alpha1_credential_proto_msgTypes[8]
+	mi := &file_frontseat_credential_v1alpha1_credential_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -486,7 +393,7 @@ func (x *DeleteCredentialResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteCredentialResponse.ProtoReflect.Descriptor instead.
 func (*DeleteCredentialResponse) Descriptor() ([]byte, []int) {
-	return file_frontseat_credential_v1alpha1_credential_proto_rawDescGZIP(), []int{8}
+	return file_frontseat_credential_v1alpha1_credential_proto_rawDescGZIP(), []int{6}
 }
 
 var File_frontseat_credential_v1alpha1_credential_proto protoreflect.FileDescriptor
@@ -506,12 +413,6 @@ const file_frontseat_credential_v1alpha1_credential_proto_rawDesc = "" +
 	"\x15SetCredentialResponse\x12I\n" +
 	"\n" +
 	"credential\x18\x01 \x01(\v2).frontseat.credential.v1alpha1.CredentialR\n" +
-	"credential\"5\n" +
-	"\x19DescribeCredentialRequest\x12\x18\n" +
-	"\x04host\x18\x01 \x01(\tB\x04\xe2A\x01\x02R\x04host\"g\n" +
-	"\x1aDescribeCredentialResponse\x12I\n" +
-	"\n" +
-	"credential\x18\x01 \x01(\v2).frontseat.credential.v1alpha1.CredentialR\n" +
 	"credential\"T\n" +
 	"\x16ListCredentialsRequest\x12\x1b\n" +
 	"\tpage_size\x18\x01 \x01(\x05R\bpageSize\x12\x1d\n" +
@@ -522,10 +423,9 @@ const file_frontseat_credential_v1alpha1_credential_proto_rawDesc = "" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"3\n" +
 	"\x17DeleteCredentialRequest\x12\x18\n" +
 	"\x04host\x18\x01 \x01(\tB\x04\xe2A\x01\x02R\x04host\"\x1a\n" +
-	"\x18DeleteCredentialResponse2\xb8\x04\n" +
+	"\x18DeleteCredentialResponse2\xa7\x03\n" +
 	"\x11CredentialService\x12\x7f\n" +
-	"\rSetCredential\x123.frontseat.credential.v1alpha1.SetCredentialRequest\x1a4.frontseat.credential.v1alpha1.SetCredentialResponse\"\x03\x90\x02\x02\x12\x8e\x01\n" +
-	"\x12DescribeCredential\x128.frontseat.credential.v1alpha1.DescribeCredentialRequest\x1a9.frontseat.credential.v1alpha1.DescribeCredentialResponse\"\x03\x90\x02\x01\x12\x85\x01\n" +
+	"\rSetCredential\x123.frontseat.credential.v1alpha1.SetCredentialRequest\x1a4.frontseat.credential.v1alpha1.SetCredentialResponse\"\x03\x90\x02\x02\x12\x85\x01\n" +
 	"\x0fListCredentials\x125.frontseat.credential.v1alpha1.ListCredentialsRequest\x1a6.frontseat.credential.v1alpha1.ListCredentialsResponse\"\x03\x90\x02\x01\x12\x88\x01\n" +
 	"\x10DeleteCredential\x126.frontseat.credential.v1alpha1.DeleteCredentialRequest\x1a7.frontseat.credential.v1alpha1.DeleteCredentialResponse\"\x03\x90\x02\x02B\xaa\x02\n" +
 	"!com.frontseat.credential.v1alpha1B\x0fCredentialProtoP\x01Z^github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/credential/v1alpha1;credentialv1alpha1\xa2\x02\x03FCX\xaa\x02\x1dFrontseat.Credential.V1alpha1\xca\x02\x1dFrontseat\\Credential\\V1alpha1\xe2\x02)Frontseat\\Credential\\V1alpha1\\GPBMetadata\xea\x02\x1fFrontseat::Credential::V1alpha1b\x06proto3"
@@ -542,36 +442,31 @@ func file_frontseat_credential_v1alpha1_credential_proto_rawDescGZIP() []byte {
 	return file_frontseat_credential_v1alpha1_credential_proto_rawDescData
 }
 
-var file_frontseat_credential_v1alpha1_credential_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_frontseat_credential_v1alpha1_credential_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_frontseat_credential_v1alpha1_credential_proto_goTypes = []any{
-	(*Credential)(nil),                 // 0: frontseat.credential.v1alpha1.Credential
-	(*SetCredentialRequest)(nil),       // 1: frontseat.credential.v1alpha1.SetCredentialRequest
-	(*SetCredentialResponse)(nil),      // 2: frontseat.credential.v1alpha1.SetCredentialResponse
-	(*DescribeCredentialRequest)(nil),  // 3: frontseat.credential.v1alpha1.DescribeCredentialRequest
-	(*DescribeCredentialResponse)(nil), // 4: frontseat.credential.v1alpha1.DescribeCredentialResponse
-	(*ListCredentialsRequest)(nil),     // 5: frontseat.credential.v1alpha1.ListCredentialsRequest
-	(*ListCredentialsResponse)(nil),    // 6: frontseat.credential.v1alpha1.ListCredentialsResponse
-	(*DeleteCredentialRequest)(nil),    // 7: frontseat.credential.v1alpha1.DeleteCredentialRequest
-	(*DeleteCredentialResponse)(nil),   // 8: frontseat.credential.v1alpha1.DeleteCredentialResponse
+	(*Credential)(nil),               // 0: frontseat.credential.v1alpha1.Credential
+	(*SetCredentialRequest)(nil),     // 1: frontseat.credential.v1alpha1.SetCredentialRequest
+	(*SetCredentialResponse)(nil),    // 2: frontseat.credential.v1alpha1.SetCredentialResponse
+	(*ListCredentialsRequest)(nil),   // 3: frontseat.credential.v1alpha1.ListCredentialsRequest
+	(*ListCredentialsResponse)(nil),  // 4: frontseat.credential.v1alpha1.ListCredentialsResponse
+	(*DeleteCredentialRequest)(nil),  // 5: frontseat.credential.v1alpha1.DeleteCredentialRequest
+	(*DeleteCredentialResponse)(nil), // 6: frontseat.credential.v1alpha1.DeleteCredentialResponse
 }
 var file_frontseat_credential_v1alpha1_credential_proto_depIdxs = []int32{
 	0, // 0: frontseat.credential.v1alpha1.SetCredentialRequest.credential:type_name -> frontseat.credential.v1alpha1.Credential
 	0, // 1: frontseat.credential.v1alpha1.SetCredentialResponse.credential:type_name -> frontseat.credential.v1alpha1.Credential
-	0, // 2: frontseat.credential.v1alpha1.DescribeCredentialResponse.credential:type_name -> frontseat.credential.v1alpha1.Credential
-	0, // 3: frontseat.credential.v1alpha1.ListCredentialsResponse.credentials:type_name -> frontseat.credential.v1alpha1.Credential
-	1, // 4: frontseat.credential.v1alpha1.CredentialService.SetCredential:input_type -> frontseat.credential.v1alpha1.SetCredentialRequest
-	3, // 5: frontseat.credential.v1alpha1.CredentialService.DescribeCredential:input_type -> frontseat.credential.v1alpha1.DescribeCredentialRequest
-	5, // 6: frontseat.credential.v1alpha1.CredentialService.ListCredentials:input_type -> frontseat.credential.v1alpha1.ListCredentialsRequest
-	7, // 7: frontseat.credential.v1alpha1.CredentialService.DeleteCredential:input_type -> frontseat.credential.v1alpha1.DeleteCredentialRequest
-	2, // 8: frontseat.credential.v1alpha1.CredentialService.SetCredential:output_type -> frontseat.credential.v1alpha1.SetCredentialResponse
-	4, // 9: frontseat.credential.v1alpha1.CredentialService.DescribeCredential:output_type -> frontseat.credential.v1alpha1.DescribeCredentialResponse
-	6, // 10: frontseat.credential.v1alpha1.CredentialService.ListCredentials:output_type -> frontseat.credential.v1alpha1.ListCredentialsResponse
-	8, // 11: frontseat.credential.v1alpha1.CredentialService.DeleteCredential:output_type -> frontseat.credential.v1alpha1.DeleteCredentialResponse
-	8, // [8:12] is the sub-list for method output_type
-	4, // [4:8] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	0, // 2: frontseat.credential.v1alpha1.ListCredentialsResponse.credentials:type_name -> frontseat.credential.v1alpha1.Credential
+	1, // 3: frontseat.credential.v1alpha1.CredentialService.SetCredential:input_type -> frontseat.credential.v1alpha1.SetCredentialRequest
+	3, // 4: frontseat.credential.v1alpha1.CredentialService.ListCredentials:input_type -> frontseat.credential.v1alpha1.ListCredentialsRequest
+	5, // 5: frontseat.credential.v1alpha1.CredentialService.DeleteCredential:input_type -> frontseat.credential.v1alpha1.DeleteCredentialRequest
+	2, // 6: frontseat.credential.v1alpha1.CredentialService.SetCredential:output_type -> frontseat.credential.v1alpha1.SetCredentialResponse
+	4, // 7: frontseat.credential.v1alpha1.CredentialService.ListCredentials:output_type -> frontseat.credential.v1alpha1.ListCredentialsResponse
+	6, // 8: frontseat.credential.v1alpha1.CredentialService.DeleteCredential:output_type -> frontseat.credential.v1alpha1.DeleteCredentialResponse
+	6, // [6:9] is the sub-list for method output_type
+	3, // [3:6] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_frontseat_credential_v1alpha1_credential_proto_init() }
@@ -585,7 +480,7 @@ func file_frontseat_credential_v1alpha1_credential_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_frontseat_credential_v1alpha1_credential_proto_rawDesc), len(file_frontseat_credential_v1alpha1_credential_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   9,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

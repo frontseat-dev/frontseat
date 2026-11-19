@@ -44,55 +44,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Inclusion is why a unit is in a plan.
-type Inclusion int32
-
-const (
-	// INCLUSION_UNSPECIFIED: not said.
-	Inclusion_INCLUSION_UNSPECIFIED Inclusion = 0
-	// INCLUSION_ASKED: the request named it, or one of its members.
-	Inclusion_INCLUSION_ASKED Inclusion = 1
-)
-
-// Enum value maps for Inclusion.
-var (
-	Inclusion_name = map[int32]string{
-		0: "INCLUSION_UNSPECIFIED",
-		1: "INCLUSION_ASKED",
-	}
-	Inclusion_value = map[string]int32{
-		"INCLUSION_UNSPECIFIED": 0,
-		"INCLUSION_ASKED":       1,
-	}
-)
-
-func (x Inclusion) Enum() *Inclusion {
-	p := new(Inclusion)
-	*p = x
-	return p
-}
-
-func (x Inclusion) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (Inclusion) Descriptor() protoreflect.EnumDescriptor {
-	return file_frontseat_build_v1alpha1_release_proto_enumTypes[0].Descriptor()
-}
-
-func (Inclusion) Type() protoreflect.EnumType {
-	return &file_frontseat_build_v1alpha1_release_proto_enumTypes[0]
-}
-
-func (x Inclusion) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use Inclusion.Descriptor instead.
-func (Inclusion) EnumDescriptor() ([]byte, []int) {
-	return file_frontseat_build_v1alpha1_release_proto_rawDescGZIP(), []int{0}
-}
-
 // ReasonKind is what sort of reason a ReleaseReason is.
 type ReasonKind int32
 
@@ -148,11 +99,11 @@ func (x ReasonKind) String() string {
 }
 
 func (ReasonKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_frontseat_build_v1alpha1_release_proto_enumTypes[1].Descriptor()
+	return file_frontseat_build_v1alpha1_release_proto_enumTypes[0].Descriptor()
 }
 
 func (ReasonKind) Type() protoreflect.EnumType {
-	return &file_frontseat_build_v1alpha1_release_proto_enumTypes[1]
+	return &file_frontseat_build_v1alpha1_release_proto_enumTypes[0]
 }
 
 func (x ReasonKind) Number() protoreflect.EnumNumber {
@@ -161,7 +112,7 @@ func (x ReasonKind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ReasonKind.Descriptor instead.
 func (ReasonKind) EnumDescriptor() ([]byte, []int) {
-	return file_frontseat_build_v1alpha1_release_proto_rawDescGZIP(), []int{1}
+	return file_frontseat_build_v1alpha1_release_proto_rawDescGZIP(), []int{0}
 }
 
 // State is where a release is.
@@ -218,11 +169,11 @@ func (x Release_State) String() string {
 }
 
 func (Release_State) Descriptor() protoreflect.EnumDescriptor {
-	return file_frontseat_build_v1alpha1_release_proto_enumTypes[2].Descriptor()
+	return file_frontseat_build_v1alpha1_release_proto_enumTypes[1].Descriptor()
 }
 
 func (Release_State) Type() protoreflect.EnumType {
-	return &file_frontseat_build_v1alpha1_release_proto_enumTypes[2]
+	return &file_frontseat_build_v1alpha1_release_proto_enumTypes[1]
 }
 
 func (x Release_State) Number() protoreflect.EnumNumber {
@@ -474,8 +425,6 @@ type ReleaseUnit struct {
 	Group *v1alpha1.EntityRef `protobuf:"bytes,3,opt,name=group,proto3" json:"group,omitempty"`
 	// Grouping is how the unit's group versions its members.
 	Grouping Grouping `protobuf:"varint,4,opt,name=grouping,proto3,enum=frontseat.build.v1alpha1.Grouping" json:"grouping,omitempty"`
-	// Included says why the unit is in the plan.
-	Included Inclusion `protobuf:"varint,5,opt,name=included,proto3,enum=frontseat.build.v1alpha1.Inclusion" json:"included,omitempty"`
 	// Last_version is the unit's last release; empty if it has none.
 	LastVersion string `protobuf:"bytes,6,opt,name=last_version,json=lastVersion,proto3" json:"last_version,omitempty"`
 	// Next_version is what the release makes it; empty if it holds.
@@ -503,8 +452,6 @@ type ReleaseUnit struct {
 	BranchingStrategy string `protobuf:"bytes,14,opt,name=branching_strategy,json=branchingStrategy,proto3" json:"branching_strategy,omitempty"`
 	// Branch is the branch it is planned from.
 	Branch string `protobuf:"bytes,15,opt,name=branch,proto3" json:"branch,omitempty"`
-	// Prerelease is whether what it releases is a prerelease.
-	Prerelease bool `protobuf:"varint,16,opt,name=prerelease,proto3" json:"prerelease,omitempty"`
 	// Channel is the name its branching strategy gives what its branch
 	// releases: "latest", "next", a branch's name.
 	Channel       string `protobuf:"bytes,17,opt,name=channel,proto3" json:"channel,omitempty"`
@@ -568,13 +515,6 @@ func (x *ReleaseUnit) GetGrouping() Grouping {
 		return x.Grouping
 	}
 	return Grouping_GROUPING_UNSPECIFIED
-}
-
-func (x *ReleaseUnit) GetIncluded() Inclusion {
-	if x != nil {
-		return x.Included
-	}
-	return Inclusion_INCLUSION_UNSPECIFIED
 }
 
 func (x *ReleaseUnit) GetLastVersion() string {
@@ -645,13 +585,6 @@ func (x *ReleaseUnit) GetBranch() string {
 		return x.Branch
 	}
 	return ""
-}
-
-func (x *ReleaseUnit) GetPrerelease() bool {
-	if x != nil {
-		return x.Prerelease
-	}
-	return false
 }
 
 func (x *ReleaseUnit) GetChannel() string {
@@ -1287,13 +1220,12 @@ const file_frontseat_build_v1alpha1_release_proto_rawDesc = "" +
 	"\n" +
 	"repository\x18\x01 \x01(\tB\x04\xe2A\x01\x03R\n" +
 	"repository\x12\x1c\n" +
-	"\x06commit\x18\x02 \x01(\tB\x04\xe2A\x01\x03R\x06commit\"\x81\a\n" +
+	"\x06commit\x18\x02 \x01(\tB\x04\xe2A\x01\x03R\x06commit\"\x94\x06\n" +
 	"\vReleaseUnit\x12@\n" +
 	"\x06entity\x18\x01 \x01(\v2\".frontseat.type.v1alpha1.EntityRefB\x04\xe2A\x01\x03R\x06entity\x12B\n" +
 	"\amembers\x18\x02 \x03(\v2\".frontseat.type.v1alpha1.EntityRefB\x04\xe2A\x01\x03R\amembers\x12>\n" +
 	"\x05group\x18\x03 \x01(\v2\".frontseat.type.v1alpha1.EntityRefB\x04\xe2A\x01\x03R\x05group\x12D\n" +
-	"\bgrouping\x18\x04 \x01(\x0e2\".frontseat.build.v1alpha1.GroupingB\x04\xe2A\x01\x03R\bgrouping\x12E\n" +
-	"\bincluded\x18\x05 \x01(\x0e2#.frontseat.build.v1alpha1.InclusionB\x04\xe2A\x01\x03R\bincluded\x12'\n" +
+	"\bgrouping\x18\x04 \x01(\x0e2\".frontseat.build.v1alpha1.GroupingB\x04\xe2A\x01\x03R\bgrouping\x12'\n" +
 	"\flast_version\x18\x06 \x01(\tB\x04\xe2A\x01\x03R\vlastVersion\x12'\n" +
 	"\fnext_version\x18\a \x01(\tB\x04\xe2A\x01\x03R\vnextVersion\x127\n" +
 	"\x04bump\x18\b \x01(\x0e2\x1d.frontseat.type.v1alpha1.BumpB\x04\xe2A\x01\x03R\x04bump\x12G\n" +
@@ -1305,10 +1237,7 @@ const file_frontseat_build_v1alpha1_release_proto_rawDesc = "" +
 	"\x05notes\x18\f \x01(\tB\x04\xe2A\x01\x03R\x05notes\x125\n" +
 	"\x13versioning_strategy\x18\r \x01(\tB\x04\xe2A\x01\x03R\x12versioningStrategy\x123\n" +
 	"\x12branching_strategy\x18\x0e \x01(\tB\x04\xe2A\x01\x03R\x11branchingStrategy\x12\x1c\n" +
-	"\x06branch\x18\x0f \x01(\tB\x04\xe2A\x01\x03R\x06branch\x12$\n" +
-	"\n" +
-	"prerelease\x18\x10 \x01(\bB\x04\xe2A\x01\x03R\n" +
-	"prerelease\x12\x1e\n" +
+	"\x06branch\x18\x0f \x01(\tB\x04\xe2A\x01\x03R\x06branch\x12\x1e\n" +
 	"\achannel\x18\x11 \x01(\tB\x04\xe2A\x01\x03R\achannel\"\xf2\x01\n" +
 	"\rReleaseReason\x12>\n" +
 	"\x04kind\x18\x01 \x01(\x0e2$.frontseat.build.v1alpha1.ReasonKindB\x04\xe2A\x01\x03R\x04kind\x127\n" +
@@ -1358,10 +1287,7 @@ const file_frontseat_build_v1alpha1_release_proto_rawDesc = "" +
 	"\n" +
 	"release_id\x18\x01 \x01(\tB\x04\xe2A\x01\x02R\treleaseId\"R\n" +
 	"\x13WaitReleaseResponse\x12;\n" +
-	"\arelease\x18\x01 \x01(\v2!.frontseat.build.v1alpha1.ReleaseR\arelease*;\n" +
-	"\tInclusion\x12\x19\n" +
-	"\x15INCLUSION_UNSPECIFIED\x10\x00\x12\x13\n" +
-	"\x0fINCLUSION_ASKED\x10\x01*\xb1\x01\n" +
+	"\arelease\x18\x01 \x01(\v2!.frontseat.build.v1alpha1.ReleaseR\arelease*\xb1\x01\n" +
 	"\n" +
 	"ReasonKind\x12\x1b\n" +
 	"\x17REASON_KIND_UNSPECIFIED\x10\x00\x12\x1a\n" +
@@ -1389,72 +1315,70 @@ func file_frontseat_build_v1alpha1_release_proto_rawDescGZIP() []byte {
 	return file_frontseat_build_v1alpha1_release_proto_rawDescData
 }
 
-var file_frontseat_build_v1alpha1_release_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_frontseat_build_v1alpha1_release_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_frontseat_build_v1alpha1_release_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
 var file_frontseat_build_v1alpha1_release_proto_goTypes = []any{
-	(Inclusion)(0),                  // 0: frontseat.build.v1alpha1.Inclusion
-	(ReasonKind)(0),                 // 1: frontseat.build.v1alpha1.ReasonKind
-	(Release_State)(0),              // 2: frontseat.build.v1alpha1.Release.State
-	(*PlanReleaseRequest)(nil),      // 3: frontseat.build.v1alpha1.PlanReleaseRequest
-	(*PlanReleaseResponse)(nil),     // 4: frontseat.build.v1alpha1.PlanReleaseResponse
-	(*ReleasePlan)(nil),             // 5: frontseat.build.v1alpha1.ReleasePlan
-	(*RepositoryCommit)(nil),        // 6: frontseat.build.v1alpha1.RepositoryCommit
-	(*ReleaseUnit)(nil),             // 7: frontseat.build.v1alpha1.ReleaseUnit
-	(*ReleaseReason)(nil),           // 8: frontseat.build.v1alpha1.ReleaseReason
-	(*CreateReleaseRequest)(nil),    // 9: frontseat.build.v1alpha1.CreateReleaseRequest
-	(*CreateReleaseResponse)(nil),   // 10: frontseat.build.v1alpha1.CreateReleaseResponse
-	(*Release)(nil),                 // 11: frontseat.build.v1alpha1.Release
-	(*ReleasedUnit)(nil),            // 12: frontseat.build.v1alpha1.ReleasedUnit
-	(*ReleaseTag)(nil),              // 13: frontseat.build.v1alpha1.ReleaseTag
-	(*DescribeReleaseRequest)(nil),  // 14: frontseat.build.v1alpha1.DescribeReleaseRequest
-	(*DescribeReleaseResponse)(nil), // 15: frontseat.build.v1alpha1.DescribeReleaseResponse
-	(*WaitReleaseRequest)(nil),      // 16: frontseat.build.v1alpha1.WaitReleaseRequest
-	(*WaitReleaseResponse)(nil),     // 17: frontseat.build.v1alpha1.WaitReleaseResponse
-	(*v1alpha1.EntityRef)(nil),      // 18: frontseat.type.v1alpha1.EntityRef
-	(Grouping)(0),                   // 19: frontseat.build.v1alpha1.Grouping
-	(v1alpha1.Bump)(0),              // 20: frontseat.type.v1alpha1.Bump
-	(*timestamppb.Timestamp)(nil),   // 21: google.protobuf.Timestamp
+	(ReasonKind)(0),                 // 0: frontseat.build.v1alpha1.ReasonKind
+	(Release_State)(0),              // 1: frontseat.build.v1alpha1.Release.State
+	(*PlanReleaseRequest)(nil),      // 2: frontseat.build.v1alpha1.PlanReleaseRequest
+	(*PlanReleaseResponse)(nil),     // 3: frontseat.build.v1alpha1.PlanReleaseResponse
+	(*ReleasePlan)(nil),             // 4: frontseat.build.v1alpha1.ReleasePlan
+	(*RepositoryCommit)(nil),        // 5: frontseat.build.v1alpha1.RepositoryCommit
+	(*ReleaseUnit)(nil),             // 6: frontseat.build.v1alpha1.ReleaseUnit
+	(*ReleaseReason)(nil),           // 7: frontseat.build.v1alpha1.ReleaseReason
+	(*CreateReleaseRequest)(nil),    // 8: frontseat.build.v1alpha1.CreateReleaseRequest
+	(*CreateReleaseResponse)(nil),   // 9: frontseat.build.v1alpha1.CreateReleaseResponse
+	(*Release)(nil),                 // 10: frontseat.build.v1alpha1.Release
+	(*ReleasedUnit)(nil),            // 11: frontseat.build.v1alpha1.ReleasedUnit
+	(*ReleaseTag)(nil),              // 12: frontseat.build.v1alpha1.ReleaseTag
+	(*DescribeReleaseRequest)(nil),  // 13: frontseat.build.v1alpha1.DescribeReleaseRequest
+	(*DescribeReleaseResponse)(nil), // 14: frontseat.build.v1alpha1.DescribeReleaseResponse
+	(*WaitReleaseRequest)(nil),      // 15: frontseat.build.v1alpha1.WaitReleaseRequest
+	(*WaitReleaseResponse)(nil),     // 16: frontseat.build.v1alpha1.WaitReleaseResponse
+	(*v1alpha1.EntityRef)(nil),      // 17: frontseat.type.v1alpha1.EntityRef
+	(Grouping)(0),                   // 18: frontseat.build.v1alpha1.Grouping
+	(v1alpha1.Bump)(0),              // 19: frontseat.type.v1alpha1.Bump
+	(*timestamppb.Timestamp)(nil),   // 20: google.protobuf.Timestamp
 }
 var file_frontseat_build_v1alpha1_release_proto_depIdxs = []int32{
-	18, // 0: frontseat.build.v1alpha1.PlanReleaseRequest.entities:type_name -> frontseat.type.v1alpha1.EntityRef
-	5,  // 1: frontseat.build.v1alpha1.PlanReleaseResponse.plan:type_name -> frontseat.build.v1alpha1.ReleasePlan
-	7,  // 2: frontseat.build.v1alpha1.ReleasePlan.units:type_name -> frontseat.build.v1alpha1.ReleaseUnit
-	6,  // 3: frontseat.build.v1alpha1.ReleasePlan.commits:type_name -> frontseat.build.v1alpha1.RepositoryCommit
-	18, // 4: frontseat.build.v1alpha1.ReleaseUnit.entity:type_name -> frontseat.type.v1alpha1.EntityRef
-	18, // 5: frontseat.build.v1alpha1.ReleaseUnit.members:type_name -> frontseat.type.v1alpha1.EntityRef
-	18, // 6: frontseat.build.v1alpha1.ReleaseUnit.group:type_name -> frontseat.type.v1alpha1.EntityRef
-	19, // 7: frontseat.build.v1alpha1.ReleaseUnit.grouping:type_name -> frontseat.build.v1alpha1.Grouping
-	0,  // 8: frontseat.build.v1alpha1.ReleaseUnit.included:type_name -> frontseat.build.v1alpha1.Inclusion
-	20, // 9: frontseat.build.v1alpha1.ReleaseUnit.bump:type_name -> frontseat.type.v1alpha1.Bump
-	8,  // 10: frontseat.build.v1alpha1.ReleaseUnit.reasons:type_name -> frontseat.build.v1alpha1.ReleaseReason
-	18, // 11: frontseat.build.v1alpha1.ReleaseUnit.depends_on:type_name -> frontseat.type.v1alpha1.EntityRef
-	1,  // 12: frontseat.build.v1alpha1.ReleaseReason.kind:type_name -> frontseat.build.v1alpha1.ReasonKind
-	20, // 13: frontseat.build.v1alpha1.ReleaseReason.bump:type_name -> frontseat.type.v1alpha1.Bump
-	6,  // 14: frontseat.build.v1alpha1.ReleaseReason.commit:type_name -> frontseat.build.v1alpha1.RepositoryCommit
-	18, // 15: frontseat.build.v1alpha1.CreateReleaseRequest.entities:type_name -> frontseat.type.v1alpha1.EntityRef
-	11, // 16: frontseat.build.v1alpha1.CreateReleaseResponse.release:type_name -> frontseat.build.v1alpha1.Release
-	5,  // 17: frontseat.build.v1alpha1.Release.plan:type_name -> frontseat.build.v1alpha1.ReleasePlan
-	2,  // 18: frontseat.build.v1alpha1.Release.state:type_name -> frontseat.build.v1alpha1.Release.State
-	12, // 19: frontseat.build.v1alpha1.Release.units:type_name -> frontseat.build.v1alpha1.ReleasedUnit
-	21, // 20: frontseat.build.v1alpha1.Release.create_time:type_name -> google.protobuf.Timestamp
-	21, // 21: frontseat.build.v1alpha1.Release.end_time:type_name -> google.protobuf.Timestamp
-	18, // 22: frontseat.build.v1alpha1.ReleasedUnit.entity:type_name -> frontseat.type.v1alpha1.EntityRef
-	13, // 23: frontseat.build.v1alpha1.ReleasedUnit.tags:type_name -> frontseat.build.v1alpha1.ReleaseTag
-	11, // 24: frontseat.build.v1alpha1.DescribeReleaseResponse.release:type_name -> frontseat.build.v1alpha1.Release
-	11, // 25: frontseat.build.v1alpha1.WaitReleaseResponse.release:type_name -> frontseat.build.v1alpha1.Release
-	3,  // 26: frontseat.build.v1alpha1.ReleaseService.PlanRelease:input_type -> frontseat.build.v1alpha1.PlanReleaseRequest
-	9,  // 27: frontseat.build.v1alpha1.ReleaseService.CreateRelease:input_type -> frontseat.build.v1alpha1.CreateReleaseRequest
-	14, // 28: frontseat.build.v1alpha1.ReleaseService.DescribeRelease:input_type -> frontseat.build.v1alpha1.DescribeReleaseRequest
-	16, // 29: frontseat.build.v1alpha1.ReleaseService.WaitRelease:input_type -> frontseat.build.v1alpha1.WaitReleaseRequest
-	4,  // 30: frontseat.build.v1alpha1.ReleaseService.PlanRelease:output_type -> frontseat.build.v1alpha1.PlanReleaseResponse
-	10, // 31: frontseat.build.v1alpha1.ReleaseService.CreateRelease:output_type -> frontseat.build.v1alpha1.CreateReleaseResponse
-	15, // 32: frontseat.build.v1alpha1.ReleaseService.DescribeRelease:output_type -> frontseat.build.v1alpha1.DescribeReleaseResponse
-	17, // 33: frontseat.build.v1alpha1.ReleaseService.WaitRelease:output_type -> frontseat.build.v1alpha1.WaitReleaseResponse
-	30, // [30:34] is the sub-list for method output_type
-	26, // [26:30] is the sub-list for method input_type
-	26, // [26:26] is the sub-list for extension type_name
-	26, // [26:26] is the sub-list for extension extendee
-	0,  // [0:26] is the sub-list for field type_name
+	17, // 0: frontseat.build.v1alpha1.PlanReleaseRequest.entities:type_name -> frontseat.type.v1alpha1.EntityRef
+	4,  // 1: frontseat.build.v1alpha1.PlanReleaseResponse.plan:type_name -> frontseat.build.v1alpha1.ReleasePlan
+	6,  // 2: frontseat.build.v1alpha1.ReleasePlan.units:type_name -> frontseat.build.v1alpha1.ReleaseUnit
+	5,  // 3: frontseat.build.v1alpha1.ReleasePlan.commits:type_name -> frontseat.build.v1alpha1.RepositoryCommit
+	17, // 4: frontseat.build.v1alpha1.ReleaseUnit.entity:type_name -> frontseat.type.v1alpha1.EntityRef
+	17, // 5: frontseat.build.v1alpha1.ReleaseUnit.members:type_name -> frontseat.type.v1alpha1.EntityRef
+	17, // 6: frontseat.build.v1alpha1.ReleaseUnit.group:type_name -> frontseat.type.v1alpha1.EntityRef
+	18, // 7: frontseat.build.v1alpha1.ReleaseUnit.grouping:type_name -> frontseat.build.v1alpha1.Grouping
+	19, // 8: frontseat.build.v1alpha1.ReleaseUnit.bump:type_name -> frontseat.type.v1alpha1.Bump
+	7,  // 9: frontseat.build.v1alpha1.ReleaseUnit.reasons:type_name -> frontseat.build.v1alpha1.ReleaseReason
+	17, // 10: frontseat.build.v1alpha1.ReleaseUnit.depends_on:type_name -> frontseat.type.v1alpha1.EntityRef
+	0,  // 11: frontseat.build.v1alpha1.ReleaseReason.kind:type_name -> frontseat.build.v1alpha1.ReasonKind
+	19, // 12: frontseat.build.v1alpha1.ReleaseReason.bump:type_name -> frontseat.type.v1alpha1.Bump
+	5,  // 13: frontseat.build.v1alpha1.ReleaseReason.commit:type_name -> frontseat.build.v1alpha1.RepositoryCommit
+	17, // 14: frontseat.build.v1alpha1.CreateReleaseRequest.entities:type_name -> frontseat.type.v1alpha1.EntityRef
+	10, // 15: frontseat.build.v1alpha1.CreateReleaseResponse.release:type_name -> frontseat.build.v1alpha1.Release
+	4,  // 16: frontseat.build.v1alpha1.Release.plan:type_name -> frontseat.build.v1alpha1.ReleasePlan
+	1,  // 17: frontseat.build.v1alpha1.Release.state:type_name -> frontseat.build.v1alpha1.Release.State
+	11, // 18: frontseat.build.v1alpha1.Release.units:type_name -> frontseat.build.v1alpha1.ReleasedUnit
+	20, // 19: frontseat.build.v1alpha1.Release.create_time:type_name -> google.protobuf.Timestamp
+	20, // 20: frontseat.build.v1alpha1.Release.end_time:type_name -> google.protobuf.Timestamp
+	17, // 21: frontseat.build.v1alpha1.ReleasedUnit.entity:type_name -> frontseat.type.v1alpha1.EntityRef
+	12, // 22: frontseat.build.v1alpha1.ReleasedUnit.tags:type_name -> frontseat.build.v1alpha1.ReleaseTag
+	10, // 23: frontseat.build.v1alpha1.DescribeReleaseResponse.release:type_name -> frontseat.build.v1alpha1.Release
+	10, // 24: frontseat.build.v1alpha1.WaitReleaseResponse.release:type_name -> frontseat.build.v1alpha1.Release
+	2,  // 25: frontseat.build.v1alpha1.ReleaseService.PlanRelease:input_type -> frontseat.build.v1alpha1.PlanReleaseRequest
+	8,  // 26: frontseat.build.v1alpha1.ReleaseService.CreateRelease:input_type -> frontseat.build.v1alpha1.CreateReleaseRequest
+	13, // 27: frontseat.build.v1alpha1.ReleaseService.DescribeRelease:input_type -> frontseat.build.v1alpha1.DescribeReleaseRequest
+	15, // 28: frontseat.build.v1alpha1.ReleaseService.WaitRelease:input_type -> frontseat.build.v1alpha1.WaitReleaseRequest
+	3,  // 29: frontseat.build.v1alpha1.ReleaseService.PlanRelease:output_type -> frontseat.build.v1alpha1.PlanReleaseResponse
+	9,  // 30: frontseat.build.v1alpha1.ReleaseService.CreateRelease:output_type -> frontseat.build.v1alpha1.CreateReleaseResponse
+	14, // 31: frontseat.build.v1alpha1.ReleaseService.DescribeRelease:output_type -> frontseat.build.v1alpha1.DescribeReleaseResponse
+	16, // 32: frontseat.build.v1alpha1.ReleaseService.WaitRelease:output_type -> frontseat.build.v1alpha1.WaitReleaseResponse
+	29, // [29:33] is the sub-list for method output_type
+	25, // [25:29] is the sub-list for method input_type
+	25, // [25:25] is the sub-list for extension type_name
+	25, // [25:25] is the sub-list for extension extendee
+	0,  // [0:25] is the sub-list for field type_name
 }
 
 func init() { file_frontseat_build_v1alpha1_release_proto_init() }
@@ -1468,7 +1392,7 @@ func file_frontseat_build_v1alpha1_release_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_frontseat_build_v1alpha1_release_proto_rawDesc), len(file_frontseat_build_v1alpha1_release_proto_rawDesc)),
-			NumEnums:      3,
+			NumEnums:      2,
 			NumMessages:   15,
 			NumExtensions: 0,
 			NumServices:   1,

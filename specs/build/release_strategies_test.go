@@ -82,7 +82,6 @@ func TestTheDefaultBranchReleasesWhatItReleasesAsStable(t *testing.T) {
 	greet := workspace.unitOf("greet")
 
 	spec.Expect(greet.next()).To(Equal("1.3.0"))
-	spec.Expect(greet.prerelease()).To(BeFalse())
 	spec.Expect(greet.channel()).To(Equal("latest"))
 }
 
@@ -98,7 +97,6 @@ func TestAnotherBranchReleasesAPrereleaseNamedByTheBranch(t *testing.T) {
 	greet := workspace.unitOf("greet")
 
 	spec.Expect(greet.next()).To(HavePrefix("1.3.0-feat-greet-by-name."))
-	spec.Expect(greet.prerelease()).To(BeTrue())
 	spec.Expect(greet.channel()).To(Equal("feat-greet-by-name"))
 }
 
