@@ -2,11 +2,11 @@ package sandbox_test
 
 import (
 	"context"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testidentity"
 	"time"
 
 	"github.com/frontseat-dev/frontseat/sdk/go"
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
+	"github.com/frontseat-dev/frontseat/server/testsupport/testidentity"
 	. "github.com/onsi/gomega"
 	"testing"
 )

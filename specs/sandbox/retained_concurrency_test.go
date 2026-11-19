@@ -2,11 +2,11 @@ package sandbox_test
 
 import (
 	"context"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testtelemetry"
 	"sync"
 	"time"
 
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
+	"github.com/frontseat-dev/frontseat/server/testsupport/testtelemetry"
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/proto"
 	"testing"

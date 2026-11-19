@@ -4,8 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testidentity"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testowner"
 	"io"
 	"net/http/httptest"
 	"os"
@@ -22,6 +20,8 @@ import (
 
 	"connectrpc.com/connect/v2"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testforge"
+	"github.com/frontseat-dev/frontseat/server/testsupport/testidentity"
+	"github.com/frontseat-dev/frontseat/server/testsupport/testowner"
 
 	"github.com/frontseat-dev/frontseat/sdk/go"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testbox"

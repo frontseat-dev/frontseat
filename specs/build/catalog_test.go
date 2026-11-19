@@ -1,11 +1,11 @@
 package build_test
 
 import (
+	"testing"
+
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/entity"
-	"testing"
-
 	. "github.com/onsi/gomega"
 	"strings"
 )

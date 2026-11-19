@@ -1,8 +1,9 @@
 package build_test
 
 import (
-	. "github.com/onsi/gomega"
 	"testing"
+
+	. "github.com/onsi/gomega"
 )
 
 // An entity is what people name: a component, in Backstage's words, by

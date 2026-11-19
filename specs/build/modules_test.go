@@ -1,8 +1,9 @@
 package build_test
 
 import (
-	. "github.com/onsi/gomega"
 	"testing"
+
+	. "github.com/onsi/gomega"
 )
 
 // The repository's real modules are built through the API on the grid. Local

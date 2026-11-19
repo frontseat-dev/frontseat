@@ -12,15 +12,11 @@ import "github.com/frontseat-dev/frontseat/sdk/go/entity"
 
 import (
 	"bufio"
-	connect "connectrpc.com/connect/v2"
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
 	"errors"
 	"fmt"
-	"github.com/frontseat-dev/frontseat/local/ports"
-	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testidentity"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -29,6 +25,10 @@ import (
 	"testing"
 	"time"
 
+	connect "connectrpc.com/connect/v2"
+	"github.com/frontseat-dev/frontseat/local/ports"
+	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
+	"github.com/frontseat-dev/frontseat/server/testsupport/testidentity"
 	. "github.com/onsi/gomega"
 	"golang.org/x/crypto/ssh"
 
@@ -423,7 +423,7 @@ func (spec *scenario) inASandboxOfItsOwn(create making) *Workspace {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	// Register the spec-owned name before creation: a lost reply still cleans it.
-	spec.Cleanup(func() { endedAt(create.Server, create.Name) })
+	spec.Cleanup(func() { endedAt(spec.TB, create.Server, create.Name) })
 	got, _, err := made(ctx, create)
 	spec.Expect(err).NotTo(HaveOccurred())
 	return &Workspace{spec, got}
@@ -833,13 +833,17 @@ func aName() string {
 
 // ended ends a workspace a spec made and waits until it is gone, so that
 // its name is free for the spec that comes after: ending is done by the
-// control plane, after the call that asks for it.
-func ended(name string) { endedAt(server, name) }
+// control plane, after the call that asks for it. One that cannot be
+// ended fails the spec, and one already gone is ended.
+func ended(t testing.TB, name string) { endedAt(t, server, name) }
 
-func endedAt(address, name string) {
+func endedAt(t testing.TB, address, name string) {
+	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-	_ = frontseat.New(address, owned(address)).Workspace(name).Delete(ctx)
+	if err := frontseat.New(address, owned(address)).Workspace(name).Delete(ctx); err != nil && connect.CodeOf(err) != connect.CodeNotFound {
+		t.Errorf("the workspace %s was not ended: %v", name, err)
+	}
 }
 
 // The test supplies operator telemetry settings to a private control plane.

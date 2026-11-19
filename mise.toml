@@ -198,8 +198,8 @@ description = "Everything, against the local grid and a container runtime"
 # makes every workspace's sandbox.
 #
 # Independent build acceptance tests use t.Parallel with six tests admitted
-# at once. The self-build, proxy-count check and process-environment tests
-# stay sequential. Go waits for the sequential tests before starting their
+# at once. The self-build and the process-environment tests stay
+# sequential. Go waits for the sequential tests before starting their
 # parallel siblings. This admission bound belongs to one test process;
 # independent grid shards still require isolated infrastructure.
 run = [

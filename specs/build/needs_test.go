@@ -1,8 +1,9 @@
 package build_test
 
 import (
-	. "github.com/onsi/gomega"
 	"testing"
+
+	. "github.com/onsi/gomega"
 )
 
 // Some actions read what another action left: a test reads what was

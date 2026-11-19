@@ -1,10 +1,11 @@
 package sandbox_test
 
 import (
-	. "github.com/onsi/gomega"
 	"strings"
 	"testing"
 	"time"
+
+	. "github.com/onsi/gomega"
 )
 
 // A workspace lives in a sandbox: a machine of its own, with the daemon

@@ -1,8 +1,9 @@
 package build_test
 
 import (
-	. "github.com/onsi/gomega"
 	"testing"
+
+	. "github.com/onsi/gomega"
 )
 
 // A repository says what frontseat must not see in .frontseatignore at its

@@ -51,7 +51,7 @@ func TestRetainedWorkspaceCleansALostCreationReplyAndKeepsItsNeighbour(t *testin
 	// what that cleanup actually left, then retries deletion if needed
 	// so a failing probe still cleans its own resources.
 	spec.Cleanup(func() {
-		defer endedAt(at, name)
+		defer endedAt(spec.TB, at, name)
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()
 		_, err := workspacesAt(at).DescribeWorkspace(ctx, &workspacev1.DescribeWorkspaceRequest{Name: name})

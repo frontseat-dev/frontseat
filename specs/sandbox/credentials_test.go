@@ -97,7 +97,7 @@ func TestAWorkspaceClonesARepositoryThatAsksAPasswordWhichItsSandboxNeverHolds(t
 	without, _, err := made(asking, private)
 	if without.Workspace != "" {
 		spec.Cleanup(func() {
-			ended(without.Workspace)
+			ended(spec.TB, without.Workspace)
 		})
 	}
 	spec.Expect(err).To(BeRefusedSaying("could not read Username"))

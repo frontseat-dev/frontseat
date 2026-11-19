@@ -16,7 +16,7 @@ import (
 // Packages come from the lock alone. It holds no checksum of a whole
 // package, only of the sections of one, so each package is a shared fetch
 // of its own that runs no tool: the daemon asks the grid's asset service
-// for the package by its address, through the proxy, and the fetch cuts
+// for the package by its address, and the fetch cuts
 // the control and data sections out by the lock's ranges, checks each
 // against the lock's checksum, and keeps them where apko's cache reads
 // them, with no network. A signing key the lock holds whole is a fetch

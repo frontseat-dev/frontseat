@@ -256,7 +256,7 @@ func (spec *scenario) attemptingAs(name string, checkout said) (opened, error) {
 	if got.Workspace != nil {
 		named := got.Workspace.Name()
 		spec.Cleanup(func() {
-			ended(named)
+			ended(spec.TB, named)
 		})
 	}
 	out := opened{reached: at, How: got.How}

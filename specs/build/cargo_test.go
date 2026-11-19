@@ -21,7 +21,7 @@ import (
 // itself, so each crate of crates.io a package depends on is a shared
 // fetch of its own that runs no tool: the daemon asks the grid's asset
 // service for the crate's archive by its URL and the lock's sha256, the
-// service fetches it once through the proxy, checks the sha256 before it
+// service fetches it once from its origin, checks the sha256 before it
 // keeps anything, and keeps it by URL and checksum for every repository
 // and daemon of the grid; the fetch unpacks it into cargo's home with no
 // network, beside the checksum file cargo's directory source reads. The
@@ -64,8 +64,8 @@ func TestASingleCargoPackageAtARepositorySRootIsOneProject(t *testing.T) {
 	spec.Expect(rootsOf(workspace.projects())).To(ConsistOf(""))
 }
 
-// Cargo packages / A package is built from its lock through the proxy, with what it requires beside it.
-func TestAPackageIsBuiltFromItsLockThroughTheProxyWithWhatItRequiresBesideIt(t *testing.T) {
+// Cargo packages / A package is built from its lock, with what it requires beside it.
+func TestAPackageIsBuiltFromItsLockWithWhatItRequiresBesideIt(t *testing.T) {
 	t.Parallel()
 	spec := newScenario(t)
 

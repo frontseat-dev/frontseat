@@ -11,13 +11,10 @@ package build_test
 import "github.com/frontseat-dev/frontseat/sdk/go/entity"
 
 import (
-	"connectrpc.com/connect/v2"
-	"connectrpc.com/connect/v2/connectproto"
 	"context"
 	"crypto/rand"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -28,6 +25,8 @@ import (
 	"testing"
 	"time"
 
+	"connectrpc.com/connect/v2"
+	"connectrpc.com/connect/v2/connectproto"
 	. "github.com/onsi/gomega"
 
 	"bytes"
@@ -646,17 +645,6 @@ func (w *Workspace) remove(path string) *Workspace {
 	return w
 }
 
-// commit commits what was changed, in each repository, and pushes
-// nothing.
-func (w *Workspace) commit() *Workspace {
-	w.scenario.Helper()
-	for name := range w.held() {
-		w.scenario.git(filepath.Join(w.directory, name), "add", "--all")
-		w.scenario.git(filepath.Join(w.directory, name), "-c", "user.name=someone", "-c", "user.email=someone@example.com", "commit", "--quiet", "--allow-empty", "-m", "work in progress")
-	}
-	return w
-}
-
 // setting is an option as a project is built with it: its value, and the
 // file that sets it, or "the plugin" where nothing does.
 type Setting struct {
@@ -1042,18 +1030,6 @@ func (spec *scenario) wrongChecksum(lock, module string, metadata bool) string {
 	return strings.Join(out, "\n")
 }
 
-// without is a lock with every line of one module left out.
-func (spec *scenario) without(lock, module string) string {
-	spec.Helper()
-	var out []string
-	for _, line := range strings.Split(strings.TrimSuffix(lock, "\n"), "\n") {
-		if !strings.HasPrefix(line, module+" ") {
-			out = append(out, line)
-		}
-	}
-	return strings.Join(out, "\n")
-}
-
 // ownerOf is the entity that owns one of the build's actions, as its
 // reference.
 func (b *Build) ownerOf(label string) string {
@@ -1102,29 +1078,6 @@ func (b *Build) events(from int64) []*buildv1.BuildEvent {
 		out = append(out, event)
 	}
 	return out
-}
-
-// started returns once the run's events say an action has started: the
-// run has read its source by then.
-func (b *Build) started(label string) {
-	b.scenario.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
-	stream, err := buildsAt(b.of.at).StreamBuildEvents(ctx, &buildv1.StreamBuildEventsRequest{BuildId: b.run.GetId()})
-	b.scenario.Expect(err).NotTo(HaveOccurred())
-	defer stream.Close()
-	for {
-		got, err := stream.Receive()
-		if errors.Is(err, io.EOF) {
-			b.scenario.Fatal("the run ended before " + label + " started")
-		}
-		b.scenario.Expect(err).NotTo(HaveOccurred())
-		for _, event := range got.GetEvents() {
-			if event.GetActionStarted().GetLabel() == label {
-				return
-			}
-		}
-	}
 }
 
 // covers are the projects the build planned actions of, sorted.
@@ -1628,21 +1581,6 @@ func (spec *scenario) releasable() *Source {
 	return s
 }
 
-// fromMain is the source made to release, released from its default
-// branch: kiosk, storefront, greet and log each say they branch by GitHub
-// Flow, where
-// the default branch releases, so that what a spec proves of versions and
-// tags it proves without a release branch. Release Flow, the default,
-// releases prereleases alone from the default branch.
-func (spec *scenario) fromMain() *Source {
-	spec.Helper()
-	return spec.releasable().
-		releases("system:kiosk", "branching: release:github-flow").
-		releases("system:storefront", "branching: release:github-flow").
-		releases("greet", "branching: release:github-flow").
-		releases("log", "branching: release:github-flow")
-}
-
 // syncedRetail is the source made to release, where the domain retail
 // says its systems version together, and holds lobby, of greet, beside
 // kiosk: a domain of two systems, each with members, in services.
@@ -1915,14 +1853,6 @@ func (w *Workspace) onBranch(repository, branch string) *Workspace {
 	return w
 }
 
-// backFromBranch works again on the branch a repository of the
-// workspace was on before.
-func (w *Workspace) backFromBranch(repository string) *Workspace {
-	w.scenario.Helper()
-	w.scenario.git(filepath.Join(w.directory, repository), "switch", "--quiet", "-")
-	return w
-}
-
 // tagsAtHead are the tags that name the commit a repository of the
 // workspace stands at.
 func (w *Workspace) tagsAtHead(repository string) []string {
@@ -1964,27 +1894,6 @@ func (w *Workspace) plan(how ...releaseRequest) *Plan {
 	p, err := w.planning(how...)
 	w.scenario.Expect(err).NotTo(HaveOccurred())
 	return p
-}
-
-// expectGroupSettingRefused holds that a plan of the system kiosk is
-// refused where its member banner says the line given, naming the key.
-func (spec *scenario) expectGroupSettingRefused(line, key string) {
-	spec.Helper()
-	workspace := spec.releasable().releases("banner", line).releaseWorkspace()
-
-	_, refusal := workspace.planning(spec.releaseOf("system:kiosk"))
-
-	spec.Expect(refusal).To(BeRefusedSaying("banner versions with kiosk, which says how it is released: spec.frontseat.release." + key))
-}
-
-// expectGreetUnchanged holds that a plan of greet in the workspace moves
-// it nowhere, as it has not changed.
-func (spec *scenario) expectGreetUnchanged(w *Workspace) {
-	spec.Helper()
-	greet := w.unitOf("greet")
-
-	spec.Expect(greet.next()).To(BeEmpty())
-	spec.Expect(greet.why()).To(Equal([]string{"unchanged"}))
 }
 
 // expectGreetBeforeKiosk holds that a plan of kiosk and greet in the
@@ -2053,6 +1962,9 @@ type Unit struct{ unit *buildv1.ReleaseUnit }
 // members are the names of the entities that take its version.
 func (u *Unit) members() []string { return names(u.unit.GetMembers()) }
 
+// channel is what it is published under.
+func (u *Unit) channel() string { return u.unit.GetChannel() }
+
 // group is the name of the group it versions with.
 func (u *Unit) group() string { return u.unit.GetGroup().GetName() }
 
@@ -2067,23 +1979,11 @@ func (u *Unit) last() string { return u.unit.GetLastVersion() }
 // next is what releasing makes it; empty where it holds.
 func (u *Unit) next() string { return u.unit.GetNextVersion() }
 
-// notes are its release notes, in Markdown.
-func (u *Unit) notes() string { return u.unit.GetNotes() }
-
 // tag is the tag releasing writes.
 func (u *Unit) tag() string { return u.unit.GetTag() }
 
 // dependsOn are the names of the plan's units it depends on.
 func (u *Unit) dependsOn() []string { return names(u.unit.GetDependsOn()) }
-
-// channel is what it is published under.
-func (u *Unit) channel() string { return u.unit.GetChannel() }
-
-// strategies are the versioning and branching strategies that answered
-// for it, as "<plugin>:<name>".
-func (u *Unit) strategies() []string {
-	return []string{u.unit.GetVersioningStrategy(), u.unit.GetBranchingStrategy()}
-}
 
 // why are its reasons, heaviest first, each in a line: "own change: feat:
 // page", "upstream: greet 1.3.0", "hold: greet 1.3.0", "unchanged",
@@ -2243,15 +2143,6 @@ func (w *Workspace) switchTo(repository, branch string) *Workspace {
 	return w
 }
 
-// cherryPicks copies the commit a branch stands at onto the branch a
-// repository of the workspace is on, recording where it came from, as
-// `git cherry-pick -x` does.
-func (w *Workspace) cherryPicks(repository, from string) *Workspace {
-	w.scenario.Helper()
-	w.scenario.git(filepath.Join(w.directory, repository), "-c", "user.name=someone", "-c", "user.email=someone@example.com", "cherry-pick", "-x", from)
-	return w
-}
-
 // breaks commits a change to a Go file of the workspace that does not
 // compile, as a fix that was not tried.
 func (w *Workspace) breaks(path string) *Workspace {
@@ -2317,7 +2208,6 @@ func (spec *scenario) greeterWorkspace(component, resource string) *Workspace {
 const greeterTest = `package svc
 
 import (
-	"io"
 	"net"
 	"os"
 	"strings"

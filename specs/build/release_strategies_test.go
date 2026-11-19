@@ -1,8 +1,9 @@
 package build_test
 
 import (
-	. "github.com/onsi/gomega"
 	"testing"
+
+	. "github.com/onsi/gomega"
 )
 
 // Frontseat builds the release graph: its units, what each depends on,
@@ -30,16 +31,6 @@ import (
 // checks what a strategy answers: a version above the last release, on
 // the branch's line, and new. The plan says which strategy answered for
 // each unit.
-// Release strategies / The plan says which strategies answered for a unit.
-func TestThePlanSaysWhichStrategiesAnsweredForAUnit(t *testing.T) {
-	t.Skip("Pending requirement: Release strategies / The plan says which strategies answered for a unit")
-	spec := newScenario(t)
-
-	plan := spec.releasable().releaseWorkspace().plan(spec.releaseOf("greet"))
-
-	spec.Expect(plan.unit("greet").strategies()).To(Equal([]string{"release:conventional-commits", "release:release-flow"}))
-}
-
 // Release strategies / A unit that says nothing of how it branches branches by Release Flow.
 func TestAUnitThatSaysNothingOfHowItBranchesBranchesByReleaseFlow(t *testing.T) {
 	t.Parallel()
@@ -48,88 +39,6 @@ func TestAUnitThatSaysNothingOfHowItBranchesBranchesByReleaseFlow(t *testing.T) 
 	workspace := spec.releasable().releaseWorkspace()
 
 	spec.Expect(workspace.releaseSetting("greet", "branching")).To(Equal(Setting{"release:release-flow", "the default"}))
-}
-
-// Release strategies / A strategy no listed plugin serves is refused by name.
-func TestAStrategyNoListedPluginServesIsRefusedByName(t *testing.T) {
-	t.Skip("Pending requirement: Release strategies / A strategy no listed plugin serves is refused by name")
-	spec := newScenario(t)
-
-	workspace := spec.releasable().releases("greet", "versioning: release:guesswork").releaseWorkspace()
-
-	_, refusal := workspace.planning(spec.releaseOf("greet"))
-
-	spec.Expect(refusal).To(BeRefusedSaying("no plugin the repository lists serves the versioning strategy release:guesswork"))
-}
-
-// Release strategies / A strategy is named with its plugin.
-func TestAStrategyIsNamedWithItsPlugin(t *testing.T) {
-	t.Skip("Pending requirement: Release strategies / A strategy is named with its plugin")
-	spec := newScenario(t)
-
-	workspace := spec.releasable().releases("greet", "versioning: conventional-commits").releaseWorkspace()
-
-	_, refusal := workspace.planning(spec.releaseOf("greet"))
-
-	spec.Expect(refusal).To(BeRefusedSaying("spec.frontseat.release.versioning conventional-commits must be <plugin>:<name>"))
-}
-
-// Release strategies / GitHub Flow / The default branch releases what it releases as stable.
-func TestTheDefaultBranchReleasesWhatItReleasesAsStable(t *testing.T) {
-	t.Skip("Pending requirement: Release strategies / GitHub Flow / The default branch releases what it releases as stable")
-	spec := newScenario(t)
-
-	workspace := spec.fromMain().releaseWorkspace().tagged("services", "greet/v1.2.3")
-	workspace.changesGreet("feat: greet by name")
-
-	greet := workspace.unitOf("greet")
-
-	spec.Expect(greet.next()).To(Equal("1.3.0"))
-	spec.Expect(greet.channel()).To(Equal("latest"))
-}
-
-// Release strategies / GitHub Flow / Another branch releases a prerelease, named by the branch.
-func TestAnotherBranchReleasesAPrereleaseNamedByTheBranch(t *testing.T) {
-	t.Skip("Pending requirement: Release strategies / GitHub Flow / Another branch releases a prerelease, named by the branch")
-	spec := newScenario(t)
-
-	workspace := spec.fromMain().releaseWorkspace().tagged("services", "greet/v1.2.3")
-	workspace.onBranch("services", "feat/greet-by-name").
-		changesGreet("feat: greet by name")
-
-	greet := workspace.unitOf("greet")
-
-	spec.Expect(greet.next()).To(MatchRegexp(`^1\.3\.0-feat-greet-by-name-\d{14}$`))
-	spec.Expect(greet.channel()).To(Equal("feat-greet-by-name"))
-}
-
-// Release strategies / GitHub Flow / A later commit's prerelease comes after an earlier one's.
-func TestALaterCommitSPrereleaseComesAfterAnEarlierOneS(t *testing.T) {
-	t.Skip("Pending requirement: Release strategies / GitHub Flow / A later commit's prerelease comes after an earlier one's")
-	spec := newScenario(t)
-
-	workspace := spec.fromMain().releaseWorkspace().tagged("services", "greet/v1.2.3")
-	workspace.onBranch("services", "next").
-		changesGreet("feat: greet by name")
-	earlier := workspace.unitOf("greet").next()
-	workspace.changesGreet("fix: spell the name")
-
-	spec.Expect(workspace.unitOf("greet").next() > earlier).To(BeTrue())
-}
-
-// Release strategies / GitHub Flow / A prerelease is no last release of what comes after it.
-func TestAPrereleaseIsNoLastReleaseOfWhatComesAfterIt(t *testing.T) {
-	t.Skip("Pending requirement: Release strategies / GitHub Flow / A prerelease is no last release of what comes after it")
-	spec := newScenario(t)
-
-	workspace := spec.fromMain().releaseWorkspace().tagged("services", "greet/v1.2.3")
-	workspace.onBranch("services", "next").
-		changesGreet("feat: greet by name").
-		tagged("services", "greet/v1.3.0-next-20261120101500").
-		backFromBranch("services")
-	workspace.changesGreet("fix: trim the greeting")
-
-	spec.Expect(workspace.unitOf("greet").last()).To(Equal("1.2.3"))
 }
 
 // Release strategies / Release Flow / The default branch releases a prerelease of the next minor.
@@ -265,47 +174,4 @@ func TestWhatLeavesAReleaseBranchSLineIsRefused(t *testing.T) {
 	_, refusal := workspace.planning(spec.releaseOf("greet"))
 
 	spec.Expect(refusal).To(BeRefusedSaying("greet 1.27.0 leaves the line 1.26 of release/1.26"))
-}
-
-// Release strategies / GitLab Flow / The default branch releases nothing.
-func TestReleaseStrategiesGitLabFlowTheDefaultBranchReleasesNothing(t *testing.T) {
-	t.Skip("Pending requirement: Release strategies / GitLab Flow / The default branch releases nothing")
-	spec := newScenario(t)
-
-	greet := spec.stable("fix: trim the greeting").unitOf("greet")
-
-	spec.Expect(greet.next()).To(BeEmpty())
-	spec.Expect(greet.why()).To(ContainElement(HavePrefix("branch: ")))
-}
-
-// Release strategies / GitLab Flow / What leaves a stable branch's line is refused.
-func TestWhatLeavesAStableBranchSLineIsRefused(t *testing.T) {
-	t.Skip("Pending requirement: Release strategies / GitLab Flow / What leaves a stable branch's line is refused")
-	spec := newScenario(t)
-
-	workspace := spec.stable("feat: greet by name").switchTo("services", "2-3-stable").cherryPicks("services", "main")
-
-	_, refusal := workspace.planning(spec.releaseOf("greet"))
-
-	spec.Expect(refusal).To(BeRefusedSaying("greet 2.4.0 leaves the line 2.3 of 2-3-stable"))
-}
-
-// Release strategies / GitLab Flow / A branch that is neither the default nor stable releases nothing.
-func TestABranchThatIsNeitherTheDefaultNorStableReleasesNothing(t *testing.T) {
-	t.Skip("Pending requirement: Release strategies / GitLab Flow / A branch that is neither the default nor stable releases nothing")
-	spec := newScenario(t)
-
-	workspace := spec.stable("fix: trim the greeting").onBranch("services", "feature/names")
-	workspace.changesGreet("fix: spell the name")
-
-	spec.Expect(workspace.unitOf("greet").next()).To(BeEmpty())
-}
-
-func (spec *scenario) stable(message string) *Workspace {
-	spec.Helper()
-	workspace := spec.releasable().releases("greet", "branching: release:gitlab-flow").releaseWorkspace().
-		tagged("services", "greet/v2.3.0").
-		onBranch("services", "2-3-stable").
-		backFromBranch("services")
-	return workspace.commits(message, "services/greet/greet.go")
 }

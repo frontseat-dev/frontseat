@@ -288,7 +288,12 @@ the change that fixes it.
   says `grouping: synced` as one group. A System is synced unless it says
   independent; a Domain only where it says synced. Groups are the
   catalog's own containment (`spec.system`, `spec.domain`), never a list
-  a person writes. Held by: `specs/build/releases_test.go`.
+  a person writes. Held by the release specs that run
+  (`specs/build/releases_test.go`):
+  `TestASystemIsPlannedAsOneUnitOfAllItsMembersOnOneVersionAndOneTag`,
+  `TestADomainThatSaysNothingLeavesEachOfItsSystemsAGroupOfItsOwn`,
+  `TestADomainThatSaysSyncedIsOneGroupAcrossItsSystems` and
+  `TestAComponentOrASystemOfASyncedDomainIsReleasedWithItsDomainUnlessItSaysIndependent`.
 - A branch that releases nothing stable releases a prerelease, where
   its branching strategy says so (Release Flow: every branch that is no
   release branch): of the version its commits give since the unit's
@@ -507,15 +512,26 @@ the change that fixes it.
 - Versions never go backwards: a unit with no release of its own
   continues above the highest version its members, their Systems or
   their Domain were released at, by the next bump its strategy gives.
+  Held by:
+  `TestVersionsNeverGoBackwardsADomainContinuesAboveWhatItsNameAndItsSystemsWereReleasedAs`
+  and the planner's
+  `TestVersionsNeverGoBackwardsAUnitContinuesAboveWhatItsMembersWereReleasedAs`.
 - A System inside a synced Domain says `grouping: independent` or
   nothing; `synced` there is refused by name, and so is any other release
-  setting, which is the Domain's to say.
+  setting, which is the Domain's to say. Held by:
+  `TestASystemOfASyncedDomainThatSaysHowItIsReleasedIsRefusedNamingTheSetting`
+  and the planner's `TestASystemOfASyncedDomainThatSaysSyncedIsRefusedByName`.
 - Refused by name, not served: a Domain within a Domain
   (`spec.subdomainOf`), anywhere in what a unit is part of; releasing a
-  unit's dependents; a manual version.
+  unit's dependents; a manual version. Held by:
+  `TestADomainWithinADomainIsNotServedAndIsRefusedNamingIt` and the
+  planner's `TestWhatIsNotServedOfGroupingIsRefusedAsThat`
+  (`server/internal/engine/release/plan_test.go`). Not held: no spec
+  asks for a unit's dependents or for a manual version.
 - The workspace holds every System and Domain a released entity is part
   of; where it does not, planning is refused by name, since the group
-  decides what the entity releases as.
+  decides what the entity releases as. Held by:
+  `TestWhatAnEntityIsPartOfThatTheWorkspaceDoesNotHoldIsRefusedByName`.
 - **What a release builds is given its version, the same way whatever
   builds it.** An action says it is versioned (the contract's
   `Action.versioned`; `versioned: true` on a Component's own action), and

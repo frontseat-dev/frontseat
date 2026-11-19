@@ -13,8 +13,9 @@ export GRID_CONCURRENCY $slots
 export GRID_EGRESS $egress
 export GRID_SERVICES $services
 # Each slot's directory is its sandbox's alone to write, where its
-# bb_runner makes its socket: the runner image's user (65532) as
-# frontseat's rootless Podman maps it (its subordinate ids from 100000).
+# runner (frontseat-runner) makes its socket: the runner image's user
+# (65532) as frontseat's rootless Podman maps it (its subordinate ids
+# from 100000, so 100000 + 65532 - 1; local/held_test.go holds it).
 if { forbacktickx -E slot { seq 1 $slots } if { mkdir -p /var/lib/frontseat/worker/${slot}/build } chown 165531:165531 /var/lib/frontseat/worker/${slot} }
 # The services runner's build directory, mounted by the worker too.
 if { mkdir -p /var/lib/frontseat/worker/services/build }

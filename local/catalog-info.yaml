@@ -39,20 +39,9 @@ kind: Resource
 metadata:
   name: asset-service
   namespace: frontseat
-  description: "Buildbarn's remote asset service, which fetches a download through the proxy and keeps it by its checksum"
+  description: "Buildbarn's remote asset service, which fetches a download from its origin and keeps it by its checksum"
 spec:
   type: service
-  owner: jbadeau
-  system: grid
----
-apiVersion: backstage.io/v1alpha1
-kind: Resource
-metadata:
-  name: artifact-proxy
-  namespace: frontseat
-  description: "Artifact Keeper, the one door to the outside"
-spec:
-  type: proxy
   owner: jbadeau
   system: grid
 ---

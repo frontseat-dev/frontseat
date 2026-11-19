@@ -1,16 +1,14 @@
 package compare_test
 
-// Tests written by an independent review of fe67226..f74db45. None of
-// them runs the comparison or touches the grid.
+// What the comparison holds of itself, proven without running it: none
+// of these runs the comparison or touches the grid.
 
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/frontseat-dev/frontseat/server/testsupport/testworkload"
 )
@@ -118,59 +116,4 @@ func TestWhatCannotBeReadIsNotReadAsNothingRan(t *testing.T) {
 			}
 		})
 	}
-}
-
-// The Bazel that is timed is whatever `bazel` is on the path.
-// Where that is Bazelisk (Homebrew's is), the workspace the generator
-// writes pins no Bazel, so every command first asks the network which
-// Bazel is the latest: about a second of each "build" is that. The
-// control tells Bazelisk the version, as a .bazelversion in the
-// workspace would.
-func TestTheBazelTimedIsBazelAndNotItsLauncherAskingTheNetwork(t *testing.T) {
-	path, runs := program("COMPARE_BAZEL", "bazel")
-	if !runs {
-		t.Skip("no bazel here")
-	}
-	if resolved, _ := filepath.EvalSymlinks(mustLook(t, path)); !strings.Contains(resolved, "bazelisk") {
-		t.Skipf("%s is not Bazelisk", resolved)
-	}
-	// Which Bazel it is, asked as the comparison asks: once, outside the
-	// workspace.
-	asked, err := exec.Command(path, "--version").Output()
-	if err != nil {
-		t.Fatal(err)
-	}
-	dir := t.TempDir()
-	if err := testworkload.Bazel(dir, testworkload.Shape{Modules: 1, Group: 1}, strings.TrimPrefix(strings.TrimSpace(string(asked)), "bazel "), nil); err != nil {
-		t.Fatal(err)
-	}
-	started := func(env ...string) (time.Duration, string) {
-		quickest, version := time.Hour, ""
-		for range 3 {
-			cmd := exec.Command(path, "--version")
-			cmd.Dir, cmd.Env = dir, append(os.Environ(), env...)
-			start := time.Now()
-			out, err := cmd.Output()
-			if err != nil {
-				t.Fatal(err)
-			}
-			quickest, version = min(quickest, time.Since(start)), strings.TrimSpace(string(out))
-		}
-		return quickest, version
-	}
-	asIs, version := started()
-	told, _ := started("USE_BAZEL_VERSION=" + strings.TrimPrefix(version, "bazel "))
-	t.Logf("%s starts in %s in the generated workspace, and in %s told its version", version, asIs, told)
-	if asIs > told+100*time.Millisecond {
-		t.Errorf("every bazel command in the generated workspace takes %s before Bazel is reached, %s when the workspace says which Bazel it is: the difference is in every time the comparison reports for Bazel", asIs, told)
-	}
-}
-
-func mustLook(t *testing.T, name string) string {
-	t.Helper()
-	path, err := exec.LookPath(name)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return path
 }

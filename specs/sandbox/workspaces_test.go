@@ -137,7 +137,7 @@ func (spec *scenario) asked(ctx context.Context, request *workspacev1.CreateWork
 	made, err := workspaces.CreateWorkspace(ctx, request)
 	spec.Expect(err).NotTo(HaveOccurred())
 	name := made.GetWorkspace().GetName()
-	spec.Cleanup(func() { ended(name) })
+	spec.Cleanup(func() { ended(spec.TB, name) })
 	last := spec.ready(ctx, workspaces, name)
 	// As it is once ready: where its daemon is is known once its
 	// sandbox is.

@@ -2,9 +2,9 @@ package sandbox_test
 
 import (
 	"context"
-	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	"testing"
 
+	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	. "github.com/onsi/gomega"
 )
 

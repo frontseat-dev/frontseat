@@ -54,9 +54,10 @@ func TestBuildsThisRepositorySModulesAndAPIFromItsCommittedConfiguration(t *test
 
 // Frontseat tests itself: what `frontseat test` asks of this repository,
 // every test its plugins find, Go's by package and Cargo's by crate, run
-// on the grid as actions, each given its program, the repository as one
-// tree, the modules its compile is given and the tools its Component's
-// catalog file names. A test that needs the local stack itself says so
+// on the grid as actions, each given its program, its package's own
+// directory and its testdata, the modules its compile is given, what its
+// Component's catalog file names of the repository beyond it
+// (spec.frontseat.test.inputs) and the tools that file names. A test that needs the local stack itself says so
 // and is skipped there, as `mise run check` skips it (its Component's
 // catalog file tells it there is none); `mise run test` runs it.
 // Frontseat builds itself / runs this repository's own tests on the grid.
@@ -138,7 +139,7 @@ func TestIsTheDomainItsCatalogFilesDeclareWhoseComponentsOwnEveryProject(t *test
 	// The APIs, the Resources and the Location are entities that own no
 	// source, and what is said of the APIs comes out as Backstage's
 	// relations, both ways.
-	for _, ref := range []string{"api:frontseat/build-api", "api:frontseat/workspace-api", "api:frontseat/sandbox-api", "api:frontseat/credential-api", "api:frontseat/plugin-api", "resource:frontseat/buildbarn", "resource:frontseat/asset-service", "resource:frontseat/artifact-proxy", "resource:frontseat/openshell-gateway", "location:frontseat/frontseat-catalog"} {
+	for _, ref := range []string{"api:frontseat/build-api", "api:frontseat/workspace-api", "api:frontseat/sandbox-api", "api:frontseat/credential-api", "api:frontseat/plugin-api", "resource:frontseat/buildbarn", "resource:frontseat/asset-service", "resource:frontseat/openshell-gateway", "location:frontseat/frontseat-catalog"} {
 		spec.Expect(entities).To(HaveKey(ref))
 		spec.Expect(entities[ref].GetRoots()).To(BeEmpty(), ref)
 	}
