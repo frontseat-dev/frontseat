@@ -149,6 +149,21 @@ func TestNothingOfARunsLinesIsActedOnByATerminal(t *testing.T) {
 	}
 }
 
+// An action that was not run, for what it needed did not pass, is said
+// to be skipped, with what stopped it, and never to be in error.
+func TestASkippedActionIsSaidToBeSkipped(t *testing.T) {
+	var out strings.Builder
+	printer := plain.Printer{Out: &out}
+
+	printer.Event(&buildv1.BuildEvent{Event: &buildv1.BuildEvent_ActionFinished_{ActionFinished: &buildv1.BuildEvent_ActionFinished{Result: &buildv1.ActionResult{Label: "//a:b", Outcome: buildv1.Outcome_OUTCOME_SKIPPED, Message: "not run: //a:c failed"}}}})
+	printer.Event(&buildv1.BuildEvent{Event: &buildv1.BuildEvent_ActionFinished_{ActionFinished: &buildv1.BuildEvent_ActionFinished{Result: &buildv1.ActionResult{Label: "//a:d", Outcome: buildv1.Outcome_OUTCOME_ERROR, Message: "the grid could not stage it"}}}})
+
+	want := "skipped //a:b  not run: //a:c failed\nERROR   //a:d  the grid could not stage it\n"
+	if got := out.String(); got != want {
+		t.Errorf("printed %q, want %q", got, want)
+	}
+}
+
 // A value of an enum is said in words, without its enum's name; one the
 // contract does not name is said by its number.
 func TestAnEnumsValueIsSaidInWords(t *testing.T) {
@@ -162,5 +177,26 @@ func TestAnEnumsValueIsSaidInWords(t *testing.T) {
 		if got := plain.Word(value); got != want {
 			t.Errorf("%v is said %q, want %q", value, got, want)
 		}
+	}
+}
+
+// An action the grid answered from what it kept is said to be, so that
+// it is not taken for one that ran; and what a build found of the
+// workspace as a whole is printed beneath how it ended.
+func TestACachedActionAndABuildsFindingsAreSaid(t *testing.T) {
+	var out strings.Builder
+	printer := plain.Printer{Out: &out}
+
+	printer.Event(&buildv1.BuildEvent{Event: &buildv1.BuildEvent_ActionFinished_{ActionFinished: &buildv1.BuildEvent_ActionFinished{Result: &buildv1.ActionResult{Label: "//a:b", Outcome: buildv1.Outcome_OUTCOME_PASSED, Provenance: buildv1.Provenance_PROVENANCE_GRID_CACHE}}}})
+	printer.Event(&buildv1.BuildEvent{Event: &buildv1.BuildEvent_Finished_{Finished: &buildv1.BuildEvent_Finished{Build: &buildv1.Build{
+		ExitCode:    &buildv1.ExitCode{Name: "BUILD_FAILURE", Code: 1},
+		Diagnostics: []*typev1.Diagnostic{{RuleId: "catalog/duplicate-entity", Message: "gateway is described twice", SourceLocation: &typev1.SourceLocation{Path: "catalog-info.yaml", Line: 3}}},
+	}}}})
+
+	if !strings.Contains(out.String(), "passed  //a:b  0s  cached\n") {
+		t.Errorf("printed %q, want the action said to be cached", out.String())
+	}
+	if !strings.Contains(out.String(), "        catalog-info.yaml:3  catalog/duplicate-entity  gateway is described twice\n") {
+		t.Errorf("printed %q, want what the build found", out.String())
 	}
 }

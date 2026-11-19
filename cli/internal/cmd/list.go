@@ -5,6 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/frontseat-dev/frontseat/cli/internal/ui/plain"
 	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/entity"
 )
@@ -27,7 +28,10 @@ name, where it is, and what it was asked for with. A name is what
 			return err
 		}
 		for _, each := range got {
-			said("%s  %s  %s", each.GetName(), strings.ToLower(strings.TrimPrefix(each.GetStatus().GetState().String(), "STATE_")), askedFor(each.GetSpec()))
+			said("%s  %s  %s", each.GetName(), plain.Word(each.GetStatus().GetState()), askedFor(each.GetSpec()))
+			if why := each.GetStatus().GetFailure(); why != "" {
+				said("  %s", plain.Shown(why))
+			}
 		}
 		return nil
 	},
@@ -44,7 +48,8 @@ func askedFor(spec *workspacev1.WorkspaceSpec) string {
 		parts = append(parts, part)
 	}
 	for _, ref := range spec.GetEntities() {
-		parts = append(parts, entity.FromProto(ref).String())
+		// As it was asked for: a namespace left out stands for any.
+		parts = append(parts, entity.FromTypedProto(ref).Written())
 	}
 	if spec.GetPush() {
 		parts = append(parts, "(may push)")

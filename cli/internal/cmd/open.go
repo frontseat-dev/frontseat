@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -117,6 +118,11 @@ func openNamed(ctx context.Context, fs *frontseat.Client, args []string, flags *
 		return err
 	}
 	spec := frontseat.Spec{AuthorizedKey: key}
+	// A directory names the checkout a workspace is opened of, and is
+	// given with nothing named.
+	if flags.Changed("directory") {
+		return errors.New("--directory names the checkout to open a workspace of, and is given with no workspace, repository or entity named")
+	}
 	// One word that can be a workspace's name is read as one: an entity
 	// is written with its kind.
 	if len(args) == 1 && frontseat.IsWorkspaceName(args[0]) {
@@ -177,7 +183,7 @@ func entered(ctx context.Context, repository string) error {
 	if !term.IsTerminal(int(os.Stdin.Fd())) || !term.IsTerminal(int(os.Stdout.Fd())) {
 		return nil
 	}
-	err := shell(ctx, []string{"-t", "frontseat-workspace", entering(repository)})
+	err := shell(ctx, "", true, []string{entering(repository)})
 	if exitCode != 255 {
 		exitCode = 0
 	}

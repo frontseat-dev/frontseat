@@ -4,6 +4,8 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	"github.com/frontseat-dev/frontseat/cli/internal/ui/plain"
 )
 
 // workspaceCmd represents the workspace command
@@ -48,11 +50,15 @@ func describe(cmd *cobra.Command) error {
 	if err != nil {
 		return err
 	}
-	state := strings.ToLower(strings.TrimPrefix(held.GetStatus().GetState().String(), "STATE_"))
+	state := plain.Word(held.GetStatus().GetState())
 	if held.GetName() != "" {
 		said("%s  %s", held.GetName(), state)
 	} else {
 		said("%s", state)
+	}
+	// Why it failed, or what keeps it from going on.
+	if why := held.GetStatus().GetFailure(); why != "" {
+		said("  %s", plain.Shown(why))
 	}
 	for _, r := range held.GetStatus().GetRepositories() {
 		switch {
