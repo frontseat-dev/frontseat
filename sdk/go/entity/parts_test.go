@@ -5,7 +5,9 @@ import (
 	"testing"
 )
 
-func TestReviewIdentityASCIIAndLengthBoundary(t *testing.T) {
+// Each part of an identity is ASCII, of at most 255, beginning and ending
+// with a letter or a digit; anything else is refused, in any part.
+func TestAnIdentitysPartsAreASCIIOfAtMost255(t *testing.T) {
 	for part := 0; part < 3; part++ {
 		for _, v := range []string{"a", "A", "1", "a-b_c.d", strings.Repeat("a", 63), strings.Repeat("a", 64), strings.Repeat("a", 254), strings.Repeat("a", 255)} {
 			values := []string{"service-blueprint", "tenant.scope", "name"}
