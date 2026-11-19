@@ -35,7 +35,8 @@ const (
 // Identity returns a directory of the test's holding what the gateway is
 // known by and knows a caller by: ca.crt, tls.crt and tls.key, copied
 // out of its container, readable by the test alone and gone with it. It
-// skips the test where no gateway answers.
+// skips the test where no gateway answers, or fails it where the gate
+// runs against the stack (testrequired.Missing).
 func Identity(t testing.TB) string {
 	t.Helper()
 	return identity(t, false, t.TempDir())
@@ -71,7 +72,7 @@ func identity(t testing.TB, needed bool, directory string) string {
 		if needed {
 			t.Fatalf("no OpenShell gateway answers on %s, and the test was asked to run over one: %v", Listens, err)
 		}
-		t.Skipf("no OpenShell gateway answers on %s: %v", Listens, err)
+		testrequired.Missing(t, "no OpenShell gateway answers on %s: %v", Listens, err)
 	}
 	_ = conn.Close()
 	if err := os.MkdirAll(directory, 0o700); err != nil {

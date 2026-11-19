@@ -3,8 +3,6 @@ package e2e
 import (
 	"context"
 	"fmt"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testowner"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testrequired"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -15,8 +13,11 @@ import (
 	connect "connectrpc.com/connect/v2"
 	"github.com/frontseat-dev/frontseat/sdk/go"
 	sandboxv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/sandbox/v1alpha1"
+	"github.com/frontseat-dev/frontseat/server/testsupport/testbox"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testforge"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testgateway"
+	"github.com/frontseat-dev/frontseat/server/testsupport/testowner"
+	"github.com/frontseat-dev/frontseat/server/testsupport/testrequired"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testsandbox"
 
 	"github.com/frontseat-dev/frontseat/server/testsupport/testmodule"
@@ -38,15 +39,13 @@ func ran(t *testing.T, dir string, timeout time.Duration, name string, args ...s
 }
 
 // TestTheLocalBuildMakesAWorkspaceAndBuildsIt is the journey a person
-// takes with this checkout, as README's "Getting Started" writes it: `mise run
+// takes with this checkout, as CONTRIBUTING.md writes it: `mise run
 // build` makes dist/ and the box image (frontseat-local box), mise puts
 // dist/bin on the PATH here, frontseat-local serves sandboxes, and the
 // frontseat just built makes a workspace of a checkout and builds it.
 func TestTheLocalBuildMakesAWorkspaceAndBuildsIt(t *testing.T) {
 	testrequired.Stack(t)
-	if _, err := exec.Command("docker", "info", "--format", "{{.Architecture}}").Output(); err != nil {
-		t.Skipf("no container runtime answers: %v", err)
-	}
+	testbox.Runtime(t)
 	root, err := testmodule.Root()
 	if err != nil {
 		t.Fatal(err)

@@ -14,6 +14,7 @@ package testbox
 import (
 	"os"
 	"os/exec"
+	"sync"
 	"testing"
 
 	"github.com/frontseat-dev/frontseat/local"
@@ -23,15 +24,31 @@ import (
 // Variable names the box image the gate built for the tests it runs.
 const Variable = "FRONTSEAT_TEST_BOX"
 
-// Image returns the box image's tag, as the gate built it. A machine
-// with no container runtime skips the test; a test the gate did not run
-// fails, saying how it is run.
-func Image(t testing.TB) string {
+// answers is whether the container runtime answers, asked once for the
+// test process.
+var answers = sync.OnceValue(func() error {
+	return exec.Command("docker", "info", "--format", "{{.Architecture}}").Run()
+})
+
+// Runtime is said by a test that needs the container runtime the local
+// stack runs on, before it asks it anything: it says the test needs the
+// stack (testrequired.Stack) and, where the runtime does not answer,
+// skips the test, or fails it where the gate runs against the stack
+// (testrequired.Missing). It is the test support's one asking of it.
+func Runtime(t testing.TB) {
 	t.Helper()
 	testrequired.Stack(t)
-	if _, err := exec.Command("docker", "info", "--format", "{{.Architecture}}").Output(); err != nil {
-		t.Skipf("no container runtime answers: %v", err)
+	if err := answers(); err != nil {
+		testrequired.Missing(t, "no container runtime answers: %v", err)
 	}
+}
+
+// Image returns the box image's tag, as the gate built it. A machine
+// with no container runtime skips the test, as Runtime does; a test the
+// gate did not run fails, saying how it is run.
+func Image(t testing.TB) string {
+	t.Helper()
+	Runtime(t)
 	tag := os.Getenv(Variable)
 	if tag == "" {
 		t.Fatalf("%s names no box image: the gate builds it before the tests it runs (`mise run go:test -- ...`)", Variable)

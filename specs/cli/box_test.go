@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/frontseat-dev/frontseat/local/box"
+	"github.com/frontseat-dev/frontseat/server/testsupport/testbox"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testmodule"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testrequired"
 )
@@ -23,10 +24,8 @@ import (
 // it made the first time.
 func TestABoxHoldsThePluginsItWasBuiltWithWhateverABuildBeforeItHeld(t *testing.T) {
 	testrequired.Stack(t)
+	testbox.Runtime(t)
 	ctx := context.Background()
-	if err := box.Answers(ctx); err != nil {
-		t.Skipf("no container runtime answers: %v", err)
-	}
 	root, err := testmodule.Root()
 	if err != nil {
 		t.Fatal(err)

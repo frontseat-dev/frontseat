@@ -103,16 +103,22 @@ func TestADirectoryRunAloneIsEveryPackageBeneathItAndNoOther(t *testing.T) {
 }
 
 // The gate says the stack word itself: none where it runs with no stack,
-// and nothing otherwise, whatever it was itself given; and it passes go
-// no GOFLAGS, which would add to what its task says. A variable that only
-// begins alike is passed, as the control.
+// required where it runs the tests against it, and nothing otherwise,
+// whatever it was itself given; it names no grid in the stack's place,
+// whoever exported one; and it passes go no GOFLAGS, which would add to
+// what its task says. A variable that only begins alike is passed, as the
+// control.
 func TestTheGateSaysItsOwnWordOnTheStack(t *testing.T) {
-	given := []string{"HOME=/h", testrequired.Variable + "=" + testrequired.NoStack, "X=1", "GOFLAGS=-run=TestA -short", "GOFLAGSX=1", testbox.Variable + "=frontseat-box:another", testgrid.ConfinerVariable + "=/bb/another"}
+	given := []string{"HOME=/h", testrequired.Variable + "=" + testrequired.NoStack, "X=1", "GOFLAGS=-run=TestA -short", "GOFLAGSX=1", testbox.Variable + "=frontseat-box:another", testgrid.ConfinerVariable + "=/bb/another", testgrid.Variable + "=elsewhere:1", testgrid.Variable + "X=1"}
 	given = append(given, "DOCKER_HOST=unix:///engine.sock", "DOCKER_CONTEXT=orbstack")
-	if got := strings.Join(environment(given, false, "A=b"), " "); got != "HOME=/h X=1 GOFLAGSX=1 DOCKER_HOST=unix:///engine.sock DOCKER_CONTEXT=orbstack "+strings.Join(isolated, " ")+" A=b" {
-		t.Errorf("a gate with the stack runs with %q", got)
+	const kept = "HOME=/h X=1 GOFLAGSX=1 " + testgrid.Variable + "X=1"
+	if got := strings.Join(environment(given, unsaid, "A=b"), " "); got != kept+" DOCKER_HOST=unix:///engine.sock DOCKER_CONTEXT=orbstack "+strings.Join(isolated, " ")+" A=b" {
+		t.Errorf("a gate that says nothing of the stack runs with %q", got)
 	}
-	if got := strings.Join(environment(given, true), " "); got != "HOME=/h X=1 GOFLAGSX=1 "+testrequired.Variable+"="+testrequired.NoStack+" DOCKER_HOST="+NoEngine+" "+strings.Join(isolated, " ") {
+	if got := strings.Join(environment(given, required), " "); got != kept+" DOCKER_HOST=unix:///engine.sock DOCKER_CONTEXT=orbstack "+testrequired.Variable+"="+testrequired.Required+" "+strings.Join(isolated, " ") {
+		t.Errorf("a gate against the stack runs with %q", got)
+	}
+	if got := strings.Join(environment(given, none), " "); got != kept+" "+testrequired.Variable+"="+testrequired.NoStack+" DOCKER_HOST="+NoEngine+" "+strings.Join(isolated, " ") {
 		t.Errorf("a gate with no stack runs with %q", got)
 	}
 }
@@ -123,7 +129,7 @@ func TestTheGateSaysItsOwnWordOnTheStack(t *testing.T) {
 // was given, a person's settings naming a helper, which finds it.
 func TestWhatAGateRunsReadsNoneOfThisMachinesGitSettings(t *testing.T) {
 	given := []string{"HOME=/h", "GIT_CONFIG_GLOBAL=/h/.gitconfig", "GIT_CONFIG_SYSTEM=/etc/gitconfig", "GIT_CONFIG_NOSYSTEM=0", "GIT_CONFIG_COUNT=1", "GIT_CONFIG_KEY_0=credential.helper", "GIT_CONFIG_VALUE_0=given"}
-	if got := strings.Join(environment(given, false), " "); got != "HOME=/h "+strings.Join(isolated, " ") {
+	if got := strings.Join(environment(given, unsaid), " "); got != "HOME=/h "+strings.Join(isolated, " ") {
 		t.Errorf("a gate runs with %q", got)
 	}
 	own := filepath.Join(t.TempDir(), "gitconfig")
@@ -145,7 +151,7 @@ func TestWhatAGateRunsReadsNoneOfThisMachinesGitSettings(t *testing.T) {
 		out, _ := cmd.Output()
 		return strings.TrimSpace(string(out))
 	}
-	if got := helper(environment(person, false)); strings.Contains(got, "planted") || got != "" {
+	if got := helper(environment(person, unsaid)); strings.Contains(got, "planted") || got != "" {
 		t.Errorf("git run as a gate runs it finds the credential helper %q", got)
 	}
 	if got := helper(person); !strings.Contains(got, "planted") {
@@ -169,7 +175,7 @@ func TestWhatAGateRunsReadsNoneOfThisMachinesGitSettings(t *testing.T) {
 		cmd.Dir, cmd.Env = dir, append(env, "XDG_CONFIG_HOME="+xdg)
 		return cmd.Run() == nil
 	}
-	if ignored(environment(os.Environ(), false)) {
+	if ignored(environment(os.Environ(), unsaid)) {
 		t.Error("git run as a gate runs it reads a person's own ignore file")
 	}
 	if !ignored(person) {
@@ -191,21 +197,21 @@ func TestAnExportedWordOnTheStackIsNotTheGates(t *testing.T) {
 	}); code != 0 {
 		t.Fatalf("with %s=%s exported, a gate that needs the stack told its test there was none (exit %d):\n%s", testrequired.Variable, testrequired.NoStack, code, printed)
 	}
-	if code, printed := ofThisPackage(t, true, "TestTheStackWordAsTheGateGaveIt"); code == 0 {
+	if code, printed := ofThisPackage(t, none, "TestTheStackWordAsTheGateGaveIt"); code == 0 {
 		t.Fatalf("the control, a test told there is no stack, passed:\n%s", printed)
 	}
 }
 
 // ofThisPackage runs one test of this package as the gate runs a test
 // program, with no stack or with it, quietly, outside any gate.
-func ofThisPackage(t *testing.T, stackless bool, test string) (int, string) {
+func ofThisPackage(t *testing.T, word stack, test string) (int, string) {
 	t.Helper()
 	root, err := testmodule.Root()
 	if err != nil {
 		t.Fatal(err)
 	}
 	return quietly(t, func() int {
-		return run(root, environment(os.Environ(), stackless, source(root)), "go", "test", "-count=1", "-run", "^"+test+"$", "./specs/cmd/gate/")
+		return run(root, environment(os.Environ(), word, source(root)), "go", "test", "-count=1", "-run", "^"+test+"$", "./specs/cmd/gate/")
 	})
 }
 
@@ -271,9 +277,71 @@ func TestAGateWithNoStackReachesNoContainerRuntime(t *testing.T) {
 	}
 	// The control is told of the engine alone, and of no context.
 	t.Setenv("DOCKER_CONTEXT", "")
-	if code, printed := ofThisPackage(t, false, "TestTheRuntimeAsATestMightReachIt"); code == 0 || !strings.Contains(printed, "reached the engine") {
+	if code, printed := ofThisPackage(t, unsaid, "TestTheRuntimeAsATestMightReachIt"); code == 0 || !strings.Contains(printed, "reached the engine") {
 		t.Fatalf("the control, a test given the engine this test serves, did not reach it:\n%s", printed)
 	}
+}
+
+// A gate that runs the tests with the stack fails, naming it, where no
+// stack answers, before it runs a test: a test that needs the stack is
+// never left to skip, and the gate to end green with no spec of the
+// stack run. Here the container runtime is named as an engine nothing
+// listens at, so no stack answers whatever this machine runs. The
+// control is the same gate with -no-stack, which runs.
+func TestAGateThatNeedsTheStackFailsWhereNoneAnswers(t *testing.T) {
+	runsTheGate(t)
+	t.Setenv("DOCKER_HOST", NoEngine)
+	t.Setenv("DOCKER_CONTEXT", "")
+	only := []string{"-only", "specs/cmd/gate", "--", "-count=1", "-run", "^TestTheStackWordAsTheGateGaveIt$"}
+	code, printed := quietly(t, func() int { return gate(append([]string{"test"}, only...)) })
+	if code == 0 || !strings.Contains(printed, "no local stack answers") {
+		t.Fatalf("a gate that needs the stack ran with none (exit %d):\n%s", code, printed)
+	}
+	if strings.Contains(printed, "ok ") || strings.Contains(printed, "PASS") {
+		t.Errorf("a gate that needs the stack ran a test before it found none:\n%s", printed)
+	}
+	if code, printed := quietly(t, func() int { return gate(append([]string{"test", "-no-stack"}, only...)) }); code != 0 {
+		t.Fatalf("the control, a gate with no stack, failed (exit %d):\n%s", code, printed)
+	}
+}
+
+// A gate a person runs by hand over tests of their choosing (go-test,
+// `mise run go:test`) does not end green with a test of the stack
+// skipped: where the container runtime does not answer, here an engine
+// nothing listens at, a test that needs it fails, naming it. The control
+// is the same test run with nothing said of the stack, as go test alone
+// runs it, which is skipped and passes.
+func TestATestOfTheStackFailsInAGateRunByHandWhereNoStackAnswers(t *testing.T) {
+	runsTheGate(t)
+	t.Setenv("DOCKER_HOST", NoEngine)
+	t.Setenv("DOCKER_CONTEXT", "")
+	t.Setenv(needTheRuntime, "1")
+	code, printed := quietly(t, func() int {
+		return gate([]string{"go-test", "-count=1", "-v", "-run", "^TestTheRuntimeAsATestNeedsIt$", "./specs/cmd/gate/"})
+	})
+	if code == 0 || !strings.Contains(printed, "no container runtime answers") || strings.Contains(printed, "--- SKIP") {
+		t.Fatalf("a gate run by hand let a test of the stack skip where no stack answers (exit %d):\n%s", code, printed)
+	}
+	root, err := testmodule.Root()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if code, printed := quietly(t, func() int {
+		return run(root, environment(os.Environ(), unsaid, source(root)), "go", "test", "-count=1", "-v", "-run", "^TestTheRuntimeAsATestNeedsIt$", "./specs/cmd/gate/")
+	}); code != 0 || !strings.Contains(printed, "--- SKIP") {
+		t.Fatalf("the control, the same test with nothing said of the stack, was not skipped (exit %d):\n%s", code, printed)
+	}
+}
+
+// needTheRuntime marks the run of TestTheRuntimeAsATestNeedsIt that the
+// test above makes.
+const needTheRuntime = "FRONTSEAT_GATE_NEED_THE_RUNTIME"
+
+func TestTheRuntimeAsATestNeedsIt(t *testing.T) {
+	if os.Getenv(needTheRuntime) == "" {
+		return
+	}
+	testbox.Runtime(t)
 }
 
 func TestTheRuntimeAsATestMightReachIt(t *testing.T) {

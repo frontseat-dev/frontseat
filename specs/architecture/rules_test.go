@@ -229,8 +229,10 @@ var policies = []policy{
 	// builds the box before the tests that need it; what reads a gate's
 	// command, and what the contracts' generators are held to.
 	{"specs/cmd/**", []string{"specs/internal/**", "server/testsupport/**", "local"}},
-	// The gate builds the box by its one build, which no test does.
-	{"specs/cmd/gate", []string{"specs/internal/**", "server/testsupport/**", "local", "local/box"}},
+	// The gate builds the box by its one build, which no test does, and
+	// asks that the stack answers where local/ports says, before the
+	// tests that need it.
+	{"specs/cmd/gate", []string{"specs/internal/**", "server/testsupport/**", "local", "local/box", "local/ports"}},
 	{"specs/internal/**", []string{"specs/internal/**"}},
 }
 
