@@ -1,9 +1,9 @@
 use std::collections::BTreeMap;
 
 use frontseat_plugin::prelude::*;
-use frontseat_plugin::repository::{join, line_of};
+use frontseat_plugin::repository::{beneath, join, line_of};
+use frontseat_plugin::toml::Spanned;
 use serde::Deserialize;
-use toml::Spanned;
 
 /// Declares a struct of what a manifest table holds, given with its own
 /// fields, and adds the three kinds of dependency cargo reads in it:
@@ -48,7 +48,7 @@ with_dependencies! {
         pub(super) target: BTreeMap<String, Target>,
         pub(super) lib: Option<Lib>,
         /// Its examples, `[[example]]`: one built as a C-style dynamic
-        /// library is a wasm module too.
+        /// library is a wasm module too, where the option `wasm` is set.
         #[serde(default)]
         pub(super) example: Vec<Example>,
     }
@@ -216,8 +216,9 @@ impl Read {
 
 /// The root of the workspace a package is in: the nearest manifest above
 /// it with a [workspace] table, or its own where it has one, or none.
-/// A package the nearest workspace leaves out is refused, as cargo
-/// refuses to build it.
+/// A package the nearest workspace neither has as a member nor
+/// excludes is refused, as cargo refuses to build it; one it excludes is
+/// in no workspace, its own root.
 pub(super) struct WorkspaceRoot {
     pub(super) dir: String,
     pub(super) workspace: Workspace,
@@ -252,6 +253,16 @@ pub(super) fn workspace_root(
             }
             continue;
         };
+        // A package the workspace excludes is no member of it, and is
+        // the root of its own, as cargo has it: nothing above is asked.
+        let within = beneath(dir, root).unwrap_or(root);
+        let excluded = workspace.exclude.iter().any(|excluded| {
+            let excluded = excluded.trim_end_matches('/');
+            within == excluded || beneath(excluded, within).is_some()
+        });
+        if excluded {
+            return Ok(None);
+        }
         let manifests = workspace
             .members
             .iter()
@@ -261,22 +272,13 @@ pub(super) fn workspace_root(
             dir,
             &manifests.iter().map(String::as_str).collect::<Vec<_>>(),
         )?;
-        let within = root
-            .strip_prefix(dir)
-            .map_or(root, |rest| rest.trim_start_matches('/'));
-        let excluded = workspace.exclude.iter().any(|excluded| {
-            within == excluded.trim_end_matches('/')
-                || within.starts_with(&format!("{}/", excluded.trim_end_matches('/')))
-        });
-        if !members.contains(&join(root, "Cargo.toml")) || excluded {
-            return Err(Error {
-                code: frontseat_plugin::Code::FailedPrecondition,
-                reason: "not-a-member".into(),
-                message: format!("the package is beneath the workspace at {} and is not one of its members, so cargo will not build it", join(dir, "Cargo.toml")),
-                path: join(root, "Cargo.toml"),
-                help: "Add the package to the workspace's members, or exclude it.".into(),
-                ..Error::default()
-            });
+        if !members.contains(&join(root, "Cargo.toml")) {
+            return Err(Error::invalid(
+                "not-a-member",
+                &join(root, "Cargo.toml"),
+                format!("the package is beneath the workspace at {} and is not one of its members, so cargo will not build it", join(dir, "Cargo.toml")),
+                "Add the package to the workspace's members, or to its exclude to build it as a package of its own.",
+            ));
         }
         return Ok(Some(WorkspaceRoot {
             dir: dir.to_string(),
