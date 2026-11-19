@@ -41,12 +41,8 @@ impl Plugin for PostgresPlugin {
     /// cannot be made to fit is refused by name, since it would be a
     /// server that never becomes ready.
     fn service(&self, _name: &str, written: &Service) -> Result<Service, Error> {
-        let refused = |reason: &str, message: String, help: String| Error {
-            code: Code::InvalidArgument,
-            reason: reason.into(),
-            message,
-            help,
-            ..Default::default()
+        let refused = |reason: &str, message: String, help: String| {
+            Error::new(Code::InvalidArgument, reason, message).help(help)
         };
         let mut service = written.clone();
         if service.image.is_empty() {
@@ -471,6 +467,6 @@ mod tests {
                     ..Default::default()
                 },
             )
-            .refused("UNNAMED_PORT");
+            .refused("unnamed-port");
     }
 }

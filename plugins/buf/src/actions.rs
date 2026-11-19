@@ -6,40 +6,20 @@ pub(super) fn of(manifest: &Manifest) -> (Vec<Action>, Vec<GeneratedSource>) {
     let inputs = ["buf.yaml", "buf.lock", "**/*.proto"]
         .map(Input::source)
         .to_vec();
-    let lint = Action {
-        name: "lint".into(),
-        command: Some(Command {
-            arguments: vec!["buf".into(), "lint".into()],
-            ..Default::default()
-        }),
-        inputs: inputs.clone(),
-        tools: vec!["buf".into()],
-        ..Default::default()
-    };
+    let lint = Action::new("lint", Command::new(["buf", "lint"]))
+        .tool("buf")
+        .inputs(inputs.clone());
     // buf format -d names what it would change, as a diff, and writes
     // nothing: a check. Its fix, buf format -w, runs where the checkout
     // is and nowhere else.
-    let format = Action {
-        name: "format".into(),
-        command: Some(Command {
-            arguments: vec![
-                "buf".into(),
-                "format".into(),
-                "-d".into(),
-                "--exit-code".into(),
-            ],
-            ..Default::default()
-        }),
-        inputs: ["buf.yaml", "**/*.proto"].map(Input::source).to_vec(),
-        tools: vec!["buf".into()],
-        check: true,
-        fix: Some(Command {
-            arguments: vec!["buf".into(), "format".into(), "-w".into()],
-            ..Default::default()
-        }),
-        rewrites: vec!["**/*.proto".into()],
-        ..Default::default()
-    };
+    let format = Action::new(
+        "format",
+        Command::new(["buf", "format", "-d", "--exit-code"]),
+    )
+    .tool("buf")
+    .inputs(["buf.yaml", "**/*.proto"].map(Input::source))
+    .check()
+    .fix(Command::new(["buf", "format", "-w"]), ["**/*.proto"]);
     let mut actions = vec![lint, format];
     let mut generated = vec![];
     // One action for each template, generating what it says.
@@ -59,10 +39,7 @@ pub(super) fn of(manifest: &Manifest) -> (Vec<Action>, Vec<GeneratedSource>) {
         let mut outputs = vec![];
         for output in &template.outputs {
             let path = format!("{}/", output.path.trim_end_matches('/'));
-            outputs.push(Output {
-                path: path.clone(),
-                ..Default::default()
-            });
+            outputs.push(Output::required(path.clone()));
             let (directory, destination) = match &output.place {
                 Place::Directory(directory) => (directory.clone(), String::new()),
                 Place::Destination(destination) => (String::new(), destination.clone()),
@@ -76,15 +53,10 @@ pub(super) fn of(manifest: &Manifest) -> (Vec<Action>, Vec<GeneratedSource>) {
             });
         }
         actions.push(Action {
-            name: template.action.clone(),
-            command: Some(Command {
-                arguments,
-                ..Default::default()
-            }),
             inputs,
             outputs,
             tools: template.tools.clone(),
-            ..Default::default()
+            ..Action::new(template.action.clone(), Command::new(arguments))
         });
     }
     (actions, generated)
@@ -103,7 +75,7 @@ pub(super) fn unformatted(root: &str, printed: &Printed) -> Vec<Diagnostic> {
     Unformatted {
         rule_id: "buf/format",
         message: "it is not formatted as buf formats it",
-        help: "Run `frontseat build --fix`, which runs buf format -w where the checkout is.",
+        help: &Unformatted::fixed_by("buf format -w"),
     }
     .files(root, files)
 }

@@ -12,3 +12,6 @@ crate-type = ["cdylib"]
 [dependencies]
 frontseat-plugin = { path = "../../sdk/plugin" }
 serde = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+frontseat-plugin-test = { path = "../../sdk/plugin-test" }

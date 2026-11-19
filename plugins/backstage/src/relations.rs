@@ -77,7 +77,7 @@ pub(super) fn extract(
         emit("dependsOn", true, None, "dependsOn", "dependencyOf")?;
         emit("dependencyOf", true, None, "dependencyOf", "dependsOn")?;
     }
-    result.sort_by_cached_key(|r| (r.r#type.clone(), entity::key(r.target.as_ref().unwrap())));
+    result.sort_by_cached_key(|r| (r.r#type.clone(), r.target.as_ref().map(entity::key)));
     result.dedup();
     Ok(result)
 }

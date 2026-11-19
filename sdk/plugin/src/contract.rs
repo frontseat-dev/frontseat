@@ -1,42 +1,63 @@
 use crate::{Analysis, File, Handed, Repository};
 
 /// A failure a plugin reports with what a reader needs to act on it.
+///
+/// It is made with a reason, always: [`Error::new`], or one of the
+/// shapes every plugin answers alike, [`Error::invalid`] for a file that
+/// is not as the plugin reads one and [`Error::not_served`] for what is
+/// valid and the plugin does not build yet. Where it is about a file, and
+/// what to do about it, is added to it:
+///
+/// ```
+/// use frontseat_plugin::{Code, Error};
+///
+/// let refused = Error::new(Code::FailedPrecondition, "missing-lock", "there is no lock")
+///     .at_line("app/Cargo.toml", 3)
+///     .help("Commit Cargo.lock.");
+/// assert_eq!((refused.reason.as_str(), refused.line), ("missing-lock", 3));
+/// ```
 #[derive(Clone, Debug, PartialEq)]
 pub struct Error {
-    /// Canonical RPC status; a source prerequisite failure by default.
+    /// Canonical RPC status.
     pub code: crate::Code,
-    /// A plugin-qualified reason, written lower-case `[a-z0-9-]` by authors.
+    /// A plugin-qualified reason, written lower-case `[a-z0-9-]` by
+    /// authors: `invalid-manifest`. A client is told it upper case,
+    /// `INVALID_MANIFEST`.
     pub reason: String,
     /// What went wrong.
     pub message: String,
-    /// The file it is about, relative to the repository.
+    /// The file it is about, relative to the repository; empty for none.
     pub path: String,
-    /// The line in the file, from 1.
+    /// The line in the file, from 1; 0 for none.
     pub line: i32,
     /// What to do about it.
     pub help: String,
 }
 
-impl Default for Error {
-    fn default() -> Self {
+/// The type URLs of the two details a failure carries.
+const ERROR_INFO: &str = "type.googleapis.com/google.rpc.ErrorInfo";
+const DIAGNOSTIC: &str = "type.googleapis.com/frontseat.type.v1alpha1.Diagnostic";
+
+impl Error {
+    /// A failure of this code, for this reason, saying what went wrong.
+    pub fn new(code: crate::Code, reason: &str, message: impl Into<String>) -> Self {
         Self {
-            code: crate::Code::FailedPrecondition,
-            reason: String::new(),
-            message: String::new(),
+            code,
+            reason: reason.into(),
+            message: message.into(),
             path: String::new(),
             line: 0,
             help: String::new(),
         }
     }
-}
 
-impl Error {
     /// A file of the repository that is not as the plugin reads one: a
     /// source prerequisite failure (`FailedPrecondition`) with the
     /// plugin's reason, the file, what is wrong with it and what to do.
     ///
-    /// ```ignore
-    /// Error::invalid("invalid-manifest", "app/package.json", "the name is missing", "Name the package.")
+    /// ```
+    /// # use frontseat_plugin::Error;
+    /// Error::invalid("invalid-manifest", "app/package.json", "the name is missing", "Name the package.");
     /// ```
     pub fn invalid(
         reason: &str,
@@ -44,13 +65,49 @@ impl Error {
         message: impl Into<String>,
         help: impl Into<String>,
     ) -> Self {
+        Self::new(crate::Code::FailedPrecondition, reason, message)
+            .at(path)
+            .help(help)
+    }
+
+    /// What is valid, and the plugin does not build yet: `UNIMPLEMENTED`,
+    /// for the reason `<what>-not-served`, as every server of frontseat
+    /// refuses what it does not serve. A client tells it from a file that
+    /// is wrong by its code.
+    ///
+    /// ```
+    /// # use frontseat_plugin::{Code, Error};
+    /// let refused = Error::not_served("workspaces", "npm workspaces are not built yet")
+    ///     .at("app/package.json");
+    /// assert_eq!((refused.code, refused.reason.as_str()), (Code::Unimplemented, "workspaces-not-served"));
+    /// ```
+    pub fn not_served(what: &str, message: impl Into<String>) -> Self {
+        Self::new(
+            crate::Code::Unimplemented,
+            &format!("{what}-not-served"),
+            message,
+        )
+        .help("It is valid, and this plugin does not build it yet.")
+    }
+
+    /// The same failure, about a file of the repository.
+    pub fn at(mut self, path: impl Into<String>) -> Self {
+        self.path = path.into();
+        self
+    }
+
+    /// The same failure, about a line of a file of the repository, from 1.
+    pub fn at_line(self, path: impl Into<String>, line: i32) -> Self {
         Self {
-            reason: reason.into(),
-            path: path.into(),
-            message: message.into(),
-            help: help.into(),
-            ..Self::default()
+            line,
+            ..self.at(path)
         }
+    }
+
+    /// The same failure, saying what to do about it.
+    pub fn help(mut self, help: impl Into<String>) -> Self {
+        self.help = help.into();
+        self
     }
 
     /// Encode one shared failure model, with a canonical reason and source detail.
@@ -66,7 +123,8 @@ impl Error {
             message = format!("{}: {message}", self.path);
         }
         if !self.help.is_empty() {
-            message = format!("{message}. {}", self.help);
+            // One stop between them, whether the message ends in one or not.
+            message = format!("{}. {}", message.trim_end_matches('.'), self.help);
         }
         let info = ErrorInfo {
             reason: self.reason.to_ascii_uppercase().replace('-', "_"),
@@ -88,15 +146,52 @@ impl Error {
             message,
             details: vec![
                 prost_types::Any {
-                    type_url: "type.googleapis.com/google.rpc.ErrorInfo".into(),
+                    type_url: ERROR_INFO.into(),
                     value: info.encode_to_vec(),
                 },
                 prost_types::Any {
-                    type_url: "type.googleapis.com/frontseat.type.v1alpha1.Diagnostic".into(),
+                    type_url: DIAGNOSTIC.into(),
                     value: diagnostic.encode_to_vec(),
                 },
             ],
         }
+    }
+
+    /// The failure a status says, as [`Error::into_status`] encodes one:
+    /// its reason as its author wrote it, `invalid-manifest`, and its
+    /// message without where it is or what to do. A status with no
+    /// details of a plugin's failure is read as far as it goes: its code,
+    /// its message, and the reason its `ErrorInfo` says, if it has one.
+    pub fn from_status(status: crate::google::rpc::Status) -> Self {
+        use crate::frontseat::r#type::v1alpha1::Diagnostic;
+        use crate::google::rpc::ErrorInfo;
+        use prost::Message;
+        let code = crate::Code::try_from(status.code).unwrap_or(crate::Code::Unknown);
+        let mut error = Self::new(code, "", status.message);
+        for detail in status.details {
+            match detail.type_url.as_str() {
+                ERROR_INFO if error.reason.is_empty() => {
+                    if let Ok(info) = ErrorInfo::decode(detail.value.as_slice()) {
+                        error.reason = info.reason.to_ascii_lowercase().replace('_', "-");
+                    }
+                }
+                DIAGNOSTIC => {
+                    if let Ok(diagnostic) = Diagnostic::decode(detail.value.as_slice()) {
+                        if let Some((_, reason)) = diagnostic.rule_id.split_once('/') {
+                            error.reason = reason.into();
+                        }
+                        error.message = diagnostic.message;
+                        error.help = diagnostic.help;
+                        if let Some(at) = diagnostic.source_location {
+                            error.path = at.path;
+                            error.line = at.line;
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        error
     }
 }
 
@@ -105,7 +200,10 @@ impl Error {
 pub struct Description {
     /// The plugin's name, lower-case `[a-z0-9-]`.
     pub name: String,
-    /// Patterns of the files it reads, relative to a repository.
+    /// Patterns of the files it reads, relative to a repository, in the
+    /// pattern language `host.proto` says. The SDK adds one that leaves
+    /// out every fixture ([`crate::repository::NOT_FIXTURES`]) to any it
+    /// has, last.
     pub interests: Vec<String>,
     /// The options it takes. A repository or an entity can set these and
     /// no others; the host refuses anything else by name.
@@ -216,15 +314,14 @@ pub trait Plugin {
         handed: &[Handed],
     ) -> Result<Vec<File>, Error> {
         if !actions.is_empty() || !handed.is_empty() {
-            return Err(Error {
-                code: crate::Code::InvalidArgument,
-                reason: "unsupported-arrangement".into(),
-                message: "this plugin declares no arrangement for handed actions".into(),
-                help:
-                    "Arrange only actions declared by a plugin that supports dependency placement."
-                        .into(),
-                ..Default::default()
-            });
+            return Err(Error::new(
+                crate::Code::InvalidArgument,
+                "unsupported-arrangement",
+                "this plugin declares no arrangement for handed actions",
+            )
+            .help(
+                "Arrange only actions declared by a plugin that supports dependency placement.",
+            ));
         }
         Ok(Vec::new())
     }
@@ -239,19 +336,16 @@ pub trait Plugin {
         _root: &str,
         _entities: &[crate::Resolved],
     ) -> Result<Vec<crate::Edit>, Error> {
-        Err(Error {
-            code: crate::Code::Unimplemented,
-            reason: "unsupported-reconcile".into(),
-            message: "this plugin reconciles no catalog".into(),
-            help: "Only a plugin that finds catalog entities says what their files should say."
-                .into(),
-            ..Default::default()
-        })
+        Err(
+            Error::not_served("reconcile", "this plugin reconciles no catalog").help(
+                "Only a plugin that finds catalog entities says what their files should say.",
+            ),
+        )
     }
 
     /// Says what a branch releases of a unit, for a plugin that is a
-    /// branching strategy: whether it releases at all, as a prerelease or
-    /// not, and the line of versions it is held to. It reads no file.
+    /// branching strategy: whether it releases at all, and the line of
+    /// versions it is held to. It reads no file.
     fn branch(
         &self,
         _request: &crate::wire::BranchRequest,
@@ -280,14 +374,11 @@ pub trait Plugin {
         _action: &str,
         _printed: &Printed,
     ) -> Result<Vec<crate::Diagnostic>, Error> {
-        Err(Error {
-            code: crate::Code::Unimplemented,
-            reason: "unsupported-report".into(),
-            message: "this plugin reads no findings from what its checks print".into(),
-            help: "A check of this plugin passes or fails by its exit code; read what it printed."
-                .into(),
-            ..Default::default()
-        })
+        Err(Error::not_served(
+            "report",
+            "this plugin reads no findings from what its checks print",
+        )
+        .help("A check of this plugin passes or fails by its exit code; read what it printed."))
     }
 
     /// Says how a service the plugin claims by name
@@ -303,21 +394,14 @@ pub trait Plugin {
 
 /// What a plugin that starts no service answers when it is asked for one.
 pub(crate) fn no_service(name: &str) -> Error {
-    Error {
-        code: crate::Code::Unimplemented,
-        reason: "unsupported-service".into(),
-        message: format!("this plugin starts no service {name}"),
-        help: "Ask a plugin only for the services its description claims.".into(),
-        ..Default::default()
-    }
+    Error::not_served("service", format!("this plugin starts no service {name}"))
+        .help("Ask a plugin only for the services its description claims.")
 }
 
-fn no_release_strategy(kind: &str) -> Error {
-    Error {
-        code: crate::Code::Unimplemented,
-        reason: "unsupported-release-strategy".into(),
-        message: format!("this plugin serves no {kind} strategy"),
-        help: "Name a strategy of a plugin that says it serves it.".into(),
-        ..Default::default()
-    }
+pub(crate) fn no_release_strategy(kind: &str) -> Error {
+    Error::not_served(
+        &format!("{kind}-strategy"),
+        format!("this plugin serves no {kind} strategy"),
+    )
+    .help("Name a strategy of a plugin that says it serves it.")
 }

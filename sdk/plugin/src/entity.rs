@@ -3,18 +3,26 @@
 
 use crate::EntityRef;
 
+/// Whether text is a name as an entity's parts are written: 1 to
+/// `at_most` ASCII bytes, letters and digits at either end, and letters,
+/// digits, hyphens, dots or underscores between. A catalog may hold a
+/// name to fewer bytes than a reference does: Backstage holds one to 63.
+pub fn is_name(text: &str, at_most: usize) -> bool {
+    let bytes = text.as_bytes();
+    !bytes.is_empty()
+        && bytes.len() <= at_most
+        && bytes[0].is_ascii_alphanumeric()
+        && bytes[bytes.len() - 1].is_ascii_alphanumeric()
+        && bytes
+            .iter()
+            .all(|c| c.is_ascii_alphanumeric() || b"-_.".contains(c))
+}
+
 /// Construct a canonical reference. Each part is 1–255 ASCII bytes with
 /// alphanumeric endpoints and hyphens, dots or underscores inside. Output is
 /// lower case. Provider-specific field validation belongs to the adapter.
 pub fn reference(kind: &str, namespace: &str, name: &str) -> Result<EntityRef, String> {
-    let valid = |s: &str| {
-        !s.is_empty()
-            && s.len() <= 255
-            && s.bytes()
-                .all(|c| c.is_ascii_alphanumeric() || b"-_.".contains(&c))
-            && s.as_bytes()[0].is_ascii_alphanumeric()
-            && s.as_bytes()[s.len() - 1].is_ascii_alphanumeric()
-    };
+    let valid = |s: &str| is_name(s, 255);
     if !valid(kind) || !valid(namespace) || !valid(name) {
         return Err(format!(
             "invalid entity reference {kind}:{namespace}/{name}"

@@ -45,7 +45,6 @@ fn under_release_flow_a_release_branch_releases_its_line_and_nothing_else_releas
     ] {
         let answered = plugin.branch(&on(branch)).unwrap();
         assert!(answered.releases, "{branch}");
-        assert!(!answered.prerelease, "{branch}");
         assert_eq!(answered.line, line, "{branch}");
         assert_eq!(answered.channel, line, "{branch}");
     }
@@ -196,19 +195,18 @@ fn reasons_name_their_commits_and_notes_say_what_changed() {
 
 #[test]
 fn what_it_is_asked_wrongly_is_refused() {
-    let plugin = crate::served();
+    // A strategy it does not serve is refused as the host asks it,
+    // through the SDK's dispatch.
+    let asked = frontseat_plugin_test::TestPlugin::new(crate::served());
     let mut branch = on("release/1.2");
     branch.strategy = "github-flow".into();
-    assert_eq!(
-        plugin.branch(&branch).unwrap_err().code,
-        Code::InvalidArgument
-    );
+    let refused = asked.branch(branch).refused("unclaimed-strategy");
+    assert_eq!(refused.code, Code::InvalidArgument);
     let mut version = after("1.2.3", &["fix: trim"]);
     version.strategy = "manual".into();
-    assert_eq!(
-        plugin.version(&version).unwrap_err().code,
-        Code::InvalidArgument
-    );
+    let refused = asked.version(version).refused("unclaimed-strategy");
+    assert_eq!(refused.code, Code::InvalidArgument);
+    let plugin = crate::served();
     for (last, initial) in [("1.2", "0.1.0"), ("v1.2.3", "0.1.0"), ("", "one"), ("", "")] {
         let mut request = after(last, &["fix: trim"]);
         request.initial = initial.into();

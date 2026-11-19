@@ -12,9 +12,7 @@ impl Plugin for ApkoPlugin {
             // An image is found by its lock: a configuration with no lock
             // is a fragment, or an image nobody has locked, and neither
             // can be built without asking a package index what is newest.
-            // A testdata directory holds fixtures, as Go has it: what is
-            // in one is no project, however it looks.
-            interests: vec![format!("**/{}", lock::FILE), "!**/testdata/**".into()],
+            interests: vec![format!("**/{}", lock::FILE)],
             ..Default::default()
         }
     }

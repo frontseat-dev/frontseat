@@ -7,14 +7,29 @@
 //! each call encoded and its answer decoded, so the SDK checks options
 //! and profiles and encodes a refusal as it does in a module.
 //!
-//! ```ignore
+//! ```
 //! use frontseat_plugin::prelude::*;
 //! use frontseat_plugin_test::{Files, TestHost, TestPlugin};
 //!
-//! let plugin = TestPlugin::new(crate::served());
-//! let host = TestHost::new(Files::new().with("app/go.mod", "module example.com/app\n"));
+//! struct Modules;
+//! impl Plugin for Modules {
+//!     fn describe(&self) -> Description {
+//!         Description { name: "modules".into(), interests: vec!["**/go.mod".into()], ..Default::default() }
+//!     }
+//!     fn analyze(&self, repo: &Repository, root: &str) -> Result<Analysis, Error> {
+//!         if repo.read(&format!("{root}/go.mod"))?.is_none() {
+//!             return Err(Error::invalid("missing-manifest", root, "there is no go.mod", "Add one."));
+//!         }
+//!         Ok(Analysis::default())
+//!     }
+//! }
+//!
+//! let plugin = TestPlugin::new(Modules);
 //! let context = plugin.context(Profile::Development);
-//! let analyzed = plugin.analyze(&host, &context, &["app"]).answered();
+//! let host = TestHost::new(Files::new().with("app/go.mod", "module example.com/app\n"));
+//! plugin.analyze(&host, &context, &["app"]).answered();
+//! let refused = plugin.analyze(&TestHost::empty(), &context, &["app"]).refused("missing-manifest");
+//! assert_eq!(refused.path, "app");
 //! ```
 //!
 //! # What it cannot check
@@ -229,66 +244,13 @@ impl TestContext {
     }
 }
 
-/// A refusal as the host receives it: decoded from the
-/// `google.rpc.Status` the module answered, its `ErrorInfo` and its
-/// `Diagnostic`.
-#[derive(Clone, Debug, PartialEq)]
-pub struct Refusal {
-    /// The canonical code.
-    pub code: Code,
-    /// The reason as a client sees it: upper case, `INVALID_MANIFEST`.
-    pub reason: String,
-    /// What went wrong, without where or what to do.
-    pub message: String,
-    /// The file it is about, relative to the repository.
-    pub path: String,
-    /// The line in the file, from 1; 0 for none.
-    pub line: i32,
-    /// What to do about it.
-    pub help: String,
-}
-
-impl Refusal {
-    fn decode(status: frontseat_plugin::google::rpc::Status) -> Self {
-        use frontseat_plugin::google::rpc::ErrorInfo;
-        use frontseat_plugin::Diagnostic;
-        let mut refusal = Refusal {
-            code: Code::try_from(status.code).unwrap_or(Code::Unknown),
-            reason: String::new(),
-            message: status.message,
-            path: String::new(),
-            line: 0,
-            help: String::new(),
-        };
-        for detail in status.details {
-            match detail.type_url.as_str() {
-                "type.googleapis.com/google.rpc.ErrorInfo" => {
-                    let info = ErrorInfo::decode(detail.value.as_slice())
-                        .expect("the ErrorInfo of a refusal decodes");
-                    refusal.reason = info.reason;
-                }
-                "type.googleapis.com/frontseat.type.v1alpha1.Diagnostic" => {
-                    let diagnostic = Diagnostic::decode(detail.value.as_slice())
-                        .expect("the Diagnostic of a refusal decodes");
-                    refusal.message = diagnostic.message;
-                    refusal.help = diagnostic.help;
-                    if let Some(at) = diagnostic.source_location {
-                        refusal.path = at.path;
-                        refusal.line = at.line;
-                    }
-                }
-                _ => {}
-            }
-        }
-        refusal
-    }
-}
-
-/// What the plugin answered, decoded as the host decodes it.
+/// What the plugin answered, decoded as the host decodes it: the
+/// response, or the refusal read back by the SDK's own decoder
+/// ([`Error::from_status`]), its reason as its author wrote it.
 #[derive(Debug)]
 pub struct Answer<T> {
     /// The response, or the refusal.
-    pub result: Result<T, Refusal>,
+    pub result: Result<T, Error>,
 }
 
 impl<T> Answer<T> {
@@ -311,9 +273,9 @@ impl<T> Answer<T> {
     }
 
     /// The refusal; panics if the plugin answered, or refused for another
-    /// reason. The reason is as a client sees it, `INVALID_MANIFEST`.
+    /// reason. The reason is as the plugin wrote it, `invalid-manifest`.
     #[track_caller]
-    pub fn refused(self, reason: &str) -> Refusal {
+    pub fn refused(self, reason: &str) -> Error {
         match self.result {
             Ok(_) => panic!("the plugin answered, and was to refuse with {reason}"),
             Err(refusal) => {
@@ -372,7 +334,7 @@ impl<P: Plugin> TestPlugin<P> {
                 wire::reply::Result::Response(bytes) => {
                     Ok(Response::decode(bytes.as_slice()).expect("the plugin's response decodes"))
                 }
-                wire::reply::Result::Error(status) => Err(Refusal::decode(status)),
+                wire::reply::Result::Error(status) => Err(Error::from_status(status)),
             },
         }
     }
@@ -517,12 +479,11 @@ impl<P: Plugin> TestPlugin<P> {
 
 /// A host for a call that reads nothing: any read fails.
 fn unreadable() -> TestHost {
-    TestHost::empty().fail_everything(Error {
-        code: Code::FailedPrecondition,
-        reason: "unreadable".into(),
-        message: "this call reads nothing of a repository".into(),
-        ..Default::default()
-    })
+    TestHost::empty().fail_everything(Error::new(
+        Code::FailedPrecondition,
+        "unreadable",
+        "this call reads nothing of a repository",
+    ))
 }
 
 #[cfg(test)]
@@ -531,11 +492,11 @@ mod tests {
     use frontseat_plugin::{Analysis, Description, PluginOption};
 
     fn unavailable() -> Error {
-        Error {
-            code: Code::Unavailable,
-            reason: "source-unavailable".into(),
-            ..Default::default()
-        }
+        Error::new(
+            Code::Unavailable,
+            "source-unavailable",
+            "the source is unavailable",
+        )
     }
 
     #[test]
@@ -610,14 +571,13 @@ mod tests {
         }
         fn analyze(&self, repo: &Repository, root: &str) -> Result<Analysis, Error> {
             if repo.bool("strict")? && repo.read(root)?.is_none() {
-                return Err(Error {
-                    reason: "missing-manifest".into(),
-                    message: "there is no manifest".into(),
-                    path: root.into(),
-                    line: 3,
-                    help: "Write one.".into(),
-                    ..Default::default()
-                });
+                return Err(Error::new(
+                    Code::FailedPrecondition,
+                    "missing-manifest",
+                    "there is no manifest",
+                )
+                .at_line(root, 3)
+                .help("Write one."));
             }
             Ok(Analysis::default())
         }
@@ -630,17 +590,16 @@ mod tests {
         let host = TestHost::empty();
         let refused = plugin
             .analyze(&host, &context, &["manifest"])
-            .refused("MISSING_MANIFEST");
+            .refused("missing-manifest");
         assert_eq!(
             refused,
-            Refusal {
-                code: Code::FailedPrecondition,
-                reason: "MISSING_MANIFEST".into(),
-                message: "there is no manifest".into(),
-                path: "manifest".into(),
-                line: 3,
-                help: "Write one.".into(),
-            }
+            Error::new(
+                Code::FailedPrecondition,
+                "missing-manifest",
+                "there is no manifest"
+            )
+            .at_line("manifest", 3)
+            .help("Write one.")
         );
         let lenient = context.clone().option("strict", Value::Bool(false));
         let answered = plugin.analyze(&host, &lenient, &["manifest"]).answered();
@@ -653,7 +612,7 @@ mod tests {
                 &context.option("strict", Value::Int(1)),
                 &["manifest"],
             )
-            .refused("INVALID_OPTION");
+            .refused("invalid-option");
         assert_eq!(host.reads().len(), reads);
         plugin.branch(BranchRequest::default()).unsupported();
         plugin.service("db", Service::default()).unsupported();

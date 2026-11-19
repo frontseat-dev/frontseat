@@ -2,7 +2,6 @@ package pluginhost_test
 
 import (
 	"errors"
-	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/pluginhost"
 	"github.com/frontseat-dev/frontseat/server/internal/pluginhost/conformance"
@@ -14,13 +13,13 @@ import (
 )
 
 func jestContext() *pluginv1.Context {
-	return &pluginv1.Context{Profile: pluginv1.Profile_PROFILE_DEVELOPMENT, Options: map[string]*typev1.OptionValue{"test-shards": {Value: &typev1.OptionValue_IntValue{IntValue: 1}}}}
+	return &pluginv1.Context{Profile: pluginv1.Profile_PROFILE_DEVELOPMENT}
 }
 
 func jestFixture() conformance.Fixture {
 	coordinate := &pluginv1.Coordinate{Ecosystem: "javascript-install", Name: "web"}
 	return conformance.Fixture{
-		Name: "jest", Description: &pluginv1.DescribeResponse{Name: "jest", Abi: 19, Interests: []string{"**/package.json", "!**/node_modules/**", "!**/testdata/**"}, Options: []*pluginv1.Option{{Name: "test-shards", Kind: pluginv1.Option_KIND_INT, Default: &typev1.OptionValue{Value: &typev1.OptionValue_IntValue{IntValue: 1}}, EntitySettable: true}}},
+		Name: "jest", Description: &pluginv1.DescribeResponse{Name: "jest", Abi: 20, Interests: []string{"**/package.json", "!**/node_modules/**", "!**/testdata/**"}},
 		Source: files{"app/package.json": npmPackage}, Absent: files{"app/package.json": `{"name":"library"}`}, Malformed: files{"app/package.json": strings.Replace(npmPackage, `"test":"jest"`, `"test":"jest --passWithNoTests"`, 1)}, ErrorCode: "INVALID_MANIFEST",
 		Analyze: &pluginv1.AnalyzeRequest{Context: jestContext(), Roots: []string{"app"}},
 		Projects: []*pluginv1.Project{{Root: "app", Name: "web", Kind: "jest-suite", Manifest: "app/package.json", AlwaysArranged: true,
@@ -39,26 +38,18 @@ func TestJestKeepsInvocationSemanticsAndRequiresItsOwnInstallation(t *testing.T)
 		t.Fatal(err)
 	}
 	plugin := conformance.Load(t, module)
-	for name, change := range map[string]func(files, *pluginv1.Context){
-		"script": func(s files, _ *pluginv1.Context) {
-			s["app/package.json"] = strings.Replace(npmPackage, `"test":"jest"`, `"test":"jest --passWithNoTests"`, 1)
-		},
-		"pretest": func(s files, _ *pluginv1.Context) {
-			s["app/package.json"] = strings.Replace(npmPackage, `"test":"jest"`, `"test":"jest","pretest":"node setup.js"`, 1)
-		},
-		"posttest": func(s files, _ *pluginv1.Context) {
-			s["app/package.json"] = strings.Replace(npmPackage, `"test":"jest"`, `"test":"jest","posttest":"node finish.js"`, 1)
-		},
-		"shards past a wasm word": func(_ files, c *pluginv1.Context) {
-			c.Options["test-shards"] = &typev1.OptionValue{Value: &typev1.OptionValue_IntValue{IntValue: 4294967297}}
-		},
+	// A script that is not jest is wrong; a hook beside it is valid and
+	// not run yet, refused as not served.
+	for name, refused := range map[string]struct{ from, to, reason string }{
+		"script":   {`"test":"jest"`, `"test":"jest --passWithNoTests"`, "INVALID_MANIFEST"},
+		"pretest":  {`"test":"jest"`, `"test":"jest","pretest":"node setup.js"`, "TEST_HOOKS_NOT_SERVED"},
+		"posttest": {`"test":"jest"`, `"test":"jest","posttest":"node finish.js"`, "TEST_HOOKS_NOT_SERVED"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			s, c := files{"app/package.json": npmPackage}, jestContext()
-			change(s, c)
-			_, err := plugin.Call(t.Context(), s, "Analyze", &pluginv1.AnalyzeRequest{Roots: []string{"app"}, Context: c}, new(pluginv1.AnalyzeResponse))
+			s := files{"app/package.json": strings.Replace(npmPackage, refused.from, refused.to, 1)}
+			_, err := plugin.Call(t.Context(), s, "Analyze", &pluginv1.AnalyzeRequest{Roots: []string{"app"}, Context: jestContext()}, new(pluginv1.AnalyzeResponse))
 			var failure *pluginhost.Error
-			if !errors.As(err, &failure) || failure.Reason != "INVALID_MANIFEST" {
+			if !errors.As(err, &failure) || failure.Reason != refused.reason {
 				t.Fatalf("unsupported invocation accepted: %v", err)
 			}
 		})

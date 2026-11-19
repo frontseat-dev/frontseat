@@ -8,9 +8,7 @@ impl Plugin for BufPlugin {
     fn describe(&self) -> Description {
         Description {
             name: "buf".into(),
-            // A testdata directory holds fixtures, as Go has it: what is
-            // in one is no project, however it looks.
-            interests: vec!["**/buf.yaml".into(), "!**/testdata/**".into()],
+            interests: vec!["**/buf.yaml".into()],
             generates_sources: true,
             ..Default::default()
         }
@@ -21,8 +19,8 @@ impl Plugin for BufPlugin {
         _repo: &Repository,
         root: &str,
         action: &str,
-        printed: &frontseat_plugin::Printed,
-    ) -> Result<Vec<frontseat_plugin::Diagnostic>, Error> {
+        printed: &Printed,
+    ) -> Result<Vec<Diagnostic>, Error> {
         Ok(match action {
             "format" => actions::unformatted(root, printed),
             _ => Vec::new(),

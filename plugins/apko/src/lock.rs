@@ -191,7 +191,7 @@ fn escaped(text: &str) -> String {
 /// and its base64, into hex.
 fn hex(checksum: &str, kind: &str, bytes: usize) -> Option<String> {
     let raw = frontseat_plugin::checksum::decode(checksum, kind, bytes)?;
-    Some(raw.iter().map(|b| format!("{b:02x}")).collect())
+    Some(frontseat_plugin::checksum::hex(&raw))
 }
 
 /// Reads a section: its range, written `bytes=first-last`, and its
@@ -349,8 +349,8 @@ mod tests {
 
     // Where apko looks for each: its cachePathFromURL, cacheDirForPackage
     // and cacheDirFromFile (apko 26953696, pkg/apk/apk/cache.go), and what
-    // apko built from that commit said it could not find, in the probe of
-    // 2026-11-10. The acceptance spec builds with these paths and the
+    // apko built from that commit says it cannot find when a file is
+    // elsewhere. The acceptance spec builds with these paths and the
     // pinned apko.
     #[test]
     fn an_address_is_kept_where_apko_looks_for_it() {

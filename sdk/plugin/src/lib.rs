@@ -6,11 +6,53 @@
 //! is on the wire that is not in the contract.
 //!
 //! A plugin implements [`Plugin`] and hands it to [`serve!`]. What it
-//! needs to do so is in the [`prelude`]:
+//! needs to do so is in the [`prelude`]. This one finds a project
+//! wherever a `Makefile` is, and runs `make test` as its tests:
 //!
-//! ```ignore
-//! use frontseat_plugin::prelude::*;
 //! ```
+//! use frontseat_plugin::prelude::*;
+//! use frontseat_plugin::repository::join;
+//!
+//! struct Make;
+//!
+//! impl Plugin for Make {
+//!     fn describe(&self) -> Description {
+//!         Description {
+//!             name: "make".into(),
+//!             interests: vec!["**/Makefile".into()],
+//!             ..Default::default()
+//!         }
+//!     }
+//!
+//!     fn analyze(&self, repo: &Repository, root: &str) -> Result<Analysis, Error> {
+//!         let manifest = join(root, "Makefile");
+//!         if repo.read(&manifest)?.is_none() {
+//!             return Ok(Analysis::default());
+//!         }
+//!         let test = Action::new("test", Command::new(["make", "test"]))
+//!             .tool("make")
+//!             .inputs([Input::source("**")])
+//!             .test();
+//!         Ok(Analysis {
+//!             projects: vec![Project {
+//!                 root: root.into(),
+//!                 name: root.into(),
+//!                 kind: "make-project".into(),
+//!                 manifest,
+//!                 actions: vec![test],
+//!                 ..Default::default()
+//!             }],
+//!             ..Default::default()
+//!         })
+//!     }
+//! }
+//!
+//! frontseat_plugin::serve!(Make);
+//! # fn main() {}
+//! ```
+//!
+//! `examples/make.rs` is this plugin whole, with its findings, and the
+//! crate's README says how a plugin is built, enabled and tested.
 
 #[doc(hidden)]
 pub mod abi;
@@ -45,6 +87,9 @@ pub use google::rpc::Code;
 pub mod checksum;
 pub mod diagnostics;
 pub mod javascript;
+/// The TOML library the SDK reads TOML with ([`Repository::toml_document`]),
+/// for a plugin that names its types: `toml::Spanned`, `toml::Value`.
+pub use toml;
 
 #[doc(hidden)]
 pub use frontseat::plugin::v1alpha1 as wire;
@@ -63,7 +108,7 @@ pub use wire::{
 };
 
 /// The plugin ABI this SDK speaks.
-pub const ABI: u32 = 19;
+pub const ABI: u32 = 20;
 
 mod actions;
 mod contract;
@@ -74,10 +119,20 @@ pub mod repository;
 pub use contract::{Description, Error, Plugin, PluginOption, Printed, Value};
 pub use repository::{Host, Repository};
 
-/// Makes a plugin the one its wasm module answers with.
+/// Makes a plugin the one its wasm module answers with: in the module,
+/// the exports the ABI names; on the machine that builds it, `served()`,
+/// the plugin for a test to ask (`frontseat-plugin-test`).
 ///
-/// ```ignore
-/// frontseat_plugin::serve!(GoPlugin);
+/// ```
+/// # use frontseat_plugin::prelude::*;
+/// struct Nothing;
+/// impl Plugin for Nothing {
+///     fn describe(&self) -> Description {
+///         Description { name: "nothing".into(), ..Default::default() }
+///     }
+/// }
+/// frontseat_plugin::serve!(Nothing);
+/// # fn main() { assert_eq!(served().describe().name, "nothing"); }
 /// ```
 #[macro_export]
 macro_rules! serve {

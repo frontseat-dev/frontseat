@@ -8,31 +8,34 @@
 
 use prost::Message;
 
+use crate::repository::NOT_FIXTURES;
 use crate::wire;
 use crate::{Error, Host, Plugin, Repository, ABI};
 
 #[cfg(target_arch = "wasm32")]
 pub use guest::{alloc, call, free};
 
-fn internal(e: impl std::fmt::Display) -> Error {
-    Error {
-        code: crate::Code::InvalidArgument,
-        reason: "invalid-request".into(),
-        message: e.to_string(),
-        ..Error::default()
-    }
+/// A call the plugin cannot read: the host sent what is no request of
+/// the contract.
+fn invalid_request(e: impl std::fmt::Display) -> Error {
+    Error::new(
+        crate::Code::InvalidArgument,
+        "invalid-request",
+        e.to_string(),
+    )
 }
 
 /// Decode a host reply without turning corruption into an absent file or empty
 /// glob. Zero bytes are valid protobuf defaults; malformed bytes are not.
 #[cfg(any(target_arch = "wasm32", test))]
 pub(crate) fn decode_host_reply<Resp: Message + Default>(bytes: &[u8]) -> Result<Resp, Error> {
-    Resp::decode(bytes).map_err(|error| Error {
-        code: crate::Code::Internal,
-        reason: "invalid-host-response".into(),
-        message: error.to_string(),
-        help: "Use a host and SDK that implement the same plugin contract.".into(),
-        ..Default::default()
+    Resp::decode(bytes).map_err(|error| {
+        Error::new(
+            crate::Code::Internal,
+            "invalid-host-response",
+            error.to_string(),
+        )
+        .help("Use a host and SDK that implement the same plugin contract.")
     })
 }
 
@@ -58,17 +61,17 @@ pub fn dispatch(
 }
 
 fn describe(plugin: &dyn Plugin, request: &[u8]) -> Result<Vec<u8>, Error> {
-    let req = wire::DescribeRequest::decode(request).map_err(internal)?;
+    let req = wire::DescribeRequest::decode(request).map_err(invalid_request)?;
     if req.host_abi_max != 0 && (ABI < req.host_abi_min || ABI > req.host_abi_max) {
-        return Err(Error {
-            reason: "abi-mismatch".into(),
-            message: format!(
+        return Err(Error::new(
+            crate::Code::FailedPrecondition,
+            "abi-mismatch",
+            format!(
                 "the plugin speaks ABI {ABI} and the host {} to {}",
                 req.host_abi_min, req.host_abi_max
             ),
-            help: "Build the plugin against an SDK the host supports.".into(),
-            ..Error::default()
-        });
+        )
+        .help("Build the plugin against an SDK the host supports."));
     }
     let d = plugin.describe();
     let options = d
@@ -81,10 +84,14 @@ fn describe(plugin: &dyn Plugin, request: &[u8]) -> Result<Vec<u8>, Error> {
             entity_settable: o.entity_settable,
         })
         .collect();
+    let mut interests = d.interests;
+    if !interests.is_empty() && !interests.iter().any(|i| i == NOT_FIXTURES) {
+        interests.push(NOT_FIXTURES.into());
+    }
     Ok(wire::DescribeResponse {
         name: d.name,
         abi: ABI,
-        interests: d.interests,
+        interests,
         options,
         generates_sources: d.generates_sources,
         release: (!d.branchings.is_empty() || !d.versionings.is_empty()).then_some(
@@ -99,7 +106,7 @@ fn describe(plugin: &dyn Plugin, request: &[u8]) -> Result<Vec<u8>, Error> {
 }
 
 fn analyze(plugin: &dyn Plugin, host: &dyn Host, request: &[u8]) -> Result<Vec<u8>, Error> {
-    let req = wire::AnalyzeRequest::decode(request).map_err(internal)?;
+    let req = wire::AnalyzeRequest::decode(request).map_err(invalid_request)?;
     let repo = Repository::new(host, req.context);
     repo.validate_context(&plugin.describe().options)?;
     let roots = if req.roots.is_empty() {
@@ -117,7 +124,7 @@ fn analyze(plugin: &dyn Plugin, host: &dyn Host, request: &[u8]) -> Result<Vec<u
 }
 
 fn arrange(plugin: &dyn Plugin, host: &dyn Host, request: &[u8]) -> Result<Vec<u8>, Error> {
-    let req = wire::ArrangeRequest::decode(request).map_err(internal)?;
+    let req = wire::ArrangeRequest::decode(request).map_err(invalid_request)?;
     let repo = Repository::new(host, req.context);
     repo.validate_context(&plugin.describe().options)?;
     let files = plugin.arrange(&repo, &req.root, &req.actions, &req.handed)?;
@@ -125,7 +132,7 @@ fn arrange(plugin: &dyn Plugin, host: &dyn Host, request: &[u8]) -> Result<Vec<u
 }
 
 fn report(plugin: &dyn Plugin, host: &dyn Host, request: &[u8]) -> Result<Vec<u8>, Error> {
-    let req = wire::ReportRequest::decode(request).map_err(internal)?;
+    let req = wire::ReportRequest::decode(request).map_err(invalid_request)?;
     let repo = Repository::new(host, req.context);
     repo.validate_context(&plugin.describe().options)?;
     let printed = crate::Printed {
@@ -137,18 +144,38 @@ fn report(plugin: &dyn Plugin, host: &dyn Host, request: &[u8]) -> Result<Vec<u8
     Ok(wire::ReportResponse { diagnostics }.encode_to_vec())
 }
 
+/// Branch and Version are asked only of a strategy the plugin claims, as
+/// Service is of a service: a plugin that claims none of the kind serves
+/// none, and one that claims others is not asked of this one.
+fn claimed(claims: &[String], kind: &str, strategy: &str) -> Result<(), Error> {
+    if claims.is_empty() {
+        return Err(crate::contract::no_release_strategy(kind));
+    }
+    if !claims.iter().any(|claim| claim == strategy) {
+        return Err(Error::new(
+            crate::Code::InvalidArgument,
+            "unclaimed-strategy",
+            format!("this plugin serves no {kind} strategy {strategy:?}"),
+        )
+        .help("Name a strategy the plugin says it serves."));
+    }
+    Ok(())
+}
+
 fn branch(plugin: &dyn Plugin, request: &[u8]) -> Result<Vec<u8>, Error> {
-    let req = wire::BranchRequest::decode(request).map_err(internal)?;
+    let req = wire::BranchRequest::decode(request).map_err(invalid_request)?;
+    claimed(&plugin.describe().branchings, "branching", &req.strategy)?;
     Ok(plugin.branch(&req)?.encode_to_vec())
 }
 
 fn version(plugin: &dyn Plugin, request: &[u8]) -> Result<Vec<u8>, Error> {
-    let req = wire::VersionRequest::decode(request).map_err(internal)?;
+    let req = wire::VersionRequest::decode(request).map_err(invalid_request)?;
+    claimed(&plugin.describe().versionings, "versioning", &req.strategy)?;
     Ok(plugin.version(&req)?.encode_to_vec())
 }
 
 fn reconcile(plugin: &dyn Plugin, host: &dyn Host, request: &[u8]) -> Result<Vec<u8>, Error> {
-    let req = wire::ReconcileRequest::decode(request).map_err(internal)?;
+    let req = wire::ReconcileRequest::decode(request).map_err(invalid_request)?;
     let repo = Repository::new(host, req.context);
     repo.validate_context(&plugin.describe().options)?;
     let edits = plugin.reconcile(&repo, &req.root, &req.entities)?;
@@ -158,19 +185,18 @@ fn reconcile(plugin: &dyn Plugin, host: &dyn Host, request: &[u8]) -> Result<Vec
 /// Service is asked only for a name the plugin claimed, and is told
 /// nothing of a repository. A plugin that claims none starts none.
 fn service(plugin: &dyn Plugin, request: &[u8]) -> Result<Vec<u8>, Error> {
-    let req = wire::ServiceRequest::decode(request).map_err(internal)?;
+    let req = wire::ServiceRequest::decode(request).map_err(invalid_request)?;
     let services = plugin.describe().services;
     if services.is_empty() {
         return Err(crate::contract::no_service(&req.name));
     }
     if !services.contains(&req.name) {
-        return Err(Error {
-            code: crate::Code::InvalidArgument,
-            reason: "unclaimed-service".into(),
-            message: format!("this plugin starts no service {}", req.name),
-            help: "Ask a plugin only for the names its description claims.".into(),
-            ..Error::default()
-        });
+        return Err(Error::new(
+            crate::Code::InvalidArgument,
+            "unclaimed-service",
+            format!("this plugin starts no service {}", req.name),
+        )
+        .help("Ask a plugin only for the names its description claims."));
     }
     let service = plugin.service(&req.name, &req.written.unwrap_or_default())?;
     Ok(wire::ServiceResponse {
@@ -186,19 +212,18 @@ fn service(plugin: &dyn Plugin, request: &[u8]) -> Result<Vec<u8>, Error> {
 pub fn answer(plugin: &dyn Plugin, host: &dyn Host, call: &[u8]) -> Vec<u8> {
     let result = match wire::Call::decode(call) {
         Ok(call) => dispatch(plugin, host, &call),
-        Err(e) => Some(Err(internal(e))),
+        Err(e) => Some(Err(invalid_request(e))),
     };
     let failure = |e: Error| wire::reply::Result::Error(e.into_status(&plugin.describe().name));
     wire::Reply {
         result: Some(match result {
             Some(Ok(response)) => wire::reply::Result::Response(response),
             Some(Err(e)) => failure(e),
-            None => failure(Error {
-                code: crate::Code::Unimplemented,
-                reason: "unknown-method".into(),
-                message: "The plugin does not serve this method.".into(),
-                ..Default::default()
-            }),
+            None => failure(Error::new(
+                crate::Code::Unimplemented,
+                "unknown-method",
+                "the plugin does not serve this method",
+            )),
         }),
     }
     .encode_to_vec()

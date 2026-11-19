@@ -4,14 +4,9 @@ use crate::catalog::invalid;
 use frontseat_plugin::prelude::*;
 use serde_json::{Map, Value};
 
+/// A name as Backstage holds one: the identity grammar, to 63 bytes.
 fn name(value: &str) -> bool {
-    !value.is_empty()
-        && value.len() <= 63
-        && value.as_bytes()[0].is_ascii_alphanumeric()
-        && value.as_bytes()[value.len() - 1].is_ascii_alphanumeric()
-        && value
-            .bytes()
-            .all(|c| c.is_ascii_alphanumeric() || b"-_.".contains(&c))
+    frontseat_plugin::entity::is_name(value, 63)
 }
 fn dns_label(value: &str) -> bool {
     name(value)

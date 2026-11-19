@@ -541,7 +541,7 @@ mise run docs:serve       # serve the TechDocs site on http://localhost:8000
 | `sdk/go/api` | The API's generated Go and Connect clients and handlers |
 | `sdk/go/entity` | Entity references: the one parser and formatter |
 | `sdk/go/bearer` | A token presented to its origin alone, following no redirect: the SDK's and the server's |
-| `sdk/plugin` | The plugin SDK: contract types, repository access, strict readers |
+| `sdk/plugin` | The plugin SDK: contract types and their constructors, repository access and paths, strict readers, a refusal (`Error`) and its decoder, findings read from what a check printed; `examples/make.rs`, the plugin an author starts from |
 | `server/git` | Git, run hardened over a checkout, and remotes read |
 | `server/telemetry` | OpenTelemetry providers, propagation, logs, measurements |
 | `server/internal/model`, `.../wire` | Build labels, coordinates; their protobuf conversion |

@@ -13,3 +13,6 @@ crate-type = ["cdylib"]
 frontseat-plugin = { path = "../../sdk/plugin" }
 semver = "1"
 frontseat-conventional-commits = { path = "conventional-commits" }
+
+[dev-dependencies]
+frontseat-plugin-test = { path = "../../sdk/plugin-test" }

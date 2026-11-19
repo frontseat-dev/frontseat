@@ -295,7 +295,7 @@ fn served_plugin_reports_invalid_manifests_and_missing_projects() {
     let context = plugin.context(Profile::Development);
     let err = plugin
         .analyze(&host, &context, &["app"])
-        .refused("INVALID_MANIFEST");
+        .refused("invalid-manifest");
     assert_eq!(err.path, "app/go.mod");
     assert!(plugin
         .analyze(&host, &context, &["absent"])
@@ -326,5 +326,5 @@ fn served_plugin_arranges_local_dependencies_using_the_pinned_tool() {
     assert_eq!(got[0].content,b"go 1.27.3\n\nuse .\n\nreplace (\n\texample.com/dep => ./.frontseat/go/example.com/dep\n)\n");
     plugin
         .arrange(&host, &unpinned, "app", &[], &[])
-        .refused("UNPINNED_TOOL");
+        .refused("unpinned-tool");
 }

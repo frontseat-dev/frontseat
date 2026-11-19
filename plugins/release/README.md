@@ -47,8 +47,9 @@ writes release notes from their descriptions.
 
 ## Not built yet
 
-GitHub Flow and GitLab Flow are not served: the plugin refuses a
-strategy it does not say, by name. Release plans and a version a person
+GitHub Flow and GitLab Flow are not served: a strategy the plugin does
+not say is refused by the SDK before the plugin is asked
+(`unclaimed-strategy`). Release plans and a version a person
 gives are not in the contract.
 
 A `revert:` commit moves nothing and takes nothing back: a feature that

@@ -30,7 +30,7 @@ func releaseFixture() conformance.Fixture {
 	}
 	return conformance.Fixture{
 		Name: "release",
-		Description: &pluginv1.DescribeResponse{Name: "release", Abi: 19, Release: &pluginv1.ReleaseRoles{
+		Description: &pluginv1.DescribeResponse{Name: "release", Abi: 20, Release: &pluginv1.ReleaseRoles{
 			Branchings: []string{"release-flow"}, Versionings: []string{"conventional-commits"},
 		}},
 		Branches: []conformance.BranchCase{
@@ -40,7 +40,7 @@ func releaseFixture() conformance.Fixture {
 			{Request: on("feat/greet"), Want: &pluginv1.BranchResponse{Reason: `"feat/greet" is no release branch; under Release Flow a release is made from a branch release/<major>.<minor>`}},
 			{Request: on("release/1.26.0"), Want: &pluginv1.BranchResponse{Reason: `"release/1.26.0" is no release branch; under Release Flow a release is made from a branch release/<major>.<minor>`}},
 			{Request: on("release/01.2"), Want: &pluginv1.BranchResponse{Reason: `"release/01.2" is no release branch; under Release Flow a release is made from a branch release/<major>.<minor>`}},
-			{Request: &pluginv1.BranchRequest{Strategy: "github-flow", Branch: "main", DefaultBranch: "main"}, Refused: "UNKNOWN_STRATEGY"},
+			{Request: &pluginv1.BranchRequest{Strategy: "github-flow", Branch: "main", DefaultBranch: "main"}, Refused: "UNCLAIMED_STRATEGY"},
 		},
 		Versions: []conformance.VersionCase{
 			{Request: after("0.76.1", "fix: trim the greeting"), Want: &pluginv1.VersionResponse{
@@ -64,7 +64,7 @@ func releaseFixture() conformance.Fixture {
 			{Request: after("1.2.3"), Want: &pluginv1.VersionResponse{Bump: none}},
 			{Request: after("", "docs: say more"), Want: &pluginv1.VersionResponse{Version: "0.1.0", Bump: none}},
 			{Request: after("1.2", "fix: trim the greeting"), Refused: "INVALID_VERSION"},
-			{Request: &pluginv1.VersionRequest{Strategy: "manual", LastVersion: "1.2.3", Initial: "0.1.0"}, Refused: "UNKNOWN_STRATEGY"},
+			{Request: &pluginv1.VersionRequest{Strategy: "manual", LastVersion: "1.2.3", Initial: "0.1.0"}, Refused: "UNCLAIMED_STRATEGY"},
 		},
 	}
 }

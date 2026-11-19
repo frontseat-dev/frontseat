@@ -33,11 +33,17 @@ tarball handoff. This costs extraction twice and invalidates acquisition when
 the lock changes.
 
 The first adapter accepts npm v3 locks of SHA-512-locked archives from
-`registry.npmjs.org`. It explicitly refuses npm workspaces, other package
-managers or `packageManager` selection, shrinkwrap, `.npmrc`, local/git/linked
-or bundled dependencies, other checksum algorithms or SRI expressions,
-implicit root `binding.gyp` builds, root install
-hooks. Test-script semantics belong to the framework adapter.
+`registry.npmjs.org`. What npm reads and the plugin does not build yet is
+refused `UNIMPLEMENTED`, each by its own reason: npm workspaces
+(`workspaces-not-served`), a `packageManager` selection
+(`package-manager-not-served`), root install hooks
+(`install-hooks-not-served`), a shrinkwrap (`shrinkwrap-not-served`), a Yarn
+or pnpm lock (`yarn-not-served`, `pnpm-not-served`), `.npmrc`
+(`npmrc-not-served`) and an implicit root `binding.gyp` build
+(`native-addons-not-served`). A lock that is missing or not v3, and
+local/git/linked or bundled dependencies, other checksum algorithms or SRI
+expressions, are refused as `invalid-manifest`. Test-script semantics belong
+to the framework adapter.
 Dependency hooks that require network access fail offline. Hooks that need
 undeclared tools or outputs outside `node_modules/` are not supported.
 

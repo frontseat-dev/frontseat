@@ -64,40 +64,29 @@ fn key(key: &Key) -> Action {
 /// the image, and no bill of materials is written beside it.
 fn image(config: &str, architecture: &str, inputs: Vec<Input>) -> Action {
     let layout = format!("oci/{architecture}");
-    Action {
-        name: format!("image-{}", architecture.replace('_', "-")),
-        command: Some(Command {
-            arguments: [
-                APKO,
-                "build",
-                "--offline",
-                "--lockfile",
-                FILE,
-                "--vcs=false",
-                "--sbom=false",
-                "--arch",
-                architecture,
-                // What follows is named by the lock, which a repository
-                // commits: apko reads none of it as an option.
-                "--",
-                config,
-                "image:latest",
-                &layout,
-            ]
-            .map(String::from)
-            .to_vec(),
-            ..Default::default()
-        }),
-        inputs,
-        outputs: ["index.json", "oci-layout", "blobs/"]
-            .map(|file| Output {
-                path: format!("{layout}/{file}"),
-                optional: false,
-            })
-            .to_vec(),
-        tools: vec![APKO.into()],
-        ..Default::default()
-    }
+    let command = Command::new([
+        APKO,
+        "build",
+        "--offline",
+        "--lockfile",
+        FILE,
+        "--vcs=false",
+        "--sbom=false",
+        "--arch",
+        architecture,
+        // What follows is named by the lock, which a repository
+        // commits: apko reads none of it as an option.
+        "--",
+        config,
+        "image:latest",
+        &layout,
+    ]);
+    ["index.json", "oci-layout", "blobs/"].into_iter().fold(
+        Action::new(format!("image-{}", architecture.replace('_', "-")), command)
+            .tool(APKO)
+            .inputs(inputs),
+        |action, file| action.output(Output::required(format!("{layout}/{file}"))),
+    )
 }
 
 /// The actions of an image: a fetch of each key and of each package the
