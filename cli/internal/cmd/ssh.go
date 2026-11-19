@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/frontseat-dev/frontseat/cli/internal/machine"
+	"github.com/frontseat-dev/frontseat/sdk/go"
 )
 
 var sshStdio, sshConfig bool
@@ -29,7 +30,8 @@ var sshCmd = &cobra.Command{
 
 With --config, print what ~/.ssh/config needs for an editor to open the
 workspace (VS Code Remote-SSH, JetBrains Gateway): the host
-frontseat-workspace.`,
+frontseat-workspace, which follows the workspace last opened, or, with
+--workspace NAME, the host frontseat-NAME, which is that workspace's.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
 		if sshStdio {
@@ -47,22 +49,33 @@ frontseat-workspace.`,
 			return nil
 		}
 		if sshConfig {
-			options, err := sshClientOptions()
+			options, err := sshClientOptions(workspaceFlag)
 			if err != nil {
 				return err
 			}
-			said("Host frontseat-workspace")
+			said("Host %s", hostOf(workspaceFlag))
 			for _, option := range options {
 				said("  %s %s", option[0], option[1])
 			}
 			return nil
 		}
-		return shell(ctx, append([]string{"frontseat-workspace"}, args...))
+		return shell(ctx, workspaceFlag, false, args)
 	},
 }
 
-// sshClientOptions is what the SSH client is told on this machine.
-func sshClientOptions() ([][2]string, error) {
+// hostOf is the host the SSH client is told a workspace's sandbox is:
+// frontseat-NAME for a workspace named, and frontseat-workspace for the
+// one last opened.
+func hostOf(workspace string) string {
+	if workspace == "" {
+		return "frontseat-workspace"
+	}
+	return "frontseat-" + workspace
+}
+
+// sshClientOptions is what the SSH client is told on this machine, for
+// a workspace named, or the one last opened where none is.
+func sshClientOptions(workspace string) ([][2]string, error) {
 	_, identity, err := machine.Identity()
 	if err != nil {
 		return nil, err
@@ -71,15 +84,16 @@ func sshClientOptions() ([][2]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	return sshOptions(self, identity)
+	return sshOptions(self, identity, workspace)
 }
 
-// shell runs the SSH client into the sandbox of the workspace the other
-// commands ask, with what follows its host: nothing for a shell, a
-// command, or the client's own flags and one. How the client ended is
-// how this command ends.
-func shell(ctx context.Context, arguments []string) error {
-	options, err := sshClientOptions()
+// shell runs the SSH client into the sandbox of a workspace named, or
+// of the one last opened, with what follows its host: nothing for a
+// shell, a command, or the client's own flags and one. How the client
+// ended is how this command ends. A terminal is asked for where one is
+// to be given whatever runs.
+func shell(ctx context.Context, workspace string, terminal bool, arguments []string) error {
+	options, err := sshClientOptions(workspace)
 	if err != nil {
 		return err
 	}
@@ -87,6 +101,10 @@ func shell(ctx context.Context, arguments []string) error {
 	for _, option := range options {
 		told = append(told, "-o", option[0]+"="+option[1])
 	}
+	if terminal {
+		told = append(told, "-t")
+	}
+	told = append(told, hostOf(workspace))
 	ssh := exec.CommandContext(ctx, "ssh", append(told, arguments...)...)
 	ssh.Stdin, ssh.Stdout, ssh.Stderr = os.Stdin, os.Stdout, os.Stderr
 	err = ssh.Run()
@@ -100,23 +118,33 @@ func shell(ctx context.Context, arguments []string) error {
 
 // sshOptions is what the SSH client is told to open a workspace's
 // sandbox, on its command line or in ~/.ssh/config, given this command's
-// own path and the key's. Each is written between quotes, so that a path
+// own path and the key's, for a workspace named, or for the one last
+// opened where none is. Each is written between quotes, so that a path
 // that holds a space is one path. A path is read three times over on its
 // way, by the SSH client's reader of options, by its expansion of % and
 // ${}, and, for the command it goes by, by a person's shell, and no one
 // way of writing it is read alike by all three: so a path that holds
 // anything any of them reads otherwise is refused, and is not escaped.
-func sshOptions(self, identity string) ([][2]string, error) {
+func sshOptions(self, identity, workspace string) ([][2]string, error) {
 	for what, path := range map[string]string{"frontseat is installed at": self, "this machine's key for its sandboxes is kept at": identity} {
 		if !filepath.IsAbs(path) || !writtenPlainly(path) {
 			return nil, fmt.Errorf("%s %q, which an SSH client or a shell would read as something else: a path it is told is whole, and of letters, digits, spaces and . _ - + , : = @ /", what, path)
 		}
 	}
+	// A workspace's name is put to the SSH client as it is, and so is
+	// one a workspace may have and nothing else.
+	proxy := `"` + self + `" workspace ssh --stdio`
+	if workspace != "" {
+		if !frontseat.IsWorkspaceName(workspace) {
+			return nil, fmt.Errorf("%q is no workspace's name: one is lower-case letters, digits and dashes, at most 48", workspace)
+		}
+		proxy += " --workspace=" + workspace
+	}
 	// The sandbox's host key is made when the sandbox is, so it is not
 	// kept: the server the connection goes through vouches for it.
 	return [][2]string{
 		{"User", "frontseat"},
-		{"ProxyCommand", `"` + self + `" workspace ssh --stdio`},
+		{"ProxyCommand", proxy},
 		{"IdentityFile", `"` + identity + `"`},
 		{"IdentitiesOnly", "yes"},
 		{"StrictHostKeyChecking", "no"},
@@ -138,6 +166,7 @@ func writtenPlainly(path string) bool {
 
 func init() {
 	workspaceCmd.AddCommand(sshCmd)
+	asksAWorkspace(sshCmd)
 	sshCmd.Flags().BoolVar(&sshStdio, "stdio", false, "carry an SSH client's connection to the sandbox on standard input and output")
 	sshCmd.Flags().BoolVar(&sshConfig, "config", false, "print the host an editor opens the workspace as, for ~/.ssh/config")
 	_ = sshCmd.Flags().MarkHidden("stdio")

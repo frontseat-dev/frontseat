@@ -35,7 +35,7 @@ func TestTheSSHClientIsToldPathsThatHoldASpace(t *testing.T) {
 	if err := os.WriteFile(self, []byte("#!/bin/sh\necho \"$0 $*\" >> '"+went+"'\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	options, err := sshOptions(self, identity)
+	options, err := sshOptions(self, identity, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +82,7 @@ func TestTheSSHClientIsToldPathsThatHoldASpace(t *testing.T) {
 // own. The control is the plain path beside them, which is taken.
 func TestAPathAnSSHClientOrAShellReadsOtherwiseIsRefused(t *testing.T) {
 	const plain = "/a directory/é/frontseat"
-	if _, err := sshOptions(plain, plain); err != nil {
+	if _, err := sshOptions(plain, plain, ""); err != nil {
 		t.Fatalf("a plain path was refused: %v", err)
 	}
 	for name, path := range map[string]string{
@@ -102,10 +102,10 @@ func TestAPathAnSSHClientOrAShellReadsOtherwiseIsRefused(t *testing.T) {
 		"a path that is not whole":    "a/frontseat",
 		"nothing":                     "",
 	} {
-		if _, err := sshOptions(path, plain); err == nil {
+		if _, err := sshOptions(path, plain, ""); err == nil {
 			t.Errorf("%s in this command's path was taken", name)
 		}
-		if _, err := sshOptions(plain, path); err == nil {
+		if _, err := sshOptions(plain, path, ""); err == nil {
 			t.Errorf("%s in the key's path was taken", name)
 		}
 	}

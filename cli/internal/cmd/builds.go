@@ -65,18 +65,20 @@ func init() {
 // returns the exit code the build ended with.
 func follow(cmd *cobra.Command, build *frontseat.Build, from int64) (int, error) {
 	printer := plain.Printer{Out: out}
+	next := from
 	for e, err := range build.Events(cmd.Context(), from) {
 		if err != nil {
 			return 0, err
 		}
 		printer.Event(e)
+		next = e.GetSequence() + 1
 		if ended := e.GetFinished().GetBuild(); ended != nil {
 			return int(ended.GetExitCode().GetCode()), nil
 		}
 	}
 	// A build is followed to the event that says how it ended: a stream
 	// that ends before it is no build that passed.
-	return 0, fmt.Errorf("the events of %s ended before it did: frontseat builds events %s goes on from where they were", build.ID, build.ID)
+	return 0, fmt.Errorf("the events of %s ended before it did: frontseat builds events %s %d goes on from where they were", build.ID, build.ID, next)
 }
 
 func state(b *buildv1.Build) string {
