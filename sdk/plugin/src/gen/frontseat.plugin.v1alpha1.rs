@@ -55,10 +55,8 @@ pub struct ReadResponse {
 /// GlobRequest selects files beneath a literal repository directory.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct GlobRequest {
-    /// Patterns are relative to directory. "*" stands
-    /// for any run of characters within a name, and "**" for any
-    /// directories, none included. One that starts with "!" excludes what
-    /// it matches, and the last pattern to match a path decides.
+    /// Patterns are a list of patterns, as this file's head says them,
+    /// matched against each file's path relative to directory.
     #[prost(string, repeated, tag = "1")]
     pub patterns: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     /// Directory is a literal repository-relative directory, never a pattern.
@@ -130,27 +128,16 @@ pub struct BranchResponse {
     /// Reason says why it does not, where it does not.
     #[prost(string, tag = "2")]
     pub reason: ::prost::alloc::string::String,
-    /// Prerelease is whether what it releases is a prerelease.
-    #[prost(bool, tag = "3")]
-    pub prerelease: bool,
-    /// Prerelease_label is what a prerelease is spelled with after the
-    /// version's hyphen, before the host's counter: "rc", "feat-greet". The
-    /// host spells "<version>-<label>.<n>", n one more than the highest of
-    /// the unit's tags of that version and label anywhere in the repository,
-    /// reachable or not, and 1 where there is none. A prerelease is never
-    /// a unit's last release.
-    #[prost(string, tag = "4")]
-    pub prerelease_label: ::prost::alloc::string::String,
     /// Line is what every version the branch releases begins with, as
     /// dotted numbers: "1.26" holds it to 1.26.x. Empty holds it to none. A
     /// unit whose last release is below the line, as on a branch cut for a
     /// line not yet released, is released at the line's first version,
     /// 1.26.0, whatever its commits call for.
-    #[prost(string, tag = "5")]
+    #[prost(string, tag = "3")]
     pub line: ::prost::alloc::string::String,
     /// Channel is the name of what it releases: "latest", "next", a
     /// branch's name.
-    #[prost(string, tag = "6")]
+    #[prost(string, tag = "4")]
     pub channel: ::prost::alloc::string::String,
 }
 /// VersionRequest asks a unit's next version.
@@ -198,8 +185,8 @@ pub struct ReleaseCommit {
 /// VersionResponse is a unit's next version.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct VersionResponse {
-    /// Version is its next version; empty if it holds. A prerelease is
-    /// spelled by the host from the branch's label, after this.
+    /// Version is its next version, three dotted numbers and nothing
+    /// after them; empty if it holds.
     #[prost(string, tag = "1")]
     pub version: ::prost::alloc::string::String,
     /// Bump is how far it moves.
@@ -345,8 +332,8 @@ pub struct DescribeResponse {
     #[prost(uint32, tag = "3")]
     pub abi: u32,
     /// Interests are patterns of the files it reads, relative to a
-    /// repository. The host calls Analyze only for a directory that holds a
-    /// file one matches.
+    /// repository, in the pattern language host.proto says. The host calls
+    /// Analyze only for a directory that holds a file they select.
     #[prost(string, repeated, tag = "5")]
     pub interests: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     /// Options are the options it takes. A repository or an entity can set
@@ -669,19 +656,19 @@ pub struct Action {
     /// action's name is that, a slash, and what it is of, in letters,
     /// digits and "._~+@-/": fetch/github.com/spf13/cobra@v1.8.1.
     ///
-    /// A project's tests may be several actions, each an atom of them the
+    /// A project's tests may be several actions, each a piece of them the
     /// project's tool tests by itself: a test is named "test", or "test", a
-    /// slash and what atom it is, in the same letters, digits and
+    /// slash and what piece it is, in the same letters, digits and
     /// "._~+@-/", as its tool spells it: test/internal/ledger for a
     /// package of a Go module, test/. for the package at its root. A run
-    /// asked for the actions named "test" is asked for every atom, and
+    /// asked for the actions named "test" is asked for every piece, and
     /// the label that ends in "test" points at them all. Only a test is
-    /// named so, and a project has "test" or atoms of it, never both.
+    /// named so, and a project has "test" or pieces of it, never both.
     ///
-    /// An atom may be cut into shards, each an action that runs a share of
-    /// the atom's tests: a shard is named its atom, "@", which of them it
-    /// is and of how many, from 1, as test/internal/ledger@2of4. No atom's
-    /// own name holds "@". The label of an atom that is cut into shards
+    /// A piece may be cut into shards, each an action that runs a share of
+    /// the piece's tests: a shard is named its piece, "@", which of them it
+    /// is and of how many, from 1, as test/internal/ledger@2of4. No piece's
+    /// own name holds "@". The label of a piece that is cut into shards
     /// points at its shards.
     #[prost(string, tag = "1")]
     pub name: ::prost::alloc::string::String,
@@ -776,8 +763,9 @@ pub struct Action {
     /// given first; whoever runs it gives the rest. It runs where the
     /// daemon is, in the daemon's own sandbox, in its project's directory
     /// there, until it ends or is stopped. What it reads is what its inputs
-    /// name of what other actions left (":compile", ":~/go/bin/"), brought
-    /// from the grid: a run builds those first, as any build does. Its
+    /// name of what other actions left (the output inputs "compile" and
+    /// "~/go/bin/"), brought from the grid: a run builds those first, as
+    /// any build does. Its
     /// program is named by where one of them left it, beneath the project
     /// or in the action's home ("~/go/bin/greeter"), never a program of
     /// the system's.
@@ -826,8 +814,9 @@ pub mod input {
     /// Kind distinguishes source selection from produced files and dependencies.
     #[derive(Clone, PartialEq, Eq, Hash, ::prost::Oneof)]
     pub enum Kind {
-        /// Source is a glob relative to the project, with an optional ! exclusion.
-        /// Its contents are always a pattern, including a leading : or = character.
+        /// Source is a pattern relative to the project, in the pattern language
+        /// host.proto says, with an optional ! exclusion. Its contents are
+        /// always a pattern, including a leading : or = character.
         #[prost(string, tag = "1")]
         Source(::prost::alloc::string::String),
         /// Input_set is the name of a source input set declared by the project.

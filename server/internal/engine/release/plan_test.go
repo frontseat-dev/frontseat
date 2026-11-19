@@ -593,11 +593,6 @@ func TestAStrategysAnswerIsHeldToTheContract(t *testing.T) {
 			t.Errorf("%s: want the strategy's answer refused as its own fault, got %v", name, err)
 		}
 	}
-	// A prerelease is not served yet, and is refused as that.
-	var refusal *release.Refusal
-	if err := plan("release/1.26", &wrong{branch: func(a *pluginv1.BranchResponse) { a.Prerelease = true }}); !errors.As(err, &refusal) || !refusal.Unserved {
-		t.Errorf("a prerelease: %v", err)
-	}
 }
 
 // A commit is said to have changed the members whose files it changed,

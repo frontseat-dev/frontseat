@@ -21,6 +21,6 @@
 // Release Flow and conventional commits through the strategies a
 // repository lists; a branch's line; a first release; a unit that holds.
 // Not served, and refused by name: a domain within a domain (Backstage's
-// subdomainOf), a prerelease. Not yet held: a unit is not refused against
+// subdomainOf). Not yet held: a unit is not refused against
 // an unreleased change of a unit it depends on.
 package release
