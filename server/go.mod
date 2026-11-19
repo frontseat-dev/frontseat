@@ -5,7 +5,7 @@ go 1.27.3
 require (
 	connectrpc.com/connect/v2 v2.0.2
 	github.com/Masterminds/semver/v3 v3.4.0
-	github.com/ai-openshell/sdk-go v0.1.8
+	github.com/ai-openshell/sdk-go v0.1.9
 	github.com/bazelbuild/remote-apis v0.0.0-20260331222004-becdd8f9ff81
 	github.com/bazelbuild/remote-apis-sdks v0.0.0-20261104145708-67e564a2db07
 	github.com/bmatcuk/doublestar/v4 v4.10.4
@@ -40,7 +40,7 @@ require (
 	go.opentelemetry.io/proto/otlp v1.11.1
 	go.yaml.in/yaml/v4 v4.0.0
 	golang.org/x/crypto v0.58.0
-	golang.org/x/sync v0.24.0
+	golang.org/x/sync v0.25.0
 	golang.org/x/sys v0.49.0
 	google.golang.org/genproto v0.0.0-20260526163538-3dc84a4a5aaa
 	google.golang.org/genproto/googleapis/bytestream v0.0.0-20260526163538-3dc84a4a5aaa

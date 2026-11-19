@@ -13,7 +13,7 @@ ARG TARGETARCH
 ARG BOX
 ARG WOLFI=cgr.dev/chainguard/wolfi-base@sha256:e9b8c3739e5fb5fc778843a2ce74f8620588c9ddc9c44918cead527abcb0b628
 
-FROM ghcr.io/nvidia/openshell/gateway:0.1.8@sha256:d66352a54c680b652e5ddd7d19b9c1189568d18016f360b9b8c64014f13d89c4 AS gateway
+FROM ghcr.io/nvidia/openshell/gateway:0.1.9@sha256:1fd9e1e807990e66c9486a28d3ce9d649fd7528df48d0e830d2de2148b52dfe5 AS gateway
 FROM ghcr.io/buildbarn/bb-storage:20260906T092937Z-ae61334@sha256:05760070ed561be9090e9483c6ee0cf55e7f806cf7c28752f1301f31015002c7 AS storage
 FROM ghcr.io/buildbarn/bb-scheduler:20261008T101024Z-582d07f@sha256:3e61fd8824706c174b0c7e87ca02b5c1ae99ba27a1f586b2e1b3a0af909bb491 AS scheduler
 FROM ghcr.io/buildbarn/bb-worker:20261008T101024Z-582d07f@sha256:9188ee7ba21f78ecdfd8ee7304dba555af4bec6cc00b2fe12d11a31a0b7005c7 AS worker
