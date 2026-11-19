@@ -1,0 +1,159 @@
+// frontseat.source.v1alpha1: the source a workspace's daemon holds, as
+// the control plane tells it. The control plane keeps what a workspace
+// is asked for and is the one writer of it: it gives the daemon the
+// whole source to hold, at a generation, and reads back what the daemon
+// holds; the daemon keeps no spec of its own. A daemon holds one source,
+// and so a source has no name.
+//
+// It is the daemon's internal API: served on a port of its own, beside
+// the build API's, which the control plane dials and to which it leads no
+// caller. No client, SDK or command line asks it, and its Go is the
+// server's alone (server/internal/sourceapi). The port is no security
+// boundary inside the daemon's sandbox, where anything may reach it:
+// what holds the workspace is that the control plane never reads what
+// is asked for back from the daemon, and tells a daemon that holds
+// another generation its own again.
+//
+// What it refuses by name carries ErrorInfo of the domain
+// source.frontseat.dev, whose reason the control plane acts on.
+syntax = "proto3";
+
+package frontseat.source.v1alpha1;
+
+import "frontseat/type/v1alpha1/types.proto";
+import "google/api/field_behavior.proto";
+
+// SourceService is the source a daemon holds.
+service SourceService {
+  // SetSource gives the daemon the whole source to hold, at a
+  // generation, and returns once bringing it is under way: WaitSource
+  // says how it ended. What the daemon holds already stays; nothing is
+  // removed. A generation is any the control plane gives, the same one
+  // again among them: the daemon takes it as the generation it holds.
+  //
+  // ### Errors
+  // - INVALID_ARGUMENT: GENERATION_INVALID, it is told at no
+  //   generation, counted from one; SOURCE_MISSING, it names no
+  //   repository; SOURCE_UNFIT, a repository it names, or where an
+  //   entity is said to be, cannot be held where the daemon holds its
+  //   source.
+  // - FAILED_PRECONDITION: SOURCE_POPULATING, the daemon is bringing
+  //   what it was told before, and is told again once it is not;
+  //   SOURCE_MOUNTED, the daemon was given a checkout and brings
+  //   nothing.
+  rpc SetSource(SetSourceRequest) returns (SetSourceResponse);
+
+  // WaitSource returns the source once the daemon is bringing nothing,
+  // or at once where the generation it holds is not the one asked
+  // after, as with a daemon started again since it was told: what it
+  // holds, the generation it took last, and how bringing that ended.
+  // Asked with the generation the caller last gave, it says whether the
+  // daemon holds it. A caller with a deadline is answered before it,
+  // still bringing where it is: a deadline reached is a daemon that does
+  // not answer.
+  rpc WaitSource(WaitSourceRequest) returns (WaitSourceResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+}
+
+// Source is what a daemon holds, and how bringing it went.
+message Source {
+  // State is where bringing it is.
+  State state = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Failure says why bringing it failed; empty where it did not.
+  string failure = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Generation is the generation it took last; zero for a daemon that
+  // was told none since it started.
+  int64 generation = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Repositories are the repositories it holds.
+  repeated Repository repositories = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
+
+  // State is where bringing a source is.
+  enum State {
+    // STATE_UNSPECIFIED: not known.
+    STATE_UNSPECIFIED = 0;
+    // STATE_POPULATING: it is bringing what it was told.
+    STATE_POPULATING = 1;
+    // STATE_READY: it holds what it was told, or was told nothing.
+    STATE_READY = 2;
+    // STATE_FAILED: bringing what it was told failed; failure says why.
+    // What it brought by then is held.
+    STATE_FAILED = 3;
+  }
+}
+
+// SourceSpec is the whole source a daemon is to hold.
+message SourceSpec {
+  // Generation is the control plane's count of what it told: the same
+  // spec, the same generation.
+  int64 generation = 1 [(google.api.field_behavior) = REQUIRED];
+  // Repositories are repositories to clone: those a workspace was asked
+  // for, and those the control plane resolved its entities to.
+  repeated Checkout repositories = 2;
+  // Located are the entities the control plane resolved, and where each
+  // is among the repositories: what the daemon knows its entities by. It
+  // resolves nothing itself.
+  repeated LocatedEntity located = 3;
+}
+
+// LocatedEntity is an entity, and where its source is.
+message LocatedEntity {
+  // Ref names the entity in full.
+  frontseat.type.v1alpha1.EntityRef ref = 1 [(google.api.field_behavior) = REQUIRED];
+  // Repository is the name of the repository that holds it, as a
+  // Checkout names it.
+  string repository = 2 [(google.api.field_behavior) = REQUIRED];
+  // Root is its directory in that repository; empty for all of it.
+  string root = 3;
+}
+
+// Checkout is a repository to clone.
+message Checkout {
+  // Remote is its URL.
+  string remote = 1 [(google.api.field_behavior) = REQUIRED];
+  // Ref is the branch, tag or commit to stand at; empty for the remote's
+  // default branch.
+  string ref = 2;
+  // Roots are the directories to take of it; empty for all of it.
+  repeated string roots = 3;
+  // Name is the daemon's name for it: the one directory it is cloned
+  // into.
+  string name = 4 [(google.api.field_behavior) = REQUIRED];
+}
+
+// Repository is one repository a daemon holds.
+message Repository {
+  // Name is its name: what a label and a path name it by. Empty for a
+  // checkout the daemon was given and did not bring.
+  string name = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Remote is where it was cloned from.
+  string remote = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Commit is the commit it stands at.
+  string commit = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Roots are the directories taken of it; empty for all of it.
+  repeated string roots = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+// SetSourceRequest gives a daemon the source to hold.
+message SetSourceRequest {
+  // Spec is the whole source, at its generation.
+  SourceSpec spec = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+// SetSourceResponse is the source as the request left it.
+message SetSourceResponse {
+  // Source is the source, being brought.
+  Source source = 1;
+}
+
+// WaitSourceRequest says which generation is waited after.
+message WaitSourceRequest {
+  // Generation is the generation the caller last gave.
+  int64 generation = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+// WaitSourceResponse is the source as the wait ended on it.
+message WaitSourceResponse {
+  // Source is the source.
+  Source source = 1;
+}

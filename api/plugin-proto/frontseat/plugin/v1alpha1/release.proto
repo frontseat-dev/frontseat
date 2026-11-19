@@ -1,0 +1,147 @@
+// frontseat.plugin.v1alpha1: what a plugin is asked of releasing.
+//
+// The host builds the release graph: which entities are units, which
+// units depend on which, what each unit's members are, and for each unit
+// its last release and the commits since it that changed its members'
+// files. It knows nothing of how a version moves or which branches
+// release. Those are plugins', in two roles, and a plugin may serve either
+// beside its others:
+//
+//   - A branching strategy (Branch) says what a branch releases: whether
+//     it releases at all, stable or prerelease, held to which line. GitHub
+//     Flow, GitLab Flow's release branches and Release Flow are three such.
+//   - A versioning strategy (Version) says what a unit's next version is,
+//     and why, from its commits. Conventional commits is one such.
+//
+// A unit names its strategies in spec.frontseat.release, inherited like
+// every release setting; a strategy's own options are its plugin's
+// options, declared and checked as every option is.
+//
+// Branch and Version read nothing through the host: what they are told is
+// all they know, so the same question has the same answer, and the host
+// can keep it. The host asks Branch once for each unit, then Version. It
+// checks every answer: a version must be above the last release, on the
+// branch's line, and tagged on no other commit; a unit that holds is told
+// nothing more.
+syntax = "proto3";
+
+package frontseat.plugin.v1alpha1;
+
+import "frontseat/type/v1alpha1/types.proto";
+
+// ReleaseRoles is what a plugin serves of releasing, said in Describe.
+message ReleaseRoles {
+  // Branchings are the branching strategies it answers Branch for, by
+  // name, lower-case [a-z0-9-]: "github-flow", "release-flow".
+  repeated string branchings = 1;
+  // Versionings are the versioning strategies it answers Version for, by
+  // name: "conventional-commits".
+  repeated string versionings = 2;
+}
+
+// ReleaseUnitFacts is a unit, as the release graph has it.
+message ReleaseUnitFacts {
+  // Unit is the unit: a synced group, or an entity that versions alone.
+  frontseat.type.v1alpha1.EntityRef unit = 1;
+  // Members are the entities that take its version.
+  repeated frontseat.type.v1alpha1.EntityRef members = 2;
+}
+
+// BranchRequest asks what a branch releases of a unit.
+message BranchRequest {
+  // Strategy is the branching strategy the unit names.
+  string strategy = 1;
+  // Unit is the unit.
+  ReleaseUnitFacts unit = 2;
+  // Branch is the branch the release is planned from, as the version
+  // control system names it: "main", "release/1.26".
+  string branch = 3;
+  // Last_version is the unit's last stable release; empty if none.
+  string last_version = 4;
+  // Commits are the commits since the last release that changed a
+  // member's files, oldest first.
+  repeated ReleaseCommit commits = 5;
+  // Default_branch is the repository's default branch: "main".
+  string default_branch = 6;
+}
+
+// BranchResponse is what a branch releases.
+message BranchResponse {
+  // Releases is whether the branch releases the unit at all. A branch
+  // that does not is said so in the plan, with the reason.
+  bool releases = 1;
+  // Reason says why it does not, where it does not.
+  string reason = 2;
+  // Prerelease is whether what it releases is a prerelease.
+  bool prerelease = 3;
+  // Prerelease_label is what a prerelease is spelled with after the
+  // version's hyphen, before the host's counter: "rc", "feat-greet". The
+  // host spells "<version>-<label>.<n>", n one more than the highest of
+  // the unit's tags of that version and label anywhere in the repository,
+  // reachable or not, and 1 where there is none. A prerelease is never
+  // a unit's last release.
+  string prerelease_label = 4;
+  // Line is what every version the branch releases begins with, as
+  // dotted numbers: "1.26" holds it to 1.26.x. Empty holds it to none. A
+  // unit whose last release is below the line, as on a branch cut for a
+  // line not yet released, is released at the line's first version,
+  // 1.26.0, whatever its commits call for.
+  string line = 5;
+  // Channel is the name of what it releases: "latest", "next", a
+  // branch's name.
+  string channel = 6;
+}
+
+// VersionRequest asks a unit's next version.
+message VersionRequest {
+  // Strategy is the versioning strategy the unit names.
+  string strategy = 1;
+  // Unit is the unit.
+  ReleaseUnitFacts unit = 2;
+  // Last_version is its last release; empty if it has none.
+  string last_version = 3;
+  // Initial is the version of its first release.
+  string initial = 4;
+  // Commits are the commits since the last release that changed a
+  // member's files, oldest first.
+  repeated ReleaseCommit commits = 5;
+  // Branch is what the branch releases, as Branch answered.
+  BranchResponse branch = 8;
+}
+
+// ReleaseCommit is one commit, as far as it concerns a unit.
+message ReleaseCommit {
+  // Id is the commit's id.
+  string id = 1;
+  // Repository is the workspace's name for the repository it is in.
+  string repository = 2;
+  // Message is its whole message.
+  string message = 3;
+  // Members are the unit's members whose files it changed.
+  repeated frontseat.type.v1alpha1.EntityRef members = 4;
+  // Time is when it was committed, in seconds since the epoch.
+  int64 time = 5;
+}
+
+// VersionResponse is a unit's next version.
+message VersionResponse {
+  // Version is its next version; empty if it holds. A prerelease is
+  // spelled by the host from the branch's label, after this.
+  string version = 1;
+  // Bump is how far it moves.
+  frontseat.type.v1alpha1.Bump bump = 2;
+  // Reasons say why, heaviest first: each a commit of its own.
+  repeated VersionReason reasons = 3;
+  // Notes are its release notes, as Markdown.
+  string notes = 4;
+}
+
+// VersionReason is one reason a strategy gave.
+message VersionReason {
+  // Commit is the commit that is the reason, by id.
+  string commit = 1;
+  // Bump is what this reason alone is worth.
+  frontseat.type.v1alpha1.Bump bump = 3;
+  // Summary says it in a line: "feat: trim the greeting".
+  string summary = 4;
+}

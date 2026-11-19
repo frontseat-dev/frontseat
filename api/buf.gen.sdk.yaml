@@ -1,0 +1,44 @@
+# The contract's Go for the Go SDK (sdk/go/api): the messages of every
+# module but the plugin contract's, and the Connect clients and handlers
+# of the services served over a network. The client, the servers and
+# anything outside this repository import it from the SDK. Managed mode
+# sets every Go package, so no .proto names a language. Generated, never
+# edited, and held to what this writes now by `mise run check`.
+#
+# Frontseat builds it as //api:buf.generate-sdk: it writes outside this
+# workspace, into the Go SDK, which says so in its catalog file
+# (spec.frontseat.generated).
+version: v2
+# What it writes into is its own: emptied first, so that what a proto no
+# longer gives is gone.
+clean: true
+managed:
+  enabled: true
+  override:
+    - file_option: go_package_prefix
+      value: github.com/frontseat-dev/frontseat/sdk/go/api
+  disable:
+    # The copied-in protos keep the Go packages their owners publish.
+    - path: google/api
+      file_option: go_package_prefix
+    - path: google/rpc
+      file_option: go_package_prefix
+plugins:
+  - local: protoc-gen-go
+    out: ../sdk/go/api
+    opt: paths=source_relative
+  - local: protoc-gen-connect-go
+    out: ../sdk/go/api
+    opt: paths=source_relative
+# Every module of the workspace (buf.yaml), but the protos copied in from
+# googleapis, whose Go their owners publish, the plugin contract, whose
+# Go is the daemon's alone (buf.gen.daemon.yaml), and what the runner is
+# told, and the daemon's internal API, whose Go is the server's alone
+# (buf.gen.runner.yaml, buf.gen.source.yaml).
+inputs:
+  - directory: .
+    exclude_paths:
+      - third-party-proto/google
+      - plugin-proto/frontseat
+      - runner-proto/frontseat
+      - source-proto/frontseat

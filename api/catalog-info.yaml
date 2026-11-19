@@ -1,0 +1,13 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: api
+  namespace: frontseat
+  description: "The contracts as protos, with their buf configuration and the googleapis protos they import; what is generated from them is in the SDKs and the server"
+spec:
+  type: library
+  lifecycle: experimental
+  owner: jbadeau
+  # The public contracts, which clients and plugins build against;
+  # released with the Domain through its System.
+  system: clients

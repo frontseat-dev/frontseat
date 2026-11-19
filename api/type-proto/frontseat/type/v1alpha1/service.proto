@@ -1,0 +1,102 @@
+// How a service is started for a test: one shape, shared by the catalog
+// entity that writes it, the plugin that answers it and the runner that
+// starts it.
+syntax = "proto3";
+
+package frontseat.type.v1alpha1;
+
+import "google/protobuf/duration.proto";
+
+// Service is how something a test needs is started beside it: the one
+// shape of it, for whoever says it and whoever starts it. A catalog
+// entity writes it (spec.frontseat.service), a plugin answers it
+// (PluginService.Service), and a worker's runner is told it
+// (frontseat.runner.v1alpha1). In its arguments, its environment, the
+// arguments of a command it is ready by, what it exports and its
+// endpoints, "{host}" is where it is reached, "{port.<name>}" a port of
+// its own and "{<name>.port.<name>}" a port of something its entity
+// depends on; the host fills them in before anything is started. There
+// is no way to write one of these as text to be kept: an argument that
+// holds "{host}" is given the address.
+message Service {
+  // Image is the image it runs, from outside, named with its registry
+  // and digest.
+  string image = 1;
+  // Arguments are what the image's entrypoint is given.
+  repeated string arguments = 2;
+  // Ports are the ports it serves, by name, lower-case [a-z0-9-].
+  map<string, int32> ports = 3;
+  // Environment is the environment it starts with.
+  map<string, string> environment = 4;
+  // Ready is checked in order before a test is started: it is ready
+  // when each holds.
+  repeated ServiceReady ready = 5;
+  // Timeout is how long it is given to be ready, in whole seconds;
+  // unset is the host's own, which it says before anything is started,
+  // and an hour is the most.
+  google.protobuf.Duration timeout = 6;
+  // Exports are what each test given it is told: names the shell can
+  // export, each with its value.
+  map<string, string> exports = 7;
+  // Apis maps canonical API references provided by a Component to the
+  // endpoint and exports granted to consumers of that API alone.
+  map<string, ServiceApi> apis = 8;
+  // Endpoints are where a test given it reaches it, by name, lower-case
+  // [a-z0-9-]: each an address made of "{host}" and one port of its
+  // own, "{port.<name>}", such as "{host}:{port.sql}" or
+  // "http://{host}:{port.web}/". Each test is told, in the variable
+  // FRONTSEAT_ENDPOINTS, a JSON object of every service it is given,
+  // by its entity reference, each with the endpoints the test can reach
+  // filled in: {"resource:default/db": {"sql": "127.0.0.1:41001"}}. A
+  // test reaches a Component's endpoint only through a port that an API
+  // it consumes is bound to.
+  map<string, string> endpoints = 9;
+  // User is the user its image's processes run as, by number, never
+  // root's (0); empty for the sandbox's own. A sandbox runs no service
+  // as root: an image that starts as root to give itself to a user of
+  // its own (as an official database image does) is told that user.
+  string user = 10;
+  // Writable are the directories it writes, each an absolute path of its
+  // image's; nothing else of its image is written. Empty for none but
+  // the sandbox's own temporary directory.
+  repeated string writable = 11;
+}
+
+// ServiceApi binds one provided API to one named listening port.
+message ServiceApi {
+  // Port names one of the service's ports.
+  string port = 1;
+  // Exports use {host} and {port.<port>} of this API alone. They are
+  // rendered against the immediate consumer's granted endpoint.
+  map<string, string> exports = 2;
+}
+
+// ServiceReady is one condition of a service being ready.
+message ServiceReady {
+  // Check is what is checked.
+  oneof check {
+    // Port is the name of a port of its own that accepts.
+    string port = 1;
+    // Http is an answer of 2xx from one of its ports.
+    ServiceHttpReady http = 2;
+    // Command is a command, run in its own container, that exits 0.
+    ServiceCommandReady command = 3;
+  }
+}
+
+// ServiceHttpReady is an HTTP answer a service gives when it is ready.
+message ServiceHttpReady {
+  // Port is the name of the port asked.
+  string port = 1;
+  // Path is the path asked for.
+  string path = 2;
+  // Body is a regular expression (RE2) the answer's body must match;
+  // empty for any.
+  string body = 3;
+}
+
+// ServiceCommandReady is a command that succeeds once a service is ready.
+message ServiceCommandReady {
+  // Arguments are the program and its arguments.
+  repeated string arguments = 1;
+}

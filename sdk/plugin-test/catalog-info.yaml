@@ -1,0 +1,12 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: plugin-test
+  namespace: frontseat
+  description: "What a plugin's unit tests are written with (the crate frontseat-plugin-test): a repository in memory, a host that records reads and fails when told to, and the plugin asked as the host asks it, its globs held to the host's by a shared table of cases"
+spec:
+  type: library
+  lifecycle: experimental
+  owner: jbadeau
+  system: plugins
+  dependsOn: [component:plugin-sdk]

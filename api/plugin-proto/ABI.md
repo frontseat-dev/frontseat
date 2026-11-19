@@ -1,0 +1,377 @@
+# The plugin ABI
+
+How the messages of `frontseat.plugin.v1alpha1` cross between the host and
+a plugin. With the four `.proto` files beside it, this is the whole
+wire contract. Plugins are written in Rust against the plugin SDK (`sdk/plugin`, the crate `frontseat-plugin`);
+the SDK implements this ABI once. Plugin authors implement its `Plugin` trait
+and use `serve!`, rather than maintaining their own dispatch or host imports.
+
+## A plugin is a wasm module
+
+- Target `wasm32-wasip1`, built as a reactor: the host calls `_initialize`
+  once, then the exports below, any number of times.
+- It is given no directory, no clock it can rely on, no network and no
+  environment. Everything it reads comes through the imports below.
+- The host bounds its memory to 256 MiB, and ends a call whose caller has
+  gone.
+
+## Exports
+
+| Export | Signature | What it does |
+|---|---|---|
+| `frontseat_abi` | `() -> i32` | The ABI the module speaks. The host loads no module outside the range it supports. This document is ABI 19. |
+| `frontseat_alloc` | `(size: i32) -> i32` | Returns the address of `size` bytes the host may write to. |
+| `frontseat_free` | `(ptr: i32, size: i32)` | Gives back what `frontseat_alloc` returned. |
+| `frontseat_call` | `(ptr: i32, size: i32) -> i64` | Takes a serialized `Call`, returns a serialized `Reply`. |
+
+A returned `i64` is an address in its high 32 bits and a size in its low
+32. The host frees what a module returns, with `frontseat_free`, once it
+has read it.
+
+## Imports
+
+Module `frontseat`. One import for each method of `HostService`, named in
+lower case:
+
+| Import | Request | Response |
+|---|---|---|
+| `read` | `ReadRequest` | `ReadResponse` |
+| `glob` | `GlobRequest` | `GlobResponse` |
+
+Each has the signature `(ptr: i32, size: i32) -> i64`: a serialized request
+in, a serialized response out, written by the host into memory it took
+from `frontseat_alloc`. The module frees it, with the size it was given.
+
+A result of zero is an empty response: the host wrote nothing, and every
+field has its default. A read the host cannot serve is not reported to the
+module; the host fails the call it was made in.
+The SDK refuses malformed response bytes rather than decoding them as defaults.
+Its Rust `read` and `glob` interfaces return `Result`, preserving source failures
+in native hosts as well; absence remains a successful `None`.
+
+`glob` takes a literal repository-relative directory separately from patterns
+relative to that directory. The empty directory means the repository root.
+Returned paths are relative to the repository. The host records both directory
+and patterns when deciding whether a previously computed answer still holds.
+
+## A call
+
+1. The host serializes a `Call`: the method's name as `PluginService`
+   spells it, and its request.
+2. It writes it into the module and calls `frontseat_call`.
+3. The module answers with a `Reply`: the response or a `google.rpc.Status`
+   failure. A method it does not serve returns `UNIMPLEMENTED`.
+
+The methods are `Describe`, `Analyze`, `Arrange`, `Report`, `Reconcile` and `Service`. `Report` is
+asked of a check once it has ended, with its exit code and what it
+printed, each cut to its first MiB; a plugin that answers it
+`UNIMPLEMENTED` has checks with no findings but their exit code and what
+they printed, and the host records none. A check writes nothing on the
+grid. What a check's fix may change is declared on the action
+(`rewrites`); the fix runs where the checkout is, over a copy, and the
+host compares the copy with what the run read. A plugin writes nothing
+itself.
+
+The shared SDK encodes each failure with `google.rpc.ErrorInfo` and
+`frontseat.type.v1alpha1.Diagnostic`. The reason is upper snake case in the
+domain `<plugin>.plugins.frontseat.dev`; the diagnostic's rule ID is
+`<plugin>/<lower-kebab-case-reason>`. The diagnostic retains its message,
+source location and remediation independently of the human-readable status
+message. A source-free failure still retains remediation. The host validates
+the code, identity and literal relative path, and supplies the repository
+identity. These details survive graph RPC errors and persisted run failures.
+Additional details may use the standard `google.rpc` error-detail messages:
+RetryInfo, DebugInfo, QuotaFailure, PreconditionFailure, BadRequest, RequestInfo,
+ResourceInfo, Help and LocalizedMessage. Unknown types, nested statuses and
+malformed payloads are refused. Plugins extend reasons and rule IDs, not message
+schemas that a generic JSON client would be unable to read.
+
+A module never traps to report a failure. A trap is a bug in the module,
+and the host reports it as one.
+
+## Rules a module can rely on, and must keep
+
+- **The same reads and the same request give the same answer.** The host
+  records every import a call makes: what an answer depended on.
+- **An answer is used in the order it is given.** Projects, actions and
+  what an action was handed keep the order a module returned them in, so
+  a module returns them in an order that does not change from call to
+  call.
+- **The host holds an answer to the contract.** An answer that breaks it
+  is an error the host reports, naming the plugin and the project.
+- **Describe reads nothing.** A read through the host during Describe
+  fails the call.
+- **Options retain their types.** Defaults, call contexts and graph views use
+  `frontseat.type.v1alpha1.OptionValue`. The SDK checks every declared option
+  before ecosystem code runs. Missing, unknown, unset and mistyped values fail;
+  empty strings/lists, false and zero are present values. All signed int64
+  values are carried exactly, without floating-point conversion.
+- **Profiles are explicit.** Analyze and Arrange require development or
+  production. The SDK rejects unspecified and unknown values before source
+  access, just as it validates options before ecosystem code.
+- **Each call is made on an instance of its own.** Nothing a call
+  leaves in memory is there for the next, and calls do not wait for
+  each other.
+- **Exports have the shapes above.** The host checks each export's
+  parameters and results, and that the module exports a memory, before
+  it runs any of the module; one that differs is not loaded.
+
+## A catalog's files
+
+A plugin that finds entities is asked, for a file out of step, what it
+should say (`Reconcile`): for each entity, the components the source says
+it depends on and that depend on it. It answers edits, each a sequence of
+strings at a key path of one document of a file it was asked about; no
+values take the key out. The plugin owns the schema: which field, how a
+reference is spelled, which document is which entity. The host owns the
+write, keeping the file's comments and other fields, and reads the
+result back through the plugin: an edit after which the plugin's own
+reading disagrees with the source is refused. A plugin that finds no
+entities refuses the call as unsupported.
+
+## A project's workspace
+
+A tool may keep what a project is built with above the project: cargo
+keeps `Cargo.lock` and the manifest its members inherit from at the
+workspace root, and finds a path dependency by the path the manifest
+names. The contract carries this in three places. `Project.workspace_files`
+names literal files above the project, relative to the repository, that
+every action of the project reads where they are. A dependency input's
+`into` may be `{root}`, and what is handed is then placed at its
+own root in the repository; `Handed.into` tells the plugin the way there
+from the project, such as `../greet`. A file an Arrange writes may sit
+directly in a directory above the project, never beside it, for the
+workspace, in place of the repository's own
+(the workspace manifest, narrowed); staging refuses one in place of a
+workspace file the project reads. A project that says `always_arranged`
+has its actions with dependency inputs arranged even when no workspace
+handoffs resolve. Actions without dependency inputs are not arranged. A project at the
+repository's root has nothing above it, and names no workspace file.
+
+## Generated source
+
+The contract carries `Describe.generates_sources`, `Project.generated_sources` and
+`InputSet.accepts_generated`. Producers are analyzed first using committed
+metadata. The host rejects discovery reads of generated content, including
+cached observations. A contribution names a required directory output of its
+action and where that output goes in the source: `directory`, relative to the
+producing project and beneath it, or `destination`, relative to the repository,
+for a place outside it and not holding it, never both. Either is written
+plainly, with no `..` and no `.frontseat` part, and must be at or beneath the
+root of a project that accepts generated source; the nearest such root receives
+it. The action itself still writes only beneath its own project; the host
+places what it left. Where the place belongs to the producing project's own
+Component (or the workspace has no Components), nothing more is asked. Where it
+belongs to another Component, that Component must say, in its catalog file,
+that the Component owning the producing project generates it:
+
+```yaml
+spec:
+  frontseat:
+    generated:
+      - directory: gen        # relative to this catalog file
+        by: component:api     # the Component whose project generates it
+```
+
+Anything else is refused by name: no such statement, one naming another
+Component, one naming anything but a Component, one for a directory owned by a
+Component nested in the one that says it, and any place with another
+Component's directory beneath it. Patterns define authoritative generated paths;
+output files outside them are errors, while handwritten checkout files outside
+them remain visible. Nested accepting input selections retain each enclosing
+scope. The host adds producer edges and transfers selected CAS files to both
+the owning module and downstream source consumers. A copy of generated files
+the checkout already holds is kept in step with what the worker generated, and
+`build --fix` writes it there; a checkout that holds no copy is never given one.
+
+## What an action reads
+
+There is no `Action.needs`. `Action.inputs` is the one list of what an
+action reads, encoded as `Input` messages with an explicit `kind`:
+
+- `source`: a project-relative source glob, including exclusions. No reference
+  prefixes are interpreted within it.
+- `input_set`: a named set, expanded with its generated-source acceptance scopes.
+- `output`: a declared output, or an action for all its outputs, of this plugin's
+  project. The name has no leading colon. Missing, ambiguous and outputless
+  producers are refused, as are references to another plugin's actions.
+- `dependency`: a selection of all declared project requirements or one declared
+  coordinate, with a required `into` placement. Transitive workspace handoffs
+  are included; requirements with no workspace provider remain external.
+
+An input without a supported kind is refused. Input sets may contain only
+source and nested-set variants. Repeated transitive handoffs are included once;
+conflicting placements are refused. Arrangement groups use the actual handed
+coordinates and placements, not just a common destination template.
+
+An output is written plainly beneath its project or, as `~/…`, in its action's
+home; never the whole of either or `.frontseat`. Source patterns never select
+outputs. Catalog shorthand is no part of the plugin wire format: the host reads it
+into source patterns and references directly, and it never becomes these
+messages. The SDK's constructors build each kind.
+
+## Services for tests
+
+A plugin may say how a service is started for a test. It says in
+`Describe` the names it answers for (`services`), as a catalog entity
+names what its service is: `spec.frontseat.service.as`. The host asks
+`Service` of the plugin of the repository that claims the name, with the
+name and what the entity's file wrote beside it, and is answered the
+whole service: an image from outside, its arguments, the ports it serves
+by name, its environment, when it is ready, how long it is given, where
+a test reaches it (`endpoints`) and what a test is told. A service has
+one shape, `frontseat.type.v1alpha1.Service`: it is what the catalog
+file is read into, what the plugin is told and answers, and what the
+worker's runner is told to start, so nothing is converted between them.
+`{host}`, `{port.<name>}` and `{<name>.port.<name>}` in arguments,
+environment, a readiness command, exports and endpoints are filled in by
+the host.
+
+- **Service reads nothing.** It is told a name and what was written, and
+  nothing of a repository: a read through the host fails the answer. The
+  same question has the same answer, and the host keeps it.
+- **What was written is kept, whole.** Each field of `written` that is
+  set is one a person wrote; the answer has it unchanged, and the host
+  refuses an answer that has not. A field left empty is the plugin's to
+  say, to fit what was written. The host refuses a catalog key written
+  to say nothing, so a field that is set is always one a person wrote.
+  What a plugin cannot make fit it refuses, and the host says so where
+  the service is written.
+- **The answer is held to what every service is**, whoever said it: an
+  image named with its registry and digest, a port for each name,
+  readiness and endpoints that name ports it serves, exports the shell
+  can export. One implementation holds it (`server/internal/testservice`),
+  for the daemon and again for the runner.
+- **A service runs as no root, and writes what it says.** Each service
+  runs in a sandbox of its own, which runs nothing as root: `user` is the
+  user its image's processes run as, by number (an image that starts as
+  root to give itself to a user of its own is told that user), and
+  `writable` the directories of its image it writes. A service that says
+  neither runs as the sandbox's own user, writing its temporary and
+  working directories and the routes it is reached by alone. Added in
+  ABI 19.
+- **Endpoints are told to the test.** Each test given services is told,
+  in `FRONTSEAT_ENDPOINTS`, a JSON object of each service by its entity
+  reference, holding each endpoint it can reach with `{host}` and its
+  port filled in where the test reaches them.
+- **A test is told where its repository is.** Every test, whatever plugin
+  made it, is told in `FRONTSEAT_TEST_SRCDIR` the path from the
+  directory it runs in to its repository's root in its input root: what
+  it reads beyond its package, as its Component's catalog file names it
+  (`spec.frontseat.test.inputs`), is beneath it, and it never looks up
+  from where it runs. A test given the name otherwise, by its
+  Component's catalog file, a service or its plugin's command, is
+  refused by name.
+- **A name is claimed once.** Two plugins of a repository that claim one
+  name are refused, and a name none claims is refused with those that
+  are. A plugin asked for a name it did not claim refuses.
+
+In the SDK, a plugin answers `Service` by implementing
+`Plugin::service`; one that claims no name leaves it, and answers
+`UNIMPLEMENTED`.
+
+A plugin that only answers for services and reads no file of a
+repository declares no interests and finds nothing. `container` starts
+what is written and adds nothing; `postgres` says everything of a
+PostgreSQL where nothing is written.
+
+## Releasing
+
+A plugin says what it serves of releasing (`release.proto`): the roles it
+declares in `Describe.release`, branching strategies and versioning
+strategies, and the calls the host asks of each: `Branch` and `Version`,
+which read nothing through the host. The host asks them of a plugin that
+says it serves a branching or a versioning strategy, when a release is
+planned. Every answer is checked before any of it is in a plan.
+
+## What a shared fetch downloads
+
+A shared fetch that names `downloads` runs no tool. Each download is a plain
+public https address and what the lock holds of what it serves, in one of two
+forms, never both:
+
+- `sha256` and `into`: the lock holds the sha256 of the whole download, a
+  gzipped tar. The grid's asset service checks it before it keeps anything, and
+  the action unpacks it into a directory of its home.
+- `parts`: the lock holds a checksum of each of some runs of bytes and none of
+  the whole, as an apk lock does of a package's sections. The asset service
+  fetches the whole unchecked; the action cuts each part out by its offset and
+  length, checks it against its `sha1` or `sha256`, and keeps it as the file of
+  its home the part names. Where a part is not what the lock says the action
+  fails and leaves nothing.
+
+## Programs
+
+An action may be a program to run: `Action.program`. Such
+an action is no step of a build: no build runs it, and a run
+(`RunService` of the build API) builds what it reads and then starts its
+command where the daemon is, in the daemon's sandbox, with the caller's
+arguments after its own. A plugin offers one for what its ecosystem's files
+say is a program, as the Go plugin does for each directory that says
+`package main`.
+
+- **It is named `run/` and what it runs**, in letters, digits and
+  `._-`: `run/greeter`.
+- **Its program comes from preparation**: `arguments[0]` is a plain path
+  beneath the project, `~/…` in the action's home, or a bare name resolved
+  only within prepared mise tools. Its inputs and tools are brought from the
+  grid before a test service starts. Daemon `RunService` serves programs
+  reading built artifacts alone and refuses source/tool preparation by name.
+- **It is nothing a build's action is**: no test, check, fetch or shared
+  action; it leaves nothing and has no fix.
+- **Refused by name**: dependency inputs. What runs is the command, and
+  its environment is the command's; ports, readiness, endpoints and
+  exports are a service's, said in the catalog
+  (`spec.frontseat.service`).
+
+## Tests in pieces
+
+A project's tests may be several actions, and a command may say where it
+runs.
+
+- **A test may be named `test/` and what piece it is**, in letters, digits
+  and `._~+@-/`, as its tool spells it: `test/internal/ledger`, `test/.`. A
+  plugin says a piece for each thing its tool tests by itself, such as a
+  package of a Go module. A run asked for `test` runs every piece, and the
+  label that ends in `test` points at them all.
+- **Only a test is named so**, and a project declares `test` or pieces of
+  it, never both: either is refused by name.
+- **A piece may be cut into shards**, each named its piece, `@`, which of
+  them it is and of how many, from 1: `test/internal/ledger@2of4`. No
+  piece's own name holds `@`, and a name that holds one and is no shard's
+  is refused, as are shards that are not one cut of their piece: some of
+  them missing, two counts, or the piece whole beside them. The label of a
+  piece cut into shards points at its shards.
+- **`Command.directory` is where a command runs**: a directory beneath the
+  project, relative to it; empty is the project's own. One that is not a
+  plain path beneath the project is refused. A Go package's test program
+  runs in its package's directory, as the go command runs it.
+- **An action may have nothing to do** (`Action.idle_without_inputs`):
+  where an output of another action that it reads was not left, and that
+  action may pass without leaving it (`Output.optional`), it is not run and
+  ends idle, which fails nothing. A plugin whose tool decides on the worker
+  what there is to do does not foretell it: the Go plugin's test of a
+  package is idle where the go command built no test program for it. An
+  action that says so and reads, by itself, no output another action may
+  pass without leaving is refused, as is one that says it leaves something.
+- **Not served yet, and refused by name**: a `directory` said by a fix or
+  by a program to run.
+
+## Prepared programs
+
+A program prepared for a test service may read declared source inputs and
+use pinned tools. A service may bind provided APIs to named ports and
+consumer exports; the host checks that a service plugin keeps those bindings.
+
+## Artifacts
+
+`Provide.artifacts` names exact outputs of the provider's own finite
+actions, handed to consumers through their coordinates and dependency
+placement. Outputs are worker-owned immutable artifacts; source patterns
+never select them. Optionality is the producer's output's: an absent
+optional output contributes no files, and a missing required output fails.
+
+## Profiles
+
+`Profile`, development or production, is defined in the plugin contract
+itself.

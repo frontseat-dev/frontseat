@@ -1,0 +1,28 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: Gateway
+  namespace: edge
+spec:
+  type: service
+  lifecycle: production
+  owner: team
+  system: shop
+---
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: team
+  namespace: edge
+spec:
+  type: team
+  children: []
+---
+apiVersion: backstage.io/v1alpha1
+kind: Location
+metadata:
+  name: app
+  namespace: edge
+spec:
+  type: url
+  targets: [./catalog-info.yaml]

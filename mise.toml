@@ -1,0 +1,240 @@
+# The tools this repository is built with. Versions are pinned here and
+# nowhere else.
+[tools]
+# apko builds images from a config and its lock (plugins/apko).
+apko = "1.4.18"
+buf = "1.75.0"
+go = "1.27.3"
+protoc-gen-connect-go = "2.0.2"
+protoc-gen-go = "1.36.12"
+# Bazel is the baseline frontseat is held to (mise run perf): this
+# machine builds a workspace with it on the local grid, beside frontseat.
+bazel = "9.3.2"
+# jscpd finds code written twice in Go and Rust, which the check task
+# refuses ("nothing is written twice"). It is the project's own release
+# archive, a native program held to its checksum; its npm package is the
+# same program behind a launcher that needs a Node this repository does
+# not pin.
+"github:kucherenko/jscpd" = "5.4.3"
+
+# Release archives have platform checksums and can be provisioned on workers.
+[tool_alias]
+protoc-gen-connect-go = "github:connectrpc/connect-go"
+protoc-gen-go = "aqua:protocolbuffers/protobuf-go/protoc-gen-go"
+
+# Plugins and their SDK are written in Rust, and built to wasm. Rust is
+# pinned as what provides it, "http:rust", so that it has a directory of
+# its own on a machine where another repository pins another Rust; a
+# plugin names it "rust" all the same. It is the Rust project's own
+# archive, held to the checksum the project
+# publishes for it. The archive holds each part in a directory of its
+# own, with the project's installer, which copies them into one tree.
+# The installer runs when mise installs Rust: on the grid, confined to
+# the root of the action that fetches it. Nothing of the tool is changed
+# or removed after it.
+[tools."http:rust"]
+version = "1.99.1"
+url = 'https://static.rust-lang.org/dist/rust-{{ version }}-{{ arch(arm64="aarch64", x64="x86_64") }}-{{ os(macos="apple-darwin", linux="unknown-linux-gnu") }}.tar.xz'
+checksum_url = 'https://static.rust-lang.org/dist/rust-{{ version }}-{{ arch(arm64="aarch64", x64="x86_64") }}-{{ os(macos="apple-darwin", linux="unknown-linux-gnu") }}.tar.xz.sha256'
+strip_components = 1
+bin_path = "toolchain/bin"
+postinstall = '"$MISE_TOOL_INSTALL_PATH/install.sh" --prefix="$MISE_TOOL_INSTALL_PATH/toolchain" --disable-ldconfig --without=rust-docs,rust-docs-json-preview'
+
+# What Rust links a wasm module against: a second archive of the Rust
+# project's, beside the compiler and not in it.
+[tools."http:rust-std-wasm32-wasip1"]
+version = "1.99.1"
+url = 'https://static.rust-lang.org/dist/rust-std-{{ version }}-wasm32-wasip1.tar.xz'
+checksum_url = 'https://static.rust-lang.org/dist/rust-std-{{ version }}-wasm32-wasip1.tar.xz.sha256'
+
+# Cargo is told where the wasm standard library is, in whatever has it:
+# an action that does not name it is told nothing.
+# What `mise run build` makes of this checkout is on the PATH here, so
+# that frontseat, frontseatd and frontseat-local are the ones just built.
+[env]
+_.path = ["./dist/bin"]
+CARGO_TARGET_WASM32_WASIP1_RUSTFLAGS = { value = "{% if tools['http:rust-std-wasm32-wasip1'] %}-L {{ tools['http:rust-std-wasm32-wasip1'].path }}/rust-std-wasm32-wasip1/lib/rustlib/wasm32-wasip1/lib -L {{ tools['http:rust-std-wasm32-wasip1'].path }}/rust-std-wasm32-wasip1/lib/rustlib/wasm32-wasip1/lib/self-contained{% endif %}", tools = true }
+
+# frontseat built from this checkout, into dist/: the command, the daemon
+# and the local control plane for this machine, the plugins as wasm, and
+# the box image a workspace sandbox runs, tagged by what it holds and
+# frontseat-box:local beside, for a person to ask for it by. It is what a
+# person tries frontseat with (README, "Getting Started"), and what
+# specs/cli proves. A run with nothing changed does nothing. The plugins
+# are built by the program that builds them for the tests
+# (specs/cmd/prepare-modules), which reads which there are from the Cargo
+# workspace; the box by its one build (local/box, frontseat-local box).
+[tasks.build]
+description = "Build frontseat from this checkout into dist/ (on the PATH here) and the box image, tagged frontseat-box:local too"
+sources = ["api/**", "cli/**", "server/**", "local/**", "sdk/**", "specs/cmd/**", "specs/internal/**", "plugins/**", "Cargo.toml", "Cargo.lock", "go.work", "go.work.sum", "mise.lock"]
+outputs = ["dist/bin/frontseat", "dist/bin/frontseatd", "dist/bin/frontseat-local", "dist/plugins"]
+run = [
+  "mkdir -p dist/bin",
+  "go build -o dist/bin/frontseat ./cli/cmd/frontseat",
+  "go build -o dist/bin/frontseatd ./server/cmd/frontseatd",
+  "go build -o dist/bin/frontseat-local ./server/cmd/frontseat-local",
+  "go run ./specs/cmd/prepare-modules -dist dist/plugins",
+  "dist/bin/frontseat-local box --tag frontseat-box:local --plugins dist/plugins",
+]
+
+# The local stack, from this checkout (frontseat-local up, package
+# local/stack): one container holding the grid, its runner sandboxes, the
+# OpenShell gateway and the control plane on localhost:7700. `start` builds dist/ first, and the
+# stack builds its box from this checkout every time it is brought up,
+# naming it by what it holds, so that it runs this checkout's box whatever
+# another checkout tagged since; what ran an earlier box is made anew.
+# They are named start and stop, and not up and down, because `mise up`
+# is mise's own and upgrades the tools; `mise run start` says the same
+# should mise ever take one of the names.
+[tasks.start]
+description = "Build frontseat and bring the local stack up from this checkout, running the box built from it"
+# Whether this checkout may start the stack is asked before anything is
+# built.
+run = ["go run ./server/cmd/frontseat-local ready", { task = "build" }, "dist/bin/frontseat-local up --plugins dist/plugins"]
+
+[tasks.stop]
+description = "Bring the local stack down, whichever checkout started it; its named volumes are kept"
+# The program built last stops it, where there is one, so that a tree
+# that does not compile does not keep the stack up.
+run = "if [ -x dist/bin/frontseat-local ]; then dist/bin/frontseat-local down; else go run ./server/cmd/frontseat-local down; fi"
+
+# The Go gates (specs/cmd/gate) read the modules from
+# go.work and their packages from the source, so nothing here lists
+# them. Each that runs tests has the wasm modules the tests load built
+# from this checkout first, by the program that prints where it laid
+# them out (specs/cmd/prepare-modules), and tells the tests
+# that directory: a set of modules named by what it holds, never changed
+# after, so a run of tests reads the modules built for it whatever else
+# runs beside it. It is told to the tests and nowhere in [env] or [vars]:
+# those are every action's environment, and so in every action's key.
+# Plain `go test` is told of no modules, nor where the repository is
+# (FRONTSEAT_TEST_SRCDIR, which the gate tells every test it runs), and a
+# test that needs either says so.
+# go test by hand, over modules built a moment before: what follows
+# `--` is go test's own (`mise run go:test -- -race -run TestName ./server/internal/build/`).
+[tasks."go:test"]
+description = "Run go test with what follows --, over the wasm modules of this checkout"
+run = "go run ./specs/cmd/gate go-test"
+
+# What "done" is checked with. `check` needs no containers; `test` needs
+# the local stack (mise start).
+[tasks.check]
+description = "What must always pass: contracts lint, code is formatted, everything compiles, the layers hold, and every test that needs no stack"
+run = [
+  "cd api && buf lint",
+  # What is generated from the contracts and committed is what the
+  # generators write now: the Go Buf writes (the Go SDK's, and the
+  # daemon's of the plugin contract), and the plugin SDK's Rust.
+  "go run ./specs/cmd/gate generated",
+  "cargo run --quiet --locked -p frontseat-plugin-generate -- --check",
+  "go run ./specs/cmd/gate fmt",
+  # Nothing is written twice: jscpd refuses any stretch of 50 tokens or
+  # more that is in two places of the Go or the Rust, generated code
+  # (the Go Buf writes, by its files' names, and the plugin SDK's Rust),
+  # fixtures and what is built left out; what is built is left out at
+  # the root alone ("./"), so a source directory of the same name is
+  # read. A mark that has jscpd skip what it encloses is refused
+  # wherever it is written. Its report goes to a directory of its own
+  # outside the repository.
+  "! git grep -n --untracked -e 'jscpd[:]ignore' -- '*.go' '*.rs' || { echo 'jscpd is told to skip code above: remove the marks'; exit 1; }",
+  "jscpd --format go,rust --min-tokens 50 --ignore '**/*.pb.go,**/*.connect.go,./sdk/plugin/src/gen/**,**/testdata/**,./target/**,./dist/**,**/node_modules/**,**/.git/**' --exit-code=1 --output \"$(mktemp -d)\" .",
+  "go run ./specs/cmd/gate vet",
+  # Every package of every module, told that this gate runs with no
+  # stack: a test that needs one says so (server/testsupport/testrequired),
+  # and is skipped here and run by `test`; no test here reaches a
+  # container runtime (specs/cmd/gate).
+  "go run ./specs/cmd/gate test -no-stack -- -count=1 -race",
+  # What code may cost, held without the race detector (server/testsupport/testbudget).
+  "go run ./specs/cmd/gate budget",
+  # The SDK and the plugins: formatted, free of what clippy warns of, for
+  # the machine that builds them and for the module they become, and
+  # their own tests. rustfmt and clippy are run as the pinned Rust's own
+  # programs: asked for through cargo, the ones in a developer's
+  # ~/.cargo/bin are found first, and those are another Rust's. What
+  # generates the plugin SDK's Rust runs on this machine alone, and is
+  # not linted for the module.
+  "cargo-fmt fmt --all -- --check",
+  "cargo-clippy clippy --workspace --all-targets -- -D warnings",
+  "cargo-clippy clippy --workspace --exclude frontseat-plugin-generate --target wasm32-wasip1 -- -D warnings",
+  # Told where the repository is, as the gate tells its Go tests and
+  # Frontseat every test: a test reads what lies beyond its crate there.
+  "FRONTSEAT_TEST_SRCDIR=\"{{config_root}}\" cargo test --workspace",
+]
+
+[tasks.bench]
+description = "Measure what is budgeted, ten samples each, in the form benchstat compares"
+run = "go run ./specs/cmd/gate bench"
+
+[tasks.compare]
+description = "Build the same workspace with frontseat and with the other build tools on this machine, and say how long each took (needs the local stack; COMPARE_BAZEL and COMPARE_BUCK2 name programs that are not on the path)"
+run = "go run ./specs/cmd/gate go-test -count=1 -timeout 60m -run TestCompare -v ./specs/compare/ -args -compare"
+
+[tasks.perf]
+description = "Hold frontseat to Bazel on the local grid, each tool's actions run in the grid's runner sandboxes: build each case with both, in rounds, and fail where frontseat is clearly over its allowance (needs the local stack, and nothing else using it)"
+run = "go run ./specs/cmd/gate go-test -count=1 -timeout 120m -run TestPerf -v ./specs/compare/ -args -perf"
+
+[tasks.test]
+description = "Everything, against the local grid and a container runtime"
+# The build specs take tens of minutes, the self-build among them the
+# most; their deadline leaves room for all of it.
+#
+# The build specs run last, on their own: their self-build, most likely,
+# holds the grid's slots with actions of a minute or more, and a test run
+# beside it waits past its five-minute deadline for one. On 2026-11-09 all
+# eight slots were held from 19:58 to 20:03 UTC by actions of 1 to 2.5
+# minutes while the self-build ran; which actions they were is not known,
+# the worker's log having turned over before it was read. A test of the
+# server package and the sandbox catalog spec timed out then, and each
+# passed run alone, in 10 s and 18 s. go test runs packages at once, and
+# the specs of one suite one after another; Bazel runs a test tagged
+# "exclusive" with nothing beside it (TargetUtils.isExclusiveTestRule,
+# bazel 94776af184). TestValidationTasksCoverEveryModule holds that what
+# the first leaves out a later command runs.
+#
+# The sandbox specs run over the local stack's OpenShell gateway, which
+# makes every workspace's sandbox.
+#
+# Independent build acceptance tests use t.Parallel with six tests admitted
+# at once. The self-build, proxy-count check and process-environment tests
+# stay sequential. Go waits for the sequential tests before starting their
+# parallel siblings. This admission bound belongs to one test process;
+# independent grid shards still require isolated infrastructure.
+run = [
+  "go run ./specs/cmd/gate test -except specs/build -- -count=1 -race -v -timeout 45m",
+  # What the comparisons leave behind: their fixture's sandbox is seen gone
+  # at the real gateway. Asked for by a flag, as the comparisons are, so
+  # that `check`, which runs the same package, makes no sandbox.
+  "go run ./specs/cmd/gate go-test -count=1 -race -v -timeout 20m -run '^TestFrontseatComparison' ./specs/compare/ -args -cleanup",
+  "go run ./specs/cmd/gate test -only specs/build -- -count=1 -race -v -parallel 6 -timeout 45m",
+]
+
+# The documentation Backstage's TechDocs shows (mkdocs.yml, docs/). The
+# site is built by TechDocs' own image, pinned by digest, whose
+# techdocs-core is what a Backstage builds it with; its MkDocs is 1.x,
+# and stays so: MkDocs 2.0 drops plugins and is not licensed. It runs as
+# the caller, so what it writes is the caller's. Its tools are not mise
+# pins: they are the image's.
+[tasks.docs]
+description = "Build the TechDocs site of the checkout as it is into site/, failing on any warning"
+run = "docker run --rm --user \"$(id -u):$(id -g)\" -v \"$PWD:/docs\" -w /docs spotify/techdocs@sha256:f9ed0de81496694c1de78bf18f1d9c5148cb1e6237ee3305685d08cfb5fb4301 build --strict --site-dir site"
+
+[tasks."docs:serve"]
+description = "Serve the TechDocs site of the checkout on http://localhost:8000, rebuilt on change"
+run = "docker run --rm --init --user \"$(id -u):$(id -g)\" -p 8000:8000 -v \"$PWD:/docs\" -w /docs spotify/techdocs@sha256:f9ed0de81496694c1de78bf18f1d9c5148cb1e6237ee3305685d08cfb5fb4301 serve --dev-addr 0.0.0.0:8000"
+
+# What is generated from the contracts: the Go SDK's Go and the daemon's
+# Go of the plugin contract, each by a template of its own, and the
+# plugin SDK's Rust, by its generator. `check` holds each to what this
+# writes.
+[tasks.protos]
+description = "Lint the contracts and regenerate their Go and Rust"
+dir = "api"
+run = [
+  "buf lint",
+  "buf generate --template buf.gen.sdk.yaml",
+  "buf generate --template buf.gen.daemon.yaml",
+  "buf generate --template buf.gen.runner.yaml",
+  "buf generate --template buf.gen.source.yaml",
+  # Told the repository it writes for: this task runs in api/.
+  "cargo run --quiet --locked -p frontseat-plugin-generate -- --root \"{{config_root}}\"",
+]

@@ -1,0 +1,32 @@
+# IDEs
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+
+# Go test and coverage output
+*.test
+*.out
+coverage.txt
+
+# Local configuration
+.env
+mise.local.toml
+mise.local.lock
+
+# What frontseat keeps in a workspace
+.frontseat/
+
+# What cargo builds, and what `mise run build` makes of this checkout,
+# at the repository's root. Anchored, so that no source directory of
+# either name is ignored with it.
+/target/
+/dist/
+
+# What `mise run docs` builds.
+/site/
+
+# The owner's working notes: kept beside the source, never published.
+/NOTES.md

@@ -1,0 +1,51 @@
+# OpenShell's gateway in the local stack: it makes every workspace's
+# sandbox in frontseat's rootless Podman, and answers only whoever proves a
+# certificate of its own authority: the control plane, beside it.
+[openshell]
+version = 2
+
+[openshell.gateway]
+bind_address        = "0.0.0.0:8090"
+health_bind_address = "127.0.0.1:8091"
+log_level           = "info"
+compute_driver      = "podman"
+guest_tls_ca        = "/var/lib/frontseat/openshell/tls/ca.crt"
+
+[openshell.gateway.tls]
+cert_path      = "/var/lib/frontseat/openshell/tls/server/tls.crt"
+key_path       = "/var/lib/frontseat/openshell/tls/server/tls.key"
+client_ca_path = "/var/lib/frontseat/openshell/tls/ca.crt"
+
+[openshell.gateway.gateway_jwt]
+signing_key_path = "/var/lib/frontseat/openshell/tls/jwt/signing.pem"
+public_key_path  = "/var/lib/frontseat/openshell/tls/jwt/public.pem"
+kid_path         = "/var/lib/frontseat/openshell/tls/jwt/kid"
+gateway_id       = "frontseat-local"
+
+[openshell.drivers.podman]
+socket_path           = "/run/user/1000/podman/podman.sock"
+# Where a sandbox's names of this machine lead (host.openshell.internal,
+# host.docker.internal), dialled by its supervisor, which is in this
+# container's network: this machine, where the person and their tools are
+# and the grid's ports are published. frontseat-local init writes this
+# file (/etc/openshell/gateway.toml) from this template, with the address
+# the container runtime gives this machine; where it gives none, this
+# container's own loopback, where the grid listens. Said, so that no name
+# of Podman's making (host-gateway) is in a sandbox's hosts file.
+host_gateway_ip       = "127.0.0.1"
+# No sandbox is made without naming its image (the driver always names
+# one): this one is never run.
+default_image         = "busybox:1.37@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec"
+sandbox_runtime_image = "ghcr.io/nvidia/openshell/sandbox:0.1.8@sha256:f0fe7dbf18d833acb5da99c405231124718f23b524aa8e3c0108e6f37530033b"
+supervisor_image      = "ghcr.io/nvidia/openshell/supervisor:0.1.8@sha256:deadeacfdba6d12ca27e538d0002696369d4de5a4fcad075ab503495503af9d1"
+image_pull_policy     = "if_not_present"
+# The grid's runner sandboxes are given directories of this container
+# (frontseat-runner pool): their slot of the worker and /bb. A bind mount
+# is the operator's to allow, and resource admission refuses one; nothing
+# but the pool, which the gateway answers alone with the control plane,
+# asks for one.
+allow_driver_config = true
+enable_bind_mounts  = true
+
+[openshell.drivers.podman.resource_admission]
+enabled = false

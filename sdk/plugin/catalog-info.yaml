@@ -1,0 +1,16 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: plugin-sdk
+  namespace: frontseat
+  description: "The Rust plugin SDK, with the contract's Rust generated from the protos and committed (src/gen) and the program that generates it (generate), and the examples of it that are built to wasm modules for the conformance tests"
+spec:
+  type: library
+  lifecycle: experimental
+  owner: jbadeau
+  system: plugins
+  frontseat:
+    # The generator's test reads the contracts, beyond its crate, and the
+    # Rust committed from them (src/gen), which it holds to what it writes.
+    test:
+      inputs: [/api/**, src/gen/**]

@@ -1,0 +1,15 @@
+# The API this module's protobuf package defines. An API owns no source:
+# the api component owns every project beneath api/. Its definition is
+# the directory of the protobuf package, the unit Buf lints and generates.
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: source-api
+  namespace: frontseat
+  description: "The source a workspace's daemon holds: the daemon's internal API, which the control plane alone asks, over Connect"
+spec:
+  type: grpc
+  lifecycle: experimental
+  owner: jbadeau
+  system: workspaces
+  definition: frontseat/source/v1alpha1

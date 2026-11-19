@@ -1,0 +1,23 @@
+[package]
+name = "frontseat-plugin-test"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+description = "What a frontseat plugin's unit tests are written with: a repository in memory, a host that fails when told to, and the plugin asked as the host asks it."
+
+[dependencies]
+# Released with the SDK, at its version: the version is what a
+# registry is told, the path what this workspace builds.
+frontseat-plugin = { path = "../plugin", version = "0.0.0" }
+# The SDK's own, to encode a call and decode its answer as the host does.
+prost = "0.14"
+# Patterns matched as the host's doublestar matches them; held to it by
+# testdata/select.json, which the host's own matcher runs too.
+globset = { version = "0.4", default-features = false }
+# globset's own, to match what it compiles a pattern to in Unicode, as
+# doublestar matches: a `?` is a character, not a byte.
+regex-automata = { version = "0.4.18", default-features = false, features = ["std", "syntax", "meta", "nfa", "hybrid", "perf"] }
+
+[dev-dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", default-features = false, features = ["std"] }

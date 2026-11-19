@@ -1,0 +1,3 @@
+#!/command/execlineb -P
+s6-setuidgid bb
+bb_storage /etc/frontseat/bb/frontend.jsonnet

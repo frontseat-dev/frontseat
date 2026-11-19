@@ -1,0 +1,26 @@
+// Source findings shared by plugin failures, graph requests and build runs.
+syntax = "proto3";
+
+package frontseat.type.v1alpha1;
+
+// SourceLocation identifies source, never a private host filesystem path.
+message SourceLocation {
+  // Repository is bound by the host; a plugin leaves it empty.
+  string repository = 1;
+  // Path is a literal repository-relative file path.
+  string path = 2;
+  // Line is one-based; zero means the finding names no line.
+  int32 line = 3;
+}
+
+// Diagnostic is an actionable finding carried as a google.rpc.Status detail.
+message Diagnostic {
+  // Rule_id identifies the plugin and finding, e.g. "go/invalid-manifest".
+  string rule_id = 1;
+  // Message explains the finding independently of its presentation.
+  string message = 2;
+  // Source_location is absent when the finding is about no source file.
+  SourceLocation source_location = 3;
+  // Help explains the corrective action, including for a finding with no path.
+  string help = 4;
+}

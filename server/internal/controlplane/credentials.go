@@ -1,0 +1,243 @@
+package controlplane
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io/fs"
+	"net"
+	"net/url"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+	"sync"
+
+	connect "connectrpc.com/connect/v2"
+	"github.com/google/renameio/v2"
+
+	credentialv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/credential/v1alpha1"
+	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/credential/v1alpha1/credentialv1alpha1connect"
+	sandboxv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/sandbox/v1alpha1"
+	"github.com/frontseat-dev/frontseat/server/internal/controlplane/identity"
+	"github.com/frontseat-dev/frontseat/server/internal/page"
+	"github.com/frontseat-dev/frontseat/server/internal/plain"
+	"github.com/frontseat-dev/frontseat/server/internal/refusal"
+)
+
+// credentials serves each person's credentials (frontseat.credential.
+// v1alpha1). A credential is kept by the sandbox service, outside every
+// sandbox, under an id of the control plane's own for its owner and its
+// host (credentialID): a workspace's rule for a host names its owner's,
+// and no other. The control plane keeps no secret: what it keeps is who
+// keeps a credential for which host, and who it is of, to say back.
+type credentials struct {
+	credentialv1alpha1connect.UnimplementedCredentialServiceHandler
+	s *service
+
+	// mu is held while the record is read and written.
+	mu sync.Mutex
+}
+
+// credentialID is the id a person's credential for a host is kept under
+// by the sandbox service: of the digest of both, so that one person's
+// credential for a host is one credential, no other person's or host's
+// comes to it, and it says nothing of whose it is.
+func credentialID(owner, host string) string {
+	sum := sha256.Sum256([]byte(owner + "\x00" + host))
+	return "cred-" + hex.EncodeToString(sum[:])[:40]
+}
+
+// credentialHost is a host as a credential is kept for it, and as a
+// sandbox's rule names it: name:port, over https, or http://name:port,
+// over http. A host is a name, never an address, and nothing more.
+func credentialHost(written string) (string, error) {
+	refused := fmt.Errorf("%q is no host's name: write it as forge.example, forge.example:8443 or http://forge.example:8080", written)
+	scheme, rest := "https", strings.TrimPrefix(written, "https://")
+	if plain, ok := strings.CutPrefix(written, "http://"); ok {
+		scheme, rest = "http", plain
+	}
+	at, err := url.Parse(scheme + "://" + rest)
+	if err != nil || at.User != nil || (at.Path != "" && at.Path != "/") || at.RawQuery != "" || at.Fragment != "" || at.Hostname() == "" || net.ParseIP(at.Hostname()) != nil || strings.ContainsAny(rest, "/@") {
+		return "", refused
+	}
+	port, ok := portOf(at.Port(), map[string]string{"http": "80", "https": "443"}[scheme])
+	if !ok {
+		return "", refused
+	}
+	name := strings.TrimSuffix(strings.ToLower(at.Hostname()), ".")
+	if !plain.Text(name) || strings.Contains(name, "..") {
+		return "", refused
+	}
+	return origin{scheme: scheme, host: net.JoinHostPort(name, port)}.rule(), nil
+}
+
+// credentialRecord is the record of the credentials kept: by owner, by
+// host, who each is of.
+type credentialRecord map[string]map[string]string
+
+// file is where the record is kept: in a directory of its own beside
+// the workspaces' records, which no workspace's name is.
+func (c *credentials) file() string {
+	return filepath.Join(c.s.State, "credentials", "record.json")
+}
+
+// read is the record, under mu.
+func (c *credentials) read() (credentialRecord, error) {
+	raw, err := os.ReadFile(c.file())
+	if errors.Is(err, fs.ErrNotExist) {
+		return credentialRecord{}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	out := credentialRecord{}
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil, fmt.Errorf("the record of the credentials kept is not one: %w", err)
+	}
+	return out, nil
+}
+
+// write keeps the record, whole or as it was, under mu.
+func (c *credentials) write(record credentialRecord) error {
+	raw, err := json.Marshal(record)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(c.file()), 0o700); err != nil {
+		return err
+	}
+	return renameio.WriteFile(c.file(), raw, 0o600)
+}
+
+// caller is who asks, as the endpoint found them.
+func caller(ctx context.Context) (string, error) {
+	who, ok := identity.Of(ctx)
+	if !ok || who.Subject == "" {
+		return "", refusedFor(connect.CodeUnauthenticated, "IDENTITY_MISSING", "the call is from no one known")
+	}
+	return who.Subject, nil
+}
+
+// longest is how long a secret may be.
+const longest = 4096
+
+// holding does what a call does with the record of the credentials kept,
+// under mu, as the caller, and for the host the call names where it
+// names one: a host that is none is refused before anything is read.
+func (c *credentials) holding(ctx context.Context, written *string, do func(owner, host string, record credentialRecord) error) error {
+	owner, err := caller(ctx)
+	if err != nil {
+		return err
+	}
+	var host string
+	if written != nil {
+		if host, err = credentialHost(*written); err != nil {
+			return refusal.New(refusal.Credential, connect.CodeInvalidArgument, "CREDENTIAL_HOST_INVALID", err.Error())
+		}
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	record, err := c.read()
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err.Error())
+	}
+	return do(owner, host, record)
+}
+
+func (c *credentials) SetCredential(ctx context.Context, req *credentialv1.SetCredentialRequest) (*credentialv1.SetCredentialResponse, error) {
+	given := req.GetCredential()
+	if given.GetUsername() != "" && !plain.Username(given.GetUsername()) {
+		return nil, refusal.New(refusal.Credential, connect.CodeInvalidArgument, "CREDENTIAL_USERNAME_INVALID", "a username is letters, digits and . _ @ -")
+	}
+	if secret := given.GetSecret(); secret == "" || len(secret) > longest || strings.ContainsAny(secret, "\r\n\x00") {
+		return nil, refusal.New(refusal.Credential, connect.CodeInvalidArgument, "CREDENTIAL_SECRET_INVALID", "a credential's secret is given, on one line of no great length")
+	}
+	out := &credentialv1.SetCredentialResponse{}
+	written := given.GetHost()
+	err := c.holding(ctx, &written, func(owner, host string, record credentialRecord) error {
+		if _, err := c.s.Sandboxes.SetCredential(ctx, &sandboxv1.SetCredentialRequest{Credential: &sandboxv1.Credential{
+			Name: credentialID(owner, host), Host: host, Username: given.GetUsername(), Secret: given.GetSecret(),
+		}}); err != nil {
+			return relayed(err)
+		}
+		if record[owner] == nil {
+			record[owner] = map[string]string{}
+		}
+		record[owner][host] = given.GetUsername()
+		if err := c.write(record); err != nil {
+			return connect.NewError(connect.CodeInternal, err.Error())
+		}
+		out.Credential = &credentialv1.Credential{Host: host, Username: given.GetUsername()}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *credentials) DescribeCredential(ctx context.Context, req *credentialv1.DescribeCredentialRequest) (*credentialv1.DescribeCredentialResponse, error) {
+	out := &credentialv1.DescribeCredentialResponse{}
+	written := req.GetHost()
+	err := c.holding(ctx, &written, func(owner, host string, record credentialRecord) error {
+		username, ok := record[owner][host]
+		if !ok {
+			return refusal.New(refusal.Credential, connect.CodeNotFound, "CREDENTIAL_NOT_FOUND", fmt.Sprintf("you keep no credential for %s", host))
+		}
+		out.Credential = &credentialv1.Credential{Host: host, Username: username}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *credentials) ListCredentials(ctx context.Context, req *credentialv1.ListCredentialsRequest) (*credentialv1.ListCredentialsResponse, error) {
+	out := &credentialv1.ListCredentialsResponse{}
+	err := c.holding(ctx, nil, func(owner, _ string, record credentialRecord) error {
+		for host, username := range record[owner] {
+			out.Credentials = append(out.Credentials, &credentialv1.Credential{Host: host, Username: username})
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	sort.Slice(out.Credentials, func(i, j int) bool { return out.Credentials[i].GetHost() < out.Credentials[j].GetHost() })
+	if out.Credentials, out.NextPageToken, err = page.Of(out.Credentials, req.GetPageSize(), req.GetPageToken()); err != nil {
+		return nil, refusal.New(refusal.Credential, connect.CodeInvalidArgument, refusal.PageTokenInvalid, err.Error())
+	}
+	return out, nil
+}
+
+func (c *credentials) DeleteCredential(ctx context.Context, req *credentialv1.DeleteCredentialRequest) (*credentialv1.DeleteCredentialResponse, error) {
+	written := req.GetHost()
+	err := c.holding(ctx, &written, func(owner, host string, record credentialRecord) error {
+		if _, err := c.s.Sandboxes.DeleteCredential(ctx, &sandboxv1.DeleteCredentialRequest{Name: credentialID(owner, host)}); err != nil {
+			if connect.CodeOf(err) == connect.CodeFailedPrecondition {
+				return refusal.New(refusal.Credential, connect.CodeFailedPrecondition, "CREDENTIAL_IN_USE", fmt.Sprintf("a workspace of yours is still let through with your credential for %s: it is let go of once those workspaces have ended", host))
+			}
+			return relayed(err)
+		}
+		if _, ok := record[owner][host]; !ok {
+			return nil
+		}
+		delete(record[owner], host)
+		if len(record[owner]) == 0 {
+			delete(record, owner)
+		}
+		if err := c.write(record); err != nil {
+			return connect.NewError(connect.CodeInternal, err.Error())
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &credentialv1.DeleteCredentialResponse{}, nil
+}

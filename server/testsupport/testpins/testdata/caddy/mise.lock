@@ -1,0 +1,19 @@
+# POC fixture: SHA-256 of the official release archives, whose SHA-512 values
+# were also checked against caddy_2.11.2_checksums.txt on 2026-11-13.
+lockfile_version = 3
+
+[[tools."http:caddy"]]
+version = "2.11.2"
+backend = "http:caddy"
+specifiers = ["2.11.2"]
+
+[tools."http:caddy".options]
+strip_components = "0"
+
+[tools."http:caddy"."platforms.linux-arm64"]
+checksum = "sha256:b9d88bec4254d0a98bd415ad60f97f37e4222dec96235c00b442437f5e303a32"
+url = "https://github.com/caddyserver/caddy/releases/download/v2.11.2/caddy_2.11.2_linux_arm64.tar.gz"
+
+[tools."http:caddy"."platforms.linux-x64"]
+checksum = "sha256:94391dfefe1f278ac8f387ab86162f0e88d87ff97df367f360e51e3cda3df56f"
+url = "https://github.com/caddyserver/caddy/releases/download/v2.11.2/caddy_2.11.2_linux_amd64.tar.gz"

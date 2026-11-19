@@ -1,0 +1,21 @@
+#!/command/execlineb -P
+# The grid's worker, root: it mounts a FUSE build directory for each
+# slot of the runner pool, one action at a time each. How many slots
+# there are is said once, in /etc/frontseat/slots.
+backtick -E isa { cat /etc/frontseat/isa }
+backtick -E runner { cat /etc/frontseat/runner-image }
+backtick -E slots { cat /etc/frontseat/slots }
+backtick -E egress { cat /etc/frontseat/egress }
+backtick -E services { cat /etc/frontseat/services }
+export GRID_ISA $isa
+export RUNNER_IMAGE $runner
+export GRID_CONCURRENCY $slots
+export GRID_EGRESS $egress
+export GRID_SERVICES $services
+# Each slot's directory is its sandbox's alone to write, where its
+# bb_runner makes its socket: the runner image's user (65532) as
+# frontseat's rootless Podman maps it (its subordinate ids from 100000).
+if { forbacktickx -E slot { seq 1 $slots } if { mkdir -p /var/lib/frontseat/worker/${slot}/build } chown 165531:165531 /var/lib/frontseat/worker/${slot} }
+# The services runner's build directory, mounted by the worker too.
+if { mkdir -p /var/lib/frontseat/worker/services/build }
+bb_worker /etc/frontseat/bb/worker.jsonnet

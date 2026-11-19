@@ -1,0 +1,546 @@
+// frontseat.sandbox.v1alpha1: sandboxes. A sandbox is an isolated machine:
+// an image, a lifetime, a network policy, volumes, processes and files. A
+// build daemon runs in one, and so does a test's database and an agent. It
+// knows nothing of repositories or builds: a workspace, which lives in a
+// sandbox, is frontseat.workspace.v1alpha1's. What a sandbox may reach is
+// said in the network's own terms: hosts, the programs that may ask them,
+// the requests let through, and a credential kept outside it.
+//
+// The service delegates to a driver for whichever provider makes the
+// sandboxes, such as a container runtime. A driver says what it can
+// enforce, and a request for anything else is refused, never run weaker.
+//
+// It is served to what is built on it, in its process or beside it, and
+// to no one else: whoever may ask it may run anything in any of its
+// sandboxes. The control plane serves workspaces over it and serves none
+// of it on its own endpoint.
+syntax = "proto3";
+
+package frontseat.sandbox.v1alpha1;
+
+import "google/api/field_behavior.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+// SandboxService is sandboxes: their lifecycle.
+service SandboxService {
+  // CreateSandbox makes a sandbox from a spec and returns at once; it is
+  // running when WaitSandbox ends with STATE_RUNNING. Sent again with the
+  // same request_id, it returns the sandbox the first call made.
+  //
+  // ### Errors
+  // - INVALID_ARGUMENT: the spec names no image, or holds something this
+  //   server does not know.
+  // - FAILED_PRECONDITION: the spec asks for what the driver cannot
+  //   enforce; the message names it.
+  rpc CreateSandbox(CreateSandboxRequest) returns (CreateSandboxResponse);
+
+  // DescribeSandbox returns one sandbox, as it is now.
+  //
+  // ### Errors
+  // - NOT_FOUND: no sandbox has that id.
+  rpc DescribeSandbox(DescribeSandboxRequest) returns (DescribeSandboxResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // ListSandboxes returns the sandboxes, oldest first, a page at a time.
+  //
+  // ### Errors
+  // - INVALID_ARGUMENT: the label selector is not name=value, separated
+  //   by commas, or the page token is not one this call gave.
+  rpc ListSandboxes(ListSandboxesRequest) returns (ListSandboxesResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // DeleteSandbox ends a sandbox and removes it. What was only in it is
+  // lost. Only a sandbox this service made is its to delete.
+  //
+  // ### Errors
+  // - NOT_FOUND: no sandbox has that id.
+  rpc DeleteSandbox(DeleteSandboxRequest) returns (DeleteSandboxResponse) {
+    option idempotency_level = IDEMPOTENT;
+  }
+
+  // PauseSandbox stops a sandbox and keeps what its driver can: its disk,
+  // and its memory where the driver snapshots machines.
+  //
+  // ### Errors
+  // - NOT_FOUND: no sandbox has that id.
+  // - FAILED_PRECONDITION: the driver cannot pause.
+  rpc PauseSandbox(PauseSandboxRequest) returns (PauseSandboxResponse) {
+    option idempotency_level = IDEMPOTENT;
+  }
+
+  // ResumeSandbox starts a paused sandbox again.
+  //
+  // ### Errors
+  // - NOT_FOUND: no sandbox has that id.
+  rpc ResumeSandbox(ResumeSandboxRequest) returns (ResumeSandboxResponse) {
+    option idempotency_level = IDEMPOTENT;
+  }
+
+  // WaitSandbox returns the sandbox once it is no longer starting:
+  // running, paused, failed or ending. It is cheap to call again.
+  //
+  // ### Errors
+  // - NOT_FOUND: no sandbox has that id.
+  rpc WaitSandbox(WaitSandboxRequest) returns (WaitSandboxResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // ExecSandbox runs a command in one of a running sandbox's containers,
+  // as its image's user, and returns how it exited and what it printed,
+  // stdout and stderr as written. It is how a caller asks a sandbox's
+  // service whether it is ready, and has it set itself up.
+  //
+  // ### Errors
+  // - NOT_FOUND: no sandbox has that id, or it has no container of that
+  //   name.
+  // - INVALID_ARGUMENT: no command is given.
+  // - FAILED_PRECONDITION: the sandbox is not running.
+  // - DEADLINE_EXCEEDED: the command ran past its timeout, and was ended.
+  rpc ExecSandbox(ExecSandboxRequest) returns (ExecSandboxResponse);
+
+  // SetCredential gives the server a credential for a host, under a name
+  // the caller chooses, which it keeps outside every sandbox: a sandbox
+  // whose rule for that host names it is let through with it, for what
+  // the rule lets through, and never holds it. Whoever may ask for a
+  // sandbox may so have it ask the host anything the credential allows, a
+  // push among it. A credential under a name replaces the one before,
+  // for the same host alone. It is never read back.
+  //
+  // ### Errors
+  // - INVALID_ARGUMENT: the name is no credential's, the host is no
+  //   host's name, or no secret is given; the name is kept for another
+  //   host.
+  // - FAILED_PRECONDITION: the driver keeps no credential outside its
+  //   sandboxes.
+  // - UNAVAILABLE: the driver could not keep it.
+  rpc SetCredential(SetCredentialRequest) returns (SetCredentialResponse) {
+    option idempotency_level = IDEMPOTENT;
+  }
+
+  // DescribeCredential says whether the server keeps a credential under
+  // a name, the host it is for, who it is of, and the variable a sandbox
+  // let through with it finds its stand-in under. It never returns the
+  // secret.
+  //
+  // ### Errors
+  // - INVALID_ARGUMENT: the name is no credential's.
+  // - NOT_FOUND: no credential is kept under the name.
+  // - FAILED_PRECONDITION: the driver keeps no credential outside its
+  //   sandboxes.
+  rpc DescribeCredential(DescribeCredentialRequest) returns (DescribeCredentialResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // DeleteCredential has the server let go of the credential under a
+  // name. A sandbox whose rule names it is refused after; a name the
+  // server holds none under is no error.
+  //
+  // ### Errors
+  // - INVALID_ARGUMENT: the name is no credential's.
+  // - FAILED_PRECONDITION: the driver keeps no credential outside its
+  //   sandboxes, or a sandbox is still let through with the credential.
+  // - UNAVAILABLE: the driver could not let go of it.
+  rpc DeleteCredential(DeleteCredentialRequest) returns (DeleteCredentialResponse) {
+    option idempotency_level = IDEMPOTENT;
+  }
+}
+
+// Sandbox is an isolated machine.
+message Sandbox {
+  // Id is the sandbox's id, "sbx_" and what the server chose.
+  string id = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Spec is what was asked for.
+  SandboxSpec spec = 2;
+  // State is where it is.
+  State state = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Driver is the driver that made it.
+  string driver = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Endpoints are how its ports are reached.
+  repeated Endpoint endpoints = 6 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Create_time is when it was made.
+  google.protobuf.Timestamp create_time = 8 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Failure says, for a sandbox that failed, what its driver said of
+  // why; empty where it said nothing.
+  string failure = 9 [(google.api.field_behavior) = OUTPUT_ONLY];
+
+  // State is where a sandbox is.
+  enum State {
+    // STATE_UNSPECIFIED: not known.
+    STATE_UNSPECIFIED = 0;
+    // STATE_STARTING: it was asked for and is not yet running.
+    STATE_STARTING = 1;
+    // STATE_RUNNING: it runs and its agent answers.
+    STATE_RUNNING = 2;
+    // STATE_PAUSED: it is stopped, and what its driver keeps is kept.
+    STATE_PAUSED = 3;
+    // STATE_FAILED: it could not start, or ended on its own; failure
+    // says why.
+    STATE_FAILED = 4;
+    // STATE_ENDING: it was asked to end, and what makes sandboxes still
+    // holds it. Nothing is asked of it but DeleteSandbox, again, until it
+    // is gone.
+    STATE_ENDING = 6;
+  }
+}
+
+// SandboxSpec is what a sandbox is asked to be.
+message SandboxSpec {
+  // Image is the image it runs, pinned by digest where the caller can.
+  string image = 1 [(google.api.field_behavior) = REQUIRED];
+  // Arguments replace the image's command; empty for the image's own.
+  repeated string arguments = 2;
+  // Wrapper is a command its first process is run through: what runs is
+  // the wrapper, then the image's entrypoint and the arguments (or the
+  // image's own command), as one command line, as `tini --` is run before
+  // a command. Empty for none.
+  repeated string wrapper = 15;
+  // User is the user its first process runs as, by number, never root's
+  // (0); empty for the sandbox's own.
+  string user = 16;
+  // Writable are the directories of its image it may write, each an
+  // absolute path, beside its own temporary directory and what is
+  // mounted in it; a driver that cannot hold a sandbox to what it writes
+  // writes them as it would anything else.
+  repeated string writable = 17;
+  // Environment is the environment its first process starts with.
+  map<string, string> environment = 3;
+  // Shape is its size.
+  Shape shape = 4;
+  // Egress is what it may reach.
+  Egress egress = 7;
+  // Ports are the ports of it to make reachable.
+  repeated int32 ports = 9;
+  // Volumes are the volumes mounted in it.
+  repeated Volume volumes = 10;
+  // Labels are for finding it.
+  map<string, string> labels = 11;
+  // Containers are its further containers, each with an image of its
+  // own, started after its first and before it is running, and ended
+  // with it. They share its network: its loopback, and with
+  // Egress.MODE_BLOCK nothing more, which is how a test reaches its
+  // services and nothing else.
+  repeated Container containers = 12;
+  // Before_containers runs a bounded command in the main container before
+  // any further container starts. Its failure fails creation. A driver
+  // lacking this capability refuses the request before making anything.
+  StartupGate before_containers = 14;
+}
+
+// StartupGate establishes readiness of the main container's facilities.
+message StartupGate {
+  // Arguments are an executable and its arguments, never a shell string.
+  repeated string arguments = 1;
+  // Timeout is positive and at most two minutes. The command must exit zero.
+  google.protobuf.Duration timeout = 2;
+}
+
+// Container is one of a sandbox's further containers.
+message Container {
+  // Name names it within the sandbox: lower-case letters, digits and
+  // dashes, and not "main", which is the sandbox's first.
+  string name = 1 [(google.api.field_behavior) = REQUIRED];
+  // Image is the image it runs, pinned by digest where the caller can.
+  string image = 2 [(google.api.field_behavior) = REQUIRED];
+  // Arguments replace the image's command; empty for the image's own.
+  repeated string arguments = 3;
+  // Environment is the environment its first process starts with.
+  map<string, string> environment = 4;
+  // Shape is its size, within the sandbox's.
+  Shape shape = 5;
+  // Volumes are the volumes mounted in it.
+  repeated Volume volumes = 6;
+}
+
+// Shape is a sandbox's size.
+message Shape {
+  // Cpus is how many CPUs it is given, in thousandths.
+  int32 milli_cpus = 1;
+  // Memory_bytes is how much memory it is given.
+  int64 memory_bytes = 2;
+  // Disk_bytes is how much disk it is given.
+  int64 disk_bytes = 3;
+}
+
+// Egress is what a sandbox may reach.
+message Egress {
+  // Mode is the rule.
+  Mode mode = 1;
+  // Rules are what it may reach where the mode allows only some, each a
+  // host and how far it is let: by which programs, for which requests,
+  // and with which credential kept for the host. A host is named by
+  // one rule. Under a driver that lets nothing be reached unnamed, they
+  // are also what a sandbox of an unspecified mode may reach. A sandbox
+  // whose mode allows all or nothing names none. A driver that cannot
+  // hold a rule to its programs or its requests, or keeps no credential,
+  // refuses such a rule by name.
+  repeated EgressRule rules = 3;
+
+  // Mode is the rule for what a sandbox may reach.
+  enum Mode {
+    // MODE_UNSPECIFIED: whatever the driver gives by default: anything,
+    // or, under a driver that lets nothing be reached unnamed, what its
+    // rules name.
+    MODE_UNSPECIFIED = 0;
+    // MODE_ALLOW_ALL: anything. A driver that lets nothing be reached
+    // unnamed refuses it.
+    MODE_ALLOW_ALL = 1;
+    // MODE_ALLOW_LISTED: only what its rules name.
+    MODE_ALLOW_LISTED = 2;
+    // MODE_BLOCK: nothing.
+    MODE_BLOCK = 3;
+  }
+}
+
+// EgressRule is one host a sandbox may reach, and how far.
+message EgressRule {
+  // Host is the host: a name, or a name and a port as name:port; without
+  // a port, 443, and reached over https. Written with "http://" before
+  // it, and then port 80 where none is given, it is reached over http.
+  // It is a name and never an address.
+  string host = 1 [(google.api.field_behavior) = REQUIRED];
+  // Programs are the programs the rule is for, each by its whole path,
+  // and what one of them starts; empty for any program of the sandbox.
+  repeated string programs = 2;
+  // Requests are the requests let through, and no others; empty for
+  // anything asked of the host.
+  repeated EgressRequest requests = 3;
+  // Credential names a credential the server keeps for the host
+  // (SetCredential), attached to what the rule lets through: the sandbox
+  // presents a stand-in, found under the variable DescribeCredential
+  // says, and never holds the secret. Empty for none. With none kept
+  // under the name, or one kept for another host, the sandbox is refused.
+  string credential = 4;
+}
+
+// EgressRequest is one request a rule lets through.
+message EgressRequest {
+  // Method is the HTTP method, in capitals.
+  string method = 1 [(google.api.field_behavior) = REQUIRED];
+  // Path is the path asked for, in full and written plainly.
+  string path = 2 [(google.api.field_behavior) = REQUIRED];
+  // Query holds, for a parameter that must be there, the one value it
+  // has; a request with none is held to no parameter.
+  map<string, string> query = 3;
+}
+
+// Volume is a volume mounted in a sandbox.
+message Volume {
+  // Name names it within the sandbox.
+  string name = 1;
+  // Path is where it is mounted.
+  string path = 2;
+  // Kind is what becomes of it.
+  Kind kind = 3;
+  // Source names what a host volume is: a path on the provider's host.
+  string source = 4;
+  // Read_only is whether the sandbox may only read it.
+  bool read_only = 5;
+  // Subpath is the one directory of a host volume that is
+  // mounted, relative to its root, never leaving it: what is beside it
+  // is not seen. Empty, the whole volume is mounted. A driver that cannot
+  // mount a subpath refuses it.
+  string subpath = 6;
+
+  // Kind is what becomes of a volume.
+  enum Kind {
+    // KIND_UNSPECIFIED: as KIND_EPHEMERAL.
+    KIND_UNSPECIFIED = 0;
+    // KIND_EPHEMERAL: it goes with the sandbox.
+    KIND_EPHEMERAL = 1;
+    // KIND_HOST: a directory of the provider's host, such as a
+    // developer's checkout on their own machine.
+    KIND_HOST = 3;
+  }
+}
+
+// Endpoint is how one port of a sandbox is reached.
+message Endpoint {
+  // Port is the port inside the sandbox.
+  int32 port = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Url is where it is reached from outside.
+  string url = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+// CreateSandboxRequest makes a sandbox.
+message CreateSandboxRequest {
+  // Spec is what to make.
+  SandboxSpec spec = 1 [(google.api.field_behavior) = REQUIRED];
+  // Request_id makes a retry return the first answer.
+  string request_id = 2;
+}
+
+// CreateSandboxResponse is the sandbox that was made.
+message CreateSandboxResponse {
+  // Sandbox is the sandbox.
+  Sandbox sandbox = 1;
+}
+
+// DescribeSandboxRequest names a sandbox.
+message DescribeSandboxRequest {
+  // Sandbox_id is the sandbox's id.
+  string sandbox_id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+// DescribeSandboxResponse is one sandbox.
+message DescribeSandboxResponse {
+  // Sandbox is the sandbox.
+  Sandbox sandbox = 1;
+}
+
+// ListSandboxesRequest says which sandboxes to keep.
+message ListSandboxesRequest {
+  // Label_selector keeps the sandboxes that carry every label it names:
+  // name=value, separated by commas. Empty keeps all.
+  string label_selector = 1;
+  // Page_size is the most sandboxes to return; zero is a hundred, and more
+  // than a thousand is a thousand.
+  int32 page_size = 2;
+  // Page_token is the next_page_token of the page before; empty for the
+  // first page.
+  string page_token = 3;
+}
+
+// ListSandboxesResponse is a page of the sandboxes kept.
+message ListSandboxesResponse {
+  // Sandboxes are the sandboxes, oldest first.
+  repeated Sandbox sandboxes = 1;
+  // Next_page_token asks for the page after this one; empty on the last.
+  string next_page_token = 2;
+}
+
+// DeleteSandboxRequest names a sandbox to end.
+message DeleteSandboxRequest {
+  // Sandbox_id is the sandbox's id.
+  string sandbox_id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+// DeleteSandboxResponse is empty: the sandbox is gone.
+message DeleteSandboxResponse {}
+
+// PauseSandboxRequest names a sandbox to pause.
+message PauseSandboxRequest {
+  // Sandbox_id is the sandbox's id.
+  string sandbox_id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+// PauseSandboxResponse is the sandbox as it pauses.
+message PauseSandboxResponse {
+  // Sandbox is the sandbox.
+  Sandbox sandbox = 1;
+}
+
+// ResumeSandboxRequest names a sandbox to resume.
+message ResumeSandboxRequest {
+  // Sandbox_id is the sandbox's id.
+  string sandbox_id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+// ResumeSandboxResponse is the sandbox as it resumes.
+message ResumeSandboxResponse {
+  // Sandbox is the sandbox.
+  Sandbox sandbox = 1;
+}
+
+// WaitSandboxRequest names a sandbox to wait for.
+message WaitSandboxRequest {
+  // Sandbox_id is the sandbox's id.
+  string sandbox_id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+// WaitSandboxResponse is the sandbox as the wait ended on it.
+message WaitSandboxResponse {
+  // Sandbox is the sandbox.
+  Sandbox sandbox = 1;
+}
+
+// ExecSandboxRequest is a command to run in a sandbox's container.
+message ExecSandboxRequest {
+  // Sandbox_id is the sandbox's id.
+  string sandbox_id = 1 [(google.api.field_behavior) = REQUIRED];
+  // Container is the container's name; "main" or empty for the
+  // sandbox's first.
+  string container = 2;
+  // Arguments are the program and its arguments.
+  repeated string arguments = 3 [(google.api.field_behavior) = REQUIRED];
+  // Timeout ends the command, and the call, past it; unset, a minute.
+  google.protobuf.Duration timeout = 4;
+}
+
+// ExecSandboxResponse is how the command ended.
+message ExecSandboxResponse {
+  // Exit_code is its exit status.
+  int32 exit_code = 1;
+  // Output is what it printed, stdout and stderr as written, up to 1 MiB.
+  bytes output = 2;
+  // Truncated says output was cut at 1 MiB.
+  bool truncated = 3;
+}
+
+// Credential is a secret for one host, kept by the server outside every
+// sandbox under a name of its caller's choosing.
+message Credential {
+  // Name is the name it is kept under, of the caller's choosing:
+  // lower-case letters, digits and dashes, at most 63, beginning with a
+  // letter or a digit.
+  string name = 1 [(google.api.field_behavior) = REQUIRED];
+  // Host is the host it is for: a name, or a name and a port as
+  // name:port; without a port, 443: a credential for what a sandbox asks
+  // of it over https. Written with "http://" before it, and then port 80
+  // where none is given, it is one for what is asked over http, and none
+  // for the same host over https. Neither is kept from being sent to its
+  // host unencrypted by what runs in a sandbox let through with it,
+  // where the driver's runtime cannot ask for TLS. As the server says
+  // it, it is name:port, with "http://" before it where it is sent over
+  // http.
+  string host = 2 [(google.api.field_behavior) = REQUIRED];
+  // Username is who it is of, as the host asks; it is no secret, and a
+  // sandbox is told it.
+  string username = 3;
+  // Secret is the password or token. It is kept outside every sandbox,
+  // and no call returns it.
+  string secret = 4 [
+    (google.api.field_behavior) = REQUIRED,
+    (google.api.field_behavior) = INPUT_ONLY
+  ];
+  // Variable is the variable of its environment a sandbox let through
+  // with the credential finds its stand-in under.
+  string variable = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+// SetCredentialRequest is a credential to keep.
+message SetCredentialRequest {
+  // Credential is the credential.
+  Credential credential = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+// SetCredentialResponse is the credential as it is kept.
+message SetCredentialResponse {
+  // Credential is the credential, without its secret.
+  Credential credential = 1;
+}
+
+// DeleteCredentialRequest names the credential let go of.
+message DeleteCredentialRequest {
+  // Name is the name it was kept under.
+  string name = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+// DeleteCredentialResponse says nothing: the server holds none under the
+// name.
+message DeleteCredentialResponse {}
+
+// DescribeCredentialRequest names the credential asked after.
+message DescribeCredentialRequest {
+  // Name is the name it was kept under.
+  string name = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+// DescribeCredentialResponse is what is said of a credential that is
+// kept: never its secret.
+message DescribeCredentialResponse {
+  // Credential is the credential, without its secret.
+  Credential credential = 1;
+}

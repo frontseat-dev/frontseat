@@ -1,0 +1,6 @@
+# What frontseat must not see of this repository, as git reads .gitignore:
+# what cargo builds, what `mise run build` makes of this checkout, and what
+# `mise run docs` builds.
+/target/
+/dist/
+/site/

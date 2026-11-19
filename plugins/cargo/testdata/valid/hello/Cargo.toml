@@ -1,0 +1,8 @@
+[package]
+name = "hello"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+greet = { path = "../greet" }
+cfg-if = "1"

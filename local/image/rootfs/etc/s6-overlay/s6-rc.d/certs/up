@@ -1,0 +1,4 @@
+# The gateway's authority, server and client certificates, made once.
+if -t { test ! -f /var/lib/frontseat/openshell/tls/jwt/kid }
+s6-setuidgid frontseat
+openshell-gateway generate-certs --output-dir /var/lib/frontseat/openshell/tls

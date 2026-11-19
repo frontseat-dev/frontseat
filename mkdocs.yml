@@ -1,0 +1,12 @@
+# The documentation Backstage shows for this repository (TechDocs), built
+# with `mise run docs`.
+site_name: Frontseat contributor docs
+site_description: Contributor documentation for Frontseat
+repo_url: https://github.com/frontseat-dev/frontseat
+edit_uri: edit/main/docs/
+
+nav:
+  - Home: index.md
+
+plugins:
+  - techdocs-core

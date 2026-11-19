@@ -1,0 +1,37 @@
+# The daemon's internal API (frontseat.source.v1alpha1), in Go, for the
+# server alone: the control plane tells a workspace's daemon what to
+# hold through it, and nothing else asks it. It is generated into the
+# server's internal packages (server/internal/sourceapi), with its
+# Connect handler and client, and never into the Go SDK; the types of
+# the other modules it names are the Go SDK's. Generated, never edited,
+# and held to what this writes now by `mise run check`. Frontseat builds
+# it as //api:buf.generate-source, into the server, which says so in its
+# catalog file (spec.frontseat.generated).
+version: v2
+# What it writes into is its own: emptied first, so that what a proto no
+# longer gives is gone.
+clean: true
+managed:
+  enabled: true
+  override:
+    - file_option: go_package_prefix
+      value: github.com/frontseat-dev/frontseat/sdk/go/api
+    - path: frontseat/source
+      file_option: go_package_prefix
+      value: github.com/frontseat-dev/frontseat/server/internal/sourceapi
+  disable:
+    - path: google/api
+      file_option: go_package_prefix
+    - path: google/rpc
+      file_option: go_package_prefix
+plugins:
+  - local: protoc-gen-go
+    out: ../server/internal/sourceapi
+    opt: paths=source_relative
+  - local: protoc-gen-connect-go
+    out: ../server/internal/sourceapi
+    opt: paths=source_relative
+inputs:
+  - directory: .
+    paths:
+      - source-proto/frontseat

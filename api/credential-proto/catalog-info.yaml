@@ -1,0 +1,15 @@
+# The API this module's protobuf package defines. An API owns no source:
+# the api component owns every project beneath api/. Its definition is
+# the directory of the protobuf package, the unit Buf lints and generates.
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: credential-api
+  namespace: frontseat
+  description: "Credentials: a person's secrets for the hosts their workspaces fetch from and push to, kept by the control plane outside every sandbox, over Connect"
+spec:
+  type: grpc
+  lifecycle: experimental
+  owner: jbadeau
+  system: workspaces
+  definition: frontseat/credential/v1alpha1

@@ -1,0 +1,618 @@
+//! The conventional commit type and its simple, and typed implementations.
+
+use std::fmt;
+use std::ops::Deref;
+use std::str::FromStr;
+
+use winnow::Parser;
+use winnow::error::ContextError;
+
+use crate::parser::parse;
+use crate::{Error, ErrorKind};
+
+const BREAKING_PHRASE: &str = "BREAKING CHANGE";
+const BREAKING_ARROW: &str = "BREAKING-CHANGE";
+
+/// A conventional commit.
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Commit<'a> {
+    ty: Type<'a>,
+    scope: Option<Scope<'a>>,
+    description: &'a str,
+    body: Option<&'a str>,
+    breaking: bool,
+    #[cfg_attr(feature = "serde", serde(skip))]
+    breaking_description: Option<&'a str>,
+    footers: Vec<Footer<'a>>,
+}
+
+impl<'a> Commit<'a> {
+    /// Create a new Conventional Commit based on the provided commit message
+    /// string.
+    ///
+    /// # Errors
+    ///
+    /// This function returns an error if the commit does not conform to the
+    /// Conventional Commit specification.
+    pub fn parse(string: &'a str) -> Result<Self, Error> {
+        let (ty, scope, breaking, description, body, footers) = parse::<ContextError>
+            .parse(string)
+            .map_err(|err| Error::with_nom(string, err))?;
+
+        let breaking_description = footers
+            .iter()
+            .find_map(|(k, _, v)| (k == &BREAKING_PHRASE || k == &BREAKING_ARROW).then_some(*v))
+            .or_else(|| breaking.then_some(description));
+        let breaking = breaking_description.is_some();
+        let footers: Result<Vec<_>, Error> = footers
+            .into_iter()
+            .map(|(k, s, v)| Ok(Footer::new(FooterToken::new_unchecked(k), s.parse()?, v)))
+            .collect();
+        let footers = footers?;
+
+        Ok(Self {
+            ty: Type::new_unchecked(ty),
+            scope: scope.map(Scope::new_unchecked),
+            description,
+            body,
+            breaking,
+            breaking_description,
+            footers,
+        })
+    }
+
+    /// The type of the commit.
+    pub fn type_(&self) -> Type<'a> {
+        self.ty
+    }
+
+    /// The optional scope of the commit.
+    pub fn scope(&self) -> Option<Scope<'a>> {
+        self.scope
+    }
+
+    /// The commit description.
+    pub fn description(&self) -> &'a str {
+        self.description
+    }
+
+    /// The commit body, containing a more detailed explanation of the commit
+    /// changes.
+    pub fn body(&self) -> Option<&'a str> {
+        self.body
+    }
+
+    /// A flag to signal that the commit contains breaking changes.
+    ///
+    /// This flag is set either when the commit has an exclamation mark after
+    /// the message type and scope, e.g.:
+    /// ```text
+    /// feat(scope)!: this is a breaking change
+    /// ```
+    ///
+    /// Or when the `BREAKING CHANGE: ` footer is defined:
+    /// ```text
+    /// feat: my commit description
+    ///
+    /// BREAKING CHANGE: this is a breaking change
+    /// ```
+    pub fn breaking(&self) -> bool {
+        self.breaking
+    }
+
+    /// Explanation for the breaking change.
+    ///
+    /// Note: if no `BREAKING CHANGE` footer is provided, the `description` is expected to describe
+    /// the breaking change.
+    pub fn breaking_description(&self) -> Option<&'a str> {
+        self.breaking_description
+    }
+
+    /// Any footer.
+    ///
+    /// A footer is similar to a Git trailer, with the exception of not
+    /// requiring whitespace before newlines.
+    ///
+    /// See: <https://git-scm.com/docs/git-interpret-trailers>
+    pub fn footers(&self) -> &[Footer<'a>] {
+        &self.footers
+    }
+}
+
+impl fmt::Display for Commit<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.type_().as_str())?;
+
+        if let Some(scope) = &self.scope() {
+            f.write_fmt(format_args!("({scope})"))?;
+        }
+
+        f.write_fmt(format_args!(": {}", self.description()))?;
+
+        if let Some(body) = &self.body() {
+            f.write_fmt(format_args!("\n\n{body}"))?;
+        }
+
+        for footer in self.footers() {
+            write!(f, "\n\n{footer}")?;
+        }
+
+        Ok(())
+    }
+}
+
+/// A single footer.
+///
+/// A footer is similar to a Git trailer, with the exception of not requiring
+/// whitespace before newlines.
+///
+/// See: <https://git-scm.com/docs/git-interpret-trailers>
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+pub struct Footer<'a> {
+    token: FooterToken<'a>,
+    sep: FooterSeparator,
+    value: &'a str,
+}
+
+impl<'a> Footer<'a> {
+    /// Piece together a footer.
+    pub const fn new(token: FooterToken<'a>, sep: FooterSeparator, value: &'a str) -> Self {
+        Self { token, sep, value }
+    }
+
+    /// The token of the footer.
+    pub const fn token(&self) -> FooterToken<'a> {
+        self.token
+    }
+
+    /// The separator between the footer token and its value.
+    pub const fn separator(&self) -> FooterSeparator {
+        self.sep
+    }
+
+    /// The value of the footer.
+    pub const fn value(&self) -> &'a str {
+        self.value
+    }
+
+    /// A flag to signal that the footer describes a breaking change.
+    pub fn breaking(&self) -> bool {
+        self.token.breaking()
+    }
+}
+
+impl fmt::Display for Footer<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self { token, sep, value } = self;
+        write!(f, "{token}{sep}{value}")
+    }
+}
+
+/// The type of separator between the footer token and value.
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[non_exhaustive]
+pub enum FooterSeparator {
+    /// ":"
+    Value,
+
+    /// " #"
+    Ref,
+}
+
+impl FooterSeparator {
+    /// Access `str` representation of `FooterSeparator`
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Value => ":",
+            Self::Ref => " #",
+        }
+    }
+}
+
+impl Deref for FooterSeparator {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        self.as_str()
+    }
+}
+
+impl PartialEq<&'_ str> for FooterSeparator {
+    fn eq(&self, other: &&str) -> bool {
+        self.as_str() == *other
+    }
+}
+
+impl fmt::Display for FooterSeparator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self)
+    }
+}
+
+impl FromStr for FooterSeparator {
+    type Err = Error;
+
+    fn from_str(sep: &str) -> Result<Self, Self::Err> {
+        match sep {
+            ":" => Ok(Self::Value),
+            " #" => Ok(Self::Ref),
+            _ => {
+                Err(Error::new(ErrorKind::InvalidFooter).set_context(Box::new(format!("{sep:?}"))))
+            }
+        }
+    }
+}
+
+macro_rules! unicase_components {
+    ($($ty:ident),+) => (
+        $(
+            /// A component of the conventional commit.
+            #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+            pub struct $ty<'a>(unicase::UniCase<&'a str>);
+
+            impl<'a> $ty<'a> {
+                /// See `parse` for ensuring the data is valid.
+                pub const fn new_unchecked(value: &'a str) -> Self {
+                    $ty(unicase::UniCase::unicode(value))
+                }
+
+                /// Access `str` representation
+                pub fn as_str(&self) -> &'a str {
+                    &self.0.into_inner()
+                }
+            }
+
+            impl Deref for $ty<'_> {
+                type Target = str;
+
+                fn deref(&self) -> &Self::Target {
+                    self.as_str()
+                }
+            }
+
+            impl PartialEq<&'_ str> for $ty<'_> {
+                fn eq(&self, other: &&str) -> bool {
+                    *self == $ty::new_unchecked(*other)
+                }
+            }
+
+            impl fmt::Display for $ty<'_> {
+                fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                    self.0.fmt(f)
+                }
+            }
+
+            #[cfg(feature = "serde")]
+            impl serde::Serialize for $ty<'_> {
+                fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+                where
+                    S: serde::Serializer,
+                {
+                    serializer.serialize_str(self)
+                }
+            }
+        )+
+    )
+}
+
+unicase_components![Type, Scope, FooterToken];
+
+impl<'a> Type<'a> {
+    /// Parse a `str` into a `Type`.
+    pub fn parse(sep: &'a str) -> Result<Self, Error> {
+        let t = crate::parser::type_::<ContextError>
+            .parse(sep)
+            .map_err(|err| Error::with_nom(sep, err))?;
+        Ok(Type::new_unchecked(t))
+    }
+}
+
+/// Common commit types
+impl Type<'static> {
+    /// Commit type when introducing new features (correlates with `minor` in semver)
+    pub const FEAT: Self = Type::new_unchecked("feat");
+    /// Commit type when patching a bug (correlates with `patch` in semver)
+    pub const FIX: Self = Type::new_unchecked("fix");
+    /// Possible commit type when reverting changes.
+    pub const REVERT: Self = Type::new_unchecked("revert");
+    /// Possible commit type for changing documentation.
+    pub const DOCS: Self = Type::new_unchecked("docs");
+    /// Possible commit type for changing code style.
+    pub const STYLE: Self = Type::new_unchecked("style");
+    /// Possible commit type for refactoring code structure.
+    pub const REFACTOR: Self = Type::new_unchecked("refactor");
+    /// Possible commit type for performance optimizations.
+    pub const PERF: Self = Type::new_unchecked("perf");
+    /// Possible commit type for addressing tests.
+    pub const TEST: Self = Type::new_unchecked("test");
+    /// Possible commit type for other things.
+    pub const CHORE: Self = Type::new_unchecked("chore");
+}
+
+impl<'a> Scope<'a> {
+    /// Parse a `str` into a `Scope`.
+    pub fn parse(sep: &'a str) -> Result<Self, Error> {
+        let t = crate::parser::scope::<ContextError>
+            .parse(sep)
+            .map_err(|err| Error::with_nom(sep, err))?;
+        Ok(Scope::new_unchecked(t))
+    }
+}
+
+impl<'a> FooterToken<'a> {
+    /// Parse a `str` into a `FooterToken`.
+    pub fn parse(sep: &'a str) -> Result<Self, Error> {
+        let t = crate::parser::token::<ContextError>
+            .parse(sep)
+            .map_err(|err| Error::with_nom(sep, err))?;
+        Ok(FooterToken::new_unchecked(t))
+    }
+
+    /// A flag to signal that the footer describes a breaking change.
+    pub fn breaking(&self) -> bool {
+        self == &BREAKING_PHRASE || self == &BREAKING_ARROW
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::ErrorKind;
+    use indoc::indoc;
+    #[cfg(feature = "serde")]
+    use serde_test::Token;
+
+    #[test]
+    fn test_valid_simple_commit_with_or_without_trailing_whitespace() {
+        for message in [
+            "type(my scope): hello world",
+            "type(my scope): hello world\n\n\n",
+        ] {
+            let commit = Commit::parse(message).unwrap();
+
+            assert_eq!(commit.type_(), "type", "{message:?}");
+            assert_eq!(commit.scope().unwrap(), "my scope", "{message:?}");
+            assert_eq!(commit.description(), "hello world", "{message:?}");
+        }
+    }
+
+    #[test]
+    fn test_trailing_1_nl() {
+        let commit = Commit::parse("type: hello world\n").unwrap();
+
+        assert_eq!(commit.type_(), "type");
+        assert_eq!(commit.scope(), None);
+        assert_eq!(commit.description(), "hello world");
+    }
+
+    #[test]
+    fn test_trailing_2_nl() {
+        let commit = Commit::parse("type: hello world\n\n").unwrap();
+
+        assert_eq!(commit.type_(), "type");
+        assert_eq!(commit.scope(), None);
+        assert_eq!(commit.description(), "hello world");
+    }
+
+    #[test]
+    fn test_trailing_3_nl() {
+        let commit = Commit::parse("type: hello world\n\n\n").unwrap();
+
+        assert_eq!(commit.type_(), "type");
+        assert_eq!(commit.scope(), None);
+        assert_eq!(commit.description(), "hello world");
+    }
+
+    #[test]
+    fn test_parenthetical_statement() {
+        let commit = Commit::parse("type: hello world (#1)").unwrap();
+
+        assert_eq!(commit.type_(), "type");
+        assert_eq!(commit.scope(), None);
+        assert_eq!(commit.description(), "hello world (#1)");
+    }
+
+    #[test]
+    fn test_multiline_description() {
+        let err = Commit::parse(
+            "chore: Automate fastlane when a file in the fastlane directory is\nchanged (hopefully)",
+        ).unwrap_err();
+
+        assert_eq!(ErrorKind::InvalidBody, err.kind());
+    }
+
+    #[test]
+    fn test_issue_12_case_1() {
+        // Looks like it was test_trailing_2_nl that triggered this to fail originally
+        let commit = Commit::parse("chore: add .hello.txt (#1)\n\n").unwrap();
+
+        assert_eq!(commit.type_(), "chore");
+        assert_eq!(commit.scope(), None);
+        assert_eq!(commit.description(), "add .hello.txt (#1)");
+    }
+
+    #[test]
+    fn test_issue_12_case_2() {
+        // Looks like it was test_trailing_2_nl that triggered this to fail originally
+        let commit = Commit::parse("refactor: use fewer lines (#3)\n\n").unwrap();
+
+        assert_eq!(commit.type_(), "refactor");
+        assert_eq!(commit.scope(), None);
+        assert_eq!(commit.description(), "use fewer lines (#3)");
+    }
+
+    #[test]
+    fn test_breaking_change() {
+        let commit = Commit::parse("feat!: this is a breaking change").unwrap();
+        assert_eq!(Type::FEAT, commit.type_());
+        assert!(commit.breaking());
+        assert_eq!(
+            commit.breaking_description(),
+            Some("this is a breaking change")
+        );
+
+        let commit = Commit::parse(indoc!(
+            "feat: message
+
+            BREAKING CHANGE: breaking change"
+        ))
+        .unwrap();
+        assert_eq!(Type::FEAT, commit.type_());
+        assert_eq!("breaking change", commit.footers().first().unwrap().value());
+        assert!(commit.breaking());
+        assert_eq!(commit.breaking_description(), Some("breaking change"));
+
+        let commit = Commit::parse(indoc!(
+            "fix: message
+
+            BREAKING-CHANGE: it's broken"
+        ))
+        .unwrap();
+        assert_eq!(Type::FIX, commit.type_());
+        assert_eq!("it's broken", commit.footers().first().unwrap().value());
+        assert!(commit.breaking());
+        assert_eq!(commit.breaking_description(), Some("it's broken"));
+    }
+
+    #[test]
+    fn test_conjoined_footer() {
+        let commit = Commit::parse(
+            "fix(example): fix keepachangelog config example
+
+Fixes: #123, #124, #125",
+        )
+        .unwrap();
+        assert_eq!(Type::FIX, commit.type_());
+        assert_eq!(commit.body(), None);
+        assert_eq!(
+            commit.footers(),
+            [Footer::new(
+                FooterToken("Fixes".into()),
+                FooterSeparator::Value,
+                "#123, #124, #125"
+            ),]
+        );
+    }
+
+    #[test]
+    fn test_windows_and_extra_line_endings() {
+        for message in [
+            "feat: thing\r\n\r\nbody\r\n\r\ncloses #1234\r\n\r\n\r\nBREAKING CHANGE: something broke\r\n\r\n",
+            "feat: thing\n\n\n\n\nbody\n\n\n\n\ncloses #1234\n\n\n\n\n\nBREAKING CHANGE: something broke\n\n\n\n",
+        ] {
+            let commit = Commit::parse(message).unwrap();
+            assert_eq!(commit.body(), Some("body"), "{message:?}");
+            assert_eq!(
+                commit.footers(),
+                [
+                    Footer::new(FooterToken("closes".into()), FooterSeparator::Ref, "1234"),
+                    Footer::new(
+                        FooterToken("BREAKING CHANGE".into()),
+                        FooterSeparator::Value,
+                        "something broke"
+                    ),
+                ],
+                "{message:?}"
+            );
+            assert_eq!(
+                commit.breaking_description(),
+                Some("something broke"),
+                "{message:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_fake_footer() {
+        let commit = indoc! {"
+            fix: something something
+
+            First line of the body
+            IMPORTANT: Please see something else for details.
+            Another line here.
+        "};
+
+        let commit = Commit::parse(commit).unwrap();
+
+        assert_eq!(Type::FIX, commit.type_());
+        assert_eq!(None, commit.scope());
+        assert_eq!("something something", commit.description());
+        assert_eq!(
+            Some(indoc!(
+                "
+                First line of the body
+                IMPORTANT: Please see something else for details.
+                Another line here."
+            )),
+            commit.body()
+        );
+        let empty_footer: &[Footer<'_>] = &[];
+        assert_eq!(empty_footer, commit.footers());
+    }
+
+    #[test]
+    fn test_valid_complex_commit() {
+        let commit = indoc! {"
+            chore: improve changelog readability
+
+            Change date notation from YYYY-MM-DD to YYYY.MM.DD to make it a tiny bit
+            easier to parse while reading.
+
+            BREAKING CHANGE: Just kidding!
+        "};
+
+        let commit = Commit::parse(commit).unwrap();
+
+        assert_eq!(Type::CHORE, commit.type_());
+        assert_eq!(None, commit.scope());
+        assert_eq!("improve changelog readability", commit.description());
+        assert_eq!(
+            Some(indoc!(
+                "Change date notation from YYYY-MM-DD to YYYY.MM.DD to make it a tiny bit
+                 easier to parse while reading."
+            )),
+            commit.body()
+        );
+        assert_eq!("Just kidding!", commit.footers().first().unwrap().value());
+    }
+
+    #[test]
+    fn test_missing_type() {
+        let err = Commit::parse("").unwrap_err();
+
+        assert_eq!(ErrorKind::MissingType, err.kind());
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn test_commit_serialize() {
+        let commit = Commit::parse("type(my scope): hello world").unwrap();
+        serde_test::assert_ser_tokens(
+            &commit,
+            &[
+                Token::Struct {
+                    name: "Commit",
+                    len: 6,
+                },
+                Token::Str("ty"),
+                Token::Str("type"),
+                Token::Str("scope"),
+                Token::Some,
+                Token::Str("my scope"),
+                Token::Str("description"),
+                Token::Str("hello world"),
+                Token::Str("body"),
+                Token::None,
+                Token::Str("breaking"),
+                Token::Bool(false),
+                Token::Str("footers"),
+                Token::Seq { len: Some(0) },
+                Token::SeqEnd,
+                Token::StructEnd,
+            ],
+        );
+    }
+}

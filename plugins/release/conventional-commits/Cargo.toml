@@ -1,0 +1,26 @@
+[package]
+name = "frontseat-conventional-commits"
+version = "0.0.0"
+# The edition and the licence are the crate's this was cloned from, not
+# the workspace's: see README.md.
+edition = "2024"
+license = "MIT OR Apache-2.0"
+description = "A parser of Conventional Commits, cloned from git-conventional."
+publish = false
+
+[lib]
+name = "conventional_commits"
+
+[features]
+serde = ["dep:serde"]
+
+[dependencies]
+# Without winnow's default features: with them, every package of the
+# workspace that uses winnow is locked to what this one turns on.
+winnow = { version = "1.0.0", default-features = false, features = ["alloc", "ascii", "binary"] }
+unicase = "2.5"
+serde = { version = "1.0.163", optional = true, features = ["derive"] }
+
+[dev-dependencies]
+indoc = "2.0"
+serde_test = "1.0"

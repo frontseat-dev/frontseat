@@ -1,0 +1,9 @@
+# What the control plane knows the gateway by and is known by: the
+# authority and the client certificate, in its own state, its own alone.
+# Done as frontseat, who owns both directories: a link planted there
+# reaches nothing frontseat could not reach itself.
+s6-setuidgid frontseat
+if { mkdir -p /var/lib/frontseat/controlplane/openshell }
+if { chmod 0700 /var/lib/frontseat/controlplane/openshell }
+if { cp /var/lib/frontseat/openshell/tls/ca.crt /var/lib/frontseat/openshell/tls/client/tls.crt /var/lib/frontseat/openshell/tls/client/tls.key /var/lib/frontseat/controlplane/openshell/ }
+chmod 0600 /var/lib/frontseat/controlplane/openshell/ca.crt /var/lib/frontseat/controlplane/openshell/tls.crt /var/lib/frontseat/controlplane/openshell/tls.key

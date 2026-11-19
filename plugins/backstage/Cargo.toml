@@ -1,0 +1,16 @@
+[package]
+name = "frontseat-plugin-backstage"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+description = "The Backstage plugin: catalog descriptors and their relations."
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+frontseat-plugin = { path = "../../sdk/plugin" }
+serde = { version = "1", features = ["derive"] }
+url = { version = "2.5.8", default-features = false, features = ["std"] }
+serde_json = "1"

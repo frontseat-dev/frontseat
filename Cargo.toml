@@ -1,0 +1,17 @@
+# The plugin SDK and the plugins. Each plugin builds to one wasm module:
+#
+#   cargo build --release --target wasm32-wasip1 -p frontseat-plugin-go
+[workspace]
+resolver = "2"
+members = ["sdk/plugin", "sdk/plugin/generate", "sdk/plugin-test", "plugins/go", "plugins/backstage", "plugins/buf", "plugins/cargo", "plugins/release", "plugins/release/conventional-commits", "plugins/apko", "plugins/container", "plugins/postgres", "plugins/npm", "plugins/jest"]
+
+[workspace.package]
+edition = "2021"
+license = "Apache-2.0"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

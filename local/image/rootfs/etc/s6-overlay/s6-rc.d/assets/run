@@ -1,0 +1,3 @@
+#!/command/execlineb -P
+s6-setuidgid bb
+bb_remote_asset /etc/frontseat/bb/assets.jsonnet

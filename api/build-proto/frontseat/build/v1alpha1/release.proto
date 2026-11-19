@@ -1,0 +1,321 @@
+// frontseat.build.v1alpha1: releases. A release gives entities a new
+// version: it builds them for production and tags what moves. It is a
+// resource: it has an id, it outlives the call that made it, and its
+// record says what each unit became.
+//
+// What is released is pointed at: an entity, alone, or a system or a
+// domain, as a group. Nobody writes a group: it is the catalog's own
+// containment (partOf). Nobody writes what a unit depends on: it is the
+// entities' inferred dependencies (Entity.depends_on), folded onto units.
+//
+// How an entity is released is said in its catalog file, under
+// spec.frontseat.release, and is inherited: a domain's setting reaches its
+// systems, a system's its members, and the nearest level that sets a key
+// wins, key by key.
+//
+// There are no phases. Planning reads and changes nothing; it is what a
+// person or an agent looks at before releasing. Releasing carries out a
+// plan that was seen, named by its etag, and is refused if the source has
+// moved since.
+syntax = "proto3";
+
+package frontseat.build.v1alpha1;
+
+import "frontseat/build/v1alpha1/types.proto";
+import "frontseat/type/v1alpha1/types.proto";
+import "google/api/field_behavior.proto";
+import "google/protobuf/timestamp.proto";
+
+// ReleaseService is a workspace's releases.
+service ReleaseService {
+  // PlanRelease says what releasing entities would do now: the units it
+  // would release, the version each would get and why, and what each
+  // depends on. It reads the workspace as it stands and changes nothing.
+  //
+  // ### Errors
+  // - INVALID_ARGUMENT: no entity is named, or an entity is named twice.
+  // - NOT_FOUND: an entity the workspace does not hold.
+  // - FAILED_PRECONDITION: what an entity says of how it is released is
+  //   mistaken; a repository the request reaches lists no release plugin;
+  //   a unit's members are in more than one repository; units depend on
+  //   each other in a cycle; a unit would be released against an
+  //   unreleased change of a unit it depends on that the request does not
+  //   release; a version is tagged on another commit already. The
+  //   message names what.
+  rpc PlanRelease(PlanReleaseRequest) returns (PlanReleaseResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // CreateRelease carries out a plan: it builds the plan's units for
+  // production and tags each unit that moves, at the commit it was
+  // planned from, in the daemon's checkout. Nothing leaves the checkout.
+  // It returns at once, with the production build's build_id where the
+  // plan builds anything; WaitRelease ends when it does. Releasing what
+  // is already released changes nothing and succeeds, and asking again
+  // for a plan that is being released returns that release.
+  //
+  // ### Errors
+  // - INVALID_ARGUMENT: the plan's etag is missing.
+  // - ABORTED (ETAG_MISMATCH): the plan is no longer what releasing the
+  //   same request would do now; plan again.
+  // - FAILED_PRECONDITION: as for PlanRelease.
+  rpc CreateRelease(CreateReleaseRequest) returns (CreateReleaseResponse);
+
+  // DescribeRelease returns one release, as it is now.
+  //
+  // ### Errors
+  // - NOT_FOUND: no release has that id.
+  rpc DescribeRelease(DescribeReleaseRequest) returns (DescribeReleaseResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // WaitRelease returns a release once it has ended.
+  //
+  // ### Errors
+  // - NOT_FOUND: no release has that id.
+  rpc WaitRelease(WaitReleaseRequest) returns (WaitReleaseResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+}
+
+// PlanReleaseRequest names what to release.
+message PlanReleaseRequest {
+  // Entities are what to release. A component, an API or a resource is
+  // released with its group: alone where it is a group of its own, with
+  // its system where its system is synced. A system or a domain is
+  // released as the group it is. Each is named as a person typed it: a
+  // kind left empty is a component, and a namespace left empty is any,
+  // the workspace's one entity of that kind and name.
+  repeated frontseat.type.v1alpha1.EntityRef entities = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+// PlanReleaseResponse is the plan.
+message PlanReleaseResponse {
+  // Plan is what releasing would do now.
+  ReleasePlan plan = 1;
+}
+
+// ReleasePlan is the graph of a release: its units, and what each
+// depends on.
+message ReleasePlan {
+  // Etag names this plan; CreateRelease is given it, so that what is
+  // released is what was seen. It is a digest of what the plan says and
+  // of the commits it is planned from, so a daemon that plans the same
+  // request at the same commits comes to the same etag.
+  string etag = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Units are what the release would version, in an order where a unit
+  // comes after every unit it depends on. A unit that holds is listed,
+  // with why.
+  repeated ReleaseUnit units = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Commits are the commit each repository of the release is planned
+  // from.
+  repeated RepositoryCommit commits = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+// RepositoryCommit is where a repository stands.
+message RepositoryCommit {
+  // Repository is the workspace's name for the repository.
+  string repository = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Commit is the commit's id, as its version control system writes it.
+  string commit = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+// ReleaseUnit is what gets one version and one tag: a synced group, all
+// its members together, or one entity. Its members are all in one
+// repository.
+message ReleaseUnit {
+  // Entity is the unit: the system or domain of a synced group, or the
+  // entity that versions on its own.
+  frontseat.type.v1alpha1.EntityRef entity = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Members are the entities that take the unit's version: the members of
+  // a synced group, or the entity alone.
+  repeated frontseat.type.v1alpha1.EntityRef members = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Group is the group the unit versions with: a synced group is its
+  // own; an entity of an independent system names that system; an entity
+  // in no group names itself.
+  frontseat.type.v1alpha1.EntityRef group = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Grouping is how the unit's group versions its members.
+  Grouping grouping = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Included says why the unit is in the plan.
+  Inclusion included = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Last_version is the unit's last release; empty if it has none.
+  string last_version = 6 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Next_version is what the release makes it; empty if it holds.
+  string next_version = 7 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Bump is how far it moves.
+  frontseat.type.v1alpha1.Bump bump = 8 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Reasons say why it moves, or why it holds, heaviest first.
+  repeated ReleaseReason reasons = 9 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Tag is the tag the release writes, spelled from the unit's tag
+  // setting; empty if it holds.
+  string tag = 10 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Depends_on are the units of the plan it depends on, folded from what
+  // its members' projects require. A unit comes after them in the plan,
+  // and is refused where one has a change not released that the plan does
+  // not release; their release does not move it.
+  repeated frontseat.type.v1alpha1.EntityRef depends_on = 11 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Notes are the release notes, as its versioning strategy wrote them,
+  // in Markdown.
+  string notes = 12 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Versioning_strategy is the strategy that gave its version, as
+  // "<plugin>:<name>".
+  string versioning_strategy = 13 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Branching_strategy is the strategy that said what its branch
+  // releases, as "<plugin>:<name>".
+  string branching_strategy = 14 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Branch is the branch it is planned from.
+  string branch = 15 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Prerelease is whether what it releases is a prerelease.
+  bool prerelease = 16 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Channel is the name its branching strategy gives what its branch
+  // releases: "latest", "next", a branch's name.
+  string channel = 17 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+// Inclusion is why a unit is in a plan.
+enum Inclusion {
+  // INCLUSION_UNSPECIFIED: not said.
+  INCLUSION_UNSPECIFIED = 0;
+  // INCLUSION_ASKED: the request named it, or one of its members.
+  INCLUSION_ASKED = 1;
+}
+
+// ReleaseReason is one reason a unit moves or holds.
+message ReleaseReason {
+  // Kind is what sort of reason it is.
+  ReasonKind kind = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Bump is what this reason alone is worth.
+  frontseat.type.v1alpha1.Bump bump = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Commit is the commit that is the reason, for OWN_CHANGE.
+  RepositoryCommit commit = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Summary says the reason in a line: a commit's first line for
+  // OWN_CHANGE, the branching strategy's reason for BRANCH.
+  string summary = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+// ReasonKind is what sort of reason a ReleaseReason is.
+enum ReasonKind {
+  // REASON_KIND_UNSPECIFIED: not said.
+  REASON_KIND_UNSPECIFIED = 0;
+  // REASON_KIND_OWN_CHANGE: a commit since the last release changed a
+  // member's files.
+  REASON_KIND_OWN_CHANGE = 1;
+  // REASON_KIND_UNCHANGED: nothing changed since the last release.
+  REASON_KIND_UNCHANGED = 2;
+  // REASON_KIND_FIRST_RELEASE: it has never been released; it is released
+  // at its initial version.
+  REASON_KIND_FIRST_RELEASE = 3;
+  // REASON_KIND_RELEASED: the commit it is planned from carries this
+  // unit's tag already: it is released, at that version, and releasing
+  // writes no new version. A tag on an earlier commit with nothing
+  // changed since is UNCHANGED.
+  REASON_KIND_RELEASED = 4;
+  // REASON_KIND_BRANCH: its branch releases nothing of it, as its
+  // branching strategy says; the summary says why.
+  REASON_KIND_BRANCH = 5;
+}
+
+// CreateReleaseRequest releases a plan.
+message CreateReleaseRequest {
+  // Entities are what was planned, as PlanReleaseRequest named them; they
+  // are planned again, and must come to the plan the etag names.
+  repeated frontseat.type.v1alpha1.EntityRef entities = 1 [(google.api.field_behavior) = REQUIRED];
+  // Etag is the plan's, from PlanRelease.
+  string etag = 2 [(google.api.field_behavior) = REQUIRED];
+}
+
+// CreateReleaseResponse is the release that was made.
+message CreateReleaseResponse {
+  // Release is the release.
+  Release release = 1;
+}
+
+// Release is one carrying out of a plan.
+message Release {
+  // Id is the release's id, "rel_" and what the server chose.
+  string id = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Plan is what it carries out.
+  ReleasePlan plan = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // State is where it is.
+  State state = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Build_id is the production build of its units, a build of BuildService,
+  // made with the release; empty for a plan that builds nothing.
+  string build_id = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Units say what became of each unit that moves.
+  repeated ReleasedUnit units = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Failure says why a release that failed did, where no unit says.
+  string failure = 6 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Create_time is when it was made.
+  google.protobuf.Timestamp create_time = 7 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // End_time is when it ended; unset until it has.
+  google.protobuf.Timestamp end_time = 8 [(google.api.field_behavior) = OUTPUT_ONLY];
+
+  // State is where a release is.
+  enum State {
+    // STATE_UNSPECIFIED: not said.
+    STATE_UNSPECIFIED = 0;
+    // STATE_BUILDING: its units are being built for production, exactly
+    // as a production build builds them.
+    STATE_BUILDING = 1;
+    // STATE_TAGGING: its units are built, and are being tagged, in the
+    // daemon's checkout.
+    STATE_TAGGING = 2;
+    // STATE_SUCCEEDED: it ended with nothing left to do: no unit of its
+    // plan moves or carries its tag.
+    STATE_SUCCEEDED = 3;
+    // STATE_UNPUBLISHED: its units are tagged, in the daemon's checkout
+    // and nowhere else.
+    STATE_UNPUBLISHED = 4;
+    // STATE_FAILED: it ended before all of that was done; its units say
+    // what was. Where the build fails, no unit is tagged.
+    STATE_FAILED = 5;
+  }
+}
+
+// ReleasedUnit is what became of one unit.
+message ReleasedUnit {
+  // Entity is the unit.
+  frontseat.type.v1alpha1.EntityRef entity = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Version is what it was released as.
+  string version = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Tags are the tags written: one, in the unit's repository, while a
+  // unit is from one repository.
+  repeated ReleaseTag tags = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Already says the tags were there, at the commit planned from, before
+  // this release: it changed nothing for this unit.
+  bool already = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+// ReleaseTag is a tag a release wrote.
+message ReleaseTag {
+  // Repository is the workspace's name for the repository.
+  string repository = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Name is the tag's name.
+  string name = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Commit is the commit it names.
+  string commit = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+// DescribeReleaseRequest names a release.
+message DescribeReleaseRequest {
+  // Release_id is the release's id.
+  string release_id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+// DescribeReleaseResponse is the release.
+message DescribeReleaseResponse {
+  // Release is the release.
+  Release release = 1;
+}
+
+// WaitReleaseRequest names a release to wait for.
+message WaitReleaseRequest {
+  // Release_id is the release's id.
+  string release_id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+// WaitReleaseResponse is the release, ended.
+message WaitReleaseResponse {
+  // Release is the release.
+  Release release = 1;
+}

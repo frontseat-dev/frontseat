@@ -1,0 +1,10 @@
+#!/command/execlineb -P
+# The grid's runner sandboxes: one for each slot of the worker, made by
+# the gateway, each made again whenever the worker mounts its slot anew.
+# Root: it gives each slot's runner socket to root before the worker
+# finds it, so that no action can reach it, and continues a runner an
+# action stopped.
+backtick -E runner { cat /etc/frontseat/runner-image }
+backtick -E slots { cat /etc/frontseat/slots }
+backtick -E egress { cat /etc/frontseat/egress }
+frontseat-runner pool --gateway https://127.0.0.1:8090 --identity /var/lib/frontseat/controlplane/openshell --image $runner --bb /var/lib/frontseat/bb --slots /var/lib/frontseat/worker --count $slots --egress $egress --hosts /etc/frontseat/egress-hosts

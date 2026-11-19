@@ -1,0 +1,61 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: server
+  namespace: frontseat
+  description: "The server: the daemon (frontseatd), which plans and runs a workspace's builds on the grid with its plugin host and holds the source the control plane tells it to; the control plane (frontseat-local on the local stack), which keeps workspaces over the sandboxes they live in and each person's credentials; the sandbox service and its drivers; the grid's runner of tests with services (frontseat-runner); the confiner every action runs by (frontseat-action); and the test support"
+spec:
+  type: service
+  lifecycle: experimental
+  owner: jbadeau
+  system: build
+  # The source API is the daemon's internal API, which the control
+  # plane, in this Component too, alone asks.
+  providesApis: [api:build-api, api:workspace-api, api:credential-api, api:sandbox-api, api:source-api]
+  consumesApis: [api:plugin-api]
+  dependsOn: [component:api, component:apko-plugin, component:backstage-plugin, component:buf-plugin, component:cargo-plugin, component:container-plugin, component:go-plugin, component:go-sdk, component:jest-plugin, component:local, component:npm-plugin, component:plugin-sdk, component:postgres-plugin, component:release-plugin]
+  frontseat:
+    # The plugin contract's Go, what a worker's runner is told, and the
+    # daemon's internal API, are generated here by the contracts' Buf
+    # workspace (api/buf.gen.daemon.yaml, api/buf.gen.runner.yaml,
+    # api/buf.gen.source.yaml), and nowhere else of this Component.
+    generated:
+      - directory: internal/pluginapi
+        by: component:api
+      - directory: internal/runnerapi
+        by: component:api
+      - directory: internal/sourceapi
+        by: component:api
+    # The plugin host's tests, and those that load a plugin, run each
+    # plugin's wasm module, from where its crate's wasm action left it
+    # (server/testsupport/testmodule), against each plugin's fixtures; the
+    # matcher's test holds it to the testkit's shared cases.
+    # On the grid there is no local stack to reach: a test that needs one
+    # says so first and is skipped, said why, as `mise run check` skips
+    # it (server/testsupport/testrequired); `mise run test` runs it.
+    test:
+      environment: {FRONTSEAT_TEST_STACK: none}
+      # What the tests read of other Components, found where Frontseat
+      # tells a test its repository is (FRONTSEAT_TEST_SRCDIR): the Go
+      # SDK's module files, which a generated fixture is laid out with;
+      # the repository's tool pins, which a fixture is pinned with; and
+      # the plugins, by their crates, and their fixtures.
+      inputs:
+        - /sdk/go/go.mod
+        - /sdk/go/go.sum
+        - /mise.toml
+        - /mise.lock
+        - /plugins/*/Cargo.toml
+        - /plugins/*/testdata/**
+        - /sdk/plugin-test/testdata/**
+        - //plugins/apko:cargo.wasm
+        - //plugins/backstage:cargo.wasm
+        - //plugins/buf:cargo.wasm
+        - //plugins/cargo:cargo.wasm
+        - //plugins/container:cargo.wasm
+        - //plugins/go:cargo.wasm
+        - //plugins/jest:cargo.wasm
+        - //plugins/npm:cargo.wasm
+        - //plugins/postgres:cargo.wasm
+        - //plugins/release:cargo.wasm
+        - //sdk/plugin:cargo.wasm-examples

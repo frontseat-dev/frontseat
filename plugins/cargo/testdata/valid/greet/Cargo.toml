@@ -1,0 +1,7 @@
+[package]
+name = "greet"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+itoa.workspace = true

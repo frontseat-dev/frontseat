@@ -1,0 +1,18 @@
+go 1.27.3
+
+use (
+	./sdk/go
+	./server
+	./cli
+	./local
+	./specs
+)
+
+// Unpublished sibling modules resolve from this checkout.
+replace (
+	github.com/frontseat-dev/frontseat/sdk/go v0.0.0 => ./sdk/go
+	github.com/frontseat-dev/frontseat/server v0.0.0 => ./server
+	github.com/frontseat-dev/frontseat/cli v0.0.0 => ./cli
+	github.com/frontseat-dev/frontseat/local v0.0.0 => ./local
+	github.com/frontseat-dev/frontseat/specs v0.0.0 => ./specs
+)

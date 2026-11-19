@@ -1,0 +1,10 @@
+#!/command/execlineb -P
+# frontseat's rootless Podman, in its delegated cgroup: what OpenShell
+# makes every sandbox with.
+export HOME /home/frontseat
+export XDG_RUNTIME_DIR /run/user/1000
+getpid -E PID
+if { redirfd -w 1 /sys/fs/cgroup/frontseat/podman/cgroup.procs echo $PID }
+s6-setuidgid frontseat
+if { mkdir -p /run/user/1000/podman }
+podman system service --time=0 unix:///run/user/1000/podman/podman.sock

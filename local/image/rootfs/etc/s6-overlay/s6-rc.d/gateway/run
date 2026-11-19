@@ -1,0 +1,12 @@
+#!/command/execlineb -P
+# OpenShell's gateway: it makes every sandbox, and keeps the credentials
+# sandboxes are let through with.
+export HOME /home/frontseat
+export XDG_RUNTIME_DIR /run/user/1000
+export OPENSHELL_GATEWAY_CONFIG /etc/openshell/gateway.toml
+export OPENSHELL_TELEMETRY_ENABLED false
+export OPENSHELL_ENABLE_LOOPBACK_SERVICE_HTTP false
+export OPENSHELL_DB_URL sqlite:/var/lib/frontseat/openshell/gateway.db?mode=rwc
+export XDG_DATA_HOME /var/lib/frontseat/openshell
+s6-setuidgid frontseat
+openshell-gateway

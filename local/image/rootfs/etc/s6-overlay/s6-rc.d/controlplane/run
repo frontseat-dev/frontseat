@@ -1,0 +1,8 @@
+#!/command/execlineb -P
+# The control plane the command line asks. The box a workspace runs
+# where none is named is the one the image was built on.
+export HOME /home/frontseat
+export XDG_RUNTIME_DIR /run/user/1000
+backtick -E box { cat /etc/frontseat/box }
+s6-setuidgid frontseat
+frontseat-local --listen 0.0.0.0:7700 --public http://127.0.0.1:7700 --openshell https://127.0.0.1:8090 --runtime podman --state /var/lib/frontseat/controlplane --box $box --grid host.openshell.internal:8980

@@ -1,0 +1,11 @@
+# How this repository is built: by frontseat, with its own plugins. Go
+# builds the modules go.work lists, Cargo the SDK and the plugins, each
+# package of the workspace on its own and each plugin to wasm, Buf lints
+# api/ and generates its Go and Connect source, and Backstage reads
+# catalog-info.yaml. Each takes its options' own values. What frontseat
+# cannot build yet, the images, mise builds; CONTRIBUTING.md says which.
+plugins:
+  go: {}
+  cargo: {}
+  buf: {}
+  backstage: {}

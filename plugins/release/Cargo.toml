@@ -1,0 +1,15 @@
+[package]
+name = "frontseat-plugin-release"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+description = "The release plugin: Release Flow branching and conventional-commits versioning."
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+frontseat-plugin = { path = "../../sdk/plugin" }
+semver = "1"
+frontseat-conventional-commits = { path = "conventional-commits" }

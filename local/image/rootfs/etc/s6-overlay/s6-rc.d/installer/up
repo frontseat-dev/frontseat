@@ -1,0 +1,6 @@
+# The runner and this box's confiner, where every runner sandbox holds
+# them (/bb); the runner is put in place whole, never written over one a
+# sandbox runs.
+if { cp /opt/frontseat/bin/frontseat-runner /var/lib/frontseat/bb/.frontseat-runner }
+if { mv /var/lib/frontseat/bb/.frontseat-runner /var/lib/frontseat/bb/frontseat-runner }
+frontseat-action install /var/lib/frontseat/bb

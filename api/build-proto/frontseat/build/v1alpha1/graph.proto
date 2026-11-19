@@ -1,0 +1,222 @@
+// frontseat.build.v1alpha1: the graph. What a workspace evaluates to:
+// its entities, what each depends on, and the projects the plugins found,
+// with what each provides and requires. Reads only.
+syntax = "proto3";
+
+package frontseat.build.v1alpha1;
+
+import "frontseat/build/v1alpha1/types.proto";
+import "frontseat/type/v1alpha1/option.proto";
+import "frontseat/type/v1alpha1/types.proto";
+import "google/api/field_behavior.proto";
+
+// GraphService is what a workspace evaluates to.
+//
+// Every method reads the workspace as it stands, and runs nothing.
+service GraphService {
+  // ListEntities returns the workspace's entities, each with the
+  // repository and the directories it governs, and what it depends on,
+  // a page at a time, in the order of their references.
+  //
+  // ### Errors
+  // - INVALID_ARGUMENT: the page token is not one this call gave.
+  // - FAILED_PRECONDITION: the workspace holds no repository that is
+  //   ready to build, or what a repository or an entity says of how it is
+  //   built is mistaken; the message says what.
+  rpc ListEntities(ListEntitiesRequest) returns (ListEntitiesResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // ListProjects returns the projects the plugins found: a Go module, a
+  // Maven module, a package of a JavaScript workspace. Each says which
+  // plugin found it, from which manifest, which entity owns it, what it
+  // provides and what it requires. It returns them a page at a time, in
+  // the order of their repositories, directories and plugins.
+  //
+  // ### Errors
+  // - INVALID_ARGUMENT: the page token is not one this call gave.
+  // - FAILED_PRECONDITION: as for ListEntities.
+  rpc ListProjects(ListProjectsRequest) returns (ListProjectsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+}
+
+// Entity is an entity of the catalog, as the workspace holds it.
+message Entity {
+  // Ref names it.
+  frontseat.type.v1alpha1.EntityRef ref = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Repository is the workspace's name for the repository its catalog
+  // file is in.
+  string repository = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Roots are the directories it governs, relative to the repository.
+  repeated string roots = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Depends_on are the entities it depends on, from what its projects
+  // require of what others provide.
+  repeated frontseat.type.v1alpha1.EntityRef depends_on = 6 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Manifest is the repository-relative catalog descriptor, if discovered.
+  string manifest = 7 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Relations are catalog facts and their inverses. Component build
+  // dependencies come only from source inference. Sorted by type and target.
+  repeated EntityRelation relations = 8 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Release is how it is released, as its settings resolve: for an
+  // entity that owns projects, and for a system or a domain, whose
+  // settings its members inherit. Unset for any other.
+  EntityRelease release = 9 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+// EntityRelease is how an entity is released: what it is released as, and
+// its spec.frontseat.release settings as they resolve. A setting is
+// inherited: a domain's reaches its systems, a system's its members, and
+// the nearest level that sets a key wins.
+message EntityRelease {
+  // Unit is what it is released as: its synced group, or itself. Unset
+  // for a system or a domain that is no synced group.
+  frontseat.type.v1alpha1.EntityRef unit = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Group is the group it versions with; itself where it is in none.
+  frontseat.type.v1alpha1.EntityRef group = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Grouping is how its group versions its members: synced unless a
+  // level says independent.
+  Grouping grouping = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Tag is the pattern its unit's tags are spelled with, holding
+  // {version} once and naming nothing but {unit} beside it, {unit} being
+  // the unit's name. Two units of one repository whose tags would be
+  // spelled alike are refused by name.
+  string tag = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Initial is the version of its first release.
+  string initial = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Versioning_strategy is the versioning strategy its unit's next
+  // version is asked of, as "<plugin>:<name>": "release:conventional-commits".
+  string versioning_strategy = 8 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Branching_strategy is the branching strategy that says what a branch
+  // releases of it, as "<plugin>:<name>": "release:github-flow".
+  string branching_strategy = 9 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Set_by says, for each setting, which entity set it; a setting no
+  // level sets is the default, and is not listed.
+  repeated ReleaseSettingOrigin set_by = 7 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+// ReleaseSettingOrigin is where one release setting came from.
+message ReleaseSettingOrigin {
+  // Key is the setting, as spec.frontseat.release writes it: "grouping",
+  // "tag", "initial", "dependencies", "versioning" or "branching".
+  string key = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Entity is the entity whose catalog file sets it.
+  frontseat.type.v1alpha1.EntityRef entity = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+// EntityRelation is one outgoing catalog relation.
+message EntityRelation {
+  // Type is the provider-neutral relation name, such as ownedBy or partOf.
+  // Catalog adapters map their relationships to these names.
+  string type = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Target is the fully qualified catalog identity.
+  frontseat.type.v1alpha1.EntityRef target = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Target_present says the target is an entity held in this workspace.
+  bool target_present = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+// Project is something a plugin found to build.
+message Project {
+  // Repository is the workspace's name for the repository it is in.
+  string repository = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Root is its directory, relative to the repository.
+  string root = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Plugin is the plugin that found it.
+  string plugin = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Kind is what it is in its ecosystem, e.g. "go-module".
+  string kind = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Name is its name in its ecosystem.
+  string name = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Manifest is the file it was found from, relative to the repository.
+  string manifest = 6 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Owner is the entity that owns it; unset for one no entity governs.
+  frontseat.type.v1alpha1.EntityRef owner = 7 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Options are the options it is built with: every option its plugin
+  // takes, each with the value that holds for this project and where
+  // that value comes from.
+  repeated ProjectOption options = 8 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Provides are what it can be required by, each written
+  // "<ecosystem>:<name>".
+  repeated string provides = 9 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Requires are what it requires: what its ecosystem's own files say it
+  // needs, each with where that is said and what provides it.
+  repeated ProjectRequirement requires = 10 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+// ProjectRequirement is one thing a project requires. Nobody writes it:
+// a plugin reads it from the ecosystem's own files.
+message ProjectRequirement {
+  // Coordinate is what is required, written "<ecosystem>:<name>".
+  string coordinate = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Origin is where it is said: a file relative to the workspace, and
+  // the line, "<file>:<line>".
+  string origin = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Provider_project identifies the workspace project that provides it,
+  // including its plugin. Absent for dependencies outside the workspace.
+  ProjectRef provider_project = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Version is the version the project's own files resolve it to, as
+  // its ecosystem spells it ("v1.9.1" for Go, "1.0.228" for Cargo), as
+  // the plugin that found the project read it; empty where they say
+  // none. Where provider_project is set, what is built is that
+  // project's source, whatever this says.
+  string version = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+// ProjectRef identifies one plugin's project in a repository. Different plugins
+// may discover projects in the same directory without sharing their identity.
+message ProjectRef {
+  // Repository is the workspace's name for its repository; empty where the
+  // daemon was given one directory and brought nothing.
+  string repository = 1;
+  // Root is its canonical repository-relative directory; empty at the root.
+  string root = 2;
+  // Plugin is the plugin that discovered the project.
+  string plugin = 3;
+}
+
+// ProjectOption is one option a project is built with.
+message ProjectOption {
+  // Name is the option's name.
+  string name = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Value is its exact typed value; presentation belongs to the client.
+  frontseat.type.v1alpha1.OptionValue value = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Origin is the file that sets it, relative to the workspace; empty
+  // where nothing sets it and the value is the plugin's own.
+  string origin = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+// ListEntitiesRequest asks for a page of the workspace's entities.
+message ListEntitiesRequest {
+  // Page_size is the most entities to return; zero is a hundred, and more
+  // than a thousand is a thousand.
+  int32 page_size = 1;
+  // Page_token is the next_page_token of the page before; empty for the
+  // first page.
+  string page_token = 2;
+}
+
+// ListEntitiesResponse is a page of the workspace's entities.
+message ListEntitiesResponse {
+  // Entities are the entities.
+  repeated Entity entities = 1;
+  // Next_page_token asks for the page after this one; empty on the last.
+  string next_page_token = 2;
+}
+
+// ListProjectsRequest asks for a page of the workspace's projects.
+message ListProjectsRequest {
+  // Page_size is the most projects to return; zero is a hundred, and more
+  // than a thousand is a thousand.
+  int32 page_size = 1;
+  // Page_token is the next_page_token of the page before; empty for the
+  // first page.
+  string page_token = 2;
+}
+
+// ListProjectsResponse is a page of the workspace's projects.
+message ListProjectsResponse {
+  // Projects are the projects.
+  repeated Project projects = 1;
+  // Next_page_token asks for the page after this one; empty on the last.
+  string next_page_token = 2;
+}

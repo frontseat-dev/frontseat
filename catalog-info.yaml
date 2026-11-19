@@ -1,0 +1,110 @@
+# What this repository is: the Domain frontseat, the product and its
+# release unit, and its Systems, each a function of the product. A
+# System and the Domain are entities, not directories: a Component, an
+# API or a Resource says which System it is part of, in this repository
+# or another, and a Component owns the projects beneath its directory.
+# Every entity is in the namespace frontseat.
+apiVersion: backstage.io/v1alpha1
+kind: Domain
+metadata:
+  name: frontseat
+  namespace: frontseat
+  description: "A remote-first, agent-first build tool"
+  annotations:
+    # Backstage's TechDocs: mkdocs.yml and docs/, beside this file.
+    backstage.io/techdocs-ref: dir:.
+spec:
+  owner: jbadeau
+  frontseat:
+    # Every component of its Systems releases at one version and one
+    # tag, frontseat/v<version>.
+    release:
+      grouping: synced
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: build
+  namespace: frontseat
+  description: "Building: the server, whose daemon plans and runs a workspace's builds on the grid, and the API it serves"
+spec:
+  owner: jbadeau
+  domain: frontseat
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: plugins
+  namespace: frontseat
+  description: "What builds a language or a tool: the plugins, their SDK and the plugin contract"
+spec:
+  owner: jbadeau
+  domain: frontseat
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: workspaces
+  namespace: frontseat
+  description: "Where people and agents work: the APIs of workspaces, credentials and sandboxes, and the gateway a workspace's sandbox stands on"
+spec:
+  owner: jbadeau
+  domain: frontseat
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: grid
+  namespace: frontseat
+  description: "Where actions run: the local stack, its infrastructure and the box image a workspace's sandbox runs"
+spec:
+  owner: jbadeau
+  domain: frontseat
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: clients
+  namespace: frontseat
+  description: "What calls Frontseat: the command line and the Go SDK"
+spec:
+  owner: jbadeau
+  domain: frontseat
+---
+# Where Backstage finds the rest of this repository's catalog, when this
+# file is imported. Frontseat does not follow it: it finds every
+# catalog-info.yaml by its name. It says no type, so it has the type of
+# whatever this file was read by, url: or file:, and Backstage reads each
+# target from beside this file either way.
+apiVersion: backstage.io/v1alpha1
+kind: Location
+metadata:
+  name: frontseat-catalog
+  namespace: frontseat
+  description: Every catalog file of this repository
+spec:
+  targets:
+    - ./api/build-proto/catalog-info.yaml
+    - ./api/catalog-info.yaml
+    - ./api/credential-proto/catalog-info.yaml
+    - ./api/plugin-proto/catalog-info.yaml
+    - ./api/sandbox-proto/catalog-info.yaml
+    - ./api/source-proto/catalog-info.yaml
+    - ./api/workspace-proto/catalog-info.yaml
+    - ./cli/catalog-info.yaml
+    - ./local/catalog-info.yaml
+    - ./plugins/apko/catalog-info.yaml
+    - ./plugins/backstage/catalog-info.yaml
+    - ./plugins/buf/catalog-info.yaml
+    - ./plugins/cargo/catalog-info.yaml
+    - ./plugins/container/catalog-info.yaml
+    - ./plugins/go/catalog-info.yaml
+    - ./plugins/jest/catalog-info.yaml
+    - ./plugins/npm/catalog-info.yaml
+    - ./plugins/postgres/catalog-info.yaml
+    - ./plugins/release/catalog-info.yaml
+    - ./sdk/go/catalog-info.yaml
+    - ./sdk/plugin/catalog-info.yaml
+    - ./sdk/plugin-test/catalog-info.yaml
+    - ./server/catalog-info.yaml
+    - ./specs/catalog-info.yaml

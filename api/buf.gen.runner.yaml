@@ -1,0 +1,34 @@
+# What a worker's runner is told to start for a test
+# (frontseat.runner.v1alpha1), in Go, for the server alone: the daemon
+# writes it into an action's input root and the runner reads it there. It
+# is served by nothing, so it has messages and no Connect. It is
+# generated into the server's internal packages (server/internal/runnerapi);
+# the types of the other modules it names are the Go SDK's. Generated,
+# never edited, and held to what this writes now by `mise run check`.
+# Frontseat builds it as //api:buf.generate-runner, into the server, which
+# says so in its catalog file (spec.frontseat.generated).
+version: v2
+# What it writes into is its own: emptied first, so that what a proto no
+# longer gives is gone.
+clean: true
+managed:
+  enabled: true
+  override:
+    - file_option: go_package_prefix
+      value: github.com/frontseat-dev/frontseat/sdk/go/api
+    - path: frontseat/runner
+      file_option: go_package_prefix
+      value: github.com/frontseat-dev/frontseat/server/internal/runnerapi
+  disable:
+    - path: google/api
+      file_option: go_package_prefix
+    - path: google/rpc
+      file_option: go_package_prefix
+plugins:
+  - local: protoc-gen-go
+    out: ../server/internal/runnerapi
+    opt: paths=source_relative
+inputs:
+  - directory: .
+    paths:
+      - runner-proto/frontseat

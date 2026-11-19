@@ -1,0 +1,247 @@
+// frontseat.build.v1alpha1: runs. A run runs a program the
+// workspace builds: it builds what the program is made of, on the grid,
+// as any build does, and then starts the program where the daemon is, in
+// the daemon's own sandbox, with the arguments it was given. It is a
+// resource: it has an id, it outlives the call that made it, and it is
+// there until the program ends or it is stopped.
+//
+// What can be run is said by a plugin, from its ecosystem's own
+// files: an action that says it is a program (Action.program of the
+// plugin contract). Nobody writes one. No build runs such an action, and a
+// run runs nothing else.
+//
+// A program runs where the daemon is because that is where it can be
+// reached and stopped: a worker of the grid has no address, and what it
+// runs it runs to an end.
+syntax = "proto3";
+
+package frontseat.build.v1alpha1;
+
+import "frontseat/type/v1alpha1/types.proto";
+import "google/api/field_behavior.proto";
+import "google/protobuf/timestamp.proto";
+
+// RunService is a workspace's runs.
+service RunService {
+  // CreateRun runs a program: it starts a build of what the
+  // program is made of, and starts the program once that has passed. It
+  // returns at once, with the build's build_id: StreamBuildEvents of
+  // BuildService follows the build, StreamRunLogs the program, and
+  // WaitRun ends when the program has. Sent again with the same
+  // request_id, it returns the run the first call made, and starts
+  // none.
+  //
+  // ### Errors
+  // - INVALID_ARGUMENT: no target is given, or the profile is one nobody
+  //   defined.
+  // - FAILED_PRECONDITION: the daemon holds no workspace to build.
+  // - RESOURCE_EXHAUSTED: the daemon has thirty-two runs that have
+  //   not ended.
+  // - UNAVAILABLE: the daemon is ending.
+  //
+  // A target that is no program, and a build that fails, are not errors
+  // of the call: the run is made and fails, and says why.
+  rpc CreateRun(CreateRunRequest) returns (CreateRunResponse);
+
+  // DescribeRun returns one run, as it is now.
+  //
+  // ### Errors
+  // - NOT_FOUND: no run has that id.
+  rpc DescribeRun(DescribeRunRequest) returns (DescribeRunResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // ListRuns returns the workspace's runs, newest first, a page
+  // at a time: every one that has not ended, and the newest of those
+  // that have.
+  //
+  // ### Errors
+  // - INVALID_ARGUMENT: the page token is not one this call gave.
+  rpc ListRuns(ListRunsRequest) returns (ListRunsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // CancelRun ends a run: its build is cancelled, or its program is
+  // told to end and, where it has not within ten seconds, is ended. It
+  // returns once the run has ended. Cancelling one that has ended
+  // changes nothing and succeeds.
+  //
+  // ### Errors
+  // - NOT_FOUND: no run has that id.
+  rpc CancelRun(CancelRunRequest) returns (CancelRunResponse) {
+    option idempotency_level = IDEMPOTENT;
+  }
+
+  // WaitRun returns a run once it has ended.
+  //
+  // ### Errors
+  // - NOT_FOUND: no run has that id.
+  rpc WaitRun(WaitRunRequest) returns (WaitRunResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // StreamRunLogs sends what a run's program prints, standard
+  // output and standard error, in parts, each some whole lines, as it
+  // prints them, and ends when the run has ended and every line is
+  // sent. Call it again from the next line if the stream breaks. A
+  // daemon keeps the newest ten thousand lines of a program, and of
+  // those no more than eight mebibytes: a line before the first it
+  // still keeps is answered from that one.
+  //
+  // A line's text is UTF-8: bytes a program printed that are not are
+  // given as U+FFFD. A line longer than 64 KiB is sent as several, each
+  // a part of it, in order.
+  //
+  // ### Errors
+  // - INVALID_ARGUMENT: the line to start from is before the first.
+  // - NOT_FOUND: no run has that id.
+  rpc StreamRunLogs(StreamRunLogsRequest) returns (stream StreamRunLogsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+}
+
+// Run is one run of a program.
+message Run {
+  // Id is the run's id, "run_" and what the server chose.
+  string id = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Target is what was asked to be run, as it was asked.
+  string target = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Arguments are what the program was given after its own.
+  repeated string arguments = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Profile is the name of the profile the program was built with.
+  string profile = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // State is where it is.
+  State state = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Build_id is the build of what the program is made of, a build of
+  // BuildService, made with the run.
+  string build_id = 6 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Label is the action that is the program, as it is printed; empty
+  // until the build has found it.
+  string label = 7 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Exit_code is what the program exited with, once it has; 128 and the
+  // signal's number where a signal ended it, as a shell says it.
+  int32 exit_code = 8 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Failure says why a run that failed did: what is no program, or
+  // which action of its build did not pass and what that said. On a
+  // run that was cancelled, it says what could not be done of ending
+  // it, if anything.
+  string failure = 9 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Create_time is when it was made.
+  google.protobuf.Timestamp create_time = 10 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Start_time is when the program was started; unset until it was.
+  google.protobuf.Timestamp start_time = 11 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // End_time is when the run ended; unset until it has.
+  google.protobuf.Timestamp end_time = 12 [(google.api.field_behavior) = OUTPUT_ONLY];
+
+  // State is where a run is.
+  enum State {
+    // STATE_UNSPECIFIED: not known.
+    STATE_UNSPECIFIED = 0;
+    // STATE_BUILDING: what the program is made of is being built.
+    STATE_BUILDING = 1;
+    // STATE_RUNNING: the program was started and has not ended.
+    STATE_RUNNING = 2;
+    // STATE_EXITED: the program ended by itself; exit_code says how.
+    STATE_EXITED = 3;
+    // STATE_CANCELLED: the run was cancelled, by CancelRun or by
+    // the daemon ending.
+    STATE_CANCELLED = 4;
+    // STATE_FAILED: the program was never started; failure says why: the
+    // target is no program, its build failed, or it could not be started
+    // where the daemon is.
+    STATE_FAILED = 5;
+  }
+}
+
+// CreateRunRequest names a program to run.
+message CreateRunRequest {
+  // Target is the program: one action that is one, exactly as it is
+  // printed, such as //services/greeter:go.run/greeter.
+  string target = 1 [(google.api.field_behavior) = REQUIRED];
+  // Arguments are given to the program after what its plugin gives it.
+  repeated string arguments = 2;
+  // Profile is the name of the profile the program is built with. Empty,
+  // it is `development`.
+  string profile = 3;
+  // Request_id makes a retry return the run the first call made: a
+  // client that lost the answer sends the same request again with it.
+  // Empty, every call runs.
+  string request_id = 4;
+}
+
+// CreateRunResponse is the run that was made.
+message CreateRunResponse {
+  // Run is the run.
+  Run run = 1;
+}
+
+// DescribeRunRequest names a run.
+message DescribeRunRequest {
+  // Run_id is the run's id.
+  string run_id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+// DescribeRunResponse is the run.
+message DescribeRunResponse {
+  // Run is the run, as it is now.
+  Run run = 1;
+}
+
+// ListRunsRequest asks for a page of the runs.
+message ListRunsRequest {
+  // Page_size is the most runs to return; zero is a hundred, and
+  // more than a thousand is a thousand.
+  int32 page_size = 1;
+  // Page_token is the next_page_token of the page before; empty for the
+  // first page.
+  string page_token = 2;
+}
+
+// ListRunsResponse is a page of the runs.
+message ListRunsResponse {
+  // Runs are the runs, newest first.
+  repeated Run runs = 1;
+  // Next_page_token asks for the page after this one; empty on the last.
+  string next_page_token = 2;
+}
+
+// CancelRunRequest names a run to end.
+message CancelRunRequest {
+  // Run_id is the run's id.
+  string run_id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+// CancelRunResponse is the run, ended.
+message CancelRunResponse {
+  // Run is the run, as it ended.
+  Run run = 1;
+}
+
+// WaitRunRequest names a run to wait for.
+message WaitRunRequest {
+  // Run_id is the run's id.
+  string run_id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+// WaitRunResponse is the run, ended.
+message WaitRunResponse {
+  // Run is the run, as it ended.
+  Run run = 1;
+}
+
+// StreamRunLogsRequest names a run and where to start.
+message StreamRunLogsRequest {
+  // Run_id is the run's id.
+  string run_id = 1 [(google.api.field_behavior) = REQUIRED];
+  // Start_line is the first line to send, from 0.
+  int64 start_line = 2;
+}
+
+// StreamRunLogsResponse is the next lines of what the program printed.
+message StreamRunLogsResponse {
+  // Lines are the next lines, in order.
+  repeated frontseat.type.v1alpha1.LogLine lines = 1;
+  // Next_line is the line after the last sent: where to start again if
+  // the stream breaks.
+  int64 next_line = 2;
+}

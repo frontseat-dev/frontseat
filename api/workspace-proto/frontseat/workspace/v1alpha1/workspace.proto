@@ -1,0 +1,366 @@
+// frontseat.workspace.v1alpha1: workspaces. A workspace is a working area
+// of repositories joined into one graph, for a person, an agent or a job.
+// It lives in a sandbox, which is its isolation and knows nothing of it,
+// and a daemon there holds its source and builds it: one workspace and
+// one daemon in a sandbox, which this API has no way to say otherwise.
+//
+// The control plane alone serves this service, and is the one writer of
+// what a workspace is asked for: it makes a sandbox for a new one, tells
+// the daemon there what to hold and reads back what it holds, ends one,
+// and leads to each one's build API and shell by its name, and to
+// nothing else of it. A workspace is changed from outside it: inside its
+// sandbox its source is fixed, and the command line there asks its
+// daemon's build API alone.
+//
+// Every call to a control plane is a person's, known by the token they
+// present as a bearer token. A call that presents none is refused
+// UNAUTHENTICATED with the reason IDENTITY_MISSING, and one whose token
+// the control plane does not know with IDENTITY_INVALID, each in
+// ErrorInfo of the domain workspace.frontseat.dev; the ways to a
+// workspace's build API and shell are held alike. A workspace is its
+// owner's, who asked for it first: another who names it is refused
+// PERMISSION_DENIED with the reason NOT_OWNER, and is listed none of
+// another's.
+//
+// A workspace is kept as what was asked for, its spec, and what is so,
+// its status. A call writes the spec and returns; the control plane then
+// works until the status says the same, and goes on from the spec after
+// it or the daemon was stopped: a daemon started again is told again.
+syntax = "proto3";
+
+package frontseat.workspace.v1alpha1;
+
+import "frontseat/type/v1alpha1/types.proto";
+import "google/api/field_behavior.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+// WorkspaceService is the workspaces of a control plane.
+service WorkspaceService {
+  // CreateWorkspace gives the workspace of a name: the one there is, or a
+  // new one. It returns at once; the workspace can be worked in when
+  // WaitWorkspace ends with STATE_READY.
+  //
+  // Asked for again with what it has or less, in any order, a workspace
+  // is the one there is, whoever asks and however often, and one that was
+  // paused is gone on with and one that failed tried again. Nothing is
+  // ended by this call, whatever fails.
+  //
+  // ### Errors
+  // - INVALID_ARGUMENT: nothing is asked for; the name is not one; a
+  //   repository's address holds a user or a password, or is not written
+  //   plainly; a lifetime is no while to come. ENTITY_INVALID, an entity
+  //   is no entity's name, or the catalog says of it what cannot be held;
+  //   ENTITY_AMBIGUOUS, a name names several entities, each named.
+  // - NOT_FOUND: ENTITY_NOT_FOUND, the catalog holds no entity named, or
+  //   none that one depends on.
+  // - UNIMPLEMENTED: ENTITIES_NOT_SERVED, entities are named and the
+  //   control plane resolves none: its operator gave it no catalog.
+  // - UNAVAILABLE: ENTITIES_UNAVAILABLE, the catalog did not answer as
+  //   one does; nothing is made.
+  // - ALREADY_EXISTS: a workspace of the name is there and is asked for
+  //   with more than it has, other source, a push it was made without,
+  //   another image, another key let into its shell or another
+  //   lifetime; the message says what differs.
+  //   One that is ending is so refused until it is gone.
+  // - FAILED_PRECONDITION: what is asked for cannot be given; the message
+  //   names it.
+  rpc CreateWorkspace(CreateWorkspaceRequest) returns (CreateWorkspaceResponse);
+
+  // DescribeWorkspace returns one workspace: what was asked for, and what
+  // is so, as it was last found.
+  //
+  // ### Errors
+  // - NOT_FOUND: there is no workspace of the name.
+  rpc DescribeWorkspace(DescribeWorkspaceRequest) returns (DescribeWorkspaceResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // ListWorkspaces returns the caller's workspaces, oldest first, a page
+  // at a time.
+  //
+  // ### Errors
+  // - INVALID_ARGUMENT: the page token is not one this call gave.
+  rpc ListWorkspaces(ListWorkspacesRequest) returns (ListWorkspacesResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // WaitWorkspace returns a workspace once it is ready, has failed or is
+  // paused. One whose sandbox does not come to run, or whose daemon does
+  // not come to answer, has failed. One that is ending is waited for
+  // until it is gone, and waiting then ends NOT_FOUND. It is cheap to
+  // call again.
+  //
+  // ### Errors
+  // - NOT_FOUND: there is no workspace of the name.
+  rpc WaitWorkspace(WaitWorkspaceRequest) returns (WaitWorkspaceResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // UpdateWorkspace has a workspace hold more: its spec is given whole,
+  // with what it had and what is added, and the control plane tells its
+  // daemon to bring what is new. What the daemon refuses is refused, and
+  // kept by nothing. It returns once the daemon took it; WaitWorkspace
+  // says when it is there.
+  //
+  // Entities added are resolved as CreateWorkspace resolves them, and
+  // refused with the same reasons; those it had are not resolved again.
+  //
+  // ### Errors
+  // - NOT_FOUND: there is no workspace of the name; or, ENTITY_NOT_FOUND,
+  //   the catalog holds no entity added.
+  // - INVALID_ARGUMENT: the spec leaves out something the workspace has,
+  //   or changes what is said once: whether it pushes, who commits, whose
+  //   key gets in, its image, its lifetime. Or the daemon refuses what is
+  //   added, with the reason it gives: SOURCE_UNFIT. Or ENTITY_INVALID,
+  //   ENTITY_AMBIGUOUS, as CreateWorkspace.
+  // - FAILED_PRECONDITION: a repository added, or one an entity added
+  //   resolved to, is beyond what the workspace's sandbox may reach, or
+  //   the workspace is not ready; the message names it. Or the daemon
+  //   refuses what is added, with the reason it gives: SOURCE_POPULATING,
+  //   SOURCE_MOUNTED.
+  // - UNIMPLEMENTED: ENTITIES_NOT_SERVED, as CreateWorkspace.
+  // - UNAVAILABLE: ENTITIES_UNAVAILABLE, as CreateWorkspace.
+  rpc UpdateWorkspace(UpdateWorkspaceRequest) returns (UpdateWorkspaceResponse);
+
+  // DeleteWorkspace ends a workspace and its sandbox, with what it holds:
+  // what was changed there and not pushed goes with it. It returns at
+  // once, the workspace ending; it is gone when DescribeWorkspace says
+  // NOT_FOUND.
+  //
+  // ### Errors
+  // - NOT_FOUND: there is no workspace of the name.
+  rpc DeleteWorkspace(DeleteWorkspaceRequest) returns (DeleteWorkspaceResponse) {
+    option idempotency_level = IDEMPOTENT;
+  }
+}
+
+// Workspace is a workspace.
+message Workspace {
+  // Name names it among a control plane's workspaces: lower-case letters,
+  // digits and dashes, at most 48. It is what every command and call says
+  // to mean this workspace, and its daemon is told it.
+  string name = 1;
+  // Spec is what it was asked for with.
+  WorkspaceSpec spec = 2;
+  // Status is what is so.
+  WorkspaceStatus status = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Create_time is when it was made.
+  google.protobuf.Timestamp create_time = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Owner is who asked for it first, as the control plane knows the
+  // caller: the one whose calls name it.
+  string owner = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+// WorkspaceSpec is what a workspace is asked for with.
+message WorkspaceSpec {
+  // Repositories are repositories for its daemon to clone, each by an
+  // address that holds no user and no password.
+  repeated RepositorySource repositories = 1;
+  // Entities are entities whose source it holds, with the entities they
+  // depend on. The control plane resolves them, through the Backstage
+  // catalog its operator gives it, to the repositories and directories
+  // that hold them, and its daemon clones those. A control plane given
+  // none serves no entities: it refuses a spec that names one
+  // UNIMPLEMENTED, with the reason ENTITIES_NOT_SERVED. Each is named as
+  // a person typed it: a kind left empty is a component, and a namespace
+  // left empty is any, the one entity of that kind and name the catalog
+  // holds; which each resolved to, the workspace's status says.
+  repeated frontseat.type.v1alpha1.EntityRef entities = 2;
+  // Whole clones the entities' repositories whole, not only the
+  // directories the entities govern.
+  bool whole = 4;
+  // Push lets it push to the repositories named, with the credential the
+  // control plane keeps for their hosts. It is said once.
+  bool push = 5;
+  // Author is who commits there; empty for no one. It is said once.
+  Author author = 6;
+  // Authorized_keys are the public keys let into its shell, each on one
+  // line as an SSH client writes its own; none for a workspace no one
+  // opens a shell in. More than one is not served. They are said once:
+  // a workspace asked for again with another key is refused, and one
+  // asked for again with none is as it was made.
+  repeated string authorized_keys = 7;
+  // Image is the box image its sandbox runs; empty for the control
+  // plane's own. It is said once.
+  string image = 8;
+  // Lifetime is how long it lasts from when it was made, after which the
+  // control plane ends it as DeleteWorkspace would: a job's workspace.
+  // Empty for one that is kept until it is ended. It is said once: a
+  // workspace asked for again with another is refused, and one asked for
+  // again with none is as it was made.
+  google.protobuf.Duration lifetime = 9;
+}
+
+// Author is who commits in a workspace.
+message Author {
+  // Name is their name.
+  string name = 1;
+  // Email is their address.
+  string email = 2;
+}
+
+// WorkspaceStatus is what is so of a workspace.
+message WorkspaceStatus {
+  // State is where it is.
+  State state = 1;
+  // Failure says what went wrong: for a workspace that failed, why; for
+  // one starting or ending, what keeps it from going on, which is tried
+  // again. Empty where nothing went wrong.
+  string failure = 2;
+  // Build_uri is where its daemon's build API (frontseat.build.v1alpha1)
+  // is asked, through the control plane, which leads there to that API
+  // alone: a client's own to follow, and nothing a person names. Empty
+  // until it lives in a sandbox.
+  string build_uri = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Repositories are the repositories it holds, as its daemon says.
+  repeated Repository repositories = 5;
+  // Entities are what the entities it was asked for resolved to, and the
+  // components they depend on: each entity, and the repository and
+  // directory that hold it. They were resolved once, when each was
+  // asked for, and are not resolved again.
+  repeated LocatedEntity entities = 6 [(google.api.field_behavior) = OUTPUT_ONLY];
+
+  // State is where a workspace is.
+  enum State {
+    // STATE_UNSPECIFIED: not known.
+    STATE_UNSPECIFIED = 0;
+    // STATE_STARTING: its sandbox was asked for and its daemon does not
+    // answer yet.
+    STATE_STARTING = 1;
+    // STATE_POPULATING: its daemon is bringing what was asked for.
+    STATE_POPULATING = 2;
+    // STATE_READY: it holds what was asked for, and can be worked in.
+    STATE_READY = 3;
+    // STATE_PAUSED: its sandbox is stopped, and what it holds is kept.
+    STATE_PAUSED = 4;
+    // STATE_FAILED: its sandbox or what its daemon was bringing failed;
+    // failure says which. What it held may still be there, and it is
+    // ended only by DeleteWorkspace or its lifetime.
+    STATE_FAILED = 5;
+    // STATE_ENDING: it was asked to end, and its sandbox is being ended.
+    STATE_ENDING = 6;
+  }
+}
+
+// CreateWorkspaceRequest asks for a workspace.
+message CreateWorkspaceRequest {
+  // Name names it; empty for the name the control plane gives what was
+  // asked for: the first entity's name, or else the first repository's,
+  // with its ref where one is given ("payments", "services-main").
+  string name = 1;
+  // Spec is what it is asked for with.
+  WorkspaceSpec spec = 2 [(google.api.field_behavior) = REQUIRED];
+}
+
+// CreateWorkspaceResponse is the workspace.
+message CreateWorkspaceResponse {
+  // Workspace is the workspace: made now, or the one that was there, as
+  // it was found.
+  Workspace workspace = 1;
+  // Created is whether it was made by this call.
+  bool created = 2;
+}
+
+// DescribeWorkspaceRequest asks for one workspace.
+message DescribeWorkspaceRequest {
+  // Name names it.
+  string name = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+// DescribeWorkspaceResponse is the workspace.
+message DescribeWorkspaceResponse {
+  // Workspace is the workspace.
+  Workspace workspace = 1;
+}
+
+// ListWorkspacesRequest asks for a page of the workspaces there are.
+message ListWorkspacesRequest {
+  // Page_size is the most workspaces to return; zero is a hundred, and more
+  // than a thousand is a thousand.
+  int32 page_size = 1;
+  // Page_token is the next_page_token of the page before; empty for the
+  // first page.
+  string page_token = 2;
+}
+
+// ListWorkspacesResponse is a page of the workspaces.
+message ListWorkspacesResponse {
+  // Workspaces are the caller's workspaces, oldest first.
+  repeated Workspace workspaces = 1;
+  // Next_page_token asks for the page after this one; empty on the last.
+  string next_page_token = 2;
+}
+
+// WaitWorkspaceRequest names the workspace to wait for.
+message WaitWorkspaceRequest {
+  // Name names it, as DescribeWorkspace takes it.
+  string name = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+// WaitWorkspaceResponse is the workspace as the wait ended on it.
+message WaitWorkspaceResponse {
+  // Workspace is the workspace.
+  Workspace workspace = 1;
+}
+
+// UpdateWorkspaceRequest gives a workspace the spec it is to have.
+message UpdateWorkspaceRequest {
+  // Name names it, as DescribeWorkspace takes it.
+  string name = 1 [(google.api.field_behavior) = REQUIRED];
+  // Spec is the spec it is to have: what it had, and what is added.
+  WorkspaceSpec spec = 2 [(google.api.field_behavior) = REQUIRED];
+}
+
+// UpdateWorkspaceResponse is the workspace as the request left it.
+message UpdateWorkspaceResponse {
+  // Workspace is the workspace.
+  Workspace workspace = 1;
+}
+
+// DeleteWorkspaceRequest asks to end one workspace.
+message DeleteWorkspaceRequest {
+  // Name names it.
+  string name = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+// DeleteWorkspaceResponse is empty: the workspace is ending.
+message DeleteWorkspaceResponse {}
+
+// Repository is one repository of a workspace.
+message Repository {
+  // Name is the workspace's name for it: what a label and a path name it
+  // by.
+  string name = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Remote is where it was cloned from; empty for a directory the daemon
+  // was given and did not bring.
+  string remote = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Commit is the commit it stands at.
+  string commit = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Roots are the directories taken of it; empty for all of it.
+  repeated string roots = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+// LocatedEntity is an entity, and where its source is in a workspace.
+message LocatedEntity {
+  // Ref names the entity in full.
+  frontseat.type.v1alpha1.EntityRef ref = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Repository is the workspace's name for the repository that holds it.
+  string repository = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Root is its directory in that repository; empty for all of it.
+  string root = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+// RepositorySource is a repository to clone.
+message RepositorySource {
+  // Remote is its URL.
+  string remote = 1 [(google.api.field_behavior) = REQUIRED];
+  // Ref is the branch, tag or commit to stand at; empty for the remote's
+  // default branch.
+  string ref = 2;
+  // Roots are the directories to take of it; empty for all of it.
+  repeated string roots = 3;
+  // Name is the workspace's name for it; empty for the last element of
+  // the remote's path.
+  string name = 4;
+}

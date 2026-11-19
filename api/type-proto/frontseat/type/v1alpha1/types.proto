@@ -1,0 +1,62 @@
+// frontseat.type.v1alpha1: the types more than one product uses, after
+// Namespace's namespace.stdlib. A type moves here when a second product
+// needs it, not before.
+syntax = "proto3";
+
+package frontseat.type.v1alpha1;
+
+import "google/protobuf/timestamp.proto";
+
+// LogLine is one line of a log, from whichever product produced it.
+message LogLine {
+  // Time is when the line was written.
+  google.protobuf.Timestamp time = 1;
+  // Stream is where the line was written.
+  LogStream stream = 2;
+  // Text is the line, without its newline.
+  string text = 3;
+}
+
+// LogStream is where a log line was written.
+enum LogStream {
+  // LOG_STREAM_UNSPECIFIED: not known.
+  LOG_STREAM_UNSPECIFIED = 0;
+  // LOG_STREAM_STDOUT: standard output.
+  LOG_STREAM_STDOUT = 1;
+  // LOG_STREAM_STDERR: standard error.
+  LOG_STREAM_STDERR = 2;
+}
+
+// EntityRef names a Frontseat entity independently of its catalog provider.
+// Canonical parts are lower-case ASCII tokens of 1–255 bytes, with alphanumeric
+// endpoints and hyphens, dots or underscores inside. Provider adapters validate
+// their own schemas and map identities to this key; native IDs are not refs.
+message EntityRef {
+  // Kind is the entity's kind in lower case, e.g. "component"; a
+  // request that leaves it empty names a component.
+  string kind = 1;
+  // Namespace is the entity's namespace. Where the server or a plugin
+  // answers with a reference, it is always given. Where a request names
+  // an entity as a person typed it (PlanReleaseRequest.entities,
+  // WorkspaceSpec.entities), it may be left empty, and stands for any
+  // namespace: the one entity of that kind and name is meant, and a
+  // name two namespaces hold is refused, naming each.
+  string namespace = 2;
+  // Name is the entity's name within its kind and namespace.
+  string name = 3;
+}
+
+// Bump is how far a version moves, by semantic versioning.
+enum Bump {
+  // BUMP_UNSPECIFIED: not said, or the versioning strategy does not move
+  // by these.
+  BUMP_UNSPECIFIED = 0;
+  // BUMP_NONE: it holds.
+  BUMP_NONE = 1;
+  // BUMP_PATCH: a fix.
+  BUMP_PATCH = 2;
+  // BUMP_MINOR: a feature; below 1.0, a breaking change.
+  BUMP_MINOR = 3;
+  // BUMP_MAJOR: a breaking change, from 1.0 on.
+  BUMP_MAJOR = 4;
+}

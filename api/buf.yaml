@@ -1,0 +1,37 @@
+# The Frontseat API: every contract, one buf workspace, a module per
+# product.
+version: v2
+modules:
+  # The types more than one product uses.
+  - path: type-proto
+  # googleapis' protos, copied in at pinned versions.
+  - path: third-party-proto
+  # The build: builds, the graph, runs of programs and releases.
+  - path: build-proto
+  # What a plugin is asked and answers, and what the host serves it.
+  - path: plugin-proto
+  # Sandboxes: the isolation, which knows nothing of what lives in one.
+  - path: sandbox-proto
+  # Workspaces: what a person, an agent or a job asks for, in a sandbox.
+  - path: workspace-proto
+  # Credentials: a person's secrets for the hosts their workspaces reach.
+  - path: credential-proto
+  # The source a workspace's daemon holds: the daemon's internal API,
+  # which the control plane alone asks.
+  - path: source-proto
+  # What a worker's runner is told to start for a test: a file of the
+  # server's own, served by nothing.
+  - path: runner-proto
+lint:
+  use:
+    - STANDARD
+    - COMMENTS
+  ignore:
+    - third-party-proto
+breaking:
+  use:
+    - FILE
+  # v1alpha1 may break until the first release; v1 never does.
+  ignore_unstable_packages: true
+  ignore:
+    - third-party-proto

@@ -1,0 +1,32 @@
+// frontseat.plugin.v1alpha1: the envelope of a call. The wasm exports and
+// imports, and how these messages cross them, are in the ABI document
+// (api/plugin-proto/ABI.md).
+syntax = "proto3";
+
+package frontseat.plugin.v1alpha1;
+
+import "google/rpc/status.proto";
+
+// Call is one call of PluginService, as the host hands it to a module.
+message Call {
+  // Method is the method's name as PluginService spells it, e.g.
+  // "Analyze".
+  string method = 1;
+  // Request is the method's request, serialized.
+  bytes request = 2;
+}
+
+// Reply is a module's answer to a call.
+message Reply {
+  // Result is how the call ended.
+  oneof result {
+    // Response is the method's response, serialized.
+    bytes response = 1;
+    // Error says the call failed, with ErrorInfo and shared Diagnostic details.
+    // A method the plugin does not serve uses UNIMPLEMENTED.
+    // Additional details use standard google.rpc error-detail messages only;
+    // custom message types and nested Status messages are refused. Every detail
+    // must be valid for both protobuf and JSON clients.
+    google.rpc.Status error = 2;
+  }
+}

@@ -1,0 +1,8 @@
+#!/command/execlineb -P
+# The runner of tests with services: for each, a sandbox the gateway makes
+# for each service and one for the test. Root, as the worker it answers
+# is; it asks frontseat's Podman, through its socket, what an image starts
+# with, and the gateway, as the control plane does, to make each sandbox.
+backtick -E runner { cat /etc/frontseat/runner-image }
+export CONTAINER_HOST unix:///run/user/1000/podman/podman.sock
+frontseat-runner --socket /var/lib/frontseat/worker/services/own/runner --worker /var/lib/frontseat/worker/services --worker-host /var/lib/frontseat/worker/services --image $runner --bb /var/lib/frontseat/bb --state /var/lib/frontseat/services --gateway https://127.0.0.1:8090 --identity /var/lib/frontseat/controlplane/openshell --runtime podman

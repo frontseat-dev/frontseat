@@ -1,0 +1,161 @@
+package build
+
+import (
+	"context"
+	"errors"
+	"fmt"
+
+	connect "connectrpc.com/connect/v2"
+	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
+	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1/buildv1alpha1connect"
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
+)
+
+// programService serves the contract's RunService over a daemon's
+// runs.
+type programService struct {
+	buildv1alpha1connect.UnimplementedRunServiceHandler
+	programs *programRuns
+	// asked are the runs each request id made.
+	asked requests
+}
+
+var _ buildv1alpha1connect.RunServiceHandler = (*programService)(nil)
+
+// CreateRun runs a program, and returns at once.
+func (s *programService) CreateRun(ctx context.Context, request *buildv1.CreateRunRequest) (*buildv1.CreateRunResponse, error) {
+	if request.GetTarget() == "" {
+		return nil, refuse(connect.CodeInvalidArgument, "TARGET_MISSING", "name the program to run, as it is printed")
+	}
+	if _, err := sourceOf(s.programs.runs.workspace); err != nil {
+		return nil, refuse(connect.CodeFailedPrecondition, "WORKSPACE_NOT_READY", err.Error())
+	}
+	profile, base, err := profileOf(request.GetProfile())
+	if err != nil {
+		return nil, refuse(connect.CodeInvalidArgument, "PROFILE_UNKNOWN", err.Error())
+	}
+	find := func(id string) (*programRun, bool) {
+		l, err := s.programs.get(id)
+		return l, err == nil
+	}
+	made, err := once(&s.asked, request.GetRequestId(), find, func() (*programRun, string, error) {
+		made, err := s.programs.create(ctx, profile, base, request)
+		switch {
+		case errors.Is(err, errStopped):
+			return nil, "", refuse(connect.CodeUnavailable, "DAEMON_ENDING", "the daemon is ending, and runs nothing")
+		case errors.Is(err, errTooManyRuns):
+			return nil, "", refuse(connect.CodeResourceExhausted, "RUNS_EXHAUSTED", err.Error())
+		case err != nil:
+			return nil, "", connect.NewError(connect.CodeInternal, err.Error())
+		}
+		return made, made.snapshot().GetId(), nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &buildv1.CreateRunResponse{Run: made.snapshot()}, nil
+}
+
+func (s *programService) find(id string) (*programRun, error) {
+	found, err := s.programs.get(id)
+	if err != nil {
+		return nil, refuse(connect.CodeNotFound, "RUN_NOT_FOUND", fmt.Sprintf("no run has the id %q", id))
+	}
+	return found, nil
+}
+
+// DescribeRun returns a run as it is now.
+func (s *programService) DescribeRun(_ context.Context, request *buildv1.DescribeRunRequest) (*buildv1.DescribeRunResponse, error) {
+	found, err := s.find(request.GetRunId())
+	if err != nil {
+		return nil, err
+	}
+	return &buildv1.DescribeRunResponse{Run: found.snapshot()}, nil
+}
+
+// ListRuns returns the runs the daemon remembers, newest first.
+func (s *programService) ListRuns(_ context.Context, request *buildv1.ListRunsRequest) (*buildv1.ListRunsResponse, error) {
+	listed, next, err := paged(s.programs.list(), request.GetPageSize(), request.GetPageToken())
+	if err != nil {
+		return nil, err
+	}
+	out := &buildv1.ListRunsResponse{NextPageToken: next}
+	for _, each := range listed {
+		out.Runs = append(out.Runs, each.snapshot())
+	}
+	return out, nil
+}
+
+// CancelRun ends a run, and returns once it has ended.
+func (s *programService) CancelRun(ctx context.Context, request *buildv1.CancelRunRequest) (*buildv1.CancelRunResponse, error) {
+	found, err := s.find(request.GetRunId())
+	if err != nil {
+		return nil, err
+	}
+	found.end()
+	select {
+	case <-found.ended:
+		return &buildv1.CancelRunResponse{Run: found.snapshot()}, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
+
+// WaitRun returns a run once it has ended.
+func (s *programService) WaitRun(ctx context.Context, request *buildv1.WaitRunRequest) (*buildv1.WaitRunResponse, error) {
+	found, err := s.find(request.GetRunId())
+	if err != nil {
+		return nil, err
+	}
+	select {
+	case <-found.ended:
+		return &buildv1.WaitRunResponse{Run: found.snapshot()}, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
+
+// StreamRunLogs sends what a run's program prints, as it prints
+// it, until the run has ended and every line is sent.
+func (s *programService) StreamRunLogs(ctx context.Context, request *buildv1.StreamRunLogsRequest, stream buildv1alpha1connect.RunServiceStreamRunLogsServerStream) error {
+	if request.GetStartLine() < 0 {
+		return refuse(connect.CodeInvalidArgument, "START_LINE_INVALID", fmt.Sprintf("%d is no line to start from", request.GetStartLine()))
+	}
+	found, err := s.find(request.GetRunId())
+	if err != nil {
+		return err
+	}
+	next := request.GetStartLine()
+	for {
+		var lines []*typev1.LogLine
+		var ended bool
+		var changed <-chan struct{}
+		lines, next, ended, changed = found.since(next)
+		// What is kept is sent in parts no larger than a part of an
+		// action's output is.
+		for len(lines) > 0 {
+			size, n := 0, 0
+			for n < len(lines) && (n == 0 || size+sent(lines[n]) <= part) {
+				size += sent(lines[n])
+				n++
+			}
+			if err := stream.Send(&buildv1.StreamRunLogsResponse{Lines: lines[:n], NextLine: next - int64(len(lines)-n)}); err != nil {
+				return err
+			}
+			lines = lines[n:]
+		}
+		if ended {
+			// Lines added between reading them and seeing it ended are
+			// read once more: nothing is added after it has.
+			if more, _, _, _ := found.since(next); len(more) == 0 {
+				return nil
+			}
+			continue
+		}
+		select {
+		case <-changed:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}

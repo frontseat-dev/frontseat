@@ -1,0 +1,55 @@
+// frontseat.plugin.v1alpha1: what the host serves to a plugin. A plugin
+// opens nothing itself: every byte it reads of the repository comes
+// through one of these calls, so the host knows what an answer depended
+// on.
+//
+// Each method is one wasm import of the module "frontseat", named for the
+// method in lower case: "read", "glob". It takes the request and returns
+// the response, each a serialized message, as the ABI document describes.
+syntax = "proto3";
+
+package frontseat.plugin.v1alpha1;
+
+// HostService is what a plugin may ask of the host while it answers a
+// call.
+service HostService {
+  // Read returns a file of the repository.
+  rpc Read(ReadRequest) returns (ReadResponse);
+
+  // Glob returns the paths of the repository's files that match patterns.
+  rpc Glob(GlobRequest) returns (GlobResponse);
+}
+
+// ReadRequest names a file of the repository.
+message ReadRequest {
+  // Path is the file, relative to the repository.
+  string path = 1;
+}
+
+// ReadResponse is a file of the repository.
+message ReadResponse {
+  // Found is whether the file is there. A file that is not is not an
+  // error.
+  bool found = 1;
+  // Content is its bytes.
+  bytes content = 2;
+}
+
+// GlobRequest selects files beneath a literal repository directory.
+message GlobRequest {
+  // Patterns are relative to directory. "*" stands
+  // for any run of characters within a name, and "**" for any
+  // directories, none included. One that starts with "!" excludes what
+  // it matches, and the last pattern to match a path decides.
+  repeated string patterns = 1;
+  // Directory is a literal repository-relative directory, never a pattern.
+  // Empty means the repository root. Absolute paths and paths leaving the
+  // repository are refused.
+  string directory = 2;
+}
+
+// GlobResponse is the paths that match.
+message GlobResponse {
+  // Paths are the matching files, relative to the repository, sorted.
+  repeated string paths = 1;
+}

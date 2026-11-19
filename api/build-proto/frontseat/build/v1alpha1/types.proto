@@ -1,0 +1,69 @@
+// frontseat.build.v1alpha1: the types the build API's services share.
+// What the plugin contract or the workspace API names as well, an
+// entity's reference and a version's bump, is frontseat.type.v1alpha1's.
+syntax = "proto3";
+
+package frontseat.build.v1alpha1;
+
+// Digest is the address of content in the grid's store: what a client
+// fetches a log, a report or an output by.
+message Digest {
+  // Hash is the content's SHA-256, in lower-case hex.
+  string hash = 1;
+  // Size_bytes is the content's size.
+  int64 size_bytes = 2;
+}
+
+// Outcome is how an action ended.
+enum Outcome {
+  // OUTCOME_UNSPECIFIED: it has not ended.
+  OUTCOME_UNSPECIFIED = 0;
+  // OUTCOME_PASSED: it ran, or was answered from a cache, and passed.
+  OUTCOME_PASSED = 1;
+  // OUTCOME_FAILED: it ran and did not pass. The same source fails the
+  // same way again.
+  OUTCOME_FAILED = 2;
+  // OUTCOME_SKIPPED: it did not run, because something it needs did not
+  // pass.
+  OUTCOME_SKIPPED = 3;
+  // OUTCOME_ERROR: it could not be run: the grid, the sandbox or staging
+  // failed, not the action.
+  OUTCOME_ERROR = 4;
+  // OUTCOME_REWRITE: a check that rewrites passed, and its patch is not
+  // empty: the source is not as the check would leave it.
+  OUTCOME_REWRITE = 5;
+  // OUTCOME_IDLE: it was not run, having nothing to do: something it
+  // reads, which the action before it may leave or not, was not left.
+  // It fails nothing; its message says what was not left.
+  OUTCOME_IDLE = 6;
+}
+
+// Provenance is where an action's result came from.
+enum Provenance {
+  // PROVENANCE_UNSPECIFIED: nowhere: it has no result, having not been
+  // run or not having ended.
+  PROVENANCE_UNSPECIFIED = 0;
+  // PROVENANCE_EXECUTED: a worker ran it for this build.
+  PROVENANCE_EXECUTED = 1;
+  // PROVENANCE_GRID_CACHE: the grid answered from what it kept, or the
+  // daemon answered with what the grid had answered it for the same
+  // action. No worker ran it for this build.
+  PROVENANCE_GRID_CACHE = 2;
+  // PROVENANCE_DAEMON: the daemon did it itself, for this build: a check
+  // of its own, which runs no command. No worker ran it, and it is not
+  // counted among the actions one ran.
+  PROVENANCE_DAEMON = 3;
+}
+
+// Grouping is how a group versions its members: spec.frontseat.release's
+// "grouping" key. It is not the versioning strategy, which says how a
+// version moves.
+enum Grouping {
+  // GROUPING_UNSPECIFIED: not said.
+  GROUPING_UNSPECIFIED = 0;
+  // GROUPING_SYNCED: the members move together, on one version and one
+  // tag. A group is synced unless it says otherwise.
+  GROUPING_SYNCED = 1;
+  // GROUPING_INDEPENDENT: each member has its own version and tag.
+  GROUPING_INDEPENDENT = 2;
+}

@@ -1,0 +1,18 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: go-sdk
+  namespace: frontseat
+  description: "The Go SDK: one client a program calls Frontseat with (package frontseat), the API's Go generated from the protos and committed (api), and entity references (entity)"
+spec:
+  type: library
+  lifecycle: experimental
+  owner: jbadeau
+  system: clients
+  dependsOn: [component:api]
+  frontseat:
+    # The API's Go is generated here by the contracts' Buf workspace
+    # (api/buf.gen.sdk.yaml), and nowhere else of this Component.
+    generated:
+      - directory: api
+        by: component:api

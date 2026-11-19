@@ -1,0 +1,16 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: apko-plugin
+  namespace: frontseat
+  description: "The apko plugin: builds images from a configuration and its lock"
+spec:
+  type: plugin
+  lifecycle: experimental
+  owner: jbadeau
+  system: plugins
+  # Written by hand: were a plugin given a service for tests, what
+  # consumes api:plugin-api would be given it for its tests, and more
+  # than one plugin with a service would be refused.
+  providesApis: [api:plugin-api]
+  dependsOn: [component:plugin-sdk]

@@ -1,0 +1,13 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: cli
+  namespace: frontseat
+  description: "The command line, over the Go SDK"
+spec:
+  type: tool
+  lifecycle: experimental
+  owner: jbadeau
+  system: clients
+  consumesApis: [api:build-api, api:workspace-api, api:credential-api]
+  dependsOn: [component:api, component:go-sdk, component:local, component:server]
