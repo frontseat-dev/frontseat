@@ -17,9 +17,10 @@ spec:
   owner: jbadeau
   frontseat:
     # Every component of its Systems releases at one version and one
-    # tag, frontseat/v<version>.
+    # tag, frontseat@<version>.
     release:
       grouping: synced
+      tag: "{unit}@{version}"
 ---
 apiVersion: backstage.io/v1alpha1
 kind: System

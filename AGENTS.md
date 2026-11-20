@@ -226,7 +226,7 @@ the change that fixes it.
   (no Template, User or Group). One Domain, `frontseat`, is the product
   and its release unit, saying `grouping: synced`: every component of
   its Systems releases at one version and one tag,
-  `frontseat/v<version>`. Its Systems are its functions (`build`,
+  `frontseat@<version>` (`tag: "{unit}@{version}"`). Its Systems are its functions (`build`,
   `plugins`, `workspaces`, `grid`, `clients`), written in the root
   `catalog-info.yaml`. A System and the Domain are entities, never
   directories: what is part of one says so (`spec.system`, `spec.domain`),
