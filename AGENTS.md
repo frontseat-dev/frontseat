@@ -496,6 +496,58 @@ the change that fixes it.
 - A refusal never repeats what it refused: a value may hold a token.
 - Credentials stay outside sandboxes, except a test's disposable
   credentials for its own services.
+- **A grid that asks who a daemon is, is told by a token the daemon reads
+  from a file** (owner, 2026-11-16): `frontseatd --grid-token FILE`, with
+  `--grid-ca FILE`, for the grid and its asset service alike
+  (`server/internal/exec/access`). A token is told only to a grid
+  known by authorities the daemon was named: the system's (`--grid-tls`)
+  are chosen by the environment, and a variable would choose who is told
+  the token. The token is a JSON Web Token that admits its bearer to the
+  grid and nothing else, lives for minutes, and is replaced, the file
+  whole and by a rename, by whoever was given it: the daemon knows
+  nothing of where it comes from. It is sent to the grid and to the
+  asset service `--assets` names; never in the clear, never an argument
+  or an environment variable, and no refusal repeats it. Whatever the
+  daemon's sandbox runs as the daemon's user can read the file: a fix, a
+  launched program, a shell. So the token is one that may ask the grid
+  for what a build asks and may write no result others rely on; that is
+  the grid's authorizers' to hold, and frontseat cannot check it. A grid
+  that does not admit the daemon, one that cannot be asked over TLS as
+  it was told, and a token that could not be read are each said as what
+  they are and not waited for as a grid not up yet; a grid that stops
+  admitting the daemon while it builds says so of the action asked for,
+  and nothing of that action is kept. That a grid could not be asked over
+  TLS is known by what TLS said to the daemon (a certificate not
+  verified, an answer in the clear or not in HTTP/2, an alert of
+  refusing, during the handshake or after it), never by a grid's words;
+  and
+  neither the grid nor its asset service is reached through a proxy the
+  environment names. Held by: `TestATokenIsNotSentInTheClear`,
+  `TestAGridThatCannotBeAskedOverTLSIsNotOneThatIsNotUpYet`,
+  `TestAGridThatRefusesTheDaemonsSideOfTLSIsNotWaitedFor`,
+  `TestAGridThatCannotBeAskedAsToldIsNotWaitedFor`,
+  `TestAGridsOwnWordsAreNotTakenForTheDaemonsTransport`,
+  `TestATokenThatCouldNotBeReadIsNotTheGridsRefusal`,
+  `TestAnAssetServiceThatCannotBeAskedOverTLSIsSaidSo`,
+  `TestAnEnvironmentsProxyIsNotTakenToTheGrid`, and actions run through
+  stock Buildbarn asking as such a grid does
+  (`TestAnActionRunsOnAGridThatAsksWhoTheDaemonIs`,
+  `TestAnActionAskedForWithATokenThatRanOutIsNotAdmittedAndRunsOnceItIsRenewed`).
+  Not held: what a dial learns of its TLS is one record for all its
+  connections, so one answered hides another's refusal; a refusal is not
+  waited for though it may be a server's for a while (a front showing a
+  certificate of its own making until its real one is loaded, or
+  answering handshake_failure until it is ready), and the daemon is then
+  refused at its start; a server that asks for a certificate of the
+  daemon's and closes without an alert is waited on as not up; and Go's
+  GODEBUG settings shape the dial's TLS, though not its authorities
+  (`server/internal/exec/access`).
+  Not served: a token told to a workspace's sandbox, which is still told
+  of an unauthenticated grid alone; a certificate of the daemon's own; a
+  server name other than the address's; a token the daemon renews itself;
+  an asset service asked otherwise than its grid is; a token for a grid
+  known only by the system's authorities; a bearer token that is no JSON
+  Web Token, or a key sent in a header of a service's own.
 - What deletes says, in its own code, why the thing is its own to delete.
 - Whatever a goroutine uses is closed only after it has stopped; tests run
   with `-race`.

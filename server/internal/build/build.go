@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/frontseat-dev/frontseat/server/internal/exec/access"
 	"github.com/frontseat-dev/frontseat/server/internal/exec/download"
 	"github.com/frontseat-dev/frontseat/server/internal/exec/reapi"
 	"github.com/frontseat-dev/frontseat/server/internal/pluginhost"
@@ -22,6 +23,25 @@ type Grid struct {
 	Instance string
 	Assets   string
 	Rewrites map[string]string
+	// TLS asks the grid and its asset service over TLS, known by the
+	// system's authorities; Authorities names a PEM file of the
+	// authorities they are known by instead. Token names a file holding
+	// the bearer token the grid admits this daemon by, read again for
+	// every call and never sent in the clear. A daemon given none of
+	// them asks in the clear, as the local stack's grid is asked.
+	TLS         bool
+	Authorities string
+	Token       string
+}
+
+// Check says what is wrong with how the grid is to be asked, before
+// anything is dialled: a token with no TLS, a file that is not there or
+// holds no authority or no token. It never repeats what a token file held.
+func (g Grid) Check() error { return g.access().Check() }
+
+// access is how the grid and its asset service are asked.
+func (g Grid) access() access.Config {
+	return access.Config{TLS: g.TLS, Authorities: g.Authorities, Token: g.Token}
 }
 
 // Config is the source, plugins and services a build daemon owns.
@@ -46,7 +66,7 @@ func New(ctx context.Context, config Config) (*Daemon, error) {
 	var downloads download.Fetcher
 	closeDownloads := func() {}
 	if config.Grid.Assets != "" {
-		client, err := download.Dial(ctx, download.Config{Address: config.Grid.Assets, Instance: config.Grid.Instance, Rewrites: config.Grid.Rewrites})
+		client, err := download.Dial(ctx, download.Config{Address: config.Grid.Assets, Instance: config.Grid.Instance, Rewrites: config.Grid.Rewrites, Access: config.Grid.access()})
 		if err != nil {
 			grid.Close()
 			return nil, err
@@ -83,15 +103,23 @@ func New(ctx context.Context, config Config) (*Daemon, error) {
 	return daemon, nil
 }
 
-// A grid started beside the daemon may take a moment to answer.
+// A grid started beside the daemon may take a moment to answer. One that
+// answers that it does not admit the daemon has answered; so has one that
+// was reached and cannot be asked over TLS as the daemon was told to ask
+// it, and a daemon that cannot read its token (reapi.Settled).
 func dial(ctx context.Context, config Grid) (*reapi.Grid, error) {
 	if config.Address == "" {
 		return nil, fmt.Errorf("no grid: give --grid")
 	}
 	deadline := time.Now().Add(30 * time.Second)
 	for {
-		grid, err := reapi.Dial(ctx, reapi.Config{Address: config.Address, Instance: config.Instance})
-		if err == nil || time.Now().After(deadline) {
+		// Before each dial: a file that became something else since the
+		// daemon started is said so as it is at the start.
+		if err := config.Check(); err != nil {
+			return nil, err
+		}
+		grid, err := reapi.Dial(ctx, reapi.Config{Address: config.Address, Instance: config.Instance, Access: config.access()})
+		if err == nil || reapi.Settled(err) || time.Now().After(deadline) {
 			return grid, err
 		}
 		select {
