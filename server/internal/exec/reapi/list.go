@@ -8,6 +8,7 @@ import (
 
 	"github.com/bazelbuild/remote-apis-sdks/go/pkg/digest"
 	"github.com/frontseat-dev/frontseat/server/internal/exec"
+	"github.com/frontseat-dev/frontseat/server/internal/exec/access"
 )
 
 var _ exec.Listing = (*Grid)(nil)
@@ -18,8 +19,9 @@ func (g *Grid) List(ctx context.Context, directory exec.Held) (map[string]exec.H
 	if !directory.Directory {
 		return nil, fmt.Errorf("generated output is not a directory")
 	}
+	ctx = access.Watch(ctx)
 	files, err := list(ctx, g.directoryStore(), digest.Digest{Hash: directory.Digest.Hash, Size: directory.Digest.Size})
-	return files, executionError(err)
+	return files, g.said(ctx, executionError(err))
 }
 
 // A bounded traversal prevents an untrusted directory DAG from expanding to

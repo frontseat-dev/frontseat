@@ -46,11 +46,11 @@ import (
 	remoteexecution "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
 	"golang.org/x/sync/singleflight"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/frontseat-dev/frontseat/server/internal/exec"
+	"github.com/frontseat-dev/frontseat/server/internal/exec/access"
 	"github.com/frontseat-dev/frontseat/server/telemetry"
 )
 
@@ -65,6 +65,8 @@ type Config struct {
 	// address for it, with $1 and so on for what the expression captured.
 	// The first, in the order of the expressions, that matches is taken.
 	Rewrites map[string]string
+	// Access is how the asset service is asked, which is how its grid is.
+	Access access.Config
 }
 
 // Fetcher brings what a URL names to the grid, and lets go of what it
@@ -86,6 +88,14 @@ type Client struct {
 	service  remoteasset.FetchClient
 	instance string
 	rewrites []rewrite
+	// access is how the service is asked: its token's file is named
+	// where the service does not admit the daemon.
+	access access.Config
+	// address is where the service is, and shaken what its connection
+	// learned of its own TLS: a service that could not be asked over TLS
+	// is said so, as its grid is.
+	address string
+	shaken  *access.Handshakes
 
 	mu       sync.Mutex
 	answered map[string]exec.Digest
@@ -124,11 +134,15 @@ func Dial(ctx context.Context, config Config) (*Client, error) {
 	// The address is handed to the dialer as it is: gRPC's own resolver
 	// asks DNS for records a plain host:port never has, and waited
 	// eighteen seconds on "localhost" for them.
-	conn, err := grpc.NewClient("passthrough:///"+config.Address, append([]grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}, telemetry.GRPCOptions(ctx)...)...)
+	options, shaken, err := config.Access.Options(telemetry.GRPCOptions(ctx)...)
 	if err != nil {
 		return nil, fmt.Errorf("the asset service at %s: %w", config.Address, err)
 	}
-	return &Client{conn: conn, service: remoteasset.NewFetchClient(conn), instance: config.Instance, rewrites: rules}, nil
+	conn, err := grpc.NewClient("passthrough:///"+config.Address, options...)
+	if err != nil {
+		return nil, fmt.Errorf("the asset service at %s: %w", config.Address, err)
+	}
+	return &Client{conn: conn, service: remoteasset.NewFetchClient(conn), instance: config.Instance, rewrites: rules, access: config.Access, address: config.Address, shaken: shaken}, nil
 }
 
 // rules compiles the rewrites, in the order of their expressions.
@@ -214,10 +228,20 @@ func (c *Client) ask(ctx context.Context, url, proxied, sum, key string, forgott
 		}
 		request.Qualifiers = []*remoteasset.Qualifier{{Name: "checksum.sri", Value: "sha256-" + base64.StdEncoding.EncodeToString(raw)}}
 	}
-	ctx, done := context.WithTimeout(ctx, fetchWithin+time.Minute)
+	ctx, done := context.WithTimeout(access.Watch(ctx), fetchWithin+time.Minute)
 	defer done()
 	answer, err := c.service.FetchBlob(ctx, request)
 	if err != nil {
+		// A daemon the service does not admit, or one that could not read
+		// its token and sent nothing, is said so as it is of the grid,
+		// with the status kept: asking again would say the same.
+		told := access.Told(ctx, err)
+		if said := c.shaken.Said("the asset service", c.address, told); access.Untrusted(said) {
+			return exec.Digest{}, fmt.Errorf("%s, asked of the asset service as %s: %w", url, proxied, said)
+		}
+		if access.Unsent(told) || access.NotAdmitted(told) {
+			return exec.Digest{}, fmt.Errorf("%s, asked of the asset service as %s: %w", url, proxied, c.access.Refused("the asset service", told))
+		}
 		return exec.Digest{}, fmt.Errorf("%s, asked of the asset service as %s: %s", url, proxied, status.Convert(err).Message())
 	}
 	if said := status.FromProto(answer.GetStatus()); said.Err() != nil {

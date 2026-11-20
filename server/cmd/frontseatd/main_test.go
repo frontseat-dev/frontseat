@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/frontseat-dev/frontseat/server/testsupport/testauthority"
 )
 
 func TestTheWorkersPlatformIsWhatTheDaemonIsTold(t *testing.T) {
@@ -163,5 +165,57 @@ func TestASandboxDaemonToldNoPlatformIsRefused(t *testing.T) {
 	}
 	if err := toldPlatform([]string{"OSFamily=linux"}); err != nil {
 		t.Errorf("told by its flags: %v, want it allowed", err)
+	}
+}
+
+// A grid that asks who a daemon is, is asked as the flags say, and a
+// daemon told to ask in a way it cannot is refused before it serves: a
+// token is never sent in the clear, and a file named is one it can read.
+func TestAGridThatAsksWhoTheDaemonIsIsAskedAsTheFlagsSay(t *testing.T) {
+	dir := t.TempDir()
+	token, nothing := filepath.Join(dir, "token"), filepath.Join(dir, "nothing.pem")
+	for name, content := range map[string]string{token: "aaa.bbb.ccc\n", nothing: "no certificate\n"} {
+		if err := os.WriteFile(name, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	missing := filepath.Join(dir, "missing")
+	known := testauthority.New(t).File
+	asked, err := gridOf("grid:8980", "frontseat/p", "assets:8983", nil, true, known, token)
+	if err != nil || !asked.TLS || asked.Authorities != known || asked.Token != token || asked.Instance != "frontseat/p" || asked.Address != "grid:8980" || asked.Assets != "assets:8983" {
+		t.Errorf("over TLS with a token: %+v, %v", asked, err)
+	}
+	// As the local stack's grid is asked: in the clear, saying nothing.
+	if plain, err := gridOf("localhost:8980", "", "", nil, false, "", ""); err != nil || plain.TLS || plain.Authorities != "" || plain.Token != "" {
+		t.Errorf("given nothing: %+v, %v", plain, err)
+	}
+	for name, c := range map[string]struct {
+		tls       bool
+		ca, token string
+	}{
+		"a token in the clear":                  {token: token},
+		"a token, and the system's authorities": {tls: true, token: token},
+		"a token file that is not there":        {ca: known, token: missing},
+		"authorities that are not there":        {ca: missing},
+		"authorities that hold none":            {ca: nothing},
+		"a token where authorities fail":        {ca: nothing, token: token},
+	} {
+		if got, err := gridOf("grid:8980", "", "", nil, c.tls, c.ca, c.token); err == nil {
+			t.Errorf("%s: %+v; want it refused", name, got)
+		} else if strings.Contains(err.Error(), "aaa.bbb.ccc") {
+			t.Errorf("%s: the refusal repeats the token: %v", name, err)
+		}
+	}
+}
+
+// A flag that takes no value ends the flags where a value follows it:
+// "--grid-tls true --grid-ca FILE --grid-token FILE" was read as TLS by the
+// system's authorities with no token, and nothing said so.
+func TestWhatIsNoFlagIsRefused(t *testing.T) {
+	if err := strays([]string{"true", "--grid-ca", "ca.pem"}); err == nil || !strings.Contains(err.Error(), `"true"`) {
+		t.Errorf("an argument after the flags: %v", err)
+	}
+	if err := strays(nil); err != nil {
+		t.Errorf("flags alone: %v", err)
 	}
 }

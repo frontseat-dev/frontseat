@@ -109,7 +109,7 @@ var policies = []policy{
 	{"server/internal/backstage", []string{"sdk/go/entity", "sdk/go/bearer", "server/internal/plain", "server/internal/secretfile", "server/internal/source/record", "server/testsupport/backstagetest"}},
 	// What a test service is held to: one check, for the daemon and the grid's runner.
 	{"server/internal/testservice", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/image", "server/internal/plain"}},
-	{"server/internal/build", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/pluginapi/**", "server/telemetry", "server/internal/build", "server/internal/source/told/toldtest", "server/internal/engine/evaluate", "server/internal/engine/graph", "server/internal/engine/plan", "server/internal/engine/release", "server/internal/engine/source", "server/internal/exec", "server/internal/exec/download", "server/internal/exec/program", "server/internal/exec/run", "server/internal/history", "server/internal/model", "server/internal/wire", "server/internal/pluginhost", "server/internal/source", "server/internal/source/record", "server/internal/source/told", "server/internal/sourceapi/**", "server/internal/page", "server/internal/refusal"}},
+	{"server/internal/build", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/pluginapi/**", "server/telemetry", "server/internal/build", "server/internal/source/told/toldtest", "server/internal/engine/evaluate", "server/internal/engine/graph", "server/internal/engine/plan", "server/internal/engine/release", "server/internal/engine/source", "server/internal/exec", "server/internal/exec/access", "server/internal/exec/download", "server/internal/exec/program", "server/internal/exec/run", "server/internal/history", "server/internal/model", "server/internal/wire", "server/internal/pluginhost", "server/internal/source", "server/internal/source/record", "server/internal/source/told", "server/internal/sourceapi/**", "server/internal/page", "server/internal/refusal"}},
 	{"server/internal/history", []string{"sdk/go/api/**"}},
 	// The plugin contract's Go, generated for the daemon alone.
 	{"server/internal/pluginapi/**", []string{"sdk/go/api/**"}},
@@ -142,8 +142,11 @@ var policies = []policy{
 	{"server/internal/engine/source", []string{"server/internal/engine/source", "server/internal/pattern"}},
 	{"server/internal/engine/internal/yamlnode", []string{}},
 	{"server/internal/exec", []string{}},
-	{"server/internal/exec/reapi", []string{"server/telemetry", "server/internal/exec", "server/internal/confine"}},
-	{"server/internal/exec/download", []string{"server/telemetry", "server/internal/exec"}},
+	// How a grid that asks who a daemon is, is asked: one answer, for the
+	// grid's dial and its asset service's, and for nothing else.
+	{"server/internal/exec/access", []string{}},
+	{"server/internal/exec/reapi", []string{"server/telemetry", "server/internal/exec", "server/internal/exec/access", "server/internal/confine"}},
+	{"server/internal/exec/download", []string{"server/telemetry", "server/internal/exec", "server/internal/exec/access"}},
 	{"server/internal/exec/tools", []string{"server/telemetry", "server/internal/exec", "server/internal/pins", "server/internal/testservice", "server/internal/confine"}},
 	{"server/internal/exec/tools/toolstest", []string{"server/internal/exec"}},
 	{"server/internal/pluginhost/pluginhosttest", []string{"sdk/go/api/**", "server/internal/pluginapi/**", "server/internal/pattern"}},

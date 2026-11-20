@@ -15,6 +15,19 @@ import (
 // runs, on the box it names by Variable.
 const StackVariable = "FRONTSEAT_TEST_LOCAL_IMAGE"
 
+// StackImage returns the stack's image the gate built, on the box it
+// names by Variable. A machine with no container runtime skips the
+// test; a test the gate did not run fails, saying how it is run.
+func StackImage(t testing.TB) string {
+	t.Helper()
+	Image(t)
+	image := os.Getenv(StackVariable)
+	if image == "" {
+		t.Fatalf("%s names no stack image: the gate builds it before the tests it runs (`mise run go:test -- ...`)", StackVariable)
+	}
+	return image
+}
+
 // Stack starts the local stack as one container of the gate's image, as
 // the stack starts it (stack.Container), publishing nothing, so that it
 // runs beside whatever stack this machine runs; and returns its name,
@@ -25,11 +38,7 @@ const StackVariable = "FRONTSEAT_TEST_LOCAL_IMAGE"
 // by, and removed when the test ends.
 func Stack(t testing.TB) string {
 	t.Helper()
-	Image(t)
-	image := os.Getenv(StackVariable)
-	if image == "" {
-		t.Fatalf("%s names no stack image: the gate builds it before the tests it runs (`mise run go:test -- ...`)", StackVariable)
-	}
+	image := StackImage(t)
 	own := testrun.ID(t, "frontseat-test-stack")
 	profile, err := stack.Profile(t.TempDir())
 	if err != nil {

@@ -23,8 +23,12 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	grpcstatus "google.golang.org/grpc/status"
 
+	"github.com/frontseat-dev/frontseat/server/internal/exec/access"
 	"github.com/frontseat-dev/frontseat/server/internal/exec/download"
+	"github.com/frontseat-dev/frontseat/server/internal/exec/reapi/reapitest"
+	"github.com/frontseat-dev/frontseat/server/testsupport/testauthority"
 )
 
 // service stands in for an asset service: it answers each URI with the
@@ -447,4 +451,104 @@ func TestCuttingKeepsEachPartThatIsWhatItsChecksumSaysAndFailsAtOneThatIsNot(t *
 // parts7 is the seven arguments of one part of a download named.
 func parts7(name string) []string {
 	return []string{name, "0", "1", "sha1", strings.Repeat("1a", 20), name + ".part", "https://example.com/" + name}
+}
+
+// The asset service is asked as its grid is: over TLS, known by the
+// authorities the daemon was named, with the token of the file, which a
+// daemon given no TLS is refused before anything is dialled. One that
+// does not admit the daemon is said so as the grid is, with its status
+// kept and the token's file named; a token that could not be read sent
+// nothing, and that is the daemon's to know.
+func TestTheAssetServiceIsAskedAsItsGridIs(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "token")
+	write := func(content string) {
+		t.Helper()
+		if err := os.WriteFile(file, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("aaa.bbb.ccc\n")
+	_, err := download.Dial(t.Context(), download.Config{Address: "127.0.0.1:1", Access: access.Config{Token: file}})
+	if err == nil || !strings.Contains(err.Error(), "never sent in the clear") || strings.Contains(err.Error(), "aaa.bbb.ccc") {
+		t.Errorf("a token in the clear: %v", err)
+	}
+
+	known := testauthority.New(t)
+	sum := strings.Repeat("ab", 32)
+	held := &remoteexecution.Digest{Hash: sum, SizeBytes: 3}
+	fetching := &service{by: map[string]*remoteexecution.Digest{"http://proxy/one": held, "http://proxy/two": held, "http://proxy/three": held}}
+	door := &reapitest.Answering{Certificate: &known.Server, Admits: "Bearer aaa.bbb.ccc", Also: func(server *grpc.Server) { remoteasset.RegisterFetchServer(server, fetching) }}
+	rewrites := map[string]string{`^https://example\.com/(.*)$`: "http://proxy/$1"}
+	client, err := download.Dial(t.Context(), download.Config{Address: door.Serve(t), Rewrites: rewrites, Access: access.Config{Authorities: known.File, Token: file}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+	if _, err := client.Fetch(t.Context(), "https://example.com/one", sum); err != nil {
+		t.Fatalf("with the token of the file: %v", err)
+	}
+	if carried := door.Carried(t); len(carried) != 1 || carried[0] != "Bearer aaa.bbb.ccc" {
+		t.Errorf("carried %q", carried)
+	}
+
+	// A token the service does not admit: said as the grid's refusal is.
+	write("xxx.yyy.zzz\n")
+	_, err = client.Fetch(t.Context(), "https://example.com/two", sum)
+	if err == nil || grpcstatus.Code(err) != codes.Unauthenticated || !access.NotAdmitted(err) || !strings.Contains(err.Error(), "the asset service did not admit this daemon") || !strings.Contains(err.Error(), file) || strings.Contains(err.Error(), "xxx.yyy.zzz") {
+		t.Errorf("a token that is not admitted: %v", err)
+	}
+	// A token that cannot be read: nothing was sent, and it is not the
+	// service's refusal.
+	asked := door.Asked.Load()
+	if err := os.Remove(file); err != nil {
+		t.Fatal(err)
+	}
+	_, err = client.Fetch(t.Context(), "https://example.com/three", sum)
+	if err == nil || !access.Unsent(err) || access.NotAdmitted(err) || strings.Contains(err.Error(), "did not admit") || !strings.Contains(err.Error(), "was not sent to the grid") || door.Asked.Load() != asked {
+		t.Errorf("a token that could not be read: %v", err)
+	}
+	// Control: with the token back, what was refused is fetched.
+	write("aaa.bbb.ccc\n")
+	if _, err := client.Fetch(t.Context(), "https://example.com/two", sum); err != nil {
+		t.Errorf("with the token back: %v", err)
+	}
+}
+
+// An asset service that cannot be asked over TLS as the daemon was told,
+// one of other authorities, is said so, as its grid is: known by the
+// daemon's own handshake, not by anything the service says.
+func TestAnAssetServiceThatCannotBeAskedOverTLSIsSaidSo(t *testing.T) {
+	known, other := testauthority.New(t), testauthority.New(t)
+	sum := strings.Repeat("ab", 32)
+	fetching := &service{by: map[string]*remoteexecution.Digest{"http://proxy/one": {Hash: sum, SizeBytes: 3}}}
+	rewrites := map[string]string{`^https://example\.com/(.*)$`: "http://proxy/$1"}
+	ask := func(address string) error {
+		t.Helper()
+		client, err := download.Dial(t.Context(), download.Config{Address: address, Rewrites: rewrites, Access: access.Config{Authorities: known.File}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer client.Close()
+		_, err = client.Fetch(t.Context(), "https://example.com/one", sum)
+		return err
+	}
+	elsewhere := &reapitest.Answering{Certificate: &other.Server, Also: func(server *grpc.Server) { remoteasset.RegisterFetchServer(server, fetching) }}
+	if err := ask(elsewhere.Serve(t)); err == nil || !strings.Contains(err.Error(), "the asset service at") || !strings.Contains(err.Error(), "could not be asked over TLS") {
+		t.Errorf("an asset service of other authorities: %v", err)
+	}
+	// Controls: one that is not there is not said to be of others, and
+	// one of the authorities named is asked.
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	gone := listener.Addr().String()
+	listener.Close()
+	if err := ask(gone); err == nil || strings.Contains(err.Error(), "could not be asked over TLS") {
+		t.Errorf("an asset service that is not there: %v", err)
+	}
+	ours := &reapitest.Answering{Certificate: &known.Server, Also: func(server *grpc.Server) { remoteasset.RegisterFetchServer(server, fetching) }}
+	if err := ask(ours.Serve(t)); err != nil {
+		t.Errorf("an asset service of the authorities named: %v", err)
+	}
 }

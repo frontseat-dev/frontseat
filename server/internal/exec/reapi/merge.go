@@ -13,13 +13,16 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/frontseat-dev/frontseat/server/internal/exec"
+	"github.com/frontseat-dev/frontseat/server/internal/exec/access"
 )
 
 var _ exec.Merging = (*Grid)(nil)
 
 // Merge implements exec.Merging: directories the grid holds as one, as
 // Pants's MergeDigests does. What is in more than one must be the same.
-func (g *Grid) Merge(ctx context.Context, all []exec.Held) (exec.Held, error) {
+func (g *Grid) Merge(ctx context.Context, all []exec.Held) (_ exec.Held, err error) {
+	ctx = access.Watch(ctx)
+	defer func() { err = g.said(ctx, err) }()
 	sources := make([]source, 0, len(all))
 	for i, each := range all {
 		if !each.Directory {

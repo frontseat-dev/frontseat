@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bazelbuild/remote-apis-sdks/go/pkg/balancer"
 	"github.com/bazelbuild/remote-apis-sdks/go/pkg/client"
 	"github.com/bazelbuild/remote-apis-sdks/go/pkg/command"
 	"github.com/bazelbuild/remote-apis-sdks/go/pkg/digest"
@@ -27,12 +28,14 @@ import (
 	"github.com/bazelbuild/remote-apis-sdks/go/pkg/uploadinfo"
 	repb "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/frontseat-dev/frontseat/server/internal/confine"
 	"github.com/frontseat-dev/frontseat/server/internal/exec"
+	"github.com/frontseat-dev/frontseat/server/internal/exec/access"
 )
 
 // Config says which grid.
@@ -41,12 +44,18 @@ type Config struct {
 	Address string
 	// Instance is the instance name asked of.
 	Instance string
+	// Access is how a grid that asks who a daemon is, is asked. Empty,
+	// the grid is asked in the clear.
+	Access access.Config
 }
 
 // Grid is a grid a daemon runs its actions on.
 type Grid struct {
 	client *client.Client
 	files  filemetadata.Cache
+	// access is how the grid is asked: its token's file is named where
+	// the grid stops admitting the daemon.
+	access access.Config
 }
 
 var _ exec.Executor = (*Grid)(nil)
@@ -55,14 +64,32 @@ var _ exec.Executor = (*Grid)(nil)
 // answer, or serves no execution, is an error here and not at the first
 // action.
 func Dial(ctx context.Context, config Config) (*Grid, error) {
-	c, err := client.NewClient(ctx, config.Instance, client.DialParams{Service: config.Address, NoSecurity: true, DialOpts: telemetry.GRPCOptions(ctx)})
+	ctx = access.Watch(ctx)
+	options, shaken, err := config.Access.Options(telemetry.GRPCOptions(ctx)...)
 	if err != nil {
 		return nil, fmt.Errorf("reapi: the grid at %s: %w", config.Address, err)
+	}
+	// As the grid's client dials when it is given parameters
+	// (client.NewClient): a pool of connections, each asking up to the
+	// client's default of requests at once. It is dialled here, with the
+	// options the asset service is dialled with, since what the client
+	// adds to its parameters' options would replace their transport's.
+	// The address is handed to the dialer as it is, as gRPC's Dial did.
+	pool, err := balancer.NewRRConnPool(ctx, client.DefaultMaxConcurrentRequests, func(context.Context) (*grpc.ClientConn, error) {
+		return grpc.NewClient("passthrough:///"+config.Address, options...)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("reapi: the grid at %s: %w", config.Address, err)
+	}
+	c, err := client.NewClientFromConnection(ctx, config.Instance, pool, pool)
+	if err != nil {
+		pool.Close()
+		return nil, unanswered(ctx, config, shaken, err)
 	}
 	capabilities, err := c.GetCapabilities(ctx)
 	if err != nil {
 		c.Close()
-		return nil, fmt.Errorf("reapi: the grid at %s: %w", config.Address, err)
+		return nil, unanswered(ctx, config, shaken, err)
 	}
 	if !capabilities.GetExecutionCapabilities().GetExecEnabled() {
 		c.Close()
@@ -72,7 +99,7 @@ func Dial(ctx context.Context, config Config) (*Grid, error) {
 	// and a digest remembered by a file's path would be sent for the file
 	// after it changed: the build would be of source that is no longer
 	// there.
-	return &Grid{client: c, files: filemetadata.NewNoopCache()}, nil
+	return &Grid{client: c, files: filemetadata.NewNoopCache(), access: config.Access}, nil
 }
 
 // Close lets the grid go.
@@ -185,9 +212,9 @@ func (g *Grid) Execute(ctx context.Context, action exec.Action) (result exec.Res
 		return exec.Result{}, errors.New("reapi: the action runs nothing")
 	}
 	start := time.Now()
-	ctx, span := telemetry.Start(ctx, "grid", attribute.String("label", action.Label))
+	ctx, span := telemetry.Start(access.Watch(ctx), "grid", attribute.String("label", action.Label))
 	defer func() {
-		err = executionError(err)
+		err = g.said(ctx, executionError(err))
 		telemetry.End(span, err)
 	}()
 	rooting, rooted := telemetry.Start(ctx, "grid.root")
@@ -282,7 +309,9 @@ func (g *Grid) run(ctx context.Context, label string, action digest.Digest) (*re
 		if confiner, lacks := lacking(said); lacks {
 			return nil, false, fmt.Errorf("reapi: %s: the worker could not start %s, the frontseat-action every action of this daemon is started by, for something it did not find: where the worker has no confiner of this form, install it beside bb_runner (the local stack's action-installer, or `frontseat-action install /bb`); where it has, the directory the action runs in was not there: %w", label, confiner, said.Err())
 		}
-		return nil, false, fmt.Errorf("reapi: %s: %w", label, said.Err())
+		// The call was answered: this is what the grid says became of the
+		// action where it ran, a worker's own refusal among it.
+		return nil, false, fmt.Errorf("reapi: %s: where it ran: %w", label, &ran{said.Err()})
 	}
 	return response.GetResult(), response.GetCachedResult(), nil
 }
@@ -552,7 +581,9 @@ func (d *directories) place(in *repb.Directory, at string, segments []string, he
 // Materialize implements exec.Materializing: the directory is written
 // beside its path and moved into place, so it is there whole or not at
 // all.
-func (g *Grid) Materialize(ctx context.Context, directory exec.Held, into string) error {
+func (g *Grid) Materialize(ctx context.Context, directory exec.Held, into string) (err error) {
+	ctx = access.Watch(ctx)
+	defer func() { err = g.said(ctx, err) }()
 	if !directory.Directory {
 		return fmt.Errorf("%s is a file, not a directory", directory.Digest.Hash)
 	}

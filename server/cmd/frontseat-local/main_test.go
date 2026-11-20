@@ -2,13 +2,8 @@ package main
 
 import (
 	"context"
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
+	"crypto/tls"
 	"crypto/x509"
-	"crypto/x509/pkix"
-	"encoding/pem"
-	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -17,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/frontseat-dev/frontseat/server/testsupport/testauthority"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testgateway"
 )
 
@@ -24,16 +20,8 @@ import (
 // own making, as a gateway's are laid out, the key readable as told.
 func identityOf(t *testing.T, key os.FileMode) string {
 	t.Helper()
-	private, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		t.Fatal(err)
-	}
-	template := &x509.Certificate{SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "a test"}, NotBefore: time.Now().Add(-time.Hour), NotAfter: time.Now().Add(time.Hour), IsCA: true, BasicConstraintsValid: true, KeyUsage: x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature}
-	certificate, err := x509.CreateCertificate(rand.Reader, template, template, &private.PublicKey, private)
-	if err != nil {
-		t.Fatal(err)
-	}
-	der, err := x509.MarshalPKCS8PrivateKey(private)
+	made := testauthority.New(t)
+	authorities, err := os.ReadFile(made.File)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,8 +29,7 @@ func identityOf(t *testing.T, key os.FileMode) string {
 	if err := os.Chmod(directory, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	public := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certificate})
-	for name, content := range map[string][]byte{"ca.crt": public, "tls.crt": public, "tls.key": pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der})} {
+	for name, content := range map[string][]byte{"ca.crt": authorities, "tls.crt": made.Certificate, "tls.key": made.Key} {
 		if err := os.WriteFile(filepath.Join(directory, name), content, 0o600); err != nil {
 			t.Fatal(err)
 		}
@@ -164,5 +151,40 @@ func TestWhereClientsReachTheServerIsAnAddress(t *testing.T) {
 	// can reach does not start.
 	if err := serve(context.Background(), "0.0.0.0:0", "", "host.docker.internal:8980", t.TempDir(), "https://127.0.0.1:1", identityOf(t, 0o600), "docker", "", filepath.Join(t.TempDir(), "owner", "token"), nil); err == nil || !strings.Contains(err.Error(), "--public") {
 		t.Errorf("listening on every address and told no other: %v, want --public named", err)
+	}
+}
+
+// What identityOf writes is an identity a gateway knows: its certificate
+// is of the authority ca.crt holds, and a server of that authority that
+// asks for its callers' certificates, as a gateway does, admits it, read
+// as the gateway's driver reads it (ca.crt, tls.crt, tls.key).
+func TestATestsIdentityIsOneAGatewayKnows(t *testing.T) {
+	identity := identityOf(t, 0o600)
+	authorities := x509.NewCertPool()
+	pem, err := os.ReadFile(filepath.Join(identity, "ca.crt"))
+	if err != nil || !authorities.AppendCertsFromPEM(pem) {
+		t.Fatal(err)
+	}
+	mine, err := tls.LoadX509KeyPair(filepath.Join(identity, "tls.crt"), filepath.Join(identity, "tls.key"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var seen []string
+	gateway := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		for _, each := range r.TLS.PeerCertificates {
+			seen = append(seen, each.Subject.CommonName)
+		}
+	}))
+	gateway.TLS = &tls.Config{Certificates: []tls.Certificate{mine}, ClientAuth: tls.RequireAndVerifyClientCert, ClientCAs: authorities}
+	gateway.StartTLS()
+	t.Cleanup(gateway.Close)
+	client := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{RootCAs: authorities, Certificates: []tls.Certificate{mine}}}}
+	answer, err := client.Get(gateway.URL)
+	if err != nil {
+		t.Fatalf("a gateway of the identity's authority: %v", err)
+	}
+	answer.Body.Close()
+	if len(seen) != 1 {
+		t.Errorf("the gateway was shown %q", seen)
 	}
 }

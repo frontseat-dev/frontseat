@@ -1,5 +1,7 @@
 // Package reapitest gives a test a client of the grid tests run their
-// actions on, closed when the test ends.
+// actions on, closed when the test ends (Dial), and a grid of the test's
+// own on the loopback that answers what it serves and keeps what each
+// call carried, in the clear or over TLS (Answering).
 package reapitest
 
 import (

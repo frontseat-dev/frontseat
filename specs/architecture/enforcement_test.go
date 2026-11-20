@@ -315,6 +315,16 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		{"server/internal/controlplane/ending_test.go", "server/sandbox/driver", false},
 		{"server/internal/controlplane/ending_test.go", "server/sandbox/driver/openshell", false},
 		{"server/sandbox/service_test.go", "server/testsupport/drivertest", true},
+		// How a grid is asked is said once, to the daemon's two dials, by
+		// the daemon that was told; nothing that stages or runs an action
+		// knows of it.
+		{"server/internal/exec/reapi/reapi.go", "server/internal/exec/access", true},
+		{"server/internal/exec/download/download.go", "server/internal/exec/access", true},
+		{"server/internal/build/build.go", "server/internal/exec/access", true},
+		{"server/internal/exec/stage/stage.go", "server/internal/exec/access", false},
+		{"server/internal/exec/tools/tools.go", "server/internal/exec/access", false},
+		{"server/internal/exec/access/access.go", "server/internal/exec", false},
+		{"server/cmd/frontseatd/main.go", "server/internal/exec/access", false},
 		// Evaluation writes the source groups of the actions it plans.
 		{"server/internal/engine/evaluate/evaluate.go", "server/internal/pattern", true},
 		{"server/internal/exec/schedule/schedule.go", "server/internal/pattern", false},

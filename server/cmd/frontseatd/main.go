@@ -56,7 +56,10 @@ func run() error {
 	pluginDirectory := flag.String("plugins", "", "a directory of plugins: every <name>.wasm in it is loaded, as if each were given by --plugin")
 	grid := flag.String("grid", "", "the address of the grid actions run on, host:port")
 	instance := flag.String("instance", "", "the instance name asked of the grid")
-	assets := flag.String("assets", "", "the address of the grid's asset service, host:port, which fetches what a shared fetch downloads")
+	gridTLS := flag.Bool("grid-tls", false, "ask the grid and its asset service over TLS, known by the system's authorities, where it asks no token (default: in the clear, as the local stack's grid is asked; a workspace's sandbox is told of no other)")
+	gridCA := flag.String("grid-ca", "", "a PEM file of the authorities the grid and its asset service are known by, in place of the system's; with it they are asked over TLS")
+	gridToken := flag.String("grid-token", "", "a file holding the bearer token the grid admits this daemon by, a JSON Web Token: read again for every call, so whoever was given the token replaces the file, whole and by a rename, when it is renewed; sent to the grid and to its asset service (--assets), and only where --grid-ca names the authorities they are known by: the system's are chosen by the environment")
+	assets := flag.String("assets", "", "the address of the grid's asset service, host:port, which fetches what a shared fetch downloads; with --grid-token it is told the token too")
 	var rewrites modules
 	flag.Var(&rewrites, "rewrite", "which proxy of the grid's stands in for a public site a download names, as a regular expression over the download's URL, a space, and the proxy's address, with $1 and so on; give it once for each")
 	var properties modules
@@ -64,6 +67,9 @@ func run() error {
 	shellAddress := flag.String("shell", net.JoinHostPort("127.0.0.1", strconv.Itoa(ports.Shell)), "the address to serve SSH on, to the key --authorized-key gives; with none, no shell is served")
 	authorized := flag.String("authorized-key", "", "the key let into the shell, as a line of authorized_keys: a sandbox a person works in")
 	flag.Parse()
+	if err := strays(flag.Args()); err != nil {
+		return err
+	}
 	// What the grid's client library logs (glog) goes to standard error,
 	// never to a file of its own: it names one by the time and this
 	// process's id, and a daemon started again in the same second, as a
@@ -108,10 +114,33 @@ func run() error {
 			defer closeShell()
 		}
 	}
+	var asked build.Grid
 	if err == nil {
-		err = serve(ctx, *listen, *sourceAddress, *workspace, filepath.Join(*state, "builds"), plugins, build.Grid{Address: *grid, Instance: *instance, Assets: *assets, Rewrites: rewritten}, platform)
+		asked, err = gridOf(*grid, *instance, *assets, rewritten, *gridTLS, *gridCA, *gridToken)
+	}
+	if err == nil {
+		err = serve(ctx, *listen, *sourceAddress, *workspace, filepath.Join(*state, "builds"), plugins, asked, platform)
 	}
 	return err
+}
+
+// gridOf is the grid the flags name and how it is asked, refused where
+// the daemon could not ask so: found at the start, and not at the first
+// action. The asset service is only ever the one --assets names, and is
+// asked as the grid is, its token included.
+func gridOf(address, instance, assets string, rewrites map[string]string, tls bool, authorities, token string) (build.Grid, error) {
+	grid := build.Grid{Address: address, Instance: instance, Assets: assets, Rewrites: rewrites, TLS: tls, Authorities: authorities, Token: token}
+	return grid, grid.Check()
+}
+
+// strays refuses what follows the flags. A flag that takes no value ends
+// them where a value is given it, and every flag after it would be left
+// unread: the daemon would ask its grid otherwise than it was told to.
+func strays(rest []string) error {
+	if len(rest) == 0 {
+		return nil
+	}
+	return fmt.Errorf("%q is no flag, and what follows it would not be read: a flag that takes no value, as --grid-tls, is given none", rest[0])
 }
 
 // toldPlatform refuses a sandbox's daemon that was told nothing of the

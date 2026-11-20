@@ -24,8 +24,8 @@ import (
 // Cancellation is part of the Executor contract even when it arrives as a
 // transport status or an ExecuteResponse. Its caller need not speak gRPC.
 func TestGridErrorsKeepTheirCancellationMeaning(t *testing.T) {
-	for _, operation := range []string{"upload", "execute", "merge"} {
-		for _, code := range []codes.Code{codes.OK, codes.Canceled, codes.DeadlineExceeded, codes.Internal} {
+	for _, operation := range []string{"upload", "execute", "executing", "merge"} {
+		for _, code := range []codes.Code{codes.OK, codes.Canceled, codes.DeadlineExceeded, codes.Internal, codes.Unauthenticated, codes.PermissionDenied} {
 			t.Run(operation+"/"+code.String(), func(t *testing.T) {
 				grid := answeringGrid(t, operation, code)
 				var err error
@@ -60,6 +60,20 @@ func TestGridErrorsKeepTheirCancellationMeaning(t *testing.T) {
 				if code != codes.OK && (err == nil || !strings.Contains(err.Error(), "grid test error")) {
 					t.Errorf("lost grid error detail: %v", err)
 				}
+				// A grid that stops admitting a daemon while it builds, its
+				// token having run out, says so as one that never admitted
+				// it does; no other failure is said to be that.
+				// What a worker was refused while it ran an action comes in
+				// the grid's answer for the action ("execute"), not as the
+				// call's own status ("executing"): the daemon was admitted,
+				// and is not told to renew a token.
+				refused := (code == codes.Unauthenticated || code == codes.PermissionDenied) && operation != "execute"
+				if said := err != nil && strings.Contains(err.Error(), "did not admit this daemon"); said != refused || NotAdmitted(err) != refused {
+					t.Errorf("said not admitted = %t, want %t: %v", said, refused, err)
+				}
+				if operation == "execute" && (code == codes.Unauthenticated || code == codes.PermissionDenied) && (!strings.Contains(err.Error(), "where it ran") || strings.Contains(err.Error(), "--grid-token")) {
+					t.Errorf("a worker's refusal: %v", err)
+				}
 			})
 		}
 	}
@@ -74,7 +88,7 @@ func answeringGrid(t *testing.T, operation string, code codes.Code) *Grid {
 		t.Fatal(err)
 	}
 	refuse := func(method string) error {
-		if code != codes.OK && (operation == "upload" && strings.HasSuffix(method, "/FindMissingBlobs") || operation == "merge" && method == "/google.bytestream.ByteStream/Read") {
+		if code != codes.OK && (operation == "upload" && strings.HasSuffix(method, "/FindMissingBlobs") || operation == "merge" && method == "/google.bytestream.ByteStream/Read" || operation == "executing" && strings.HasSuffix(method, "/Execute")) {
 			return fmt.Errorf("wrapped grid failure: %w", status.Error(code, "grid test error"))
 		}
 		return nil
