@@ -1772,8 +1772,40 @@ type Action struct {
 	// leaving is refused, as is one that says it leaves something: an
 	// action that may not run leaves nothing another can count on.
 	IdleWithoutInputs bool `protobuf:"varint,28,opt,name=idle_without_inputs,json=idleWithoutInputs,proto3" json:"idle_without_inputs,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// Versioned says the action is given the version of the release it is
+	// built for, to write into what it makes: a program's own answer to
+	// --version, a package's version, an image's label. Each tool has its
+	// own way to carry one, and the action's command is that way.
+	//
+	// The host fills these, wherever they stand in the command's arguments
+	// and in the values of its environment, before the action is what it
+	// is:
+	//
+	//   - {frontseat.version}, the version: "1.4.0";
+	//   - {frontseat.tag}, the tag the release is given: "greet/v1.4.0";
+	//   - {frontseat.commit}, the commit the release is planned at;
+	//   - {frontseat.unit}, the unit released, as an entity:
+	//     "component:lab/greet".
+	//
+	// Only the build a release makes for production fills in what was
+	// planned for the unit the action's project is released with. Every
+	// other build fills in the same values each time, "0.0.0-dev" for the
+	// version and nothing for the rest, so that the action is the same
+	// action from one commit to the next and is built once. No time, user
+	// or machine is ever filled in: the build a release makes of a commit
+	// is the same wherever it is made.
+	//
+	// Whatever begins "{frontseat." is the host's to read: one in an action
+	// that does not say it is versioned, one the host does not fill or
+	// that does not close, and one anywhere but an argument or a value of
+	// the environment, are refused. A versioned action names at least one.
+	// A fetch, a shared action and a program to run are never versioned.
+	//
+	// What is filled in is data: give it to a tool as an argument or a
+	// value of its own, never inside text a shell reads as a program.
+	Versioned     bool `protobuf:"varint,30,opt,name=versioned,proto3" json:"versioned,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Action) Reset() {
@@ -1907,6 +1939,13 @@ func (x *Action) GetProgram() bool {
 func (x *Action) GetIdleWithoutInputs() bool {
 	if x != nil {
 		return x.IdleWithoutInputs
+	}
+	return false
+}
+
+func (x *Action) GetVersioned() bool {
+	if x != nil {
+		return x.Versioned
 	}
 	return false
 }
@@ -3109,7 +3148,7 @@ const file_frontseat_plugin_v1alpha1_plugin_proto_rawDesc = "" +
 	"\aversion\x18\x06 \x01(\tR\aversion\"0\n" +
 	"\x06Origin\x12\x12\n" +
 	"\x04path\x18\x01 \x01(\tR\x04path\x12\x12\n" +
-	"\x04line\x18\x02 \x01(\x05R\x04line\"\xd5\x04\n" +
+	"\x04line\x18\x02 \x01(\x05R\x04line\"\xf3\x04\n" +
 	"\x06Action\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12<\n" +
 	"\acommand\x18\x04 \x01(\v2\".frontseat.plugin.v1alpha1.CommandR\acommand\x128\n" +
@@ -3125,7 +3164,8 @@ const file_frontseat_plugin_v1alpha1_plugin_proto_rawDesc = "" +
 	"\x05files\x18\x17 \x03(\v2\x1f.frontseat.plugin.v1alpha1.FileR\x05files\x12A\n" +
 	"\tdownloads\x18\x18 \x03(\v2#.frontseat.plugin.v1alpha1.DownloadR\tdownloads\x12\x18\n" +
 	"\aprogram\x18\x1b \x01(\bR\aprogram\x12.\n" +
-	"\x13idle_without_inputs\x18\x1c \x01(\bR\x11idleWithoutInputs\"\xb0\x01\n" +
+	"\x13idle_without_inputs\x18\x1c \x01(\bR\x11idleWithoutInputs\x12\x1c\n" +
+	"\tversioned\x18\x1e \x01(\bR\tversioned\"\xb0\x01\n" +
 	"\x05Input\x12\x18\n" +
 	"\x06source\x18\x01 \x01(\tH\x00R\x06source\x12\x1d\n" +
 	"\tinput_set\x18\x02 \x01(\tH\x00R\binputSet\x12\x18\n" +

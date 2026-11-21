@@ -219,3 +219,18 @@ func TestWhatIsNoFlagIsRefused(t *testing.T) {
 		t.Errorf("flags alone: %v", err)
 	}
 }
+
+// The daemon says which release it is, as the release that built it
+// wrote it in; one no release built says the version every other build
+// is given.
+func TestTheDaemonSaysWhichReleaseItIs(t *testing.T) {
+	if said := released(); said != "frontseatd 0.0.0-dev" {
+		t.Errorf("a daemon no release built said %q", said)
+	}
+	before, was := version, commit
+	version, commit = "1.4.0", "0123abcd"
+	t.Cleanup(func() { version, commit = before, was })
+	if said := released(); said != "frontseatd 1.4.0 (0123abcd)" {
+		t.Errorf("a released daemon said %q", said)
+	}
+}

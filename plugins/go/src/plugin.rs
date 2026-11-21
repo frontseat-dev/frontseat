@@ -38,6 +38,16 @@ impl Plugin for GoPlugin {
                     default: Value::StringList(Vec::new()),
                     entity_settable: true,
                 },
+                // The variables a module's programs say their version by,
+                // each "<package>.<variable>=<what>": a string variable of
+                // a package, by its import path, and what of the release
+                // it is set to when the program is linked: version, tag,
+                // commit or unit.
+                PluginOption {
+                    name: "version",
+                    default: Value::StringList(Vec::new()),
+                    entity_settable: true,
+                },
             ],
             ..Default::default()
         }

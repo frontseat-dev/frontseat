@@ -694,11 +694,12 @@ func custom(repository string, own config.Action) (plan.Action, error) {
 		Sources:     reading.ofOwn(),
 		References:  reading.references,
 		Declared: &pluginv1.Action{
-			Name:     own.Name,
-			Command:  &pluginv1.Command{Arguments: own.Command},
-			Tools:    own.Tools,
-			Check:    own.Check,
-			Rewrites: own.Rewrites,
+			Name:      own.Name,
+			Command:   &pluginv1.Command{Arguments: own.Command},
+			Tools:     own.Tools,
+			Check:     own.Check,
+			Rewrites:  own.Rewrites,
+			Versioned: own.Versioned,
 		},
 	}
 	if len(own.Fix) > 0 {
@@ -723,6 +724,9 @@ func custom(repository string, own config.Action) (plan.Action, error) {
 		if err := pluginhost.CheckProgram(action.Declared); err != nil {
 			return plan.Action{}, &model.Mistake{File: own.File, Message: err.Error()}
 		}
+	}
+	if err := pluginhost.CheckVersion(what, action.Declared); err != nil {
+		return plan.Action{}, &model.Mistake{File: own.File, Message: err.Error()}
 	}
 	return action, nil
 }

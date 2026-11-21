@@ -132,6 +132,7 @@ memory: see its README.
 | `Plugin`, `Description`, `serve!` | what a plugin implements and says of itself |
 | `Repository` | the repository, read: files, globs, typed TOML, YAML and JSON, options, pinned tools |
 | `Action`, `Command`, `Output`, `Input` | what an action is, with constructors |
+| `version` | what a versioned action's command writes for the host to fill: a release's version, tag, commit and unit |
 | `Error` | a refusal, with its reason, file, line and help |
 | `diagnostics` | findings read from what a check printed |
 | `repository` | paths: `join`, `beneath`, `resolve`, `plain`, `literal` |

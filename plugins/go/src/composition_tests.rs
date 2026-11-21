@@ -328,3 +328,69 @@ fn served_plugin_arranges_local_dependencies_using_the_pinned_tool() {
         .arrange(&host, &unpinned, "app", &[], &[])
         .refused("unpinned-tool");
 }
+
+/// A module's programs are linked with the version where the `version`
+/// option names the variables that say it: the compile alone is given
+/// it, and where the option names none, nothing is.
+#[test]
+fn served_plugin_links_the_version_where_the_option_names_its_variables() {
+    let plugin = plugin();
+    let host = TestHost::new(files(false, true));
+    let actions = |context: &frontseat_plugin_test::TestContext| {
+        plugin.analyze(&host, context, &["app"]).answered().analyses[0].projects[0]
+            .actions
+            .clone()
+    };
+    let named = plugin.context(Profile::Production).option(
+        "version",
+        Value::StringList(vec![
+            "example.com/hello/internal/build.Version=version".to_string(),
+            "example.com/hello/internal/build.Commit=commit".to_string(),
+        ]),
+    );
+    let versioned: Vec<_> = actions(&named)
+        .into_iter()
+        .filter(|action| action.versioned)
+        .collect();
+    assert_eq!(versioned.len(), 1, "only the compile is versioned");
+    assert_eq!(versioned[0].name, "compile");
+    assert_eq!(
+        versioned[0].command.as_ref().unwrap().arguments,
+        [
+            "go",
+            "install",
+            "-trimpath",
+            "-ldflags=-X example.com/hello/internal/build.Version={frontseat.version} -X example.com/hello/internal/build.Commit={frontseat.commit}",
+            "./...",
+        ]
+    );
+    // Control: with no variable named, the compile is as it was.
+    let plain = actions(&plugin.context(Profile::Production));
+    assert!(plain.iter().all(|action| !action.versioned));
+    let compile = plain
+        .iter()
+        .find(|action| action.name == "compile")
+        .unwrap();
+    assert_eq!(
+        compile.command.as_ref().unwrap().arguments,
+        ["go", "install", "-trimpath", "./..."]
+    );
+    // A variable that is none, or set to nothing a release has, is the
+    // module's author's mistake.
+    for wrong in [
+        "example.com/hello/internal/build.Version",
+        "example.com/hello/internal/build.Version=date",
+        "Version=version",
+        "example.com/hello/internal/build.Version -X main.other=version",
+        "main.version=version,main.version=tag",
+    ] {
+        let context = plugin.context(Profile::Production).option(
+            "version",
+            Value::StringList(wrong.split(',').map(str::to_string).collect()),
+        );
+        let err = plugin
+            .analyze(&host, &context, &["app"])
+            .refused("invalid-version-variable");
+        assert_eq!(err.path, "app/go.mod", "{wrong}");
+    }
+}
