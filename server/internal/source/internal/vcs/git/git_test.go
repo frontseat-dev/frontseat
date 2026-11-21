@@ -1457,3 +1457,69 @@ func TestATagIsPushedAloneAndNeverOverAnother(t *testing.T) {
 		}
 	}
 }
+
+// Where a repository says it was brought from is read of its own file
+// and held as an address a caller names is: whoever is named before the
+// host is left out, one over ssh is pushed to over https at the same
+// host and path, and a directory of this machine is taken as it is
+// written. One with a password is refused and not repeated; so are one
+// written twice and none.
+func TestWhereARepositorySaysItWasBroughtFrom(t *testing.T) {
+	dir, _ := history(t)
+	set := func(urls ...string) {
+		t.Helper()
+		_ = exec.Command("git", "-C", dir, "remote", "remove", "origin").Run()
+		for i, url := range urls {
+			if i == 0 {
+				run(t, dir, "remote", "add", "origin", url)
+				continue
+			}
+			run(t, dir, "config", "--add", "remote.origin.url", url)
+		}
+	}
+	for written, want := range map[string]string{
+		"https://forge.example/acme/code.git":          "https://forge.example/acme/code.git",
+		"https://someone@forge.example:8443/acme/code": "https://forge.example:8443/acme/code",
+		"git@forge.example:acme/code.git":              "https://forge.example/acme/code.git",
+		"ssh://git@forge.example/acme/code":            "https://forge.example/acme/code",
+		"/srv/git/code.git":                            "/srv/git/code.git",
+	} {
+		set(written)
+		if got, err := (git.System{}).Origin(context.Background(), dir); err != nil || got != want {
+			t.Errorf("%s: %q, %v; want %q", written, got, err, want)
+		}
+	}
+	const secret = "a-token-of-this-tests"
+	for name, c := range map[string]struct {
+		urls []string
+		says string
+	}{
+		"a password":    {[]string{"https://x-access-token:" + secret + "@forge.example/acme/code"}, "written with a password"},
+		"a program":     {[]string{"ext::sh -c touch%20/tmp/ran"}, "names no repository of a host"},
+		"written twice": {[]string{"https://forge.example/acme/code", "https://elsewhere.example/acme/code"}, "several addresses"},
+		"none":          {nil, "says no origin it was brought from"},
+	} {
+		set(c.urls...)
+		got, err := (git.System{}).Origin(context.Background(), dir)
+		if err == nil || !strings.Contains(err.Error(), c.says) || strings.Contains(err.Error(), secret) || got != "" {
+			t.Errorf("%s: %q, %v; want it refused saying %q", name, got, err, c.says)
+		}
+	}
+}
+
+// Where a repository stands is read of a repository's own directory: a
+// directory within one is not one, and what git would read there is
+// the repository's above it. The control is the repository's directory.
+func TestADirectoryWithinARepositoryIsNotOne(t *testing.T) {
+	dir, _ := history(t)
+	within := filepath.Join(dir, "within")
+	if err := os.MkdirAll(within, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := (git.System{}).Standing(context.Background(), within); err == nil || !strings.Contains(err.Error(), "is within a repository, and is not one itself") {
+		t.Errorf("a directory within a repository: %v", err)
+	}
+	if _, err := (git.System{}).Standing(context.Background(), dir); err != nil {
+		t.Errorf("the repository's own directory: %v", err)
+	}
+}

@@ -383,6 +383,47 @@ the change that fixes it.
   nothing a publish started outlives it, and the daemon's flag have no
   test; a token a tool prints changed, as encoded, is not left out; no
   spec publishes against the local stack.
+- A job releases from its own checkout. A daemon may be given a checkout
+  (`frontseatd --checkout`, with `--name`, by which the command line
+  beside it finds it): one repository, of no name, in its workspace's
+  directory, which it builds and releases from as it is and brings
+  nothing into. It plans from the checkout's history, tags there, and
+  pushes each tag to where the checkout says it was brought from: its
+  `origin`, read of its own file and held as an address a caller names
+  is, so one with a password is refused and never repeated, one over
+  ssh is pushed to over https, and whoever it names before the host is
+  left out. What else the checkout says of itself is input from outside,
+  held as a repository the daemon brought is: another address to push
+  to and a hook are not followed. A checkout that could not be pushed
+  from is not planned from, so that nothing is built and tagged that
+  cannot be sent: one that keeps a credential of its own for an address,
+  as a job's checkout does unless it is made with `persist-credentials:
+  false`, which the refusal says; one of no origin; one of part of its
+  history, which says to bring all of it; and a directory within a
+  repository. How the push is let in the daemon is told as a sandbox's
+  is, by the settings its environment counts for git. Held by:
+  `TestADaemonGivenACheckoutReleasesFromIt`,
+  `TestWhatAGivenCheckoutSaysOfItselfIsNotFollowed` (git asked plainly
+  follows each, beside it),
+  `TestACheckoutThatCouldNotBePushedFromIsNotPlannedFrom`,
+  `TestACheckoutOfPartOfItsHistoryIsNotReleasedFrom`,
+  `TestWhereARepositorySaysItWasBroughtFrom`,
+  `TestADirectoryWithinARepositoryIsNotOne` and
+  `TestADaemonGivenACheckoutIsNamed`. Not held: where the tag goes is
+  what the checkout says, so whoever makes the checkout says where, and
+  to what the credential is presented is whatever the job's environment
+  told git, which nothing here scopes; an origin that is a directory is
+  pushed to as it is written, and its own hooks run as the daemon. A
+  checkout made as `actions/checkout` makes one records no default
+  branch of its remote, so a branch that is no release branch releases
+  nothing there until the job records it
+  (`git symbolic-ref refs/remotes/origin/HEAD`); one that stands on no
+  branch, as a pull request's does, is refused; one of all its history
+  and none of its remote's tags plans a first release, and learns of it
+  at the push. No daemon was started with the flag by a test, none ran
+  in a job, and no push from a given checkout was made over http with a
+  credential the environment told. What a release says of a checkout
+  names it by its empty name.
 - A release ships what its packages leave. An action says it makes
   what its project ships (the contract's `Action.package`; `package:
   true` on a Component's own action), and each file it leaves is an

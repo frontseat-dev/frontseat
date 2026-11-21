@@ -234,3 +234,20 @@ func TestTheDaemonSaysWhichReleaseItIs(t *testing.T) {
 		t.Errorf("a released daemon said %q", said)
 	}
 }
+
+// A daemon given a checkout is named, or the command line beside it
+// finds no daemon: one given a checkout and no name is refused. The
+// controls are one given both, and a daemon given no checkout.
+func TestADaemonGivenACheckoutIsNamed(t *testing.T) {
+	if err := handed(true, ""); err == nil || !strings.Contains(err.Error(), "--checkout was given with no --name") {
+		t.Errorf("a daemon given a checkout and no name: %v", err)
+	}
+	for _, control := range []struct {
+		checkout bool
+		name     string
+	}{{true, "acme/code"}, {false, "payments"}, {false, ""}} {
+		if err := handed(control.checkout, control.name); err != nil {
+			t.Errorf("checkout %v, workspace %q: refused, %v", control.checkout, control.name, err)
+		}
+	}
+}

@@ -42,6 +42,17 @@ func releasingClients(t *testing.T, executor exec.Executor, branch string, writt
 // the first of them: the fourth is the GitHub plugin.
 func releasingWith(t *testing.T, executor exec.Executor, branch string, written func(remote string), plugins int) (clients, string) {
 	t.Helper()
+	remote := releasingRemote(t, written)
+	workspace := t.TempDir()
+	c := serveFirst(t, configuration{Workspace: workspace, Executor: executor}, plugins)
+	populated(t, c, &workspacev1.WorkspaceSpec{Repositories: []*workspacev1.RepositorySource{{Remote: remote, Ref: branch}}})
+	return c, filepath.Join(workspace, "services")
+}
+
+// releasingRemote is a repository to release from: two Go modules, each
+// a Component, committed on main with a branch release/1.0 beside it.
+func releasingRemote(t *testing.T, written func(remote string)) string {
+	t.Helper()
 	remote := filepath.Join(t.TempDir(), "services")
 	if err := os.MkdirAll(remote, 0o755); err != nil {
 		t.Fatal(err)
@@ -60,10 +71,7 @@ func releasingWith(t *testing.T, executor exec.Executor, branch string, written 
 	commits.Git(t, remote, "add", "--all")
 	commits.Git(t, remote, "commit", "--quiet", "-m", "feat: begin")
 	commits.Git(t, remote, "branch", "release/1.0")
-	workspace := t.TempDir()
-	c := serveFirst(t, configuration{Workspace: workspace, Executor: executor}, plugins)
-	populated(t, c, &workspacev1.WorkspaceSpec{Repositories: []*workspacev1.RepositorySource{{Remote: remote, Ref: branch}}})
-	return c, filepath.Join(workspace, "services")
+	return remote
 }
 
 func releaseOf(names ...string) *buildv1.PlanReleaseRequest {

@@ -526,7 +526,7 @@ func (rs *releases) publish(ctx context.Context, m *made, planned *release.Plann
 			}
 			said := &buildv1.ReleasePublished{Label: action.Label.String()}
 			var err error
-			if of.Remote, err = runs.workspace.Remote(repository); err == nil {
+			if of.Remote, err = runs.workspace.Remote(ctx, repository); err == nil {
 				err = runner.Run(ctx, with.snapshot, action, of)
 			}
 			if err != nil && ctx.Err() != nil {

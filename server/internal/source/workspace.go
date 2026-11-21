@@ -83,12 +83,17 @@ func Open(root string, mounted bool, system vcs.System) (*Workspace, error) {
 // repositories, and the directory it is in. A repository is named as the
 // workspace holds it, and no other directory is asked of.
 func (w *Workspace) history(repository string) (vcs.History, string, error) {
-	if w.mounted {
-		return nil, "", errors.New("the history of a directory the daemon was given is not read yet; release from a workspace the daemon brought")
-	}
 	told, ok := w.system.(vcs.History)
 	if !ok {
 		return nil, "", errors.New("the workspace's version control system tells no history")
+	}
+	// A checkout the daemon was given is one repository, of no name,
+	// in the workspace's own directory.
+	if w.mounted {
+		if repository != "" {
+			return nil, "", fmt.Errorf("the workspace is a checkout the daemon was given, and holds no repository %q", repository)
+		}
+		return told, w.root, nil
 	}
 	held, _ := w.Now()
 	for _, each := range held.Repositories {
@@ -105,7 +110,14 @@ func (w *Workspace) Standing(ctx context.Context, repository string) (vcs.Standi
 	if err != nil {
 		return vcs.Standing{}, err
 	}
-	return told.Standing(ctx, directory)
+	standing, err := told.Standing(ctx, directory)
+	// A checkout the daemon was given says itself where its tags are
+	// pushed: one that says nowhere a tag can be pushed is not planned
+	// from, so that nothing is built and tagged that cannot be sent.
+	if err == nil && w.mounted {
+		_, err = told.Origin(ctx, directory)
+	}
+	return standing, err
 }
 
 // Tags returns the tags of one of the workspace's repositories.
@@ -165,18 +177,25 @@ func (w *Workspace) PushTag(ctx context.Context, repository, name string) error 
 	if err != nil {
 		return err
 	}
-	held, _ := w.Now()
-	for _, each := range held.Repositories {
-		if each.Name == repository {
-			return told.PushTag(ctx, directory, each.Remote, name)
-		}
+	remote, err := w.Remote(ctx, repository)
+	if err != nil {
+		return err
 	}
-	return fmt.Errorf("the workspace holds no repository %q", repository)
+	return told.PushTag(ctx, directory, remote, name)
 }
 
 // Remote is where one of the workspace's repositories was brought from,
 // as its version control system writes one.
-func (w *Workspace) Remote(repository string) (string, error) {
+func (w *Workspace) Remote(ctx context.Context, repository string) (string, error) {
+	// A checkout the daemon was given was brought by another, and says
+	// from where itself.
+	if w.mounted {
+		told, directory, err := w.history(repository)
+		if err != nil {
+			return "", err
+		}
+		return told.Origin(ctx, directory)
+	}
 	held, _ := w.Now()
 	for _, each := range held.Repositories {
 		if each.Name == repository {

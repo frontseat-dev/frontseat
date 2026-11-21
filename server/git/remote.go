@@ -30,7 +30,7 @@ func Name(remote string) string {
 // is written.
 var (
 	errSecret = errors.New("written with a password, which is not sent on and not repeated here: write the remote without it")
-	errLocal  = errors.New("a directory of this machine, which no sandbox is given")
+	ErrLocal  = errors.New("a directory of this machine, which no sandbox is given")
 	errUnread = errors.New("written in a way that names no repository of a host")
 )
 
@@ -76,7 +76,7 @@ func Over(written string) (Address, error) {
 		case "ssh", "git+ssh", "ssh+git":
 			scheme, converted = "https", true
 		case "file":
-			return Address{}, errLocal
+			return Address{}, ErrLocal
 		default:
 			return Address{}, errUnread
 		}
@@ -95,7 +95,7 @@ func Over(written string) (Address, error) {
 			if strings.Contains(written, ":") && !strings.HasPrefix(written, "/") && !strings.HasPrefix(written, ".") {
 				return Address{}, errUnread
 			}
-			return Address{}, errLocal
+			return Address{}, ErrLocal
 		}
 		at, err := giturls.Parse(written)
 		if err != nil || at.Scheme != "ssh" || at.Hostname() != shape[1] || strings.TrimLeft(at.Path, "/") != strings.TrimLeft(shape[2], "/") {
