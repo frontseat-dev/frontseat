@@ -21,9 +21,12 @@ jobs:
       GRID_ASSETS: remote-asset.frontseat.svc.cluster.local:50055
       GRID_CA: /etc/fleet-ca/ca.crt
       GRID_INSTANCE: ${{ github.ref_protected && 'frontseat/p' || 'frontseat/p/b' }}
-      # What the pool that takes frontseat's actions advertises as its
-      # container-image: the two say the same, or no worker takes an action.
-      GRID_IMAGE: docker://ghcr.io/frontseat-dev/buildbarn-runner:0.10.8@sha256:b32bc094fd2292065a2e4d5bb16d30e590f138b0e1c1c25cbd3d15bc43f42daa
+      # The name of the workers that take frontseat's actions, which they
+      # advertise as their container-image (frontseat-enterprise, the
+      # Buildbarn chart's worker.frontseat.containerImage): compared as
+      # text, and no image anyone pulls. The two say the same, or no
+      # worker takes an action.
+      GRID_WORKERS: docker://frontseat.dev/workers/v1
       MISE_YES: "1"
     steps:
       # All of the history, since a release is planned from it, and no
@@ -91,7 +94,7 @@ jobs:
             --plugins dist/plugins \
             --grid "$GRID" --instance "$GRID_INSTANCE" --assets "$GRID_ASSETS" \
             --grid-tls --grid-ca "$GRID_CA" --grid-token "$GRID_TOKEN" \
-            --platform OSFamily=linux --platform ISA=x86-64 --platform "container-image=$GRID_IMAGE" \
+            --platform OSFamily=linux --platform ISA=x86-64 --platform "container-image=$GRID_WORKERS" \
             --publish-environment GH_TOKEN \
             > "$RUNNER_TEMP/frontseatd.log" 2>&1 &
           daemon=$!
