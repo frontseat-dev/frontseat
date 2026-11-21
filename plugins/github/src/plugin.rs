@@ -50,6 +50,10 @@ impl Plugin for GitHubPlugin {
             return Ok(Analysis::default());
         }
         let manifest = LISTED.to_string();
+        // Its tool is pinned, or the repository is refused here, before
+        // anything is built or tagged, as every plugin refuses one that
+        // pins none of what its actions run.
+        repo.pinned(TOOL, &manifest)?;
         let mut arguments: Vec<String> = CREATE.iter().map(|each| each.to_string()).collect();
         arguments.push("--prerelease={frontseat.prerelease}".into());
         Ok(Analysis {
@@ -76,7 +80,7 @@ mod tests {
 
     fn projects(files: Files, roots: &[&str]) -> Vec<Project> {
         let plugin = TestPlugin::new(crate::served());
-        let context = plugin.context(Profile::Production);
+        let context = plugin.context(Profile::Production).tool("gh", "2.105.0");
         plugin
             .analyze(&TestHost::new(files), &context, roots)
             .answered()
@@ -84,6 +88,19 @@ mod tests {
             .into_iter()
             .flat_map(|analysis| analysis.projects)
             .collect()
+    }
+
+    /// A repository that lists it and pins no gh is refused when it is
+    /// analysed, before anything is built or tagged, saying what to pin.
+    #[test]
+    fn a_repository_that_pins_no_gh_is_refused_when_it_is_analysed() {
+        let plugin = TestPlugin::new(crate::served());
+        let context = plugin.context(Profile::Production);
+        let files = Files::new().with("frontseat.yaml", "plugins:\n  github: {}\n");
+        let refused = plugin
+            .analyze(&TestHost::new(files), &context, &[""])
+            .refused("unpinned-tool");
+        assert!(format!("{refused:?}").contains("pins no gh"), "{refused:?}");
     }
 
     /// A repository that lists the plugin has one project, at its root,

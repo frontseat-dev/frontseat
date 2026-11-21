@@ -9,6 +9,7 @@ import (
 
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/exec"
+	"github.com/frontseat-dev/frontseat/server/testsupport/testpins"
 )
 
 // bringing is a grid that leaves files, and brings one where the daemon
@@ -202,17 +203,21 @@ func TestAnArtifactAPublishCannotBeGivenFailsTheReleaseBeforeItTags(t *testing.T
 
 // The GitHub plugin's publish is run by a release for the unit it
 // tagged, as any action that publishes is: a repository that lists the
-// plugin is published with GitHub's
-// command line, which this repository pins nothing of, so the publish
-// says the tool is not pinned, on the unit, and the tag stays pushed.
-// No build runs it. The control is the repository without the plugin.
+// plugin and pins GitHub's command line is published with it. The grid
+// of this test holds no tool, so the publish fails for want of gh, on
+// the unit, and the tag stays pushed. No build runs it. A repository
+// that lists the plugin and pins no gh is refused before anything is
+// built or tagged; the control is the repository without the plugin.
 func TestTheGitHubPluginsPublishIsRunByARelease(t *testing.T) {
-	listing := func(plugins string) func(remote string) {
+	listing := func(plugins string, pinned bool) func(remote string) {
 		return func(remote string) {
+			if pinned {
+				testpins.Own(t, remote)
+			}
 			write(t, remote, "frontseat.yaml", "plugins:\n  go: {}\n  backstage: {}\n  release: {}\n"+plugins)
 		}
 	}
-	c, clone := releasingWith(t, bringing{}, "release/1.0", listing("  github: {}\n"), 4)
+	c, clone := releasingWith(t, bringing{}, "release/1.0", listing("  github: {}\n", true), 4)
 	if ended := wait(t, c.runs, create(t, c.runs).GetId()); ended.GetExitCode().GetCode() != 0 {
 		t.Fatalf("a build ended %s (%s)", ended.GetExitCode().GetName(), ended.GetFailure())
 	}
@@ -228,7 +233,11 @@ func TestTheGitHubPluginsPublishIsRunByARelease(t *testing.T) {
 	if tagsOf(t, remoteOf(t, clone)) != "greet/v1.0.0" {
 		t.Errorf("the remote has the tags %q", tagsOf(t, remoteOf(t, clone)))
 	}
-	control, _ := releasingClients(t, bringing{}, "release/1.0", listing(""))
+	unpinned, bare := releasingWith(t, bringing{}, "release/1.0", listing("  github: {}\n", false), 4)
+	if ended := wait(t, unpinned.runs, create(t, unpinned.runs).GetId()); ended.GetExitCode().GetCode() == 0 || !strings.Contains(ended.GetFailure(), "pins no gh") || tagsOf(t, bare) != "" {
+		t.Errorf("a build of a repository that pins no gh ended %s (%s), with the tags %q", ended.GetExitCode().GetName(), ended.GetFailure(), tagsOf(t, bare))
+	}
+	control, _ := releasingClients(t, bringing{}, "release/1.0", listing("", false))
 	if _, plain := releasedAlone(t, control, "greet"); len(plain.GetUnits()[0].GetPublished()) != 0 {
 		t.Errorf("without the plugin the unit says it was published as %v", plain.GetUnits()[0].GetPublished())
 	}
