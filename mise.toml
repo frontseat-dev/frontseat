@@ -4,6 +4,9 @@
 # apko builds images from a config and its lock (plugins/apko).
 apko = "1.4.18"
 buf = "1.75.0"
+# gh is GitHub's own command line: what publishes a release there
+# (plugins/github), run by a release where the daemon is.
+gh = "2.105.0"
 go = "1.27.3"
 protoc-gen-connect-go = "2.0.2"
 protoc-gen-go = "1.36.12"

@@ -199,3 +199,37 @@ func TestAnArtifactAPublishCannotBeGivenFailsTheReleaseBeforeItTags(t *testing.T
 		t.Errorf("the control shipped %v", shipped.GetUnits()[0].GetArtifacts())
 	}
 }
+
+// The GitHub plugin's publish is run by a release for the unit it
+// tagged, as any action that publishes is: a repository that lists the
+// plugin is published with GitHub's
+// command line, which this repository pins nothing of, so the publish
+// says the tool is not pinned, on the unit, and the tag stays pushed.
+// No build runs it. The control is the repository without the plugin.
+func TestTheGitHubPluginsPublishIsRunByARelease(t *testing.T) {
+	listing := func(plugins string) func(remote string) {
+		return func(remote string) {
+			write(t, remote, "frontseat.yaml", "plugins:\n  go: {}\n  backstage: {}\n  release: {}\n"+plugins)
+		}
+	}
+	c, clone := releasingWith(t, bringing{}, "release/1.0", listing("  github: {}\n"), 4)
+	if ended := wait(t, c.runs, create(t, c.runs).GetId()); ended.GetExitCode().GetCode() != 0 {
+		t.Fatalf("a build ended %s (%s)", ended.GetExitCode().GetName(), ended.GetFailure())
+	}
+	s := &releaseService{graph: c.daemon.releases.graph, releases: c.daemon.releases}
+	release := releaseEnded(t, s, releaseBegun(t, s, "greet").GetId())
+	if release.GetState() != buildv1.Release_STATE_FAILED || len(release.GetUnits()) != 1 {
+		t.Fatalf("the release ended %v (%s) with %v", release.GetState(), release.GetFailure(), release.GetUnits())
+	}
+	published := release.GetUnits()[0].GetPublished()
+	if len(published) != 1 || published[0].GetLabel() != "//services:github.publish/release" || !strings.Contains(published[0].GetFailure(), "gh") {
+		t.Errorf("the unit says it was published as %v", published)
+	}
+	if tagsOf(t, remoteOf(t, clone)) != "greet/v1.0.0" {
+		t.Errorf("the remote has the tags %q", tagsOf(t, remoteOf(t, clone)))
+	}
+	control, _ := releasingClients(t, bringing{}, "release/1.0", listing(""))
+	if _, plain := releasedAlone(t, control, "greet"); len(plain.GetUnits()[0].GetPublished()) != 0 {
+		t.Errorf("without the plugin the unit says it was published as %v", plain.GetUnits()[0].GetPublished())
+	}
+}

@@ -32,16 +32,17 @@ import (
 var module, catalog []byte
 
 // strategy is the release plugin, which a daemon that releases has.
-var strategy []byte
+var strategy, forge []byte
 
 func TestMain(m *testing.M) {
 	module = testmodule.PluginOrExit("go")
 	catalog = testmodule.PluginOrExit("backstage")
 	strategy = testmodule.PluginOrExit("release")
+	forge = testmodule.PluginOrExit("github")
 	os.Exit(m.Run())
 }
 
-// loaded are the Go, Backstage and release plugins, compiled once for
+// loaded are the Go, Backstage, release and GitHub plugins, compiled once for
 // every daemon the tests of this package start: a daemon closes nothing
 // of a plugin, and a plugin is instantiated anew for each call. Compiled
 // for each daemon, as they were, they cost about 3.6 s a test under the
@@ -54,7 +55,7 @@ var loaded = sync.OnceValues(func() ([]*pluginhost.Plugin, error) {
 		return nil, err
 	}
 	var plugins []*pluginhost.Plugin
-	for _, each := range [][]byte{module, catalog, strategy} {
+	for _, each := range [][]byte{module, catalog, strategy, forge} {
 		plugin, err := host.Load(ctx, each)
 		if err != nil {
 			return nil, err

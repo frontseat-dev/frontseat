@@ -30,6 +30,7 @@ func pluginFixtures(t *testing.T) map[string]conformance.Fixture {
 		"npm":       npmFixture(),
 		"jest":      jestFixture(),
 		"release":   releaseFixture(),
+		"github":    githubFixture(),
 		"go": {
 			Description: &pluginv1.DescribeResponse{Name: "go", Abi: 24, Interests: []string{"**/go.mod", "**/go.sum", "**/*.go", "!**/testdata/**"}, Options: []*pluginv1.Option{{Name: "test-timeout", Kind: pluginv1.Option_KIND_STRING, Default: &typev1.OptionValue{Value: &typev1.OptionValue_StringValue{StringValue: "10m"}}, EntitySettable: true}, {Name: "test-shards", Kind: pluginv1.Option_KIND_INT, Default: &typev1.OptionValue{Value: &typev1.OptionValue_IntValue{IntValue: 1}}, EntitySettable: true}, {Name: "tags", Kind: pluginv1.Option_KIND_STRING_LIST, Default: &typev1.OptionValue{Value: &typev1.OptionValue_StringListValue{StringListValue: &typev1.OptionValue_StringList{}}}, EntitySettable: true}, {Name: "version", Kind: pluginv1.Option_KIND_STRING_LIST, Default: &typev1.OptionValue{Value: &typev1.OptionValue_StringListValue{StringListValue: &typev1.OptionValue_StringList{}}}, EntitySettable: true}}},
 			Name:        "go", Source: fixtureSource(t, "go", "valid"),
@@ -185,12 +186,23 @@ func fixtureSource(t testing.TB, plugin, name string) files {
 }
 func TestConformanceInventoryRejectsMissingPluginsAndMethods(t *testing.T) {
 	fixtures := pluginFixtures(t)
-	if err := conformance.ValidateFixtures([]string{"go", "backstage", "buf", "cargo", "release", "apko", "container", "postgres", "npm", "jest"}, fixtures); err != nil {
+	if err := conformance.ValidateFixtures([]string{"go", "backstage", "buf", "cargo", "release", "apko", "container", "postgres", "npm", "jest", "github"}, fixtures); err != nil {
 		t.Fatal(err)
 	}
 	for _, names := range [][]string{{"go", "unregistered"}, {"unregistered"}, nil} {
 		if err := conformance.ValidateFixtures(names, fixtures); err == nil {
 			t.Fatalf("accepted plugin inventory %v", names)
+		}
+	}
+	// A plugin that reads no file's content has no malformed source; one
+	// that reads one must have, and neither names an error without one.
+	unread := fixtures["github"]
+	unread.Reads = append(unread.Reads, conformance.Observation{Import: "read", Argument: "frontseat.yaml", Found: true})
+	named := fixtures["github"]
+	named.ErrorCode = "INVALID_MANIFEST"
+	for what, f := range map[string]conformance.Fixture{"a read with no malformed source": unread, "an error with no malformed source": named} {
+		if err := conformance.ValidateFixtures([]string{"github"}, map[string]conformance.Fixture{"github": f}); err == nil || !strings.Contains(err.Error(), "Analyze") {
+			t.Fatalf("%s was accepted, or refused otherwise: %v", what, err)
 		}
 	}
 	for _, method := range []string{"Describe", "Analyze", "Arrange", "Arrange error"} {
@@ -296,4 +308,23 @@ func TestAStrategyFixtureThatProvesTooLittleIsRefused(t *testing.T) {
 			t.Errorf("a strategy fixture with %s was accepted", name)
 		}
 	}
+}
+
+// githubFixture is the GitHub plugin's: found by the file that lists
+// it being there, which it never reads, it has one project at the
+// repository's root, whose one action publishes.
+func githubFixture() conformance.Fixture {
+	context := &pluginv1.Context{Profile: pluginv1.Profile_PROFILE_PRODUCTION}
+	fixture := arrangingNothing(context, conformance.Fixture{
+		Name: "github", Description: &pluginv1.DescribeResponse{Name: "github", Abi: 24, Interests: []string{"frontseat.yaml", "!**/testdata/**"}},
+		Source: files{"frontseat.yaml": "plugins:\n  github: {}\n"}, Absent: files{},
+		Analyze: &pluginv1.AnalyzeRequest{Context: context, Roots: []string{""}},
+		Projects: []*pluginv1.Project{{Kind: "github-repository", Name: "github", Manifest: "frontseat.yaml", Actions: []*pluginv1.Action{{
+			Name: "publish/release", Tools: []string{"gh"}, Publish: &pluginv1.Publish{Environment: []string{"GH_TOKEN"}},
+			Command: &pluginv1.Command{Arguments: []string{"gh", "release", "create", "{frontseat.tag}", "{frontseat.artifacts}", "--repo", "{frontseat.remote}", "--verify-tag", "--title", "{frontseat.tag}", "--notes-file", "{frontseat.notes}", "--prerelease={frontseat.prerelease}"}},
+		}}}},
+		Reads: []conformance.Observation{{Import: "glob", Argument: "frontseat.yaml", Found: true}},
+	})
+	fixture.Arrange.Root, fixture.InvalidArrange.Root = "", ""
+	return fixture
 }

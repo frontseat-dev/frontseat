@@ -13,7 +13,7 @@ spec:
   # plane, in this Component too, alone asks.
   providesApis: [api:build-api, api:workspace-api, api:credential-api, api:sandbox-api, api:source-api]
   consumesApis: [api:plugin-api]
-  dependsOn: [component:api, component:apko-plugin, component:backstage-plugin, component:buf-plugin, component:cargo-plugin, component:container-plugin, component:go-plugin, component:go-sdk, component:jest-plugin, component:local, component:npm-plugin, component:plugin-sdk, component:postgres-plugin, component:release-plugin]
+  dependsOn: [component:api, component:apko-plugin, component:backstage-plugin, component:buf-plugin, component:cargo-plugin, component:container-plugin, component:github-plugin, component:go-plugin, component:go-sdk, component:jest-plugin, component:local, component:npm-plugin, component:plugin-sdk, component:postgres-plugin, component:release-plugin]
   frontseat:
     # Its programs are shipped for where the daemon and the workers run,
     # and for where a person starts the local stack: each program and
@@ -57,6 +57,7 @@ spec:
         - //plugins/buf:cargo.wasm
         - //plugins/cargo:cargo.wasm
         - //plugins/container:cargo.wasm
+        - //plugins/github:cargo.wasm
         - //plugins/go:cargo.wasm
         - //plugins/jest:cargo.wasm
         - //plugins/npm:cargo.wasm

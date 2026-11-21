@@ -82,6 +82,17 @@ impl Action {
         self
     }
 
+    /// The same action, as one that publishes what a release shipped:
+    /// no build runs it, and a release does, where the daemon is, once
+    /// its tags are pushed. `environment` names the variables of where
+    /// the daemon runs that its tool reads a token from, as `GH_TOKEN`.
+    pub fn publishes<V: Into<String>>(mut self, environment: impl IntoIterator<Item = V>) -> Self {
+        self.publish = Some(crate::wire::Publish {
+            environment: environment.into_iter().map(Into::into).collect(),
+        });
+        self
+    }
+
     /// The same action, as a check: it says whether the project is as it
     /// should be, and what it found ([`crate::Plugin::report`]).
     pub fn check(mut self) -> Self {

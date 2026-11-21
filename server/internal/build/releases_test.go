@@ -35,6 +35,13 @@ func releasingDaemon(t *testing.T, executor exec.Executor) (*releaseService, *Da
 // given, writes more into the remote before its first commit.
 func releasingClients(t *testing.T, executor exec.Executor, branch string, written func(remote string)) (clients, string) {
 	t.Helper()
+	return releasingWith(t, executor, branch, written, 3)
+}
+
+// releasingWith is releasingClients with so many of the plugins loaded,
+// the first of them: the fourth is the GitHub plugin.
+func releasingWith(t *testing.T, executor exec.Executor, branch string, written func(remote string), plugins int) (clients, string) {
+	t.Helper()
 	remote := filepath.Join(t.TempDir(), "services")
 	if err := os.MkdirAll(remote, 0o755); err != nil {
 		t.Fatal(err)
@@ -54,7 +61,7 @@ func releasingClients(t *testing.T, executor exec.Executor, branch string, writt
 	commits.Git(t, remote, "commit", "--quiet", "-m", "feat: begin")
 	commits.Git(t, remote, "branch", "release/1.0")
 	workspace := t.TempDir()
-	c := serveAs(t, configuration{Workspace: workspace, Executor: executor})
+	c := serveFirst(t, configuration{Workspace: workspace, Executor: executor}, plugins)
 	populated(t, c, &workspacev1.WorkspaceSpec{Repositories: []*workspacev1.RepositorySource{{Remote: remote, Ref: branch}}})
 	return c, filepath.Join(workspace, "services")
 }

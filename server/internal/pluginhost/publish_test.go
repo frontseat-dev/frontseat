@@ -92,3 +92,14 @@ func TestAnActionThatPublishesIsThatAlone(t *testing.T) {
 		t.Errorf("an action that names what a publish is given: %v", err)
 	}
 }
+
+// What publishes may be named "publish", a slash and what it publishes
+// to, and only what publishes is named so.
+func TestOnlyWhatPublishesIsNamedPublishAndWhatItPublishesTo(t *testing.T) {
+	if err := checkNamed(publishing(func(*pluginv1.Action) {})); err != nil {
+		t.Errorf("publish/release, of what publishes: %v", err)
+	}
+	refusedAs(t, "no publish", checkNamed(&pluginv1.Action{Name: "publish/release"}), "is named as what publishes, and publishes nothing")
+	refusedAs(t, "not a name", checkNamed(publishing(func(a *pluginv1.Action) { a.Name = "publish/To_Here" })), "is not publish, a slash and what it publishes to")
+	refusedAs(t, "two parts", checkNamed(publishing(func(a *pluginv1.Action) { a.Name = "publish/a/b" })), "is not publish, a slash and what it publishes to")
+}

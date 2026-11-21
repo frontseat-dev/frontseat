@@ -259,6 +259,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "frontseat-plugin-github"
+version = "0.0.0"
+dependencies = [
+ "frontseat-plugin",
+ "frontseat-plugin-test",
+]
+
+[[package]]
 name = "frontseat-plugin-go"
 version = "0.0.0"
 dependencies = [
