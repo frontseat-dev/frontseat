@@ -27,8 +27,12 @@ together. A domain that does not is released as each of its systems.
 
 The release is planned, what moves is built for production, and each
 unit that moves is tagged in the workspace once that build has passed.
-The tags are not pushed. The command follows the build and exits 0 where
-the release ended tagged, and 1 where it failed.
+Each tag is then pushed to where its repository was brought from, the
+tag alone. A workspace that may not push (one opened without --push)
+keeps its tags, and the release says it is unpublished and why; made
+again where it may, it pushes them. The command follows the build and
+exits 0 where the release ended with its tags pushed, or with nothing
+to tag, and 1 where it failed or ended unpublished.
 
 With --plan, the release is of the plan that etag names, as ship plan
 printed it, and is refused where the workspace has moved since.
@@ -77,7 +81,10 @@ An entity named plan is written in full, component:plan.`,
 			return err
 		}
 		printer.Release(ended)
-		if ended.GetState() == buildv1.Release_STATE_FAILED {
+		// A release that failed, and one whose tags did not all leave
+		// the workspace, did not do what was asked: whatever runs the
+		// command is told so.
+		if state := ended.GetState(); state == buildv1.Release_STATE_FAILED || state == buildv1.Release_STATE_UNPUBLISHED {
 			exitCode = 1
 		}
 		return nil

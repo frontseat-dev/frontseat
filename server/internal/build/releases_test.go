@@ -107,7 +107,7 @@ func TestAReleaseBuildsThenTagsWhatMoves(t *testing.T) {
 	if begun.GetBuildId() == "" || begun.GetBuildId() != release.GetBuildId() {
 		t.Errorf("the release was made with the run %q and ended with %q; want the build's run from the first", begun.GetBuildId(), release.GetBuildId())
 	}
-	if release.GetState() != buildv1.Release_STATE_UNPUBLISHED || release.GetBuildId() == "" || tagsOf(t, clone) != "greet/v1.0.0" {
+	if release.GetState() != buildv1.Release_STATE_SUCCEEDED || release.GetBuildId() == "" || tagsOf(t, clone) != "greet/v1.0.0" {
 		t.Fatalf("the release ended %v (%s), run %q, tags %q", release.GetState(), release.GetFailure(), release.GetBuildId(), tagsOf(t, clone))
 	}
 	if at := commits.Git(t, clone, "rev-parse", "greet/v1.0.0^{commit}"); at != commits.Git(t, clone, "rev-parse", "HEAD") || release.GetUnits()[0].GetTags()[0].GetCommit() != at {
@@ -123,7 +123,7 @@ func TestABuildThatFailsTagsNothing(t *testing.T) {
 	if failed.GetState() != buildv1.Release_STATE_FAILED || !strings.Contains(failed.GetFailure(), "the production build "+failed.GetBuildId()) || tagsOf(t, clone) != "" {
 		t.Errorf("a release whose build failed ended %v (%s) with the tags %q", failed.GetState(), failed.GetFailure(), tagsOf(t, clone))
 	}
-	if passed := releaseEnded(t, s, releaseBegun(t, s, "log").GetId()); passed.GetState() != buildv1.Release_STATE_UNPUBLISHED || tagsOf(t, clone) != "log/v1.0.0" {
+	if passed := releaseEnded(t, s, releaseBegun(t, s, "log").GetId()); passed.GetState() != buildv1.Release_STATE_SUCCEEDED || tagsOf(t, clone) != "log/v1.0.0" {
 		t.Errorf("the control ended %v (%s) with the tags %q", passed.GetState(), passed.GetFailure(), tagsOf(t, clone))
 	}
 }
@@ -159,10 +159,10 @@ func TestADaemonMakesOneReleaseAtATime(t *testing.T) {
 		t.Errorf("a release that has not built wrote the tags %q", tagsOf(t, clone))
 	}
 	close(gate)
-	if release := releaseEnded(t, s, first.GetId()); release.GetState() != buildv1.Release_STATE_UNPUBLISHED {
+	if release := releaseEnded(t, s, first.GetId()); release.GetState() != buildv1.Release_STATE_SUCCEEDED {
 		t.Fatalf("the release ended %v: %s", release.GetState(), release.GetFailure())
 	}
-	if after := releaseEnded(t, s, releaseBegun(t, s, "log").GetId()); after.GetState() != buildv1.Release_STATE_UNPUBLISHED || tagsOf(t, clone) != "greet/v1.0.0 log/v1.0.0" {
+	if after := releaseEnded(t, s, releaseBegun(t, s, "log").GetId()); after.GetState() != buildv1.Release_STATE_SUCCEEDED || tagsOf(t, clone) != "greet/v1.0.0 log/v1.0.0" {
 		t.Errorf("the next release ended %v (%s) with the tags %q", after.GetState(), after.GetFailure(), tagsOf(t, clone))
 	}
 }
@@ -251,7 +251,7 @@ func TestASourceThatMovedWhileItWasBuiltIsNotTagged(t *testing.T) {
 func TestAPlanOfSeveralUnitsIsCompletedByReleasingItAgain(t *testing.T) {
 	s, _, clone := releasingDaemon(t, scripted{})
 	first := releaseEnded(t, s, releaseBegun(t, s, "greet", "log").GetId())
-	if first.GetState() != buildv1.Release_STATE_UNPUBLISHED || tagsOf(t, clone) != "greet/v1.0.0 log/v1.0.0" {
+	if first.GetState() != buildv1.Release_STATE_SUCCEEDED || tagsOf(t, clone) != "greet/v1.0.0 log/v1.0.0" {
 		t.Fatalf("the release ended %v (%s) with the tags %q", first.GetState(), first.GetFailure(), tagsOf(t, clone))
 	}
 	again := releaseEnded(t, s, releaseBegun(t, s, "greet", "log").GetId())
@@ -301,5 +301,51 @@ func TestWhatABuildReadsThatIsNotCommittedIsRefused(t *testing.T) {
 	commits.Git(t, clone, "commit", "--quiet", "-m", "chore: ignore what is generated")
 	if err := create(); err != nil {
 		t.Errorf("a file frontseat is told to ignore refused the release: %v", err)
+	}
+}
+
+// remoteOf is where a daemon's clone was brought from.
+func remoteOf(t *testing.T, clone string) string {
+	t.Helper()
+	return commits.Git(t, clone, "config", "--get", "remote.origin.url")
+}
+
+// A release sends each tag it writes to where its repository was
+// brought from, the tag alone, and has then nothing left to do. A tag
+// that cannot be sent, as one the remote has at another commit, leaves
+// the release unpublished, saying which and why, with its tag in the
+// workspace; and the release made again, once it can be, sends it.
+func TestAReleasePushesItsTagsAndSaysWhichItCouldNot(t *testing.T) {
+	s, _, clone := releasingDaemon(t, scripted{})
+	remote := remoteOf(t, clone)
+	head := commits.Git(t, clone, "rev-parse", "HEAD")
+	release := releaseEnded(t, s, releaseBegun(t, s, "greet").GetId())
+	if release.GetState() != buildv1.Release_STATE_SUCCEEDED || release.GetFailure() != "" {
+		t.Fatalf("the release ended %v (%s)", release.GetState(), release.GetFailure())
+	}
+	if at := commits.Git(t, remote, "rev-parse", "greet/v1.0.0^{commit}"); at != head || tagsOf(t, remote) != "greet/v1.0.0" {
+		t.Errorf("the remote has greet/v1.0.0 at %s, and the tags %q; want it at %s, alone", at, tagsOf(t, remote), head)
+	}
+	// The remote names another commit log/v1.0.0: it is not pushed over.
+	write(t, remote, "log/later.go", "package log\n")
+	commits.Git(t, remote, "add", "--all")
+	commits.Git(t, remote, "commit", "--quiet", "-m", "feat: later")
+	commits.Git(t, remote, "tag", "log/v1.0.0")
+	elsewhere := commits.Git(t, remote, "rev-parse", "log/v1.0.0^{commit}")
+	refused := releaseEnded(t, s, releaseBegun(t, s, "log").GetId())
+	if refused.GetState() != buildv1.Release_STATE_UNPUBLISHED || !strings.Contains(refused.GetFailure(), "log/v1.0.0 was not pushed from services") || !strings.Contains(refused.GetFailure(), "the release made again sends them") {
+		t.Errorf("a release whose tag the remote has at another commit ended %v (%s)", refused.GetState(), refused.GetFailure())
+	}
+	if at := commits.Git(t, remote, "rev-parse", "log/v1.0.0^{commit}"); at != elsewhere || !strings.Contains(tagsOf(t, clone), "log/v1.0.0") {
+		t.Errorf("the remote's tag moved to %s, or the workspace has not the tag: %q", at, tagsOf(t, clone))
+	}
+	// Once the remote does not, the release made again sends it.
+	commits.Git(t, remote, "tag", "--delete", "log/v1.0.0")
+	again := releaseEnded(t, s, releaseBegun(t, s, "log").GetId())
+	if again.GetState() != buildv1.Release_STATE_SUCCEEDED || len(again.GetUnits()) != 1 || !again.GetUnits()[0].GetAlready() {
+		t.Errorf("the release made again ended %v (%s) with %v", again.GetState(), again.GetFailure(), again.GetUnits())
+	}
+	if at := commits.Git(t, remote, "rev-parse", "log/v1.0.0^{commit}"); at != head {
+		t.Errorf("the release made again left the remote's log/v1.0.0 at %s, want %s", at, head)
 	}
 }

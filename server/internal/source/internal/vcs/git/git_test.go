@@ -1373,3 +1373,87 @@ func TestAPushGoesOnlyToTheRemoteGiven(t *testing.T) {
 		t.Error("asked plainly, git did not push there, so the test above shows nothing")
 	}
 }
+
+// A tag is pushed to where its repository was brought from, and the tag
+// alone: one the remote has at that commit already is left as it is, and
+// one it has at another is refused, with nothing there changed. No
+// branch, and no other tag of the repository, goes with it.
+func TestATagIsPushedAloneAndNeverOverAnother(t *testing.T) {
+	ctx := context.Background()
+	remote, commits := history(t)
+	clone := filepath.Join(t.TempDir(), "clone")
+	run(t, filepath.Dir(clone), "clone", "--quiet", remote, clone)
+	at := func(directory, tag string) string {
+		t.Helper()
+		cmd := exec.Command("git", "rev-parse", "--verify", "--quiet", "refs/tags/"+tag+"^{commit}")
+		cmd.Dir = directory
+		out, _ := cmd.Output()
+		return strings.TrimSpace(string(out))
+	}
+	head := run(t, clone, "rev-parse", "HEAD")
+	system := git.System{}
+	// Two tags of the clone alone, and a commit there the remote has not.
+	write(t, clone, "greet/later.go", "package greet\n")
+	run(t, clone, "add", "--all")
+	run(t, clone, "commit", "--quiet", "-m", "feat: later")
+	for _, tag := range []string{"greet/v2.0.0", "log/v2.0.0"} {
+		if err := system.Tag(ctx, clone, tag, head); err != nil {
+			t.Fatal(err)
+		}
+	}
+	names := func() []string {
+		t.Helper()
+		return strings.Fields(run(t, remote, "for-each-ref", "--format=%(refname)=%(objectname)"))
+	}
+	before := names()
+	if err := system.PushTag(ctx, clone, remote, "greet/v2.0.0"); err != nil {
+		t.Fatalf("a tag was not pushed: %v", err)
+	}
+	if at(remote, "greet/v2.0.0") != head {
+		t.Errorf("the remote has greet/v2.0.0 at %q, want %s", at(remote, "greet/v2.0.0"), head)
+	}
+	// The tag alone: every name the remote had is as it was, and it has
+	// one more.
+	want := append(slices.Clone(before), "refs/tags/greet/v2.0.0="+head)
+	slices.Sort(want)
+	if after := names(); !slices.Equal(after, want) {
+		t.Errorf("more than the tag was pushed: the remote had %v and has %v", before, after)
+	}
+	// Pushed again, it is left.
+	if err := system.PushTag(ctx, clone, remote, "greet/v2.0.0"); err != nil {
+		t.Errorf("a tag the remote has at the same commit was refused: %v", err)
+	}
+	// One the remote has at another commit is refused, and stays.
+	run(t, remote, "tag", "log/v2.0.0", commits["first"])
+	if err := system.PushTag(ctx, clone, remote, "log/v2.0.0"); err == nil || at(remote, "log/v2.0.0") != commits["first"] {
+		t.Errorf("a tag the remote has at another commit: %v, and the remote has it at %s", err, at(remote, "log/v2.0.0"))
+	}
+	// A tag of a commit made here, which no branch of the remote has, is
+	// not pushed: it would leave there what was pushed nowhere.
+	later := run(t, clone, "rev-parse", "HEAD")
+	if err := system.Tag(ctx, clone, "greet/v2.1.0", later); err != nil {
+		t.Fatal(err)
+	}
+	if err := system.PushTag(ctx, clone, remote, "greet/v2.1.0"); err == nil || !strings.Contains(err.Error(), "is on no branch of the remote") || at(remote, "greet/v2.1.0") != "" {
+		t.Errorf("a tag of a commit the remote has not: %v, and the remote has it at %q", err, at(remote, "greet/v2.1.0"))
+	}
+	// A remote the repository describes by the remote's own address, as
+	// git reads a name before an address, is not where the tag goes.
+	sink := filepath.Join(t.TempDir(), "sink")
+	run(t, filepath.Dir(sink), "clone", "--quiet", "--bare", remote, sink)
+	addressed := filepath.Join(t.TempDir(), "addressed")
+	run(t, filepath.Dir(addressed), "clone", "--quiet", "file://"+remote, addressed)
+	run(t, addressed, "config", "remote.file://"+remote+".pushurl", sink)
+	if err := system.Tag(ctx, addressed, "greet/v2.2.0", head); err != nil {
+		t.Fatal(err)
+	}
+	if err := system.PushTag(ctx, addressed, "file://"+remote, "greet/v2.2.0"); err != nil || at(remote, "greet/v2.2.0") != head || at(sink, "greet/v2.2.0") != "" {
+		t.Errorf("a tag was pushed where the repository's settings say: %v; the remote has it at %q, the sink at %q", err, at(remote, "greet/v2.2.0"), at(sink, "greet/v2.2.0"))
+	}
+	// A tag the repository has not, and a name that is none.
+	for _, name := range []string{"greet/v3.0.0", "", "--delete", "a..b"} {
+		if err := system.PushTag(ctx, clone, remote, name); err == nil {
+			t.Errorf("%q was pushed", name)
+		}
+	}
+}

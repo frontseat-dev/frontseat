@@ -115,10 +115,12 @@ type ReleaseServiceClient interface {
 	PlanRelease(context.Context, *v1alpha1.PlanReleaseRequest) (*v1alpha1.PlanReleaseResponse, error)
 	// CreateRelease carries out a plan: it builds the plan's units for
 	// production and tags each unit that moves, at the commit it was
-	// planned from, in the daemon's checkout. Nothing leaves the checkout.
+	// planned from, in the daemon's checkout, and pushes each tag to where
+	// its repository was brought from, the tag alone.
 	// It returns at once, with the production build's build_id where the
 	// plan builds anything; WaitRelease ends when it does. Releasing what
-	// is already released changes nothing and succeeds, and asking again
+	// is already released tags nothing, pushes its tags where they are not
+	// yet, and succeeds where they then all are; and asking again
 	// for a plan that is being released returns that release.
 	//
 	// A daemon makes one release at a time.
@@ -176,10 +178,12 @@ type ReleaseServiceHandler interface {
 	PlanRelease(context.Context, *v1alpha1.PlanReleaseRequest) (*v1alpha1.PlanReleaseResponse, error)
 	// CreateRelease carries out a plan: it builds the plan's units for
 	// production and tags each unit that moves, at the commit it was
-	// planned from, in the daemon's checkout. Nothing leaves the checkout.
+	// planned from, in the daemon's checkout, and pushes each tag to where
+	// its repository was brought from, the tag alone.
 	// It returns at once, with the production build's build_id where the
 	// plan builds anything; WaitRelease ends when it does. Releasing what
-	// is already released changes nothing and succeeds, and asking again
+	// is already released tags nothing, pushes its tags where they are not
+	// yet, and succeeds where they then all are; and asking again
 	// for a plan that is being released returns that release.
 	//
 	// A daemon makes one release at a time.

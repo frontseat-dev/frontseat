@@ -86,8 +86,8 @@ func held(reasons []*buildv1.ReleaseReason) string {
 }
 
 // Release writes what a release did: each unit and the tag it was given,
-// and how the release ended. A release that tagged and did not publish
-// says that its tags are still to be pushed.
+// and how the release ended: that its tags are pushed, or that they are
+// still to be, and why.
 func (p Printer) Release(release *buildv1.Release) {
 	for _, unit := range release.GetUnits() {
 		// A prerelease its unit does not tag was built, and no more.
@@ -103,9 +103,24 @@ func (p Printer) Release(release *buildv1.Release) {
 		}
 	}
 	state := Word(release.GetState())
+	tagged := false
+	for _, unit := range release.GetUnits() {
+		tagged = tagged || len(unit.GetTags()) > 0
+	}
 	switch release.GetState() {
 	case buildv1.Release_STATE_UNPUBLISHED:
-		fmt.Fprintf(p.Out, "%s  unpublished: its tags are in the workspace and are not pushed\n", shown(release.GetId()))
+		// Why it is, where the release says: which tag was not sent.
+		why := ""
+		if release.GetFailure() != "" {
+			why = ": " + shown(release.GetFailure())
+		}
+		fmt.Fprintf(p.Out, "%s  unpublished: its tags are in the workspace and are not pushed%s\n", shown(release.GetId()), why)
+	case buildv1.Release_STATE_SUCCEEDED:
+		if tagged {
+			fmt.Fprintf(p.Out, "%s  %s: its tags are pushed\n", shown(release.GetId()), state)
+			break
+		}
+		fmt.Fprintf(p.Out, "%s  %s\n", shown(release.GetId()), state)
 	case buildv1.Release_STATE_FAILED:
 		fmt.Fprintf(p.Out, "%s  FAILED: %s\n", shown(release.GetId()), shown(release.GetFailure()))
 	default:
