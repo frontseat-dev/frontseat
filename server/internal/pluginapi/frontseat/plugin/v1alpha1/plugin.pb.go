@@ -1835,7 +1835,38 @@ type Action struct {
 	// name it "package", or "package", a slash and what it is of, as
 	// "package/linux-amd64", where nothing of their tool's has a name for
 	// it already.
-	Package       bool `protobuf:"varint,31,opt,name=package,proto3" json:"package,omitempty"`
+	Package bool `protobuf:"varint,31,opt,name=package,proto3" json:"package,omitempty"`
+	// Publish says the action publishes what a release shipped: it runs
+	// its tool's own way of sending a release somewhere, a forge's command
+	// line, a registry's client, and nothing of frontseat's speaks for it.
+	//
+	// It is no step of a build: no build runs it, and nothing reads what
+	// it leaves, which is nothing. A release runs it, once every tag of
+	// the release is pushed, where the daemon is and never on the grid,
+	// with its tools as the repository pins them, and never from a cache:
+	// what it does is done outside, each time.
+	//
+	// It is run for a unit that moves: the one that owns its project,
+	// or, where no entity owns its project, as at a repository's root,
+	// each unit of its repository that moves, one at a time. It is given
+	// that unit's artifacts, each file a package of the unit left, brought
+	// from the grid into one directory, with a file of their sha256s
+	// beside them where there are any, checksums.txt. It is ended after
+	// thirty minutes. Its command names what it is given as a
+	// versioned action names the version, and is filled the same way,
+	// with those and with:
+	//
+	//   - {frontseat.artifacts}, as an argument by itself: each of those
+	//     files, an argument each, in the order of their names;
+	//   - {frontseat.notes}: a file that holds the unit's release notes;
+	//   - {frontseat.remote}: where the unit's repository was brought
+	//     from, as its version control system names it;
+	//   - {frontseat.prerelease}: "true" where the release is a
+	//     prerelease, "false" where it is not.
+	//
+	// It passes or fails by its exit code, and the release says which,
+	// with what it printed; one that fails does not stop another.
+	Publish       *Publish `protobuf:"bytes,32,opt,name=publish,proto3" json:"publish,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1989,6 +2020,63 @@ func (x *Action) GetPackage() bool {
 	return false
 }
 
+func (x *Action) GetPublish() *Publish {
+	if x != nil {
+		return x.Publish
+	}
+	return nil
+}
+
+// Publish is what an action that publishes is given of where it runs.
+type Publish struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Environment names the variables of where the daemon runs that the
+	// action is given, each as it is there: what its tool reads a token
+	// from, as GH_TOKEN. One that is not set there is not given, and the
+	// tool says what it lacks. Its environment holds nothing else of
+	// where the daemon runs; it runs as the daemon does.
+	Environment   []string `protobuf:"bytes,1,rep,name=environment,proto3" json:"environment,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Publish) Reset() {
+	*x = Publish{}
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Publish) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Publish) ProtoMessage() {}
+
+func (x *Publish) ProtoReflect() protoreflect.Message {
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Publish.ProtoReflect.Descriptor instead.
+func (*Publish) Descriptor() ([]byte, []int) {
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *Publish) GetEnvironment() []string {
+	if x != nil {
+		return x.Environment
+	}
+	return nil
+}
+
 // Input is one selection of files an action reads. A kind must be set.
 // Input sets may contain only source patterns and other input sets.
 type Input struct {
@@ -2008,7 +2096,7 @@ type Input struct {
 
 func (x *Input) Reset() {
 	*x = Input{}
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[22]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2020,7 +2108,7 @@ func (x *Input) String() string {
 func (*Input) ProtoMessage() {}
 
 func (x *Input) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[22]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2033,7 +2121,7 @@ func (x *Input) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Input.ProtoReflect.Descriptor instead.
 func (*Input) Descriptor() ([]byte, []int) {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{22}
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *Input) GetKind() isInput_Kind {
@@ -2142,7 +2230,7 @@ type DependencyInput struct {
 
 func (x *DependencyInput) Reset() {
 	*x = DependencyInput{}
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[23]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2154,7 +2242,7 @@ func (x *DependencyInput) String() string {
 func (*DependencyInput) ProtoMessage() {}
 
 func (x *DependencyInput) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[23]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2167,7 +2255,7 @@ func (x *DependencyInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DependencyInput.ProtoReflect.Descriptor instead.
 func (*DependencyInput) Descriptor() ([]byte, []int) {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{23}
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *DependencyInput) GetSelection() isDependencyInput_Selection {
@@ -2247,7 +2335,7 @@ type Download struct {
 
 func (x *Download) Reset() {
 	*x = Download{}
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[24]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2259,7 +2347,7 @@ func (x *Download) String() string {
 func (*Download) ProtoMessage() {}
 
 func (x *Download) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[24]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2272,7 +2360,7 @@ func (x *Download) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Download.ProtoReflect.Descriptor instead.
 func (*Download) Descriptor() ([]byte, []int) {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{24}
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *Download) GetUrl() string {
@@ -2326,7 +2414,7 @@ type Part struct {
 
 func (x *Part) Reset() {
 	*x = Part{}
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[25]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2338,7 +2426,7 @@ func (x *Part) String() string {
 func (*Part) ProtoMessage() {}
 
 func (x *Part) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[25]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2351,7 +2439,7 @@ func (x *Part) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Part.ProtoReflect.Descriptor instead.
 func (*Part) Descriptor() ([]byte, []int) {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{25}
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *Part) GetOffset() uint64 {
@@ -2411,7 +2499,7 @@ type ReportRequest struct {
 
 func (x *ReportRequest) Reset() {
 	*x = ReportRequest{}
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[26]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2423,7 +2511,7 @@ func (x *ReportRequest) String() string {
 func (*ReportRequest) ProtoMessage() {}
 
 func (x *ReportRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[26]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2436,7 +2524,7 @@ func (x *ReportRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReportRequest.ProtoReflect.Descriptor instead.
 func (*ReportRequest) Descriptor() ([]byte, []int) {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{26}
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *ReportRequest) GetContext() *Context {
@@ -2495,7 +2583,7 @@ type ReportResponse struct {
 
 func (x *ReportResponse) Reset() {
 	*x = ReportResponse{}
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[27]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2507,7 +2595,7 @@ func (x *ReportResponse) String() string {
 func (*ReportResponse) ProtoMessage() {}
 
 func (x *ReportResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[27]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2520,7 +2608,7 @@ func (x *ReportResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReportResponse.ProtoReflect.Descriptor instead.
 func (*ReportResponse) Descriptor() ([]byte, []int) {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{27}
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *ReportResponse) GetDiagnostics() []*v1alpha1.Diagnostic {
@@ -2551,7 +2639,7 @@ type Command struct {
 
 func (x *Command) Reset() {
 	*x = Command{}
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[28]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2563,7 +2651,7 @@ func (x *Command) String() string {
 func (*Command) ProtoMessage() {}
 
 func (x *Command) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[28]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2576,7 +2664,7 @@ func (x *Command) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Command.ProtoReflect.Descriptor instead.
 func (*Command) Descriptor() ([]byte, []int) {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{28}
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *Command) GetArguments() []string {
@@ -2621,7 +2709,7 @@ type Output struct {
 
 func (x *Output) Reset() {
 	*x = Output{}
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[29]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2633,7 +2721,7 @@ func (x *Output) String() string {
 func (*Output) ProtoMessage() {}
 
 func (x *Output) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[29]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2646,7 +2734,7 @@ func (x *Output) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Output.ProtoReflect.Descriptor instead.
 func (*Output) Descriptor() ([]byte, []int) {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{29}
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *Output) GetPath() string {
@@ -2683,7 +2771,7 @@ type InputSet struct {
 
 func (x *InputSet) Reset() {
 	*x = InputSet{}
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[30]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2695,7 +2783,7 @@ func (x *InputSet) String() string {
 func (*InputSet) ProtoMessage() {}
 
 func (x *InputSet) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[30]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2708,7 +2796,7 @@ func (x *InputSet) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InputSet.ProtoReflect.Descriptor instead.
 func (*InputSet) Descriptor() ([]byte, []int) {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{30}
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *InputSet) GetName() string {
@@ -2755,7 +2843,7 @@ type File struct {
 
 func (x *File) Reset() {
 	*x = File{}
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[31]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2767,7 +2855,7 @@ func (x *File) String() string {
 func (*File) ProtoMessage() {}
 
 func (x *File) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[31]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2780,7 +2868,7 @@ func (x *File) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use File.ProtoReflect.Descriptor instead.
 func (*File) Descriptor() ([]byte, []int) {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{31}
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *File) GetPath() string {
@@ -2821,7 +2909,7 @@ type ReconcileRequest struct {
 
 func (x *ReconcileRequest) Reset() {
 	*x = ReconcileRequest{}
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[32]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2833,7 +2921,7 @@ func (x *ReconcileRequest) String() string {
 func (*ReconcileRequest) ProtoMessage() {}
 
 func (x *ReconcileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[32]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2846,7 +2934,7 @@ func (x *ReconcileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReconcileRequest.ProtoReflect.Descriptor instead.
 func (*ReconcileRequest) Descriptor() ([]byte, []int) {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{32}
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *ReconcileRequest) GetContext() *Context {
@@ -2889,7 +2977,7 @@ type Resolved struct {
 
 func (x *Resolved) Reset() {
 	*x = Resolved{}
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[33]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2901,7 +2989,7 @@ func (x *Resolved) String() string {
 func (*Resolved) ProtoMessage() {}
 
 func (x *Resolved) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[33]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2914,7 +3002,7 @@ func (x *Resolved) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Resolved.ProtoReflect.Descriptor instead.
 func (*Resolved) Descriptor() ([]byte, []int) {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{33}
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *Resolved) GetRef() *v1alpha1.EntityRef {
@@ -2958,7 +3046,7 @@ type ReconcileResponse struct {
 
 func (x *ReconcileResponse) Reset() {
 	*x = ReconcileResponse{}
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[34]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2970,7 +3058,7 @@ func (x *ReconcileResponse) String() string {
 func (*ReconcileResponse) ProtoMessage() {}
 
 func (x *ReconcileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[34]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2983,7 +3071,7 @@ func (x *ReconcileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReconcileResponse.ProtoReflect.Descriptor instead.
 func (*ReconcileResponse) Descriptor() ([]byte, []int) {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{34}
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *ReconcileResponse) GetEdits() []*Edit {
@@ -3015,7 +3103,7 @@ type Edit struct {
 
 func (x *Edit) Reset() {
 	*x = Edit{}
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[35]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3027,7 +3115,7 @@ func (x *Edit) String() string {
 func (*Edit) ProtoMessage() {}
 
 func (x *Edit) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[35]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3040,7 +3128,7 @@ func (x *Edit) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Edit.ProtoReflect.Descriptor instead.
 func (*Edit) Descriptor() ([]byte, []int) {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{35}
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *Edit) GetPath() string {
@@ -3188,7 +3276,7 @@ const file_frontseat_plugin_v1alpha1_plugin_proto_rawDesc = "" +
 	"\aversion\x18\x06 \x01(\tR\aversion\"0\n" +
 	"\x06Origin\x12\x12\n" +
 	"\x04path\x18\x01 \x01(\tR\x04path\x12\x12\n" +
-	"\x04line\x18\x02 \x01(\x05R\x04line\"\x8d\x05\n" +
+	"\x04line\x18\x02 \x01(\x05R\x04line\"\xcb\x05\n" +
 	"\x06Action\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12<\n" +
 	"\acommand\x18\x04 \x01(\v2\".frontseat.plugin.v1alpha1.CommandR\acommand\x128\n" +
@@ -3206,7 +3294,10 @@ const file_frontseat_plugin_v1alpha1_plugin_proto_rawDesc = "" +
 	"\aprogram\x18\x1b \x01(\bR\aprogram\x12.\n" +
 	"\x13idle_without_inputs\x18\x1c \x01(\bR\x11idleWithoutInputs\x12\x1c\n" +
 	"\tversioned\x18\x1e \x01(\bR\tversioned\x12\x18\n" +
-	"\apackage\x18\x1f \x01(\bR\apackage\"\xb0\x01\n" +
+	"\apackage\x18\x1f \x01(\bR\apackage\x12<\n" +
+	"\apublish\x18  \x01(\v2\".frontseat.plugin.v1alpha1.PublishR\apublish\"+\n" +
+	"\aPublish\x12 \n" +
+	"\venvironment\x18\x01 \x03(\tR\venvironment\"\xb0\x01\n" +
 	"\x05Input\x12\x18\n" +
 	"\x06source\x18\x01 \x01(\tH\x00R\x06source\x12\x1d\n" +
 	"\tinput_set\x18\x02 \x01(\tH\x00R\binputSet\x12\x18\n" +
@@ -3307,7 +3398,7 @@ func file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP() []byte {
 }
 
 var file_frontseat_plugin_v1alpha1_plugin_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes = make([]protoimpl.MessageInfo, 39)
+var file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes = make([]protoimpl.MessageInfo, 40)
 var file_frontseat_plugin_v1alpha1_plugin_proto_goTypes = []any{
 	(Profile)(0),                 // 0: frontseat.plugin.v1alpha1.Profile
 	(Option_Kind)(0),             // 1: frontseat.plugin.v1alpha1.Option.Kind
@@ -3333,104 +3424,106 @@ var file_frontseat_plugin_v1alpha1_plugin_proto_goTypes = []any{
 	(*Requirement)(nil),          // 21: frontseat.plugin.v1alpha1.Requirement
 	(*Origin)(nil),               // 22: frontseat.plugin.v1alpha1.Origin
 	(*Action)(nil),               // 23: frontseat.plugin.v1alpha1.Action
-	(*Input)(nil),                // 24: frontseat.plugin.v1alpha1.Input
-	(*DependencyInput)(nil),      // 25: frontseat.plugin.v1alpha1.DependencyInput
-	(*Download)(nil),             // 26: frontseat.plugin.v1alpha1.Download
-	(*Part)(nil),                 // 27: frontseat.plugin.v1alpha1.Part
-	(*ReportRequest)(nil),        // 28: frontseat.plugin.v1alpha1.ReportRequest
-	(*ReportResponse)(nil),       // 29: frontseat.plugin.v1alpha1.ReportResponse
-	(*Command)(nil),              // 30: frontseat.plugin.v1alpha1.Command
-	(*Output)(nil),               // 31: frontseat.plugin.v1alpha1.Output
-	(*InputSet)(nil),             // 32: frontseat.plugin.v1alpha1.InputSet
-	(*File)(nil),                 // 33: frontseat.plugin.v1alpha1.File
-	(*ReconcileRequest)(nil),     // 34: frontseat.plugin.v1alpha1.ReconcileRequest
-	(*Resolved)(nil),             // 35: frontseat.plugin.v1alpha1.Resolved
-	(*ReconcileResponse)(nil),    // 36: frontseat.plugin.v1alpha1.ReconcileResponse
-	(*Edit)(nil),                 // 37: frontseat.plugin.v1alpha1.Edit
-	nil,                          // 38: frontseat.plugin.v1alpha1.Context.OptionsEntry
-	nil,                          // 39: frontseat.plugin.v1alpha1.Context.ToolsEntry
-	nil,                          // 40: frontseat.plugin.v1alpha1.Command.EnvironmentEntry
-	(*v1alpha1.OptionValue)(nil), // 41: frontseat.type.v1alpha1.OptionValue
-	(*ReleaseRoles)(nil),         // 42: frontseat.plugin.v1alpha1.ReleaseRoles
-	(*v1alpha1.Service)(nil),     // 43: frontseat.type.v1alpha1.Service
-	(*v1alpha1.EntityRef)(nil),   // 44: frontseat.type.v1alpha1.EntityRef
-	(*v1alpha1.Diagnostic)(nil),  // 45: frontseat.type.v1alpha1.Diagnostic
-	(*BranchRequest)(nil),        // 46: frontseat.plugin.v1alpha1.BranchRequest
-	(*VersionRequest)(nil),       // 47: frontseat.plugin.v1alpha1.VersionRequest
-	(*BranchResponse)(nil),       // 48: frontseat.plugin.v1alpha1.BranchResponse
-	(*VersionResponse)(nil),      // 49: frontseat.plugin.v1alpha1.VersionResponse
+	(*Publish)(nil),              // 24: frontseat.plugin.v1alpha1.Publish
+	(*Input)(nil),                // 25: frontseat.plugin.v1alpha1.Input
+	(*DependencyInput)(nil),      // 26: frontseat.plugin.v1alpha1.DependencyInput
+	(*Download)(nil),             // 27: frontseat.plugin.v1alpha1.Download
+	(*Part)(nil),                 // 28: frontseat.plugin.v1alpha1.Part
+	(*ReportRequest)(nil),        // 29: frontseat.plugin.v1alpha1.ReportRequest
+	(*ReportResponse)(nil),       // 30: frontseat.plugin.v1alpha1.ReportResponse
+	(*Command)(nil),              // 31: frontseat.plugin.v1alpha1.Command
+	(*Output)(nil),               // 32: frontseat.plugin.v1alpha1.Output
+	(*InputSet)(nil),             // 33: frontseat.plugin.v1alpha1.InputSet
+	(*File)(nil),                 // 34: frontseat.plugin.v1alpha1.File
+	(*ReconcileRequest)(nil),     // 35: frontseat.plugin.v1alpha1.ReconcileRequest
+	(*Resolved)(nil),             // 36: frontseat.plugin.v1alpha1.Resolved
+	(*ReconcileResponse)(nil),    // 37: frontseat.plugin.v1alpha1.ReconcileResponse
+	(*Edit)(nil),                 // 38: frontseat.plugin.v1alpha1.Edit
+	nil,                          // 39: frontseat.plugin.v1alpha1.Context.OptionsEntry
+	nil,                          // 40: frontseat.plugin.v1alpha1.Context.ToolsEntry
+	nil,                          // 41: frontseat.plugin.v1alpha1.Command.EnvironmentEntry
+	(*v1alpha1.OptionValue)(nil), // 42: frontseat.type.v1alpha1.OptionValue
+	(*ReleaseRoles)(nil),         // 43: frontseat.plugin.v1alpha1.ReleaseRoles
+	(*v1alpha1.Service)(nil),     // 44: frontseat.type.v1alpha1.Service
+	(*v1alpha1.EntityRef)(nil),   // 45: frontseat.type.v1alpha1.EntityRef
+	(*v1alpha1.Diagnostic)(nil),  // 46: frontseat.type.v1alpha1.Diagnostic
+	(*BranchRequest)(nil),        // 47: frontseat.plugin.v1alpha1.BranchRequest
+	(*VersionRequest)(nil),       // 48: frontseat.plugin.v1alpha1.VersionRequest
+	(*BranchResponse)(nil),       // 49: frontseat.plugin.v1alpha1.BranchResponse
+	(*VersionResponse)(nil),      // 50: frontseat.plugin.v1alpha1.VersionResponse
 }
 var file_frontseat_plugin_v1alpha1_plugin_proto_depIdxs = []int32{
-	38, // 0: frontseat.plugin.v1alpha1.Context.options:type_name -> frontseat.plugin.v1alpha1.Context.OptionsEntry
-	39, // 1: frontseat.plugin.v1alpha1.Context.tools:type_name -> frontseat.plugin.v1alpha1.Context.ToolsEntry
+	39, // 0: frontseat.plugin.v1alpha1.Context.options:type_name -> frontseat.plugin.v1alpha1.Context.OptionsEntry
+	40, // 1: frontseat.plugin.v1alpha1.Context.tools:type_name -> frontseat.plugin.v1alpha1.Context.ToolsEntry
 	0,  // 2: frontseat.plugin.v1alpha1.Context.profile:type_name -> frontseat.plugin.v1alpha1.Profile
 	1,  // 3: frontseat.plugin.v1alpha1.Option.kind:type_name -> frontseat.plugin.v1alpha1.Option.Kind
-	41, // 4: frontseat.plugin.v1alpha1.Option.default:type_name -> frontseat.type.v1alpha1.OptionValue
+	42, // 4: frontseat.plugin.v1alpha1.Option.default:type_name -> frontseat.type.v1alpha1.OptionValue
 	3,  // 5: frontseat.plugin.v1alpha1.DescribeResponse.options:type_name -> frontseat.plugin.v1alpha1.Option
-	42, // 6: frontseat.plugin.v1alpha1.DescribeResponse.release:type_name -> frontseat.plugin.v1alpha1.ReleaseRoles
-	43, // 7: frontseat.plugin.v1alpha1.ServiceRequest.written:type_name -> frontseat.type.v1alpha1.Service
-	43, // 8: frontseat.plugin.v1alpha1.ServiceResponse.service:type_name -> frontseat.type.v1alpha1.Service
+	43, // 6: frontseat.plugin.v1alpha1.DescribeResponse.release:type_name -> frontseat.plugin.v1alpha1.ReleaseRoles
+	44, // 7: frontseat.plugin.v1alpha1.ServiceRequest.written:type_name -> frontseat.type.v1alpha1.Service
+	44, // 8: frontseat.plugin.v1alpha1.ServiceResponse.service:type_name -> frontseat.type.v1alpha1.Service
 	2,  // 9: frontseat.plugin.v1alpha1.AnalyzeRequest.context:type_name -> frontseat.plugin.v1alpha1.Context
 	10, // 10: frontseat.plugin.v1alpha1.AnalyzeResponse.analyses:type_name -> frontseat.plugin.v1alpha1.Analysis
 	16, // 11: frontseat.plugin.v1alpha1.Analysis.projects:type_name -> frontseat.plugin.v1alpha1.Project
 	11, // 12: frontseat.plugin.v1alpha1.Analysis.entities:type_name -> frontseat.plugin.v1alpha1.Entity
-	44, // 13: frontseat.plugin.v1alpha1.Entity.ref:type_name -> frontseat.type.v1alpha1.EntityRef
+	45, // 13: frontseat.plugin.v1alpha1.Entity.ref:type_name -> frontseat.type.v1alpha1.EntityRef
 	12, // 14: frontseat.plugin.v1alpha1.Entity.relations:type_name -> frontseat.plugin.v1alpha1.EntityRelation
-	44, // 15: frontseat.plugin.v1alpha1.EntityRelation.target:type_name -> frontseat.type.v1alpha1.EntityRef
+	45, // 15: frontseat.plugin.v1alpha1.EntityRelation.target:type_name -> frontseat.type.v1alpha1.EntityRef
 	2,  // 16: frontseat.plugin.v1alpha1.ArrangeRequest.context:type_name -> frontseat.plugin.v1alpha1.Context
 	14, // 17: frontseat.plugin.v1alpha1.ArrangeRequest.handed:type_name -> frontseat.plugin.v1alpha1.Handed
 	18, // 18: frontseat.plugin.v1alpha1.Handed.coordinate:type_name -> frontseat.plugin.v1alpha1.Coordinate
-	33, // 19: frontseat.plugin.v1alpha1.ArrangeResponse.files:type_name -> frontseat.plugin.v1alpha1.File
+	34, // 19: frontseat.plugin.v1alpha1.ArrangeResponse.files:type_name -> frontseat.plugin.v1alpha1.File
 	19, // 20: frontseat.plugin.v1alpha1.Project.provides:type_name -> frontseat.plugin.v1alpha1.Provide
 	21, // 21: frontseat.plugin.v1alpha1.Project.requires:type_name -> frontseat.plugin.v1alpha1.Requirement
 	23, // 22: frontseat.plugin.v1alpha1.Project.actions:type_name -> frontseat.plugin.v1alpha1.Action
-	32, // 23: frontseat.plugin.v1alpha1.Project.input_sets:type_name -> frontseat.plugin.v1alpha1.InputSet
+	33, // 23: frontseat.plugin.v1alpha1.Project.input_sets:type_name -> frontseat.plugin.v1alpha1.InputSet
 	17, // 24: frontseat.plugin.v1alpha1.Project.generated_sources:type_name -> frontseat.plugin.v1alpha1.GeneratedSource
 	18, // 25: frontseat.plugin.v1alpha1.Provide.coordinate:type_name -> frontseat.plugin.v1alpha1.Coordinate
 	20, // 26: frontseat.plugin.v1alpha1.Provide.artifacts:type_name -> frontseat.plugin.v1alpha1.Produced
 	18, // 27: frontseat.plugin.v1alpha1.Requirement.coordinate:type_name -> frontseat.plugin.v1alpha1.Coordinate
 	22, // 28: frontseat.plugin.v1alpha1.Requirement.origin:type_name -> frontseat.plugin.v1alpha1.Origin
-	30, // 29: frontseat.plugin.v1alpha1.Action.command:type_name -> frontseat.plugin.v1alpha1.Command
-	24, // 30: frontseat.plugin.v1alpha1.Action.inputs:type_name -> frontseat.plugin.v1alpha1.Input
-	31, // 31: frontseat.plugin.v1alpha1.Action.outputs:type_name -> frontseat.plugin.v1alpha1.Output
-	30, // 32: frontseat.plugin.v1alpha1.Action.fix:type_name -> frontseat.plugin.v1alpha1.Command
-	33, // 33: frontseat.plugin.v1alpha1.Action.files:type_name -> frontseat.plugin.v1alpha1.File
-	26, // 34: frontseat.plugin.v1alpha1.Action.downloads:type_name -> frontseat.plugin.v1alpha1.Download
-	25, // 35: frontseat.plugin.v1alpha1.Input.dependency:type_name -> frontseat.plugin.v1alpha1.DependencyInput
-	18, // 36: frontseat.plugin.v1alpha1.DependencyInput.coordinate:type_name -> frontseat.plugin.v1alpha1.Coordinate
-	27, // 37: frontseat.plugin.v1alpha1.Download.parts:type_name -> frontseat.plugin.v1alpha1.Part
-	2,  // 38: frontseat.plugin.v1alpha1.ReportRequest.context:type_name -> frontseat.plugin.v1alpha1.Context
-	45, // 39: frontseat.plugin.v1alpha1.ReportResponse.diagnostics:type_name -> frontseat.type.v1alpha1.Diagnostic
-	40, // 40: frontseat.plugin.v1alpha1.Command.environment:type_name -> frontseat.plugin.v1alpha1.Command.EnvironmentEntry
-	24, // 41: frontseat.plugin.v1alpha1.InputSet.inputs:type_name -> frontseat.plugin.v1alpha1.Input
-	2,  // 42: frontseat.plugin.v1alpha1.ReconcileRequest.context:type_name -> frontseat.plugin.v1alpha1.Context
-	35, // 43: frontseat.plugin.v1alpha1.ReconcileRequest.entities:type_name -> frontseat.plugin.v1alpha1.Resolved
-	44, // 44: frontseat.plugin.v1alpha1.Resolved.ref:type_name -> frontseat.type.v1alpha1.EntityRef
-	44, // 45: frontseat.plugin.v1alpha1.Resolved.depends_on:type_name -> frontseat.type.v1alpha1.EntityRef
-	44, // 46: frontseat.plugin.v1alpha1.Resolved.dependency_of:type_name -> frontseat.type.v1alpha1.EntityRef
-	37, // 47: frontseat.plugin.v1alpha1.ReconcileResponse.edits:type_name -> frontseat.plugin.v1alpha1.Edit
-	41, // 48: frontseat.plugin.v1alpha1.Context.OptionsEntry.value:type_name -> frontseat.type.v1alpha1.OptionValue
-	4,  // 49: frontseat.plugin.v1alpha1.PluginService.Describe:input_type -> frontseat.plugin.v1alpha1.DescribeRequest
-	8,  // 50: frontseat.plugin.v1alpha1.PluginService.Analyze:input_type -> frontseat.plugin.v1alpha1.AnalyzeRequest
-	13, // 51: frontseat.plugin.v1alpha1.PluginService.Arrange:input_type -> frontseat.plugin.v1alpha1.ArrangeRequest
-	28, // 52: frontseat.plugin.v1alpha1.PluginService.Report:input_type -> frontseat.plugin.v1alpha1.ReportRequest
-	34, // 53: frontseat.plugin.v1alpha1.PluginService.Reconcile:input_type -> frontseat.plugin.v1alpha1.ReconcileRequest
-	6,  // 54: frontseat.plugin.v1alpha1.PluginService.Service:input_type -> frontseat.plugin.v1alpha1.ServiceRequest
-	46, // 55: frontseat.plugin.v1alpha1.PluginService.Branch:input_type -> frontseat.plugin.v1alpha1.BranchRequest
-	47, // 56: frontseat.plugin.v1alpha1.PluginService.Version:input_type -> frontseat.plugin.v1alpha1.VersionRequest
-	5,  // 57: frontseat.plugin.v1alpha1.PluginService.Describe:output_type -> frontseat.plugin.v1alpha1.DescribeResponse
-	9,  // 58: frontseat.plugin.v1alpha1.PluginService.Analyze:output_type -> frontseat.plugin.v1alpha1.AnalyzeResponse
-	15, // 59: frontseat.plugin.v1alpha1.PluginService.Arrange:output_type -> frontseat.plugin.v1alpha1.ArrangeResponse
-	29, // 60: frontseat.plugin.v1alpha1.PluginService.Report:output_type -> frontseat.plugin.v1alpha1.ReportResponse
-	36, // 61: frontseat.plugin.v1alpha1.PluginService.Reconcile:output_type -> frontseat.plugin.v1alpha1.ReconcileResponse
-	7,  // 62: frontseat.plugin.v1alpha1.PluginService.Service:output_type -> frontseat.plugin.v1alpha1.ServiceResponse
-	48, // 63: frontseat.plugin.v1alpha1.PluginService.Branch:output_type -> frontseat.plugin.v1alpha1.BranchResponse
-	49, // 64: frontseat.plugin.v1alpha1.PluginService.Version:output_type -> frontseat.plugin.v1alpha1.VersionResponse
-	57, // [57:65] is the sub-list for method output_type
-	49, // [49:57] is the sub-list for method input_type
-	49, // [49:49] is the sub-list for extension type_name
-	49, // [49:49] is the sub-list for extension extendee
-	0,  // [0:49] is the sub-list for field type_name
+	31, // 29: frontseat.plugin.v1alpha1.Action.command:type_name -> frontseat.plugin.v1alpha1.Command
+	25, // 30: frontseat.plugin.v1alpha1.Action.inputs:type_name -> frontseat.plugin.v1alpha1.Input
+	32, // 31: frontseat.plugin.v1alpha1.Action.outputs:type_name -> frontseat.plugin.v1alpha1.Output
+	31, // 32: frontseat.plugin.v1alpha1.Action.fix:type_name -> frontseat.plugin.v1alpha1.Command
+	34, // 33: frontseat.plugin.v1alpha1.Action.files:type_name -> frontseat.plugin.v1alpha1.File
+	27, // 34: frontseat.plugin.v1alpha1.Action.downloads:type_name -> frontseat.plugin.v1alpha1.Download
+	24, // 35: frontseat.plugin.v1alpha1.Action.publish:type_name -> frontseat.plugin.v1alpha1.Publish
+	26, // 36: frontseat.plugin.v1alpha1.Input.dependency:type_name -> frontseat.plugin.v1alpha1.DependencyInput
+	18, // 37: frontseat.plugin.v1alpha1.DependencyInput.coordinate:type_name -> frontseat.plugin.v1alpha1.Coordinate
+	28, // 38: frontseat.plugin.v1alpha1.Download.parts:type_name -> frontseat.plugin.v1alpha1.Part
+	2,  // 39: frontseat.plugin.v1alpha1.ReportRequest.context:type_name -> frontseat.plugin.v1alpha1.Context
+	46, // 40: frontseat.plugin.v1alpha1.ReportResponse.diagnostics:type_name -> frontseat.type.v1alpha1.Diagnostic
+	41, // 41: frontseat.plugin.v1alpha1.Command.environment:type_name -> frontseat.plugin.v1alpha1.Command.EnvironmentEntry
+	25, // 42: frontseat.plugin.v1alpha1.InputSet.inputs:type_name -> frontseat.plugin.v1alpha1.Input
+	2,  // 43: frontseat.plugin.v1alpha1.ReconcileRequest.context:type_name -> frontseat.plugin.v1alpha1.Context
+	36, // 44: frontseat.plugin.v1alpha1.ReconcileRequest.entities:type_name -> frontseat.plugin.v1alpha1.Resolved
+	45, // 45: frontseat.plugin.v1alpha1.Resolved.ref:type_name -> frontseat.type.v1alpha1.EntityRef
+	45, // 46: frontseat.plugin.v1alpha1.Resolved.depends_on:type_name -> frontseat.type.v1alpha1.EntityRef
+	45, // 47: frontseat.plugin.v1alpha1.Resolved.dependency_of:type_name -> frontseat.type.v1alpha1.EntityRef
+	38, // 48: frontseat.plugin.v1alpha1.ReconcileResponse.edits:type_name -> frontseat.plugin.v1alpha1.Edit
+	42, // 49: frontseat.plugin.v1alpha1.Context.OptionsEntry.value:type_name -> frontseat.type.v1alpha1.OptionValue
+	4,  // 50: frontseat.plugin.v1alpha1.PluginService.Describe:input_type -> frontseat.plugin.v1alpha1.DescribeRequest
+	8,  // 51: frontseat.plugin.v1alpha1.PluginService.Analyze:input_type -> frontseat.plugin.v1alpha1.AnalyzeRequest
+	13, // 52: frontseat.plugin.v1alpha1.PluginService.Arrange:input_type -> frontseat.plugin.v1alpha1.ArrangeRequest
+	29, // 53: frontseat.plugin.v1alpha1.PluginService.Report:input_type -> frontseat.plugin.v1alpha1.ReportRequest
+	35, // 54: frontseat.plugin.v1alpha1.PluginService.Reconcile:input_type -> frontseat.plugin.v1alpha1.ReconcileRequest
+	6,  // 55: frontseat.plugin.v1alpha1.PluginService.Service:input_type -> frontseat.plugin.v1alpha1.ServiceRequest
+	47, // 56: frontseat.plugin.v1alpha1.PluginService.Branch:input_type -> frontseat.plugin.v1alpha1.BranchRequest
+	48, // 57: frontseat.plugin.v1alpha1.PluginService.Version:input_type -> frontseat.plugin.v1alpha1.VersionRequest
+	5,  // 58: frontseat.plugin.v1alpha1.PluginService.Describe:output_type -> frontseat.plugin.v1alpha1.DescribeResponse
+	9,  // 59: frontseat.plugin.v1alpha1.PluginService.Analyze:output_type -> frontseat.plugin.v1alpha1.AnalyzeResponse
+	15, // 60: frontseat.plugin.v1alpha1.PluginService.Arrange:output_type -> frontseat.plugin.v1alpha1.ArrangeResponse
+	30, // 61: frontseat.plugin.v1alpha1.PluginService.Report:output_type -> frontseat.plugin.v1alpha1.ReportResponse
+	37, // 62: frontseat.plugin.v1alpha1.PluginService.Reconcile:output_type -> frontseat.plugin.v1alpha1.ReconcileResponse
+	7,  // 63: frontseat.plugin.v1alpha1.PluginService.Service:output_type -> frontseat.plugin.v1alpha1.ServiceResponse
+	49, // 64: frontseat.plugin.v1alpha1.PluginService.Branch:output_type -> frontseat.plugin.v1alpha1.BranchResponse
+	50, // 65: frontseat.plugin.v1alpha1.PluginService.Version:output_type -> frontseat.plugin.v1alpha1.VersionResponse
+	58, // [58:66] is the sub-list for method output_type
+	50, // [50:58] is the sub-list for method input_type
+	50, // [50:50] is the sub-list for extension type_name
+	50, // [50:50] is the sub-list for extension extendee
+	0,  // [0:50] is the sub-list for field type_name
 }
 
 func init() { file_frontseat_plugin_v1alpha1_plugin_proto_init() }
@@ -3439,13 +3532,13 @@ func file_frontseat_plugin_v1alpha1_plugin_proto_init() {
 		return
 	}
 	file_frontseat_plugin_v1alpha1_release_proto_init()
-	file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[22].OneofWrappers = []any{
+	file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[23].OneofWrappers = []any{
 		(*Input_Source)(nil),
 		(*Input_InputSet)(nil),
 		(*Input_Output)(nil),
 		(*Input_Dependency)(nil),
 	}
-	file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[23].OneofWrappers = []any{
+	file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[24].OneofWrappers = []any{
 		(*DependencyInput_All)(nil),
 		(*DependencyInput_Coordinate)(nil),
 	}
@@ -3455,7 +3548,7 @@ func file_frontseat_plugin_v1alpha1_plugin_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_frontseat_plugin_v1alpha1_plugin_proto_rawDesc), len(file_frontseat_plugin_v1alpha1_plugin_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   39,
+			NumMessages:   40,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

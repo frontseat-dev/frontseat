@@ -128,13 +128,18 @@ const (
 	// daemon's checkout.
 	Release_STATE_TAGGING Release_State = 2
 	// STATE_SUCCEEDED: it ended with nothing left to do: every tag of
-	// its units is where its repository was brought from; or no unit of
+	// its units is where its repository was brought from, and every
+	// publish of them passed; or no unit of
 	// its plan was tagged, since none moves, or since what moves is a
 	// prerelease its unit does not tag, which was built and no more.
 	Release_STATE_SUCCEEDED Release_State = 3
 	// STATE_PUSHING: its units are tagged, and each tag is being sent to
 	// where its repository was brought from.
 	Release_STATE_PUSHING Release_State = 6
+	// STATE_PUBLISHING: every tag is where its repository was brought
+	// from, and what was shipped is being published, each publish of
+	// each unit in turn.
+	Release_STATE_PUBLISHING Release_State = 7
 	// STATE_UNPUBLISHED: its units are tagged in the daemon's checkout,
 	// and not every tag is where its repository was brought from: a
 	// workspace that may not push leaves them all there, and failure
@@ -142,7 +147,8 @@ const (
 	// commit, it sends them.
 	Release_STATE_UNPUBLISHED Release_State = 4
 	// STATE_FAILED: it ended before all of that was done; its units say
-	// what was. Where the build fails, no unit is tagged.
+	// what was. Where the build fails, no unit is tagged. Where a
+	// publish fails, its unit says which, and its tags stay pushed.
 	Release_STATE_FAILED Release_State = 5
 )
 
@@ -154,6 +160,7 @@ var (
 		2: "STATE_TAGGING",
 		3: "STATE_SUCCEEDED",
 		6: "STATE_PUSHING",
+		7: "STATE_PUBLISHING",
 		4: "STATE_UNPUBLISHED",
 		5: "STATE_FAILED",
 	}
@@ -163,6 +170,7 @@ var (
 		"STATE_TAGGING":     2,
 		"STATE_SUCCEEDED":   3,
 		"STATE_PUSHING":     6,
+		"STATE_PUBLISHING":  7,
 		"STATE_UNPUBLISHED": 4,
 		"STATE_FAILED":      5,
 	}
@@ -921,7 +929,11 @@ type ReleasedUnit struct {
 	// Artifacts are what the release built of it to ship: each file a
 	// package action of its members left, in the order of their names. A
 	// unit found released already has none: nothing was built of it.
-	Artifacts     []*ReleaseArtifact `protobuf:"bytes,5,rep,name=artifacts,proto3" json:"artifacts,omitempty"`
+	Artifacts []*ReleaseArtifact `protobuf:"bytes,5,rep,name=artifacts,proto3" json:"artifacts,omitempty"`
+	// Published is what became of each publish of it, in the order they
+	// ran. A unit found released already has none: nothing was built of
+	// it to publish.
+	Published     []*ReleasePublished `protobuf:"bytes,6,rep,name=published,proto3" json:"published,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -991,6 +1003,69 @@ func (x *ReleasedUnit) GetArtifacts() []*ReleaseArtifact {
 	return nil
 }
 
+func (x *ReleasedUnit) GetPublished() []*ReleasePublished {
+	if x != nil {
+		return x.Published
+	}
+	return nil
+}
+
+// ReleasePublished is what became of one publish of a unit.
+type ReleasePublished struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Label is the label of the action that publishes.
+	Label string `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	// Failure says why it failed, with what its tool printed; empty where
+	// it passed.
+	Failure       string `protobuf:"bytes,2,opt,name=failure,proto3" json:"failure,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReleasePublished) Reset() {
+	*x = ReleasePublished{}
+	mi := &file_frontseat_build_v1alpha1_release_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReleasePublished) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReleasePublished) ProtoMessage() {}
+
+func (x *ReleasePublished) ProtoReflect() protoreflect.Message {
+	mi := &file_frontseat_build_v1alpha1_release_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReleasePublished.ProtoReflect.Descriptor instead.
+func (*ReleasePublished) Descriptor() ([]byte, []int) {
+	return file_frontseat_build_v1alpha1_release_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *ReleasePublished) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *ReleasePublished) GetFailure() string {
+	if x != nil {
+		return x.Failure
+	}
+	return ""
+}
+
 // ReleaseArtifact is one file a release built to ship.
 type ReleaseArtifact struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1010,7 +1085,7 @@ type ReleaseArtifact struct {
 
 func (x *ReleaseArtifact) Reset() {
 	*x = ReleaseArtifact{}
-	mi := &file_frontseat_build_v1alpha1_release_proto_msgTypes[10]
+	mi := &file_frontseat_build_v1alpha1_release_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1022,7 +1097,7 @@ func (x *ReleaseArtifact) String() string {
 func (*ReleaseArtifact) ProtoMessage() {}
 
 func (x *ReleaseArtifact) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_build_v1alpha1_release_proto_msgTypes[10]
+	mi := &file_frontseat_build_v1alpha1_release_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1035,7 +1110,7 @@ func (x *ReleaseArtifact) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReleaseArtifact.ProtoReflect.Descriptor instead.
 func (*ReleaseArtifact) Descriptor() ([]byte, []int) {
-	return file_frontseat_build_v1alpha1_release_proto_rawDescGZIP(), []int{10}
+	return file_frontseat_build_v1alpha1_release_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ReleaseArtifact) GetName() string {
@@ -1081,7 +1156,7 @@ type ReleaseTag struct {
 
 func (x *ReleaseTag) Reset() {
 	*x = ReleaseTag{}
-	mi := &file_frontseat_build_v1alpha1_release_proto_msgTypes[11]
+	mi := &file_frontseat_build_v1alpha1_release_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1093,7 +1168,7 @@ func (x *ReleaseTag) String() string {
 func (*ReleaseTag) ProtoMessage() {}
 
 func (x *ReleaseTag) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_build_v1alpha1_release_proto_msgTypes[11]
+	mi := &file_frontseat_build_v1alpha1_release_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1106,7 +1181,7 @@ func (x *ReleaseTag) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReleaseTag.ProtoReflect.Descriptor instead.
 func (*ReleaseTag) Descriptor() ([]byte, []int) {
-	return file_frontseat_build_v1alpha1_release_proto_rawDescGZIP(), []int{11}
+	return file_frontseat_build_v1alpha1_release_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ReleaseTag) GetRepository() string {
@@ -1141,7 +1216,7 @@ type DescribeReleaseRequest struct {
 
 func (x *DescribeReleaseRequest) Reset() {
 	*x = DescribeReleaseRequest{}
-	mi := &file_frontseat_build_v1alpha1_release_proto_msgTypes[12]
+	mi := &file_frontseat_build_v1alpha1_release_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1153,7 +1228,7 @@ func (x *DescribeReleaseRequest) String() string {
 func (*DescribeReleaseRequest) ProtoMessage() {}
 
 func (x *DescribeReleaseRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_build_v1alpha1_release_proto_msgTypes[12]
+	mi := &file_frontseat_build_v1alpha1_release_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1166,7 +1241,7 @@ func (x *DescribeReleaseRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DescribeReleaseRequest.ProtoReflect.Descriptor instead.
 func (*DescribeReleaseRequest) Descriptor() ([]byte, []int) {
-	return file_frontseat_build_v1alpha1_release_proto_rawDescGZIP(), []int{12}
+	return file_frontseat_build_v1alpha1_release_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *DescribeReleaseRequest) GetReleaseId() string {
@@ -1187,7 +1262,7 @@ type DescribeReleaseResponse struct {
 
 func (x *DescribeReleaseResponse) Reset() {
 	*x = DescribeReleaseResponse{}
-	mi := &file_frontseat_build_v1alpha1_release_proto_msgTypes[13]
+	mi := &file_frontseat_build_v1alpha1_release_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1199,7 +1274,7 @@ func (x *DescribeReleaseResponse) String() string {
 func (*DescribeReleaseResponse) ProtoMessage() {}
 
 func (x *DescribeReleaseResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_build_v1alpha1_release_proto_msgTypes[13]
+	mi := &file_frontseat_build_v1alpha1_release_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1212,7 +1287,7 @@ func (x *DescribeReleaseResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DescribeReleaseResponse.ProtoReflect.Descriptor instead.
 func (*DescribeReleaseResponse) Descriptor() ([]byte, []int) {
-	return file_frontseat_build_v1alpha1_release_proto_rawDescGZIP(), []int{13}
+	return file_frontseat_build_v1alpha1_release_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *DescribeReleaseResponse) GetRelease() *Release {
@@ -1233,7 +1308,7 @@ type WaitReleaseRequest struct {
 
 func (x *WaitReleaseRequest) Reset() {
 	*x = WaitReleaseRequest{}
-	mi := &file_frontseat_build_v1alpha1_release_proto_msgTypes[14]
+	mi := &file_frontseat_build_v1alpha1_release_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1245,7 +1320,7 @@ func (x *WaitReleaseRequest) String() string {
 func (*WaitReleaseRequest) ProtoMessage() {}
 
 func (x *WaitReleaseRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_build_v1alpha1_release_proto_msgTypes[14]
+	mi := &file_frontseat_build_v1alpha1_release_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1258,7 +1333,7 @@ func (x *WaitReleaseRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WaitReleaseRequest.ProtoReflect.Descriptor instead.
 func (*WaitReleaseRequest) Descriptor() ([]byte, []int) {
-	return file_frontseat_build_v1alpha1_release_proto_rawDescGZIP(), []int{14}
+	return file_frontseat_build_v1alpha1_release_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *WaitReleaseRequest) GetReleaseId() string {
@@ -1279,7 +1354,7 @@ type WaitReleaseResponse struct {
 
 func (x *WaitReleaseResponse) Reset() {
 	*x = WaitReleaseResponse{}
-	mi := &file_frontseat_build_v1alpha1_release_proto_msgTypes[15]
+	mi := &file_frontseat_build_v1alpha1_release_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1291,7 +1366,7 @@ func (x *WaitReleaseResponse) String() string {
 func (*WaitReleaseResponse) ProtoMessage() {}
 
 func (x *WaitReleaseResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_build_v1alpha1_release_proto_msgTypes[15]
+	mi := &file_frontseat_build_v1alpha1_release_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1304,7 +1379,7 @@ func (x *WaitReleaseResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WaitReleaseResponse.ProtoReflect.Descriptor instead.
 func (*WaitReleaseResponse) Descriptor() ([]byte, []int) {
-	return file_frontseat_build_v1alpha1_release_proto_rawDescGZIP(), []int{15}
+	return file_frontseat_build_v1alpha1_release_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *WaitReleaseResponse) GetRelease() *Release {
@@ -1362,7 +1437,7 @@ const file_frontseat_build_v1alpha1_release_proto_rawDesc = "" +
 	"\bentities\x18\x01 \x03(\v2\".frontseat.type.v1alpha1.EntityRefB\x04\xe2A\x01\x02R\bentities\x12\x18\n" +
 	"\x04etag\x18\x02 \x01(\tB\x04\xe2A\x01\x02R\x04etag\"T\n" +
 	"\x15CreateReleaseResponse\x12;\n" +
-	"\arelease\x18\x01 \x01(\v2!.frontseat.build.v1alpha1.ReleaseR\arelease\"\xc3\x04\n" +
+	"\arelease\x18\x01 \x01(\v2!.frontseat.build.v1alpha1.ReleaseR\arelease\"\xd9\x04\n" +
 	"\aRelease\x12\x14\n" +
 	"\x02id\x18\x01 \x01(\tB\x04\xe2A\x01\x03R\x02id\x12?\n" +
 	"\x04plan\x18\x02 \x01(\v2%.frontseat.build.v1alpha1.ReleasePlanB\x04\xe2A\x01\x03R\x04plan\x12C\n" +
@@ -1372,21 +1447,26 @@ const file_frontseat_build_v1alpha1_release_proto_rawDesc = "" +
 	"\afailure\x18\x06 \x01(\tB\x04\xe2A\x01\x03R\afailure\x12A\n" +
 	"\vcreate_time\x18\a \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\n" +
 	"createTime\x12;\n" +
-	"\bend_time\x18\b \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\aendTime\"\x96\x01\n" +
+	"\bend_time\x18\b \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\aendTime\"\xac\x01\n" +
 	"\x05State\x12\x15\n" +
 	"\x11STATE_UNSPECIFIED\x10\x00\x12\x12\n" +
 	"\x0eSTATE_BUILDING\x10\x01\x12\x11\n" +
 	"\rSTATE_TAGGING\x10\x02\x12\x13\n" +
 	"\x0fSTATE_SUCCEEDED\x10\x03\x12\x11\n" +
-	"\rSTATE_PUSHING\x10\x06\x12\x15\n" +
+	"\rSTATE_PUSHING\x10\x06\x12\x14\n" +
+	"\x10STATE_PUBLISHING\x10\a\x12\x15\n" +
 	"\x11STATE_UNPUBLISHED\x10\x04\x12\x10\n" +
-	"\fSTATE_FAILED\x10\x05\"\x9f\x02\n" +
+	"\fSTATE_FAILED\x10\x05\"\xef\x02\n" +
 	"\fReleasedUnit\x12@\n" +
 	"\x06entity\x18\x01 \x01(\v2\".frontseat.type.v1alpha1.EntityRefB\x04\xe2A\x01\x03R\x06entity\x12\x1e\n" +
 	"\aversion\x18\x02 \x01(\tB\x04\xe2A\x01\x03R\aversion\x12>\n" +
 	"\x04tags\x18\x03 \x03(\v2$.frontseat.build.v1alpha1.ReleaseTagB\x04\xe2A\x01\x03R\x04tags\x12\x1e\n" +
 	"\aalready\x18\x04 \x01(\bB\x04\xe2A\x01\x03R\aalready\x12M\n" +
-	"\tartifacts\x18\x05 \x03(\v2).frontseat.build.v1alpha1.ReleaseArtifactB\x04\xe2A\x01\x03R\tartifacts\"\x7f\n" +
+	"\tartifacts\x18\x05 \x03(\v2).frontseat.build.v1alpha1.ReleaseArtifactB\x04\xe2A\x01\x03R\tartifacts\x12N\n" +
+	"\tpublished\x18\x06 \x03(\v2*.frontseat.build.v1alpha1.ReleasePublishedB\x04\xe2A\x01\x03R\tpublished\"N\n" +
+	"\x10ReleasePublished\x12\x1a\n" +
+	"\x05label\x18\x01 \x01(\tB\x04\xe2A\x01\x03R\x05label\x12\x1e\n" +
+	"\afailure\x18\x02 \x01(\tB\x04\xe2A\x01\x03R\afailure\"\x7f\n" +
 	"\x0fReleaseArtifact\x12\x18\n" +
 	"\x04name\x18\x01 \x01(\tB\x04\xe2A\x01\x03R\x04name\x12\x1c\n" +
 	"\x06sha256\x18\x02 \x01(\tB\x04\xe2A\x01\x03R\x06sha256\x12\x18\n" +
@@ -1437,7 +1517,7 @@ func file_frontseat_build_v1alpha1_release_proto_rawDescGZIP() []byte {
 }
 
 var file_frontseat_build_v1alpha1_release_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_frontseat_build_v1alpha1_release_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
+var file_frontseat_build_v1alpha1_release_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
 var file_frontseat_build_v1alpha1_release_proto_goTypes = []any{
 	(ReasonKind)(0),                 // 0: frontseat.build.v1alpha1.ReasonKind
 	(Release_State)(0),              // 1: frontseat.build.v1alpha1.Release.State
@@ -1451,57 +1531,59 @@ var file_frontseat_build_v1alpha1_release_proto_goTypes = []any{
 	(*CreateReleaseResponse)(nil),   // 9: frontseat.build.v1alpha1.CreateReleaseResponse
 	(*Release)(nil),                 // 10: frontseat.build.v1alpha1.Release
 	(*ReleasedUnit)(nil),            // 11: frontseat.build.v1alpha1.ReleasedUnit
-	(*ReleaseArtifact)(nil),         // 12: frontseat.build.v1alpha1.ReleaseArtifact
-	(*ReleaseTag)(nil),              // 13: frontseat.build.v1alpha1.ReleaseTag
-	(*DescribeReleaseRequest)(nil),  // 14: frontseat.build.v1alpha1.DescribeReleaseRequest
-	(*DescribeReleaseResponse)(nil), // 15: frontseat.build.v1alpha1.DescribeReleaseResponse
-	(*WaitReleaseRequest)(nil),      // 16: frontseat.build.v1alpha1.WaitReleaseRequest
-	(*WaitReleaseResponse)(nil),     // 17: frontseat.build.v1alpha1.WaitReleaseResponse
-	(*v1alpha1.EntityRef)(nil),      // 18: frontseat.type.v1alpha1.EntityRef
-	(Grouping)(0),                   // 19: frontseat.build.v1alpha1.Grouping
-	(v1alpha1.Bump)(0),              // 20: frontseat.type.v1alpha1.Bump
-	(*timestamppb.Timestamp)(nil),   // 21: google.protobuf.Timestamp
+	(*ReleasePublished)(nil),        // 12: frontseat.build.v1alpha1.ReleasePublished
+	(*ReleaseArtifact)(nil),         // 13: frontseat.build.v1alpha1.ReleaseArtifact
+	(*ReleaseTag)(nil),              // 14: frontseat.build.v1alpha1.ReleaseTag
+	(*DescribeReleaseRequest)(nil),  // 15: frontseat.build.v1alpha1.DescribeReleaseRequest
+	(*DescribeReleaseResponse)(nil), // 16: frontseat.build.v1alpha1.DescribeReleaseResponse
+	(*WaitReleaseRequest)(nil),      // 17: frontseat.build.v1alpha1.WaitReleaseRequest
+	(*WaitReleaseResponse)(nil),     // 18: frontseat.build.v1alpha1.WaitReleaseResponse
+	(*v1alpha1.EntityRef)(nil),      // 19: frontseat.type.v1alpha1.EntityRef
+	(Grouping)(0),                   // 20: frontseat.build.v1alpha1.Grouping
+	(v1alpha1.Bump)(0),              // 21: frontseat.type.v1alpha1.Bump
+	(*timestamppb.Timestamp)(nil),   // 22: google.protobuf.Timestamp
 }
 var file_frontseat_build_v1alpha1_release_proto_depIdxs = []int32{
-	18, // 0: frontseat.build.v1alpha1.PlanReleaseRequest.entities:type_name -> frontseat.type.v1alpha1.EntityRef
+	19, // 0: frontseat.build.v1alpha1.PlanReleaseRequest.entities:type_name -> frontseat.type.v1alpha1.EntityRef
 	4,  // 1: frontseat.build.v1alpha1.PlanReleaseResponse.plan:type_name -> frontseat.build.v1alpha1.ReleasePlan
 	6,  // 2: frontseat.build.v1alpha1.ReleasePlan.units:type_name -> frontseat.build.v1alpha1.ReleaseUnit
 	5,  // 3: frontseat.build.v1alpha1.ReleasePlan.commits:type_name -> frontseat.build.v1alpha1.RepositoryCommit
-	18, // 4: frontseat.build.v1alpha1.ReleaseUnit.entity:type_name -> frontseat.type.v1alpha1.EntityRef
-	18, // 5: frontseat.build.v1alpha1.ReleaseUnit.members:type_name -> frontseat.type.v1alpha1.EntityRef
-	18, // 6: frontseat.build.v1alpha1.ReleaseUnit.group:type_name -> frontseat.type.v1alpha1.EntityRef
-	19, // 7: frontseat.build.v1alpha1.ReleaseUnit.grouping:type_name -> frontseat.build.v1alpha1.Grouping
-	20, // 8: frontseat.build.v1alpha1.ReleaseUnit.bump:type_name -> frontseat.type.v1alpha1.Bump
+	19, // 4: frontseat.build.v1alpha1.ReleaseUnit.entity:type_name -> frontseat.type.v1alpha1.EntityRef
+	19, // 5: frontseat.build.v1alpha1.ReleaseUnit.members:type_name -> frontseat.type.v1alpha1.EntityRef
+	19, // 6: frontseat.build.v1alpha1.ReleaseUnit.group:type_name -> frontseat.type.v1alpha1.EntityRef
+	20, // 7: frontseat.build.v1alpha1.ReleaseUnit.grouping:type_name -> frontseat.build.v1alpha1.Grouping
+	21, // 8: frontseat.build.v1alpha1.ReleaseUnit.bump:type_name -> frontseat.type.v1alpha1.Bump
 	7,  // 9: frontseat.build.v1alpha1.ReleaseUnit.reasons:type_name -> frontseat.build.v1alpha1.ReleaseReason
-	18, // 10: frontseat.build.v1alpha1.ReleaseUnit.depends_on:type_name -> frontseat.type.v1alpha1.EntityRef
+	19, // 10: frontseat.build.v1alpha1.ReleaseUnit.depends_on:type_name -> frontseat.type.v1alpha1.EntityRef
 	0,  // 11: frontseat.build.v1alpha1.ReleaseReason.kind:type_name -> frontseat.build.v1alpha1.ReasonKind
-	20, // 12: frontseat.build.v1alpha1.ReleaseReason.bump:type_name -> frontseat.type.v1alpha1.Bump
+	21, // 12: frontseat.build.v1alpha1.ReleaseReason.bump:type_name -> frontseat.type.v1alpha1.Bump
 	5,  // 13: frontseat.build.v1alpha1.ReleaseReason.commit:type_name -> frontseat.build.v1alpha1.RepositoryCommit
-	18, // 14: frontseat.build.v1alpha1.CreateReleaseRequest.entities:type_name -> frontseat.type.v1alpha1.EntityRef
+	19, // 14: frontseat.build.v1alpha1.CreateReleaseRequest.entities:type_name -> frontseat.type.v1alpha1.EntityRef
 	10, // 15: frontseat.build.v1alpha1.CreateReleaseResponse.release:type_name -> frontseat.build.v1alpha1.Release
 	4,  // 16: frontseat.build.v1alpha1.Release.plan:type_name -> frontseat.build.v1alpha1.ReleasePlan
 	1,  // 17: frontseat.build.v1alpha1.Release.state:type_name -> frontseat.build.v1alpha1.Release.State
 	11, // 18: frontseat.build.v1alpha1.Release.units:type_name -> frontseat.build.v1alpha1.ReleasedUnit
-	21, // 19: frontseat.build.v1alpha1.Release.create_time:type_name -> google.protobuf.Timestamp
-	21, // 20: frontseat.build.v1alpha1.Release.end_time:type_name -> google.protobuf.Timestamp
-	18, // 21: frontseat.build.v1alpha1.ReleasedUnit.entity:type_name -> frontseat.type.v1alpha1.EntityRef
-	13, // 22: frontseat.build.v1alpha1.ReleasedUnit.tags:type_name -> frontseat.build.v1alpha1.ReleaseTag
-	12, // 23: frontseat.build.v1alpha1.ReleasedUnit.artifacts:type_name -> frontseat.build.v1alpha1.ReleaseArtifact
-	10, // 24: frontseat.build.v1alpha1.DescribeReleaseResponse.release:type_name -> frontseat.build.v1alpha1.Release
-	10, // 25: frontseat.build.v1alpha1.WaitReleaseResponse.release:type_name -> frontseat.build.v1alpha1.Release
-	2,  // 26: frontseat.build.v1alpha1.ReleaseService.PlanRelease:input_type -> frontseat.build.v1alpha1.PlanReleaseRequest
-	8,  // 27: frontseat.build.v1alpha1.ReleaseService.CreateRelease:input_type -> frontseat.build.v1alpha1.CreateReleaseRequest
-	14, // 28: frontseat.build.v1alpha1.ReleaseService.DescribeRelease:input_type -> frontseat.build.v1alpha1.DescribeReleaseRequest
-	16, // 29: frontseat.build.v1alpha1.ReleaseService.WaitRelease:input_type -> frontseat.build.v1alpha1.WaitReleaseRequest
-	3,  // 30: frontseat.build.v1alpha1.ReleaseService.PlanRelease:output_type -> frontseat.build.v1alpha1.PlanReleaseResponse
-	9,  // 31: frontseat.build.v1alpha1.ReleaseService.CreateRelease:output_type -> frontseat.build.v1alpha1.CreateReleaseResponse
-	15, // 32: frontseat.build.v1alpha1.ReleaseService.DescribeRelease:output_type -> frontseat.build.v1alpha1.DescribeReleaseResponse
-	17, // 33: frontseat.build.v1alpha1.ReleaseService.WaitRelease:output_type -> frontseat.build.v1alpha1.WaitReleaseResponse
-	30, // [30:34] is the sub-list for method output_type
-	26, // [26:30] is the sub-list for method input_type
-	26, // [26:26] is the sub-list for extension type_name
-	26, // [26:26] is the sub-list for extension extendee
-	0,  // [0:26] is the sub-list for field type_name
+	22, // 19: frontseat.build.v1alpha1.Release.create_time:type_name -> google.protobuf.Timestamp
+	22, // 20: frontseat.build.v1alpha1.Release.end_time:type_name -> google.protobuf.Timestamp
+	19, // 21: frontseat.build.v1alpha1.ReleasedUnit.entity:type_name -> frontseat.type.v1alpha1.EntityRef
+	14, // 22: frontseat.build.v1alpha1.ReleasedUnit.tags:type_name -> frontseat.build.v1alpha1.ReleaseTag
+	13, // 23: frontseat.build.v1alpha1.ReleasedUnit.artifacts:type_name -> frontseat.build.v1alpha1.ReleaseArtifact
+	12, // 24: frontseat.build.v1alpha1.ReleasedUnit.published:type_name -> frontseat.build.v1alpha1.ReleasePublished
+	10, // 25: frontseat.build.v1alpha1.DescribeReleaseResponse.release:type_name -> frontseat.build.v1alpha1.Release
+	10, // 26: frontseat.build.v1alpha1.WaitReleaseResponse.release:type_name -> frontseat.build.v1alpha1.Release
+	2,  // 27: frontseat.build.v1alpha1.ReleaseService.PlanRelease:input_type -> frontseat.build.v1alpha1.PlanReleaseRequest
+	8,  // 28: frontseat.build.v1alpha1.ReleaseService.CreateRelease:input_type -> frontseat.build.v1alpha1.CreateReleaseRequest
+	15, // 29: frontseat.build.v1alpha1.ReleaseService.DescribeRelease:input_type -> frontseat.build.v1alpha1.DescribeReleaseRequest
+	17, // 30: frontseat.build.v1alpha1.ReleaseService.WaitRelease:input_type -> frontseat.build.v1alpha1.WaitReleaseRequest
+	3,  // 31: frontseat.build.v1alpha1.ReleaseService.PlanRelease:output_type -> frontseat.build.v1alpha1.PlanReleaseResponse
+	9,  // 32: frontseat.build.v1alpha1.ReleaseService.CreateRelease:output_type -> frontseat.build.v1alpha1.CreateReleaseResponse
+	16, // 33: frontseat.build.v1alpha1.ReleaseService.DescribeRelease:output_type -> frontseat.build.v1alpha1.DescribeReleaseResponse
+	18, // 34: frontseat.build.v1alpha1.ReleaseService.WaitRelease:output_type -> frontseat.build.v1alpha1.WaitReleaseResponse
+	31, // [31:35] is the sub-list for method output_type
+	27, // [27:31] is the sub-list for method input_type
+	27, // [27:27] is the sub-list for extension type_name
+	27, // [27:27] is the sub-list for extension extendee
+	0,  // [0:27] is the sub-list for field type_name
 }
 
 func init() { file_frontseat_build_v1alpha1_release_proto_init() }
@@ -1516,7 +1598,7 @@ func file_frontseat_build_v1alpha1_release_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_frontseat_build_v1alpha1_release_proto_rawDesc), len(file_frontseat_build_v1alpha1_release_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   16,
+			NumMessages:   17,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

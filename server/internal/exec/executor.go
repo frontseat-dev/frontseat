@@ -37,8 +37,9 @@ type Listing interface {
 // where the daemon runs: a tool, so that a fix, which runs where the
 // checkout is, runs with the same tool the check on the grid runs with.
 type Materializing interface {
-	// Materialize writes the directory to the path, which must not be
-	// there yet, with each file as the grid holds it.
+	// Materialize writes what is held to the path, which must not be
+	// there yet: a directory with each file as the grid holds it, or a
+	// file, as a release's artifact is brought to be published.
 	Materialize(ctx context.Context, directory Held, into string) error
 }
 

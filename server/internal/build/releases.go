@@ -6,6 +6,9 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/frontseat-dev/frontseat/server/internal/engine/graph"
+	"github.com/frontseat-dev/frontseat/server/internal/exec/publish"
+	"github.com/frontseat-dev/frontseat/server/internal/exec/tools"
 	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/pluginhost"
 	"sort"
@@ -335,6 +338,11 @@ func (rs *releases) carryOut(m *made, planned *release.Planned, built *run) {
 	if built != nil {
 		shipped = built.shipped()
 	}
+	publishes := false
+	if built != nil {
+		with := built.published()
+		publishes = with != nil && len(with.actions) > 0
+	}
 	named := map[string]artifact{}
 	for _, unit := range planning.GetUnits() {
 		if unit.GetNextVersion() == "" {
@@ -346,6 +354,12 @@ func (rs *releases) carryOut(m *made, planned *release.Planned, built *run) {
 				// where it said a file left nothing that can be shipped.
 				if each.directory {
 					fail("%s left the directory %s, and a package leaves files; nothing is tagged", each.file.GetLabel(), each.at)
+					return
+				}
+				// A name a publish could not be given is said before
+				// anything is tagged, and not once the tags are pushed.
+				if err := publish.Named(each.file.GetName()); err != nil && publishes {
+					fail("%s left what cannot be published: %v; nothing is tagged", each.file.GetLabel(), err)
 					return
 				}
 				if other, taken := named[each.file.GetName()]; taken && other.at != each.at {
@@ -441,7 +455,93 @@ func (rs *releases) carryOut(m *made, planned *release.Planned, built *run) {
 			}
 		}
 	}
+	// What was shipped is published: by each action that publishes, for
+	// each unit of its own that was tagged here. A unit found released
+	// already had nothing built to publish, and a prerelease that is not
+	// tagged has no tag to publish under.
+	failed, stopped := rs.publish(ctx, m, planned, built, commit, shipped)
+	if stopped {
+		end(buildv1.Release_STATE_FAILED, "the daemon ended before everything was published; every tag is pushed, and a publish it ended may be half done")
+		return
+	}
+	if len(failed) > 0 {
+		end(buildv1.Release_STATE_FAILED, fmt.Sprintf("%s could not be published; every tag is pushed, and what was published stays: a release is published again once its tag and what was published of it are taken back", strings.Join(failed, " and ")))
+		return
+	}
 	end(buildv1.Release_STATE_SUCCEEDED, "")
+}
+
+// publish runs what publishes each unit a release tagged, and notes on
+// the unit what became of each. It returns which failed, each as the
+// action and its unit; the release says why on the unit.
+func (rs *releases) publish(ctx context.Context, m *made, planned *release.Planned, built *run, commit map[string]string, shipped map[string][]artifact) (failed []string, stopped bool) {
+	if built == nil {
+		return nil, false
+	}
+	with := built.published()
+	if with == nil || len(with.actions) == 0 {
+		return nil, false
+	}
+	runs := rs.graph.runs
+	runner := publish.Runner{Grid: runs.answered, Tools: &tools.Provisioner{Executor: runs.executor, Platform: runs.platform}, Kept: runs.tools, Given: runs.given}
+	units := map[string]*buildv1.ReleaseUnit{}
+	for _, unit := range planned.Plan.GetUnits() {
+		units[entity.FromProto(unit.GetEntity()).String()] = unit
+	}
+	began := false
+	for at, became := range m.snapshot().GetUnits() {
+		ref := entity.FromProto(became.GetEntity())
+		unit := units[ref.String()]
+		if became.GetAlready() || len(became.GetTags()) == 0 || unit == nil {
+			continue
+		}
+		repository := planned.Repositories[ref]
+		of := publish.Release{
+			Version:    pluginhost.Version{Version: unit.GetNextVersion(), Tag: unit.GetTag(), Commit: commit[repository], Unit: ref.String()},
+			Notes:      unit.GetNotes(),
+			Prerelease: unit.GetPrerelease(),
+		}
+		members := map[string]bool{}
+		for _, member := range unit.GetMembers() {
+			members[entity.FromProto(member).String()] = true
+			for _, each := range shipped[entity.FromProto(member).String()] {
+				of.Artifacts = append(of.Artifacts, publish.Artifact{Name: each.file.GetName(), Held: each.held})
+			}
+		}
+		for _, action := range with.actions {
+			// A publish is its owner's unit's; one no entity owns, as at
+			// a repository's root, is each unit's of its repository.
+			owner, owned := graph.Owner(with.entities, action.Label.Path)
+			if owned && !members[owner.Ref.String()] || !owned && action.Repository != repository {
+				continue
+			}
+			if !began {
+				began = true
+				m.change(func(r *buildv1.Release) { r.State = buildv1.Release_STATE_PUBLISHING })
+			}
+			// A daemon that is ending publishes nothing more, and what
+			// it did not run did not fail.
+			if ctx.Err() != nil {
+				return failed, true
+			}
+			said := &buildv1.ReleasePublished{Label: action.Label.String()}
+			var err error
+			if of.Remote, err = runs.workspace.Remote(repository); err == nil {
+				err = runner.Run(ctx, with.snapshot, action, of)
+			}
+			if err != nil && ctx.Err() != nil {
+				said.Failure = "the daemon ended while it ran: it may be half done"
+				m.change(func(r *buildv1.Release) { r.Units[at].Published = append(r.Units[at].Published, said) })
+				return failed, true
+			}
+			if err != nil {
+				said.Failure = err.Error()
+				failed = append(failed, fmt.Sprintf("%s of %s", action.Label, ref.Name))
+			}
+			m.change(func(r *buildv1.Release) { r.Units[at].Published = append(r.Units[at].Published, said) })
+		}
+	}
+	return failed, false
 }
 
 func newReleaseID() (string, error) {

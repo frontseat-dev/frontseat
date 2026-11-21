@@ -2,6 +2,7 @@ package config_test
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"testing"
 
@@ -155,5 +156,30 @@ func TestAnActionThatSaysLaunchIsRefusedByName(t *testing.T) {
 	}
 	if got, err := read("program"); err != nil || len(got.Actions()) != 1 || !got.Actions()[0].Program {
 		t.Errorf("control, program: true: %v", err)
+	}
+}
+
+// An action of an entity's own says it publishes, and which variables
+// of where the daemon runs it is given; one that does not publish and
+// names some is refused. The control is one that publishes.
+func TestAnActionOfAnEntitysOwnSaysItPublishesAndWhatItIsGiven(t *testing.T) {
+	read := func(keys string) (*config.Repository, error) {
+		return config.Read(t.Context(), "", files{
+			config.File:         "plugins: {}\n",
+			"catalog-info.yaml": "apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata: {name: app}\nspec:\n  frontseat:\n    actions:\n      release:\n        tools: [gh]\n        command: [gh, release, create]\n" + keys,
+		})
+	}
+	got, err := read("        publish: true\n        environment: [GH_TOKEN]\n")
+	if err != nil || len(got.Actions()) != 1 || !got.Actions()[0].Publish || !slices.Equal(got.Actions()[0].Environment, []string{"GH_TOKEN"}) {
+		t.Errorf("control, an action that publishes: %v, %v", got.Actions(), err)
+	}
+	for keys, says := range map[string]string{
+		"        environment: [GH_TOKEN]\n":                      "the action release says an environment, which only an action that publishes is given",
+		"        publish: 'yes'\n":                               "publish is true or false",
+		"        publish: true\n        environment: GH_TOKEN\n": "environment is a list",
+	} {
+		if _, err := read(keys); err == nil || !strings.Contains(err.Error(), says) {
+			t.Errorf("%q: %v, want %q", keys, err, says)
+		}
 	}
 }

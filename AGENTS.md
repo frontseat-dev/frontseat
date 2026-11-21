@@ -328,6 +328,54 @@ the change that fixes it.
   refused stay sent, and those after it are not tried; a remote given
   as a directory runs its own hooks as the daemon; why a push failed
   is what git said, the remote's own words among it.
+- A release publishes with actions, and with each tool's own way of
+  publishing: an action says it publishes (the contract's
+  `Action.publish`; `publish: true` on an entity's own action) and runs
+  a forge's command line or a registry's client. Nothing of Frontseat's
+  speaks to a forge or a registry. No build runs it. A release runs it
+  once every tag is pushed, where the daemon is
+  (`server/internal/exec/publish`, beside a fix in
+  `server/internal/exec/here`) and never on the grid, with the tools the
+  repository pins, for each unit it tagged then: the unit that owns the
+  action, or, where no entity owns it, each unit of its repository. It
+  is given the unit's artifacts, brought from the grid, with
+  `checksums.txt` beside them, and is told the release where its command
+  names it (`{frontseat.artifacts}`, `{frontseat.notes}`,
+  `{frontseat.remote}`, `{frontseat.prerelease}`, and the version's).
+  Its environment holds, of where the daemon runs, the variables it
+  names that the daemon was told it may be given (`frontseatd
+  --publish-environment`), and no other: that is how a tool is handed
+  its token, in a job. It is ended, with whatever it started, after
+  thirty minutes. What is said of it is the end of what it printed,
+  with each of those values left out. An artifact it could not be given,
+  by its name, fails the release before anything is tagged. One that
+  fails fails the release, on the unit; the tags stay pushed. Held by:
+  `TestAReleasePublishesWhatItShippedWhereTheDaemonIs`,
+  `TestAPublishThatFailsFailsTheReleaseAndItsTagsStay`,
+  `TestAPublishNoEntityOwnsPublishesEachUnitOfItsRepository`,
+  `TestAnArtifactAPublishCannotBeGivenFailsTheReleaseBeforeItTags`,
+  `TestAnArtifactIsNamedAsAPublishCanBeGivenIt`,
+  `TestWhatAPublishPrintedIsSaidWithoutWhatItWasGiven`,
+  `TestAnActionThatPublishesIsThatAlone` and
+  `TestAnActionThatPublishesIsGivenTheReleaseAndItsArtifacts`. Not held:
+  no plugin publishes yet, and no publish was run with a real tool or
+  against a forge; no artifact was brought from a real grid; a release
+  whose publish failed is not finished by making it again, its unit
+  being found released then with nothing built: its tag and what was
+  published are taken back first; a unit found released already, and a
+  prerelease that is not tagged, are never published; a publish runs
+  with the workers' tools, so only where the daemon's platform is
+  theirs; it runs as the daemon, confined by where the daemon runs
+  alone: the variables it is given are what its environment holds and
+  no boundary, since it can read the daemon's own (through /proc), the
+  grid's token and the daemon's state, so a checkout that says what
+  publishes says what runs there as the daemon, in a release someone
+  asked for; a daemon given a token this way holds a credential, which
+  is for a job that already holds it and never for a workspace's
+  sandbox, where credentials stay outside; the time limit, that
+  nothing a publish started outlives it, and the daemon's flag have no
+  test; a token a tool prints changed, as encoded, is not left out; no
+  spec publishes against the local stack.
 - A release ships what its packages leave. An action says it makes
   what its project ships (the contract's `Action.package`; `package:
   true` on a Component's own action), and each file it leaves is an
@@ -762,6 +810,7 @@ mise run docs:serve       # serve the TechDocs site on http://localhost:8000
 | `server/internal/image` | An image's reference, read by Docker's own parser |
 | `server/internal/testservice` | What a service for tests is held to, for the daemon and the runner |
 | `server/internal/confine` | How a worker starts and confines an action (`frontseat-action`) |
+| `server/internal/exec/here` | A command made ready to run where the daemon is, with the grid's tools: a fix, and what publishes |
 | `server/internal/plain` | Text and names that every reader reads alike |
 | `server/internal/secretfile` | A secret read from a file and a directory that are the server's alone |
 | `server/internal/backstage` | The Backstage catalog the control plane resolves entities through |

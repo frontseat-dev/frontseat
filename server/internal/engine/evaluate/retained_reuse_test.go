@@ -92,7 +92,7 @@ func retainedFresh(ctx context.Context, src Source, profile pluginv1.Profile, ta
 		return retainedResult{}, err
 	}
 	actions, _, err := plan.Of(e.Actions, e.Entities, targets, nil)
-	return retainedResult{e, actions}, err
+	return retainedResult{evaluation: e, actions: actions}, err
 }
 
 // Semantic comparison is these tests' own, not a persistence format.

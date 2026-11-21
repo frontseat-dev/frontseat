@@ -13,6 +13,7 @@ import (
 	"github.com/frontseat-dev/frontseat/server/internal/engine/source"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/source/sourcetest"
 	"github.com/frontseat-dev/frontseat/server/internal/exec/fix"
+	"github.com/frontseat-dev/frontseat/server/internal/exec/here"
 	"github.com/frontseat-dev/frontseat/server/internal/exec/reapi/reapitest"
 	"github.com/frontseat-dev/frontseat/server/internal/exec/tools"
 	"github.com/frontseat-dev/frontseat/server/internal/model"
@@ -34,7 +35,7 @@ func TestAFixWithToolsOfAnotherPlatformIsRefused(t *testing.T) {
 	}
 	runner := fix.Runner{Tools: &tools.Provisioner{Platform: other}, Kept: t.TempDir()}
 	_, err := runner.Run(context.Background(), snapshot, action)
-	var refused *fix.OtherPlatform
+	var refused *here.OtherPlatform
 	if !errors.As(err, &refused) || !strings.Contains(err.Error(), runtime.GOOS) || !strings.Contains(err.Error(), "go") {
 		t.Fatalf("a fix with another platform's tools was not refused by name: %v", err)
 	}
@@ -46,7 +47,7 @@ func TestAFixWithToolsOfAnotherPlatformIsRefused(t *testing.T) {
 func TestAFixRunsWithNothingOfTheDaemonsEnvironment(t *testing.T) {
 	t.Setenv("PATH", "/nowhere/of/the/daemon:"+t.TempDir())
 	t.Setenv("INJECTED", "yes")
-	env := fix.Environment("/h", "/t")
+	env := here.Environment("/h", "/t")
 	for _, line := range env {
 		if strings.Contains(line, "nowhere") || strings.HasPrefix(line, "INJECTED=") {
 			t.Fatalf("the daemon's environment reached the fix: %q", line)

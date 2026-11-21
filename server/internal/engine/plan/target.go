@@ -44,15 +44,21 @@ func Pointed(actions []Action, entities []record.Located, targets, only []string
 			if actions[i].IsProgram() && strings.HasPrefix(target, "//") {
 				return nil, &model.Mistake{Message: fmt.Sprintf("%s is a program, which no build runs: frontseat run %s", target, target)}
 			}
+			// Nor is what publishes: a release runs it, once its tags
+			// are pushed.
+			if actions[i].IsPublish() && strings.HasPrefix(target, "//") {
+				return nil, &model.Mistake{Message: fmt.Sprintf("%s publishes, which no build runs: a release of what it publishes runs it", target)}
+			}
 			chosen[i] = true
 		}
 	}
 	names := map[string]bool{}
 	for _, name := range only {
 		known := map[string]bool{}
-		// A program is no action of a build: its name is none to keep.
+		// A program is no action of a build, nor what publishes: its
+		// name is none to keep.
 		for _, action := range actions {
-			if !action.IsProgram() {
+			if action.Built() {
 				known[asked(action)] = true
 			}
 		}
@@ -63,7 +69,7 @@ func Pointed(actions []Action, entities []record.Located, targets, only []string
 	}
 	var out []Action
 	for i, action := range actions {
-		if action.IsProgram() {
+		if !action.Built() {
 			continue
 		}
 		if len(targets) > 0 && !chosen[i] {

@@ -33,6 +33,9 @@ type configuration struct {
 	Downloads download.Fetcher
 	// Platform is what an action asks of the workers that run it.
 	Platform map[string]string
+	// Given are the variables of where the daemon runs that what
+	// publishes a release may be given.
+	Given []string
 	// Telemetry correlates this daemon's work with the calling command.
 	Telemetry *telemetry.Signals
 	// Builds is the directory the daemon keeps its builds in: what each
@@ -95,7 +98,7 @@ func newDaemon(config configuration) (*Daemon, error) {
 	if err != nil {
 		return nil, err
 	}
-	runs.now = config.Now
+	runs.now, runs.given = config.Now, config.Given
 	buildv1alpha1connect.RegisterBuildServiceHandler(api, &runService{runs: runs})
 	graph := &graphService{runs: runs}
 	// What the daemon keeps of an evaluation, and how many graph requests

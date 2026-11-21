@@ -14,6 +14,9 @@ import (
 type retainedResult struct {
 	evaluation Evaluation
 	actions    []plan.Action
+	// publishes are the actions of the evaluation that publish, found
+	// once: few workspaces publish, and no build should look again.
+	publishes []plan.Action
 }
 
 // trackedReads is what an evaluation read of each repository beside what

@@ -7,6 +7,24 @@ import (
 	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
 )
 
+// otherKind is the first of the kinds an action says it is that neither
+// a package nor what publishes may be as well; empty where it is none.
+func otherKind(action *pluginv1.Action) string {
+	switch {
+	case action.GetTest():
+		return "a test"
+	case action.GetCheck():
+		return "a check"
+	case action.GetFetch():
+		return "a fetch"
+	case action.GetShared():
+		return "a shared action"
+	case action.GetProgram():
+		return "a program to run"
+	}
+	return ""
+}
+
 // CheckPackage holds an action that says it makes what its project
 // ships (Action.package) to what the contract says of one: each file it
 // leaves is an artifact of a release, so it leaves at least one thing,
@@ -17,13 +35,8 @@ func CheckPackage(what string, action *pluginv1.Action) error {
 	if !action.GetPackage() {
 		return nil
 	}
-	for _, kind := range []struct {
-		is   bool
-		what string
-	}{{action.GetTest(), "a test"}, {action.GetCheck(), "a check"}, {action.GetFetch(), "a fetch"}, {action.GetShared(), "a shared action"}, {action.GetProgram(), "a program to run"}} {
-		if kind.is {
-			return fmt.Errorf("%s is a package, and is %s: a package is a step of a build that makes what ships", what, kind.what)
-		}
+	if kind := otherKind(action); kind != "" {
+		return fmt.Errorf("%s is a package, and is %s: a package is a step of a build that makes what ships", what, kind)
 	}
 	if len(action.GetOutputs()) == 0 {
 		return fmt.Errorf("%s is a package and leaves nothing: what it leaves is what ships", what)

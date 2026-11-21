@@ -585,7 +585,7 @@ func (g *Grid) Materialize(ctx context.Context, directory exec.Held, into string
 	ctx = access.Watch(ctx)
 	defer func() { err = g.said(ctx, err) }()
 	if !directory.Directory {
-		return fmt.Errorf("%s is a file, not a directory", directory.Digest.Hash)
+		return g.file(ctx, directory, into)
 	}
 	// The tree is walked as a listing is, each name and digest held to
 	// the contract, with the links a tool's tree has within itself; the
@@ -671,6 +671,25 @@ func linksWithin(root string, links map[string]string) error {
 		}
 	}
 	return nil
+}
+
+// file writes a file the grid holds to a path, beside it first and
+// moved into place, so it is there whole or not at all.
+func (g *Grid) file(ctx context.Context, held exec.Held, into string) error {
+	beside, err := os.MkdirTemp(filepath.Dir(into), "."+filepath.Base(into)+"-")
+	if err != nil {
+		return err
+	}
+	// Its own to delete: a directory made here, for this one file.
+	defer os.RemoveAll(beside)
+	dg := digest.Digest{Hash: held.Digest.Hash, Size: held.Digest.Size}
+	if err := g.download(ctx, beside, map[digest.Digest]*client.TreeOutput{dg: {Digest: dg, Path: "file", IsExecutable: held.Executable}}); err != nil {
+		if status.Code(err) == codes.NotFound {
+			return fmt.Errorf("%s: %w", held.Digest.Hash, exec.ErrNotKept)
+		}
+		return executionError(err)
+	}
+	return os.Rename(filepath.Join(beside, "file"), into)
 }
 
 // download fetches files into a directory: each digest once, at the

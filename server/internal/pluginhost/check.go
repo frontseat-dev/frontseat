@@ -499,6 +499,11 @@ func checkProject(plugin, root string, project *pluginv1.Project, found map[stri
 		if err := CheckVersion(fmt.Sprintf("the action %s", action.GetName()), action); err != nil {
 			return wrong("%v", err)
 		}
+		if action.GetPublish() != nil {
+			if err := CheckPublish(fmt.Sprintf("the action %s", action.GetName()), action); err != nil {
+				return wrong("%v", err)
+			}
+		}
 		// Few actions are packages: one that is none is not named to
 		// be looked at.
 		if action.GetPackage() {

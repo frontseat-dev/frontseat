@@ -93,6 +93,18 @@ func releaseEnded(t *testing.T, s *releaseService, id string) *buildv1.Release {
 	return got.GetRelease()
 }
 
+// releasedAlone releases one entity of a daemon's, which succeeds as
+// one unit, and returns the release with the service that made it.
+func releasedAlone(t *testing.T, c clients, name string) (*releaseService, *buildv1.Release) {
+	t.Helper()
+	s := &releaseService{graph: c.daemon.releases.graph, releases: c.daemon.releases}
+	release := releaseEnded(t, s, releaseBegun(t, s, name).GetId())
+	if release.GetState() != buildv1.Release_STATE_SUCCEEDED || len(release.GetUnits()) != 1 {
+		t.Fatalf("the release ended %v (%s) with %v", release.GetState(), release.GetFailure(), release.GetUnits())
+	}
+	return s, release
+}
+
 func tagsOf(t *testing.T, clone string) string {
 	t.Helper()
 	return strings.Join(strings.Fields(commits.Git(t, clone, "tag", "--list")), " ")

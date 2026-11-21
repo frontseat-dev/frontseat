@@ -51,11 +51,7 @@ func packagedSource(t *testing.T, twice bool) func(remote string) {
 // move would ship.
 func TestAReleaseListsWhatItsPackagesLeft(t *testing.T) {
 	c, _ := releasingClients(t, leaving{}, "release/1.0", packagedSource(t, false))
-	s := &releaseService{graph: c.daemon.releases.graph, releases: c.daemon.releases}
-	release := releaseEnded(t, s, releaseBegun(t, s, "greet").GetId())
-	if release.GetState() != buildv1.Release_STATE_SUCCEEDED || len(release.GetUnits()) != 1 {
-		t.Fatalf("the release ended %v (%s) with %v", release.GetState(), release.GetFailure(), release.GetUnits())
-	}
+	_, release := releasedAlone(t, c, "greet")
 	var listed []string
 	for _, each := range release.GetUnits()[0].GetArtifacts() {
 		if len(each.GetSha256()) != 64 || each.GetSize() == 0 || each.GetLabel() != "//services/greet:custom.pack" {

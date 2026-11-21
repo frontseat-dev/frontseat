@@ -106,6 +106,14 @@ func (p Printer) Release(release *buildv1.Release) {
 		for _, artifact := range unit.GetArtifacts() {
 			fmt.Fprintf(p.Out, "  %s  %s  %d bytes\n", shown(artifact.GetSha256()), shown(artifact.GetName()), artifact.GetSize())
 		}
+		// What became of each publish of it, and why one failed.
+		for _, published := range unit.GetPublished() {
+			if published.GetFailure() == "" {
+				fmt.Fprintf(p.Out, "  published by %s\n", shown(published.GetLabel()))
+				continue
+			}
+			fmt.Fprintf(p.Out, "  not published by %s: %s\n", shown(published.GetLabel()), shown(published.GetFailure()))
+		}
 	}
 	state := Word(release.GetState())
 	tagged := false

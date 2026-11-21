@@ -53,6 +53,9 @@ type Config struct {
 	Grid      Grid
 	Platform  map[string]string
 	Telemetry *telemetry.Signals
+	// Given are the variables of where the daemon runs that what
+	// publishes a release may be given, each by its name.
+	Given []string
 }
 
 // New opens the grid and plugin runtime, then serves the build and source
@@ -93,7 +96,7 @@ func New(ctx context.Context, config Config) (*Daemon, error) {
 	}
 	daemon, err := newDaemon(configuration{
 		Workspace: config.Workspace, Mounted: config.Mounted, Builds: config.Builds,
-		Plugins: loaded, Executor: grid, Downloads: downloads, Platform: config.Platform, Telemetry: config.Telemetry,
+		Plugins: loaded, Executor: grid, Downloads: downloads, Platform: config.Platform, Telemetry: config.Telemetry, Given: config.Given,
 	})
 	if err != nil {
 		release()
