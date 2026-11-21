@@ -149,14 +149,15 @@ message ReleaseUnit {
   Grouping grouping = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Last_version is the unit's last release; empty if it has none.
   string last_version = 6 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // Next_version is what the release makes it; empty if it holds.
+  // Next_version is what the release makes it; empty if it holds. A
+  // prerelease's says so: "1.27.0-main-20261121101500".
   string next_version = 7 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Bump is how far it moves.
   frontseat.type.v1alpha1.Bump bump = 8 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Reasons say why it moves, or why it holds, heaviest first.
   repeated ReleaseReason reasons = 9 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Tag is the tag the release writes, spelled from the unit's tag
-  // setting; empty if it holds.
+  // setting; empty if it holds, and for a prerelease that is not tagged.
   string tag = 10 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Depends_on are the units of the plan it depends on, folded from what
   // its members' projects require. A unit comes after them in the plan,
@@ -177,6 +178,11 @@ message ReleaseUnit {
   // Channel is the name its branching strategy gives what its branch
   // releases: "latest", "next", a branch's name.
   string channel = 17 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Prerelease is whether what the release makes it is a prerelease:
+  // its next version then says so after a dash, as its settings spell
+  // one, and it has a tag only where its settings say a prerelease is
+  // tagged.
+  bool prerelease = 18 [(google.api.field_behavior) = OUTPUT_ONLY];
 }
 
 // ReleaseReason is one reason a unit moves or holds.
@@ -260,7 +266,8 @@ message Release {
     // daemon's checkout.
     STATE_TAGGING = 2;
     // STATE_SUCCEEDED: it ended with nothing left to do: no unit of its
-    // plan moves or carries its tag.
+    // plan was tagged, since none moves, or since what moves is a
+    // prerelease its unit does not tag, which was built and no more.
     STATE_SUCCEEDED = 3;
     // STATE_UNPUBLISHED: its units are tagged, in the daemon's checkout
     // and nowhere else.
@@ -278,7 +285,8 @@ message ReleasedUnit {
   // Version is what it was released as.
   string version = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Tags are the tags written: one, in the unit's repository, while a
-  // unit is from one repository.
+  // unit is from one repository; none, for a prerelease its unit does
+  // not tag.
   repeated ReleaseTag tags = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Already says the tags were there, at the commit planned from, before
   // this release: it changed nothing for this unit.

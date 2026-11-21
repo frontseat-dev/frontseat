@@ -29,7 +29,16 @@ func (p Printer) Plan(plan *buildv1.ReleasePlan) {
 			if from == "" {
 				from = "unreleased"
 			}
-			fmt.Fprintf(p.Out, "%s  %s -> %s  tag %s  on %s\n", name, shown(from), shown(unit.GetNextVersion()), shown(unit.GetTag()), shown(unit.GetBranch()))
+			// A prerelease says so, and that it has no tag where its
+			// unit tags none.
+			tagged := "tag " + shown(unit.GetTag())
+			switch {
+			case unit.GetPrerelease() && unit.GetTag() == "":
+				tagged = "prerelease, not tagged"
+			case unit.GetPrerelease():
+				tagged = "prerelease, " + tagged
+			}
+			fmt.Fprintf(p.Out, "%s  %s -> %s  %s  on %s\n", name, shown(from), shown(unit.GetNextVersion()), tagged, shown(unit.GetBranch()))
 			for _, reason := range reasons {
 				p.reason(reason)
 			}
@@ -81,6 +90,10 @@ func held(reasons []*buildv1.ReleaseReason) string {
 // says that its tags are still to be pushed.
 func (p Printer) Release(release *buildv1.Release) {
 	for _, unit := range release.GetUnits() {
+		// A prerelease its unit does not tag was built, and no more.
+		if len(unit.GetTags()) == 0 {
+			fmt.Fprintf(p.Out, "%s  %s  built, not tagged\n", named(unit.GetEntity()), shown(unit.GetVersion()))
+		}
 		for _, tag := range unit.GetTags() {
 			did := "tagged"
 			if unit.GetAlready() {

@@ -39,6 +39,14 @@ func TestAPlanPrintsEachUnitAndWhyItMovesOrHolds(t *testing.T) {
 				Entity: unit("done"), Members: []*typev1.EntityRef{unit("done")}, LastVersion: "1.0.0", Tag: "done/v1.0.0",
 				Reasons: []*buildv1.ReleaseReason{{Kind: buildv1.ReasonKind_REASON_KIND_RELEASED}},
 			},
+			{
+				Entity: unit("edge"), Members: []*typev1.EntityRef{unit("edge")}, LastVersion: "1.0.0", NextVersion: "1.1.0-main-20261121101500", Prerelease: true, Branch: "main",
+				Reasons: []*buildv1.ReleaseReason{{Kind: buildv1.ReasonKind_REASON_KIND_OWN_CHANGE, Summary: "feat: greet by name", Commit: &buildv1.RepositoryCommit{Repository: "services", Commit: "3f2a9c1d5e6f7a8b9c0d"}}},
+			},
+			{
+				Entity: unit("kept"), Members: []*typev1.EntityRef{unit("kept")}, NextVersion: "0.1.0-next-20261121101500", Prerelease: true, Tag: "kept/v0.1.0-next-20261121101500", Branch: "next",
+				Reasons: []*buildv1.ReleaseReason{{Kind: buildv1.ReasonKind_REASON_KIND_FIRST_RELEASE}},
+			},
 		},
 	})
 	want := `greet  0.77.0 -> 0.77.1  tag greet/v0.77.1  on release/0.77
@@ -48,6 +56,10 @@ log  unreleased -> 0.77.0  tag log/v0.77.0  on release/0.77
 system:kiosk  (banner, ticker)  holds at 0.77.0: nothing of it changed since its last release
 hello  holds: main is the default branch, which releases nothing
 done  released as 1.0.0  tag done/v1.0.0
+edge  1.0.0 -> 1.1.0-main-20261121101500  prerelease, not tagged  on main
+  feat: greet by name  (3f2a9c1d5e6f)
+kept  unreleased -> 0.1.0-next-20261121101500  prerelease, tag kept/v0.1.0-next-20261121101500  on next
+  its first release
 plan 94d84b5ff042
 `
 	if out.String() != want {
@@ -71,6 +83,10 @@ func TestAReleasePrintsWhatItTaggedAndHowItEnded(t *testing.T) {
 		"failed": {
 			&buildv1.Release{Id: "rel_2", State: buildv1.Release_STATE_FAILED, Failure: "the production build run_9 ended BUILD_FAILURE; nothing is tagged"},
 			"rel_2  FAILED: the production build run_9 ended BUILD_FAILURE; nothing is tagged\n",
+		},
+		"a prerelease that is not tagged": {
+			&buildv1.Release{Id: "rel_4", State: buildv1.Release_STATE_SUCCEEDED, Units: []*buildv1.ReleasedUnit{{Entity: unit("edge"), Version: "1.1.0-main-20261121101500"}}},
+			"edge  1.1.0-main-20261121101500  built, not tagged\nrel_4  succeeded\n",
 		},
 		"nothing moved": {
 			&buildv1.Release{Id: "rel_3", State: buildv1.Release_STATE_SUCCEEDED},

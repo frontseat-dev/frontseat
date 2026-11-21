@@ -105,7 +105,15 @@ func (System) Standing(ctx context.Context, directory string) (vcs.Standing, err
 	if err != nil {
 		return vcs.Standing{}, err
 	}
-	return vcs.Standing{Branch: branch, Revision: revision, DefaultBranch: strings.TrimPrefix(origin, "refs/remotes/origin/")}, nil
+	written, err := trimmed(ctx, g, "show", "--no-patch", "--format=%ct", revision)
+	if err != nil {
+		return vcs.Standing{}, err
+	}
+	committed, err := strconv.ParseInt(written, 10, 64)
+	if err != nil {
+		return vcs.Standing{}, fmt.Errorf("git: %s was committed at %q, which is no time", revision, written)
+	}
+	return vcs.Standing{Branch: branch, Revision: revision, DefaultBranch: strings.TrimPrefix(origin, "refs/remotes/origin/"), Time: committed}, nil
 }
 
 // Tags returns the repository's tags, each with the commit it names: a

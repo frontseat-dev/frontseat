@@ -159,6 +159,12 @@ type EntityRelease struct {
 	// Branching_strategy is the branching strategy that says what a branch
 	// releases of it, as "<plugin>:<name>": "release:github-flow".
 	BranchingStrategy string `protobuf:"bytes,9,opt,name=branching_strategy,json=branchingStrategy,proto3" json:"branching_strategy,omitempty"`
+	// Prerelease is how a prerelease of its unit is spelled after its
+	// version's dash, where its branch releases one: "{branch}-{timestamp}"
+	// names it by the branch and by when its commit was made.
+	Prerelease string `protobuf:"bytes,10,opt,name=prerelease,proto3" json:"prerelease,omitempty"`
+	// Prerelease_tag is whether a prerelease of its unit is tagged.
+	PrereleaseTag bool `protobuf:"varint,11,opt,name=prerelease_tag,json=prereleaseTag,proto3" json:"prerelease_tag,omitempty"`
 	// Set_by says, for each setting, which entity set it; a setting no
 	// level sets is the default, and is not listed.
 	SetBy         []*ReleaseSettingOrigin `protobuf:"bytes,7,rep,name=set_by,json=setBy,proto3" json:"set_by,omitempty"`
@@ -245,6 +251,20 @@ func (x *EntityRelease) GetBranchingStrategy() string {
 	return ""
 }
 
+func (x *EntityRelease) GetPrerelease() string {
+	if x != nil {
+		return x.Prerelease
+	}
+	return ""
+}
+
+func (x *EntityRelease) GetPrereleaseTag() bool {
+	if x != nil {
+		return x.PrereleaseTag
+	}
+	return false
+}
+
 func (x *EntityRelease) GetSetBy() []*ReleaseSettingOrigin {
 	if x != nil {
 		return x.SetBy
@@ -256,7 +276,8 @@ func (x *EntityRelease) GetSetBy() []*ReleaseSettingOrigin {
 type ReleaseSettingOrigin struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Key is the setting, as spec.frontseat.release writes it: "grouping",
-	// "tag", "initial", "dependencies", "versioning" or "branching".
+	// "tag", "initial", "versioning", "branching", "prerelease" or
+	// "prerelease-tag".
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	// Entity is the entity whose catalog file sets it.
 	Entity        *v1alpha1.EntityRef `protobuf:"bytes,2,opt,name=entity,proto3" json:"entity,omitempty"`
@@ -954,7 +975,7 @@ const file_frontseat_build_v1alpha1_graph_proto_rawDesc = "" +
 	"depends_on\x18\x06 \x03(\v2\".frontseat.type.v1alpha1.EntityRefB\x04\xe2A\x01\x03R\tdependsOn\x12 \n" +
 	"\bmanifest\x18\a \x01(\tB\x04\xe2A\x01\x03R\bmanifest\x12L\n" +
 	"\trelations\x18\b \x03(\v2(.frontseat.build.v1alpha1.EntityRelationB\x04\xe2A\x01\x03R\trelations\x12G\n" +
-	"\arelease\x18\t \x01(\v2'.frontseat.build.v1alpha1.EntityReleaseB\x04\xe2A\x01\x03R\arelease\"\xc4\x03\n" +
+	"\arelease\x18\t \x01(\v2'.frontseat.build.v1alpha1.EntityReleaseB\x04\xe2A\x01\x03R\arelease\"\x97\x04\n" +
 	"\rEntityRelease\x12<\n" +
 	"\x04unit\x18\x01 \x01(\v2\".frontseat.type.v1alpha1.EntityRefB\x04\xe2A\x01\x03R\x04unit\x12>\n" +
 	"\x05group\x18\x02 \x01(\v2\".frontseat.type.v1alpha1.EntityRefB\x04\xe2A\x01\x03R\x05group\x12D\n" +
@@ -962,7 +983,12 @@ const file_frontseat_build_v1alpha1_graph_proto_rawDesc = "" +
 	"\x03tag\x18\x04 \x01(\tB\x04\xe2A\x01\x03R\x03tag\x12\x1e\n" +
 	"\ainitial\x18\x05 \x01(\tB\x04\xe2A\x01\x03R\ainitial\x125\n" +
 	"\x13versioning_strategy\x18\b \x01(\tB\x04\xe2A\x01\x03R\x12versioningStrategy\x123\n" +
-	"\x12branching_strategy\x18\t \x01(\tB\x04\xe2A\x01\x03R\x11branchingStrategy\x12K\n" +
+	"\x12branching_strategy\x18\t \x01(\tB\x04\xe2A\x01\x03R\x11branchingStrategy\x12$\n" +
+	"\n" +
+	"prerelease\x18\n" +
+	" \x01(\tB\x04\xe2A\x01\x03R\n" +
+	"prerelease\x12+\n" +
+	"\x0eprerelease_tag\x18\v \x01(\bB\x04\xe2A\x01\x03R\rprereleaseTag\x12K\n" +
 	"\x06set_by\x18\a \x03(\v2..frontseat.build.v1alpha1.ReleaseSettingOriginB\x04\xe2A\x01\x03R\x05setBy\"p\n" +
 	"\x14ReleaseSettingOrigin\x12\x16\n" +
 	"\x03key\x18\x01 \x01(\tB\x04\xe2A\x01\x03R\x03key\x12@\n" +

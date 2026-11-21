@@ -3,7 +3,9 @@ package config
 import (
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"go.yaml.in/yaml/v4"
@@ -33,6 +35,10 @@ const (
 	ReleaseInitial    = "initial"
 	ReleaseVersioning = "versioning"
 	ReleaseBranching  = "branching"
+	// ReleasePrerelease is how a prerelease is spelled after the
+	// version's dash, and ReleasePrereleaseTag whether one is tagged.
+	ReleasePrerelease    = "prerelease"
+	ReleasePrereleaseTag = "prerelease-tag"
 )
 
 // GroupingSynced and GroupingIndependent are what grouping may say.
@@ -43,7 +49,7 @@ const (
 
 // releaseKeys are the settings read; any other is refused.
 var (
-	releaseKeys = map[string]bool{ReleaseGrouping: true, ReleaseTag: true, ReleaseInitial: true, ReleaseVersioning: true, ReleaseBranching: true}
+	releaseKeys = map[string]bool{ReleaseGrouping: true, ReleaseTag: true, ReleaseInitial: true, ReleaseVersioning: true, ReleaseBranching: true, ReleasePrerelease: true, ReleasePrereleaseTag: true}
 	strategy    = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*:[a-z0-9][a-z0-9-]*$`)
 	placeholder = regexp.MustCompile(`\{[^{}]*\}`)
 )
@@ -84,6 +90,17 @@ func readRelease(file string, document, node *yaml.Node) (Release, error) {
 		switch {
 		case !releaseKeys[key.Value]:
 			return mistake(key.Line, "spec.frontseat.release.%s is no release setting; it takes %s", key.Value, keysOf(releaseKeys))
+		case key.Value == ReleasePrereleaseTag && said.Kind == yaml.ScalarNode && said.ShortTag() == "!!bool":
+			// Whether a prerelease is tagged is true or false, as the
+			// YAML reader reads them, and is kept as it reads it.
+			var tagged bool
+			if err := said.Decode(&tagged); err != nil {
+				return mistake(said.Line, "spec.frontseat.release.prerelease-tag is true or false")
+			}
+			out.Settings[key.Value] = strconv.FormatBool(tagged)
+			continue
+		case key.Value == ReleasePrereleaseTag:
+			return mistake(said.Line, "spec.frontseat.release.prerelease-tag is true or false")
 		case said.Kind != yaml.ScalarNode || said.ShortTag() != "!!str":
 			return mistake(said.Line, "spec.frontseat.release.%s is text", key.Value)
 		}
@@ -109,6 +126,18 @@ func readRelease(file string, document, node *yaml.Node) (Release, error) {
 			if !strategy.MatchString(value) {
 				return mistake(said.Line, "spec.frontseat.release.%s %s must be <plugin>:<name>", key.Value, value)
 			}
+		case ReleasePrerelease:
+			// Read as far as it can be before there is a branch and a
+			// commit: what it names is filled, and what it spells of an
+			// ordinary branch at an ordinary commit is a prerelease.
+			// A branch and a commit may each be written in digits alone,
+			// and begin with a zero: a form that makes either a part of
+			// its own is no prerelease for those, and is refused for all.
+			for _, sample := range [][2]string{{"main", "0123abcdef0123abcdef0123abcdef0123abcdef"}, {"007", "0123456789012345678901234567890123456789"}} {
+				if _, err := Prerelease(value, sample[0], sample[1], 1795256100); err != nil {
+					return mistake(said.Line, "spec.frontseat.release.prerelease %v: a branch or a commit written in digits is a number, which begins with no zero; join it to another part with a dash", err)
+				}
+			}
 		}
 		out.Settings[key.Value] = value
 	}
@@ -129,4 +158,69 @@ func Tag(pattern string) error {
 		}
 	}
 	return nil
+}
+
+// branchAtMost is how much of a branch's name a prerelease is spelled
+// with.
+const branchAtMost = 64
+
+// prereleaseFilled is what a prerelease's form names to be filled.
+var prereleaseFilled = []string{"{branch}", "{timestamp}", "{epoch}", "{sha}"}
+
+// Prerelease spells a prerelease, what follows a version's dash, as a
+// form says it of a branch and the commit a release is planned at:
+//
+//   - {branch} is the branch, every character a semantic version does
+//     not take in a prerelease made a dash, as far as its sixty-fourth:
+//     feat/greet is feat-greet;
+//   - {timestamp} is when the commit was made, in UTC, as
+//     20261121101500: always as long, so that by its letters is by its
+//     time;
+//   - {epoch} is the same time in seconds;
+//   - {sha} is the commit, as far as its seventh character.
+//
+// The time is the commit's and never the clock's: a commit has one
+// prerelease wherever it is planned. What the form names beside these,
+// and what it spells that is no prerelease of a semantic version, is
+// refused, by the form and what it spelled.
+func Prerelease(form, branch, revision string, committed int64) (string, error) {
+	for _, named := range placeholder.FindAllString(form, -1) {
+		known := false
+		for _, each := range prereleaseFilled {
+			known = known || each == named
+		}
+		if !known {
+			return "", fmt.Errorf("%q names %s, which is not filled: it takes %s", form, named, strings.Join(prereleaseFilled, ", "))
+		}
+	}
+	cleaned := strings.Map(func(r rune) rune {
+		if (r >= '0' && r <= '9') || (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') || r == '-' {
+			return r
+		}
+		return '-'
+	}, branch)
+	// A branch's name may be longer than a tag's may: as far as its
+	// sixty-fourth character says which branch well enough, beside a
+	// time, and leaves a tag spelled from it one a repository takes.
+	if len(cleaned) > branchAtMost {
+		cleaned = cleaned[:branchAtMost]
+	}
+	sha := revision
+	if len(sha) > 7 {
+		sha = sha[:7]
+	}
+	spelled := strings.NewReplacer(
+		"{branch}", cleaned,
+		"{timestamp}", time.Unix(committed, 0).UTC().Format("20060102150405"),
+		"{epoch}", strconv.FormatInt(committed, 10),
+		"{sha}", sha,
+	).Replace(form)
+	// A semantic version's own reader says whether it is a prerelease:
+	// parts between dots, each letters, digits and dashes, a number
+	// with no zero before it, and nothing after a plus.
+	version, err := semver.StrictNewVersion("0.0.0-" + spelled)
+	if err != nil || version.Prerelease() != spelled || version.Metadata() != "" {
+		return "", fmt.Errorf("%q spells %q for %s, which is no prerelease of a semantic version", form, spelled, branch)
+	}
+	return spelled, nil
 }

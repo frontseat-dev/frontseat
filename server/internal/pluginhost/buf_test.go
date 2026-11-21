@@ -14,7 +14,7 @@ import (
 func bufFixture(t *testing.T) conformance.Fixture {
 	context := &pluginv1.Context{Profile: pluginv1.Profile_PROFILE_DEVELOPMENT}
 	return arrangingNothing(context, conformance.Fixture{
-		Name: "buf", Description: &pluginv1.DescribeResponse{Name: "buf", Abi: 21, Interests: []string{"**/buf.yaml", "!**/testdata/**"}, GeneratesSources: true},
+		Name: "buf", Description: &pluginv1.DescribeResponse{Name: "buf", Abi: 22, Interests: []string{"**/buf.yaml", "!**/testdata/**"}, GeneratesSources: true},
 		Source: fixtureSource(t, "buf", "valid"), Absent: files{}, Malformed: fixtureSource(t, "buf", "malformed"), ErrorCode: "INVALID_MANIFEST",
 		Analyze: &pluginv1.AnalyzeRequest{Context: context, Roots: []string{"app"}},
 		Projects: []*pluginv1.Project{{Root: "app", Name: "app", Kind: "buf-workspace", Manifest: "app/buf.yaml",

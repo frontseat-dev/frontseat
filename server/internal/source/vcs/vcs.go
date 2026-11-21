@@ -81,6 +81,10 @@ type Standing struct {
 	// DefaultBranch is the default branch of where it was brought from;
 	// empty where that is not known.
 	DefaultBranch string
+	// Time is when the revision it stands at was committed, in seconds
+	// since the epoch: a fact of the commit, the same wherever it is
+	// read.
+	Time int64
 }
 
 // Tag is a tag of a repository.

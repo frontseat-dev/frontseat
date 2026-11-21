@@ -139,6 +139,22 @@ pub struct BranchResponse {
     /// branch's name.
     #[prost(string, tag = "4")]
     pub channel: ::prost::alloc::string::String,
+    /// Prerelease is whether what it releases is a prerelease: of the
+    /// version the unit's versioning strategy gives, which the host spells
+    /// with the prerelease the unit's settings say
+    /// (spec.frontseat.release.prerelease), from the branch and the commit
+    /// planned at. A prerelease is never a unit's last release, and is
+    /// held to no line.
+    #[prost(bool, tag = "5")]
+    pub prerelease: bool,
+    /// At_least is the least by which a prerelease's version is above the
+    /// highest release of the unit anywhere in the repository, in its
+    /// branch's history or not: a branch heading for a line not cut yet
+    /// says BUMP_MINOR, so that it offers no prerelease of a version a
+    /// release branch releases. Unset, it is above it by a patch at least.
+    /// Only a prerelease says one.
+    #[prost(enumeration = "super::super::r#type::v1alpha1::Bump", tag = "6")]
+    pub at_least: i32,
 }
 /// VersionRequest asks a unit's next version.
 #[derive(Clone, PartialEq, ::prost::Message)]

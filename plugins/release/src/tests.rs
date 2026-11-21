@@ -36,7 +36,7 @@ fn it_says_the_strategies_it_serves() {
 }
 
 #[test]
-fn under_release_flow_a_release_branch_releases_its_line_and_nothing_else_releases() {
+fn under_release_flow_a_release_branch_releases_its_line_and_one_written_wrongly_nothing() {
     let plugin = crate::served();
     for (branch, line) in [
         ("release/1.26", "1.26"),
@@ -49,8 +49,6 @@ fn under_release_flow_a_release_branch_releases_its_line_and_nothing_else_releas
         assert_eq!(answered.channel, line, "{branch}");
     }
     for branch in [
-        "main",
-        "feat/greet",
         "release/1",
         "release/1.26.0",
         "release/01.2",
@@ -58,17 +56,68 @@ fn under_release_flow_a_release_branch_releases_its_line_and_nothing_else_releas
         "release/1.x",
         "release/-1.2",
         "release/1.2/x",
-        "releases/1.2",
         "release/",
+        "release/next",
         "",
+        "///",
     ] {
         let answered = plugin.branch(&on(branch)).unwrap();
         assert!(!answered.releases, "{branch:?} releases");
         assert!(!answered.reason.is_empty(), "{branch:?} says no reason");
         assert!(answered.line.is_empty(), "{branch:?}");
+        assert!(!answered.prerelease, "{branch:?} releases a prerelease");
     }
-    let main = plugin.branch(&on("main")).unwrap();
-    assert!(main.reason.contains("default branch"), "{}", main.reason);
+}
+
+/// Every branch that is no release branch releases a prerelease, of a
+/// channel its name gives, held to no line; the default branch is
+/// heading for the next minor at least, and any other for whatever its
+/// commits call for. The control is a release branch, which releases no
+/// prerelease.
+#[test]
+fn under_release_flow_a_branch_that_is_no_release_branch_releases_a_prerelease() {
+    let plugin = crate::served();
+    for (branch, channel, at_least) in [
+        ("main", "main", Bump::Minor),
+        ("feat/greet", "feat-greet", Bump::Unspecified),
+        (
+            "feat/greet_by.name",
+            "feat-greet-by-name",
+            Bump::Unspecified,
+        ),
+        ("-fix", "fix", Bump::Unspecified),
+        ("releases/1.2", "releases-1-2", Bump::Unspecified),
+    ] {
+        let answered = plugin.branch(&on(branch)).unwrap();
+        assert!(answered.releases && answered.prerelease, "{branch}");
+        assert!(
+            answered.reason.is_empty() && answered.line.is_empty(),
+            "{branch}"
+        );
+        assert_eq!(answered.channel, channel, "{branch}");
+        assert_eq!(answered.at_least, i32::from(at_least), "{branch}");
+    }
+    let long = "x".repeat(300);
+    assert_eq!(plugin.branch(&on(&long)).unwrap().channel.len(), 128);
+    // Where the default branch is not known, where a branch is heading
+    // is not, and it releases nothing; a release branch still releases.
+    for branch in ["main", "feat/greet"] {
+        let mut unknown = on(branch);
+        unknown.default_branch = String::new();
+        let answered = plugin.branch(&unknown).unwrap();
+        assert!(!answered.releases && !answered.prerelease, "{branch}");
+        assert!(
+            answered.reason.contains("is not known here"),
+            "{}",
+            answered.reason
+        );
+    }
+    let mut cut = on("release/1.26");
+    cut.default_branch = String::new();
+    assert!(plugin.branch(&cut).unwrap().releases);
+    let control = plugin.branch(&on("release/1.26")).unwrap();
+    assert!(control.releases && !control.prerelease);
+    assert_eq!(control.at_least, i32::from(Bump::Unspecified));
 }
 
 #[test]

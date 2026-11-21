@@ -8,7 +8,8 @@
 // beside its others:
 //
 //   - A branching strategy (Branch) says what a branch releases: whether
-//     it releases at all, and held to which line. GitHub Flow, GitLab
+//     it releases at all, a release or a prerelease, and held to which
+//     line. GitHub Flow, GitLab
 //     Flow's release branches and Release Flow are three such.
 //   - A versioning strategy (Version) says what a unit's next version is,
 //     and why, from its commits. Conventional commits is one such.
@@ -269,7 +270,21 @@ type BranchResponse struct {
 	Line string `protobuf:"bytes,3,opt,name=line,proto3" json:"line,omitempty"`
 	// Channel is the name of what it releases: "latest", "next", a
 	// branch's name.
-	Channel       string `protobuf:"bytes,4,opt,name=channel,proto3" json:"channel,omitempty"`
+	Channel string `protobuf:"bytes,4,opt,name=channel,proto3" json:"channel,omitempty"`
+	// Prerelease is whether what it releases is a prerelease: of the
+	// version the unit's versioning strategy gives, which the host spells
+	// with the prerelease the unit's settings say
+	// (spec.frontseat.release.prerelease), from the branch and the commit
+	// planned at. A prerelease is never a unit's last release, and is
+	// held to no line.
+	Prerelease bool `protobuf:"varint,5,opt,name=prerelease,proto3" json:"prerelease,omitempty"`
+	// At_least is the least by which a prerelease's version is above the
+	// highest release of the unit anywhere in the repository, in its
+	// branch's history or not: a branch heading for a line not cut yet
+	// says BUMP_MINOR, so that it offers no prerelease of a version a
+	// release branch releases. Unset, it is above it by a patch at least.
+	// Only a prerelease says one.
+	AtLeast       v1alpha1.Bump `protobuf:"varint,6,opt,name=at_least,json=atLeast,proto3,enum=frontseat.type.v1alpha1.Bump" json:"at_least,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -330,6 +345,20 @@ func (x *BranchResponse) GetChannel() string {
 		return x.Channel
 	}
 	return ""
+}
+
+func (x *BranchResponse) GetPrerelease() bool {
+	if x != nil {
+		return x.Prerelease
+	}
+	return false
+}
+
+func (x *BranchResponse) GetAtLeast() v1alpha1.Bump {
+	if x != nil {
+		return x.AtLeast
+	}
+	return v1alpha1.Bump(0)
 }
 
 // VersionRequest asks a unit's next version.
@@ -663,12 +692,16 @@ const file_frontseat_plugin_v1alpha1_release_proto_rawDesc = "" +
 	"\x06branch\x18\x03 \x01(\tR\x06branch\x12!\n" +
 	"\flast_version\x18\x04 \x01(\tR\vlastVersion\x12B\n" +
 	"\acommits\x18\x05 \x03(\v2(.frontseat.plugin.v1alpha1.ReleaseCommitR\acommits\x12%\n" +
-	"\x0edefault_branch\x18\x06 \x01(\tR\rdefaultBranch\"r\n" +
+	"\x0edefault_branch\x18\x06 \x01(\tR\rdefaultBranch\"\xcc\x01\n" +
 	"\x0eBranchResponse\x12\x1a\n" +
 	"\breleases\x18\x01 \x01(\bR\breleases\x12\x16\n" +
 	"\x06reason\x18\x02 \x01(\tR\x06reason\x12\x12\n" +
 	"\x04line\x18\x03 \x01(\tR\x04line\x12\x18\n" +
-	"\achannel\x18\x04 \x01(\tR\achannel\"\xb1\x02\n" +
+	"\achannel\x18\x04 \x01(\tR\achannel\x12\x1e\n" +
+	"\n" +
+	"prerelease\x18\x05 \x01(\bR\n" +
+	"prerelease\x128\n" +
+	"\bat_least\x18\x06 \x01(\x0e2\x1d.frontseat.type.v1alpha1.BumpR\aatLeast\"\xb1\x02\n" +
 	"\x0eVersionRequest\x12\x1a\n" +
 	"\bstrategy\x18\x01 \x01(\tR\bstrategy\x12?\n" +
 	"\x04unit\x18\x02 \x01(\v2+.frontseat.plugin.v1alpha1.ReleaseUnitFactsR\x04unit\x12!\n" +
@@ -725,18 +758,19 @@ var file_frontseat_plugin_v1alpha1_release_proto_depIdxs = []int32{
 	8,  // 1: frontseat.plugin.v1alpha1.ReleaseUnitFacts.members:type_name -> frontseat.type.v1alpha1.EntityRef
 	1,  // 2: frontseat.plugin.v1alpha1.BranchRequest.unit:type_name -> frontseat.plugin.v1alpha1.ReleaseUnitFacts
 	5,  // 3: frontseat.plugin.v1alpha1.BranchRequest.commits:type_name -> frontseat.plugin.v1alpha1.ReleaseCommit
-	1,  // 4: frontseat.plugin.v1alpha1.VersionRequest.unit:type_name -> frontseat.plugin.v1alpha1.ReleaseUnitFacts
-	5,  // 5: frontseat.plugin.v1alpha1.VersionRequest.commits:type_name -> frontseat.plugin.v1alpha1.ReleaseCommit
-	3,  // 6: frontseat.plugin.v1alpha1.VersionRequest.branch:type_name -> frontseat.plugin.v1alpha1.BranchResponse
-	8,  // 7: frontseat.plugin.v1alpha1.ReleaseCommit.members:type_name -> frontseat.type.v1alpha1.EntityRef
-	9,  // 8: frontseat.plugin.v1alpha1.VersionResponse.bump:type_name -> frontseat.type.v1alpha1.Bump
-	7,  // 9: frontseat.plugin.v1alpha1.VersionResponse.reasons:type_name -> frontseat.plugin.v1alpha1.VersionReason
-	9,  // 10: frontseat.plugin.v1alpha1.VersionReason.bump:type_name -> frontseat.type.v1alpha1.Bump
-	11, // [11:11] is the sub-list for method output_type
-	11, // [11:11] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	9,  // 4: frontseat.plugin.v1alpha1.BranchResponse.at_least:type_name -> frontseat.type.v1alpha1.Bump
+	1,  // 5: frontseat.plugin.v1alpha1.VersionRequest.unit:type_name -> frontseat.plugin.v1alpha1.ReleaseUnitFacts
+	5,  // 6: frontseat.plugin.v1alpha1.VersionRequest.commits:type_name -> frontseat.plugin.v1alpha1.ReleaseCommit
+	3,  // 7: frontseat.plugin.v1alpha1.VersionRequest.branch:type_name -> frontseat.plugin.v1alpha1.BranchResponse
+	8,  // 8: frontseat.plugin.v1alpha1.ReleaseCommit.members:type_name -> frontseat.type.v1alpha1.EntityRef
+	9,  // 9: frontseat.plugin.v1alpha1.VersionResponse.bump:type_name -> frontseat.type.v1alpha1.Bump
+	7,  // 10: frontseat.plugin.v1alpha1.VersionResponse.reasons:type_name -> frontseat.plugin.v1alpha1.VersionReason
+	9,  // 11: frontseat.plugin.v1alpha1.VersionReason.bump:type_name -> frontseat.type.v1alpha1.Bump
+	12, // [12:12] is the sub-list for method output_type
+	12, // [12:12] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_frontseat_plugin_v1alpha1_release_proto_init() }

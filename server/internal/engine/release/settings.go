@@ -16,6 +16,9 @@ const (
 	DefaultInitial    = "0.1.0"
 	DefaultVersioning = "release:conventional-commits"
 	DefaultBranching  = "release:release-flow"
+	// DefaultPrerelease names a prerelease by its branch and by when its
+	// commit was made.
+	DefaultPrerelease = "{branch}-{timestamp}"
 )
 
 // Entity is an entity as releasing needs it: where it is, and what it
@@ -56,6 +59,10 @@ type Settings struct {
 	Synced bool
 	// Tag, Initial, Versioning and Branching are its settings.
 	Tag, Initial, Versioning, Branching string
+	// Prerelease is how a prerelease of it is spelled after its
+	// version's dash, and PrereleaseTag whether one is tagged.
+	Prerelease    string
+	PrereleaseTag bool
 	// SetBy says, for each setting a level says, which entity says it.
 	SetBy map[string]entity.Ref
 }
@@ -143,7 +150,7 @@ func Resolve(w Workspace) (*Resolved, error) {
 	}
 	// inherited resolves the settings every level passes down.
 	inherited := func(levels ...entity.Ref) Settings {
-		s := Settings{Tag: DefaultTag, Initial: DefaultInitial, Versioning: DefaultVersioning, Branching: DefaultBranching, SetBy: map[string]entity.Ref{}}
+		s := Settings{Tag: DefaultTag, Initial: DefaultInitial, Versioning: DefaultVersioning, Branching: DefaultBranching, Prerelease: DefaultPrerelease, SetBy: map[string]entity.Ref{}}
 		for i := len(levels) - 1; i >= 0; i-- {
 			for key, value := range said[levels[i]].Settings {
 				switch key {
@@ -155,6 +162,10 @@ func Resolve(w Workspace) (*Resolved, error) {
 					s.Versioning = value
 				case config.ReleaseBranching:
 					s.Branching = value
+				case config.ReleasePrerelease:
+					s.Prerelease = value
+				case config.ReleasePrereleaseTag:
+					s.PrereleaseTag = value == "true"
 				default:
 					continue
 				}

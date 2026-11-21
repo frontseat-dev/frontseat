@@ -286,6 +286,30 @@ the change that fixes it.
   independent; a Domain only where it says synced. Groups are the
   catalog's own containment (`spec.system`, `spec.domain`), never a list
   a person writes. Held by: `specs/build/releases_test.go`.
+- A branch that releases nothing stable releases a prerelease, where
+  its branching strategy says so (Release Flow: every branch that is no
+  release branch): of the version its commits give since the unit's
+  highest release, wherever that one's tag is, and by a minor at least
+  on the default branch, which a clone must know (where it does not,
+  the branch releases nothing and says so). The host spells it, from the unit's setting
+  (`spec.frontseat.release.prerelease`, `{branch}-{timestamp}` by
+  default), the branch, and when the commit planned at was made: the
+  commit's time, never the clock's, so a plan is of the repository
+  alone. It is never a unit's last release, and has a tag only where
+  the unit says so (`prerelease-tag`). How an entity is released is
+  said the same whichever strategy it names: what only one strategy
+  means is that strategy's plugin's option, never a release setting.
+  Held by: `TestABranchThatReleasesNothingStableReleasesAPrerelease`,
+  `TestAPrereleaseIsBuiltAtItsVersionAndNotTagged`,
+  `TestAStrategysAnswerIsHeldToTheContract` and the release plugin's
+  `under_release_flow_a_branch_that_is_no_release_branch_releases_a_prerelease`.
+  Not held: two commits of a branch made in one second have one
+  version, and a commit's time is what whoever made it says; a release
+  made again of a commit that carries a prerelease's tag and a
+  release's is another plan, and is not completed; a prerelease that is
+  tagged is tagged again, and not found released, where it is released
+  again; nothing publishes a prerelease, under its channel or any, so
+  one that is not tagged is built and kept nowhere.
 - Versions never go backwards: a unit with no release of its own
   continues above the highest version its members, their Systems or
   their Domain were released at, by the next bump its strategy gives.

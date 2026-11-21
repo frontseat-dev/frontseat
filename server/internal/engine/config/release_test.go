@@ -69,6 +69,16 @@ func TestAMistakeInHowAnEntityIsReleasedNamesTheSetting(t *testing.T) {
 		"      versioning: conventional-commits\n":     "spec.frontseat.release.versioning conventional-commits must be <plugin>:<name>",
 		"      branching: 'release:'\n":                "spec.frontseat.release.branching release: must be <plugin>:<name>",
 		"      branching: 'Release:flow'\n":            "must be <plugin>:<name>",
+		"      prerelease: '{branch}-{date}'\n":        `spec.frontseat.release.prerelease "{branch}-{date}" names {date}, which is not filled: it takes {branch}, {timestamp}, {epoch}, {sha}`,
+		"      prerelease: '{branch}..{sha}'\n":        `spec.frontseat.release.prerelease "{branch}..{sha}" spells "main..0123abc" for main, which is no prerelease of a semantic version`,
+		"      prerelease: '{branch}+{sha}'\n":         "which is no prerelease of a semantic version",
+		"      prerelease: '0{epoch}'\n":               "which is no prerelease of a semantic version",
+		"      prerelease: ''\n":                       "which is no prerelease of a semantic version",
+		"      prerelease: '{branch}.{sha}'\n":         `spells "007.0123456" for 007, which is no prerelease of a semantic version: a branch or a commit written in digits is a number`,
+		"      prerelease: '{branch}.{timestamp}'\n":   `spells "007.20261121101500" for 007, which is no prerelease of a semantic version`,
+		"      prerelease-tag: 'yes'\n":                "spec.frontseat.release.prerelease-tag is true or false",
+		"      prerelease-tag: 'true'\n":               "spec.frontseat.release.prerelease-tag is true or false",
+		"      prerelease-tag: 1\n":                    "spec.frontseat.release.prerelease-tag is true or false",
 		"      initial: 1.0.0\n      initial: 2.0.0\n": "initial",
 	} {
 		_, err := config.Read(context.Background(), "services", released("Component", lines))
