@@ -20,9 +20,55 @@ A unit names its strategies in `spec.frontseat.release`, each as
 
 A branch named `release/<major>.<minor>` releases, held to the line its
 name gives: `release/0.77` releases 0.77.x and nothing else. Each number
-is written as a version writes it, with no sign and no leading zero.
-Every other branch releases nothing, the default branch among them, and
-the plan says why. A release is made by cutting the branch.
+is written as a version writes it, with no sign and no leading zero. A
+release is made by cutting the branch.
+
+Every other branch releases a prerelease of the version it is heading
+for, of a channel its name gives (`feat/greet` is `feat-greet`):
+
+| Branch | Is heading for |
+|---|---|
+| the default branch | a line not cut yet: the next minor at least, above everything the unit was released as |
+| any other | whatever its commits call for, above everything the unit was released as |
+| one beneath `release/` that names no line (`release/1`, `release/next`) | nothing: it is a release branch written wrongly, and the plan says so |
+| any, where the repository's default branch is not known (a clone with no `origin/HEAD`) | nothing: where it is heading is not known, and the plan says so |
+
+A prerelease is never a unit's last release: the release that follows
+is planned from the last release, and its notes say everything since,
+what the prereleases held too.
+
+How a prerelease is spelled is no strategy's to say, and is the unit's
+setting, whichever strategy says its branch releases one:
+
+```yaml
+spec:
+  frontseat:
+    release:
+      prerelease: "{branch}-{timestamp}"   # the default: 0.78.0-main-20261121101500
+      prerelease-tag: false                # the default: a prerelease is not tagged
+```
+
+`{branch}` is the branch, every character a semantic version does not
+take in a prerelease made a dash, as far as its sixty-fourth; `{timestamp}` is when the commit the
+release is planned at was made, in UTC, always fourteen digits, so that
+a branch's prereleases are ordered as their commits were made;
+`{epoch}` is the same time in seconds, and `{sha}` the commit as far as
+its seventh character. The time is the commit's, never the clock's: a
+commit has one prerelease version wherever it is planned.
+
+A branch and a commit may each be written in digits alone, beginning
+with a zero, which a semantic version takes for no number: a form that
+makes `{branch}` or `{sha}` a part of its own between dots is refused
+when the catalog is read, and joins it to another part with a dash.
+
+A prerelease comes after the unit's highest release, wherever in the
+repository its tag is, and says what moved it since: under Release Flow
+that tag is on a release branch the default branch does not reach.
+
+Not ordered: a form with no time, and an `{epoch}` that is not a part
+of its own between dots. A commit's time is what whoever made it says
+it is. Two commits of a branch made in the same second have one
+version.
 
 ## Versioning: `conventional-commits`
 

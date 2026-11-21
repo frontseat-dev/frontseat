@@ -347,6 +347,12 @@ func (rs *releases) carryOut(m *made, planned *release.Planned, built *run) {
 		repository := planned.Repositories[ref]
 		became := &buildv1.ReleasedUnit{Entity: unit.GetEntity()}
 		switch {
+		case unit.GetNextVersion() != "" && unit.GetTag() == "":
+			// A prerelease its unit does not tag is built, and that is
+			// all a release makes of it here.
+			became.Version = unit.GetNextVersion()
+			m.change(func(r *buildv1.Release) { r.Units = append(r.Units, became) })
+			continue
 		case unit.GetNextVersion() != "":
 			if err := workspace.Tag(ctx, repository, unit.GetTag(), commit[repository]); err != nil {
 				fail("%s could not be tagged %s: %v", ref.Name, unit.GetTag(), err)

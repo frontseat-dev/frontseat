@@ -128,7 +128,8 @@ const (
 	// daemon's checkout.
 	Release_STATE_TAGGING Release_State = 2
 	// STATE_SUCCEEDED: it ended with nothing left to do: no unit of its
-	// plan moves or carries its tag.
+	// plan was tagged, since none moves, or since what moves is a
+	// prerelease its unit does not tag, which was built and no more.
 	Release_STATE_SUCCEEDED Release_State = 3
 	// STATE_UNPUBLISHED: its units are tagged, in the daemon's checkout
 	// and nowhere else.
@@ -427,14 +428,15 @@ type ReleaseUnit struct {
 	Grouping Grouping `protobuf:"varint,4,opt,name=grouping,proto3,enum=frontseat.build.v1alpha1.Grouping" json:"grouping,omitempty"`
 	// Last_version is the unit's last release; empty if it has none.
 	LastVersion string `protobuf:"bytes,6,opt,name=last_version,json=lastVersion,proto3" json:"last_version,omitempty"`
-	// Next_version is what the release makes it; empty if it holds.
+	// Next_version is what the release makes it; empty if it holds. A
+	// prerelease's says so: "1.27.0-main-20261121101500".
 	NextVersion string `protobuf:"bytes,7,opt,name=next_version,json=nextVersion,proto3" json:"next_version,omitempty"`
 	// Bump is how far it moves.
 	Bump v1alpha1.Bump `protobuf:"varint,8,opt,name=bump,proto3,enum=frontseat.type.v1alpha1.Bump" json:"bump,omitempty"`
 	// Reasons say why it moves, or why it holds, heaviest first.
 	Reasons []*ReleaseReason `protobuf:"bytes,9,rep,name=reasons,proto3" json:"reasons,omitempty"`
 	// Tag is the tag the release writes, spelled from the unit's tag
-	// setting; empty if it holds.
+	// setting; empty if it holds, and for a prerelease that is not tagged.
 	Tag string `protobuf:"bytes,10,opt,name=tag,proto3" json:"tag,omitempty"`
 	// Depends_on are the units of the plan it depends on, folded from what
 	// its members' projects require. A unit comes after them in the plan,
@@ -454,7 +456,12 @@ type ReleaseUnit struct {
 	Branch string `protobuf:"bytes,15,opt,name=branch,proto3" json:"branch,omitempty"`
 	// Channel is the name its branching strategy gives what its branch
 	// releases: "latest", "next", a branch's name.
-	Channel       string `protobuf:"bytes,17,opt,name=channel,proto3" json:"channel,omitempty"`
+	Channel string `protobuf:"bytes,17,opt,name=channel,proto3" json:"channel,omitempty"`
+	// Prerelease is whether what the release makes it is a prerelease:
+	// its next version then says so after a dash, as its settings spell
+	// one, and it has a tag only where its settings say a prerelease is
+	// tagged.
+	Prerelease    bool `protobuf:"varint,18,opt,name=prerelease,proto3" json:"prerelease,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -592,6 +599,13 @@ func (x *ReleaseUnit) GetChannel() string {
 		return x.Channel
 	}
 	return ""
+}
+
+func (x *ReleaseUnit) GetPrerelease() bool {
+	if x != nil {
+		return x.Prerelease
+	}
+	return false
 }
 
 // ReleaseReason is one reason a unit moves or holds.
@@ -888,7 +902,8 @@ type ReleasedUnit struct {
 	// Version is what it was released as.
 	Version string `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
 	// Tags are the tags written: one, in the unit's repository, while a
-	// unit is from one repository.
+	// unit is from one repository; none, for a prerelease its unit does
+	// not tag.
 	Tags []*ReleaseTag `protobuf:"bytes,3,rep,name=tags,proto3" json:"tags,omitempty"`
 	// Already says the tags were there, at the commit planned from, before
 	// this release: it changed nothing for this unit.
@@ -1220,7 +1235,7 @@ const file_frontseat_build_v1alpha1_release_proto_rawDesc = "" +
 	"\n" +
 	"repository\x18\x01 \x01(\tB\x04\xe2A\x01\x03R\n" +
 	"repository\x12\x1c\n" +
-	"\x06commit\x18\x02 \x01(\tB\x04\xe2A\x01\x03R\x06commit\"\x94\x06\n" +
+	"\x06commit\x18\x02 \x01(\tB\x04\xe2A\x01\x03R\x06commit\"\xba\x06\n" +
 	"\vReleaseUnit\x12@\n" +
 	"\x06entity\x18\x01 \x01(\v2\".frontseat.type.v1alpha1.EntityRefB\x04\xe2A\x01\x03R\x06entity\x12B\n" +
 	"\amembers\x18\x02 \x03(\v2\".frontseat.type.v1alpha1.EntityRefB\x04\xe2A\x01\x03R\amembers\x12>\n" +
@@ -1238,7 +1253,10 @@ const file_frontseat_build_v1alpha1_release_proto_rawDesc = "" +
 	"\x13versioning_strategy\x18\r \x01(\tB\x04\xe2A\x01\x03R\x12versioningStrategy\x123\n" +
 	"\x12branching_strategy\x18\x0e \x01(\tB\x04\xe2A\x01\x03R\x11branchingStrategy\x12\x1c\n" +
 	"\x06branch\x18\x0f \x01(\tB\x04\xe2A\x01\x03R\x06branch\x12\x1e\n" +
-	"\achannel\x18\x11 \x01(\tB\x04\xe2A\x01\x03R\achannel\"\xf2\x01\n" +
+	"\achannel\x18\x11 \x01(\tB\x04\xe2A\x01\x03R\achannel\x12$\n" +
+	"\n" +
+	"prerelease\x18\x12 \x01(\bB\x04\xe2A\x01\x03R\n" +
+	"prerelease\"\xf2\x01\n" +
 	"\rReleaseReason\x12>\n" +
 	"\x04kind\x18\x01 \x01(\x0e2$.frontseat.build.v1alpha1.ReasonKindB\x04\xe2A\x01\x03R\x04kind\x127\n" +
 	"\x04bump\x18\x02 \x01(\x0e2\x1d.frontseat.type.v1alpha1.BumpB\x04\xe2A\x01\x03R\x04bump\x12H\n" +

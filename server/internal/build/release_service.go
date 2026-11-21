@@ -206,6 +206,7 @@ func released(resolved *release.Resolved, ref entity.Ref) *buildv1.EntityRelease
 	out := &buildv1.EntityRelease{
 		Group: entity.Proto(settings.Group), Grouping: buildv1.Grouping_GROUPING_INDEPENDENT,
 		Tag: settings.Tag, Initial: settings.Initial, VersioningStrategy: settings.Versioning, BranchingStrategy: settings.Branching,
+		Prerelease: settings.Prerelease, PrereleaseTag: settings.PrereleaseTag,
 	}
 	if settings.Synced {
 		out.Grouping = buildv1.Grouping_GROUPING_SYNCED
@@ -213,7 +214,7 @@ func released(resolved *release.Resolved, ref entity.Ref) *buildv1.EntityRelease
 	if settings.Unit != (entity.Ref{}) {
 		out.Unit = entity.Proto(settings.Unit)
 	}
-	for _, key := range []string{"grouping", "tag", "initial", "versioning", "branching"} {
+	for _, key := range []string{"grouping", "tag", "initial", "versioning", "branching", "prerelease", "prerelease-tag"} {
 		if by, set := settings.SetBy[key]; set {
 			out.SetBy = append(out.SetBy, &buildv1.ReleaseSettingOrigin{Key: key, Entity: entity.Proto(by)})
 		}

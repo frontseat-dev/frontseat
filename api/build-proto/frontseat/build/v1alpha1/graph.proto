@@ -99,6 +99,12 @@ message EntityRelease {
   // Branching_strategy is the branching strategy that says what a branch
   // releases of it, as "<plugin>:<name>": "release:github-flow".
   string branching_strategy = 9 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Prerelease is how a prerelease of its unit is spelled after its
+  // version's dash, where its branch releases one: "{branch}-{timestamp}"
+  // names it by the branch and by when its commit was made.
+  string prerelease = 10 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Prerelease_tag is whether a prerelease of its unit is tagged.
+  bool prerelease_tag = 11 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Set_by says, for each setting, which entity set it; a setting no
   // level sets is the default, and is not listed.
   repeated ReleaseSettingOrigin set_by = 7 [(google.api.field_behavior) = OUTPUT_ONLY];
@@ -107,7 +113,8 @@ message EntityRelease {
 // ReleaseSettingOrigin is where one release setting came from.
 message ReleaseSettingOrigin {
   // Key is the setting, as spec.frontseat.release writes it: "grouping",
-  // "tag", "initial", "dependencies", "versioning" or "branching".
+  // "tag", "initial", "versioning", "branching", "prerelease" or
+  // "prerelease-tag".
   string key = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Entity is the entity whose catalog file sets it.
   frontseat.type.v1alpha1.EntityRef entity = 2 [(google.api.field_behavior) = OUTPUT_ONLY];

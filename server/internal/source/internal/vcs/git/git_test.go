@@ -187,8 +187,17 @@ func TestWhereARepositoryStands(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// When a commit was made is the commit's own, as git says it.
+	committed := func(revision string) int64 {
+		t.Helper()
+		at, err := strconv.ParseInt(run(t, dir, "show", "--no-patch", "--format=%ct", revision), 10, 64)
+		if err != nil || at == 0 {
+			t.Fatalf("%s was committed at %d: %v", revision, at, err)
+		}
+		return at
+	}
 	// It was not brought from anywhere, so no default branch is known.
-	if want := (vcs.Standing{Branch: "release/1.0", Revision: commits["fourth"]}); got != want {
+	if want := (vcs.Standing{Branch: "release/1.0", Revision: commits["fourth"], Time: committed(commits["fourth"])}); got != want {
 		t.Errorf("Standing = %+v, want %+v", got, want)
 	}
 	// A clone knows the default branch of where it was brought from,
@@ -201,7 +210,7 @@ func TestWhereARepositoryStands(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := (vcs.Standing{Branch: "release/1.0", Revision: commits["fourth"], DefaultBranch: "main"}); got != want {
+	if want := (vcs.Standing{Branch: "release/1.0", Revision: commits["fourth"], DefaultBranch: "main", Time: committed(commits["fourth"])}); got != want {
 		t.Errorf("Standing of a clone = %+v, want %+v", got, want)
 	}
 	// On no branch, it stands at a revision alone.
@@ -210,7 +219,7 @@ func TestWhereARepositoryStands(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := (vcs.Standing{Revision: commits["second"]}); got != want {
+	if want := (vcs.Standing{Revision: commits["second"], Time: committed(commits["second"])}); got != want {
 		t.Errorf("Standing on no branch = %+v, want %+v", got, want)
 	}
 	if _, err := (git.System{}).Standing(ctx, t.TempDir()); err == nil {

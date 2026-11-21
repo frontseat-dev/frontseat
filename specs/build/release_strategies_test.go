@@ -13,9 +13,12 @@ import (
 // A branching strategy says what a branch releases of a unit: whether it
 // releases at all, stable or prerelease, and held to which line. Three
 // come with frontseat. Under Release Flow, the default, a release branch,
-// release/1.26, releases, held to the line its name gives, and the
-// default branch releases nothing. Under GitHub Flow the default branch
-// releases, and any other releases prereleases named by the branch.
+// release/1.26, releases, held to the line its name gives, and every
+// other branch releases a prerelease of the version it is heading for:
+// the default branch of the next minor at least. Under GitHub Flow the
+// default branch releases, and any other releases prereleases. A
+// prerelease is spelled by frontseat, as the unit's settings say, from
+// the branch and from when the commit it is planned at was made.
 // GitLab Flow's release branches are as Release Flow's, named
 // 1-26-stable.
 //
@@ -96,22 +99,22 @@ func TestAnotherBranchReleasesAPrereleaseNamedByTheBranch(t *testing.T) {
 
 	greet := workspace.unitOf("greet")
 
-	spec.Expect(greet.next()).To(HavePrefix("1.3.0-feat-greet-by-name."))
+	spec.Expect(greet.next()).To(MatchRegexp(`^1\.3\.0-feat-greet-by-name-\d{14}$`))
 	spec.Expect(greet.channel()).To(Equal("feat-greet-by-name"))
 }
 
-// Release strategies / GitHub Flow / A second prerelease of one version counts on from the first.
-func TestASecondPrereleaseOfOneVersionCountsOnFromTheFirst(t *testing.T) {
-	t.Skip("Pending requirement: Release strategies / GitHub Flow / A second prerelease of one version counts on from the first")
+// Release strategies / GitHub Flow / A later commit's prerelease comes after an earlier one's.
+func TestALaterCommitSPrereleaseComesAfterAnEarlierOneS(t *testing.T) {
+	t.Skip("Pending requirement: Release strategies / GitHub Flow / A later commit's prerelease comes after an earlier one's")
 	spec := newScenario(t)
 
 	workspace := spec.fromMain().releaseWorkspace().tagged("services", "greet/v1.2.3")
 	workspace.onBranch("services", "next").
-		changesGreet("feat: greet by name").
-		tagged("services", "greet/v1.3.0-next.1").
-		changesGreet("fix: spell the name")
+		changesGreet("feat: greet by name")
+	earlier := workspace.unitOf("greet").next()
+	workspace.changesGreet("fix: spell the name")
 
-	spec.Expect(workspace.unitOf("greet").next()).To(Equal("1.3.0-next.2"))
+	spec.Expect(workspace.unitOf("greet").next() > earlier).To(BeTrue())
 }
 
 // Release strategies / GitHub Flow / A prerelease is no last release of what comes after it.
@@ -122,25 +125,41 @@ func TestAPrereleaseIsNoLastReleaseOfWhatComesAfterIt(t *testing.T) {
 	workspace := spec.fromMain().releaseWorkspace().tagged("services", "greet/v1.2.3")
 	workspace.onBranch("services", "next").
 		changesGreet("feat: greet by name").
-		tagged("services", "greet/v1.3.0-next.1").
+		tagged("services", "greet/v1.3.0-next-20261120101500").
 		backFromBranch("services")
 	workspace.changesGreet("fix: trim the greeting")
 
 	spec.Expect(workspace.unitOf("greet").last()).To(Equal("1.2.3"))
 }
 
-// Release strategies / Release Flow / The default branch releases nothing.
-func TestTheDefaultBranchReleasesNothing(t *testing.T) {
+// Release strategies / Release Flow / The default branch releases a prerelease of the next minor.
+func TestTheDefaultBranchReleasesAPrereleaseOfTheNextMinor(t *testing.T) {
 	t.Parallel()
 	spec := newScenario(t)
 
 	workspace := spec.releasable().releaseWorkspace().tagged("services", "greet/v1.26.0")
-	workspace.changesGreet("feat: greet by name")
+	workspace.changesGreet("fix: trim the greeting")
 
 	greet := workspace.unitOf("greet")
 
-	spec.Expect(greet.next()).To(BeEmpty())
-	spec.Expect(greet.why()).To(ContainElement(HavePrefix("branch: ")))
+	spec.Expect(greet.next()).To(MatchRegexp(`^1\.27\.0-main-\d{14}$`))
+	spec.Expect(greet.last()).To(Equal("1.26.0"))
+	spec.Expect(greet.channel()).To(Equal("main"))
+}
+
+// Release strategies / Release Flow / Another branch releases a prerelease of what its commits call for.
+func TestAnotherBranchReleasesAPrereleaseOfWhatItsCommitsCallFor(t *testing.T) {
+	t.Parallel()
+	spec := newScenario(t)
+
+	workspace := spec.releasable().releaseWorkspace().tagged("services", "greet/v1.26.0")
+	workspace.onBranch("services", "fix/trim").
+		changesGreet("fix: trim the greeting")
+
+	greet := workspace.unitOf("greet")
+
+	spec.Expect(greet.next()).To(MatchRegexp(`^1\.26\.1-fix-trim-\d{14}$`))
+	spec.Expect(greet.channel()).To(Equal("fix-trim"))
 }
 
 // Release strategies / Release Flow / A release branch releases, held to the line its name gives.

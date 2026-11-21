@@ -7,7 +7,9 @@ import (
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/Masterminds/semver/v3"
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/entity"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/config"
@@ -64,8 +66,10 @@ func says(entity string, settings ...string) config.Release {
 
 // repository is a repository's history, as a test says it.
 type repository struct {
-	branch  string
-	head    string
+	branch string
+	head   string
+	// time is when head was committed, in seconds since the epoch.
+	time    int64
 	tags    []vcs.Tag
 	changes []vcs.Change
 	// asked records what Changes was asked.
@@ -80,7 +84,7 @@ func (h histories) Standing(_ context.Context, name string) (vcs.Standing, error
 	if !ok {
 		return vcs.Standing{}, fmt.Errorf("no repository %s", name)
 	}
-	return vcs.Standing{Branch: r.branch, Revision: r.head, DefaultBranch: "main"}, nil
+	return vcs.Standing{Branch: r.branch, Revision: r.head, DefaultBranch: "main", Time: r.time}, nil
 }
 
 func (h histories) Tags(_ context.Context, name string) ([]vcs.Tag, error) { return h[name].tags, nil }
@@ -120,7 +124,13 @@ func on(branch string, tags []string, messages ...string) histories {
 // strategies answers as Release Flow and conventional commits do, said
 // again here so that the planner is held to what it is told and not to
 // the plugin.
-type strategies struct{ branchAsked, versionAsked int }
+type strategies struct {
+	branchAsked, versionAsked int
+	// prereleases makes every branch that is no release branch release
+	// a prerelease, the default branch heading for the next minor, as
+	// Release Flow says it.
+	prereleases bool
+}
 
 func (*strategies) Serves(plugin string, branching bool, name string) bool {
 	return plugin == "release" && ((branching && name == "release-flow") || (!branching && name == "conventional-commits"))
@@ -130,6 +140,19 @@ func (s *strategies) Branch(_ context.Context, _ string, r *pluginv1.BranchReque
 	s.branchAsked++
 	if line, ok := strings.CutPrefix(r.GetBranch(), "release/"); ok {
 		return &pluginv1.BranchResponse{Releases: true, Line: line, Channel: line}, nil
+	}
+	if s.prereleases {
+		channel := strings.Map(func(r rune) rune {
+			if r == '/' || r == '_' || r == '.' {
+				return '-'
+			}
+			return r
+		}, r.GetBranch())
+		out := &pluginv1.BranchResponse{Releases: true, Prerelease: true, Channel: channel}
+		if r.GetBranch() == r.GetDefaultBranch() {
+			out.AtLeast = typev1.Bump_BUMP_MINOR
+		}
+		return out, nil
 	}
 	return &pluginv1.BranchResponse{Reason: r.GetBranch() + " releases nothing"}, nil
 }
@@ -205,6 +228,19 @@ func unitOf(t *testing.T, plan *buildv1.ReleasePlan, name string) *buildv1.Relea
 	return nil
 }
 
+// greetOf is greet as its release is planned over a history, with what
+// the catalog says of releasing; nil, the failure said by the case's
+// name, where planning is refused.
+func greetOf(t *testing.T, name string, answering *strategies, history histories, said ...config.Release) *buildv1.ReleaseUnit {
+	t.Helper()
+	plan, err := release.Plan(context.Background(), company(said...), answering, history, asking("greet"))
+	if err != nil {
+		t.Errorf("%s: %v", name, err)
+		return nil
+	}
+	return unitOf(t, plan, "greet")
+}
+
 func TestUnderReleaseFlowAUnitMovesOnItsBranchsLine(t *testing.T) {
 	for name, c := range map[string]struct {
 		history histories
@@ -223,12 +259,10 @@ func TestUnderReleaseFlowAUnitMovesOnItsBranchsLine(t *testing.T) {
 		"the highest of its tags is its last":      {on("release/1.26", []string{"greet/v1.26.0", "greet/v1.26.4", "greet/v1.26.2"}, "fix: trim"), nil, "1.26.5", buildv1.ReasonKind_REASON_KIND_OWN_CHANGE},
 		"another unit's tags are not its own":      {on("release/1.26", []string{"greet/v1.26.0", "log/v1.26.9", "greeting/v1.26.9", "greet/v1.26.9-rc.1", "greet/v1.26", "greet/vnext"}, "fix: trim"), nil, "1.26.1", buildv1.ReasonKind_REASON_KIND_OWN_CHANGE},
 	} {
-		plan, err := release.Plan(context.Background(), company(c.said...), &strategies{}, c.history, asking("greet"))
-		if err != nil {
-			t.Errorf("%s: %v", name, err)
+		greet := greetOf(t, name, &strategies{}, c.history, c.said...)
+		if greet == nil {
 			continue
 		}
-		greet := unitOf(t, plan, "greet")
 		if greet.GetNextVersion() != c.next || len(greet.GetReasons()) == 0 || greet.GetReasons()[0].GetKind() != c.reason {
 			t.Errorf("%s: next is %q for %v, want %q for %v", name, greet.GetNextVersion(), greet.GetReasons(), c.next, c.reason)
 		}
@@ -586,6 +620,12 @@ func TestAStrategysAnswerIsHeldToTheContract(t *testing.T) {
 		"nothing released, and no why":   {"main", &wrong{branch: func(a *pluginv1.BranchResponse) { a.Reason = " " }}},
 		"nothing released, on a line":    {"main", &wrong{branch: func(a *pluginv1.BranchResponse) { a.Line = "1.26" }}},
 		"a reason of two lines":          {"main", &wrong{branch: func(a *pluginv1.BranchResponse) { a.Reason = "one\ntwo" }}},
+		"nothing released, a prerelease": {"main", &wrong{branch: func(a *pluginv1.BranchResponse) { a.Prerelease = true }}},
+		"nothing released, and how far":  {"main", &wrong{branch: func(a *pluginv1.BranchResponse) { a.AtLeast = typev1.Bump_BUMP_MINOR }}},
+		"a prerelease held to a line":    {"release/1.26", &wrong{branch: func(a *pluginv1.BranchResponse) { a.Prerelease = true }}},
+		"how far, of no prerelease":      {"release/1.26", &wrong{branch: func(a *pluginv1.BranchResponse) { a.AtLeast = typev1.Bump_BUMP_MINOR }}},
+		"a prerelease above by no bump":  {"release/1.26", &wrong{branch: func(a *pluginv1.BranchResponse) { a.Prerelease, a.Line, a.AtLeast = true, "", 99 }}},
+		"a prerelease above by none":     {"release/1.26", &wrong{branch: func(a *pluginv1.BranchResponse) { a.Prerelease, a.Line, a.AtLeast = true, "", typev1.Bump_BUMP_NONE }}},
 	} {
 		err := plan(c.branch, c.w)
 		var mistake *model.Mistake
@@ -1026,13 +1066,14 @@ func TestVersionsNeverGoBackwardsAUnitContinuesAboveWhatItsMembersWereReleasedAs
 		next    string
 		tag     string
 	}{
-		"a domain above its system's release":        {company(synced), on("release/2.3", []string{"kiosk/v2.3.0"}, "fix: trim"), "domain:retail", "retail", "2.3.0", "2.3.1", "retail/v2.3.1"},
-		"a domain above its member's own release":    {company(synced), on("release/2.3", []string{"banner/v2.3.4", "kiosk/v2.3.0"}, "fix: trim"), "domain:retail", "retail", "2.3.4", "2.3.5", "retail/v2.3.5"},
-		"a system above its member's own release":    {company(), on("release/1.4", []string{"ticker/v1.4.2"}, "fix: trim"), "system:kiosk", "kiosk", "1.4.2", "1.4.3", "kiosk/v1.4.3"},
-		"a domain on a new line above its system's":  {company(synced), on("release/2.4", []string{"kiosk/v2.3.0"}, "fix: trim"), "domain:retail", "retail", "2.3.0", "2.4.0", "retail/v2.4.0"},
-		"a unit's own release, before its members'":  {company(synced), on("release/2.3", []string{"retail/v2.3.1", "kiosk/v2.3.7"}, "fix: trim"), "domain:retail", "retail", "2.3.1", "2.3.2", "retail/v2.3.2"},
-		"an entity no group's release reaches":       {company(synced), on("release/1.0", []string{"kiosk/v2.3.0"}, "fix: trim"), "greet", "greet", "", "1.0.0", "greet/v1.0.0"},
-		"a domain whose members were never released": {company(synced), on("release/1.0", []string{"greet/v3.0.0"}, "fix: trim"), "domain:retail", "retail", "", "1.0.0", "retail/v1.0.0"},
+		"a domain above its system's release":         {company(synced), on("release/2.3", []string{"kiosk/v2.3.0"}, "fix: trim"), "domain:retail", "retail", "2.3.0", "2.3.1", "retail/v2.3.1"},
+		"a domain above its member's own release":     {company(synced), on("release/2.3", []string{"banner/v2.3.4", "kiosk/v2.3.0"}, "fix: trim"), "domain:retail", "retail", "2.3.4", "2.3.5", "retail/v2.3.5"},
+		"a system above its member's own release":     {company(), on("release/1.4", []string{"ticker/v1.4.2"}, "fix: trim"), "system:kiosk", "kiosk", "1.4.2", "1.4.3", "kiosk/v1.4.3"},
+		"a domain on a new line above its system's":   {company(synced), on("release/2.4", []string{"kiosk/v2.3.0"}, "fix: trim"), "domain:retail", "retail", "2.3.0", "2.4.0", "retail/v2.4.0"},
+		"a unit's own release, before its members'":   {company(synced), on("release/2.3", []string{"retail/v2.3.1", "kiosk/v2.3.7"}, "fix: trim"), "domain:retail", "retail", "2.3.1", "2.3.2", "retail/v2.3.2"},
+		"a prerelease of its own is no release of it": {company(synced), on("release/2.3", []string{"retail/v2.3.1-main-20261120101500", "kiosk/v2.3.0"}, "fix: trim"), "domain:retail", "retail", "2.3.0", "2.3.1", "retail/v2.3.1"},
+		"an entity no group's release reaches":        {company(synced), on("release/1.0", []string{"kiosk/v2.3.0"}, "fix: trim"), "greet", "greet", "", "1.0.0", "greet/v1.0.0"},
+		"a domain whose members were never released":  {company(synced), on("release/1.0", []string{"greet/v3.0.0"}, "fix: trim"), "domain:retail", "retail", "", "1.0.0", "retail/v1.0.0"},
 	} {
 		plan, err := release.Plan(context.Background(), c.w, &strategies{}, c.history, asking(c.named))
 		if err != nil {
@@ -1084,5 +1125,94 @@ func TestAComponentThatLeftASystemOfASyncedDomainIsItsOwnUnitInItsSystem(t *test
 	}
 	if unit := unitOf(t, plan, "banner"); unit.GetGroup().GetName() != "kiosk" || unit.GetGrouping() != buildv1.Grouping_GROUPING_INDEPENDENT || len(unit.GetMembers()) != 1 {
 		t.Errorf("a component that left is planned as %v", unit)
+	}
+}
+
+// at is a history standing at a commit made at a time, in UTC.
+func (h histories) at(revision string, year int, month time.Month, day, hour, minute, second int) histories {
+	h["services"].head, h["services"].time = revision, time.Date(year, month, day, hour, minute, second, 0, time.UTC).Unix()
+	return h
+}
+
+// unreached is a history none of whose tags its branch reaches: under
+// Release Flow a release's tag is on its release branch.
+func (h histories) unreached() histories {
+	for i := range h["services"].tags {
+		h["services"].tags[i].Reachable = false
+	}
+	return h
+}
+
+// A branch that releases nothing stable releases a prerelease of the
+// version it is heading for: the version its commits give, above every
+// release of the unit wherever its tag is, named by the branch and by
+// when the commit planned at was made, as the unit's settings spell it.
+// It has no tag unless the unit says a prerelease is tagged. The control
+// is the release branch, whose release is as it was.
+func TestABranchThatReleasesNothingStableReleasesAPrerelease(t *testing.T) {
+	const commit = "0123abcdef0123abcdef0123abcdef0123abcdef"
+	then := func(h histories) histories { return h.at(commit, 2026, time.November, 21, 10, 15, 0) }
+	for name, c := range map[string]struct {
+		history histories
+		said    []config.Release
+		next    string
+		tag     string
+		channel string
+	}{
+		"named by the branch and its commit's time":       {then(on("feat/greet_by.name", []string{"greet/v1.26.0"}, "feat: by name")), nil, "1.27.0-feat-greet-by-name-20261121101500", "", "feat-greet-by-name"},
+		"a fix on a branch is a patch":                    {then(on("fix/trim", []string{"greet/v1.26.0"}, "fix: trim")), nil, "1.26.1-fix-trim-20261121101500", "", "fix-trim"},
+		"the default branch heads for the next minor":     {then(on("main", []string{"greet/v1.26.0"}, "fix: trim")), nil, "1.27.0-main-20261121101500", "", "main"},
+		"above a release its branch does not reach":       {then(on("next", []string{"greet/v1.26.0", "greet/v1.26.4"}, "fix: trim").unreached()), nil, "1.26.5-next-20261121101500", "", "next"},
+		"the default branch, above one it does not reach": {then(on("main", []string{"greet/v1.26.4"}, "feat: by name").unreached()), nil, "1.27.0-main-20261121101500", "", "main"},
+		"never released": {then(on("main", nil, "feat: by name")), nil, "0.1.0-main-20261121101500", "", "main"},
+		"a prerelease before it is no last release":    {then(on("main", []string{"greet/v1.26.0", "greet/v1.27.0-main-20261120101500"}, "feat: by name")), nil, "1.27.0-main-20261121101500", "", "main"},
+		"as the unit spells it":                        {then(on("main", []string{"greet/v1.26.0"}, "feat: by name")), []config.Release{says("greet", "prerelease", "{branch}-{sha}.{epoch}")}, "1.27.0-main-0123abc.1795256100", "", "main"},
+		"tagged where the unit says so":                {then(on("main", []string{"greet/v1.26.0"}, "feat: by name")), []config.Release{says("greet", "prerelease-tag", "true")}, "1.27.0-main-20261121101500", "greet/v1.27.0-main-20261121101500", "main"},
+		"what its commits do not move is not released": {then(on("main", []string{"greet/v1.26.0"}, "docs: more")), nil, "", "", "main"},
+		"control: a release branch releases as it did": {then(on("release/1.26", []string{"greet/v1.26.0"}, "fix: trim")), nil, "1.26.1", "greet/v1.26.1", "1.26"},
+	} {
+		greet := greetOf(t, name, &strategies{prereleases: true}, c.history, c.said...)
+		if greet == nil {
+			continue
+		}
+		if greet.GetNextVersion() != c.next || greet.GetTag() != c.tag || greet.GetChannel() != c.channel {
+			t.Errorf("%s: next is %q, tagged %q, on the channel %q; want %q, %q, %q", name, greet.GetNextVersion(), greet.GetTag(), greet.GetChannel(), c.next, c.tag, c.channel)
+		}
+		if want := strings.Contains(c.next, "-"); greet.GetPrerelease() != want {
+			t.Errorf("%s: it says it is a prerelease: %v", name, greet.GetPrerelease())
+		}
+	}
+	// It is planned from the unit's highest release, in its branch's
+	// history or not, and says so: what moved it, and from what.
+	unreached := greetOf(t, "from a release its branch does not reach", &strategies{prereleases: true}, then(on("main", []string{"greet/v1.26.4"}, "feat: by name").unreached()))
+	if unreached.GetLastVersion() != "1.26.4" || unreached.GetBump() != typev1.Bump_BUMP_MINOR || unreached.GetReasons()[0].GetKind() != buildv1.ReasonKind_REASON_KIND_OWN_CHANGE {
+		t.Errorf("planned from %q by %v for %v; want from 1.26.4, by a minor, for its own change", unreached.GetLastVersion(), unreached.GetBump(), unreached.GetReasons())
+	}
+	// A fix on the default branch is a minor, since that is where the
+	// branch is heading; and what moves nothing holds, reached or not.
+	if heading := greetOf(t, "a fix on the default branch", &strategies{prereleases: true}, then(on("main", []string{"greet/v1.26.4"}, "fix: trim").unreached())); heading.GetNextVersion() != "1.27.0-main-20261121101500" || heading.GetBump() != typev1.Bump_BUMP_MINOR {
+		t.Errorf("a fix on the default branch is %q by %v", heading.GetNextVersion(), heading.GetBump())
+	}
+	if held := greetOf(t, "nothing moved since a release it does not reach", &strategies{prereleases: true}, then(on("main", []string{"greet/v1.26.4"}, "docs: more").unreached())); held.GetNextVersion() != "" || held.GetReasons()[0].GetKind() != buildv1.ReasonKind_REASON_KIND_UNCHANGED {
+		t.Errorf("what moved nothing is released as %q for %v", held.GetNextVersion(), held.GetReasons())
+	}
+	// A later commit's is later, as a semantic version orders them.
+	earlier, later := semver.MustParse("1.27.0-main-20261121101500"), semver.MustParse("1.27.0-main-20261121101501")
+	if !later.GreaterThan(earlier) || !semver.MustParse("1.27.0").GreaterThan(later) {
+		t.Errorf("%s does not come after %s and before 1.27.0", later, earlier)
+	}
+	// Refused: a form that makes no prerelease of a semantic version
+	// once it is filled, and a prerelease's tag that names another commit.
+	for name, c := range map[string]struct {
+		history histories
+		said    []config.Release
+		says    string
+	}{
+		"a number written with a zero before it": {then(on("main", []string{"greet/v1.26.0"}, "feat: by name")), []config.Release{says("greet", "prerelease", "0{epoch}")}, `greet: spec.frontseat.release.prerelease: "0{epoch}" spells "01795256100" for main, which is no prerelease of a semantic version`},
+		"a tag that names another commit":        {then(on("main", []string{"greet/v1.26.0", "greet/v1.27.0-main-20261121101500"}, "feat: by name")), []config.Release{says("greet", "prerelease-tag", "true")}, `greet 1.27.0-main-20261121101500 is not new: greet/v1.27.0-main-20261121101500 names another commit`},
+	} {
+		if _, err := release.Plan(context.Background(), company(c.said...), &strategies{prereleases: true}, c.history, asking("greet")); err == nil || !strings.Contains(err.Error(), c.says) {
+			t.Errorf("%s: %v, want %q", name, err, c.says)
+		}
 	}
 }

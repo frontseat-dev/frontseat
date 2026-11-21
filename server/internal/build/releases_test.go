@@ -25,15 +25,15 @@ import (
 // service and the directory of the daemon's clone.
 func releasingDaemon(t *testing.T, executor exec.Executor) (*releaseService, *Daemon, string) {
 	t.Helper()
-	c, clone := releasingClients(t, executor, nil)
+	c, clone := releasingClients(t, executor, "release/1.0", nil)
 	graph := c.daemon.releases.graph
 	return &releaseService{graph: graph, releases: c.daemon.releases}, c.daemon, clone
 }
 
-// releasingClients is what serves releasingDaemon's daemon, and the
-// directory of its clone; written, where given, writes more into the
-// remote before its first commit.
-func releasingClients(t *testing.T, executor exec.Executor, written func(remote string)) (clients, string) {
+// releasingClients is what serves releasingDaemon's daemon, brought on
+// the branch named, and the directory of its clone; written, where
+// given, writes more into the remote before its first commit.
+func releasingClients(t *testing.T, executor exec.Executor, branch string, written func(remote string)) (clients, string) {
 	t.Helper()
 	remote := filepath.Join(t.TempDir(), "services")
 	if err := os.MkdirAll(remote, 0o755); err != nil {
@@ -55,7 +55,7 @@ func releasingClients(t *testing.T, executor exec.Executor, written func(remote 
 	commits.Git(t, remote, "branch", "release/1.0")
 	workspace := t.TempDir()
 	c := serveAs(t, configuration{Workspace: workspace, Executor: executor})
-	populated(t, c, &workspacev1.WorkspaceSpec{Repositories: []*workspacev1.RepositorySource{{Remote: remote, Ref: "release/1.0"}}})
+	populated(t, c, &workspacev1.WorkspaceSpec{Repositories: []*workspacev1.RepositorySource{{Remote: remote, Ref: branch}}})
 	return c, filepath.Join(workspace, "services")
 }
 

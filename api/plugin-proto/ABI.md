@@ -21,7 +21,7 @@ or host imports of its own.
 
 | Export | Signature | What it does |
 |---|---|---|
-| `frontseat_abi` | `() -> i32` | The ABI the module speaks. The host loads no module outside the range it supports. This document is ABI 21. |
+| `frontseat_abi` | `() -> i32` | The ABI the module speaks. The host loads no module outside the range it supports. This document is ABI 22. |
 | `frontseat_alloc` | `(size: i32) -> i32` | Returns the address of `size` bytes the host may write to. |
 | `frontseat_free` | `(ptr: i32, size: i32)` | Gives back what `frontseat_alloc` returned. |
 | `frontseat_call` | `(ptr: i32, size: i32) -> i64` | Takes a serialized `Call`, returns a serialized `Reply`. |
@@ -302,6 +302,13 @@ which read nothing through the host. The host asks them of a plugin that
 says it serves a branching or a versioning strategy, when a release is
 planned. Every answer is checked before any of it is in a plan.
 
+A branching strategy says of a branch that it releases nothing, with
+why; that it releases, held to a line or to none; or that it releases a
+prerelease (`BranchResponse.prerelease`), held to no line, with how far
+above the unit's highest release it is at least (`at_least`), where it
+is heading for more than its commits say. It never spells a prerelease:
+the host does, from the unit's own setting, the branch and the commit.
+
 ## A release's version
 
 An action that writes a version into what it makes says it is versioned
@@ -318,7 +325,8 @@ for the unit the action's project is released with. Every other build is
 given `0.0.0-dev` for the version and nothing for the rest, each time, so
 a versioned action is one action from a commit to the next. Mark the one
 action that writes the version, never a test or a check: each versioned
-action is built again at every release.
+action is built again at every release. A prerelease its unit does not tag has no tag to give:
+`{frontseat.tag}` is then nothing in the release's own build too.
 
 Whatever begins `{frontseat.` is the host's to read. Refused: one of
 these in an action that is not versioned; one the host does not fill,

@@ -15,6 +15,7 @@ import (
 
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/entity"
+	"github.com/frontseat-dev/frontseat/server/internal/engine/config"
 	"github.com/frontseat-dev/frontseat/server/internal/model"
 	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/source/vcs"
@@ -539,8 +540,9 @@ func planUnit(ctx context.Context, w Workspace, resolved *Resolved, strategies S
 		}
 	}
 	// A unit never released as itself continues above what its members
-	// were released as before it: versions never go backwards.
-	if len(named) == 0 {
+	// were released as before it: versions never go backwards. A
+	// prerelease of its own is no release, and leaves it never released.
+	if len(releases) == 0 {
 		for _, spelled := range formerSpellings(resolved, settings, unit) {
 			for _, tag := range tags {
 				if version, theirs := versionOf(tag.Name, spelled[0], spelled[1]); theirs && version.Prerelease() == "" {
@@ -623,6 +625,22 @@ func planUnit(ctx context.Context, w Workspace, resolved *Resolved, strategies S
 		return holds(buildv1.ReasonKind_REASON_KIND_BRANCH, branch.GetReason())
 	}
 	planned.Channel = branch.GetChannel()
+	// plannedAfter makes a release the one the unit is planned after: its
+	// commits are then those since that one, read again where it is
+	// another than they were read since.
+	plannedAfter := func(release *released) error {
+		was := since
+		since, lastVersion = "", ""
+		if release != nil {
+			since, lastVersion = release.revision, core(release.version)
+		}
+		if since == was {
+			return nil
+		}
+		var err error
+		commits, err = changes(since)
+		return err
+	}
 	// On a line, its last release is the line's own, in the branch's
 	// history. A line with none comes after the highest release below it,
 	// wherever that one's tag is: under Release Flow it is on another
@@ -643,15 +661,20 @@ func planUnit(ctx context.Context, w Workspace, resolved *Resolved, strategies S
 		default:
 			last = nil
 		}
-		was := since
-		since, lastVersion = "", ""
-		if last != nil {
-			since, lastVersion = last.revision, core(last.version)
+		if err := plannedAfter(last); err != nil {
+			return unread(err)
 		}
-		if since != was {
-			if commits, err = changes(since); err != nil {
-				return unread(err)
-			}
+	}
+	// A prerelease comes after the unit's highest release, wherever its
+	// tag is: under Release Flow that is on a release branch, in no
+	// history but its own, and a branch that does not reach it would
+	// offer a prerelease of a version already released, which a semantic
+	// version puts before it. Its commits are those of the branch that
+	// release does not have.
+	if branch.GetPrerelease() {
+		last = highest(releases, func(released) bool { return true })
+		if err := plannedAfter(last); err != nil {
+			return unread(err)
 		}
 	}
 	planned.LastVersion = lastVersion
@@ -715,11 +738,36 @@ func planUnit(ctx context.Context, w Workspace, resolved *Resolved, strategies S
 	if line != nil && !line.holds(next) {
 		return nil, "", none, mistaken("%s %s leaves the line %s of %s", unit.Name, next, branch.GetLine(), standing.Branch)
 	}
+	// A prerelease is of the version its commits give, or of the one its
+	// branch is heading for where that is further: a branch heading for a
+	// line not cut yet says by how much at least. It is spelled as the
+	// unit's settings say, from the branch and the commit planned at.
+	tagged := true
+	if branch.GetPrerelease() {
+		if last != nil && branch.GetAtLeast() != typev1.Bump_BUMP_UNSPECIFIED {
+			if least := moved(last.version, branch.GetAtLeast()); next.LessThan(least) {
+				next = least
+				planned.Bump = bumpBetween(last.version, next)
+			}
+		}
+		spelled, err := config.Prerelease(settings.Prerelease, standing.Branch, standing.Revision, standing.Time)
+		if err != nil {
+			return nil, "", none, mistaken("%s: spec.frontseat.release.prerelease: %v", unit.Name, err)
+		}
+		if next, err = semver.StrictNewVersion(next.String() + "-" + spelled); err != nil {
+			return nil, "", none, mistaken("%s: spec.frontseat.release.prerelease: %q is no prerelease of a semantic version", unit.Name, spelled)
+		}
+		planned.Prerelease, tagged = true, settings.PrereleaseTag
+	}
 	// A version is new: its tag names no other commit. And its tag is a
 	// name the version control system takes, by its own rule.
 	tag := before + next.String() + after
 	if at, taken := named[core(next)]; taken && at != standing.Revision {
 		return nil, "", none, mistaken("%s %s is not new: %s names another commit", unit.Name, next, tag)
+	}
+	if !tagged {
+		planned.NextVersion, planned.Notes = next.String(), answered.GetNotes()
+		return planned, repository, standing, nil
 	}
 	if err := history.TagName(ctx, tag); err != nil {
 		if ctx.Err() != nil {
@@ -752,10 +800,20 @@ func checkBranch(strategy, branch string, unit entity.Ref, answered *pluginv1.Br
 			return wrong("the branch releases nothing, and it does not say why")
 		case len(answered.GetReason()) > summaryAtMost || strings.ContainsAny(answered.GetReason(), "\r\n\x00"):
 			return wrong("its reason is not one line of at most %d bytes", summaryAtMost)
-		case answered.GetLine() != "" || answered.GetChannel() != "":
+		case answered.GetLine() != "" || answered.GetChannel() != "" || answered.GetPrerelease() || answered.GetAtLeast() != typev1.Bump_BUMP_UNSPECIFIED:
 			return wrong("the branch releases nothing, and it says what it releases")
 		}
 		return nil, nil
+	}
+	// A prerelease is of the version its commits give, held to no line;
+	// and only a prerelease says how far above the unit's releases it is.
+	switch at := answered.GetAtLeast(); {
+	case answered.GetPrerelease() && answered.GetLine() != "":
+		return wrong("the branch releases a prerelease, and holds it to the line %q", answered.GetLine())
+	case !answered.GetPrerelease() && at != typev1.Bump_BUMP_UNSPECIFIED:
+		return wrong("the branch releases no prerelease, and says how far above the unit's releases one is")
+	case at != typev1.Bump_BUMP_UNSPECIFIED && at != typev1.Bump_BUMP_PATCH && at != typev1.Bump_BUMP_MINOR && at != typev1.Bump_BUMP_MAJOR:
+		return wrong("a prerelease is above the unit's releases by %v at least, which is no bump of a version", at)
 	}
 	if answered.GetReason() != "" {
 		return wrong("the branch releases, and it gives a reason it does not")
@@ -838,6 +896,22 @@ func (l *line) holds(v *semver.Version) bool {
 // above says the line is above a version: the version is of an earlier
 // line.
 func (l *line) above(v *semver.Version) bool { return l.first().GreaterThan(v) && !l.holds(v) }
+
+// moved is a version moved by a bump: the least version a prerelease
+// that says it is that far above a release may be of. By a patch, where
+// none is said.
+func moved(from *semver.Version, by typev1.Bump) *semver.Version {
+	var to semver.Version
+	switch by {
+	case typev1.Bump_BUMP_MAJOR:
+		to = from.IncMajor()
+	case typev1.Bump_BUMP_MINOR:
+		to = from.IncMinor()
+	default:
+		to = from.IncPatch()
+	}
+	return &to
+}
 
 // bumpBetween is how far one version is from an earlier one.
 func bumpBetween(from, to *semver.Version) typev1.Bump {

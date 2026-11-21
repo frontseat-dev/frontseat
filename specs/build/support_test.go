@@ -1633,7 +1633,7 @@ func (spec *scenario) releasable() *Source {
 // Flow, where
 // the default branch releases, so that what a spec proves of versions and
 // tags it proves without a release branch. Release Flow, the default,
-// releases nothing from the default branch.
+// releases prereleases alone from the default branch.
 func (spec *scenario) fromMain() *Source {
 	spec.Helper()
 	return spec.releasable().

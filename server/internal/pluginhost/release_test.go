@@ -30,14 +30,14 @@ func releaseFixture() conformance.Fixture {
 	}
 	return conformance.Fixture{
 		Name: "release",
-		Description: &pluginv1.DescribeResponse{Name: "release", Abi: 21, Release: &pluginv1.ReleaseRoles{
+		Description: &pluginv1.DescribeResponse{Name: "release", Abi: 22, Release: &pluginv1.ReleaseRoles{
 			Branchings: []string{"release-flow"}, Versionings: []string{"conventional-commits"},
 		}},
 		Branches: []conformance.BranchCase{
 			{Request: on("release/0.77"), Want: &pluginv1.BranchResponse{Releases: true, Line: "0.77", Channel: "0.77"}},
 			{Request: on("release/1.26"), Want: &pluginv1.BranchResponse{Releases: true, Line: "1.26", Channel: "1.26"}},
-			{Request: on("main"), Want: &pluginv1.BranchResponse{Reason: "main is the default branch, which releases nothing under Release Flow; a release is made from a branch release/<major>.<minor>"}},
-			{Request: on("feat/greet"), Want: &pluginv1.BranchResponse{Reason: `"feat/greet" is no release branch; under Release Flow a release is made from a branch release/<major>.<minor>`}},
+			{Request: on("main"), Want: &pluginv1.BranchResponse{Releases: true, Prerelease: true, Channel: "main", AtLeast: typev1.Bump_BUMP_MINOR}},
+			{Request: on("feat/greet"), Want: &pluginv1.BranchResponse{Releases: true, Prerelease: true, Channel: "feat-greet"}},
 			{Request: on("release/1.26.0"), Want: &pluginv1.BranchResponse{Reason: `"release/1.26.0" is no release branch; under Release Flow a release is made from a branch release/<major>.<minor>`}},
 			{Request: on("release/01.2"), Want: &pluginv1.BranchResponse{Reason: `"release/01.2" is no release branch; under Release Flow a release is made from a branch release/<major>.<minor>`}},
 			{Request: &pluginv1.BranchRequest{Strategy: "github-flow", Branch: "main", DefaultBranch: "main"}, Refused: "UNCLAIMED_STRATEGY"},
