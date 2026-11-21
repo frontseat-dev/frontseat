@@ -617,8 +617,10 @@ var pieceName = regexp.MustCompile(`^test/[A-Za-z0-9._~+@/-]+$`)
 var packageName = regexp.MustCompile(`^package/[A-Za-z0-9._~+/-]+$`)
 
 // checkNamed holds a project's action to its name: lower-case
-// [a-z0-9-], or, for a test alone, "test", a slash and the piece of the
-// project's tests it is, a plain path that is written one way.
+// [a-z0-9-]; or, for a test alone, "test", a slash and the piece of the
+// project's tests it is, a plain path that is written one way; for a
+// package alone, "package", a slash and what it is of; and for what
+// publishes alone, "publish", a slash and what it publishes to.
 func checkNamed(action *pluginv1.Action) error {
 	n := action.GetName()
 	_, piece, pieced := strings.Cut(n, "/")
@@ -637,6 +639,16 @@ func checkNamed(action *pluginv1.Action) error {
 			return fmt.Errorf("the action name %q is not package, a slash and what it is a package of", n)
 		case !action.GetPackage():
 			return fmt.Errorf("the action %q is named as a package of the project, and is no package", n)
+		}
+		return nil
+	// What publishes is named "publish", a slash and what it publishes
+	// to; and only what publishes is named so.
+	case strings.HasPrefix(n, "publish/"):
+		if !name.MatchString(piece) {
+			return fmt.Errorf("the action name %q is not publish, a slash and what it publishes to, lower-case [a-z0-9-]", n)
+		}
+		if action.GetPublish() == nil {
+			return fmt.Errorf("the action %q is named as what publishes, and publishes nothing", n)
 		}
 		return nil
 	case !pieceName.MatchString(n) || !pattern.Local(piece) || path.Clean(piece) != piece:

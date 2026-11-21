@@ -117,6 +117,16 @@ func Run(t *testing.T, f Fixture) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// A fixture with no malformed source is of a plugin that reads no
+	// file's content, and so has none to find malformed: it is held to
+	// that by what the plugin read here.
+	if f.Malformed == nil {
+		for _, got := range reads {
+			if got.Import == "read" {
+				t.Fatalf("the fixture has no malformed source, and the plugin read %s: what a plugin reads it is shown malformed", got.Argument)
+			}
+		}
+	}
 	for _, want := range f.Reads {
 		found := false
 		for _, got := range reads {
@@ -158,6 +168,9 @@ func Run(t *testing.T, f Fixture) {
 			if len(a.GetProjects()) != 0 || len(a.GetEntities()) != 0 {
 				t.Fatal("an absent manifest created a project or catalog entity")
 			}
+		}
+		if f.Malformed == nil {
+			return
 		}
 		_, err = analyze(t.Context(), f.Malformed)
 		var detail *pluginhost.Error
@@ -716,7 +729,15 @@ func ValidateFixtures(plugins []string, fixtures map[string]Fixture) error {
 			}
 			continue
 		}
-		if f.Analyze == nil || f.Source == nil || f.Absent == nil || f.Malformed == nil || f.ErrorCode == "" || len(f.Projects)+len(f.Entities) == 0 || len(f.Reads) == 0 {
+		// A plugin that reads a file's content is shown it malformed; one
+		// that reads none, found by a file's being there, has no
+		// malformed source and names no error, and Run holds it to
+		// having read none.
+		reads := false
+		for _, read := range f.Reads {
+			reads = reads || read.Import == "read"
+		}
+		if f.Analyze == nil || f.Source == nil || f.Absent == nil || len(f.Projects)+len(f.Entities) == 0 || len(f.Reads) == 0 || reads && f.Malformed == nil || (f.Malformed == nil) != (f.ErrorCode == "") {
 			return fmt.Errorf("%s: missing Analyze success/error/read coverage", name)
 		}
 		if f.Arrange == nil || f.Files == nil || f.InvalidArrange == nil || f.ArrangeErrorCode == "" {

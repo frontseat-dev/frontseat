@@ -357,8 +357,14 @@ the change that fixes it.
   `TestAnArtifactIsNamedAsAPublishCanBeGivenIt`,
   `TestWhatAPublishPrintedIsSaidWithoutWhatItWasGiven`,
   `TestAnActionThatPublishesIsThatAlone` and
-  `TestAnActionThatPublishesIsGivenTheReleaseAndItsArtifacts`. Not held:
-  no plugin publishes yet, and no publish was run with a real tool or
+  `TestAnActionThatPublishesIsGivenTheReleaseAndItsArtifacts`. A
+  repository that lists the GitHub plugin (`plugins/github`) is
+  published by `gh release create`, a GitHub release for each unit, the
+  tag verified and never made; this repository lists it. A plugin names
+  what publishes `publish`, a slash and what it publishes to. Held by:
+  `TestTheGitHubPluginsPublishIsRunByARelease`,
+  `TestOnlyWhatPublishesIsNamedPublishAndWhatItPublishesTo` and the
+  plugin's own tests. Not held: no publish was run with a real tool or
   against a forge; no artifact was brought from a real grid; a release
   whose publish failed is not finished by making it again, its unit
   being found released then with nothing built: its tag and what was
