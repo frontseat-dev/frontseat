@@ -1,0 +1,58 @@
+# Frontseat builds, tests and releases itself on tenant zero: on the
+# tenant's own runners (runs-on: zero) and its grid, mirror-only.
+#
+# Written by hand. The github plugin is to generate it from the release
+# and branching strategy, and this file is then its output.
+#
+# What the job relies on, outside this repository:
+#   - a pool of the grid's workers that takes frontseat's actions: they hold
+#     the confiner of this checkout's form at /bb, and advertise the
+#     platform GRID_IMAGE below (frontseat-enterprise, the Buildbarn chart's
+#     worker.frontseat). A change to the confiner's source
+#     (server/internal/confine) reaches the workers before it reaches main;
+#   - a runner that may write /var/lib/frontseat, where the daemon's lock is;
+#   - a runner group that admits this repository, which is public.
+#
+# A fork's pull request never runs here: the jobs below run only for this
+# repository's own branches, and the organisation asks a maintainer to
+# approve every fork's workflow.
+name: frontseat
+"on":
+  pull_request: {}
+  push:
+    branches: [main, "release/*"]
+  workflow_dispatch:
+    inputs:
+      release:
+        description: release what this branch releases
+        type: boolean
+        default: false
+# One run for each pull request, or for each branch: a newer push cancels
+# the run still going. A release has a group of its own, and nothing
+# cancels it.
+concurrency:
+  group: frontseat-${{ github.event.pull_request.number || github.ref }}${{ inputs.release && '-release' || '' }}
+  cancel-in-progress: ${{ !inputs.release }}
+permissions:
+  contents: read
+jobs:
+  # What a job does is one file's to say (frontseat-job.yml); what it may
+  # write is said here, for each: only a release writes.
+  build:
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.release) && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+    permissions:
+      contents: read
+      # The grid admits the job by its OIDC token (audience frontseat-grid).
+      id-token: write
+    uses: ./.github/workflows/frontseat-job.yml
+    with:
+      release: false
+  release:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.release }}
+    permissions:
+      # A release pushes its tags and makes its releases.
+      contents: write
+      id-token: write
+    uses: ./.github/workflows/frontseat-job.yml
+    with:
+      release: true

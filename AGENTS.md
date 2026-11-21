@@ -165,7 +165,13 @@ the change that fixes it.
   by changing the gateway's driver. OpenShell refuses a sandbox made
   inside one: what confines an action within it makes no namespace.
   *Target*: the workspaces, the runner pool and the services a test is
-  given are OpenShell sandboxes now; the CI runners are not yet.
+  given are OpenShell sandboxes now; the CI runners are not yet. Nor,
+  for now, are the workers this repository's own CI runs its actions on
+  (`.github/workflows/frontseat.yml`, on tenant zero): there an action
+  is confined by the grid's own runner, in namespaces of its own, and
+  by Landlock within, and not by an OpenShell sandbox; its tests with
+  services are not served. The owner's exception, until the grid there
+  gives each action a sandbox.
 - **An action is confined twice**: by the runner sandbox it runs in, one
   of a pool `frontseat-runner pool` keeps, one OpenShell sandbox for each
   slot of the worker, running one action at a time, holding that slot's
@@ -828,6 +834,7 @@ the change that fixes it.
 ```
 mise install              # the pinned tools
 mise run build            # Frontseat into dist/, and the box image, tagged frontseat-box:local too
+mise run build:programs   # Frontseat's programs and plugins into dist/, and no image: what a job builds
 mise start                # build, then bring the local stack up from this checkout, on its own box (never `mise up`)
 mise stop                 # bring the local stack down, whichever checkout started it
 mise run check            # what must always pass; needs no stack
