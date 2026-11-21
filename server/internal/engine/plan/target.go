@@ -81,7 +81,9 @@ func Pointed(actions []Action, entities []record.Located, targets, only []string
 // piece of a project's tests ("test/internal/ledger"), "test", so that
 // whoever asks for tests is given every piece.
 func asked(action Action) string {
-	if kind, _, pieced := strings.Cut(action.Name(), "/"); pieced && kind == "test" && action.IsTest() {
+	// The packages of a project are asked for together as its tests
+	// are: by "package", whatever each is a package of.
+	if kind, _, pieced := strings.Cut(action.Name(), "/"); pieced && (kind == "test" && action.IsTest() || kind == "package" && action.IsPackage()) {
 		return kind
 	}
 	return action.Name()
@@ -99,7 +101,9 @@ func pointed(actions []Action, entities []record.Located, target string) ([]int,
 		// And the shards of one piece by the label the piece would have:
 		// a shard is named its piece, "@" and which shard it is.
 		whole, err := model.ParseLabel(target)
-		together := err == nil && whole.Name == "test"
+		// The packages of a project are pointed at together the same
+		// way, by the label one package of it would have.
+		together := err == nil && (whole.Name == "test" || whole.Name == "package")
 		shards := ""
 		if err == nil && strings.HasPrefix(whole.Name, "test/") && !strings.Contains(whole.Name, "@") {
 			shards = whole.Name + "@"
@@ -108,8 +112,8 @@ func pointed(actions []Action, entities []record.Located, target string) ([]int,
 			if action.Label.String() == target {
 				return []int{i}, nil
 			}
-			if action.Label.Path == whole.Path && action.Label.Plugin == whole.Plugin && asked(action) == "test" &&
-				(together && action.Label.Name != "test" || shards != "" && strings.HasPrefix(action.Label.Name, shards)) {
+			if action.Label.Path == whole.Path && action.Label.Plugin == whole.Plugin && (asked(action) == "test" || asked(action) == "package") &&
+				(together && asked(action) == whole.Name && action.Label.Name != whole.Name || shards != "" && strings.HasPrefix(action.Label.Name, shards)) {
 				pieces = append(pieces, i)
 			}
 			labels = append(labels, action.Label.String())

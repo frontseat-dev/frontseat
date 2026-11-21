@@ -133,6 +133,7 @@ memory: see its README.
 | `Repository` | the repository, read: files, globs, typed TOML, YAML and JSON, options, pinned tools |
 | `Action`, `Command`, `Output`, `Input` | what an action is, with constructors |
 | `version` | what a versioned action's command writes for the host to fill: a release's version, tag, commit and unit |
+| `Action::package`, `Repository::platforms` | what a project ships: the action that makes it, and the platforms its entity ships for |
 | `Error` | a refusal, with its reason, file, line and help |
 | `diagnostics` | findings read from what a check printed |
 | `repository` | paths: `join`, `beneath`, `resolve`, `plain`, `literal` |

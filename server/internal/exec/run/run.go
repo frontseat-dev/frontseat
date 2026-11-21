@@ -74,6 +74,10 @@ type Runner struct {
 	// that to where the daemon is. Nil, a run that is a build: it plans
 	// no program, and one it is handed all the same is not run.
 	Deliver func(ctx context.Context, action plan.Action, left map[string]exec.Held) error
+	// Packaged is told what a package left (Action.package), by where
+	// each thing sits in the workspace, once it has passed: what a
+	// release ships. Nil, nobody is told.
+	Packaged func(action plan.Action, left map[string]exec.Held)
 }
 
 // Run executes the plan, retrying once if the grid has discarded inputs.
@@ -598,6 +602,9 @@ func (runner Runner) run(ctx context.Context, events Events, snapshot *source.Sn
 	telemetry.Output(ctx, "stdout", done.Stdout, done.Cached)
 	telemetry.Output(ctx, "stderr", done.Stderr, done.Cached)
 
+	if runner.Packaged != nil && action.Declared.GetPackage() && result.GetOutcome() == buildv1.Outcome_OUTCOME_PASSED {
+		runner.Packaged(action, left)
+	}
 	events.Finished(result)
 	return result.GetOutcome(), left, err
 }

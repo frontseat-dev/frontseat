@@ -57,6 +57,8 @@ type Project struct {
 	// Options are the options it is built with: every option its plugin
 	// takes, each with the value that holds for it and where it is set.
 	Options []config.Option
+	// Platforms are the platforms it is shipped for, as its entity says.
+	Platforms []string
 	// Provides are what it can be required by.
 	Provides []Provide
 	// Requires are what it requires, as its ecosystem's own files say.

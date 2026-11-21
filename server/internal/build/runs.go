@@ -22,6 +22,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"slices"
 	"sync"
@@ -462,6 +463,10 @@ func (rs *runs) work(ctx context.Context, r *run) (code *buildv1.ExitCode, failu
 		telemetry.End(execution, failed)
 	}()
 	runner := runexec.Runner{Executor: rs.executor, Answers: rs.answered, Downloads: rs.downloads, Platform: rs.platform, Fix: r.fix, Kept: rs.tools}
+	// What a release's build packages is what the release ships.
+	if r.released != nil {
+		runner.Packaged = func(action plan.Action, left map[string]exec.Held) { r.packaged(action, left) }
+	}
 	if r.running != nil {
 		runner.Deliver = func(ctx context.Context, action plan.Action, left map[string]exec.Held) error {
 			brought, err := program.Bringer{Grid: rs.answered, Kept: rs.tools, Platform: rs.platform}.Bring(ctx, snapshot.Paths[action.Repository], action, left)
@@ -505,6 +510,9 @@ type run struct {
 	// released is what a release tells the build it makes; nil, the run
 	// is of no release.
 	released *versions
+	// artifacts are what the packages of a release's build left, each
+	// with the entity that owns the action that left it.
+	artifacts []artifact
 	// running is what a run's build brings its program to; nil, the
 	// run is a build.
 	running *delivery
@@ -538,6 +546,44 @@ func (r *run) owned(entities []record.Located) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.entities = entities
+}
+
+// artifact is what a package left, where it sits in the workspace, and
+// the entity that owns the action that left it; the entity is empty
+// where none owns it. A package leaves files: a directory is none, and
+// is kept to be said.
+type artifact struct {
+	owner, at string
+	directory bool
+	file      *buildv1.ReleaseArtifact
+}
+
+// packaged notes what a package left: each file, by its own name, with
+// what the grid holds of it.
+func (r *run) packaged(action plan.Action, left map[string]exec.Held) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	owner := ""
+	if owned, is := graph.Owner(r.entities, action.Label.Path); is {
+		owner = owned.Ref.String()
+	}
+	for at, held := range left {
+		r.artifacts = append(r.artifacts, artifact{owner: owner, at: at, directory: held.Directory, file: &buildv1.ReleaseArtifact{
+			Name: path.Base(at), Sha256: held.Digest.Hash, Size: held.Digest.Size, Label: action.Label.String(),
+		}})
+	}
+}
+
+// shipped are what the run's packages left, by the entity that owns
+// each.
+func (r *run) shipped() map[string][]artifact {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	out := map[string][]artifact{}
+	for _, each := range r.artifacts {
+		out[each.owner] = append(out[each.owner], each)
+	}
+	return out
 }
 
 // owner returns the entity that owns what is at a path of the workspace;
@@ -643,6 +689,8 @@ func (r *run) apply(e *buildv1.BuildEvent) {
 		// stays counted.
 		r.labels = nil
 		r.results = map[string]*buildv1.ActionResult{}
+		// What the packages of the run before left is not this run's.
+		r.artifacts = nil
 		r.state.Counts = &buildv1.Counts{}
 	case *buildv1.BuildEvent_ActionFinished_:
 		result := event.ActionFinished.GetResult()

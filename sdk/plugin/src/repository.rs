@@ -50,6 +50,13 @@ impl<'a> Repository<'a> {
         Ok(())
     }
 
+    /// The platforms what the plugin is asked about is shipped for, as
+    /// its entity says, each `<os>/<arch>` as `linux/amd64`; none where
+    /// it says none.
+    pub fn platforms(&self) -> &[String] {
+        &self.context.platforms
+    }
+
     /// The way the source is to be built. A plugin declares the commands
     /// of this profile: development is quick to build and easy to debug,
     /// production is compiled for speed and for safety. The host must supply

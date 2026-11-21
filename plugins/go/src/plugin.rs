@@ -117,9 +117,12 @@ impl Plugin for GoPlugin {
             &locked,
             root,
             &module.path,
-            &read.packages,
-            &read.nested,
-            &read.tested,
+            &crate::actions::Found {
+                packages: &read.packages,
+                nested: &read.nested,
+                tested: &read.tested,
+                programs: &directories,
+            },
         )?;
         actions.extend(crate::programs::programs(&module.path, &directories));
         let project = Project {

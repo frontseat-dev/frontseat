@@ -47,7 +47,7 @@ func ownedFixture(t *testing.T) Evaluation {
 			"server": {Label: label, Context: ctx, Declared: &pluginv1.Action{Command: &pluginv1.Command{Arguments: []string{"server"}}}, Sources: []pattern.Group{{Patterns: []string{"config"}}}, Handed: []plan.Handed{{Artifacts: []plan.Read{{From: label, Output: "program"}}}}, Arranged: []plan.Arranged{{Path: "config", Content: []byte("service")}}},
 		}},
 	}
-	projects := []graph.Project{{Root: "pkg", Plugin: "go", Name: "root", Options: []config.Option{{Name: "tags", Value: ctx.Options["tags"]}}, Provides: []graph.Provide{{Coordinate: model.Coordinate{Ecosystem: "go", Name: "root"}, Sources: []string{"*.go"}, Generated: selection, Artifacts: []graph.Produced{{Action: "build", Output: "install", Optional: true}}}}, Requires: []graph.Requirement{{Coordinate: model.Coordinate{Ecosystem: "go", Name: "other"}}}}}
+	projects := []graph.Project{{Root: "pkg", Plugin: "go", Name: "root", Platforms: []string{"linux/amd64"}, Options: []config.Option{{Name: "tags", Value: ctx.Options["tags"]}}, Provides: []graph.Provide{{Coordinate: model.Coordinate{Ecosystem: "go", Name: "root"}, Sources: []string{"*.go"}, Generated: selection, Artifacts: []graph.Produced{{Action: "build", Output: "install", Optional: true}}}}, Requires: []graph.Requirement{{Coordinate: model.Coordinate{Ecosystem: "go", Name: "other"}}}}}
 	provider, err := graph.Resolve(projects)
 	if err != nil {
 		t.Fatal(err)
@@ -133,6 +133,11 @@ func TestRetainedOwnedNestedPayloadsDoNotAlias(t *testing.T) {
 			p, _ := e.Graph.ProvidedBy(model.Coordinate{Ecosystem: "go", Name: "root"})
 			p.Provides[0].Generated[0][1][0] = "changed"
 		},
+		"project platforms": func(e *Evaluation) { e.Projects[0].Platforms[0] = "changed" },
+		"provider graph platforms": func(e *Evaluation) {
+			p, _ := e.Graph.ProvidedBy(model.Coordinate{Ecosystem: "go", Name: "root"})
+			p.Platforms[0] = "changed"
+		},
 		"provider graph option": func(e *Evaluation) {
 			p, _ := e.Graph.ProvidedBy(model.Coordinate{Ecosystem: "go", Name: "root"})
 			p.Options[0].Value.GetStringListValue().Values[0] = "changed"
@@ -180,7 +185,7 @@ func TestRetainedOwnedMutableFieldInventory(t *testing.T) {
 		{Evaluation{}, []string{"Actions", "Projects", "Generated", "producerReads", "Entities", "Catalog", "descriptors", "Graph", "Releases", "Listed", "DependsOn", "shared"}},
 		{plan.Action{}, []string{"Declared", "Context", "Sources", "References", "Reads", "IdleWithout", "Needs", "ArtifactOnly", "Artifacts", "GeneratedSources", "WorkspaceFiles", "Handed", "Arranged", "Environment", "InStep", "Beside"}},
 		{pattern.Group{}, []string{"Patterns", "Generated"}},
-		{graph.Project{}, []string{"Options", "Provides", "Requires"}},
+		{graph.Project{}, []string{"Options", "Platforms", "Provides", "Requires"}},
 		{graph.Graph{}, []string{"projects", "provider"}},
 		{graph.Provide{}, []string{"Sources", "Generated", "Artifacts"}},
 		{graph.Produced{}, nil},

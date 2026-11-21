@@ -8,6 +8,7 @@ import (
 	"fmt"
 	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/pluginhost"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -327,6 +328,34 @@ func (rs *releases) carryOut(m *made, planned *release.Planned, built *run) {
 			return
 		}
 	}
+	// What the build packaged is what the release ships, each file by
+	// its own name: two of one name could not both be published, and
+	// the release says which before anything is tagged.
+	shipped := map[string][]artifact{}
+	if built != nil {
+		shipped = built.shipped()
+	}
+	named := map[string]artifact{}
+	for _, unit := range planning.GetUnits() {
+		if unit.GetNextVersion() == "" {
+			continue
+		}
+		for _, member := range unit.GetMembers() {
+			for _, each := range shipped[entity.FromProto(member).String()] {
+				// What ships is a file: a package that left a directory
+				// where it said a file left nothing that can be shipped.
+				if each.directory {
+					fail("%s left the directory %s, and a package leaves files; nothing is tagged", each.file.GetLabel(), each.at)
+					return
+				}
+				if other, taken := named[each.file.GetName()]; taken && other.at != each.at {
+					fail("%s and %s are each left as an artifact named %s, by %s and %s; nothing is tagged", other.at, each.at, each.file.GetName(), other.file.GetLabel(), each.file.GetLabel())
+					return
+				}
+				named[each.file.GetName()] = each
+			}
+		}
+	}
 	m.change(func(r *buildv1.Release) { r.State = buildv1.Release_STATE_TAGGING })
 	// What was built is what is tagged: each repository is still the
 	// commit it was planned from, with nothing uncommitted. A change that
@@ -353,6 +382,14 @@ func (rs *releases) carryOut(m *made, planned *release.Planned, built *run) {
 		ref := entity.FromProto(unit.GetEntity())
 		repository := planned.Repositories[ref]
 		became := &buildv1.ReleasedUnit{Entity: unit.GetEntity()}
+		if unit.GetNextVersion() != "" {
+			for _, member := range unit.GetMembers() {
+				for _, each := range shipped[entity.FromProto(member).String()] {
+					became.Artifacts = append(became.Artifacts, each.file)
+				}
+			}
+			sort.Slice(became.Artifacts, func(i, j int) bool { return became.Artifacts[i].GetName() < became.Artifacts[j].GetName() })
+		}
 		switch {
 		case unit.GetNextVersion() != "" && unit.GetTag() == "":
 			// A prerelease its unit does not tag is built, and that is

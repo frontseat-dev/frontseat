@@ -21,7 +21,7 @@ or host imports of its own.
 
 | Export | Signature | What it does |
 |---|---|---|
-| `frontseat_abi` | `() -> i32` | The ABI the module speaks. The host loads no module outside the range it supports. This document is ABI 22. |
+| `frontseat_abi` | `() -> i32` | The ABI the module speaks. The host loads no module outside the range it supports. This document is ABI 23. |
 | `frontseat_alloc` | `(size: i32) -> i32` | Returns the address of `size` bytes the host may write to. |
 | `frontseat_free` | `(ptr: i32, size: i32)` | Gives back what `frontseat_alloc` returned. |
 | `frontseat_call` | `(ptr: i32, size: i32) -> i64` | Takes a serialized `Call`, returns a serialized `Reply`. |
@@ -308,6 +308,34 @@ prerelease (`BranchResponse.prerelease`), held to no line, with how far
 above the unit's highest release it is at least (`at_least`), where it
 is heading for more than its commits say. It never spells a prerelease:
 the host does, from the unit's own setting, the branch and the commit.
+
+## What a project ships
+
+An action that makes what its project ships says it is a package
+(`Action.package`): a program for a platform, a packed module, an
+archive, as its tool makes one. Each file it leaves is an artifact of
+the release that builds it, known by the file's own name. A plugin
+names nothing for a release and decides no layout of one: it lets its
+tool write what that tool's users expect, `greet-1.4.0.tgz` or
+`greet-linux-amd64`.
+
+`Context.platforms` are the platforms the project's entity ships for,
+each `<os>/<arch>`. A plugin whose tool makes one thing a platform makes
+a package for each; one whose tool makes the same on every platform
+makes nothing of them.
+
+A package is an ordinary step of the build it is declared for, read by
+whatever names what it leaves. What a release builds is what a
+production build builds: declare a package for the production profile
+alone where a development build should not pay for it. Name it
+`package`, or `package`, a slash and what it is of
+(`package/greet-linux-amd64`), unless the tool has a name for it; the
+packages named so, and those alone, are asked for and pointed at
+together, by `package`.
+
+Refused: a package that leaves nothing, a directory, or what it may not
+leave; one that is a test, a check, a fetch, a shared action or a
+program to run; and an action named as a package that is none.
 
 ## A release's version
 

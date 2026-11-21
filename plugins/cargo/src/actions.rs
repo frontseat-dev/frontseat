@@ -196,9 +196,14 @@ pub(super) fn actions(
             .name
             .clone()
             .unwrap_or_else(|| package.replace('-', "_"));
-        actions.push(wasm("wasm", &[]).output(Output::required(format!(
-            "target/{WASM_TARGET}/release/{name}.wasm"
-        ))));
+        // The module is what a crate that is a wasm module ships.
+        actions.push(
+            wasm("wasm", &[])
+                .output(Output::required(format!(
+                    "target/{WASM_TARGET}/release/{name}.wasm"
+                )))
+                .package(),
+        );
     }
     if !modules.is_empty() {
         let mut examples = wasm("wasm-examples", &["--examples"]);

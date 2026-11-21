@@ -177,7 +177,14 @@ type Context struct {
 	// Profile is the way the source is to be built. A plugin declares the
 	// commands of that way: its compiler flags and its tools' own switches.
 	// It is never unspecified.
-	Profile       Profile `protobuf:"varint,7,opt,name=profile,proto3,enum=frontseat.plugin.v1alpha1.Profile" json:"profile,omitempty"`
+	Profile Profile `protobuf:"varint,7,opt,name=profile,proto3,enum=frontseat.plugin.v1alpha1.Profile" json:"profile,omitempty"`
+	// Platforms are the platforms what the plugin is asked about is
+	// shipped for, as its entity says (spec.frontseat.platforms), each an
+	// operating system and an architecture as "linux/amd64": what a
+	// project's package actions are made for. None, where its entity says
+	// none; a plugin whose tool makes what is the same on every platform
+	// makes nothing of them.
+	Platforms     []string `protobuf:"bytes,8,rep,name=platforms,proto3" json:"platforms,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -231,6 +238,13 @@ func (x *Context) GetProfile() Profile {
 		return x.Profile
 	}
 	return Profile_PROFILE_UNSPECIFIED
+}
+
+func (x *Context) GetPlatforms() []string {
+	if x != nil {
+		return x.Platforms
+	}
+	return nil
 }
 
 // Option is an option a plugin takes: something a repository, or an
@@ -1803,7 +1817,25 @@ type Action struct {
 	//
 	// What is filled in is data: give it to a tool as an argument or a
 	// value of its own, never inside text a shell reads as a program.
-	Versioned     bool `protobuf:"varint,30,opt,name=versioned,proto3" json:"versioned,omitempty"`
+	Versioned bool `protobuf:"varint,30,opt,name=versioned,proto3" json:"versioned,omitempty"`
+	// Package says the action makes what its project ships: a program for
+	// a platform, a package, a module, an archive, as its tool makes it.
+	// Each file it leaves is an artifact of the release that builds it,
+	// known by its own name, as the tool wrote it, with what the grid
+	// holds of it: its sha256 and its size.
+	//
+	// What a release builds is what a production build builds, so a
+	// package that costs what a development build should not pay, as a
+	// program made for every platform does, is declared for the
+	// production profile alone, and is tried without a release by a
+	// production build pointed at it.
+	//
+	// It leaves at least one thing, each a file it is sure to leave, and
+	// is no test, check, fetch, shared action or program to run. Plugins
+	// name it "package", or "package", a slash and what it is of, as
+	// "package/linux-amd64", where nothing of their tool's has a name for
+	// it already.
+	Package       bool `protobuf:"varint,31,opt,name=package,proto3" json:"package,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1946,6 +1978,13 @@ func (x *Action) GetIdleWithoutInputs() bool {
 func (x *Action) GetVersioned() bool {
 	if x != nil {
 		return x.Versioned
+	}
+	return false
+}
+
+func (x *Action) GetPackage() bool {
+	if x != nil {
+		return x.Package
 	}
 	return false
 }
@@ -3036,11 +3075,12 @@ var File_frontseat_plugin_v1alpha1_plugin_proto protoreflect.FileDescriptor
 
 const file_frontseat_plugin_v1alpha1_plugin_proto_rawDesc = "" +
 	"\n" +
-	"&frontseat/plugin/v1alpha1/plugin.proto\x12\x19frontseat.plugin.v1alpha1\x1a'frontseat/plugin/v1alpha1/release.proto\x1a(frontseat/type/v1alpha1/diagnostic.proto\x1a$frontseat/type/v1alpha1/option.proto\x1a%frontseat/type/v1alpha1/service.proto\x1a#frontseat/type/v1alpha1/types.proto\"\xf3\x02\n" +
+	"&frontseat/plugin/v1alpha1/plugin.proto\x12\x19frontseat.plugin.v1alpha1\x1a'frontseat/plugin/v1alpha1/release.proto\x1a(frontseat/type/v1alpha1/diagnostic.proto\x1a$frontseat/type/v1alpha1/option.proto\x1a%frontseat/type/v1alpha1/service.proto\x1a#frontseat/type/v1alpha1/types.proto\"\x91\x03\n" +
 	"\aContext\x12I\n" +
 	"\aoptions\x18\x01 \x03(\v2/.frontseat.plugin.v1alpha1.Context.OptionsEntryR\aoptions\x12C\n" +
 	"\x05tools\x18\x02 \x03(\v2-.frontseat.plugin.v1alpha1.Context.ToolsEntryR\x05tools\x12<\n" +
-	"\aprofile\x18\a \x01(\x0e2\".frontseat.plugin.v1alpha1.ProfileR\aprofile\x1a`\n" +
+	"\aprofile\x18\a \x01(\x0e2\".frontseat.plugin.v1alpha1.ProfileR\aprofile\x12\x1c\n" +
+	"\tplatforms\x18\b \x03(\tR\tplatforms\x1a`\n" +
 	"\fOptionsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12:\n" +
 	"\x05value\x18\x02 \x01(\v2$.frontseat.type.v1alpha1.OptionValueR\x05value:\x028\x01\x1a8\n" +
@@ -3148,7 +3188,7 @@ const file_frontseat_plugin_v1alpha1_plugin_proto_rawDesc = "" +
 	"\aversion\x18\x06 \x01(\tR\aversion\"0\n" +
 	"\x06Origin\x12\x12\n" +
 	"\x04path\x18\x01 \x01(\tR\x04path\x12\x12\n" +
-	"\x04line\x18\x02 \x01(\x05R\x04line\"\xf3\x04\n" +
+	"\x04line\x18\x02 \x01(\x05R\x04line\"\x8d\x05\n" +
 	"\x06Action\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12<\n" +
 	"\acommand\x18\x04 \x01(\v2\".frontseat.plugin.v1alpha1.CommandR\acommand\x128\n" +
@@ -3165,7 +3205,8 @@ const file_frontseat_plugin_v1alpha1_plugin_proto_rawDesc = "" +
 	"\tdownloads\x18\x18 \x03(\v2#.frontseat.plugin.v1alpha1.DownloadR\tdownloads\x12\x18\n" +
 	"\aprogram\x18\x1b \x01(\bR\aprogram\x12.\n" +
 	"\x13idle_without_inputs\x18\x1c \x01(\bR\x11idleWithoutInputs\x12\x1c\n" +
-	"\tversioned\x18\x1e \x01(\bR\tversioned\"\xb0\x01\n" +
+	"\tversioned\x18\x1e \x01(\bR\tversioned\x12\x18\n" +
+	"\apackage\x18\x1f \x01(\bR\apackage\"\xb0\x01\n" +
 	"\x05Input\x12\x18\n" +
 	"\x06source\x18\x01 \x01(\tH\x00R\x06source\x12\x1d\n" +
 	"\tinput_set\x18\x02 \x01(\tH\x00R\binputSet\x12\x18\n" +

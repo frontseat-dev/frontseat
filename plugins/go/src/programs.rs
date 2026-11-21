@@ -613,22 +613,29 @@ fn version_element(element: &str) -> bool {
         && digits != "1"
 }
 
+/// The programs of a module that are offered, each by its name and the
+/// directory of its package, in the order of their names: those the go
+/// command names, one to a name.
+pub(super) fn offered(module: &str, directories: &[String]) -> Vec<(String, String)> {
+    let mut named: Vec<(String, String)> = directories
+        .iter()
+        .filter_map(|directory| Some((named(module, directory)?, directory.clone())))
+        .collect();
+    named.sort();
+    let all = named.clone();
+    named.retain(|(name, _)| all.iter().filter(|(other, _)| other == name).count() == 1);
+    named
+}
+
 /// A program action for each program of a module, `run/<name>`: the
 /// program the compile left where the go command keeps programs, run as
 /// it is. Two directories
 /// the go command names alike leave one program between them, whichever
 /// it built last: neither is offered, since which it is nobody can say.
 pub(super) fn programs(module: &str, directories: &[String]) -> Vec<Action> {
-    let mut names: Vec<String> = directories
-        .iter()
-        .filter_map(|directory| named(module, directory))
-        .collect();
-    names.sort();
-    let all = names.clone();
-    names.retain(|name| all.iter().filter(|other| *other == name).count() == 1);
-    names
+    offered(module, directories)
         .into_iter()
-        .map(|name| Action {
+        .map(|(name, _)| Action {
             name: format!("run/{name}"),
             command: Some(Command {
                 arguments: vec![format!("~/go/bin/{name}")],

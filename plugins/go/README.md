@@ -101,6 +101,18 @@ tests by name and the last everything the others were not told to. Not
 served: shards of a package whose tests are one function, as a Ginkgo
 suite's are.
 
+What a module ships is its programs, made for each platform its entity
+ships for (`spec.frontseat.platforms` in its catalog file): for the
+production profile, an action `package/<program>-<os>-<arch>` for each
+program and platform, the go command building that program for that
+system (`GOOS`, `GOARCH`), which leaves `_package/<program>-<os>-<arch>`:
+an artifact of a release. Without cgo, a program is made for any system
+from any worker. Not served: which directories hold a program is read
+for Linux, as for everything else of a module, so a program that has no
+files for a platform its entity names fails its package, and one that
+has files for another system alone is not packaged; `.exe` is not added
+for Windows; each package compiles the module anew.
+
 A module's programs say the version they were released at where the
 `version` option names the variables that hold it, each
 `<package>.<variable>=<what>`, a string variable of a package by its

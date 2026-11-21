@@ -15,6 +15,10 @@ spec:
   consumesApis: [api:plugin-api]
   dependsOn: [component:api, component:apko-plugin, component:backstage-plugin, component:buf-plugin, component:cargo-plugin, component:container-plugin, component:go-plugin, component:go-sdk, component:jest-plugin, component:local, component:npm-plugin, component:plugin-sdk, component:postgres-plugin, component:release-plugin]
   frontseat:
+    # Its programs are shipped for where the daemon and the workers run,
+    # and for where a person starts the local stack: each program and
+    # platform is a file of its own in a release, frontseatd-<os>-<arch>.
+    platforms: [linux/amd64, linux/arm64, darwin/arm64]
     # The plugin contract's Go, what a worker's runner is told, and the
     # daemon's internal API, are generated here by the contracts' Buf
     # workspace (api/buf.gen.daemon.yaml, api/buf.gen.runner.yaml,
