@@ -2,7 +2,8 @@
 # builds the modules go.work lists, Cargo the SDK and the plugins, each
 # package of the workspace on its own and each plugin to wasm, Buf lints
 # api/ and generates its Go and Connect source, and Backstage reads
-# catalog-info.yaml. Each takes its options' own values. What frontseat
+# catalog-info.yaml, and the release plugin serves the strategies its
+# releases are planned with. Each takes its options' own values. What frontseat
 # cannot build yet, the images, mise builds; CONTRIBUTING.md says which.
 plugins:
   go: {}
@@ -12,3 +13,4 @@ plugins:
     wasm: true
   buf: {}
   backstage: {}
+  release: {}
