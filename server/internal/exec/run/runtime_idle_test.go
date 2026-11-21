@@ -27,7 +27,7 @@ func TestWhatACatalogAddsToATestsReadsDoesNotChangeWhenItIsIdle(t *testing.T) {
 	}{
 		{"native present control", "", present, false},
 		{"native absent control", "", nil, true},
-		{"missing runtime data cannot skip a present native test", "//lab/runtime:fixture.dat", present, false},
+		{"missing runtime data cannot skip a present native test", "//runtime:fixture.dat", present, false},
 		{"whole build runtime reference cannot erase native absence", ":go.test-build", nil, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -36,7 +36,7 @@ func TestWhatACatalogAddsToATestsReadsDoesNotChangeWhenItIsIdle(t *testing.T) {
 			test.Reads, test.IdleWithout = nil, nil
 			test.References = []plan.Reference{{Reference: model.Reference{Path: "lab/fixtures", Rest: program, Written: ":" + program}, Plugin: "go", Shared: "lab"}}
 			if tc.reference != "" {
-				ref, err := model.ParseReference("lab/fixtures", tc.reference)
+				ref, err := model.ParseReference("lab", "fixtures", tc.reference)
 				if err != nil {
 					t.Fatal(err)
 				}

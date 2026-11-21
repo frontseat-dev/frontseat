@@ -62,11 +62,14 @@ the change that fixes it.
   build hands it (other modules, its module's fetched dependencies). What
   it reads beyond that, its Component's catalog file names
   (`spec.frontseat.test.inputs`, a path from the repository's root
-  written `/…`): a read of anything else fails, for want of the file, and
+  written `/…`, or what another action left, `//path:what`, its path
+  from the repository's root too, as it is in an action's `inputs` and
+  a service's `program`, wherever a workspace holds the repository): a read of anything else fails, for want of the file, and
   is never found by walking up. A `testdata` directory holds fixtures,
   to every plugin: what is in one is no project.
   Held by: `TestRunsThisRepositorysOwnTestsOnTheGrid`,
-  `TestACatalogInputFromTheRootIsReadFromTheRepositorysRoot` and the Go
+  `TestACatalogInputFromTheRootIsReadFromTheRepositorysRoot`,
+  `TestACatalogLabelFromTheRootNamesAProjectOfItsOwnRepository` and the Go
   plugin's `served_plugin_composes_manifest_inputs_and_profile_actions`.
 - **The box is built one way** (`local/box`): by `mise run build`, by the
   stack and by the gate, and tagged by what it holds. The stack and the
