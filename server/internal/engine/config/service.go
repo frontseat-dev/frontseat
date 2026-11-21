@@ -229,7 +229,7 @@ func readService(file, directory string, document, node *yaml.Node) (Service, er
 		return mistake(node.Line, "a Resource provides no APIs")
 	}
 	if l.Program != "" {
-		if _, err := model.ParseReference(directory, l.Program); err != nil {
+		if _, err := model.ParseReference("", directory, l.Program); err != nil {
 			return Service{}, l.Mistake(err)
 		}
 		if err := testservice.Program(l.Said); err != nil {

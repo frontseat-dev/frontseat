@@ -15,7 +15,7 @@ import (
 // input set is a project's, and a catalog file declares none. A mistake
 // names the file and what was being read, once.
 func TestCatalogInputsAreSourceOrWhatAnotherActionLeft(t *testing.T) {
-	read, err := readCatalogInputs("lab", "chain", "lab/chain/catalog-info.yaml", "the action report", []string{"src/**", ":go.fetch", "!src/skip/**", "//lab/lib:made/"})
+	read, err := readCatalogInputs("lab", "chain", "lab/chain/catalog-info.yaml", "the action report", []string{"src/**", ":go.fetch", "!src/skip/**", "//lib:made/"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -29,7 +29,7 @@ func TestCatalogInputsAreSourceOrWhatAnotherActionLeft(t *testing.T) {
 		}
 		written = append(written, reference.Path+" "+reference.Written)
 	}
-	if !slices.Equal(written, []string{"lab/chain :go.fetch", "lab/lib //lab/lib:made/"}) {
+	if !slices.Equal(written, []string{"lab/chain :go.fetch", "lab/lib //lib:made/"}) {
 		t.Errorf("references read as %v", written)
 	}
 	if read, err := readCatalogInputs("lab", "chain", "lab/chain/catalog-info.yaml", "the action report", nil); err != nil || read.source.Patterns != nil || read.references != nil {
@@ -70,5 +70,23 @@ func TestACatalogInputFromTheRootIsReadFromTheRepositorysRoot(t *testing.T) {
 	}
 	if !groups[1].Accepts("api/build-proto/frontseat/build/v1alpha1/build.proto") || groups[1].Accepts("api/internal/x.proto") || groups[0].Accepts("api/build-proto/x.proto") {
 		t.Fatal("a pattern from the root selects what it says, or one from the directory reaches beyond it")
+	}
+}
+
+// A label written from the root, //path:what, names a project of the
+// repository the catalog file is in, wherever the workspace holds that
+// repository, as a pattern written /… is read from its root and as
+// Bazel reads //… within the repository it is written in. The control
+// is the repository at the workspace's top, where the label is the
+// project's path as written.
+func TestACatalogLabelFromTheRootNamesAProjectOfItsOwnRepository(t *testing.T) {
+	for repository, want := range map[string]string{"frontseat": "frontseat/plugins/apko", "": "plugins/apko"} {
+		read, err := readCatalogInputs(repository, "server", "server/catalog-info.yaml", "test.inputs", []string{"//plugins/apko:cargo.wasm"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(read.references) != 1 || read.references[0].Path != want || read.references[0].Rest != "cargo.wasm" || read.references[0].Written != "//plugins/apko:cargo.wasm" {
+			t.Errorf("in the repository %q, read as %+v, want the project %s", repository, read.references, want)
+		}
 	}
 }

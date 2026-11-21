@@ -3,6 +3,7 @@ package plan
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -27,8 +28,14 @@ func sharedLeaving(path, plugin, name string, outputs ...string) Action {
 	return action
 }
 
+// projectOf is the repository lab's directory of the project at, as a
+// reference is read in it.
+func projectOf(at string) string {
+	return strings.TrimPrefix(strings.TrimPrefix(at, "lab"), "/")
+}
+
 func catalogRef(at, written string) Reference {
-	ref, err := model.ParseReference(at, written)
+	ref, err := model.ParseReference("lab", projectOf(at), written)
 	if err != nil {
 		panic(err)
 	}
@@ -36,7 +43,7 @@ func catalogRef(at, written string) Reference {
 }
 
 func pluginRef(at, plugin, written string) Reference {
-	ref, err := model.ParseReference(at, written)
+	ref, err := model.ParseReference("lab", projectOf(at), written)
 	if err != nil {
 		panic(err)
 	}
@@ -54,7 +61,7 @@ func TestAReferenceResolvesToOneReadAndOneNeed(t *testing.T) {
 	read := leaving("lab/a", "custom", "read", nil,
 		catalogRef("lab/a", ":made/"), catalogRef("lab/a", ":made/"), catalogRef("lab/a", ":spare/"),
 		catalogRef("lab/a", ":go.compile"), catalogRef("lab/a", ":~/go/bin/"))
-	other := leaving("lab/b", "custom", "read", nil, catalogRef("lab/b", "//lab/a:made/"), catalogRef("lab/b", "//lab/a:custom.write"))
+	other := leaving("lab/b", "custom", "read", nil, catalogRef("lab/b", "//a:made/"), catalogRef("lab/b", "//a:custom.write"))
 	built := leaving("lab/a", "go", "test", nil, pluginRef("lab/a", "go", ":compile"), pluginRef("lab/a", "go", ":fetch/x.com/m@v1"))
 	actions := []Action{write, compile, fetch, read, other, built}
 
@@ -96,8 +103,8 @@ func TestAReferenceThatNamesNotOneThingIsRefused(t *testing.T) {
 	}{
 		"nothing": {[]Action{leaving("lab/a", "custom", "read", nil, catalogRef("lab/a", ":made/"))},
 			"//lab/a:custom.read reads :made/, which names no action and nothing an action leaves"},
-		"another project nobody has": {[]Action{leaving("lab/a", "custom", "read", nil, catalogRef("lab/a", "//lab/z:custom.write"))},
-			"//lab/a:custom.read reads //lab/z:custom.write, which names no action and nothing an action leaves"},
+		"another project nobody has": {[]Action{leaving("lab/a", "custom", "read", nil, catalogRef("lab/a", "//z:custom.write"))},
+			"//lab/a:custom.read reads //z:custom.write, which names no action and nothing an action leaves"},
 		"both": {[]Action{leaving("lab/a", "custom", "write", []string{"custom.write"}), leaving("lab/a", "custom", "read", nil, catalogRef("lab/a", ":custom.write"))},
 			"//lab/a:custom.read reads :custom.write, which names both an action and what an action leaves"},
 		"leaves nothing": {[]Action{leaving("lab/a", "go", "test", nil), leaving("lab/a", "custom", "read", nil, catalogRef("lab/a", ":go.test"))},

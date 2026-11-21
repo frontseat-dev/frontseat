@@ -15,8 +15,10 @@ import (
 //     made/;
 //   - an action of the same entity, after a colon, as plugin.name, for
 //     all it leaves, at home or in the repository: :go.compile;
-//   - either, of another entity, by a label: the entity's directory, a
-//     colon and the rest, //lab/chain:made/, //lab/programs:go.compile.
+//   - either, of another entity, by a label: the entity's directory
+//     from the repository's root, a colon and the rest, //chain:made/,
+//     //programs:go.compile, whatever the workspace holds the
+//     repository beneath (it prints them //lab/chain:made/).
 //
 // A pattern never names what an action left: a pattern is of source.
 // Nobody says what an action waits for. An action needs what it reads,
@@ -49,9 +51,9 @@ import (
 //   - doubly: read reads :custom.write and :made/, which it leaves.
 //   - blocked: read reads :made/, and write fails.
 //   - hollow: write says it writes made/, and writes nothing.
-//   - borrower: read reads //lab/chain:made/, of chain, which it
+//   - borrower: read reads //chain:made/, of chain, which it
 //     depends on.
-//   - unclaimed: read reads //lab/chain:spare/, which nothing leaves.
+//   - unclaimed: read reads //chain:spare/, which nothing leaves.
 //   - twofold: write leaves custom.write, which read names as
 //     :custom.write.
 //   - rivals: write and copy both leave made/, which read names.
@@ -228,7 +230,7 @@ func TestReadingAnActionOfAnEntityThatIsNotInTheWorkspaceIsRefusedByName(t *test
 
 	build := spec.workspaceOf("stray").build()
 
-	spec.Expect(build.says()).To(ContainSubstring("//lab/stray:custom.read reads //lab/nowhere:custom.write, which names no action and nothing an action leaves"))
+	spec.Expect(build.says()).To(ContainSubstring("//lab/stray:custom.read reads //nowhere:custom.write, which names no action and nothing an action leaves"))
 }
 
 // Actions that read what other actions left / Reading what no action of the workspace leaves is refused by name.
@@ -238,7 +240,7 @@ func TestReadingWhatNoActionOfTheWorkspaceLeavesIsRefusedByName(t *testing.T) {
 
 	build := spec.workspaceOf("unclaimed").build()
 
-	spec.Expect(build.says()).To(ContainSubstring("//lab/unclaimed:custom.read reads //lab/chain:spare/, which names no action and nothing an action leaves"))
+	spec.Expect(build.says()).To(ContainSubstring("//lab/unclaimed:custom.read reads //chain:spare/, which names no action and nothing an action leaves"))
 	spec.Expect(build.outcome()).To(Equal("BUILD_FAILURE"))
 }
 
