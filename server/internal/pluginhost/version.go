@@ -64,7 +64,27 @@ func named(rest string) (written string, known bool) {
 			return begins + name + "}", true
 		}
 	}
-	return begins + name + "}", false
+	return begins + name + "}", slices.Contains(published, name)
+}
+
+// published is what the host fills beside the version for an action
+// that publishes, and for no other: the artifacts it is given, the file
+// of its unit's notes, where its repository was brought from, and
+// whether the release is a prerelease.
+var published = []string{"artifacts", "notes", "remote", "prerelease"}
+
+// The names an action that publishes is filled with, as it writes them.
+const (
+	Artifacts  = begins + "artifacts}"
+	Notes      = begins + "notes}"
+	Remote     = begins + "remote}"
+	Prerelease = begins + "prerelease}"
+)
+
+// publishes is whether something written to be filled is filled for an
+// action that publishes alone.
+func publishes(written string) bool {
+	return slices.Contains([]string{Artifacts, Notes, Remote, Prerelease}, written)
 }
 
 // each calls yield with everything text writes to be filled, in order,
@@ -200,7 +220,9 @@ func CheckVersion(what string, action *pluginv1.Action) error {
 					fills[i] = begins + each.name + "}"
 				}
 				mistake = fmt.Errorf("%s names %s, which the host fills nothing for: it fills %s", what, written, strings.Join(fills, ", "))
-			case !action.GetVersioned():
+			case publishes(written) && action.GetPublish() == nil:
+				mistake = fmt.Errorf("%s names %s, which only an action that publishes is given", what, written)
+			case !action.GetVersioned() && action.GetPublish() == nil:
 				mistake = fmt.Errorf("%s names %s, which only a versioned action is given", what, written)
 			}
 			any = true
@@ -224,17 +246,29 @@ func FillVersion(action *pluginv1.Action, version Version) *pluginv1.Action {
 	if !action.GetVersioned() {
 		return action
 	}
-	pairs := make([]string, 0, 2*len(filled))
+	return given(action, version)
+}
+
+// given is a clone of an action with what its command names filled in:
+// the version, and each further pair, what is written and what it is
+// filled with.
+func given(action *pluginv1.Action, version Version, further ...string) *pluginv1.Action {
+	pairs := make([]string, 0, 2*len(filled)+len(further))
 	for _, each := range filled {
 		pairs = append(pairs, begins+each.name+"}", each.of(version))
 	}
-	fill := strings.NewReplacer(pairs...)
 	out := proto.Clone(action).(*pluginv1.Action)
-	for i, argument := range out.GetCommand().GetArguments() {
-		out.Command.Arguments[i] = fill.Replace(argument)
-	}
-	for name, value := range out.GetCommand().GetEnvironment() {
-		out.Command.Environment[name] = fill.Replace(value)
-	}
+	replace(out.GetCommand(), strings.NewReplacer(append(pairs, further...)...))
 	return out
+}
+
+// replace fills a command's arguments and the values of its
+// environment, in place.
+func replace(command *pluginv1.Command, fill *strings.Replacer) {
+	for i, argument := range command.GetArguments() {
+		command.Arguments[i] = fill.Replace(argument)
+	}
+	for name, value := range command.GetEnvironment() {
+		command.Environment[name] = fill.Replace(value)
+	}
 }

@@ -197,6 +197,14 @@ func (a Action) IsPackage() bool { return a.Declared.GetPackage() }
 // a build, which no build runs.
 func (a Action) IsProgram() bool { return a.Declared.GetProgram() }
 
+// IsPublish reports whether the action publishes what a release
+// shipped: no step of a build, which a release runs where the daemon is.
+func (a Action) IsPublish() bool { return a.Declared.GetPublish() != nil }
+
+// Built reports whether the action is a step of a build: neither a
+// program to run nor what publishes a release.
+func (a Action) Built() bool { return !a.IsProgram() && !a.IsPublish() }
+
 // Rewrites are the patterns, relative to its project, of the inputs the
 // action's tool may change on the copy it is given.
 func (a Action) Rewrites() []string { return a.Declared.GetRewrites() }

@@ -726,6 +726,18 @@ func custom(repository string, own config.Action) (plan.Action, error) {
 			return plan.Action{}, &model.Mistake{File: own.File, Message: err.Error()}
 		}
 	}
+	if own.Publish {
+		// What it reads is nothing: it is given its unit's artifacts.
+		if len(own.Inputs) > 0 {
+			return plan.Action{}, &model.Mistake{File: own.File, Message: what + " publishes and says what it reads: it is given its unit's artifacts, and reads nothing else"}
+		}
+		action.Label.Name = "publish/" + own.Name
+		action.Declared.Name = action.Label.Name
+		action.Declared.Publish = &pluginv1.Publish{Environment: own.Environment}
+		if err := pluginhost.CheckPublish(what, action.Declared); err != nil {
+			return plan.Action{}, &model.Mistake{File: own.File, Message: err.Error()}
+		}
+	}
 	if err := pluginhost.CheckVersion(what, action.Declared); err != nil {
 		return plan.Action{}, &model.Mistake{File: own.File, Message: err.Error()}
 	}

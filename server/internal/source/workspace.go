@@ -174,6 +174,18 @@ func (w *Workspace) PushTag(ctx context.Context, repository, name string) error 
 	return fmt.Errorf("the workspace holds no repository %q", repository)
 }
 
+// Remote is where one of the workspace's repositories was brought from,
+// as its version control system writes one.
+func (w *Workspace) Remote(repository string) (string, error) {
+	held, _ := w.Now()
+	for _, each := range held.Repositories {
+		if each.Name == repository {
+			return each.Remote, nil
+		}
+	}
+	return "", fmt.Errorf("the workspace holds no repository %q", repository)
+}
+
 // TagName holds a name to one the workspace's version control system
 // takes for a tag.
 func (w *Workspace) TagName(ctx context.Context, name string) error {

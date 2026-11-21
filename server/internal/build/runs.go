@@ -65,7 +65,10 @@ type runs struct {
 	workspace *sourced.Workspace
 	plugins   []*pluginhost.Plugin
 	// tools is where a fix's work is kept: tool trees by digest, and copies.
-	tools    string
+	tools string
+	// given are the variables of where the daemon runs that what
+	// publishes a release may be given: those the daemon was told.
+	given    []string
 	executor exec.Executor
 	// downloads brings what a shared fetch downloads to the grid; nil
 	// where the daemon was given no asset service.
@@ -418,6 +421,11 @@ func (rs *runs) work(ctx context.Context, r *run) (code *buildv1.ExitCode, failu
 		if err == nil {
 			needed, asked, entities = selected.Needed, selected.Asked, selected.Entities
 			r.owned(entities)
+			if r.released != nil {
+				r.mu.Lock()
+				r.publishes = &publishing{snapshot: snapshot, actions: selected.Publishes, entities: entities}
+				r.mu.Unlock()
+			}
 		}
 		// A build of tests keeps what its plugins say runs tests, and
 		// is refused where there is none, as Bazel refuses one.
@@ -532,6 +540,8 @@ type run struct {
 	// tests are the labels of the actions that are tests, whose failure
 	// is a test that failed and not a build that broke.
 	tests map[string]bool
+	// publishes is what a release's build leaves it to publish with.
+	publishes *publishing
 	// changed is closed, and replaced, each time an event is appended.
 	changed chan struct{}
 	// record is the run's place in the daemon's history: each event is
@@ -555,7 +565,17 @@ func (r *run) owned(entities []record.Located) {
 type artifact struct {
 	owner, at string
 	directory bool
+	held      exec.Held
 	file      *buildv1.ReleaseArtifact
+}
+
+// publishing is what a release's build leaves for the release to
+// publish with: the files as the build read them, and the actions of
+// the workspace that publish.
+type publishing struct {
+	snapshot *source.Snapshot
+	actions  []plan.Action
+	entities []record.Located
 }
 
 // packaged notes what a package left: each file, by its own name, with
@@ -568,10 +588,18 @@ func (r *run) packaged(action plan.Action, left map[string]exec.Held) {
 		owner = owned.Ref.String()
 	}
 	for at, held := range left {
-		r.artifacts = append(r.artifacts, artifact{owner: owner, at: at, directory: held.Directory, file: &buildv1.ReleaseArtifact{
+		r.artifacts = append(r.artifacts, artifact{owner: owner, at: at, directory: held.Directory, held: held, file: &buildv1.ReleaseArtifact{
 			Name: path.Base(at), Sha256: held.Digest.Hash, Size: held.Digest.Size, Label: action.Label.String(),
 		}})
 	}
+}
+
+// published is what the run leaves a release to publish with; nil
+// where it planned nothing.
+func (r *run) published() *publishing {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.publishes
 }
 
 // shipped are what the run's packages left, by the entity that owns

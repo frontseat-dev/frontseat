@@ -19,7 +19,7 @@ func jestContext() *pluginv1.Context {
 func jestFixture() conformance.Fixture {
 	coordinate := &pluginv1.Coordinate{Ecosystem: "javascript-install", Name: "web"}
 	return conformance.Fixture{
-		Name: "jest", Description: &pluginv1.DescribeResponse{Name: "jest", Abi: 23, Interests: []string{"**/package.json", "!**/node_modules/**", "!**/testdata/**"}},
+		Name: "jest", Description: &pluginv1.DescribeResponse{Name: "jest", Abi: 24, Interests: []string{"**/package.json", "!**/node_modules/**", "!**/testdata/**"}},
 		Source: files{"app/package.json": npmPackage}, Absent: files{"app/package.json": `{"name":"library"}`}, Malformed: files{"app/package.json": strings.Replace(npmPackage, `"test":"jest"`, `"test":"jest --passWithNoTests"`, 1)}, ErrorCode: "INVALID_MANIFEST",
 		Analyze: &pluginv1.AnalyzeRequest{Context: jestContext(), Roots: []string{"app"}},
 		Projects: []*pluginv1.Project{{Root: "app", Name: "web", Kind: "jest-suite", Manifest: "app/package.json", AlwaysArranged: true,

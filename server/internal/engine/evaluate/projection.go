@@ -32,8 +32,11 @@ type Work struct {
 // BuildPlan is the owned execution selection and observations of this request.
 type BuildPlan struct {
 	Needed, Asked []plan.Action
-	Entities      []record.Located
-	Work          Work
+	// Publishes are the actions of the workspace that publish, whatever
+	// the build was pointed at: no build runs them, and a release does.
+	Publishes []plan.Action
+	Entities  []record.Located
+	Work      Work
 }
 
 // projectionResult is one request's own result: the work the request did,
@@ -43,6 +46,9 @@ type projectionResult struct {
 	facts    Evaluation
 	projects *buildv1.ListProjectsResponse
 	plan     selectedPlan
+	// publishes are the request's own copies of the actions that
+	// publish, of the whole evaluation.
+	publishes []plan.Action
 }
 
 // selectedPlan contains the full execution payloads, asked roots and ownership
@@ -56,6 +62,7 @@ type selectedPlan struct {
 // closure. Clone only those complete action payloads and the ownership records.
 func ownSelection(needed, asked []plan.Action, entities []record.Located) selectedPlan {
 	out := selectedPlan{Needed: plan.CloneActions(needed), Asked: slices.Clone(asked), Entities: slices.Clone(entities)}
+
 	positions := make(map[model.Label]int, len(out.Needed))
 	for i, a := range out.Needed {
 		positions[a.Label] = i

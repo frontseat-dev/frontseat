@@ -269,13 +269,18 @@ message Release {
     // daemon's checkout.
     STATE_TAGGING = 2;
     // STATE_SUCCEEDED: it ended with nothing left to do: every tag of
-    // its units is where its repository was brought from; or no unit of
+    // its units is where its repository was brought from, and every
+    // publish of them passed; or no unit of
     // its plan was tagged, since none moves, or since what moves is a
     // prerelease its unit does not tag, which was built and no more.
     STATE_SUCCEEDED = 3;
     // STATE_PUSHING: its units are tagged, and each tag is being sent to
     // where its repository was brought from.
     STATE_PUSHING = 6;
+    // STATE_PUBLISHING: every tag is where its repository was brought
+    // from, and what was shipped is being published, each publish of
+    // each unit in turn.
+    STATE_PUBLISHING = 7;
     // STATE_UNPUBLISHED: its units are tagged in the daemon's checkout,
     // and not every tag is where its repository was brought from: a
     // workspace that may not push leaves them all there, and failure
@@ -283,7 +288,8 @@ message Release {
     // commit, it sends them.
     STATE_UNPUBLISHED = 4;
     // STATE_FAILED: it ended before all of that was done; its units say
-    // what was. Where the build fails, no unit is tagged.
+    // what was. Where the build fails, no unit is tagged. Where a
+    // publish fails, its unit says which, and its tags stay pushed.
     STATE_FAILED = 5;
   }
 }
@@ -305,6 +311,19 @@ message ReleasedUnit {
   // package action of its members left, in the order of their names. A
   // unit found released already has none: nothing was built of it.
   repeated ReleaseArtifact artifacts = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Published is what became of each publish of it, in the order they
+  // ran. A unit found released already has none: nothing was built of
+  // it to publish.
+  repeated ReleasePublished published = 6 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+// ReleasePublished is what became of one publish of a unit.
+message ReleasePublished {
+  // Label is the label of the action that publishes.
+  string label = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Failure says why it failed, with what its tool printed; empty where
+  // it passed.
+  string failure = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
 }
 
 // ReleaseArtifact is one file a release built to ship.

@@ -21,7 +21,7 @@ or host imports of its own.
 
 | Export | Signature | What it does |
 |---|---|---|
-| `frontseat_abi` | `() -> i32` | The ABI the module speaks. The host loads no module outside the range it supports. This document is ABI 23. |
+| `frontseat_abi` | `() -> i32` | The ABI the module speaks. The host loads no module outside the range it supports. This document is ABI 24. |
 | `frontseat_alloc` | `(size: i32) -> i32` | Returns the address of `size` bytes the host may write to. |
 | `frontseat_free` | `(ptr: i32, size: i32)` | Gives back what `frontseat_alloc` returned. |
 | `frontseat_call` | `(ptr: i32, size: i32) -> i64` | Takes a serialized `Call`, returns a serialized `Reply`. |
@@ -336,6 +336,50 @@ together, by `package`.
 Refused: a package that leaves nothing, a directory, or what it may not
 leave; one that is a test, a check, a fetch, a shared action or a
 program to run; and an action named as a package that is none.
+
+## What publishes a release
+
+An action that sends what a release shipped somewhere says it publishes
+(`Action.publish`), and runs its tool's own way of doing so: a forge's
+command line, a registry's client. Nothing of frontseat's speaks to a
+forge or a registry for it.
+
+It is no step of a build. No build runs it; a release does, once every
+tag of the release is pushed, where the daemon is and never on the
+grid, with its tools as the repository pins them, and never from a
+cache. It runs for a unit that moves: the one that owns its project,
+or, where no entity owns its project, each unit of its repository, one
+at a time. It runs in a directory that holds that unit's artifacts and,
+where there are any, `checksums.txt`, their sha256s as `sha256sum`
+writes them. It is ended after thirty minutes.
+
+Its command names what it is given as a versioned action names the
+version, with `{frontseat.version}`, `{frontseat.tag}`,
+`{frontseat.commit}` and `{frontseat.unit}`, and with:
+
+| Written | Filled with |
+|---|---|
+| `{frontseat.artifacts}` | each file it is given, an argument each; written as an argument by itself |
+| `{frontseat.notes}` | a file that holds the unit's release notes |
+| `{frontseat.remote}` | where the unit's repository was brought from |
+| `{frontseat.prerelease}` | `true` or `false` |
+
+`Publish.environment` names the variables of where the daemon runs that
+its tool reads a token from, as `GH_TOKEN`. It is given one only where
+whoever runs the daemon said it may be (`frontseatd
+--publish-environment`); its environment holds nothing else of where
+the daemon runs. It runs as the daemon does, and is not confined. Name it `publish`, a slash and what it publishes to
+(`publish/release`).
+
+It passes or fails by its exit code. One that fails fails the release,
+which says so on the unit with what the tool printed; the tags stay
+pushed.
+
+Refused: one that runs nothing or names its program by something to be
+filled, leaves or reads something, or says
+where it runs; one that is anything else as well; a variable that is no
+name a tool reads one by, or one the host sets; and
+`{frontseat.artifacts}` anywhere but as an argument by itself.
 
 ## A release's version
 

@@ -117,7 +117,7 @@ func projectionWant(t *testing.T, e Evaluation, kind projectionKind, targets []s
 	if kind == projectPlan {
 		out.plan = selectedPlan{needed, asked, e.Entities}
 	} else {
-		out.full = retainedResult{e, needed}
+		out.full = retainedResult{evaluation: e, actions: needed}
 	}
 	return out, nil
 }

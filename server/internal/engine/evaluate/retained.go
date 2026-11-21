@@ -75,6 +75,7 @@ func (p *retainedEngine) operationSelected(ctx context.Context, src Source, prof
 	case projectPlan:
 		own = func(kept retainedResult, asked []plan.Action, out *projectionResult) {
 			out.plan = ownSelection(kept.actions, asked, kept.evaluation.Entities)
+			out.publishes = plan.CloneActions(kept.publishes)
 		}
 	default:
 		return projectionResult{}, fmt.Errorf("evaluate: projection %d is not one the engine makes", kind)
@@ -141,6 +142,11 @@ func (p *retainedEngine) projected(ctx context.Context, src Source, profile plug
 		out.work.Again += measured.Again
 		if err != nil {
 			return out, err
+		}
+		for _, a := range result.evaluation.Actions {
+			if a.IsPublish() {
+				result.publishes = append(result.publishes, a)
+			}
 		}
 		// Whole, and of this source: kept from here, whatever becomes of
 		// the plan asked of it. No plan of the evaluation before is its.

@@ -876,6 +876,49 @@ pub struct Action {
     /// it already.
     #[prost(bool, tag = "31")]
     pub package: bool,
+    /// Publish says the action publishes what a release shipped: it runs
+    /// its tool's own way of sending a release somewhere, a forge's command
+    /// line, a registry's client, and nothing of frontseat's speaks for it.
+    ///
+    /// It is no step of a build: no build runs it, and nothing reads what
+    /// it leaves, which is nothing. A release runs it, once every tag of
+    /// the release is pushed, where the daemon is and never on the grid,
+    /// with its tools as the repository pins them, and never from a cache:
+    /// what it does is done outside, each time.
+    ///
+    /// It is run for a unit that moves: the one that owns its project,
+    /// or, where no entity owns its project, as at a repository's root,
+    /// each unit of its repository that moves, one at a time. It is given
+    /// that unit's artifacts, each file a package of the unit left, brought
+    /// from the grid into one directory, with a file of their sha256s
+    /// beside them where there are any, checksums.txt. It is ended after
+    /// thirty minutes. Its command names what it is given as a
+    /// versioned action names the version, and is filled the same way,
+    /// with those and with:
+    ///
+    ///    - {frontseat.artifacts}, as an argument by itself: each of those
+    ///      files, an argument each, in the order of their names;
+    ///    - {frontseat.notes}: a file that holds the unit's release notes;
+    ///    - {frontseat.remote}: where the unit's repository was brought
+    ///      from, as its version control system names it;
+    ///    - {frontseat.prerelease}: "true" where the release is a
+    ///      prerelease, "false" where it is not.
+    ///
+    /// It passes or fails by its exit code, and the release says which,
+    /// with what it printed; one that fails does not stop another.
+    #[prost(message, optional, tag = "32")]
+    pub publish: ::core::option::Option<Publish>,
+}
+/// Publish is what an action that publishes is given of where it runs.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct Publish {
+    /// Environment names the variables of where the daemon runs that the
+    /// action is given, each as it is there: what its tool reads a token
+    /// from, as GH_TOKEN. One that is not set there is not given, and the
+    /// tool says what it lacks. Its environment holds nothing else of
+    /// where the daemon runs; it runs as the daemon does.
+    #[prost(string, repeated, tag = "1")]
+    pub environment: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// Input is one selection of files an action reads. A kind must be set.
 /// Input sets may contain only source patterns and other input sets.

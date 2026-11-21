@@ -29,9 +29,7 @@ func TestAPackageLeavesFilesAndIsAStepThatMakesSomething(t *testing.T) {
 		"a directory":           {packaged(func(a *pluginv1.Action) { a.Outputs = []*pluginv1.Output{{Path: "dist/"}} }), `the action p is a package and leaves the directory "dist/": an artifact is a file`},
 		"what it may not leave": {packaged(func(a *pluginv1.Action) { a.Outputs[0].Optional = true }), `the action p is a package and may not leave "_package/greet-linux-amd64"`},
 	} {
-		if err := CheckPackage("the action p", c.action); err == nil || !strings.Contains(err.Error(), c.says) {
-			t.Errorf("%s: %v, want %q", name, err, c.says)
-		}
+		refusedAs(t, name, CheckPackage("the action p", c.action), c.says)
 	}
 	for name, action := range map[string]*pluginv1.Action{
 		"a package":  packaged(func(*pluginv1.Action) {}),
@@ -63,5 +61,13 @@ func TestOnlyAPackageIsNamedAsOne(t *testing.T) {
 		if c.says == "" && err != nil || c.says != "" && (err == nil || !strings.Contains(err.Error(), c.says)) {
 			t.Errorf("%s: %v, want %q", name, err, c.says)
 		}
+	}
+}
+
+// refusedAs fails a test where a check did not refuse, saying so.
+func refusedAs(t *testing.T, name string, err error, says string) {
+	t.Helper()
+	if err == nil || !strings.Contains(err.Error(), says) {
+		t.Errorf("%s: %v, want %q", name, err, says)
 	}
 }

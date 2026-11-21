@@ -76,6 +76,8 @@ func run() error {
 	assets := flag.String("assets", "", "the address of the grid's asset service, host:port, which fetches what a shared fetch downloads; with --grid-token it is told the token too")
 	var rewrites modules
 	flag.Var(&rewrites, "rewrite", "which proxy of the grid's stands in for a public site a download names, as a regular expression over the download's URL, a space, and the proxy's address, with $1 and so on; give it once for each")
+	var given modules
+	flag.Var(&given, "publish-environment", "a variable of where the daemon runs that what publishes a release may be given, by its name, as GH_TOKEN: how a forge's or a registry's own tool is handed its token; give it once for each (default: none, and what publishes is given nothing of where the daemon runs)")
 	var properties modules
 	flag.Var(&properties, "platform", "a property of the workers actions run on, as name=value; give it once for each (default: Linux, on this machine's architecture; a sandbox's daemon, given --name, is to be told)")
 	shellAddress := flag.String("shell", net.JoinHostPort("127.0.0.1", strconv.Itoa(ports.Shell)), "the address to serve SSH on, to the key --authorized-key gives; with none, no shell is served")
@@ -138,7 +140,7 @@ func run() error {
 		asked, err = gridOf(*grid, *instance, *assets, rewritten, *gridTLS, *gridCA, *gridToken)
 	}
 	if err == nil {
-		err = serve(ctx, *listen, *sourceAddress, *workspace, filepath.Join(*state, "builds"), plugins, asked, platform)
+		err = serve(ctx, *listen, *sourceAddress, *workspace, filepath.Join(*state, "builds"), plugins, asked, platform, given)
 	}
 	return err
 }
@@ -263,7 +265,7 @@ func platformOf(properties []string) (map[string]string, error) {
 	return platform, nil
 }
 
-func serve(ctx context.Context, listen, sourceAddress, workspace, runs string, modules []string, config build.Grid, platform map[string]string) error {
+func serve(ctx context.Context, listen, sourceAddress, workspace, runs string, modules []string, config build.Grid, platform map[string]string, given []string) error {
 	signals, stop, err := telemetry.Setup(ctx, "frontseatd")
 	defer func() {
 		if err := telemetry.Ended(stop); err != nil {
@@ -282,7 +284,7 @@ func serve(ctx context.Context, listen, sourceAddress, workspace, runs string, m
 		}
 		modulesBytes = append(modulesBytes, module)
 	}
-	daemon, err := build.New(ctx, build.Config{Workspace: workspace, Plugins: modulesBytes, Grid: config, Platform: platform, Telemetry: signals, Builds: runs})
+	daemon, err := build.New(ctx, build.Config{Workspace: workspace, Plugins: modulesBytes, Grid: config, Platform: platform, Telemetry: signals, Builds: runs, Given: given})
 	if err != nil {
 		return err
 	}

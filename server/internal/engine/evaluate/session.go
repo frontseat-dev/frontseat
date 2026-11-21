@@ -133,7 +133,7 @@ func (s *Session) Build(ctx context.Context, src Source, profile pluginv1.Profil
 	}
 	defer finish()
 	out, err := s.core.operationSelected(ctx, src, profile, targets, only, projectPlan, entities)
-	return BuildPlan{Needed: out.plan.Needed, Asked: out.plan.Asked, Entities: out.plan.Entities, Work: out.work}, err
+	return BuildPlan{Needed: out.plan.Needed, Asked: out.plan.Asked, Publishes: out.publishes, Entities: out.plan.Entities, Work: out.work}, err
 }
 
 // Close closes admission, cancels and joins source acquisition and evaluations,

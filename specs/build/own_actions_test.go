@@ -73,7 +73,7 @@ func TestAnActionSaysWhatItReadsAndNeverWhatItWaitsFor(t *testing.T) {
         needs: [":go.compile"]
 `)
 
-	spec.Expect(build.says()).To(ContainSubstring("an action takes no key needs; it takes check, command, description, fix, inputs, outputs, package, program, rewrites, tools, versioned"))
+	spec.Expect(build.says()).To(ContainSubstring("an action takes no key needs; it takes check, command, description, environment, fix, inputs, outputs, package, program, publish, rewrites, tools, versioned"))
 }
 
 // An entity's own actions / An action's inputs are patterns beneath the entity, or what another action left.
