@@ -274,13 +274,13 @@ func MakeAt(t testing.TB, dir, base string) Forge {
 		action("second", "[go, version]", inputs("\":custom.first\"")+"        outputs: [second/]\n"))
 	// stray: read reads an action of an entity nobody has.
 	own("stray", "made/word.txt",
-		action("read", "[go, run, ./read]", reads("\"//lab/nowhere:custom.write\"")))
+		action("read", "[go, run, ./read]", reads("\"//nowhere:custom.write\"")))
 	// borrower: read reads made/ of chain, another entity.
 	own("borrower", "../chain/made/word.txt",
-		action("read", "[go, run, ./read]", reads("\"//lab/chain:made/\"")))
+		action("read", "[go, run, ./read]", reads("\"//chain:made/\"")))
 	// unclaimed: read reads spare/ of chain, which no action leaves.
 	own("unclaimed", "../chain/made/word.txt",
-		action("read", "[go, run, ./read]", reads("\"//lab/chain:spare/\"")))
+		action("read", "[go, run, ./read]", reads("\"//chain:spare/\"")))
 	// twofold: write leaves a file named as the action is printed, so
 	// the label names both.
 	own("twofold", "made/word.txt",
@@ -341,7 +341,7 @@ func MakeAt(t testing.TB, dir, base string) Forge {
 	for entity, other := range map[string]string{"gather": "more", "collide": "same"} {
 		write(t, lab, entity+"/go.mod", "module example.com/"+entity+"\n\ngo 1.27\n")
 		write(t, lab, entity+"/list/main.go", list)
-		actions := action("list", "[go, run, ./list]", lists("\"//lab/programs:go.compile\"", "\"//lab/"+other+":go.compile\""))
+		actions := action("list", "[go, run, ./list]", lists("\"//programs:go.compile\"", "\"//"+other+":go.compile\""))
 		if entity == "collide" {
 			actions += action("after", "[go, version]", inputs("\":handed.txt\"")) + action("beside", "[go, version]", "")
 		}

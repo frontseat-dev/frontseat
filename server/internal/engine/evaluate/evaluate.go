@@ -912,7 +912,7 @@ func analyze(ctx context.Context, view repositoryView, plugin *pluginhost.Plugin
 						references = make([]plan.Reference, 0, len(named))
 					}
 					for _, input := range named {
-						reference, err := model.ParseReference(at, input)
+						reference, err := model.ParseReference(view.repository, project.GetRoot(), input)
 						if err != nil {
 							return fmt.Errorf("plugin %s: %s: action %s: %w", name, project.GetRoot(), declared.GetName(), err)
 						}

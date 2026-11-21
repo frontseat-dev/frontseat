@@ -2,7 +2,6 @@ package evaluate
 
 import (
 	"fmt"
-	"path"
 	"strings"
 
 	"github.com/frontseat-dev/frontseat/server/internal/engine/plan"
@@ -88,7 +87,6 @@ func readCatalogInputs(repository, directory, file, what string, written []strin
 	if named > 0 {
 		out.references = make([]plan.Reference, 0, named)
 	}
-	at := ""
 	for _, input := range written {
 		if within, rooted := fromRoot(input); rooted && !pattern.IsReference(input) {
 			out.root.Patterns = append(out.root.Patterns, within)
@@ -98,10 +96,7 @@ func readCatalogInputs(repository, directory, file, what string, written []strin
 			out.source.Patterns = append(out.source.Patterns, input)
 			continue
 		}
-		if at == "" {
-			at = path.Join(repository, directory)
-		}
-		ref, err := model.ParseReference(at, input)
+		ref, err := model.ParseReference(repository, directory, input)
 		if err != nil {
 			return catalogReading{}, &model.Mistake{File: file, Message: fmt.Sprintf("%s: %s", what, strings.TrimPrefix(err.Error(), "model: "))}
 		}

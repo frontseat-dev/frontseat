@@ -199,7 +199,7 @@ func servicePrograms(out *Evaluation, services map[entity.Ref]config.Service) (m
 		if l.Program == "" {
 			continue
 		}
-		selected, err := model.ParseReference(path.Join(l.Repository, l.Directory), l.Program)
+		selected, err := model.ParseReference(l.Repository, l.Directory, l.Program)
 		if err != nil {
 			return nil, l.Mistake(err)
 		}
