@@ -7,8 +7,8 @@
 # What the job relies on, outside this repository:
 #   - a pool of the grid's workers that takes frontseat's actions: they hold
 #     the confiner of this checkout's form at /bb, and advertise the
-#     platform GRID_IMAGE below (frontseat-enterprise, the Buildbarn chart's
-#     worker.frontseat). A change to the confiner's source
+#     name GRID_WORKERS (frontseat-job.yml; frontseat-enterprise, a
+#     tenant's spec.build.frontseat). A change to the confiner's source
 #     (server/internal/confine) reaches the workers before it reaches main;
 #   - a runner that may write /var/lib/frontseat, where the daemon's lock is;
 #   - a runner group that admits this repository, which is public.
