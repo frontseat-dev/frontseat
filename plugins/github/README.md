@@ -38,6 +38,10 @@ gh = "2.105.0"
   where the daemon was told it may be (`frontseatd --publish-environment
   GH_TOKEN`). In a GitHub job that is the job's own token, with
   `contents: write`.
+- **Its tool is `gh`, pinned by the repository.** A repository that
+  lists the plugin and pins no `gh` is refused when it is analysed,
+  before anything is built or tagged, as every plugin refuses one that
+  pins none of what its actions run.
 - **A repository that lists the plugin and is not GitHub's** fails its
   publish with what `gh` says of the address; nothing here reads the
   remote.

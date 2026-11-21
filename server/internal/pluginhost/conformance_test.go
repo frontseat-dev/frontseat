@@ -314,7 +314,7 @@ func TestAStrategyFixtureThatProvesTooLittleIsRefused(t *testing.T) {
 // it being there, which it never reads, it has one project at the
 // repository's root, whose one action publishes.
 func githubFixture() conformance.Fixture {
-	context := &pluginv1.Context{Profile: pluginv1.Profile_PROFILE_PRODUCTION}
+	context := &pluginv1.Context{Profile: pluginv1.Profile_PROFILE_PRODUCTION, Tools: map[string]string{"gh": "2.105.0"}}
 	fixture := arrangingNothing(context, conformance.Fixture{
 		Name: "github", Description: &pluginv1.DescribeResponse{Name: "github", Abi: 24, Interests: []string{"frontseat.yaml", "!**/testdata/**"}},
 		Source: files{"frontseat.yaml": "plugins:\n  github: {}\n"}, Absent: files{},

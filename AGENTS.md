@@ -360,7 +360,8 @@ the change that fixes it.
   `TestAnActionThatPublishesIsGivenTheReleaseAndItsArtifacts`. A
   repository that lists the GitHub plugin (`plugins/github`) is
   published by `gh release create`, a GitHub release for each unit, the
-  tag verified and never made; this repository lists it. A plugin names
+  tag verified and never made, and one that pins no `gh` is refused
+  before anything is built; this repository lists it. A plugin names
   what publishes `publish`, a slash and what it publishes to. Held by:
   `TestTheGitHubPluginsPublishIsRunByARelease`,
   `TestOnlyWhatPublishesIsNamedPublishAndWhatItPublishesTo` and the
