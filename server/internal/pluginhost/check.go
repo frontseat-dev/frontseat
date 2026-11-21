@@ -496,6 +496,9 @@ func checkProject(plugin, root string, project *pluginv1.Project, found map[stri
 		if err := CheckFix(fmt.Sprintf("the action %s", action.GetName()), action); err != nil {
 			return wrong("%v", err)
 		}
+		if err := CheckVersion(fmt.Sprintf("the action %s", action.GetName()), action); err != nil {
+			return wrong("%v", err)
+		}
 		for _, output := range action.GetOutputs() {
 			if !plainOutput(output.GetPath()) {
 				return wrong("the action %q writes %q, which is not a plain path beneath the project or the action's home", action.GetName(), output.GetPath())

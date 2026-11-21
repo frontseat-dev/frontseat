@@ -23,6 +23,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync"
 	"time"
 
@@ -253,11 +254,47 @@ func profileOf(asked string) (string, pluginv1.Profile, error) {
 // a run's: it builds what the one program its target names is made
 // of, and brings that to where the daemon is; every other run is a
 // build, and is given nil.
-func (rs *runs) create(parent context.Context, profile string, base pluginv1.Profile, targets, only []string, fix, testsOnly bool, running *delivery) (*run, error) {
+// versions is what a release tells the build it makes: the version
+// each entity it releases is released at, by the entity, and the commit
+// each repository is planned at, by the repository.
+type versions struct {
+	units   map[string]pluginhost.Version
+	commits map[string]string
+}
+
+// versioned are a run's actions, each versioned one given its version
+// (Action.versioned): what the release plans for the entity that owns
+// it, at the commit its repository is planned at, where the run is a
+// release's and the release moves that entity; and what every build
+// that is no release gives, anywhere else. The actions as evaluated are
+// left as they were: an evaluation is kept, and is of no release.
+func versioned(actions []plan.Action, entities []record.Located, of *versions) []plan.Action {
+	out := actions
+	for i, action := range actions {
+		if !action.Declared.GetVersioned() {
+			continue
+		}
+		version := pluginhost.Development
+		if owner, owned := graph.Owner(entities, action.Label.Path); owned && of != nil {
+			if planned, moves := of.units[owner.Ref.String()]; moves {
+				version = planned
+				version.Commit = of.commits[action.Repository]
+			}
+		}
+		if &out[0] == &actions[0] {
+			out = slices.Clone(actions)
+		}
+		out[i].Declared = pluginhost.FillVersion(action.Declared, version)
+	}
+	return out
+}
+
+func (rs *runs) create(parent context.Context, profile string, base pluginv1.Profile, targets, only []string, fix, testsOnly bool, running *delivery, released *versions) (*run, error) {
 	ctx, cancel := context.WithCancel(rs.telemetry.Context(context.WithoutCancel(parent)))
 	r := &run{
 		base:      base,
 		running:   running,
+		released:  released,
 		only:      only,
 		testsOnly: testsOnly,
 		fix:       fix,
@@ -413,6 +450,7 @@ func (rs *runs) work(ctx context.Context, r *run) (code *buildv1.ExitCode, failu
 	case err != nil:
 		return exitInternal, err, ctx.Err() != nil
 	}
+	needed = versioned(needed, entities, r.released)
 	r.stage(buildv1.Build_STAGE_EXECUTING)
 	executing, execution := telemetry.Start(ctx, "execute", attribute.Int("actions", len(needed)))
 	defer func() {
@@ -464,6 +502,9 @@ type run struct {
 	base pluginv1.Profile
 	// fix is whether what is out of step is written, and not failed.
 	fix bool
+	// released is what a release tells the build it makes; nil, the run
+	// is of no release.
+	released *versions
 	// running is what a run's build brings its program to; nil, the
 	// run is a build.
 	running *delivery

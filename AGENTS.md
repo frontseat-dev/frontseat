@@ -102,7 +102,8 @@ the change that fixes it.
   `TestWhatATestIsToldOfItsRepositoryIsSaidByOneName`). The control plane tells a box's daemon by the
   arguments it starts it with (`SandboxSpec.arguments`).
 - **The command line asks one server, chosen one way.** Every command
-  asks the control plane `$XDG_CONFIG_HOME/frontseat/local/server` names,
+  that asks a server (`version` and `completion` ask none) asks the
+  control plane `$XDG_CONFIG_HOME/frontseat/local/server` names,
   else the local stack's; the token beside it is presented to that
   origin alone, never to an address a server answers with, and no
   redirect is followed with it. No command takes a server by a flag.
@@ -297,6 +298,36 @@ the change that fixes it.
 - The workspace holds every System and Domain a released entity is part
   of; where it does not, planning is refused by name, since the group
   decides what the entity releases as.
+- **What a release builds is given its version, the same way whatever
+  builds it.** An action says it is versioned (the contract's
+  `Action.versioned`; `versioned: true` on a Component's own action), and
+  the host fills `{frontseat.version}`, `{frontseat.tag}`,
+  `{frontseat.commit}` and `{frontseat.unit}` where its command names
+  them, in its arguments and the values of its environment. How a tool
+  carries a version is its plugin's to know: the Go plugin links it into
+  a module's programs, into the variables its `version` option names.
+  Only the production build a release makes fills in what was planned
+  for the action's unit; every other build fills in `0.0.0-dev` and
+  nothing for the rest, the same each time, so a versioned action is
+  built once between releases. No time, user or machine is ever a value.
+  The source is never rewritten for a version: a release commits
+  nothing. A name of these in an action that is not versioned, or one
+  the host does not fill, is refused. Frontseat says its own with
+  `frontseat version` and `frontseatd --version`. Held by:
+  `TestWhatAReleaseBuildsIsGivenItsVersion`,
+  `TestAVersionedActionIsGivenTheVersionWhereItNamesIt`,
+  `TestOnlyAVersionedActionNamesTheVersion` and the Go plugin's
+  `served_plugin_links_the_version_where_the_option_names_its_variables`.
+  Not held: a unit the release does not move is built at `0.0.0-dev`
+  where the release's build needs it, and so is one already tagged at
+  the commit when its release is made again; a version goes to the
+  entity that owns the action's project, so a Go program of a Component
+  nested in another's module says the module's owner's; a tool that
+  reads its version from a file is given none, and writes it from its
+  command; what is filled in is data, and a command that puts it inside
+  text a shell reads runs whatever a tag's form lets a tag hold; nothing
+  yet delivers what a release builds, so no released `frontseat` exists
+  to say a version.
 
 ## Modules and visibility
 

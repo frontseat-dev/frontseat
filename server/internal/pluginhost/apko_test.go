@@ -75,7 +75,7 @@ func expectedApkoActions() []*pluginv1.Action {
 func apkoFixture(t *testing.T) conformance.Fixture {
 	context := &pluginv1.Context{Profile: pluginv1.Profile_PROFILE_DEVELOPMENT}
 	return arrangingNothing(context, conformance.Fixture{
-		Name: "apko", Description: &pluginv1.DescribeResponse{Name: "apko", Abi: 20, Interests: []string{"**/apko.lock.json", "!**/testdata/**"}},
+		Name: "apko", Description: &pluginv1.DescribeResponse{Name: "apko", Abi: 21, Interests: []string{"**/apko.lock.json", "!**/testdata/**"}},
 		Source: fixtureSource(t, "apko", "valid"), Absent: files{}, Malformed: fixtureSource(t, "apko", "malformed"), ErrorCode: "INVALID_LOCK",
 		Analyze:  &pluginv1.AnalyzeRequest{Context: context, Roots: []string{"app"}},
 		Projects: []*pluginv1.Project{{Root: "app", Name: "app", Kind: "apko-image", Manifest: "app/apko.lock.json", Actions: expectedApkoActions()}},

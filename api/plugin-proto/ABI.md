@@ -21,7 +21,7 @@ or host imports of its own.
 
 | Export | Signature | What it does |
 |---|---|---|
-| `frontseat_abi` | `() -> i32` | The ABI the module speaks. The host loads no module outside the range it supports. This document is ABI 20. |
+| `frontseat_abi` | `() -> i32` | The ABI the module speaks. The host loads no module outside the range it supports. This document is ABI 21. |
 | `frontseat_alloc` | `(size: i32) -> i32` | Returns the address of `size` bytes the host may write to. |
 | `frontseat_free` | `(ptr: i32, size: i32)` | Gives back what `frontseat_alloc` returned. |
 | `frontseat_call` | `(ptr: i32, size: i32) -> i64` | Takes a serialized `Call`, returns a serialized `Reply`. |
@@ -301,6 +301,36 @@ strategies, and the calls the host asks of each: `Branch` and `Version`,
 which read nothing through the host. The host asks them of a plugin that
 says it serves a branching or a versioning strategy, when a release is
 planned. Every answer is checked before any of it is in a plan.
+
+## A release's version
+
+An action that writes a version into what it makes says it is versioned
+(`Action.versioned`), and names what it needs in its command:
+`{frontseat.version}`, `{frontseat.tag}`, `{frontseat.commit}`,
+`{frontseat.unit}`, in an argument or in a value of its environment. The
+host fills them before the action is sent anywhere. A plugin is told no
+version, and decides nothing by one: it says where its tool takes it, a
+linker's flag, a variable its packer reads, and the same action serves
+every build.
+
+Only the build a release makes for production is given what was planned
+for the unit the action's project is released with. Every other build is
+given `0.0.0-dev` for the version and nothing for the rest, each time, so
+a versioned action is one action from a commit to the next. Mark the one
+action that writes the version, never a test or a check: each versioned
+action is built again at every release.
+
+Whatever begins `{frontseat.` is the host's to read. Refused: one of
+these in an action that is not versioned; one the host does not fill,
+or that does not close; one anywhere but an argument or a value of the
+environment, as in a fix, a directory, a name of the environment, an
+output, an input, a tool or a file; a versioned action that names none;
+and a versioned fetch, shared action or program to run.
+
+What is filled in is data, and a tag is whatever the repository's
+catalog says a tag is, within what git allows a tag to be named: give
+each to the tool as an argument or an environment value of its own,
+never inside text a shell or another interpreter reads as a program.
 
 ## What a shared fetch downloads
 
