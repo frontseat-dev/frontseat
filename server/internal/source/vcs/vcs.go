@@ -75,6 +75,11 @@ type History interface {
 	// One the remote has at the same revision already is left; one it
 	// has at another is refused, and nothing there is changed.
 	PushTag(ctx context.Context, directory, remote, name string) error
+	// Origin is where a repository says it was brought from: what a
+	// daemon given a checkout, and told of no remote, pushes its tags
+	// to. It is what the repository says, and is held to as any address
+	// a caller names is.
+	Origin(ctx context.Context, directory string) (string, error)
 }
 
 // Standing is where a repository stands.

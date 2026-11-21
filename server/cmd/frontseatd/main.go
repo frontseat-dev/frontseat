@@ -63,6 +63,7 @@ func run() error {
 	listen := flag.String("listen", net.JoinHostPort("127.0.0.1", strconv.Itoa(ports.Daemon)), "the address to serve the build API on")
 	sourceAddress := flag.String("source", net.JoinHostPort("127.0.0.1", strconv.Itoa(ports.Source)), "the address to serve the source API on: what the control plane tells the daemon to hold, which no route of the control plane's leads a caller to")
 	workspace := flag.String("workspace", ".", "the workspace's directory")
+	checkout := flag.Bool("checkout", false, "the workspace's directory is a checkout the daemon was given, as a job's is: one repository, which it builds and releases from as it is, bringing nothing into it; its tags are pushed to where the checkout says it was brought from; it is given with --name, by which the command line finds it (default: the daemon brings what it is told to hold, and is given none)")
 	state := flag.String("state", "/var/lib/frontseat", "the directory the daemon keeps what is its own in: its runs, for the daemon that comes after this one (what each did and what its actions printed, the newest of them)")
 	name := flag.String("name", "", "the name of the workspace it manages, which makes it its sandbox's daemon: the control plane that made the sandbox says it")
 	var plugins modules
@@ -123,6 +124,9 @@ func run() error {
 			return err
 		}
 	}
+	if err := handed(*checkout, *name); err != nil {
+		return err
+	}
 	platform, err := platformOf(properties)
 	var rewritten map[string]string
 	if err == nil {
@@ -140,7 +144,7 @@ func run() error {
 		asked, err = gridOf(*grid, *instance, *assets, rewritten, *gridTLS, *gridCA, *gridToken)
 	}
 	if err == nil {
-		err = serve(ctx, *listen, *sourceAddress, *workspace, filepath.Join(*state, "builds"), plugins, asked, platform, given)
+		err = serve(ctx, *listen, *sourceAddress, *workspace, filepath.Join(*state, "builds"), plugins, asked, platform, given, *checkout)
 	}
 	return err
 }
@@ -162,6 +166,17 @@ func strays(rest []string) error {
 		return nil
 	}
 	return fmt.Errorf("%q is no flag, and what follows it would not be read: a flag that takes no value, as --grid-tls, is given none", rest[0])
+}
+
+// handed refuses a daemon given a checkout and no name: the command
+// line knows it runs beside a daemon by the workspace the sandbox's lock
+// names, and one of no name would be found by none. A job names its
+// own, as its repository.
+func handed(checkout bool, name string) error {
+	if checkout && name == "" {
+		return fmt.Errorf("--checkout was given with no --name: the command line finds the daemon beside it by the workspace it names, so a job names its own, as its repository")
+	}
+	return nil
 }
 
 // toldPlatform refuses a sandbox's daemon that was told nothing of the
@@ -265,7 +280,7 @@ func platformOf(properties []string) (map[string]string, error) {
 	return platform, nil
 }
 
-func serve(ctx context.Context, listen, sourceAddress, workspace, runs string, modules []string, config build.Grid, platform map[string]string, given []string) error {
+func serve(ctx context.Context, listen, sourceAddress, workspace, runs string, modules []string, config build.Grid, platform map[string]string, given []string, checkout bool) error {
 	signals, stop, err := telemetry.Setup(ctx, "frontseatd")
 	defer func() {
 		if err := telemetry.Ended(stop); err != nil {
@@ -284,7 +299,7 @@ func serve(ctx context.Context, listen, sourceAddress, workspace, runs string, m
 		}
 		modulesBytes = append(modulesBytes, module)
 	}
-	daemon, err := build.New(ctx, build.Config{Workspace: workspace, Plugins: modulesBytes, Grid: config, Platform: platform, Telemetry: signals, Builds: runs, Given: given})
+	daemon, err := build.New(ctx, build.Config{Workspace: workspace, Plugins: modulesBytes, Grid: config, Platform: platform, Telemetry: signals, Builds: runs, Given: given, Mounted: checkout})
 	if err != nil {
 		return err
 	}

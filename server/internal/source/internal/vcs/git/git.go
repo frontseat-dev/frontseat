@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"sort"
@@ -105,6 +106,41 @@ func (s System) PushTag(ctx context.Context, directory, remote, name string) err
 	return nil
 }
 
+// Origin implements vcs.History: the address the repository's own file
+// gives its origin, and nothing git would put in its place, held as an
+// address a caller names is: one with a password is refused and never
+// repeated, one over ssh is pushed to over https at the same host and
+// path, and whoever is named before the host is left out. A directory
+// of this machine is taken as it is written, as a repository brought
+// from one is. And a push there is one git may make: what the
+// repository's own settings say of reaching an address is refused here,
+// before anything is built or tagged, as it would be at the push.
+func (System) Origin(ctx context.Context, directory string) (string, error) {
+	written, err := trimmed(ctx, in(ctx, directory), "config", "--local", "--get-all", "remote.origin.url")
+	var exit *exec.ExitError
+	switch {
+	case errors.As(err, &exit) && exit.ExitCode() == 1, err == nil && written == "":
+		return "", errors.New("git: the repository says no origin it was brought from")
+	case err != nil:
+		return "", err
+	case strings.Contains(written, "\n"):
+		return "", errors.New("git: the repository's origin is written with several addresses: give it one")
+	}
+	origin := written
+	switch address, err := rungit.Over(written); {
+	case errors.Is(err, rungit.ErrLocal):
+	case err != nil:
+		// Said without the address, which may hold a password or a token.
+		return "", fmt.Errorf("git: the repository's origin is %w", err)
+	default:
+		origin = address.Cloned
+	}
+	if _, err := fetching(ctx, directory, origin).Run(ctx, "rev-parse", "--git-dir"); err != nil {
+		return "", fmt.Errorf("%w; a checkout a job makes keeps no credential of its own where it is made so (persist-credentials: false)", err)
+	}
+	return origin, nil
+}
+
 // Widen adds directories to a sparse checkout, or ends its being one,
 // fetching what they hold from the remote it was cloned from.
 func (System) Widen(ctx context.Context, directory, remote string, roots []string) error {
@@ -121,6 +157,24 @@ func (System) Widen(ctx context.Context, directory, remote string, roots []strin
 // records as origin's HEAD.
 func (System) Standing(ctx context.Context, directory string) (vcs.Standing, error) {
 	g := in(ctx, directory)
+	// A checkout another made may hold part of its history, as a job's
+	// does unless it asks for all of it: where it stands could be read,
+	// and nothing of what led there, so a release would be planned as
+	// if nothing were released before. It is refused, and says how the
+	// whole is brought.
+	if shallow, err := trimmed(ctx, g, "rev-parse", "--is-shallow-repository"); err != nil {
+		return vcs.Standing{}, err
+	} else if shallow != "false" {
+		return vcs.Standing{}, errors.New("git: the repository holds part of its history, and its tags and commits cannot be read whole: bring all of it (a checkout of depth 0)")
+	}
+	// The directory is the repository's own, and not one within it: git
+	// finds a repository above where it is run, and what is tagged and
+	// read would be that one's.
+	if within, err := trimmed(ctx, g, "rev-parse", "--show-prefix"); err != nil {
+		return vcs.Standing{}, err
+	} else if within != "" {
+		return vcs.Standing{}, errors.New("git: the directory is within a repository, and is not one itself: its history is the repository's above it")
+	}
 	revision, err := trimmed(ctx, g, "rev-parse", "--verify", "HEAD^{commit}")
 	if err != nil {
 		return vcs.Standing{}, err

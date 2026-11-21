@@ -21,8 +21,8 @@ type configuration struct {
 	// Workspace is the workspace's directory.
 	Workspace string
 	// Mounted says the directory is one repository the daemon was given,
-	// rather than a workspace it populates. Only a daemon a test runs in
-	// its own process is opened so: no command or flag asks for it.
+	// rather than a workspace it populates: a job's checkout
+	// (frontseatd --checkout), or a test's.
 	Mounted bool
 	// Plugins are the plugins the workspace is evaluated with.
 	Plugins []*pluginhost.Plugin
