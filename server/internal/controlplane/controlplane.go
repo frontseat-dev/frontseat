@@ -59,6 +59,7 @@ import (
 	"github.com/frontseat-dev/frontseat/server/internal/backstage"
 	"github.com/frontseat-dev/frontseat/server/internal/controlplane/identity"
 	"github.com/frontseat-dev/frontseat/server/internal/controlplane/internal/ownertoken"
+	"github.com/frontseat-dev/frontseat/server/internal/forge"
 	"github.com/frontseat-dev/frontseat/server/internal/page"
 	"github.com/frontseat-dev/frontseat/server/internal/refusal"
 	"github.com/frontseat-dev/frontseat/server/internal/source/told"
@@ -96,6 +97,9 @@ type Config struct {
 	// Fetching is what the version control system says of a repository
 	// fetched from a sandbox; with none, no workspace fetches one.
 	Fetching vcs.Fetching
+	// Releasing is what a forge asks of whoever publishes a release to
+	// it; with none, no workspace is let through to publish one.
+	Releasing forge.Releasing
 	// Entities resolves the entities a workspace is asked for to the
 	// repositories and directories that hold them: the Backstage catalog
 	// its operator gives it. With none, a workspace asked for by entity
@@ -1303,15 +1307,17 @@ type Gateway struct {
 //
 // The state is a directory of the control plane's own: its sandboxes'
 // records are kept there, and its workspaces' beneath it. Entities
-// resolves the entities workspaces are asked for; nil for none.
-func OverGateway(publicURL string, gateway Gateway, state, box string, grid Grid, environment map[string]string, fetching vcs.Fetching, callers identity.Authenticator, entities Entities) (*Plane, error) {
+// resolves the entities workspaces are asked for; nil for none. Releasing
+// is what a forge asks of whoever publishes a release to it; nil for
+// none, and then no workspace is let through to publish one.
+func OverGateway(publicURL string, gateway Gateway, state, box string, grid Grid, environment map[string]string, fetching vcs.Fetching, releasing forge.Releasing, callers identity.Authenticator, entities Entities) (*Plane, error) {
 	sandboxes, err := sandbox.Gateway(publicURL, gateway.Address, gateway.Identity, gateway.Runtime, state, []string{"/work", "/var/lib/frontseat"})
 	if err != nil {
 		return nil, err
 	}
 	return Serve(Config{
 		Sandboxes: sandboxes, Callers: callers, PublicURL: publicURL, State: filepath.Join(state, "workspaces"),
-		Box: box, Daemon: Daemon, Grid: grid, Environment: environment, Fetching: fetching, Entities: entities,
+		Box: box, Daemon: Daemon, Grid: grid, Environment: environment, Fetching: fetching, Releasing: releasing, Entities: entities,
 	})
 }
 

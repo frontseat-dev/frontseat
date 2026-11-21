@@ -779,7 +779,10 @@ type EgressRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Method is the HTTP method, in capitals.
 	Method string `protobuf:"bytes,1,opt,name=method,proto3" json:"method,omitempty"`
-	// Path is the path asked for, in full and written plainly.
+	// Path is the path asked for, in full and written plainly. A part of
+	// it after its first that is "*" is any one part, and no more: what a
+	// server names as it makes it, as a forge numbers a release, is not
+	// known when a rule is written. Nothing else of a pattern is taken.
 	Path string `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
 	// Query holds, for a parameter that must be there, the one value it
 	// has; a request with none is held to no parameter.

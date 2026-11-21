@@ -26,6 +26,7 @@ import (
 	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/sandbox/v1alpha1/sandboxv1alpha1connect"
 	"github.com/frontseat-dev/frontseat/server/internal/backstage"
 	"github.com/frontseat-dev/frontseat/server/internal/controlplane"
+	"github.com/frontseat-dev/frontseat/server/internal/forge"
 	"github.com/frontseat-dev/frontseat/server/internal/source"
 	"github.com/frontseat-dev/frontseat/server/testsupport/backstagetest"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testbox"
@@ -165,7 +166,7 @@ func serving(t testing.TB, state string, extra map[string]string, given []Option
 	}
 	srv := httptest.NewUnstartedServer(nil)
 	srv.Start()
-	plane, err := controlplane.OverGateway(srv.URL, controlplane.Gateway{Address: testgateway.Address, Identity: identity, Runtime: "docker"}, state, image, controlplane.Grid{Hosts: grid.Hosts(), Arguments: grid.Arguments()}, extra, source.Fetching(), callers, with.entities)
+	plane, err := controlplane.OverGateway(srv.URL, controlplane.Gateway{Address: testgateway.Address, Identity: identity, Runtime: "docker"}, state, image, controlplane.Grid{Hosts: grid.Hosts(), Arguments: grid.Arguments()}, extra, source.Fetching(), forge.GitHubAlone(), callers, with.entities)
 	if err != nil {
 		srv.Close()
 		t.Fatal(err)

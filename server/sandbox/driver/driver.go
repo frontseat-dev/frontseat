@@ -178,7 +178,8 @@ type Rule struct {
 type Request struct {
 	// Method is the HTTP method.
 	Method string
-	// Path is the path asked for, in full.
+	// Path is the path asked for, in full; a part of it after its first
+	// that is "*" is any one part.
 	Path string
 	// Query holds, for a parameter that must be there, its one value.
 	Query map[string]string

@@ -99,6 +99,20 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		// one check, which the control plane and the gateway's driver use
 		// and the container runtime's does not need.
 		{"server/internal/controlplane/rules.go", "server/internal/plain", true},
+		// What a forge asks is the control plane's to write as rules, and
+		// its composers' to tell it of: the control plane, the program
+		// that serves it and the test support that starts one. A forge
+		// knows nothing of them, nor of a sandbox, and no daemon knows a
+		// forge: what it may reach is its sandbox's to hold.
+		{"server/internal/controlplane/rules.go", "server/internal/forge", true},
+		{"server/cmd/frontseat-local/main.go", "server/internal/forge", true},
+		{"server/testsupport/controlplanetest/controlplanetest.go", "server/internal/forge", true},
+		{"server/internal/forge/forge.go", "server/internal/plain", true},
+		{"server/internal/forge/forge.go", "server/internal/controlplane", false},
+		{"server/internal/forge/forge.go", "server/sandbox", false},
+		{"server/cmd/frontseatd/main.go", "server/internal/forge", false},
+		{"server/internal/build/releases.go", "server/internal/forge", false},
+		{"server/sandbox/driver/openshell/fetch.go", "server/internal/forge", false},
 		{"server/sandbox/driver/openshell/fetch.go", "server/internal/plain", true},
 		{"server/internal/driver/container/container.go", "server/internal/plain", false},
 		{"server/internal/plain/plain.go", "server/sandbox", false},
