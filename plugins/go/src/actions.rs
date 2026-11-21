@@ -2,6 +2,7 @@ use crate::inputs::Tested;
 use crate::manifest::{Entry, Locked};
 use frontseat_plugin::prelude::*;
 use frontseat_plugin::repository::{join, literal};
+use frontseat_plugin::version;
 
 /// What the two profiles mean for the go command. Development leaves the
 /// compiler's optimisations and inlining off, so that a debugger sees the
@@ -18,6 +19,58 @@ fn compile(profile: Profile) -> &'static [&'static str] {
         Profile::Production => &["go", "install", "-trimpath"],
         _ => &["go", "install", "-trimpath", "-gcflags=all=-N -l"],
     }
+}
+
+/// The linker's flag that sets the variables the `version` option names,
+/// each to what the host fills for it; nothing, where it names none. The
+/// linker sets a variable where the package that declares it is linked
+/// in, and says nothing where it is not, so one list serves every module
+/// it is set for.
+fn linked_version(variables: &[String], manifest: &str) -> Result<Option<String>, Error> {
+    let mut sets = Vec::with_capacity(variables.len());
+    for written in variables {
+        let wrong = |why: &str| {
+            Error::invalid(
+                "invalid-version-variable",
+                manifest,
+                format!("version holds {written:?} for this module, {why}"),
+                "Write each as <package>.<variable>=<what>, as github.com/acme/greet/internal/build.Version=version, where <what> is version, tag, commit or unit.",
+            )
+        };
+        let Some((variable, what)) = written.split_once('=') else {
+            return Err(wrong("which sets a variable to nothing"));
+        };
+        let filled = match what {
+            "version" => version::VERSION,
+            "tag" => version::TAG,
+            "commit" => version::COMMIT,
+            "unit" => version::UNIT,
+            _ => return Err(wrong("which is set to nothing a release has")),
+        };
+        // A package's path and a variable's name, as the linker reads
+        // them: nothing that would end the flag or begin another.
+        let named = variable.rsplit_once('.').is_some_and(|(package, name)| {
+            !package.is_empty()
+                && package
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || "._~/-".contains(c))
+                && name.starts_with(|c: char| c.is_ascii_alphabetic() || c == '_')
+                && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+        });
+        if !named {
+            return Err(wrong("which names no variable of a package"));
+        }
+        if variables
+            .iter()
+            .filter(|other| other.split_once('=').is_some_and(|(v, _)| v == variable))
+            .count()
+            > 1
+        {
+            return Err(wrong("which sets a variable set twice"));
+        }
+        sets.push(format!("-X {variable}={filled}"));
+    }
+    Ok((!sets.is_empty()).then(|| format!("-ldflags={}", sets.join(" "))))
 }
 
 /// Where the go command installs a module's programs, in the action's
@@ -215,8 +268,19 @@ pub(super) fn actions(
         tags,
     };
     let tests = tests(&testing, &action)?;
-    let compile = action("compile", over_module(compile(repo.profile()?), tags))
-        .output(Output::optional(PROGRAMS));
+    let mut compiling = over_module(compile(repo.profile()?), tags);
+    let version = linked_version(repo.string_list("version")?, &join(root, "go.mod"))?;
+    // A flag of the go command's, before the packages it is given.
+    if let Some(flag) = &version {
+        compiling.insert(compiling.len() - 1, flag.clone());
+    }
+    let mut compile = action("compile", compiling).output(Output::optional(PROGRAMS));
+    // Only the action that links the programs is given the version: the
+    // tests and the checks of a module are the same from one release to
+    // the next.
+    if version.is_some() {
+        compile = compile.versioned();
+    }
     // vet passes or fails on what it finds, and what it found is read
     // from what it printed (report).
     let lint = action("lint", over_module(&["go", "vet"], tags)).check();

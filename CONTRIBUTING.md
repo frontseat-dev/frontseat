@@ -83,6 +83,10 @@ need the local stack itself, which say so and are skipped there
 `frontseat query` says what the workspace is made of, and with `--why`
 why one entity depends on another, and at which version its lock
 resolves each requirement.
+`frontseat version` says which release this frontseat is. Built by mise
+or by `frontseat build` it says `0.0.0-dev`; the build a release makes
+writes in the version and the commit it is released at, and nothing yet
+delivers that build to anyone.
 
 That is what Frontseat builds of itself today, and what the self-build
 spec proves (`specs/build/self_test.go`): every Go module compiled and

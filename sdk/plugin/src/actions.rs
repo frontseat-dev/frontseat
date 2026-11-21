@@ -89,6 +89,17 @@ impl Action {
         self
     }
 
+    /// The same action, given the version of the release it is built
+    /// for: the host fills what its command names of it
+    /// ([`crate::version`]), in its arguments and the values of its
+    /// environment. Say so only of the action that writes the version
+    /// into what it makes, and name at least one: every other action
+    /// stays the same action from one release to the next.
+    pub fn versioned(mut self) -> Self {
+        self.versioned = true;
+        self
+    }
+
     /// The same action, as one that runs tests.
     pub fn test(mut self) -> Self {
         self.test = true;

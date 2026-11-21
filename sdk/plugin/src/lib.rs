@@ -108,7 +108,7 @@ pub use wire::{
 };
 
 /// The plugin ABI this SDK speaks.
-pub const ABI: u32 = 20;
+pub const ABI: u32 = 21;
 
 mod actions;
 mod contract;
@@ -116,6 +116,7 @@ pub mod entity;
 mod inputs;
 pub mod prelude;
 pub mod repository;
+pub mod version;
 pub use contract::{Description, Error, Plugin, PluginOption, Printed, Value};
 pub use repository::{Host, Repository};
 

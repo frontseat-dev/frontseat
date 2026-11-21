@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
+	"github.com/frontseat-dev/frontseat/server/internal/pluginhost"
 	"strings"
 	"sync"
 
@@ -192,7 +193,7 @@ func (rs *releases) create(ctx context.Context, request *buildv1.CreateReleaseRe
 	// with.
 	var built *run
 	if len(targets) > 0 {
-		if built, err = rs.graph.runs.create(rs.ctx, "production", pluginv1.Profile_PROFILE_PRODUCTION, targets, nil, false, false, nil); err != nil {
+		if built, err = rs.graph.runs.create(rs.ctx, "production", pluginv1.Profile_PROFILE_PRODUCTION, targets, nil, false, false, nil, versionsOf(planned.Plan)); err != nil {
 			return nil, err
 		}
 		m.release.BuildId = built.snapshot().GetId()
@@ -205,6 +206,26 @@ func (rs *releases) create(ctx context.Context, request *buildv1.CreateReleaseRe
 		rs.carryOut(m, planned, built)
 	}()
 	return m, nil
+}
+
+// versionsOf is what a plan tells the build made for it: each member of
+// a unit that moves is released at the unit's version, under its tag,
+// as part of that unit.
+func versionsOf(planned *buildv1.ReleasePlan) *versions {
+	out := &versions{units: map[string]pluginhost.Version{}, commits: map[string]string{}}
+	for _, at := range planned.GetCommits() {
+		out.commits[at.GetRepository()] = at.GetCommit()
+	}
+	for _, unit := range planned.GetUnits() {
+		if unit.GetNextVersion() == "" {
+			continue
+		}
+		version := pluginhost.Version{Version: unit.GetNextVersion(), Tag: unit.GetTag(), Unit: entity.FromProto(unit.GetEntity()).String()}
+		for _, member := range unit.GetMembers() {
+			out.units[entity.FromProto(member).String()] = version
+		}
+	}
+	return out
 }
 
 // forget lets go of releases that have ended beyond the newest kept.

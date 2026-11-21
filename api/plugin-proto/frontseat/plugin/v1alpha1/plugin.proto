@@ -562,6 +562,38 @@ message Action {
   // leaving is refused, as is one that says it leaves something: an
   // action that may not run leaves nothing another can count on.
   bool idle_without_inputs = 28;
+  // Versioned says the action is given the version of the release it is
+  // built for, to write into what it makes: a program's own answer to
+  // --version, a package's version, an image's label. Each tool has its
+  // own way to carry one, and the action's command is that way.
+  //
+  // The host fills these, wherever they stand in the command's arguments
+  // and in the values of its environment, before the action is what it
+  // is:
+  //
+  //   - {frontseat.version}, the version: "1.4.0";
+  //   - {frontseat.tag}, the tag the release is given: "greet/v1.4.0";
+  //   - {frontseat.commit}, the commit the release is planned at;
+  //   - {frontseat.unit}, the unit released, as an entity:
+  //     "component:lab/greet".
+  //
+  // Only the build a release makes for production fills in what was
+  // planned for the unit the action's project is released with. Every
+  // other build fills in the same values each time, "0.0.0-dev" for the
+  // version and nothing for the rest, so that the action is the same
+  // action from one commit to the next and is built once. No time, user
+  // or machine is ever filled in: the build a release makes of a commit
+  // is the same wherever it is made.
+  //
+  // Whatever begins "{frontseat." is the host's to read: one in an action
+  // that does not say it is versioned, one the host does not fill or
+  // that does not close, and one anywhere but an argument or a value of
+  // the environment, are refused. A versioned action names at least one.
+  // A fetch, a shared action and a program to run are never versioned.
+  //
+  // What is filled in is data: give it to a tool as an argument or a
+  // value of its own, never inside text a shell reads as a program.
+  bool versioned = 30;
 }
 
 // Input is one selection of files an action reads. A kind must be set.

@@ -57,7 +57,7 @@ encoding do not belong in a plugin.
 
 | Method | Go behavior | Error/control |
 |---|---|---|
-| Describe | Names the plugin, interests, `test-timeout`, `test-shards` and `tags` options | Shared SDK refuses incompatible ABI; method reads no source |
+| Describe | Names the plugin, interests, `test-timeout`, `test-shards`, `tags` and `version` options | Shared SDK refuses incompatible ABI; method reads no source |
 | Analyze | Finds a module, provides/requires coordinates with origins, named inputs and complete actions | Absent manifest yields no project; a malformed go.mod or go.sum is refused `invalid-manifest`, and a `replace` or a directive it does not read `directive-not-served` (`UNIMPLEMENTED`), each with its path, line and help |
 | Arrange | Writes a workspace using the pinned Go version and replacements for handed modules | Missing tool pin (`unpinned-tool`) or invalid handover is refused; valid calls work afterwards |
 | Report | Reads `go vet`'s `path:line[:col]: message` lines and `gofmt -l`'s files into findings | A line that names no file beneath the module is no finding |
@@ -100,6 +100,34 @@ at most (`test/<directory>@1ofN`), each running a share of the package's
 tests by name and the last everything the others were not told to. Not
 served: shards of a package whose tests are one function, as a Ginkgo
 suite's are.
+
+A module's programs say the version they were released at where the
+`version` option names the variables that hold it, each
+`<package>.<variable>=<what>`, a string variable of a package by its
+import path (`main` for a program's own) and what of the release it is
+set to: `version`, `tag`, `commit` or `unit`.
+
+```yaml
+plugins:
+  go:
+    version:
+      - example.com/greet/internal/build.Version=version
+      - main.commit=commit
+```
+
+The compile is then versioned (`-ldflags=-X …`), and it alone: the host
+fills in what a release planned, and `0.0.0-dev` and nothing for any
+other build. The linker sets a variable where its package is linked in
+and says nothing where it is not, so one list serves a repository. A
+Component's catalog file may set a list of its own, which is then the
+whole list for its modules, in place of the repository's. Refused by
+name (`invalid-version-variable`): what names no variable of a package,
+what is set to nothing a release has, and a variable set twice.
+
+A module is compiled by one action, so `main.<variable>` is set in every
+program of the module alike, and each is given what the release plans
+for the Component that owns the module: a program of another Component
+nested in the module's directory says the module's owner's version.
 
 Pass a literal directory separately from glob patterns. `repo.glob(root,
 patterns)` delegates selection to the host snapshot; it also records the scope

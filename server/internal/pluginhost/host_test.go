@@ -63,7 +63,7 @@ func TestAModuleSaysWhatItIsWhenItIsLoaded(t *testing.T) {
 	for _, option := range plugin.Description.GetOptions() {
 		options = append(options, option.GetName())
 	}
-	if !slices.Equal(options, []string{"test-timeout", "test-shards", "tags"}) {
+	if !slices.Equal(options, []string{"test-timeout", "test-shards", "tags", "version"}) {
 		t.Errorf("options = %v, want test-timeout, test-shards and tags", options)
 	}
 }
@@ -506,6 +506,7 @@ func goContext() *pluginv1.Context {
 		"test-timeout": {Value: &typev1.OptionValue_StringValue{StringValue: "10m"}},
 		"test-shards":  {Value: &typev1.OptionValue_IntValue{IntValue: 1}},
 		"tags":         {Value: &typev1.OptionValue_StringListValue{StringListValue: &typev1.OptionValue_StringList{}}},
+		"version":      {Value: &typev1.OptionValue_StringListValue{StringListValue: &typev1.OptionValue_StringList{}}},
 	}}
 }
 

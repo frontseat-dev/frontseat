@@ -25,6 +25,16 @@ import (
 // service and the directory of the daemon's clone.
 func releasingDaemon(t *testing.T, executor exec.Executor) (*releaseService, *Daemon, string) {
 	t.Helper()
+	c, clone := releasingClients(t, executor, nil)
+	graph := c.daemon.releases.graph
+	return &releaseService{graph: graph, releases: c.daemon.releases}, c.daemon, clone
+}
+
+// releasingClients is what serves releasingDaemon's daemon, and the
+// directory of its clone; written, where given, writes more into the
+// remote before its first commit.
+func releasingClients(t *testing.T, executor exec.Executor, written func(remote string)) (clients, string) {
+	t.Helper()
 	remote := filepath.Join(t.TempDir(), "services")
 	if err := os.MkdirAll(remote, 0o755); err != nil {
 		t.Fatal(err)
@@ -36,6 +46,9 @@ func releasingDaemon(t *testing.T, executor exec.Executor) (*releaseService, *Da
 		write(t, remote, name+"/"+name+".go", "package "+name+"\n")
 		write(t, remote, name+"/catalog-info.yaml", "apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata:\n  name: "+name+"\nspec:\n  type: library\n  lifecycle: production\n  owner: team\n")
 	}
+	if written != nil {
+		written(remote)
+	}
 	commits.Git(t, remote, "init", "--quiet", "--initial-branch", "main")
 	commits.Git(t, remote, "add", "--all")
 	commits.Git(t, remote, "commit", "--quiet", "-m", "feat: begin")
@@ -43,8 +56,7 @@ func releasingDaemon(t *testing.T, executor exec.Executor) (*releaseService, *Da
 	workspace := t.TempDir()
 	c := serveAs(t, configuration{Workspace: workspace, Executor: executor})
 	populated(t, c, &workspacev1.WorkspaceSpec{Repositories: []*workspacev1.RepositorySource{{Remote: remote, Ref: "release/1.0"}}})
-	graph := c.daemon.releases.graph
-	return &releaseService{graph: graph, releases: c.daemon.releases}, c.daemon, filepath.Join(workspace, "services")
+	return c, filepath.Join(workspace, "services")
 }
 
 func releaseOf(names ...string) *buildv1.PlanReleaseRequest {

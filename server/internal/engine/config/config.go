@@ -111,6 +111,9 @@ type Action struct {
 	// Outputs are what it writes, relative to Directory; a directory's
 	// ends in a slash.
 	Outputs []string
+	// Versioned says it is given the version of the release it is built
+	// for, where its command names it.
+	Versioned bool
 }
 
 // scope is what one catalog file sets, for its directory and beneath.
@@ -325,7 +328,7 @@ func actions(file, directory string, node *yaml.Node) ([]Action, error) {
 				list = &action.Fix
 			case "launch":
 				return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: an action takes no key launch: a program is said by program: true", key.Line)}
-			case "check", "program":
+			case "check", "program", "versioned":
 				if value.Kind != yaml.ScalarNode || value.ShortTag() != "!!bool" {
 					return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: %s is true or false", value.Line, key.Value)}
 				}
@@ -333,14 +336,17 @@ func actions(file, directory string, node *yaml.Node) ([]Action, error) {
 				if err := value.Decode(&enabled); err != nil {
 					return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: %s is true or false", value.Line, key.Value)}
 				}
-				if key.Value == "program" {
+				switch key.Value {
+				case "program":
 					action.Program = enabled
-				} else {
+				case "versioned":
+					action.Versioned = enabled
+				default:
 					action.Check = enabled
 				}
 				continue
 			default:
-				return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: an action takes no key %s; it takes check, command, description, fix, inputs, outputs, program, rewrites, tools", key.Line, key.Value)}
+				return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: an action takes no key %s; it takes check, command, description, fix, inputs, outputs, program, rewrites, tools, versioned", key.Line, key.Value)}
 			}
 			if value.Kind != yaml.SequenceNode {
 				return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: %s is a list", value.Line, key.Value)}

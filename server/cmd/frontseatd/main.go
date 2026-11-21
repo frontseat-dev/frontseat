@@ -36,6 +36,20 @@ type modules []string
 func (m *modules) String() string     { return fmt.Sprint(*m) }
 func (m *modules) Set(v string) error { *m = append(*m, v); return nil }
 
+// version and commit are what this program was released at: the release
+// that builds it writes them in where it is linked (the go plugin's
+// version option, in frontseat.yaml). Any other build leaves the
+// version every build that is no release is given, and no commit.
+var version, commit = "0.0.0-dev", ""
+
+// released is what the daemon says of the release it is.
+func released() string {
+	if commit == "" {
+		return "frontseatd " + version
+	}
+	return "frontseatd " + version + " (" + commit + ")"
+}
+
 func main() {
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, "frontseatd:", err)
@@ -66,9 +80,14 @@ func run() error {
 	flag.Var(&properties, "platform", "a property of the workers actions run on, as name=value; give it once for each (default: Linux, on this machine's architecture; a sandbox's daemon, given --name, is to be told)")
 	shellAddress := flag.String("shell", net.JoinHostPort("127.0.0.1", strconv.Itoa(ports.Shell)), "the address to serve SSH on, to the key --authorized-key gives; with none, no shell is served")
 	authorized := flag.String("authorized-key", "", "the key let into the shell, as a line of authorized_keys: a sandbox a person works in")
+	saysVersion := flag.Bool("version", false, "say which release of frontseat this is, and do nothing else")
 	flag.Parse()
 	if err := strays(flag.Args()); err != nil {
 		return err
+	}
+	if *saysVersion {
+		fmt.Println(released())
+		return nil
 	}
 	// What the grid's client library logs (glog) goes to standard error,
 	// never to a file of its own: it names one by the time and this

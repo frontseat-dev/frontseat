@@ -21,8 +21,8 @@ import (
 
 // The plugin ABIs this host loads.
 const (
-	MinABI = 20
-	MaxABI = 20
+	MinABI = 21
+	MaxABI = 21
 )
 
 // memoryLimitPages bounds a module's memory, in 64 KiB pages: 256 MiB.
