@@ -301,9 +301,13 @@ func TestATokenIsToldOnlyToAGridOfNamedAuthorities(t *testing.T) {
 	}
 }
 
-// A grid is reached where it is, whatever proxy the environment names:
+// A grid is dialled where it is, whatever proxy the environment names:
 // a variable would otherwise choose the route to it, as it would the
-// authorities it is known by.
+// authorities it is known by. Where the test runs may refuse the dial
+// itself (a grid's action reaches only the loopback, which a proxy is
+// never taken to, so the grid is not there): the dial is then the
+// daemon's own, to the grid's address, and the proxy is still asked
+// nothing.
 func TestAnEnvironmentsProxyIsNotTakenToTheGrid(t *testing.T) {
 	// Go reads the environment's proxy once a process (net/http's
 	// ProxyFromEnvironment), and another test of this one may have read
@@ -344,13 +348,20 @@ func TestAnEnvironmentsProxyIsNotTakenToTheGrid(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := asking(options...); err != nil || len(proxy.asked()) != 0 {
-		t.Errorf("asked %v of the proxy, answered %v; want the grid reached where it is", proxy.asked(), err)
+	// Reached, or refused at the grid's own address: either way dialled
+	// directly.
+	direct := func(err error) bool {
+		return err == nil || strings.Contains(err.Error(), "dial tcp "+address+":")
+	}
+	if err := asking(options...); !direct(err) || len(proxy.asked()) != 0 {
+		t.Errorf("asked %v of the proxy, answered %v; want the grid dialled where it is", proxy.asked(), err)
 	}
 	// And so is the grid's own dial.
-	if dialled, err := reapi.Dial(t.Context(), reapi.Config{Address: address, Access: config}); err != nil || len(proxy.asked()) != 0 {
+	dialled, err := reapi.Dial(t.Context(), reapi.Config{Address: address, Access: config})
+	if !direct(err) || len(proxy.asked()) != 0 {
 		t.Errorf("the grid's dial: asked %v of the proxy, answered %v", proxy.asked(), err)
-	} else {
+	}
+	if err == nil {
 		dialled.Close()
 	}
 	// Control: dialled otherwise alike, gRPC takes the proxy the
