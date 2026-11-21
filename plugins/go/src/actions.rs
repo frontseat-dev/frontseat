@@ -84,6 +84,23 @@ fn linked_version(variables: &[String], manifest: &str) -> Result<Option<String>
 /// not leave.
 const PROGRAMS: &str = "~/go/bin/";
 
+/// What was found of a module, read from its files.
+#[derive(Clone, Copy)]
+pub(super) struct Found<'a> {
+    /// The directories of its packages.
+    pub(super) packages: &'a [String],
+    /// The modules nested in it, each a module of its own.
+    pub(super) nested: &'a [String],
+    /// Its packages that have tests.
+    pub(super) tested: &'a [Tested],
+    /// The directories of its programs.
+    pub(super) programs: &'a [String],
+}
+
+/// Where a module's packages are left, beneath it: a directory the go
+/// command passes by, as it does every one named with an underscore.
+const PACKAGES: &str = "_package/";
+
 /// The most bytes the argument that names a shard's tests may hold.
 const SELECTION_AT_MOST: usize = 100_000;
 
@@ -208,11 +225,14 @@ pub(super) fn actions(
     locked: &Locked,
     root: &str,
     module: &str,
-    packages: &[String],
-    // The modules nested in it, each a module of its own.
-    nested: &[String],
-    tested: &[Tested],
+    found: &Found,
 ) -> Result<Vec<Action>, Error> {
+    let Found {
+        packages,
+        nested,
+        tested,
+        programs,
+    } = *found;
     let tags = repo.string_list("tags")?;
     let timeout = repo.string("test-timeout")?;
     let fetches: Vec<Action> = locked.entries.iter().map(fetch).collect();
@@ -289,8 +309,47 @@ pub(super) fn actions(
     let format = action("format", ["gofmt", "-l", "."].map(str::to_string).to_vec())
         .check()
         .fix(Command::new(["gofmt", "-w", "."]), ["**/*.go"]);
+    // What the module ships: each of its programs, made for each
+    // platform its entity ships for, as the go command makes one for
+    // another system, and named for both. It is what a release builds,
+    // and no development build pays for it.
+    let mut packages = Vec::new();
+    if repo.profile()? == Profile::Production {
+        for platform in repo.platforms() {
+            let Some((os, arch)) = platform.split_once('/') else {
+                continue;
+            };
+            for (name, directory) in crate::programs::offered(module, programs) {
+                let file = format!("{PACKAGES}{name}-{os}-{arch}");
+                let mut arguments: Vec<String> =
+                    ["go", "build", "-trimpath"].map(str::to_string).to_vec();
+                if !tags.is_empty() {
+                    arguments.extend(["-tags".to_string(), tags.join(",")]);
+                }
+                arguments.extend(version.clone());
+                arguments.extend(["-o".to_string(), file.clone()]);
+                arguments.push(if directory.is_empty() {
+                    ".".to_string()
+                } else {
+                    format!("./{directory}")
+                });
+                let mut package = action(&format!("package/{name}-{os}-{arch}"), arguments)
+                    .output(Output::required(file))
+                    .package();
+                if let Some(command) = package.command.as_mut() {
+                    command.environment.insert("GOOS".into(), os.into());
+                    command.environment.insert("GOARCH".into(), arch.into());
+                }
+                if version.is_some() {
+                    package = package.versioned();
+                }
+                packages.push(package);
+            }
+        }
+    }
     let mut actions = fetches;
     actions.extend([lint, format, compile]);
+    actions.extend(packages);
     actions.extend(tests);
     Ok(actions)
 }
@@ -695,9 +754,12 @@ mod tests {
             &Locked::default(),
             "app",
             "example.com/m",
-            &owned(packages),
-            &owned(nested),
-            tested,
+            &super::Found {
+                packages: &owned(packages),
+                nested: &owned(nested),
+                tested,
+                programs: &[],
+            },
         )
     }
 

@@ -394,3 +394,71 @@ fn served_plugin_links_the_version_where_the_option_names_its_variables() {
         assert_eq!(err.path, "app/go.mod", "{wrong}");
     }
 }
+
+/// What a module ships is each of its programs, made for each platform
+/// its entity ships for: a package for a program and a platform, built
+/// for that system and named for both, given the version where the
+/// module's variables are named, and declared for production alone.
+/// The control is a development build, and a module of no platform.
+#[test]
+fn served_plugin_packages_each_program_for_each_platform_it_ships_for() {
+    let plugin = plugin();
+    let host = TestHost::new(files(false, true));
+    let packages = |context: &frontseat_plugin_test::TestContext| -> Vec<Action> {
+        plugin.analyze(&host, context, &["app"]).answered().analyses[0].projects[0]
+            .actions
+            .iter()
+            .filter(|action| action.package)
+            .cloned()
+            .collect()
+    };
+    let shipped = |profile| {
+        plugin
+            .context(profile)
+            .platform("linux/amd64")
+            .platform("darwin/arm64")
+            .option(
+                "version",
+                Value::StringList(vec!["main.version=version".to_string()]),
+            )
+    };
+    let made = packages(&shipped(Profile::Production));
+    assert_eq!(
+        made.iter().map(|a| a.name.as_str()).collect::<Vec<_>>(),
+        ["package/hello-linux-amd64", "package/hello-darwin-arm64"]
+    );
+    let linux = &made[0];
+    let command = linux.command.as_ref().unwrap();
+    assert_eq!(
+        command.arguments,
+        [
+            "go",
+            "build",
+            "-trimpath",
+            "-ldflags=-X main.version={frontseat.version}",
+            "-o",
+            "_package/hello-linux-amd64",
+            ".",
+        ]
+    );
+    assert_eq!(command.environment["GOOS"], "linux");
+    assert_eq!(command.environment["GOARCH"], "amd64");
+    assert_eq!(command.environment["CGO_ENABLED"], "0");
+    assert!(linux.versioned && !linux.test && !linux.check);
+    assert_eq!(
+        linux
+            .outputs
+            .iter()
+            .map(|o| (o.path.as_str(), o.optional))
+            .collect::<Vec<_>>(),
+        [("_package/hello-linux-amd64", false)]
+    );
+    assert_eq!(
+        made[1].command.as_ref().unwrap().environment["GOOS"],
+        "darwin"
+    );
+    // Controls: nothing is packaged for development, nor for a module
+    // whose entity ships for no platform.
+    assert!(packages(&shipped(Profile::Development)).is_empty());
+    assert!(packages(&plugin.context(Profile::Production)).is_empty());
+}

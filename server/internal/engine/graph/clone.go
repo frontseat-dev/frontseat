@@ -14,6 +14,7 @@ func CloneProjects(projects []Project) []Project {
 	for i := range out {
 		p := &out[i]
 		p.Options = slices.Clone(p.Options)
+		p.Platforms = slices.Clone(p.Platforms)
 		for j := range p.Options {
 			p.Options[j].Value = proto.CloneOf(p.Options[j].Value)
 		}

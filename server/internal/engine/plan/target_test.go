@@ -326,3 +326,41 @@ func TestANameFindsItsEntityInAnyNamespaceAndAnAmbiguousNameIsRefused(t *testing
 		t.Errorf("a name two namespaces hold: %v, want it refused naming both", err)
 	}
 }
+
+// The packages of a project are asked for and pointed at together, as
+// the pieces of its tests are: by "package", and by the label one
+// package of it would have. An action named so that is no package is
+// none of them; the control is each by its own label and name.
+func TestTheBuildsPackagesAreAskedForAndPointedAtTogether(t *testing.T) {
+	var actions []Action
+	for _, name := range []string{"compile", "package/greet-linux-amd64", "package/greet-darwin-arm64"} {
+		actions = append(actions, Action{
+			Label:    model.Label{Path: "services/greet", Plugin: "go", Name: name},
+			Declared: &pluginv1.Action{Name: name, Package: strings.HasPrefix(name, "package/")},
+		})
+	}
+	actions = append(actions, Action{Label: model.Label{Path: "services/greet", Plugin: "cargo", Name: "wasm"}, Declared: &pluginv1.Action{Name: "wasm", Package: true}})
+	for _, c := range []struct {
+		says          string
+		targets, only []string
+		want          string
+	}{
+		{"asked for by package", nil, []string{"package"}, "//services/greet:go.package/greet-linux-amd64 //services/greet:go.package/greet-darwin-arm64"},
+		{"pointed at by the label a package would have", []string{"//services/greet:go.package"}, nil, "//services/greet:go.package/greet-linux-amd64 //services/greet:go.package/greet-darwin-arm64"},
+		{"control: one by its label", []string{"//services/greet:go.package/greet-linux-amd64"}, nil, "//services/greet:go.package/greet-linux-amd64"},
+		{"control: a package its tool names is asked for by that name", nil, []string{"wasm"}, "//services/greet:cargo.wasm"},
+	} {
+		got, err := Pointed(actions, nil, c.targets, c.only)
+		if err != nil {
+			t.Errorf("%s: %v", c.says, err)
+			continue
+		}
+		var labels []string
+		for _, action := range got {
+			labels = append(labels, action.Label.String())
+		}
+		if strings.Join(labels, " ") != c.want {
+			t.Errorf("%s: %v, want %s", c.says, labels, c.want)
+		}
+	}
+}

@@ -251,6 +251,14 @@ pub struct Context {
     /// It is never unspecified.
     #[prost(enumeration = "Profile", tag = "7")]
     pub profile: i32,
+    /// Platforms are the platforms what the plugin is asked about is
+    /// shipped for, as its entity says (spec.frontseat.platforms), each an
+    /// operating system and an architecture as "linux/amd64": what a
+    /// project's package actions are made for. None, where its entity says
+    /// none; a plugin whose tool makes what is the same on every platform
+    /// makes nothing of them.
+    #[prost(string, repeated, tag = "8")]
+    pub platforms: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// Option is an option a plugin takes: something a repository, or an
 /// entity, may set of how the plugin builds. The host checks what is set
@@ -849,6 +857,25 @@ pub struct Action {
     /// value of its own, never inside text a shell reads as a program.
     #[prost(bool, tag = "30")]
     pub versioned: bool,
+    /// Package says the action makes what its project ships: a program for
+    /// a platform, a package, a module, an archive, as its tool makes it.
+    /// Each file it leaves is an artifact of the release that builds it,
+    /// known by its own name, as the tool wrote it, with what the grid
+    /// holds of it: its sha256 and its size.
+    ///
+    /// What a release builds is what a production build builds, so a
+    /// package that costs what a development build should not pay, as a
+    /// program made for every platform does, is declared for the
+    /// production profile alone, and is tried without a release by a
+    /// production build pointed at it.
+    ///
+    /// It leaves at least one thing, each a file it is sure to leave, and
+    /// is no test, check, fetch, shared action or program to run. Plugins
+    /// name it "package", or "package", a slash and what it is of, as
+    /// "package/linux-amd64", where nothing of their tool's has a name for
+    /// it already.
+    #[prost(bool, tag = "31")]
+    pub package: bool,
 }
 /// Input is one selection of files an action reads. A kind must be set.
 /// Input sets may contain only source patterns and other input sets.

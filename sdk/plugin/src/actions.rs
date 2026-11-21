@@ -100,6 +100,16 @@ impl Action {
         self
     }
 
+    /// The same action, as one that makes what its project ships: each
+    /// file it leaves is an artifact of the release that builds it, by
+    /// the name the tool gave it. It leaves at least one, each sure to
+    /// be left. Declare it for the production profile alone where it
+    /// costs what a development build should not pay.
+    pub fn package(mut self) -> Self {
+        self.package = true;
+        self
+    }
+
     /// The same action, as one that runs tests.
     pub fn test(mut self) -> Self {
         self.test = true;

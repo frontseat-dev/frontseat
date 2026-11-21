@@ -88,6 +88,13 @@ func TestAReleasePrintsWhatItTaggedAndHowItEnded(t *testing.T) {
 			&buildv1.Release{Id: "rel_6", State: buildv1.Release_STATE_UNPUBLISHED, Units: tagged[:1], Failure: "greet/v0.77.1 was not pushed from services: refused"},
 			"greet  0.77.1  tagged greet/v0.77.1 in services  (3f2a9c1d5e6f)\nrel_6  unpublished: its tags are in the workspace and are not pushed: greet/v0.77.1 was not pushed from services: refused\n",
 		},
+		"with what it built to ship": {
+			&buildv1.Release{Id: "rel_7", State: buildv1.Release_STATE_SUCCEEDED, Units: []*buildv1.ReleasedUnit{{
+				Entity: unit("greet"), Version: "0.77.1", Tags: tagged[0].GetTags(),
+				Artifacts: []*buildv1.ReleaseArtifact{{Name: "greet-darwin-arm64", Sha256: "aa11", Size: 7}, {Name: "greet-linux-amd64", Sha256: "bb22", Size: 9}},
+			}}},
+			"greet  0.77.1  tagged greet/v0.77.1 in services  (3f2a9c1d5e6f)\n  aa11  greet-darwin-arm64  7 bytes\n  bb22  greet-linux-amd64  9 bytes\nrel_7  succeeded: its tags are pushed\n",
+		},
 		"failed": {
 			&buildv1.Release{Id: "rel_2", State: buildv1.Release_STATE_FAILED, Failure: "the production build run_9 ended BUILD_FAILURE; nothing is tagged"},
 			"rel_2  FAILED: the production build run_9 ended BUILD_FAILURE; nothing is tagged\n",

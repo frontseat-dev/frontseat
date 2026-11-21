@@ -328,6 +328,42 @@ the change that fixes it.
   refused stay sent, and those after it are not tried; a remote given
   as a directory runs its own hooks as the daemon; why a push failed
   is what git said, the remote's own words among it.
+- A release ships what its packages leave. An action says it makes
+  what its project ships (the contract's `Action.package`; `package:
+  true` on a Component's own action), and each file it leaves is an
+  artifact of the release that builds it, by the name its tool gave it,
+  with the sha256 and the size the grid holds of it
+  (`ReleasedUnit.artifacts`). How a tool packages is its plugin's to
+  know: the Go plugin makes each of a module's programs for each
+  platform, `<program>-<os>-<arch>`, and a crate that is a wasm module
+  ships that module. What an entity ships for is said once, by the
+  Component (`spec.frontseat.platforms`, each `<os>/<arch>`, for what
+  is built beneath its directory; a list of none ships for none), and
+  told to every plugin that builds beneath it. What a release builds is what a
+  production build builds, so a package that costs what a development
+  build should not pay is declared for production alone; the packages
+  a plugin names `package/…` are tried together by `frontseat build
+  --profile production --only package`, and one its tool names, as
+  `wasm`, by that name. Two artifacts of one name in a release, and a
+  package that left a directory, fail it before it tags. Held by:
+  `TestAReleaseListsWhatItsPackagesLeft`,
+  `TestAReleaseBuildsAProgramForEachPlatformItsEntityShipsFor`,
+  `TestTwoArtifactsOfOneNameFailTheReleaseBeforeItTags`,
+  `TestAPackageThatLeavesWhatCannotBeShippedFailsTheRelease`,
+  `TestAPackageLeavesFilesAndIsAStepThatMakesSomething`,
+  `TestWhatADirectoryShipsForIsWhatTheNearestEntityAboveItSays` and the
+  Go plugin's
+  `served_plugin_packages_each_program_for_each_platform_it_ships_for`.
+  Not held: a Go program is found by what builds for Linux, so one
+  that does not build for a platform its entity names fails its
+  package, and the release, and one that builds for another system
+  alone is not packaged; each package compiles its module anew, and
+  what that costs a release of this repository is not measured; no Go
+  package was run on a grid; what a package left is listed for the
+  entity that owns its action, and dropped where that entity is no
+  member of a unit that moves; nothing brings an artifact's bytes to
+  whoever asks, nor publishes one; a unit found released already lists
+  none.
 - Versions never go backwards: a unit with no release of its own
   continues above the highest version its members, their Systems or
   their Domain were released at, by the next bump its strategy gives.

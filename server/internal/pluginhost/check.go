@@ -499,6 +499,13 @@ func checkProject(plugin, root string, project *pluginv1.Project, found map[stri
 		if err := CheckVersion(fmt.Sprintf("the action %s", action.GetName()), action); err != nil {
 			return wrong("%v", err)
 		}
+		// Few actions are packages: one that is none is not named to
+		// be looked at.
+		if action.GetPackage() {
+			if err := CheckPackage(fmt.Sprintf("the action %s", action.GetName()), action); err != nil {
+				return wrong("%v", err)
+			}
+		}
 		for _, output := range action.GetOutputs() {
 			if !plainOutput(output.GetPath()) {
 				return wrong("the action %q writes %q, which is not a plain path beneath the project or the action's home", action.GetName(), output.GetPath())
@@ -600,6 +607,10 @@ const SharedFilesAtMost = 1 << 20
 // slash and what piece it is, as its tool spells it.
 var pieceName = regexp.MustCompile(`^test/[A-Za-z0-9._~+@/-]+$`)
 
+// packageName is what a package of a project is named where it is one
+// of several: "package", a slash and what it is of.
+var packageName = regexp.MustCompile(`^package/[A-Za-z0-9._~+/-]+$`)
+
 // checkNamed holds a project's action to its name: lower-case
 // [a-z0-9-], or, for a test alone, "test", a slash and the piece of the
 // project's tests it is, a plain path that is written one way.
@@ -613,6 +624,16 @@ func checkNamed(action *pluginv1.Action) error {
 		return nil
 	case len(n) > SharedNameAtMost:
 		return fmt.Errorf("the action name %.40q... is %d bytes, more than the %d allowed", n, len(n), SharedNameAtMost)
+	// A package is named "package", a slash and what it is of, in what a
+	// piece of the tests is named with; and only a package is named so.
+	case strings.HasPrefix(n, "package/"):
+		switch {
+		case !packageName.MatchString(n) || !pattern.Local(piece) || path.Clean(piece) != piece:
+			return fmt.Errorf("the action name %q is not package, a slash and what it is a package of", n)
+		case !action.GetPackage():
+			return fmt.Errorf("the action %q is named as a package of the project, and is no package", n)
+		}
+		return nil
 	case !pieceName.MatchString(n) || !pattern.Local(piece) || path.Clean(piece) != piece:
 		return fmt.Errorf("the action name %q is not lower-case [a-z0-9-], nor test, a slash and the piece of the tests it is", n)
 	case !action.GetTest():

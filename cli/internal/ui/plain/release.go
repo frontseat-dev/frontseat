@@ -101,6 +101,11 @@ func (p Printer) Release(release *buildv1.Release) {
 			}
 			fmt.Fprintf(p.Out, "%s  %s  %s %s in %s  (%.12s)\n", named(unit.GetEntity()), shown(unit.GetVersion()), did, shown(tag.GetName()), shown(tag.GetRepository()), shown(tag.GetCommit()))
 		}
+		// What it built to ship, each file by its name, with the
+		// sha256 a checksum file would hold of it.
+		for _, artifact := range unit.GetArtifacts() {
+			fmt.Fprintf(p.Out, "  %s  %s  %d bytes\n", shown(artifact.GetSha256()), shown(artifact.GetName()), artifact.GetSize())
+		}
 	}
 	state := Word(release.GetState())
 	tagged := false

@@ -634,7 +634,7 @@ func hand(ctx context.Context, src Source, plugins []*pluginhost.Plugin, answers
 			options[option.Name] = option.Value
 		}
 		requests[n] = &pluginv1.ArrangeRequest{
-			Context: &pluginv1.Context{Profile: profile, Options: options, Tools: pinned[group.project.Repository]},
+			Context: &pluginv1.Context{Profile: profile, Options: options, Tools: pinned[group.project.Repository], Platforms: group.project.Platforms},
 			Root:    group.project.Root,
 			Handed:  group.handed,
 		}
@@ -700,6 +700,7 @@ func custom(repository string, own config.Action) (plan.Action, error) {
 			Check:     own.Check,
 			Rewrites:  own.Rewrites,
 			Versioned: own.Versioned,
+			Package:   own.Package,
 		},
 	}
 	if len(own.Fix) > 0 {
@@ -726,6 +727,9 @@ func custom(repository string, own config.Action) (plan.Action, error) {
 		}
 	}
 	if err := pluginhost.CheckVersion(what, action.Declared); err != nil {
+		return plan.Action{}, &model.Mistake{File: own.File, Message: err.Error()}
+	}
+	if err := pluginhost.CheckPackage(what, action.Declared); err != nil {
 		return plan.Action{}, &model.Mistake{File: own.File, Message: err.Error()}
 	}
 	return action, nil
@@ -781,7 +785,7 @@ func analyze(ctx context.Context, view repositoryView, plugin *pluginhost.Plugin
 		for _, option := range options {
 			held[option.Name] = option.Value
 		}
-		requests[i] = &pluginv1.AnalyzeRequest{Context: &pluginv1.Context{Profile: profile, Options: held, Tools: pinned}, Roots: []string{root}}
+		requests[i] = &pluginv1.AnalyzeRequest{Context: &pluginv1.Context{Profile: profile, Options: held, Tools: pinned, Platforms: configured.Platforms(directory(root))}, Roots: []string{root}}
 	}
 	answered := make([]*pluginv1.AnalyzeResponse, len(roots))
 	given := make([]bool, len(roots))
@@ -846,6 +850,7 @@ func analyze(ctx context.Context, view repositoryView, plugin *pluginhost.Plugin
 					Name:       project.GetName(),
 					Manifest:   project.GetManifest(),
 					Options:    options,
+					Platforms:  configured.Platforms(directory(project.GetRoot())),
 
 					AlwaysArranged: project.GetAlwaysArranged(),
 				}

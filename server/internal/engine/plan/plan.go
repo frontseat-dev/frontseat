@@ -189,6 +189,10 @@ func (a Action) HasSources() bool {
 // once it has ended.
 func (a Action) IsCheck() bool { return a.Declared.GetCheck() }
 
+// IsPackage reports whether the action makes what its project ships:
+// each file it leaves is an artifact of a release.
+func (a Action) IsPackage() bool { return a.Declared.GetPackage() }
+
 // IsProgram reports whether the action is a program to run: no step of
 // a build, which no build runs.
 func (a Action) IsProgram() bool { return a.Declared.GetProgram() }

@@ -69,6 +69,57 @@ type Repository struct {
 	// generated are what Components say other Components generate of
 	// their directories.
 	generated []Generated
+	// platforms are the platforms entities say they ship for, each for
+	// its directory, the deepest directory last.
+	platforms []shipped
+}
+
+// shipped is the platforms one catalog file says its entity ships for,
+// which hold for its directory and beneath.
+type shipped struct {
+	file, directory string
+	platforms       []string
+}
+
+// platform is what a platform is written as: an operating system and
+// an architecture, as the tools that build for one name them.
+var platform = regexp.MustCompile(`^[a-z0-9]+/[a-z0-9]+$`)
+
+// readPlatforms reads spec.frontseat.platforms of one document: a list
+// of platforms, each once.
+func readPlatforms(file string, node *yaml.Node) ([]string, error) {
+	mistake := func(line int, format string, a ...any) ([]string, error) {
+		return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: ", line) + fmt.Sprintf(format, a...)}
+	}
+	if node.Kind != yaml.SequenceNode {
+		return mistake(node.Line, "spec.frontseat.platforms is a list of the platforms the entity ships for, each <os>/<arch>, as linux/amd64")
+	}
+	// A list of none is said too: what is beneath ships for no platform,
+	// whatever an entity above it says.
+	out := []string{}
+	for _, item := range node.Content {
+		switch {
+		case item.Kind != yaml.ScalarNode || item.ShortTag() != "!!str" || !platform.MatchString(item.Value):
+			return mistake(item.Line, "spec.frontseat.platforms holds what is no platform: one is written <os>/<arch>, in small letters and digits, as linux/amd64")
+		case contains(out, item.Value):
+			return mistake(item.Line, "spec.frontseat.platforms names %s twice", item.Value)
+		}
+		out = append(out, item.Value)
+	}
+	return out, nil
+}
+
+// Platforms returns the platforms what is in a directory of the
+// repository ships for: what the entity nearest above it says, and
+// none where none says any.
+func (r *Repository) Platforms(directory string) []string {
+	var out []string
+	for _, said := range r.platforms {
+		if said.directory == "" || said.directory == directory || strings.HasPrefix(directory, said.directory+"/") {
+			out = said.platforms
+		}
+	}
+	return out
 }
 
 // Releases returns what the repository's entities say of how they are
@@ -114,6 +165,9 @@ type Action struct {
 	// Versioned says it is given the version of the release it is built
 	// for, where its command names it.
 	Versioned bool
+	// Package says it makes what the entity ships: each file it leaves
+	// is an artifact of a release.
+	Package bool
 }
 
 // scope is what one catalog file sets, for its directory and beneath.
@@ -208,8 +262,8 @@ func Read(ctx context.Context, name string, files Reader) (*Repository, error) {
 					if key.Value == "launch" {
 						return nil, &model.Mistake{File: r.origin(file), Message: fmt.Sprintf("line %d: spec.frontseat takes no key launch: how a service is started for tests is said under service", key.Line)}
 					}
-					if key.Value != "actions" && key.Value != "plugins" && key.Value != "service" && key.Value != "release" && key.Value != "test" && key.Value != "generated" {
-						return nil, &model.Mistake{File: r.origin(file), Message: fmt.Sprintf("line %d: spec.frontseat takes no key %s; it takes actions, generated, plugins, release, service and test", key.Line, key.Value)}
+					if key.Value != "actions" && key.Value != "plugins" && key.Value != "service" && key.Value != "release" && key.Value != "test" && key.Value != "generated" && key.Value != "platforms" {
+						return nil, &model.Mistake{File: r.origin(file), Message: fmt.Sprintf("line %d: spec.frontseat takes no key %s; it takes actions, generated, platforms, plugins, release, service and test", key.Line, key.Value)}
 					}
 				}
 			}
@@ -238,6 +292,24 @@ func Read(ctx context.Context, name string, files Reader) (*Repository, error) {
 					}
 					r.generated = append(r.generated, said)
 				}
+			}
+			if node := yamlnode.Child(frontseat, "platforms"); node != nil {
+				// What ships for a platform is what is built beneath a
+				// directory, and a Component alone has one: a System or
+				// a Domain is no directory, and says none.
+				if kind := yamlnode.Child(document, "kind"); kind == nil || kind.Value != "Component" {
+					return nil, &model.Mistake{File: r.origin(file), Message: fmt.Sprintf("line %d: spec.frontseat.platforms is said by a Component, for what is built beneath its directory", node.Line)}
+				}
+				read, err := readPlatforms(r.origin(file), node)
+				if err != nil {
+					return nil, err
+				}
+				for _, before := range r.platforms {
+					if before.directory == directory {
+						return nil, &model.Mistake{File: r.origin(file), Message: fmt.Sprintf("line %d: spec.frontseat.platforms is said twice for one directory, here and in %s", node.Line, before.file)}
+					}
+				}
+				r.platforms = append(r.platforms, shipped{file: r.origin(file), directory: directory, platforms: read})
 			}
 			if node := yamlnode.Child(frontseat, "service"); node != nil {
 				service, err := readService(r.origin(file), directory, document, node)
@@ -273,6 +345,7 @@ func Read(ctx context.Context, name string, files Reader) (*Repository, error) {
 	}
 	// The nearest setting wins, so the deepest directory is applied last.
 	sort.SliceStable(r.entities, func(i, j int) bool { return len(r.entities[i].directory) < len(r.entities[j].directory) })
+	sort.SliceStable(r.platforms, func(i, j int) bool { return len(r.platforms[i].directory) < len(r.platforms[j].directory) })
 	return r, nil
 }
 
@@ -328,7 +401,7 @@ func actions(file, directory string, node *yaml.Node) ([]Action, error) {
 				list = &action.Fix
 			case "launch":
 				return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: an action takes no key launch: a program is said by program: true", key.Line)}
-			case "check", "program", "versioned":
+			case "check", "program", "versioned", "package":
 				if value.Kind != yaml.ScalarNode || value.ShortTag() != "!!bool" {
 					return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: %s is true or false", value.Line, key.Value)}
 				}
@@ -341,12 +414,14 @@ func actions(file, directory string, node *yaml.Node) ([]Action, error) {
 					action.Program = enabled
 				case "versioned":
 					action.Versioned = enabled
+				case "package":
+					action.Package = enabled
 				default:
 					action.Check = enabled
 				}
 				continue
 			default:
-				return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: an action takes no key %s; it takes check, command, description, fix, inputs, outputs, program, rewrites, tools, versioned", key.Line, key.Value)}
+				return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: an action takes no key %s; it takes check, command, description, fix, inputs, outputs, package, program, rewrites, tools, versioned", key.Line, key.Value)}
 			}
 			if value.Kind != yaml.SequenceNode {
 				return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: %s is a list", value.Line, key.Value)}

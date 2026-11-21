@@ -229,6 +229,13 @@ impl TestContext {
         self
     }
 
+    /// Adds a platform what the plugin is asked about is shipped for, as
+    /// its entity's catalog file would say it: `linux/amd64`.
+    pub fn platform(mut self, platform: &str) -> Self {
+        self.0.platforms.push(platform.into());
+        self
+    }
+
     /// Pins a tool at a version, as the repository's mise configuration
     /// would.
     pub fn tool(mut self, name: &str, version: &str) -> Self {

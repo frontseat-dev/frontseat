@@ -301,6 +301,24 @@ message ReleasedUnit {
   // Already says the tags were there, at the commit planned from, before
   // this release: it changed nothing for this unit.
   bool already = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Artifacts are what the release built of it to ship: each file a
+  // package action of its members left, in the order of their names. A
+  // unit found released already has none: nothing was built of it.
+  repeated ReleaseArtifact artifacts = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+// ReleaseArtifact is one file a release built to ship.
+message ReleaseArtifact {
+  // Name is its name, as the tool that made it wrote it:
+  // "greet-linux-amd64". No two artifacts of a release share one.
+  string name = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Sha256 is the sha256 of its bytes, in hexadecimal, as the grid
+  // holds them.
+  string sha256 = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Size is how many bytes it is.
+  int64 size = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Label is the label of the action that left it.
+  string label = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
 }
 
 // ReleaseTag is a tag a release wrote.
