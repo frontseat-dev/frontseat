@@ -72,12 +72,21 @@ description = "Build frontseat from this checkout into dist/ (on the PATH here) 
 sources = ["api/**", "cli/**", "server/**", "local/**", "sdk/**", "specs/cmd/**", "specs/internal/**", "plugins/**", "Cargo.toml", "Cargo.lock", "go.work", "go.work.sum", "mise.lock"]
 outputs = ["dist/bin/frontseat", "dist/bin/frontseatd", "dist/bin/frontseat-local", "dist/plugins"]
 run = [
+  { task = "build:programs" },
+  "dist/bin/frontseat-local box --tag frontseat-box:local --plugins dist/plugins",
+]
+
+# The programs and the plugins alone, and no image: what a job builds
+# frontseat with before it builds with frontseat, where there is no
+# container runtime (.github/workflows/frontseat.yml).
+[tasks."build:programs"]
+description = "Build frontseat's programs and plugins from this checkout into dist/, and no image"
+run = [
   "mkdir -p dist/bin",
   "go build -o dist/bin/frontseat ./cli/cmd/frontseat",
   "go build -o dist/bin/frontseatd ./server/cmd/frontseatd",
   "go build -o dist/bin/frontseat-local ./server/cmd/frontseat-local",
   "go run ./specs/cmd/prepare-modules -dist dist/plugins",
-  "dist/bin/frontseat-local box --tag frontseat-box:local --plugins dist/plugins",
 ]
 
 # The local stack, from this checkout (frontseat-local up, package

@@ -1,0 +1,116 @@
+# The one job of frontseat's workflow (frontseat.yml, which says when it
+# runs and what it may write): build and test this checkout with the
+# frontseat it builds, on tenant zero's grid, and release where asked.
+name: frontseat job
+"on":
+  workflow_call:
+    inputs:
+      release:
+        description: release what this branch releases
+        type: boolean
+        required: true
+jobs:
+  frontseat:
+    runs-on: zero
+    timeout-minutes: 120
+    env:
+      # The tenant's grid as a runner reaches it, and the instance of its
+      # trust tier: a protected ref's job executes in frontseat/p, any
+      # other's in frontseat/p/b. The grid tiers the job by its token alike.
+      GRID: storage-frontend.frontseat.svc.cluster.local:50051
+      GRID_ASSETS: remote-asset.frontseat.svc.cluster.local:50055
+      GRID_CA: /etc/fleet-ca/ca.crt
+      GRID_INSTANCE: ${{ github.ref_protected && 'frontseat/p' || 'frontseat/p/b' }}
+      # What the pool that takes frontseat's actions advertises as its
+      # container-image: the two say the same, or no worker takes an action.
+      GRID_IMAGE: docker://ghcr.io/frontseat-dev/buildbarn-runner:0.10.8@sha256:b32bc094fd2292065a2e4d5bb16d30e590f138b0e1c1c25cbd3d15bc43f42daa
+      MISE_YES: "1"
+    steps:
+      # All of the history, since a release is planned from it, and no
+      # credential kept in the checkout: the daemon refuses to release from
+      # one that keeps its own.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      # actions/checkout records no default branch of the remote, and a
+      # branch that is no release branch releases nothing without it.
+      - name: Record the remote's default branch
+        run: git symbolic-ref refs/remotes/origin/HEAD "refs/remotes/origin/${{ github.event.repository.default_branch }}"
+      - name: Install the pinned tools
+        run: |
+          mise trust
+          mise install
+      # Until a released frontseat is installed here by mise, this checkout
+      # builds the frontseat that builds it.
+      - name: Build frontseat's programs and plugins
+        run: mise run build:programs
+      # The job's OIDC token lasts minutes, and the daemon reads the token's
+      # file for every call: it is fetched now and written again, whole and
+      # by a rename, every minute until the job ends.
+      - name: Keep the grid's token
+        run: |
+          GRID_TOKEN="$RUNNER_TEMP/grid-token"
+          echo "GRID_TOKEN=$GRID_TOKEN" >> "$GITHUB_ENV"
+          export GRID_TOKEN
+          nohup sh -c '
+            while :; do
+              answer=$(curl -fsS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=frontseat-grid") &&
+                token=$(printf "%s" "$answer" | sed -n "s/.*\"value\" *: *\"\([^\"]*\)\".*/\1/p") &&
+                [ -n "$token" ] &&
+                (umask 077; printf "%s" "$token" > "$GRID_TOKEN.next") &&
+                mv "$GRID_TOKEN.next" "$GRID_TOKEN" ||
+                echo "grid token: not renewed" >&2
+              sleep 60
+            done' > "$RUNNER_TEMP/grid-token.log" 2>&1 &
+          for _ in $(seq 30); do
+            [ -s "$GRID_TOKEN" ] && exit 0
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/grid-token.log"
+          exit 1
+      # The daemon is given this checkout, and named, which is how the
+      # command line beside it finds it. What publishes a release may be
+      # given GH_TOKEN, and git is told how to present it to this
+      # repository's origin, as a sandbox's daemon is told: by the settings
+      # its environment counts.
+      - name: Start the daemon on the grid
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GIT_CONFIG_COUNT: "2"
+          GIT_CONFIG_KEY_0: credential.https://github.com.username
+          GIT_CONFIG_VALUE_0: x-access-token
+          GIT_CONFIG_KEY_1: credential.https://github.com.helper
+          GIT_CONFIG_VALUE_1: "!f() { printf '%s\\n' \"password=$GH_TOKEN\"; }; f"
+        run: |
+          nohup dist/bin/frontseatd \
+            --name "$GITHUB_REPOSITORY" \
+            --checkout \
+            --workspace "$GITHUB_WORKSPACE" \
+            --state "$RUNNER_TEMP/frontseatd" \
+            --plugins dist/plugins \
+            --grid "$GRID" --instance "$GRID_INSTANCE" --assets "$GRID_ASSETS" \
+            --grid-tls --grid-ca "$GRID_CA" --grid-token "$GRID_TOKEN" \
+            --platform OSFamily=linux --platform ISA=x86-64 --platform "container-image=$GRID_IMAGE" \
+            --publish-environment GH_TOKEN \
+            > "$RUNNER_TEMP/frontseatd.log" 2>&1 &
+          daemon=$!
+          for _ in $(seq 60); do
+            curl -s -o /dev/null http://127.0.0.1:7600/ && exit 0
+            kill -0 "$daemon" 2>/dev/null || break
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/frontseatd.log"
+          exit 1
+      - name: Build
+        run: dist/bin/frontseat build
+      # Tests that need services of their own are not served by this grid
+      # yet, and say so.
+      - name: Test
+        run: dist/bin/frontseat test
+      - name: Release
+        if: ${{ inputs.release }}
+        run: dist/bin/frontseat ship domain:frontseat
+      - name: The daemon's log
+        if: always()
+        run: cat "$RUNNER_TEMP/frontseatd.log" || true
