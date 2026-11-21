@@ -158,6 +158,22 @@ func (w *Workspace) Tag(ctx context.Context, repository, name, revision string) 
 	return told.Tag(ctx, directory, name, revision)
 }
 
+// PushTag sends a tag of one of the workspace's repositories to where
+// that repository was brought from, and the tag alone.
+func (w *Workspace) PushTag(ctx context.Context, repository, name string) error {
+	told, directory, err := w.history(repository)
+	if err != nil {
+		return err
+	}
+	held, _ := w.Now()
+	for _, each := range held.Repositories {
+		if each.Name == repository {
+			return told.PushTag(ctx, directory, each.Remote, name)
+		}
+	}
+	return fmt.Errorf("the workspace holds no repository %q", repository)
+}
+
 // TagName holds a name to one the workspace's version control system
 // takes for a tag.
 func (w *Workspace) TagName(ctx context.Context, name string) error {

@@ -70,6 +70,11 @@ type History interface {
 	// leaves it. A tag that names the revision already is left; one that
 	// names another is refused, and nothing is changed.
 	Tag(ctx context.Context, directory, name, revision string) error
+	// PushTag sends a tag of a repository to the remote it was brought
+	// from, and the tag alone: no branch and no other tag goes with it.
+	// One the remote has at the same revision already is left; one it
+	// has at another is refused, and nothing there is changed.
+	PushTag(ctx context.Context, directory, remote, name string) error
 }
 
 // Standing is where a repository stands.

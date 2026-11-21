@@ -245,7 +245,10 @@ func reaching(scope, key, value string) error {
 // pinned is what git is told of how to reach a remote, where it may:
 // origin is the remote it was given and nothing the repository says, for
 // a fetch and for a push, since an empty address ends the list of those
-// before it; no bundle a server advertises is fetched; and over http, a
+// before it; a push to it sends what was asked and nothing the
+// repository adds, which holds for origin alone, so that whoever pushes
+// names origin and never the address, which git would first read as the
+// name of a remote the repository describes; no bundle a server advertises is fetched; and over http, a
 // server's certificate is checked, and no header or cookie the
 // repository names is sent or kept. Each is a setting for every address,
 // which a repository's setting for one would win over, and such a
@@ -259,6 +262,17 @@ func pinned(remote string) [][2]string {
 			[2]string{"remote.origin.url", ""},
 			[2]string{"remote.origin.url", remote},
 			[2]string{"remote.origin.pushurl", ""},
+			// A push sends what it was asked to send, to origin, and
+			// says and runs nothing the repository adds: no option for
+			// the server (an empty one ends the list of those before
+			// it), no program to sign with, nothing of a submodule, no
+			// tag beside what was asked, and never every reference the
+			// repository has.
+			[2]string{"push.pushOption", ""},
+			[2]string{"push.gpgSign", "false"},
+			[2]string{"push.recurseSubmodules", "no"},
+			[2]string{"push.followTags", "false"},
+			[2]string{"remote.origin.mirror", "false"},
 		)
 	}
 	return append(settings,

@@ -488,3 +488,89 @@ func TestAHookTheConfigurationNamesIsNotRun(t *testing.T) {
 		t.Skipf("asked plainly, git (%s) runs no hook its configuration names, so there is nothing to hold here", plain(t, dir, "--version"))
 	}
 }
+
+// A push goes to the remote git was given, sends what it was asked to
+// send, and says and runs nothing the repository adds: its settings name
+// no other address for the remote (by the remote's own address as its
+// name, as git reads one, or as origin's), send no option to the server,
+// sign with no program, and mirror nothing. The control is git asked
+// plainly, beside it, which each of them steers.
+func TestAPushGoesToTheRemoteGivenAndSaysNothingTheRepositoryAdds(t *testing.T) {
+	ctx := context.Background()
+	source, _, second := committed(t)
+	// A remote that takes options and signed pushes, and notes what a
+	// push told it; and a sink, where a push that is steered ends.
+	bare := func() string {
+		dir := filepath.Join(t.TempDir(), "remote.git")
+		plain(t, filepath.Dir(dir), "clone", "--quiet", "--bare", source, dir)
+		plain(t, dir, "config", "receive.advertisePushOptions", "true")
+		plain(t, dir, "config", "receive.certNonceSeed", "seed")
+		hook := "#!/bin/sh\necho \"options=${GIT_PUSH_OPTION_COUNT:-0} signed=${GIT_PUSH_CERT:+yes}\" >> \"$GIT_DIR/told\"\ncat > /dev/null\n"
+		if err := os.WriteFile(filepath.Join(dir, "hooks", "pre-receive"), []byte(hook), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		return dir
+	}
+	told := func(dir string) string {
+		out, _ := os.ReadFile(filepath.Join(dir, "told"))
+		return strings.TrimSpace(string(out))
+	}
+	has := func(dir, tag string) bool {
+		cmd := exec.Command("git", "rev-parse", "--verify", "--quiet", "refs/tags/"+tag)
+		cmd.Dir = dir
+		return cmd.Run() == nil
+	}
+	remote, sink := bare(), bare()
+	address := "file://" + remote
+	clone := filepath.Join(t.TempDir(), "clone")
+	plain(t, filepath.Dir(clone), "clone", "--quiet", address, clone)
+	ran := filepath.Join(t.TempDir(), "ran")
+	signer := filepath.Join(t.TempDir(), "signer")
+	if err := os.WriteFile(signer, []byte("#!/bin/sh\necho signer >> "+ran+"\nexit 1\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	plant := func() {
+		for _, setting := range [][2]string{
+			{"remote." + address + ".pushurl", sink},
+			{"remote.origin.pushurl", sink},
+			{"push.pushOption", "ci.skip"},
+		} {
+			plain(t, clone, "config", setting[0], setting[1])
+		}
+	}
+	plant()
+	plain(t, clone, "tag", "hardened", second)
+	plain(t, clone, "tag", "plainly", second)
+	hardened := git.In(ctx, clone, git.Options{Told: true, Remote: address})
+	if _, err := hardened.Run(ctx, "push", "--atomic", "origin", "refs/tags/hardened:refs/tags/hardened"); err != nil {
+		t.Fatalf("a push to the remote given was refused: %v", err)
+	}
+	if !has(remote, "hardened") || has(sink, "hardened") || told(remote) != "options=0 signed=" {
+		t.Errorf("the remote has the tag: %v, the sink: %v, and the remote was told %q; want the remote alone, told no option", has(remote, "hardened"), has(sink, "hardened"), told(remote))
+	}
+	// Control: asked plainly, by the address or by origin, it goes to
+	// the sink, with the option.
+	plain(t, clone, "push", "--quiet", address, "refs/tags/plainly:refs/tags/plainly")
+	if !has(sink, "plainly") || has(remote, "plainly") || told(sink) != "options=1 signed=" {
+		t.Fatalf("asked plainly, the push went to the remote: %v, the sink: %v, told %q: there is nothing to hold here", has(remote, "plainly"), has(sink, "plainly"), told(sink))
+	}
+	// A push the repository says to sign runs no program to sign it
+	// with, and one it says mirrors sends what was asked alone.
+	plain(t, clone, "config", "push.gpgSign", "true")
+	plain(t, clone, "config", "gpg.program", signer)
+	plain(t, clone, "config", "remote.origin.mirror", "true")
+	plain(t, clone, "tag", "signed", second)
+	if _, err := hardened.Run(ctx, "push", "--atomic", "origin", "refs/tags/signed:refs/tags/signed"); err != nil {
+		t.Fatalf("a push the repository says to sign and to mirror was refused: %v", err)
+	}
+	if planted, err := os.ReadFile(ran); err == nil || !has(remote, "signed") || has(remote, "plainly") {
+		t.Errorf("the push ran the program the repository names to sign with (%q), or the remote has the tag: %v, and what was not asked: %v", planted, has(remote, "signed"), has(remote, "plainly"))
+	}
+	cmd := exec.Command("git", "push", "--quiet", "origin", "refs/tags/signed:refs/tags/signed")
+	cmd.Dir = clone
+	cmd.Env = append(os.Environ(), "GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_SYSTEM=/dev/null")
+	_ = cmd.Run()
+	if _, err := os.ReadFile(ran); err != nil {
+		t.Skipf("asked plainly, git (%s) runs no program to sign a push with here, so that part holds nothing", plain(t, clone, "--version"))
+	}
+}

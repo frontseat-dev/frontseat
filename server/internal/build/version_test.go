@@ -96,7 +96,7 @@ func TestWhatAReleaseBuildsIsGivenItsVersion(t *testing.T) {
 	}
 	development("before the release")
 	release := releaseEnded(t, s, releaseBegun(t, s, "greet").GetId())
-	if release.GetState() != buildv1.Release_STATE_UNPUBLISHED {
+	if release.GetState() != buildv1.Release_STATE_SUCCEEDED {
 		t.Fatalf("the release ended %v (%s)", release.GetState(), release.GetFailure())
 	}
 	if sent, want := grid.last(t, says), "echo 1.0.0 greet/v1.0.0 "+head+" component:default/greet"; !strings.HasSuffix(sent, want) {

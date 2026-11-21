@@ -72,7 +72,8 @@ func (r *Release) Describe(ctx context.Context) (*buildv1.Release, error) {
 	return said.GetRelease(), err
 }
 
-// Wait returns the release once it has ended: tagged, or failed.
+// Wait returns the release once it has ended: its tags pushed, tagged
+// and not all pushed, or failed.
 func (r *Release) Wait(ctx context.Context) (*buildv1.Release, error) {
 	api, err := r.w.releases(ctx)
 	if err != nil {

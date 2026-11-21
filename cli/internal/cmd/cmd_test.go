@@ -193,7 +193,7 @@ func TestShipPlanSaysWhatReleasingWouldDoAndReleasesNothing(t *testing.T) {
 }
 
 func TestShipPlansThenReleasesThatPlan(t *testing.T) {
-	d := &daemonOf{state: buildv1.Release_STATE_UNPUBLISHED}
+	d := &daemonOf{state: buildv1.Release_STATE_SUCCEEDED}
 	printed, code, err := run(t, d, "ship", "greet")
 	if err != nil || code != 0 {
 		t.Fatalf("ship ended %d, %v", code, err)
@@ -201,19 +201,24 @@ func TestShipPlansThenReleasesThatPlan(t *testing.T) {
 	if len(d.planned) != 1 || len(d.created) != 1 || d.created[0].GetEtag() != "etag-of-the-plan" || d.created[0].GetEntities()[0].GetName() != "greet" {
 		t.Errorf("it planned %v and released %v", d.planned, d.created)
 	}
-	if !strings.HasPrefix(printed, "greet  unreleased -> 0.77.0") || !strings.Contains(printed, "\nreleasing rel_1\n") || !strings.HasSuffix(printed, "rel_1  unpublished: its tags are in the workspace and are not pushed\n") {
+	if !strings.HasPrefix(printed, "greet  unreleased -> 0.77.0") || !strings.Contains(printed, "\nreleasing rel_1\n") || !strings.HasSuffix(printed, "rel_1  succeeded\n") {
 		t.Errorf("ship printed\n%s", printed)
 	}
 }
 
 // A release that failed is the command's failure: it exits 1, having
-// said why, and one that tagged exits 0.
+// said why. So is one that tagged and could not push every tag, whose
+// tags never left the workspace. One that did what was asked exits 0.
 func TestAShipThatFailsExitsOne(t *testing.T) {
 	printed, code, err := run(t, &daemonOf{state: buildv1.Release_STATE_FAILED}, "ship", "greet")
 	if err != nil || code != 1 || !strings.Contains(printed, "rel_1  FAILED: the production build run_9 ended BUILD_FAILURE") {
 		t.Errorf("a failed ship ended %d, %v, printing\n%s", code, err, printed)
 	}
-	if _, code, err := run(t, &daemonOf{state: buildv1.Release_STATE_UNPUBLISHED}, "ship", "greet"); err != nil || code != 0 {
+	unpublished, code, err := run(t, &daemonOf{state: buildv1.Release_STATE_UNPUBLISHED}, "ship", "greet")
+	if err != nil || code != 1 || !strings.Contains(unpublished, "rel_1  unpublished: its tags are in the workspace and are not pushed") {
+		t.Errorf("a ship that ended unpublished ended %d, %v, printing\n%s", code, err, unpublished)
+	}
+	if _, code, err := run(t, &daemonOf{state: buildv1.Release_STATE_SUCCEEDED}, "ship", "greet"); err != nil || code != 0 {
 		t.Errorf("the control ended %d, %v", code, err)
 	}
 }
@@ -221,7 +226,7 @@ func TestAShipThatFailsExitsOne(t *testing.T) {
 // With --plan a release is of the plan that was seen, and no other: the
 // command plans nothing of its own, and what the daemon refuses is said.
 func TestShipWithAPlanReleasesThatPlanAndNoOther(t *testing.T) {
-	d := &daemonOf{state: buildv1.Release_STATE_UNPUBLISHED}
+	d := &daemonOf{state: buildv1.Release_STATE_SUCCEEDED}
 	// A flag is read wherever it is written.
 	for _, args := range [][]string{{"ship", "--plan", "seen", "greet"}, {"ship", "greet", "--plan", "seen"}, {"ship", "greet", "--plan=seen"}} {
 		d.planned, d.created = nil, nil
@@ -320,12 +325,12 @@ func TestWhatFollowsACommandOverSSHIsItsOwn(t *testing.T) {
 // waits for the release to end. The daemon here describes no release:
 // a command that asked it would fail.
 func TestShipFollowsItsBuildAndWaitsForTheRelease(t *testing.T) {
-	d := &daemonOf{state: buildv1.Release_STATE_UNPUBLISHED, builds: true}
+	d := &daemonOf{state: buildv1.Release_STATE_SUCCEEDED, builds: true}
 	printed, code, err := run(t, d, "ship", "greet")
 	if err != nil || code != 0 {
 		t.Fatalf("ship ended %d, %v", code, err)
 	}
-	began, built, ended := strings.Index(printed, "releasing rel_1\n"), strings.Index(printed, "passed  //greet:go.compile"), strings.Index(printed, "rel_1  unpublished")
+	began, built, ended := strings.Index(printed, "releasing rel_1\n"), strings.Index(printed, "passed  //greet:go.compile"), strings.Index(printed, "rel_1  succeeded")
 	if began < 0 || built < began || ended < built || d.waited.Load() != 1 {
 		t.Errorf("ship printed, having waited %d times:\n%s", d.waited.Load(), printed)
 	}
@@ -334,7 +339,7 @@ func TestShipFollowsItsBuildAndWaitsForTheRelease(t *testing.T) {
 // A build that cannot be followed is still a release that goes on: the
 // command waits for it and says how it ended, and exits by that.
 func TestABuildThatCannotBeFollowedIsStillWaitedFor(t *testing.T) {
-	for state, want := range map[buildv1.Release_State]int{buildv1.Release_STATE_UNPUBLISHED: 0, buildv1.Release_STATE_FAILED: 1} {
+	for state, want := range map[buildv1.Release_State]int{buildv1.Release_STATE_SUCCEEDED: 0, buildv1.Release_STATE_UNPUBLISHED: 1, buildv1.Release_STATE_FAILED: 1} {
 		d := &daemonOf{state: state, builds: true, streams: connect.NewError(connect.CodeUnavailable, "the stream broke")}
 		printed, code, err := run(t, d, "ship", "greet")
 		if err != nil || code != want || d.waited.Load() != 1 || !strings.Contains(printed, "rel_1  ") {
@@ -346,7 +351,7 @@ func TestABuildThatCannotBeFollowedIsStillWaitedFor(t *testing.T) {
 // Interrupted, the command ends, having said which release goes on
 // without it.
 func TestAnInterruptedShipHasSaidWhichReleaseGoesOn(t *testing.T) {
-	d := &daemonOf{state: buildv1.Release_STATE_UNPUBLISHED, waits: make(chan struct{})}
+	d := &daemonOf{state: buildv1.Release_STATE_SUCCEEDED, waits: make(chan struct{})}
 	d.builds = true
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
@@ -375,7 +380,7 @@ func TestAnInterruptedShipHasSaidWhichReleaseGoesOn(t *testing.T) {
 // Each command line begins as a process does: what one was given is not
 // there for the next.
 func TestOneCommandLineLeavesNothingForTheNext(t *testing.T) {
-	d := &daemonOf{state: buildv1.Release_STATE_UNPUBLISHED}
+	d := &daemonOf{state: buildv1.Release_STATE_SUCCEEDED}
 	if _, _, err := run(t, d, "ship", "--help"); err != nil {
 		t.Fatal(err)
 	}

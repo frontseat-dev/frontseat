@@ -310,6 +310,24 @@ the change that fixes it.
   tagged is tagged again, and not found released, where it is released
   again; nothing publishes a prerelease, under its channel or any, so
   one that is not tagged is built and kept nowhere.
+- A release pushes each tag it writes to where its repository was
+  brought from, the tag alone, never over one the remote has at another
+  commit, and never one of a commit no branch of the remote has, by
+  the workspace's own git and what its sandbox was told. A push goes to
+  the remote git was given and sends and runs nothing the repository's
+  own settings add (`server/git`). A release that could not send a tag
+  keeps its tags and ends unpublished, saying which and why, and
+  `frontseat ship` exits 1; made again at the same commit it sends what
+  was not. Held by:
+  `TestAReleasePushesItsTagsAndSaysWhichItCouldNot`,
+  `TestATagIsPushedAloneAndNeverOverAnother` and
+  `TestAPushGoesToTheRemoteGivenAndSaysNothingTheRepositoryAdds`. Not
+  held: the daemon is not told whether it may push, and tries, so a
+  workspace opened without `--push` ends unpublished by its gateway's
+  refusal, which no test makes; of several tags, those sent before one is
+  refused stay sent, and those after it are not tried; a remote given
+  as a directory runs its own hooks as the daemon; why a push failed
+  is what git said, the remote's own words among it.
 - Versions never go backwards: a unit with no release of its own
   continues above the highest version its members, their Systems or
   their Domain were released at, by the next bump its strategy gives.

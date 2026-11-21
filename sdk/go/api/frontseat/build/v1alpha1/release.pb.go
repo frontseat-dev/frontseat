@@ -127,12 +127,19 @@ const (
 	// STATE_TAGGING: its units are built, and are being tagged, in the
 	// daemon's checkout.
 	Release_STATE_TAGGING Release_State = 2
-	// STATE_SUCCEEDED: it ended with nothing left to do: no unit of its
-	// plan was tagged, since none moves, or since what moves is a
+	// STATE_SUCCEEDED: it ended with nothing left to do: every tag of
+	// its units is where its repository was brought from; or no unit of
+	// its plan was tagged, since none moves, or since what moves is a
 	// prerelease its unit does not tag, which was built and no more.
 	Release_STATE_SUCCEEDED Release_State = 3
-	// STATE_UNPUBLISHED: its units are tagged, in the daemon's checkout
-	// and nowhere else.
+	// STATE_PUSHING: its units are tagged, and each tag is being sent to
+	// where its repository was brought from.
+	Release_STATE_PUSHING Release_State = 6
+	// STATE_UNPUBLISHED: its units are tagged in the daemon's checkout,
+	// and not every tag is where its repository was brought from: a
+	// workspace that may not push leaves them all there, and failure
+	// says which tag was not sent and why. Released again, at the same
+	// commit, it sends them.
 	Release_STATE_UNPUBLISHED Release_State = 4
 	// STATE_FAILED: it ended before all of that was done; its units say
 	// what was. Where the build fails, no unit is tagged.
@@ -146,6 +153,7 @@ var (
 		1: "STATE_BUILDING",
 		2: "STATE_TAGGING",
 		3: "STATE_SUCCEEDED",
+		6: "STATE_PUSHING",
 		4: "STATE_UNPUBLISHED",
 		5: "STATE_FAILED",
 	}
@@ -154,6 +162,7 @@ var (
 		"STATE_BUILDING":    1,
 		"STATE_TAGGING":     2,
 		"STATE_SUCCEEDED":   3,
+		"STATE_PUSHING":     6,
 		"STATE_UNPUBLISHED": 4,
 		"STATE_FAILED":      5,
 	}
@@ -798,7 +807,8 @@ type Release struct {
 	BuildId string `protobuf:"bytes,4,opt,name=build_id,json=buildId,proto3" json:"build_id,omitempty"`
 	// Units say what became of each unit that moves.
 	Units []*ReleasedUnit `protobuf:"bytes,5,rep,name=units,proto3" json:"units,omitempty"`
-	// Failure says why a release that failed did, where no unit says.
+	// Failure says why a release that failed did, where no unit says, and
+	// why one that is unpublished is.
 	Failure string `protobuf:"bytes,6,opt,name=failure,proto3" json:"failure,omitempty"`
 	// Create_time is when it was made.
 	CreateTime *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=create_time,json=createTime,proto3" json:"create_time,omitempty"`
@@ -1266,7 +1276,7 @@ const file_frontseat_build_v1alpha1_release_proto_rawDesc = "" +
 	"\bentities\x18\x01 \x03(\v2\".frontseat.type.v1alpha1.EntityRefB\x04\xe2A\x01\x02R\bentities\x12\x18\n" +
 	"\x04etag\x18\x02 \x01(\tB\x04\xe2A\x01\x02R\x04etag\"T\n" +
 	"\x15CreateReleaseResponse\x12;\n" +
-	"\arelease\x18\x01 \x01(\v2!.frontseat.build.v1alpha1.ReleaseR\arelease\"\xb0\x04\n" +
+	"\arelease\x18\x01 \x01(\v2!.frontseat.build.v1alpha1.ReleaseR\arelease\"\xc3\x04\n" +
 	"\aRelease\x12\x14\n" +
 	"\x02id\x18\x01 \x01(\tB\x04\xe2A\x01\x03R\x02id\x12?\n" +
 	"\x04plan\x18\x02 \x01(\v2%.frontseat.build.v1alpha1.ReleasePlanB\x04\xe2A\x01\x03R\x04plan\x12C\n" +
@@ -1276,12 +1286,13 @@ const file_frontseat_build_v1alpha1_release_proto_rawDesc = "" +
 	"\afailure\x18\x06 \x01(\tB\x04\xe2A\x01\x03R\afailure\x12A\n" +
 	"\vcreate_time\x18\a \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\n" +
 	"createTime\x12;\n" +
-	"\bend_time\x18\b \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\aendTime\"\x83\x01\n" +
+	"\bend_time\x18\b \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\aendTime\"\x96\x01\n" +
 	"\x05State\x12\x15\n" +
 	"\x11STATE_UNSPECIFIED\x10\x00\x12\x12\n" +
 	"\x0eSTATE_BUILDING\x10\x01\x12\x11\n" +
 	"\rSTATE_TAGGING\x10\x02\x12\x13\n" +
-	"\x0fSTATE_SUCCEEDED\x10\x03\x12\x15\n" +
+	"\x0fSTATE_SUCCEEDED\x10\x03\x12\x11\n" +
+	"\rSTATE_PUSHING\x10\x06\x12\x15\n" +
 	"\x11STATE_UNPUBLISHED\x10\x04\x12\x10\n" +
 	"\fSTATE_FAILED\x10\x05\"\xd0\x01\n" +
 	"\fReleasedUnit\x12@\n" +

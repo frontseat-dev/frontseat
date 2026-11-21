@@ -77,6 +77,34 @@ func (System) Clone(ctx context.Context, directory string, from vcs.Source) (str
 	return trimmed(ctx, cloned, "rev-parse", "HEAD")
 }
 
+// PushTag implements vcs.History: the tag's own name, to the same name
+// there, and nothing else of the repository; never forced, so that a
+// tag the remote has at another commit stays, and git says it does. A
+// tag of a commit no branch of the remote has is refused: it would
+// publish what was made in the workspace and pushed nowhere.
+func (s System) PushTag(ctx context.Context, directory, remote, name string) error {
+	if err := s.TagName(ctx, name); err != nil {
+		return fmt.Errorf("git push: %q %w", name, err)
+	}
+	ref := "refs/tags/" + name
+	if _, err := in(ctx, directory).Run(ctx, "rev-parse", "--verify", "--quiet", ref+"^{commit}"); err != nil {
+		return fmt.Errorf("git push: the repository has no tag %s", name)
+	}
+	// What a tag is pushed with is what the remote has of the commit
+	// already: a commit made in the workspace that no branch there has
+	// would leave it under the tag's name, and is pushed first.
+	if on, err := in(ctx, directory).Run(ctx, "for-each-ref", "--count=1", "--contains", ref+"^{commit}", "--format=%(refname)", "refs/remotes/origin"); err != nil || strings.TrimSpace(on) == "" {
+		return fmt.Errorf("git push: the commit %s names is on no branch of the remote, as the repository last saw it: push the commit, then the tag", name)
+	}
+	// To origin, which is pinned to the remote given, and never to the
+	// address itself: git reads an address first as the name of a remote
+	// the repository's own settings describe.
+	if _, err := fetching(ctx, directory, remote).Run(ctx, "push", "--atomic", "--no-follow-tags", "--no-signed", "--no-recurse-submodules", "--no-verify", "origin", ref+":"+ref); err != nil {
+		return fmt.Errorf("git push: %s: %w", name, err)
+	}
+	return nil
+}
+
 // Widen adds directories to a sparse checkout, or ends its being one,
 // fetching what they hold from the remote it was cloned from.
 func (System) Widen(ctx context.Context, directory, remote string, roots []string) error {

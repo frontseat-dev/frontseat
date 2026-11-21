@@ -10,6 +10,7 @@ import (
 	"github.com/frontseat-dev/frontseat/server/internal/pluginhost"
 	"strings"
 	"sync"
+	"time"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/proto"
@@ -34,7 +35,9 @@ var errReleaseNotFound = errors.New("no release has that id")
 // releases are the releases a daemon has made. A release carries out a
 // plan: it builds the plan's units for production, and tags each unit
 // that moves, in the daemon's checkout, once the build has passed.
-// Nothing leaves the checkout: a release ends unpublished.
+// Each tag is then pushed to where its repository was brought from, and
+// nothing else leaves the checkout: a release whose tags are not all
+// there ends unpublished, and says why.
 //
 // A daemon makes one release at a time. What it remembers of them it
 // remembers while it runs; what a release did that lasts is the tags.
@@ -283,7 +286,11 @@ func some(paths []string) string {
 	return strings.Join(paths, ", ")
 }
 
-// carryOut builds a plan's units and tags those that move.
+// pushWithin is how long one tag may take to be pushed.
+const pushWithin = 5 * time.Minute
+
+// carryOut builds a plan's units, tags those that move, and pushes the
+// tags.
 func (rs *releases) carryOut(m *made, planned *release.Planned, built *run) {
 	end := func(state buildv1.Release_State, failure string) {
 		now := rs.graph.runs.clock()
@@ -369,11 +376,33 @@ func (rs *releases) carryOut(m *made, planned *release.Planned, built *run) {
 		m.change(func(r *buildv1.Release) { r.Units = append(r.Units, became) })
 		tagged = true
 	}
-	// Its tags are in the daemon's checkout and nowhere else: it is not
-	// published. A release of nothing that moves has nothing to publish.
-	if tagged {
-		end(buildv1.Release_STATE_UNPUBLISHED, "")
+	// A release of nothing that was tagged has nothing to send.
+	if !tagged {
+		end(buildv1.Release_STATE_SUCCEEDED, "")
 		return
+	}
+	// Each tag is sent to where its repository was brought from, the tag
+	// alone, those of units found released already among them: a release
+	// whose tags were not all sent is finished by making it again. A
+	// workspace that may not push is refused there, and its tags stay in
+	// the daemon's checkout, which the release then says.
+	m.change(func(r *buildv1.Release) { r.State = buildv1.Release_STATE_PUSHING })
+	for _, unit := range m.snapshot().GetUnits() {
+		for _, tag := range unit.GetTags() {
+			if ctx.Err() != nil {
+				end(buildv1.Release_STATE_UNPUBLISHED, "the daemon ended before every tag was pushed; its tags are in the workspace")
+				return
+			}
+			// A remote that takes a push and never answers would hold
+			// the daemon's one release for as long as it runs.
+			pushing, cancel := context.WithTimeout(ctx, pushWithin)
+			err := workspace.PushTag(pushing, tag.GetRepository(), tag.GetName())
+			cancel()
+			if err != nil {
+				end(buildv1.Release_STATE_UNPUBLISHED, fmt.Sprintf("%s was not pushed from %s: %v; its tags are in the workspace, and the release made again sends them", tag.GetName(), tag.GetRepository(), err))
+				return
+			}
+		}
 	}
 	end(buildv1.Release_STATE_SUCCEEDED, "")
 }
