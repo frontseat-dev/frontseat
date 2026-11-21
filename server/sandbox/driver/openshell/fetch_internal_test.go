@@ -160,7 +160,11 @@ func TestWhatARuleSaysIsHeld(t *testing.T) {
 		"another method":                  {{Host: "forge.example", Requests: []driver.Request{{Method: "CONNECT", Path: "/a"}}}},
 		"a path that climbs":              {{Host: "forge.example", Requests: []driver.Request{{Method: "GET", Path: "/acme/../other"}}}},
 		"a path that climbs unseen":       {{Host: "forge.example", Requests: []driver.Request{{Method: "GET", Path: "/acme/%2e%2e/other"}}}},
-		"a pattern of paths":              {{Host: "forge.example", Requests: []driver.Request{{Method: "GET", Path: "/acme/*"}}}},
+		"a pattern of many parts":         {{Host: "forge.example", Requests: []driver.Request{{Method: "GET", Path: "/acme/**"}}}},
+		"a pattern within a part":         {{Host: "forge.example", Requests: []driver.Request{{Method: "GET", Path: "/acme/rel*"}}}},
+		"a pattern of what a part is":     {{Host: "forge.example", Requests: []driver.Request{{Method: "GET", Path: "/acme/?"}}}},
+		"any first part":                  {{Host: "forge.example", Requests: []driver.Request{{Method: "GET", Path: "/*/code"}}}},
+		"any part and nothing else":       {{Host: "forge.example", Requests: []driver.Request{{Method: "GET", Path: "/*"}}}},
 		"a path that is not one":          {{Host: "forge.example", Requests: []driver.Request{{Method: "GET", Path: "acme/code"}}}},
 		"a parameter of any value":        {{Host: "forge.example", Requests: []driver.Request{{Method: "GET", Path: "/a", Query: map[string]string{"service": "*"}}}}},
 		"a credential to anything asked":  {{Host: "forge.example", CredentialID: "ada-forge"}},
@@ -171,5 +175,27 @@ func TestWhatARuleSaysIsHeld(t *testing.T) {
 	}
 	if _, err := d.ruled(context.Background(), driver.Sandbox{Egress: driver.Egress{Listed: true, Rules: []driver.Rule{{Host: "forge.example", Requests: get}}}}); err != nil {
 		t.Errorf("a rule of one request was refused: %v", err)
+	}
+	// A part that is any one part is let through, after a part that is
+	// said: what a server names as it makes it, as a release's number,
+	// is not known when the rule is written. It is asked of the gateway
+	// as it is written, which reads it as one part and no more.
+	anyPart := []driver.Request{{Method: "PATCH", Path: "/repos/acme/code/releases/*"}, {Method: "POST", Path: "/repos/acme/code/releases/*/assets"}}
+	ruled, err := d.ruled(context.Background(), driver.Sandbox{Egress: driver.Egress{Listed: true, Rules: []driver.Rule{{Host: "forge.example", Requests: anyPart}}}})
+	if err != nil {
+		t.Fatalf("a request of any one part was refused: %v", err)
+	}
+	policy, err := d.policy(driver.Sandbox{Egress: driver.Egress{Listed: true, Rules: []driver.Rule{{Host: "forge.example", Requests: anyPart}}}}, ruled)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var asked []string
+	for _, rule := range policy.NetworkPolicies {
+		for _, allowed := range rule.Endpoints[0].Rules {
+			asked = append(asked, allowed.Allow.Method+" "+allowed.Allow.Path)
+		}
+	}
+	if got := strings.Join(asked, ", "); got != "PATCH /repos/acme/code/releases/*, POST /repos/acme/code/releases/*/assets" {
+		t.Errorf("the gateway is asked for %s", got)
 	}
 }

@@ -165,6 +165,10 @@ var policies = []policy{
 	// its entities resolved through a fake Backstage.
 	{"server/internal/source/told/toldtest", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/backstage", "server/internal/source/told", "server/internal/sourceapi/**", "server/testsupport/backstagetest"}},
 	{"server/internal/source/vcs", []string{"server/internal/source/vcs"}},
+	// What a forge asks of whoever publishes a release to it, which the
+	// control plane writes as rules: it knows a forge and how a path is
+	// written plainly, and nothing of a sandbox, a daemon or a build.
+	{"server/internal/forge", []string{"server/internal/forge", "server/internal/plain"}},
 	{"server/internal/source/internal/vcs/git", []string{"server/internal/source/vcs", "server/git"}},
 	// A sandbox is the isolation and knows nothing of what lives in one.
 	// A driver's tests, and the service's, are held to the conformance
@@ -183,7 +187,7 @@ var policies = []policy{
 	// (local/ports), and is told nothing of the stack.
 	// It resolves entities through the Backstage its operator gives it
 	// (server/internal/backstage), held over a fake one in its tests.
-	{"server/internal/controlplane/**", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/controlplane/**", "server/sandbox", "server/internal/backstage", "server/internal/secretfile", "server/internal/source/record", "server/internal/source/vcs", "server/internal/source/told", "server/internal/sourceapi/**", "server/testsupport/drivertest", "server/testsupport/backstagetest", "server/internal/plain", "local/ports", "sdk/go", "server/internal/page", "server/internal/refusal"}},
+	{"server/internal/controlplane/**", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/controlplane/**", "server/sandbox", "server/internal/backstage", "server/internal/secretfile", "server/internal/source/record", "server/internal/source/vcs", "server/internal/source/told", "server/internal/sourceapi/**", "server/testsupport/drivertest", "server/testsupport/backstagetest", "server/internal/plain", "local/ports", "sdk/go", "server/internal/page", "server/internal/refusal", "server/internal/forge"}},
 	// A test starts a daemon as frontseatd does, and a control plane as
 	// frontseat-local does, each with the test support beside it.
 	{"server/testsupport/buildtest", []string{"server/internal/build", "server/telemetry", "server/testsupport/**", "sdk/go/api/**", "server/internal/source", "server/internal/source/told", "server/internal/source/told/toldtest", "server/internal/sourceapi/**"}},
@@ -193,11 +197,11 @@ var policies = []policy{
 	{"server/testsupport/drivertest", []string{"server/sandbox/driver", "server/testsupport/drivertest"}},
 	// It serves the sandbox service beneath the plane to the test alone,
 	// and says how the plane's owner is known as the SDK's clients take it.
-	{"server/testsupport/controlplanetest", []string{"server/internal/controlplane", "server/internal/backstage", "server/internal/source", "server/sandbox", "server/testsupport/**", "sdk/go/api/**", "sdk/go"}},
+	{"server/testsupport/controlplanetest", []string{"server/internal/controlplane", "server/internal/backstage", "server/internal/source", "server/internal/forge", "server/sandbox", "server/testsupport/**", "sdk/go/api/**", "sdk/go"}},
 	{"server/cmd/frontseatd", []string{"server/internal/build", "server/internal/source", "server/internal/httpserver", "server/telemetry", "local/ports"}},
 	// The local stack's control plane: the control plane, told what the
 	// stack is by the stack's own package.
-	{"server/cmd/frontseat-local", []string{"server/internal/controlplane", "server/internal/backstage", "server/internal/source", "server/internal/httpserver", "server/telemetry", "local", "local/ports", "local/stack", "local/box"}},
+	{"server/cmd/frontseat-local", []string{"server/internal/controlplane", "server/internal/backstage", "server/internal/source", "server/internal/forge", "server/internal/httpserver", "server/telemetry", "local", "local/ports", "local/stack", "local/box"}},
 	{"server/cmd/frontseat-action", []string{"server/internal/confine"}},
 	// The grid's runner: a thin main over the runner, which serves the
 	// sandbox API over the container runtime to itself.

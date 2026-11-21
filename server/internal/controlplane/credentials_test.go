@@ -38,12 +38,39 @@ const third = "746869726420706572736f6e2773206f776e20746f6b656e2c206e6f206f6e65"
 // workspaces and credentials.
 func servedToPeople(t *testing.T, s *sandboxes) (func(token string) workspacev1alpha1connect.WorkspaceServiceClient, func(token string) credentialv1alpha1connect.CredentialServiceClient) {
 	t.Helper()
-	_, address, _ := served(t, s, t.TempDir(), func(c *Config) { c.Callers = people{owner: "ada", another: "bea", third: "cy"} })
+	return servedToPeopleWith(t, s, nil)
+}
+
+// servedToPeopleWith is servedToPeople by a control plane configured
+// further, where a change is given.
+func servedToPeopleWith(t *testing.T, s *sandboxes, change func(*Config)) (func(token string) workspacev1alpha1connect.WorkspaceServiceClient, func(token string) credentialv1alpha1connect.CredentialServiceClient) {
+	t.Helper()
+	_, address, _ := served(t, s, t.TempDir(), func(c *Config) {
+		c.Callers = people{owner: "ada", another: "bea", third: "cy"}
+		if change != nil {
+			change(c)
+		}
+	})
 	return func(token string) workspacev1alpha1connect.WorkspaceServiceClient {
 			return workspacev1alpha1connect.NewWorkspaceServiceClient(connect.NewClient(connecthttp.NewTransport(bearing(token), address)))
 		}, func(token string) credentialv1alpha1connect.CredentialServiceClient {
 			return credentialv1alpha1connect.NewCredentialServiceClient(connect.NewClient(connecthttp.NewTransport(bearing(token), address)))
 		}
+}
+
+// listedFor are the hosts a person's credentials are listed for, in the
+// order listed: each as Ada's, with no secret said.
+func listedFor(t *testing.T, credentials credentialv1alpha1connect.CredentialServiceClient) ([]string, error) {
+	t.Helper()
+	listed, err := credentials.ListCredentials(context.Background(), &credentialv1.ListCredentialsRequest{})
+	var hosts []string
+	for _, each := range listed.GetCredentials() {
+		hosts = append(hosts, each.GetHost())
+		if each.GetSecret() != "" || each.GetUsername() != "ada" {
+			t.Errorf("a credential is listed as %v", each)
+		}
+	}
+	return hosts, err
 }
 
 // One person's credential for a host is theirs: a workspace of another
@@ -105,14 +132,7 @@ func TestAPersonsCredentialsAreTheirsAlone(t *testing.T) {
 			t.Errorf("the secret was said back: %v", set)
 		}
 	}
-	listed, err := credentials(owner).ListCredentials(ctx, &credentialv1.ListCredentialsRequest{})
-	var hosts []string
-	for _, each := range listed.GetCredentials() {
-		hosts = append(hosts, each.GetHost())
-		if each.GetSecret() != "" || each.GetUsername() != "ada" {
-			t.Errorf("a credential is listed as %v", each)
-		}
-	}
+	hosts, err := listedFor(t, credentials(owner))
 	if want := []string{"forge.example:443", "http://plain.example:80", "other.example:8443"}; err != nil || !slices.Equal(hosts, want) {
 		t.Errorf("Ada's credentials are listed as %v (%v), want %v", hosts, err, want)
 	}
@@ -124,7 +144,7 @@ func TestAPersonsCredentialsAreTheirsAlone(t *testing.T) {
 	if _, err := credentials(another).DeleteCredential(ctx, &credentialv1.DeleteCredentialRequest{Host: "forge.example"}); err != nil {
 		t.Errorf("Bea letting go of what she does not keep: %v, want no error", err)
 	}
-	if again, err := credentials(owner).ListCredentials(ctx, &credentialv1.ListCredentialsRequest{}); err != nil || len(again.GetCredentials()) != len(listed.GetCredentials()) {
+	if again, err := credentials(owner).ListCredentials(ctx, &credentialv1.ListCredentialsRequest{}); err != nil || len(again.GetCredentials()) != len(hosts) {
 		t.Errorf("Ada's credentials after Bea let go of the host: %v (%v), want them kept", again, err)
 	}
 	for what, refused := range map[string]*credentialv1.Credential{

@@ -228,9 +228,8 @@ func (d *Driver) ruled(ctx context.Context, record driver.Sandbox) (fetched, err
 			endpoint.Protocol, endpoint.Enforcement = "rest", client.NetworkEnforcementModeEnforce
 		}
 		for _, asked := range rule.Requests {
-			if !slices.Contains([]string{"GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"}, asked.Method) ||
-				!strings.HasPrefix(asked.Path, "/") || !plain.Text(asked.Path) || strings.Contains(asked.Path, "..") || strings.Contains(asked.Path, "//") {
-				return fetched{}, fmt.Errorf("%w: openshell: %s %q is no request a rule lets through: one is a method and a path written plainly", driver.ErrInvalid, asked.Method, asked.Path)
+			if !slices.Contains([]string{"GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"}, asked.Method) || !plain.Asked(asked.Path) {
+				return fetched{}, fmt.Errorf("%w: openshell: %s %q is no request a rule lets through: one is a method and a path written plainly, a part of which after its first may be any one part, written *", driver.ErrInvalid, asked.Method, asked.Path)
 			}
 			allow := &client.L7Allow{Method: asked.Method, Path: asked.Path}
 			for parameter, value := range asked.Query {

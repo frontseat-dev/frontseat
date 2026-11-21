@@ -46,7 +46,7 @@ func started(t *testing.T, gateway, identity string) error {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	return serve(ctx, "127.0.0.1:0", "", "host.docker.internal:8980", t.TempDir(), gateway, identity, "docker", "", filepath.Join(t.TempDir(), "owner", "token"), nil)
+	return serve(ctx, "127.0.0.1:0", "", "host.docker.internal:8980", t.TempDir(), gateway, identity, "docker", "", filepath.Join(t.TempDir(), "owner", "token"), nil, nil)
 }
 
 // The local server makes its sandboxes with an OpenShell gateway and has
@@ -117,7 +117,7 @@ func TestWithTheGatewayThatKnowsItTheServerStarts(t *testing.T) {
 	known := testgateway.Identity(t)
 	for _, public := range []string{"", "http://127.0.0.1:7700"} {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		err := serve(ctx, "127.0.0.1:0", public, "host.docker.internal:8980", t.TempDir(), testgateway.Address, known, "docker", "", filepath.Join(t.TempDir(), "owner", "token"), nil)
+		err := serve(ctx, "127.0.0.1:0", public, "host.docker.internal:8980", t.TempDir(), testgateway.Address, known, "docker", "", filepath.Join(t.TempDir(), "owner", "token"), nil, nil)
 		cancel()
 		if err != nil {
 			t.Errorf("with the gateway and what it is known by, clients told to reach it at %q, the server did not start: %v", public, err)
@@ -149,7 +149,7 @@ func TestWhereClientsReachTheServerIsAnAddress(t *testing.T) {
 	}
 	// It is asked before any gateway is: a server told nowhere a client
 	// can reach does not start.
-	if err := serve(context.Background(), "0.0.0.0:0", "", "host.docker.internal:8980", t.TempDir(), "https://127.0.0.1:1", identityOf(t, 0o600), "docker", "", filepath.Join(t.TempDir(), "owner", "token"), nil); err == nil || !strings.Contains(err.Error(), "--public") {
+	if err := serve(context.Background(), "0.0.0.0:0", "", "host.docker.internal:8980", t.TempDir(), "https://127.0.0.1:1", identityOf(t, 0o600), "docker", "", filepath.Join(t.TempDir(), "owner", "token"), nil, nil); err == nil || !strings.Contains(err.Error(), "--public") {
 		t.Errorf("listening on every address and told no other: %v, want --public named", err)
 	}
 }

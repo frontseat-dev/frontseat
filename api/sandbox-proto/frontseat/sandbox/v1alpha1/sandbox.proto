@@ -329,7 +329,10 @@ message EgressRule {
 message EgressRequest {
   // Method is the HTTP method, in capitals.
   string method = 1 [(google.api.field_behavior) = REQUIRED];
-  // Path is the path asked for, in full and written plainly.
+  // Path is the path asked for, in full and written plainly. A part of
+  // it after its first that is "*" is any one part, and no more: what a
+  // server names as it makes it, as a forge numbers a release, is not
+  // known when a rule is written. Nothing else of a pattern is taken.
   string path = 2 [(google.api.field_behavior) = REQUIRED];
   // Query holds, for a parameter that must be there, the one value it
   // has; a request with none is held to no parameter.

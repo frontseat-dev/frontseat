@@ -53,3 +53,24 @@ func User(user string) bool {
 func Absolute(name string) bool {
 	return path.IsAbs(name) && path.Clean(name) == name && name != "/" && !strings.ContainsRune(name, 0)
 }
+
+// Asked is whether a path is one a request is let through by: from the
+// root, each part written plainly, but that a part after the first may
+// be any one part, written "*". What a server names as it makes it, as
+// a forge numbers a release, is not known when a rule is written; where
+// a rule begins is, and stays said. Nothing else of a pattern is taken:
+// not many parts, nor some of a part, and no part climbs.
+func Asked(written string) bool {
+	if !strings.HasPrefix(written, "/") || strings.Contains(written, "..") || strings.Contains(written, "//") {
+		return false
+	}
+	for i, part := range strings.Split(strings.TrimPrefix(written, "/"), "/") {
+		if part == "*" && i > 0 {
+			continue
+		}
+		if !Text(part) {
+			return false
+		}
+	}
+	return true
+}

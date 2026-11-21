@@ -51,6 +51,15 @@ func credentialID(owner, host string) string {
 	return "cred-" + hex.EncodeToString(sum[:])[:40]
 }
 
+// besideID is the id a person's credential for a forge's host is kept
+// under for another host that forge is asked at: of the digest of all
+// three, so that it is no credential the person gave for that other
+// host themselves, which stays theirs and as they gave it.
+func besideID(owner, host, beside string) string {
+	sum := sha256.Sum256([]byte(owner + "\x00" + host + "\x00beside\x00" + beside))
+	return "cred-" + hex.EncodeToString(sum[:])[:40]
+}
+
 // credentialHost is a host as a credential is kept for it, and as a
 // sandbox's rule names it: name:port, over https, or http://name:port,
 // over http. A host is a name, never an address, and nothing more.
@@ -73,6 +82,29 @@ func credentialHost(written string) (string, error) {
 		return "", refused
 	}
 	return origin{scheme: scheme, host: net.JoinHostPort(name, port)}.rule(), nil
+}
+
+// beside are the hosts a credential for a host is kept for beside it:
+// those its forge is asked at for a release, each as a credential is
+// kept for it. None, where the control plane was told of no forge, or
+// the host is none of one's.
+func (c *credentials) beside(host string) ([]string, error) {
+	if c.s.Releasing == nil {
+		return nil, nil
+	}
+	at := origin{scheme: "https", host: host}
+	if plainly, ok := strings.CutPrefix(host, "http://"); ok {
+		at = origin{scheme: "http", host: plainly}
+	}
+	var out []string
+	for _, each := range c.s.Releasing.Beside(at.address()) {
+		kept, err := credentialHost(each)
+		if err != nil {
+			return nil, fmt.Errorf("the forge says a credential for %s serves a host that is none: %w", host, err)
+		}
+		out = append(out, kept)
+	}
+	return out, nil
 }
 
 // credentialRecord is the record of the credentials kept: by owner, by
@@ -159,10 +191,28 @@ func (c *credentials) SetCredential(ctx context.Context, req *credentialv1.SetCr
 	out := &credentialv1.SetCredentialResponse{}
 	written := given.GetHost()
 	err := c.holding(ctx, &written, func(owner, host string, record credentialRecord) error {
+		// A forge is asked for its releases at hosts beside the one its
+		// repositories are fetched from: a credential given for that one
+		// is kept for those too, so that it is given once.
+		beside, err := c.beside(host)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err.Error())
+		}
 		if _, err := c.s.Sandboxes.SetCredential(ctx, &sandboxv1.SetCredentialRequest{Credential: &sandboxv1.Credential{
 			Name: credentialID(owner, host), Host: host, Username: given.GetUsername(), Secret: given.GetSecret(),
 		}}); err != nil {
 			return relayed(err)
+		}
+		// Each is kept under a name of its own, and so is no credential
+		// the person gave for that host themselves. One that could not
+		// be kept fails the call, the host's own already kept anew: it
+		// is given again.
+		for _, each := range beside {
+			if _, err := c.s.Sandboxes.SetCredential(ctx, &sandboxv1.SetCredentialRequest{Credential: &sandboxv1.Credential{
+				Name: besideID(owner, host, each), Host: each, Username: given.GetUsername(), Secret: given.GetSecret(),
+			}}); err != nil {
+				return relayed(err)
+			}
 		}
 		if record[owner] == nil {
 			record[owner] = map[string]string{}
@@ -201,11 +251,28 @@ func (c *credentials) ListCredentials(ctx context.Context, req *credentialv1.Lis
 func (c *credentials) DeleteCredential(ctx context.Context, req *credentialv1.DeleteCredentialRequest) (*credentialv1.DeleteCredentialResponse, error) {
 	written := req.GetHost()
 	err := c.holding(ctx, &written, func(owner, host string, record credentialRecord) error {
-		if _, err := c.s.Sandboxes.DeleteCredential(ctx, &sandboxv1.DeleteCredentialRequest{Name: credentialID(owner, host)}); err != nil {
-			if connect.CodeOf(err) == connect.CodeFailedPrecondition {
-				return refusal.New(refusal.Credential, connect.CodeFailedPrecondition, "CREDENTIAL_IN_USE", fmt.Sprintf("a workspace of yours is still let through with your credential for %s: it is let go of once those workspaces have ended", host))
+		// It is let go of where it was kept: for the host first, which
+		// every workspace let through with any of it is let through
+		// with, so that one still in use keeps the whole of it; then for
+		// the hosts its forge is asked at beside it.
+		beside, err := c.beside(host)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err.Error())
+		}
+		names := []string{credentialID(owner, host)}
+		for _, each := range beside {
+			names = append(names, besideID(owner, host, each))
+		}
+		for i, name := range names {
+			if _, err := c.s.Sandboxes.DeleteCredential(ctx, &sandboxv1.DeleteCredentialRequest{Name: name}); err != nil {
+				if connect.CodeOf(err) == connect.CodeFailedPrecondition {
+					return refusal.New(refusal.Credential, connect.CodeFailedPrecondition, "CREDENTIAL_IN_USE", fmt.Sprintf("a workspace of yours is still let through with your credential for %s: it is let go of once those workspaces have ended", host))
+				}
+				if i > 0 && connect.CodeOf(err) == connect.CodeNotFound {
+					continue
+				}
+				return relayed(err)
 			}
-			return relayed(err)
 		}
 		if _, ok := record[owner][host]; !ok {
 			return nil
