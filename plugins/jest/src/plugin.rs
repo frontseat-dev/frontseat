@@ -128,7 +128,8 @@ mod tests {
 
     /// What a package says that Jest runs and this plugin does not run
     /// yet is refused as not served, each by its own reason; a test
-    /// script that is not jest is refused as invalid; the control is a
+    /// script that is not jest, and a name that is blank, are refused as
+    /// invalid; the control is a
     /// package whose test script is jest, which is a suite. It takes no
     /// option: one configured suite is one piece, never cut into shards.
     #[test]
@@ -170,6 +171,7 @@ mod tests {
         }
         analyze(PACKAGE.replace(r#""test":"jest""#, r#""test":"jest --ci""#))
             .refused("invalid-manifest");
+        analyze(PACKAGE.replace(r#""name":"web""#, r#""name":"""#)).refused("invalid-json");
         assert!(plugin.describe().options.is_empty());
         let host = TestHost::new(Files::new().with("app/package.json", PACKAGE));
         plugin

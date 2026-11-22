@@ -42,7 +42,8 @@ or pnpm lock (`yarn-not-served`, `pnpm-not-served`), `.npmrc`
 (`npmrc-not-served`) and an implicit root `binding.gyp` build
 (`native-addons-not-served`). A lock that is missing or not v3, and
 local/git/linked or bundled dependencies, other checksum algorithms or SRI
-expressions, are refused as `invalid-manifest`. Test-script semantics belong
+expressions, are refused as `invalid-manifest`; a `package.json` whose name
+is missing, empty or blank as `invalid-json`. Test-script semantics belong
 to the framework adapter.
 Dependency hooks that require network access fail offline. Hooks that need
 undeclared tools or outputs outside `node_modules/` are not supported.

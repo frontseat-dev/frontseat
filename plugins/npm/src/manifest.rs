@@ -140,7 +140,8 @@ mod tests {
 
     /// What a package says that npm reads and this plugin does not build
     /// yet is refused as not served, each by its own reason; a lock that
-    /// is wrong is refused as invalid; the control is a standalone
+    /// is wrong, and a name that is blank, are refused as invalid; the
+    /// control is a standalone
     /// package with its v3 lock, which is built.
     #[test]
     fn what_npm_reads_and_is_not_built_yet_is_refused_as_not_served() {
@@ -210,6 +211,8 @@ mod tests {
                 "{reason}"
             );
         }
-        analyze(package.without("app/package-lock.json")).refused("invalid-manifest");
+        analyze(package.clone().without("app/package-lock.json")).refused("invalid-manifest");
+        let unnamed = PACKAGE.replace(r#""name":"web""#, r#""name":" ""#);
+        analyze(package.with("app/package.json", unnamed)).refused("invalid-json");
     }
 }
