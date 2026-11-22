@@ -35,29 +35,29 @@ func TestWhatAServiceCannotBeIsRefusedByItsKey(t *testing.T) {
 		"service names no port": func(l *typev1.Service) {
 			l.Ports, l.Ready = nil, []*typev1.ServiceReady{{Check: &typev1.ServiceReady_Command{Command: &typev1.ServiceCommandReady{Arguments: []string{"true"}}}}}
 		},
-		"service.ports: http 0":            func(l *typev1.Service) { l.Ports["http"] = 0 },
-		"service.ports: http 65536":        func(l *typev1.Service) { l.Ports["http"] = 65536 },
-		"service.ports: HTTP 80":           func(l *typev1.Service) { l.Ports["HTTP"] = 80 },
-		"says nothing of when it is ready": func(l *typev1.Service) { l.Ready = nil },
-		"is one of port, http or command":  func(l *typev1.Service) { l.Ready = []*typev1.ServiceReady{{}} },
-		"a port it does not name":          func(l *typev1.Service) { l.Ready = []*typev1.ServiceReady{{Check: &typev1.ServiceReady_Port{}}} },
+		"service.ports: a name in lower-case letters, digits and dashes, and a port from 1 to 65535": func(l *typev1.Service) { l.Ports["http"] = 0 },
+		"and a port from 1 to 65535":                  func(l *typev1.Service) { l.Ports["http"] = 65536 },
+		"service.ports: a name in lower-case letters": func(l *typev1.Service) { l.Ports["HTTP"] = 80 },
+		"says nothing of when it is ready":            func(l *typev1.Service) { l.Ready = nil },
+		"is one of port, http or command":             func(l *typev1.Service) { l.Ready = []*typev1.ServiceReady{{}} },
+		"a port it does not name":                     func(l *typev1.Service) { l.Ready = []*typev1.ServiceReady{{Check: &typev1.ServiceReady_Port{}}} },
 		"names a port sql it does not serve": func(l *typev1.Service) {
 			l.Ready = []*typev1.ServiceReady{{Check: &typev1.ServiceReady_Port{Port: "sql"}}}
 		},
-		"at no port or path":    func(l *typev1.Service) { l.Ready[0].GetHttp().Path = "@evil.example/" },
-		"no regular expression": func(l *typev1.Service) { l.Ready[0].GetHttp().Body = "(" },
+		"at no port or path":      func(l *typev1.Service) { l.Ready[0].GetHttp().Path = "@evil.example/" },
+		"is a regular expression": func(l *typev1.Service) { l.Ready[0].GetHttp().Body = "(" },
 		"a command that names nothing": func(l *typev1.Service) {
 			l.Ready = []*typev1.ServiceReady{{Check: &typev1.ServiceReady_Command{Command: &typev1.ServiceCommandReady{}}}}
 		},
-		"service.timeout is a number":     func(l *typev1.Service) { l.Timeout = durationpb.New(-1 * time.Second) },
-		"more than the hour":              func(l *typev1.Service) { l.Timeout = durationpb.New(3601 * time.Second) },
-		"not a name the shell can export": func(l *typev1.Service) { l.Exports = map[string]string{"LD-PRELOAD": "x"} },
+		"service.timeout is a number": func(l *typev1.Service) { l.Timeout = durationpb.New(-1 * time.Second) },
+		"more than the hour":          func(l *typev1.Service) { l.Timeout = durationpb.New(3601 * time.Second) },
+		"service.exports: a name the shell can export is letters, digits and underscores": func(l *typev1.Service) { l.Exports = map[string]string{"LD-PRELOAD": "x"} },
 		// What it starts with is named as what it exports is: each of
 		// these would reach the runtime as --env <name>=<value>.
-		`service.env: "" is not a name`:     func(l *typev1.Service) { l.Environment = map[string]string{"": "x"} },
-		`service.env: "A=B" is not a name`:  func(l *typev1.Service) { l.Environment = map[string]string{"A=B": "x"} },
-		`service.env: "A B" is not a name`:  func(l *typev1.Service) { l.Environment = map[string]string{"A B": "x"} },
-		`service.env: "A\nB" is not a name`: func(l *typev1.Service) { l.Environment = map[string]string{"A\nB": "x"} },
+		"service.env: a name the shell can export is letters":  func(l *typev1.Service) { l.Environment = map[string]string{"": "x"} },
+		"service.env: a name the shell can export is letters,": func(l *typev1.Service) { l.Environment = map[string]string{"A=B": "x"} },
+		"service.env: a name the shell can export is":          func(l *typev1.Service) { l.Environment = map[string]string{"A B": "x"} },
+		"service.env: a name the shell can export":             func(l *typev1.Service) { l.Environment = map[string]string{"A\nB": "x"} },
 	} {
 		l := whole()
 		change(l)
@@ -111,5 +111,45 @@ func TestWhatIsNotYetSaidIsNoMistakeOfShape(t *testing.T) {
 	}
 	if err := testservice.Check(&typev1.Service{}); err == nil {
 		t.Fatal("nothing said was taken for a service")
+	}
+}
+
+// What a service refuses it does not repeat, whoever wrote it: a name,
+// a port, a body, an endpoint or an API's reference may hold anything.
+// The control is the whole service, which is allowed.
+func TestWhatAServiceRefusesIsNotRepeated(t *testing.T) {
+	if err := testservice.Check(whole()); err != nil {
+		t.Fatalf("control, a service that is whole: %v", err)
+	}
+	for name, change := range map[string]func(*typev1.Service){
+		"an export":          func(l *typev1.Service) { l.Exports = map[string]string{"SECRET-A": "x"} },
+		"a variable":         func(l *typev1.Service) { l.Environment = map[string]string{"SECRET-A": "x"} },
+		"a port's name":      func(l *typev1.Service) { l.Ports["SECRET"] = 80 },
+		"a port":             func(l *typev1.Service) { l.Ports["http"] = 5346738 },
+		"a body":             func(l *typev1.Service) { l.Ready[0].GetHttp().Body = "SECRET(" },
+		"an endpoint's name": func(l *typev1.Service) { l.Endpoints = map[string]string{"SECRET": "{host}:{port.http}"} },
+		"an API":             func(l *typev1.Service) { l.Apis = map[string]*typev1.ServiceApi{"SECRET": {Port: "http"}} },
+		"an API's export": func(l *typev1.Service) {
+			l.Apis = map[string]*typev1.ServiceApi{"api:default/orders": {Port: "http", Exports: map[string]string{"SECRET-A": "x"}}}
+		},
+		"a time to be ready": func(l *typev1.Service) { l.Timeout = durationpb.New(5346738 * time.Second) },
+	} {
+		l := whole()
+		change(l)
+		if err := testservice.Check(l); err == nil || !strings.HasPrefix(err.Error(), "service.") || strings.Contains(err.Error(), "SECRET") || strings.Contains(err.Error(), "5346738") {
+			t.Errorf("%s: want it refused by its key and not repeated, got %v", name, err)
+		}
+	}
+}
+
+// Of several things wrong under one key, the first by name is the one
+// refused, every time.
+func TestWhichEndpointIsRefusedDoesNotChangeBetweenChecks(t *testing.T) {
+	for range 50 {
+		l := whole()
+		l.Endpoints = map[string]string{"zeta": "{host}", "alpha": "{port.http}", "mid": "{host}:{port.http}:{port.other}"}
+		if err := testservice.Check(l); err == nil || !strings.Contains(err.Error(), "service.endpoints: alpha does not say {host}") {
+			t.Fatalf("the endpoint refused: %v", err)
+		}
 	}
 }

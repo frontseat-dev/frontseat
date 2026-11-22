@@ -9,7 +9,9 @@ package testservice
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -43,6 +45,9 @@ var (
 	serviceName = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,62}$`)
 )
 
+// exportable is what a name the shell can export is, as a refusal says it.
+const exportable = "letters, digits and underscores, beginning with no digit"
+
 // Exportable reports whether a name is one the shell can export: what a
 // variable of an environment is named by, wherever one is set.
 func Exportable(name string) bool { return variable.MatchString(name) }
@@ -57,7 +62,9 @@ func Named(name string) bool { return serviceName.MatchString(name) && name != "
 // variable it starts with a name the shell can export, each readiness
 // check of a kind and whole, each endpoint an address of its own host
 // and one port of its own, and a time to be ready of an hour at most.
-// Its messages begin with the key of a catalog's service they are about.
+// Its messages begin with the key of a catalog's service they are about,
+// and say what the key takes and never what was written: a value may
+// hold anything. Where several are wrong, the first by name is refused.
 func Shaped(l *typev1.Service) error {
 	// It runs as a user named by number, never root's, and writes
 	// directories of its image named plainly, never the whole of it.
@@ -74,10 +81,11 @@ func Shaped(l *typev1.Service) error {
 			return errors.New("service.writable: an absolute directory, plainly named, other than /")
 		}
 	}
-	for api, binding := range l.GetApis() {
+	for _, api := range slices.Sorted(maps.Keys(l.GetApis())) {
+		binding := l.GetApis()[api]
 		ref, err := entity.Parse(api)
 		if err != nil || ref.Kind != "api" || ref.String() != api {
-			return fmt.Errorf("service.apis: %q is not a canonical API reference", api)
+			return errors.New("service.apis: an API is named by its whole reference, api:<namespace>/<name>")
 		}
 		if _, exists := l.GetPorts()[binding.GetPort()]; !exists {
 			return fmt.Errorf("service.apis: %s names no listening port", api)
@@ -85,10 +93,11 @@ func Shaped(l *typev1.Service) error {
 		if len(binding.GetExports()) == 0 {
 			return fmt.Errorf("service.apis: %s exports nothing", api)
 		}
-		for name, value := range binding.GetExports() {
+		for _, name := range slices.Sorted(maps.Keys(binding.GetExports())) {
 			if !Exportable(name) {
-				return fmt.Errorf("service.apis: %s export %q is not an environment name", api, name)
+				return fmt.Errorf("service.apis: %s exports under a name the shell cannot export: %s", api, exportable)
 			}
+			value := binding.GetExports()[name]
 			rest := strings.ReplaceAll(strings.ReplaceAll(value, "{host}", ""), "{port."+binding.GetPort()+"}", "")
 			if strings.ContainsAny(rest, "{}") {
 				return fmt.Errorf("service.apis: %s export %s names something other than its own host and port", api, name)
@@ -97,7 +106,7 @@ func Shaped(l *typev1.Service) error {
 	}
 	for name := range l.GetExports() {
 		if !Exportable(name) {
-			return fmt.Errorf("service.exports: %q is not a name the shell can export", name)
+			return fmt.Errorf("service.exports: a name the shell can export is %s", exportable)
 		}
 	}
 	// What it starts with is named as what it exports is: a name that is
@@ -105,12 +114,12 @@ func Shaped(l *typev1.Service) error {
 	// and one with an equals sign in it would set another.
 	for name := range l.GetEnvironment() {
 		if !Exportable(name) {
-			return fmt.Errorf("service.env: %q is not a name of an environment", name)
+			return fmt.Errorf("service.env: a name the shell can export is %s", exportable)
 		}
 	}
 	for name, port := range l.GetPorts() {
 		if !portName.MatchString(name) || port < 1 || port > 65535 {
-			return fmt.Errorf("service.ports: %s %d is not a name and a port", name, port)
+			return errors.New("service.ports: a name in lower-case letters, digits and dashes, and a port from 1 to 65535")
 		}
 	}
 	for i, ready := range l.GetReady() {
@@ -124,7 +133,7 @@ func Shaped(l *typev1.Service) error {
 				return fmt.Errorf("service.ready[%d] is ready by an HTTP answer at no port or path", i)
 			}
 			if _, err := regexp.Compile(c.Http.GetBody()); err != nil {
-				return fmt.Errorf("service.ready[%d]: the body %q is no regular expression: %v", i, c.Http.GetBody(), err)
+				return fmt.Errorf("service.ready[%d]: the body an HTTP answer is matched by is a regular expression, as Go reads one", i)
 			}
 		case *typev1.ServiceReady_Command:
 			if len(c.Command.GetArguments()) == 0 {
@@ -134,8 +143,8 @@ func Shaped(l *typev1.Service) error {
 			return fmt.Errorf("service.ready[%d] is one of port, http or command", i)
 		}
 	}
-	for name, address := range l.GetEndpoints() {
-		if _, err := EndpointPort(name, address); err != nil {
+	for _, name := range slices.Sorted(maps.Keys(l.GetEndpoints())) {
+		if _, err := EndpointPort(name, l.GetEndpoints()[name]); err != nil {
 			return err
 		}
 	}
@@ -144,7 +153,7 @@ func Shaped(l *typev1.Service) error {
 		case !t.IsValid() || given < 0 || given%time.Second != 0:
 			return errors.New("service.timeout is a number of seconds")
 		case given > MostReady:
-			return fmt.Errorf("service.timeout: %d seconds is more than the hour a service may be given to be ready", t.GetSeconds())
+			return errors.New("service.timeout is more than the hour a service may be given to be ready")
 		}
 	}
 	return nil
@@ -189,8 +198,8 @@ func endpoints(l *typev1.Service) error {
 			}
 		}
 	}
-	for name, address := range l.GetEndpoints() {
-		port, _ := EndpointPort(name, address)
+	for _, name := range slices.Sorted(maps.Keys(l.GetEndpoints())) {
+		port, _ := EndpointPort(name, l.GetEndpoints()[name])
 		if _, served := l.GetPorts()[port]; !served {
 			return fmt.Errorf("service.endpoints: %s names a port %s it does not serve", name, port)
 		}
@@ -206,7 +215,7 @@ var endpointPort = regexp.MustCompile(`\{port\.(` + PortName + `)\}`)
 // that port, and text with no brace in it; anything else is refused.
 func EndpointPort(name, address string) (string, error) {
 	if !portName.MatchString(name) {
-		return "", fmt.Errorf("service.endpoints: %q is not a name, lower-case letters, digits and dashes", name)
+		return "", errors.New("service.endpoints: an endpoint's name is lower-case letters, digits and dashes, beginning with a letter")
 	}
 	ports := map[string]bool{}
 	for _, m := range endpointPort.FindAllStringSubmatch(address, -1) {

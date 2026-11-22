@@ -1208,11 +1208,22 @@ func TestABranchThatReleasesNothingStableReleasesAPrerelease(t *testing.T) {
 		said    []config.Release
 		says    string
 	}{
-		"a number written with a zero before it": {then(on("main", []string{"greet/v1.26.0"}, "feat: by name")), []config.Release{says("greet", "prerelease", "0{epoch}")}, `greet: spec.frontseat.release.prerelease: "0{epoch}" spells "01795256100" for main, which is no prerelease of a semantic version`},
+		"a number written with a zero before it": {then(on("main", []string{"greet/v1.26.0"}, "feat: by name")), []config.Release{says("greet", "prerelease", "0{epoch}")}, "greet: spec.frontseat.release.prerelease: spells what is no prerelease of a semantic version"},
 		"a tag that names another commit":        {then(on("main", []string{"greet/v1.26.0", "greet/v1.27.0-main-20261121101500"}, "feat: by name")), []config.Release{says("greet", "prerelease-tag", "true")}, `greet 1.27.0-main-20261121101500 is not new: greet/v1.27.0-main-20261121101500 names another commit`},
 	} {
 		if _, err := release.Plan(context.Background(), company(c.said...), &strategies{prereleases: true}, c.history, asking("greet")); err == nil || !strings.Contains(err.Error(), c.says) {
 			t.Errorf("%s: %v, want %q", name, err, c.says)
+		}
+	}
+}
+
+// Of several settings a member of a synced group says that are its
+// group's to say, the first by name is the one refused, every time.
+func TestWhichSettingOfAMemberIsRefusedDoesNotChangeBetweenReads(t *testing.T) {
+	for range 50 {
+		_, err := release.Resolve(company(says("banner", "tag", "{unit}@{version}", "initial", "3.0.0", "versioning", "release:conventional-commits", "branching", "release:release-flow")))
+		if err == nil || !strings.Contains(err.Error(), "spec.frontseat.release.branching is the group's to say") {
+			t.Fatalf("the setting refused: %v", err)
 		}
 	}
 }

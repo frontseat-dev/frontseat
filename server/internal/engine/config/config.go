@@ -2,11 +2,11 @@
 // what holds of it for one directory.
 //
 // A repository says it in frontseat.yaml at its root: which plugins build
-// it, and what it sets of the options those plugins take. An entity may
+// it, and what it sets of the options those plugins take. A Component may
 // set an option too, under spec.frontseat.plugins in its catalog file,
-// for the file's directory and what is beneath. The nearest setting wins:
-// an entity's over the repository's, the repository's over the plugin's
-// own value.
+// for the file's directory and what is beneath, once for a directory. The
+// nearest setting wins: a Component's over the repository's, the
+// repository's over the plugin's own value.
 //
 // An entity may also have actions of its own, under
 // spec.frontseat.actions: the one place a person writes a command. What
@@ -25,14 +25,17 @@ import (
 	"fmt"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/internal/yamlnode"
 	"io"
+	"maps"
 	"path"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"go.yaml.in/yaml/v4"
 
+	"github.com/frontseat-dev/frontseat/server/internal/engine/catalog"
 	"github.com/frontseat-dev/frontseat/server/internal/model"
 	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
 )
@@ -101,8 +104,8 @@ func readPlatforms(file string, node *yaml.Node) ([]string, error) {
 		switch {
 		case item.Kind != yaml.ScalarNode || item.ShortTag() != "!!str" || !platform.MatchString(item.Value):
 			return mistake(item.Line, "spec.frontseat.platforms holds what is no platform: one is written <os>/<arch>, in small letters and digits, as linux/amd64")
-		case contains(out, item.Value):
-			return mistake(item.Line, "spec.frontseat.platforms names %s twice", item.Value)
+		case slices.Contains(out, item.Value):
+			return mistake(item.Line, "spec.frontseat.platforms names a platform twice: each is said once")
 		}
 		out = append(out, item.Value)
 	}
@@ -218,7 +221,7 @@ func Read(ctx context.Context, name string, files Reader) (*Repository, error) {
 
 	// A testdata directory holds fixtures, to every plugin and here: a
 	// catalog file in one is no part of the repository's configuration.
-	catalogs, err := files.Glob(ctx, "", []string{"catalog-info.yaml", "**/catalog-info.yaml", "!**/testdata/**"})
+	catalogs, err := files.Glob(ctx, "", []string{catalog.File, "**/" + catalog.File, "!**/testdata/**"})
 	if err != nil {
 		return nil, err
 	}
@@ -264,9 +267,6 @@ func Read(ctx context.Context, name string, files Reader) (*Repository, error) {
 			if frontseat != nil && frontseat.Kind == yaml.MappingNode {
 				for i := 0; i+1 < len(frontseat.Content); i += 2 {
 					key := frontseat.Content[i]
-					if key.Value == "launch" {
-						return nil, &model.Mistake{File: r.origin(file), Message: fmt.Sprintf("line %d: spec.frontseat takes no key launch: how a service is started for tests is said under service", key.Line)}
-					}
 					if key.Value != "actions" && key.Value != "plugins" && key.Value != "service" && key.Value != "release" && key.Value != "test" && key.Value != "generated" && key.Value != "platforms" {
 						return nil, &model.Mistake{File: r.origin(file), Message: fmt.Sprintf("line %d: spec.frontseat takes no key %s; it takes actions, generated, platforms, plugins, release, service and test", key.Line, key.Value)}
 					}
@@ -341,6 +341,17 @@ func Read(ctx context.Context, name string, files Reader) (*Repository, error) {
 			if set == nil {
 				continue
 			}
+			// An option holds for what is built beneath a directory, as a
+			// platform does, and a Component alone has one: what holds for
+			// the whole repository is said in its own file.
+			if kind := yamlnode.Child(document, "kind"); kind == nil || kind.Value != "Component" {
+				return nil, &model.Mistake{File: r.origin(file), Message: fmt.Sprintf("line %d: spec.frontseat.plugins is said by a Component, for what is built beneath its directory; what holds for the repository is said in %s", set.Line, File)}
+			}
+			for _, before := range r.entities {
+				if before.directory == directory {
+					return nil, &model.Mistake{File: r.origin(file), Message: fmt.Sprintf("line %d: spec.frontseat.plugins is said twice for one directory, here and in %s", set.Line, before.file)}
+				}
+			}
 			_, options, err := plugins(r.origin(file), set)
 			if err != nil {
 				return nil, err
@@ -376,7 +387,7 @@ func actions(file, directory string, node *yaml.Node) ([]Action, error) {
 	for i := 0; i+1 < len(node.Content); i += 2 {
 		name, body := node.Content[i], node.Content[i+1]
 		if !named.MatchString(name.Value) {
-			return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: an action's name is lower-case letters, digits and dashes, which %s is not", name.Line, name.Value)}
+			return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: an action's name is lower-case letters, digits and dashes, beginning with a letter or a digit", name.Line)}
 		}
 		if body.Kind != yaml.MappingNode {
 			return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: the action %s is a map: its command, and what it reads and writes", body.Line, name.Value)}
@@ -406,8 +417,6 @@ func actions(file, directory string, node *yaml.Node) ([]Action, error) {
 				list = &action.Fix
 			case "environment":
 				list = &action.Environment
-			case "launch":
-				return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: an action takes no key launch: a program is said by program: true", key.Line)}
 			case "check", "program", "versioned", "package", "publish":
 				if value.Kind != yaml.ScalarNode || value.ShortTag() != "!!bool" {
 					return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: %s is true or false", value.Line, key.Value)}
@@ -432,15 +441,14 @@ func actions(file, directory string, node *yaml.Node) ([]Action, error) {
 			default:
 				return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: an action takes no key %s; it takes check, command, description, environment, fix, inputs, outputs, package, program, publish, rewrites, tools, versioned", key.Line, key.Value)}
 			}
-			if value.Kind != yaml.SequenceNode {
+			read, wrong := textList(value)
+			switch {
+			case wrong == value:
 				return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: %s is a list", value.Line, key.Value)}
+			case wrong != nil:
+				return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: %s is a list of text", wrong.Line, key.Value)}
 			}
-			for _, item := range value.Content {
-				if item.Kind != yaml.ScalarNode || item.ShortTag() != "!!str" {
-					return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: %s is a list of text", item.Line, key.Value)}
-				}
-				*list = append(*list, item.Value)
-			}
+			*list = read
 		}
 		if len(action.Command) == 0 {
 			return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: the action %s says no command", name.Line, name.Value)}
@@ -476,8 +484,8 @@ func (r *Repository) Check(plugin string, declared []*pluginv1.Option) error {
 		}
 	}
 	for _, entity := range r.entities {
-		for name := range entity.plugins {
-			if !contains(r.listed, name) {
+		for _, name := range slices.Sorted(maps.Keys(entity.plugins)) {
+			if !slices.Contains(r.listed, name) {
 				return &model.Mistake{File: entity.file, Message: fmt.Sprintf("it sets options of the %s plugin, which the repository does not list in %s", name, File)}
 			}
 		}
@@ -527,7 +535,9 @@ func (r *Repository) settle(plugin string, declared []*pluginv1.Option, entity *
 		file, set = entity.file, entity.plugins[plugin]
 	}
 	out := map[string]Option{}
-	for name, node := range set {
+	// The first by name is the one refused, whenever it is read.
+	for _, name := range slices.Sorted(maps.Keys(set)) {
+		node := set[name]
 		var option *pluginv1.Option
 		for _, d := range declared {
 			if d.GetName() == name {
@@ -568,10 +578,11 @@ func valueOf(option *pluginv1.Option, node *yaml.Node) (*typev1.OptionValue, err
 	scalar := func(tag string) bool { return node.Kind == yaml.ScalarNode && node.ShortTag() == tag }
 	switch option.GetKind() {
 	case pluginv1.Option_KIND_STRING:
-		if !scalar("!!str") {
+		value, ok := text(node)
+		if !ok {
 			return nil, fmt.Errorf("%s is text", name)
 		}
-		return &typev1.OptionValue{Value: &typev1.OptionValue_StringValue{StringValue: node.Value}}, nil
+		return &typev1.OptionValue{Value: &typev1.OptionValue_StringValue{StringValue: value}}, nil
 	case pluginv1.Option_KIND_BOOL:
 		// YAML writes true as true, True or TRUE: what was meant is read
 		// from the value, not from how it was spelt.
@@ -581,21 +592,18 @@ func valueOf(option *pluginv1.Option, node *yaml.Node) (*typev1.OptionValue, err
 		}
 		return &typev1.OptionValue{Value: &typev1.OptionValue_BoolValue{BoolValue: on}}, nil
 	case pluginv1.Option_KIND_INT:
-		var number int64
-		if !scalar("!!int") || node.Decode(&number) != nil {
+		number, ok := whole[int64](node)
+		if !ok {
 			return nil, fmt.Errorf("%s is a whole number", name)
 		}
 		return &typev1.OptionValue{Value: &typev1.OptionValue_IntValue{IntValue: number}}, nil
 	case pluginv1.Option_KIND_STRING_LIST:
-		if node.Kind != yaml.SequenceNode {
+		items, wrong := textList(node)
+		switch {
+		case wrong == node:
 			return nil, fmt.Errorf("%s is a list", name)
-		}
-		items := make([]string, 0, len(node.Content))
-		for _, item := range node.Content {
-			if item.Kind != yaml.ScalarNode || item.ShortTag() != "!!str" {
-				return nil, fmt.Errorf("%s is a list of text", name)
-			}
-			items = append(items, item.Value)
+		case wrong != nil:
+			return nil, fmt.Errorf("%s is a list of text", name)
 		}
 		return &typev1.OptionValue{Value: &typev1.OptionValue_StringListValue{StringListValue: &typev1.OptionValue_StringList{Values: items}}}, nil
 	}
@@ -680,13 +688,4 @@ func strict(node *yaml.Node, noAliases bool) error {
 		}
 	}
 	return nil
-}
-
-func contains(list []string, value string) bool {
-	for _, each := range list {
-		if each == value {
-			return true
-		}
-	}
-	return false
 }

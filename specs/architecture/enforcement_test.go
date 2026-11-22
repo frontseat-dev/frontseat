@@ -320,6 +320,10 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		{"server/internal/pluginhost/host_test.go", "server/internal/pluginhost/pluginhosttest", true},
 		{"server/internal/pluginhost/host.go", "server/internal/pluginhost/pluginhosttest", false},
 		{"server/internal/engine/config/config.go", "server/internal/pluginhost/pluginhosttest", false},
+		// What reads the catalog files finds them by the name the catalog
+		// says once, and knows nothing of how a graph is evaluated.
+		{"server/internal/engine/config/config.go", "server/internal/engine/catalog", true},
+		{"server/internal/engine/config/config.go", "server/internal/engine/evaluate", false},
 		{"server/internal/source/service_test.go", "server/internal/pluginhost/pluginhosttest", false},
 		// A driver's test is given a running sandbox as drivertest makes
 		// one; a driver is not.

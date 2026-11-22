@@ -90,7 +90,7 @@ func TestAnExportThatIsNoNameTheShellCanExportIsRefusedByName(t *testing.T) {
 	dashed := strings.Replace(greeterService, "GREETER_ADDR:", "GREETER-ADDR:", 1)
 	workspace := spec.greeterWorkspace(greeterComponent(true), greeterResource(dashed))
 
-	spec.Expect(workspace.build().says()).To(ContainSubstring(`service.exports: "GREETER-ADDR" is not a name the shell can export`))
+	spec.Expect(workspace.build().says()).To(ContainSubstring("service.exports: a name the shell can export is letters, digits and underscores, beginning with no digit"))
 }
 
 // A test's services / An image named without its registry is refused by name.
@@ -212,7 +212,7 @@ func TestAResourceThatSaysLaunchIsRefusedByNameTheSameSaidAsServiceIsStarted(t *
 	refused := spec.greeterWorkspace(greeterComponent(true), launched).build()
 	spec.Expect(refused.says()).To(And(
 		ContainSubstring("catalog-info.yaml"),
-		ContainSubstring("spec.frontseat takes no key launch: how a service is started for tests is said under service"),
+		ContainSubstring("spec.frontseat takes no key launch; it takes actions, generated, platforms, plugins, release, service and test"),
 	))
 	spec.Expect(refused.actions()).To(BeEmpty())
 

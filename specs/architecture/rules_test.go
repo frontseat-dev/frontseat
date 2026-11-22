@@ -143,7 +143,7 @@ var policies = []policy{
 	{"server/internal/engine/release", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/pluginapi/**", "server/internal/engine/release", "server/internal/engine/config", "server/internal/model", "server/internal/source/vcs"}},
 	{"server/internal/engine/graph", []string{"server/internal/pattern", "sdk/go/entity", "server/internal/engine/graph", "server/internal/engine/config", "server/internal/model", "server/internal/source/record"}},
 	{"server/internal/engine/plan", []string{"server/internal/pattern", "sdk/go/api/**", "sdk/go/entity", "server/internal/pluginapi/**", "server/internal/engine/plan", "server/internal/engine/graph", "server/internal/model", "server/internal/source/record"}},
-	{"server/internal/engine/config", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/pluginapi/**", "server/internal/model", "server/internal/engine/internal/yamlnode", "server/internal/testservice"}},
+	{"server/internal/engine/config", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/pluginapi/**", "server/internal/model", "server/internal/engine/catalog", "server/internal/engine/internal/yamlnode", "server/internal/testservice"}},
 	{"server/internal/engine/source", []string{"server/internal/engine/source", "server/internal/pattern"}},
 	{"server/internal/engine/internal/yamlnode", []string{}},
 	{"server/internal/exec", []string{}},
