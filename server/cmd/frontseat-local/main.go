@@ -36,14 +36,12 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"syscall"
 
 	"github.com/frontseat-dev/frontseat/local"
 	"github.com/frontseat-dev/frontseat/local/ports"
 	"github.com/frontseat-dev/frontseat/server/internal/backstage"
 	"github.com/frontseat-dev/frontseat/server/internal/controlplane"
-	"github.com/frontseat-dev/frontseat/server/internal/forge"
 	"github.com/frontseat-dev/frontseat/server/internal/httpserver"
 	"github.com/frontseat-dev/frontseat/server/internal/secretfile"
 	"github.com/frontseat-dev/frontseat/server/internal/source"
@@ -81,8 +79,6 @@ func main() {
 	backstageURL := flag.String("backstage", "", "the Backstage its workspaces' entities are resolved through, as https://HOST[:PORT][/PATH]; without it, a workspace asked for by entity is refused")
 	backstageToken := flag.String("backstage-token", "", "a file holding the token presented to Backstage: one line, the file 0600 in a directory only this server reaches; read when it starts, so a new one is taken by starting it again")
 	backstageLoopback := flag.Bool("backstage-loopback", false, "let Backstage be at this machine, and asked over http there: for a local stack and tests")
-	var forges addresses
-	flag.Var(&forges, "github", "the address of a forge that answers as GitHub does, as https://code.acme.example, beside GitHub itself: a workspace made to push to a repository of it may publish that repository's releases; given once for each")
 	flag.Parse()
 	if *identity == "" {
 		*identity = filepath.Join(*state, "openshell")
@@ -96,20 +92,10 @@ func main() {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	if err := serve(ctx, told{listen: *listen, public: *public, grid: *grid, state: *state, openshell: *openshell, identity: *identity, runtime: *runtime, box: *box, token: token, catalog: catalog, forges: forges}); err != nil {
+	if err := serve(ctx, told{listen: *listen, public: *public, grid: *grid, state: *state, openshell: *openshell, identity: *identity, runtime: *runtime, box: *box, token: token, catalog: catalog}); err != nil {
 		fmt.Fprintln(os.Stderr, "frontseat-local:", err)
 		os.Exit(1)
 	}
-}
-
-// addresses are addresses a flag is given, once for each.
-type addresses []string
-
-func (a *addresses) String() string { return strings.Join(*a, ",") }
-
-func (a *addresses) Set(written string) error {
-	*a = append(*a, written)
-	return nil
 }
 
 // reached is the address clients are told a sandbox's ports are beneath:
@@ -246,8 +232,6 @@ type told struct {
 	// catalog is the Backstage entities are resolved through; nil for
 	// none.
 	catalog *backstage.Catalog
-	// forges are the forges that answer as GitHub does, beside it.
-	forges []string
 }
 
 func serve(ctx context.Context, f told) error {
@@ -281,14 +265,10 @@ func serve(ctx context.Context, f told) error {
 	if f.catalog != nil {
 		entities = f.catalog
 	}
-	releasing, err := forge.GitHub(f.forges...)
-	if err != nil {
-		return fmt.Errorf("--github: %w", err)
-	}
 	plane, err := controlplane.OverGateway(controlplane.Config{
 		PublicURL: public, State: f.state, Box: f.box, Callers: callers,
 		Grid:     controlplane.Grid{Hosts: grid.Hosts(), Arguments: grid.Arguments()},
-		Fetching: source.Fetching(), Releasing: releasing, Entities: entities,
+		Fetching: source.Fetching(), Entities: entities,
 	}, controlplane.Gateway{Address: gateway, Identity: f.identity, Runtime: f.runtime})
 	if err != nil {
 		return err

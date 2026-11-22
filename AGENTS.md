@@ -475,47 +475,24 @@ the change that fixes it.
   member of a unit that moves; nothing brings an artifact's bytes to
   whoever asks, nor publishes one; a unit found released already lists
   none.
-- A workspace made to push may ask its repositories' forge for their
-  releases, and for those of no other repository: when it is made, the
-  control plane lets its sandbox through for what the forge asks of a
-  release (`server/internal/forge`: to list a repository's releases,
-  make one, change one and add a file to one), with its owner's
-  credential for the host asked, which the gateway holds and the
-  sandbox never does. That is any release of the repository, and not
-  one alone: whoever may push to a repository may already write
-  anything to it. A forge is GitHub, or one that answers as GitHub does
-  at an address the control plane is told (`frontseat-local --github`),
-  written as it is compared and refused at start where it is not.
-  GitHub is asked at hosts beside the one its repositories are fetched
-  from: a credential given for that one is kept for those too, under
-  names of its own, and let go of with them, the host's own first, so
-  that one in use is let go of in no part; a credential a person gave
-  for one of those hosts themselves is another, and stays theirs. A
-  workspace that also fetches from a host its forge is asked at is
-  refused. A request's path may hold a part that is any one part,
-  written `*`, after its first, since a forge numbers a release as it
-  makes it; nothing else of a pattern is taken. Held by:
-  `TestAWorkspaceMadeToPushMayPublishItsRepositorysReleasesAndNoOther`,
-  `TestACredentialForAForgeIsKeptForTheHostsItIsAskedAt`,
-  `TestPublishingAsksAForgeForItsRepositorysReleasesAlone`,
-  `TestAForgeIsToldOfByItsAddressAsItIsCompared` and
-  `TestWhatARuleSaysIsHeld`. Not held: nothing publishes yet, and the
-  program the rules name is not built. **The program a rule names is
-  no boundary**: the gateway lets a request through for a program or
-  any that started it, so whatever an allowed program starts (an alias
-  of git's, a hook, what a publisher runs) asks what that program may,
-  with its credential; what holds a sandbox is the requests and the
-  credential, and that is so of git's own rule too. A forge asked at
-  the host its repositories are fetched from has one rule there for
-  both. A rule lets a request through and does not require the
-  credential on it. A credential kept for a host and not for those
-  beside it, as one given before the control plane was told of its
-  forge, or where the second could not be kept, leaves a workspace let
-  through to publish with none, and the forge refuses it: the
-  credential is given again. That a gateway reads `*` as one part and
-  no more was read in its source and probed by hand with a part said
-  (`frontseat-probes/publish-egress-probe`); no spec holds it, nor what
-  it makes of a part that is empty.
+- A release from a workspace publishes nothing: one whose plan
+  something would publish is refused before anything is built or
+  tagged, `UNIMPLEMENTED` with `PUBLISH_NOT_SERVED`, naming what
+  publishes. What publishes runs where the daemon is, and a workspace's
+  sandbox is let through to no forge or registry, so it would tag, push
+  and then fail, leaving a release that making it again does not
+  finish. A release publishes from a checkout the daemon was given, as a
+  job's is; a release from a workspace of what nothing publishes is
+  made. Held by:
+  `TestAReleaseFromAWorkspaceThatWouldPublishIsRefusedBeforeItBuilds`.
+  Not held: serving it waits on a design, since `gh release create
+  --verify-tag` asks GitHub's GraphQL, which no rule holds to one
+  repository. **The program a rule names is no boundary**: the gateway
+  lets a request through for a program or any that started it, so
+  whatever git starts (an alias, a hook) asks what git may, with its
+  credential; what holds a sandbox is the requests and the credential.
+  A rule lets a request through and does not require the credential on
+  it.
 - Versions never go backwards: a unit with no release of its own
   continues above the highest version its members, their Systems or
   their Domain were released at, by the next bump its strategy gives.
@@ -905,7 +882,6 @@ mise run docs:serve       # serve the TechDocs site on http://localhost:8000
 | `server/internal/refusal` | A refusal by name: its code, `ErrorInfo` reason and the domain of each service |
 | `server/internal/page` | A List cut into pages, by `page_size` and `page_token` |
 | `server/internal/source/vcs` | What a workspace asks of a version control system |
-| `server/internal/forge` | What publishing a release asks of a forge: its hosts and the requests of each |
 | `local` | What the local stack is, read from its files: the workers' image and platform, what a sandbox is told; the checkout a program is started at (`Checkout`); the directory the command line keeps what it keeps in, and the owner's token and server files beneath it (`Config`, `TokenFile`, `ServerFile`) |
 | `local/ports` | Every port a box and the local stack are reached on |
 | `server/testsupport/*` | Test facilities: pins, Wasm modules, the grid, fixtures (`testfiles`, `testforge`, `commits`), budgets |

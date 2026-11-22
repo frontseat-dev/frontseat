@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
+	"github.com/frontseat-dev/frontseat/server/internal/exec"
 	"github.com/frontseat-dev/frontseat/server/testsupport/commits"
 )
 
@@ -16,10 +17,18 @@ import (
 // It returns the daemon's clients, the checkout and its remote.
 func givenACheckout(t *testing.T, branch string, how ...string) (clients, string, string) {
 	t.Helper()
-	remote := releasingRemote(t, nil)
+	return givenACheckoutWith(t, scripted{}, branch, nil, 3, how...)
+}
+
+// givenACheckoutWith is givenACheckout run by an executor, of a remote
+// written further where written is given, with so many of the plugins
+// loaded, the first of them.
+func givenACheckoutWith(t *testing.T, executor exec.Executor, branch string, written func(remote string), plugins int, how ...string) (clients, string, string) {
+	t.Helper()
+	remote := releasingRemote(t, written)
 	checkout := filepath.Join(t.TempDir(), "checkout")
 	commits.Git(t, filepath.Dir(checkout), append(append([]string{"clone", "--quiet", "--branch", branch}, how...), "file://"+remote, checkout)...)
-	return serveAs(t, configuration{Workspace: checkout, Mounted: true, Executor: scripted{}}), checkout, remote
+	return serveFirst(t, configuration{Workspace: checkout, Mounted: true, Executor: executor}, plugins), checkout, remote
 }
 
 // A daemon given a checkout releases from it as from one it brought: it

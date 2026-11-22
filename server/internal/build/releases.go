@@ -23,6 +23,7 @@ import (
 	"github.com/frontseat-dev/frontseat/server/internal/model"
 	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/pluginhost"
+	"github.com/frontseat-dev/frontseat/server/internal/source/record"
 )
 
 // errReleaseNotFound is what asking for a release no daemon made, or one
@@ -120,6 +121,17 @@ func (rs *releases) create(ctx context.Context, request *buildv1.CreateReleaseRe
 	for _, at := range planned.Plan.GetCommits() {
 		if err := rs.committed(ctx, at.GetRepository()); err != nil {
 			return nil, err
+		}
+	}
+	// A workspace's daemon publishes nothing yet: what publishes runs
+	// where the daemon is, which is the workspace's sandbox, and that is
+	// let through to no forge or registry. It is refused before anything
+	// is built or tagged, and not once the tags are pushed, where a
+	// publish that fails leaves a release that is not finished by making
+	// it again. A daemon given a checkout, as a job's is, publishes.
+	if !workspace.Mounted() {
+		if label, found := publishedBy(evaluated.Actions, evaluated.Entities, planned); found {
+			return nil, &refusedRelease{codes.Unimplemented, "PUBLISH_NOT_SERVED", fmt.Sprintf("%s publishes what this release ships, and a release from a workspace publishes nothing: release from a checkout given the daemon, as a job does (frontseatd --checkout)", label)}
 		}
 	}
 	// What moves is built for production, as a production build builds
@@ -449,10 +461,7 @@ func (rs *releases) publish(ctx context.Context, m *made, planned *release.Plann
 			}
 		}
 		for _, action := range with.actions {
-			// A publish is its owner's unit's; one no entity owns, as at
-			// a repository's root, is each unit's of its repository.
-			owner, owned := graph.Owner(with.entities, action.Label.Path)
-			if owned && !members[owner.Ref.String()] || !owned && action.Repository != repository {
+			if !publishes(action, with.entities, members, repository) {
 				continue
 			}
 			if !began {
@@ -482,4 +491,34 @@ func (rs *releases) publish(ctx context.Context, m *made, planned *release.Plann
 		}
 	}
 	return failed, false
+}
+
+// publishes is whether an action that publishes is a unit's: its
+// owner's unit's, or, where no entity owns it, as at a repository's
+// root, each unit's of its repository.
+func publishes(action plan.Action, entities []record.Located, members map[string]bool, repository string) bool {
+	owner, owned := graph.Owner(entities, action.Label.Path)
+	return owned && members[owner.Ref.String()] || !owned && action.Repository == repository
+}
+
+// publishedBy is the first action that would publish a unit a plan
+// tags, by its label: a unit found released already, or a prerelease
+// that is not tagged, is published by nothing.
+func publishedBy(actions []plan.Action, entities []record.Located, planned *release.Planned) (string, bool) {
+	for _, unit := range planned.Plan.GetUnits() {
+		if unit.GetNextVersion() == "" || unit.GetTag() == "" {
+			continue
+		}
+		members := map[string]bool{}
+		for _, member := range unit.GetMembers() {
+			members[entity.FromProto(member).String()] = true
+		}
+		repository := planned.Repositories[entity.FromProto(unit.GetEntity())]
+		for _, action := range actions {
+			if action.IsPublish() && publishes(action, entities, members, repository) {
+				return action.Label.String(), true
+			}
+		}
+	}
+	return "", false
 }

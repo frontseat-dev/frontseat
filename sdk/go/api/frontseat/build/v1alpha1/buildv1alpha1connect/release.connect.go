@@ -139,7 +139,13 @@ type ReleaseServiceClient interface {
 	//   would do now; plan again (ETAG_MISMATCH).
 	// - FAILED_PRECONDITION: another release is being made (RELEASE_BUSY);
 	//   or as for PlanRelease.
-	// - NOT_FOUND, UNIMPLEMENTED, UNAVAILABLE: as for PlanRelease.
+	// - UNIMPLEMENTED: something publishes a unit the plan tags, and the
+	//   daemon holds a workspace, whose sandbox reaches no forge or
+	//   registry: a release from a workspace publishes nothing, and is
+	//   refused before anything is built or tagged; a release from a
+	//   checkout the daemon was given, as a job's, publishes. The message
+	//   names what publishes (PUBLISH_NOT_SERVED). Or as for PlanRelease.
+	// - NOT_FOUND, UNAVAILABLE: as for PlanRelease.
 	CreateRelease(context.Context, *v1alpha1.CreateReleaseRequest) (*v1alpha1.CreateReleaseResponse, error)
 	// DescribeRelease returns one release, as it is now.
 	//
@@ -203,7 +209,13 @@ type ReleaseServiceHandler interface {
 	//   would do now; plan again (ETAG_MISMATCH).
 	// - FAILED_PRECONDITION: another release is being made (RELEASE_BUSY);
 	//   or as for PlanRelease.
-	// - NOT_FOUND, UNIMPLEMENTED, UNAVAILABLE: as for PlanRelease.
+	// - UNIMPLEMENTED: something publishes a unit the plan tags, and the
+	//   daemon holds a workspace, whose sandbox reaches no forge or
+	//   registry: a release from a workspace publishes nothing, and is
+	//   refused before anything is built or tagged; a release from a
+	//   checkout the daemon was given, as a job's, publishes. The message
+	//   names what publishes (PUBLISH_NOT_SERVED). Or as for PlanRelease.
+	// - NOT_FOUND, UNAVAILABLE: as for PlanRelease.
 	CreateRelease(context.Context, *v1alpha1.CreateReleaseRequest) (*v1alpha1.CreateReleaseResponse, error)
 	// DescribeRelease returns one release, as it is now.
 	//

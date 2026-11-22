@@ -38,19 +38,7 @@ const third = "746869726420706572736f6e2773206f776e20746f6b656e2c206e6f206f6e65"
 // workspaces and credentials.
 func servedToPeople(t *testing.T, s *sandboxes) (func(token string) workspacev1alpha1connect.WorkspaceServiceClient, func(token string) credentialv1alpha1connect.CredentialServiceClient) {
 	t.Helper()
-	return servedToPeopleWith(t, s, nil)
-}
-
-// servedToPeopleWith is servedToPeople by a control plane configured
-// further, where a change is given.
-func servedToPeopleWith(t *testing.T, s *sandboxes, change func(*Config)) (func(token string) workspacev1alpha1connect.WorkspaceServiceClient, func(token string) credentialv1alpha1connect.CredentialServiceClient) {
-	t.Helper()
-	_, address, _ := served(t, s, t.TempDir(), func(c *Config) {
-		c.Callers = people{owner: "ada", another: "bea", third: "cy"}
-		if change != nil {
-			change(c)
-		}
-	})
+	_, address, _ := served(t, s, t.TempDir(), func(c *Config) { c.Callers = people{owner: "ada", another: "bea", third: "cy"} })
 	return func(token string) workspacev1alpha1connect.WorkspaceServiceClient {
 			return workspacev1alpha1connect.NewWorkspaceServiceClient(connect.NewClient(connecthttp.NewTransport(bearing(token), address)))
 		}, func(token string) credentialv1alpha1connect.CredentialServiceClient {
