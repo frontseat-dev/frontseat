@@ -32,6 +32,7 @@ import (
 	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1/workspacev1alpha1connect"
 	"github.com/frontseat-dev/frontseat/server/internal/refusal"
+	sourced "github.com/frontseat-dev/frontseat/server/internal/source"
 	"github.com/frontseat-dev/frontseat/server/internal/source/told"
 	"github.com/frontseat-dev/frontseat/server/internal/source/vcs"
 	sourcev1 "github.com/frontseat-dev/frontseat/server/internal/sourceapi/frontseat/source/v1alpha1"
@@ -386,17 +387,12 @@ func (system) Pushes(repository string) []vcs.Request {
 }
 func (system) Programs() []string { return []string{"/usr/bin/a-fetcher"} }
 
-// Cloned takes an address over http or https as it is written, and one
-// written as git@host:path as cloned over https from that host and
-// path; anything else is cloned by no sandbox.
+// Cloned reads a remote as the system a daemon has reads it
+// (sourced.Fetching), since what the control plane refuses of a remote,
+// and what it writes a rule for, is held to what the daemon in the
+// sandbox would clone.
 func (system) Cloned(remote string) (string, error) {
-	if strings.HasPrefix(remote, "http://") || strings.HasPrefix(remote, "https://") {
-		return remote, nil
-	}
-	if host, where, is := strings.Cut(strings.TrimPrefix(remote, "git@"), ":"); is && strings.HasPrefix(remote, "git@") {
-		return "https://" + host + "/" + where, nil
-	}
-	return "", errors.New("it is written in a way a-system clones nothing from")
+	return sourced.Fetching().Cloned(remote)
 }
 func (system) NameOf(remote string) string {
 	return strings.TrimSuffix(path.Base(strings.TrimSuffix(remote, "/")), ".git")
@@ -1339,14 +1335,14 @@ func TestWhatReachesAProgramsConfigurationIsHeld(t *testing.T) {
 		"an escape that climbs":     "https://forge.example/acme/%2e%2e/secret/x.git",
 		"an escape of another sort": "https://forge.example/acme/a%20b.git",
 		"a path of two slashes":     "https://forge.example/acme//x.git",
-		"another transport":         "ssh://anything.example:443/x",
+		"another transport":         "svn://anything.example/x",
 		"a host and no repository":  "https://whole.example/",
 	} {
 		if _, err := client.CreateWorkspace(ctx, &workspacev1.CreateWorkspaceRequest{Name: "odd", Spec: of(remote)}); connect.CodeOf(err) != connect.CodeInvalidArgument {
 			t.Errorf("%s: %v, want it refused as no repository", what, err)
 		}
 	}
-	made, err := client.CreateWorkspace(ctx, &workspacev1.CreateWorkspaceRequest{Name: "spelled", Spec: of("https://forge.example./acme/a.git", "https://FORGE.example/acme/b.git")})
+	made, err := client.CreateWorkspace(ctx, &workspacev1.CreateWorkspaceRequest{Name: "spelled", Spec: of("https://forge.example/acme/a.git", "https://FORGE.example/acme/b.git")})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1555,9 +1551,12 @@ func TestWhoCommitsIsToldByNoVariableOfAnothers(t *testing.T) {
 // nothing of it is kept, said back or made. An address with a query,
 // which may hold a token; a host written as an address, in any
 // spelling; a directory of this machine; and a path written otherwise
-// than plainly are each none. The control is the same workspace with
-// its address written as one is, and one written for another transport,
-// which the system clones over https and a rule is written for.
+// than plainly are each none. One that names anyone before its host
+// but git, however it is written, is refused as credentialed, since
+// what is written there may be a token. The control is the same
+// workspace with its address written as one is, and written for ssh,
+// naming git or no one, which the system clones over https and a rule
+// is written for.
 func TestARepositorysAddressIsReadOnceAsTheDaemonReadsIt(t *testing.T) {
 	const refusedValue = "v4lue-of-adas"
 	s := over(t)
@@ -1574,7 +1573,8 @@ func TestARepositorysAddressIsReadOnceAsTheDaemonReadsIt(t *testing.T) {
 		"a path that climbs":         "https://forge.example/acme/../" + refusedValue,
 		"a path of two spellings":    "https://forge.example/acme/%2e%2e/" + refusedValue,
 		"a port that is none":        "https://forge.example:0/" + refusedValue,
-		"another transport, unread":  "ssh://forge.example/acme/" + refusedValue,
+		"another transport, unread":  "svn://forge.example/acme/" + refusedValue,
+		"a user and a password":      "https://someone:" + refusedValue + "@forge.example/acme/code.git",
 		"no repository of the host":  "https://forge.example/",
 		"a host and nothing of path": "https://forge.example",
 	} {
@@ -1585,10 +1585,33 @@ func TestARepositorysAddressIsReadOnceAsTheDaemonReadsIt(t *testing.T) {
 			t.Errorf("the refusal of %s repeats what it refused: %v", what, err)
 		}
 	}
+	for what, remote := range map[string]string{
+		"a user over https":                 "https://" + refusedValue + "@forge.example/acme/code.git",
+		"a user before a host and a path":   "ghp_" + refusedValue + "@forge.example:acme/code.git",
+		"a user over ssh":                   "ssh://" + refusedValue + "@forge.example/acme/code.git",
+		"a user over ssh, written for git+": "git+ssh://" + refusedValue + "@forge.example/acme/code.git",
+	} {
+		_, err := client.CreateWorkspace(ctx, &workspacev1.CreateWorkspaceRequest{Name: "refused", Spec: of(remote)})
+		if reason, _ := frontseat.Reason(err); connect.CodeOf(err) != connect.CodeInvalidArgument || reason != "REMOTE_CREDENTIALED" {
+			t.Errorf("%s: %v, want it refused REMOTE_CREDENTIALED", what, err)
+		} else if strings.Contains(err.Error(), refusedValue) {
+			t.Errorf("the refusal of %s repeats what it refused: %v", what, err)
+		}
+	}
 	if listed, err := client.ListWorkspaces(ctx, &workspacev1.ListWorkspacesRequest{}); err != nil || len(listed.GetWorkspaces()) != 0 || len(s.asked()) != 0 {
 		t.Errorf("what was refused is listed as %v (%v) and made the sandboxes %v", listed.GetWorkspaces(), err, s.asked())
 	}
 	// The controls.
+	for name, remote := range map[string]string{
+		"over-ssh":           "ssh://git@forge.example/acme/code.git",
+		"over-ssh-no-one":    "ssh://forge.example:2222/acme/code",
+		"before-a-path":      "git@forge.example:acme/code.git",
+		"before-a-path-bare": "forge.example:acme/code.git",
+	} {
+		if _, err := client.CreateWorkspace(ctx, &workspacev1.CreateWorkspaceRequest{Name: name, Spec: of(remote)}); err != nil {
+			t.Errorf("the control: %s, written for ssh: %v", remote, err)
+		}
+	}
 	if _, err := client.CreateWorkspace(ctx, &workspacev1.CreateWorkspaceRequest{Name: "plain", Spec: of("https://forge.example/acme/" + refusedValue + ".git")}); err != nil {
 		t.Fatalf("the control: an address written as one is: %v", err)
 	}

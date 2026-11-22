@@ -359,6 +359,13 @@ func permits(file, imported string) bool {
 	if test && ofTheBuild(dir) && (path == "server/internal/pattern" || path == "server/internal/pins") {
 		return true
 	}
+	// The control plane's tests read a remote as the daemon in a sandbox
+	// reads it, by the system a daemon has (source.Fetching), so that
+	// what it refuses of a remote, and writes a rule for, is proven of
+	// that system; the control plane asks it through its port alone.
+	if test && beneath(dir, "server/internal/controlplane") && path == "server/internal/source" {
+		return true
+	}
 	// The gateway's driver's tests ask the container runtime what an
 	// image starts, as the sandbox service does; the driver does not.
 	if test && dir == "server/sandbox/driver/openshell" && path == "server/internal/image" {

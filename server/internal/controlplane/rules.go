@@ -77,7 +77,10 @@ func fetched(address string) (plain.Origin, string, error) {
 // another transport, read as an address is (fetched). The daemon in the
 // sandbox reads the remote by the same system, so what is refused here
 // is what it would refuse, and what a rule is written for is what it
-// asks. With no system, a remote is read as it is written.
+// asks. Whether a remote names someone is the system's to say, by
+// vcs.ErrCredentialed, since only it reads every way a remote is
+// written. With no system, a remote is read as it is written, as an
+// address.
 func (s *service) cloned(remote string) (plain.Origin, string, error) {
 	address := remote
 	if s.Fetching != nil {
@@ -89,13 +92,25 @@ func (s *service) cloned(remote string) (plain.Origin, string, error) {
 	return fetched(address)
 }
 
+// unclonable is the refusal of a repository's address that is none a
+// sandbox clones from, which repeats nothing of it. One that names
+// someone is refused by its own reason: a remote is kept and said with
+// the workspace as it is written, and a secret is given as a
+// credential.
+func unclonable(err error) error {
+	if errors.Is(err, vcs.ErrCredentialed) {
+		return &unmet{connect.CodeInvalidArgument, "REMOTE_CREDENTIALED", "a repository's address holds a user or a password, which is kept and said with the workspace: give the address alone, and the secret as a credential"}
+	}
+	return malformed("a repository's address is none a sandbox clones from: %v", err)
+}
+
 // addressed holds every repository a workspace is asked for to an
 // address a sandbox clones it from, before anything of it is kept or
 // said back: what is refused is not repeated.
 func (s *service) addressed(spec *workspacev1.WorkspaceSpec) error {
 	for _, repository := range spec.GetRepositories() {
 		if _, _, err := s.cloned(repository.GetRemote()); err != nil {
-			return malformed("a repository's address is none a sandbox clones from: %v", err)
+			return unclonable(err)
 		}
 	}
 	return nil
@@ -172,7 +187,7 @@ func (s *service) sandbox(ctx context.Context, name, owner string, spec *workspa
 	for _, remote := range remotesOf(spec, resolved) {
 		at, where, err := s.cloned(remote)
 		if err != nil {
-			return nil, malformed("a repository's address is none a sandbox clones from: %v", err)
+			return nil, unclonable(err)
 		}
 		host := at.Host()
 		if slices.ContainsFunc(spec.GetRepositories(), func(r *workspacev1.RepositorySource) bool { return r.GetRemote() == remote }) {

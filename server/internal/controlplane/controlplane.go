@@ -465,18 +465,6 @@ func more(there, asked *workspacev1.WorkspaceSpec) string {
 	return ""
 }
 
-// credentialed is a repository's address that holds a user or a password:
-// what is asked for is kept and said to whoever lists workspaces, and a
-// secret is given to the control plane as a credential, never so.
-func credentialed(spec *workspacev1.WorkspaceSpec) bool {
-	for _, repository := range spec.GetRepositories() {
-		if at, err := url.Parse(repository.GetRemote()); err == nil && at.User != nil {
-			return true
-		}
-	}
-	return false
-}
-
 func answered(err error) error {
 	var refused *unmet
 	if errors.As(err, &refused) {
@@ -492,9 +480,6 @@ func (s *service) CreateWorkspace(ctx context.Context, req *workspacev1.CreateWo
 	spec := req.GetSpec()
 	if len(spec.GetRepositories()) == 0 && len(spec.GetEntities()) == 0 {
 		return nil, refusedFor(connect.CodeInvalidArgument, "SOURCE_MISSING", "a workspace is asked for with a repository or an entity, and this one with neither")
-	}
-	if credentialed(spec) {
-		return nil, refusedFor(connect.CodeInvalidArgument, "REMOTE_CREDENTIALED", "a repository's address holds a user or a password, which is kept and said with the workspace: give the address alone, and the secret as a credential")
 	}
 	if err := s.addressed(spec); err != nil {
 		return nil, answered(err)
@@ -709,9 +694,6 @@ func (s *service) UpdateWorkspace(ctx context.Context, req *workspacev1.UpdateWo
 		return nil, err
 	}
 	wanted := req.GetSpec()
-	if credentialed(wanted) {
-		return nil, refusedFor(connect.CodeInvalidArgument, "REMOTE_CREDENTIALED", "a repository's address holds a user or a password: give the address alone, and the secret as a credential")
-	}
 	if err := s.addressed(wanted); err != nil {
 		return nil, answered(err)
 	}

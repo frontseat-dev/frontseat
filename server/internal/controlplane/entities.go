@@ -87,7 +87,7 @@ func (s *service) resolve(ctx context.Context, owner string, added []*typev1.Ent
 		// held to what a sandbox may fetch: a repository over http or
 		// https from a host's name, never a path of the sandbox's own.
 		if _, _, err := s.cloned(c.Remote); err != nil {
-			return told.Resolved{}, refusedFor(connect.CodeInvalidArgument, backstage.Invalid, "the catalog says an entity's source is in the repository "+c.Name+", which is not fetched over http or https from a host's name")
+			return told.Resolved{}, refusedFor(connect.CodeInvalidArgument, backstage.Invalid, "the catalog says an entity's source is in the repository "+c.Name+", which no sandbox clones from a host's name")
 		}
 		out.Checkouts = merged(out.Checkouts, c)
 	}
