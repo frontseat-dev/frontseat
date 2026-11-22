@@ -207,7 +207,7 @@ func (c *Client) Open(ctx context.Context, spec WorkspaceSpec) (OpenResult, erro
 	switch state := first.GetStatus().GetState(); {
 	case said.GetCreated():
 		opened.Outcome = OpenOutcomeCreated
-	case state != workspacev1.WorkspaceStatus_STATE_READY && state != workspacev1.WorkspaceStatus_STATE_PAUSED:
+	case state != WorkspaceReady && state != WorkspacePaused:
 		opened.Outcome = OpenOutcomeFilled
 	}
 	last, err := api.WaitWorkspace(ctx, &workspacev1.WaitWorkspaceRequest{Name: first.GetName()})
@@ -432,11 +432,11 @@ func ready(name string, w *workspacev1.Workspace) error {
 		name = w.GetName()
 	}
 	switch w.GetStatus().GetState() {
-	case workspacev1.WorkspaceStatus_STATE_READY:
+	case WorkspaceReady:
 		return nil
-	case workspacev1.WorkspaceStatus_STATE_FAILED:
+	case WorkspaceFailed:
 		return notReady(ErrWorkspaceFailed, "the workspace %s failed: %s", name, w.GetStatus().GetFailure())
-	case workspacev1.WorkspaceStatus_STATE_PAUSED:
+	case WorkspacePaused:
 		return notReady(ErrWorkspacePaused, "the workspace %s is paused: open it to go on with it", name)
 	}
 	return notReady(nil, "the workspace %s is %s", name, stateOf(w))
