@@ -15,10 +15,8 @@ import (
 	"github.com/frontseat-dev/frontseat/sdk/go"
 )
 
-var (
-	credentialUsername string
-	credentialForget   bool
-)
+// credentialUsername is who a credential set is of.
+var credentialUsername string
 
 // longest is how long a secret may be.
 const longest = 4096
@@ -27,10 +25,22 @@ const longest = 4096
 // standard input.
 var secretFrom io.Reader
 
-// credentialCmd gives the control plane a host's credential, or has it let go of one.
+// credentialCmd is the group of commands of your credentials for hosts.
 var credentialCmd = &cobra.Command{
-	Use:   "credential HOST",
-	Short: "Give the control plane your credential for a host, which no sandbox holds",
+	Use:   "credential",
+	Short: "Give the control plane your credentials for hosts, which no sandbox holds",
+	Long: `Your credentials for the hosts your workspaces fetch from and push to,
+which the control plane keeps outside every sandbox: credential set
+gives one, credential list lists them by host, and credential delete
+lets go of one.`,
+	Args: cobra.ArbitraryArgs,
+	RunE: named("a credential command"),
+}
+
+// credentialSetCmd gives the control plane a host's credential.
+var credentialSetCmd = &cobra.Command{
+	Use:   "set HOST",
+	Short: "Give the control plane your credential for a host",
 	Long: `Give the control plane your credential for a host, read from
 standard input: a password or a token, on one line. At a terminal it is
 asked for, and what is typed is not shown. It is yours: the
@@ -38,17 +48,15 @@ control plane keeps it outside every sandbox, and a workspace of yours
 that fetches a repository of that host is let through with it and never
 holds it; no one else's workspace is. It is never shown or read back,
 and it is no argument, so that it is in no history and no list of what
-runs. With --forget the control plane lets go of your credential for the
-host, once no workspace of yours is let through with it.
+runs. It replaces the one there was for the host.
 
 It is kept for the host over https, unless the host is written with
 http:// before it. A workspace of yours may fetch any repository of the
 host with it, and push to any it may write. What runs in such a
 workspace can have it sent to the host unencrypted, so give one that
 reads no more than it must.`,
-	Example: `  frontseat workspace credential forge.example --username someone < token.txt
-  frontseat workspace credential forge.example --forget
-  frontseat workspace credential http://forge.test:8080 < password.txt`,
+	Example: `  frontseat credential set forge.example --username someone < token.txt
+  frontseat credential set http://forge.test:8080 < password.txt`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fs, err := server()
@@ -57,15 +65,53 @@ reads no more than it must.`,
 		}
 		// A secret is sent over https, or to this machine: the command
 		// line asks no control plane otherwise (machine.Server).
-		credentials := fs.Credentials()
-		if credentialForget {
-			return credentials.Delete(cmd.Context(), args[0])
-		}
 		secret, err := secretRead(cmd.Context(), cmd.ErrOrStderr(), args[0])
 		if err != nil {
 			return err
 		}
-		return credentials.Set(cmd.Context(), frontseat.Credential{Host: args[0], Username: credentialUsername, Secret: secret})
+		return fs.Credentials().Set(cmd.Context(), frontseat.Credential{Host: args[0], Username: credentialUsername, Secret: secret})
+	},
+}
+
+// credentialListCmd lists your credentials by host.
+var credentialListCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List your credentials, by host, without their secrets",
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		fs, err := server()
+		if err != nil {
+			return err
+		}
+		listed, err := fs.Credentials().List(cmd.Context())
+		if err != nil {
+			return err
+		}
+		for _, each := range listed {
+			if each.Username == "" {
+				said("%s", plain.Shown(each.Host))
+				continue
+			}
+			said("%s  %s", plain.Shown(each.Host), plain.Shown(each.Username))
+		}
+		return nil
+	},
+}
+
+// credentialDeleteCmd has the control plane let go of a credential.
+var credentialDeleteCmd = &cobra.Command{
+	Use:   "delete HOST",
+	Short: "Have the control plane let go of your credential for a host",
+	Long: `Have the control plane let go of your credential for a host, once no
+workspace of yours is let through with it.`,
+	Example: `  frontseat credential delete forge.example`,
+	Args:    cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		fs, err := server()
+		if err != nil {
+			return err
+		}
+		return fs.Credentials().Delete(cmd.Context(), args[0])
 	},
 }
 
@@ -124,9 +170,7 @@ func secretRead(ctx context.Context, asking io.Writer, host string) (string, err
 }
 
 func init() {
-	workspaceCmd.AddCommand(credentialCmd)
-	credentialCmd.Flags().StringVar(&credentialUsername, "username", "", "who the credential is of, as the host asks")
-	credentialCmd.Flags().BoolVar(&credentialForget, "forget", false, "let go of the host's credential")
-	// What lets go of a credential says nothing of whose it is.
-	credentialCmd.MarkFlagsMutuallyExclusive("forget", "username")
+	rootCmd.AddCommand(credentialCmd)
+	credentialCmd.AddCommand(credentialSetCmd, credentialListCmd, credentialDeleteCmd)
+	credentialSetCmd.Flags().StringVar(&credentialUsername, "username", "", "who the credential is of, as the host asks")
 }

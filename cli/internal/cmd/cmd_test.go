@@ -525,7 +525,7 @@ func TestEveryCommandAsksTheOneControlPlaneTheRuleNames(t *testing.T) {
 	if err != nil || !strings.HasPrefix(got, "named  ready") {
 		t.Errorf("listing asked elsewhere than the control plane the rule names: %q, %v", got, err)
 	}
-	for _, args := range [][]string{{"workspace", "list", "--server", plane}, {"workspace", "open", "--server", plane}, {"workspace", "delete", "--server", plane}, {"workspace", "credential", "h", "--server", plane}} {
+	for _, args := range [][]string{{"workspace", "list", "--server", plane}, {"workspace", "open", "--server", plane}, {"workspace", "delete", "--server", plane}, {"credential", "set", "h", "--server", plane}} {
 		if _, _, err := runAt(t, context.Background(), "", args...); err == nil || !strings.Contains(err.Error(), "unknown flag: --server") {
 			t.Errorf("%v took a server by a flag: %v", args, err)
 		}
