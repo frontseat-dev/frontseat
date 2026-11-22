@@ -21,6 +21,7 @@ use std::collections::BTreeSet;
 
 /// The findings of one rule, each of a file beneath a project's root:
 /// the rule, qualified by the plugin, and what to do about any of them.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Finding<'a> {
     /// The rule, qualified by the plugin: "go/vet".
     pub rule_id: &'a str,
@@ -32,6 +33,7 @@ impl Finding<'_> {
     /// The finding at a file, named relative to the project's root, and
     /// a line of it from 1, or 0 for none; or none where the name is no
     /// file beneath the root ([`plain`]).
+    #[must_use]
     pub fn at(
         &self,
         root: &str,
@@ -71,6 +73,7 @@ impl<'a> Located<'a> {
     /// Reads a line a tool printed, or none where it is no finding: a
     /// line with no line number of 1 or more after its path, or with
     /// nothing to say.
+    #[must_use]
     pub fn read(printed: &'a str) -> Option<Self> {
         let (path, rest) = printed.trim_end().split_once(':')?;
         let (number, rest) = rest.split_once(':')?;
@@ -97,6 +100,7 @@ impl<'a> Located<'a> {
 /// project's root. The plugin reads its tool's own lines into the files
 /// they name; this says what is a file of the project and makes each a
 /// finding.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Unformatted<'a> {
     /// The rule, qualified by the plugin: "go/format".
     pub rule_id: &'a str,

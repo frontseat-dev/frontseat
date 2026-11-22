@@ -1,5 +1,5 @@
 //! Provider-neutral Frontseat entity identities shared by plugins.
-//! References use [kind:][namespace/]name; adapters map provider-native IDs.
+//! References use `[kind:][namespace/]name`; adapters map provider-native IDs.
 
 use crate::EntityRef;
 

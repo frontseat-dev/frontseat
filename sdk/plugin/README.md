@@ -14,10 +14,10 @@ once, so a plugin is a type that implements `Plugin`.
 
 ## A plugin in five minutes
 
-[`examples/make.rs`](examples/make.rs) is a plugin whole. It finds a
-project wherever a `Makefile` is, runs `make test` as its tests and
-`make lint` as a check, and reads what the check found from what it
-printed:
+[`examples/make.rs`](examples/make.rs) is a plugin whole, and is what
+follows. It finds a project wherever a `Makefile` is, runs `make test`
+as its tests and `make lint` as a check, and reads what the check found
+from what it printed:
 
 ```rust
 use frontseat_plugin::prelude::*;
@@ -25,11 +25,19 @@ use frontseat_plugin::repository::join;
 
 struct Make;
 
-const LINT: Finding = Finding { rule_id: "make/lint", help: "Fix what `make lint` reports." };
+/// What `make lint` finds, each printed `path:line[:column]: message`.
+const LINT: Finding = Finding {
+    rule_id: "make/lint",
+    help: "Fix what `make lint` reports.",
+};
 
 impl Plugin for Make {
     fn describe(&self) -> Description {
-        Description { name: "make".into(), interests: vec!["**/Makefile".into()], ..Default::default() }
+        Description {
+            name: "make".into(),
+            interests: vec!["**/Makefile".into()],
+            ..Default::default()
+        }
     }
 
     fn analyze(&self, repo: &Repository, root: &str) -> Result<Analysis, Error> {
@@ -38,7 +46,9 @@ impl Plugin for Make {
             return Ok(Analysis::default());
         }
         let action = |name: &str| {
-            Action::new(name, Command::new(["make", name])).tool("make").inputs([Input::source("**")])
+            Action::new(name, Command::new(["make", name]))
+                .tool("make")
+                .inputs([Input::source("**")])
         };
         Ok(Analysis {
             projects: vec![Project {
@@ -57,7 +67,13 @@ impl Plugin for Make {
         })
     }
 
-    fn report(&self, _repo: &Repository, root: &str, action: &str, printed: &Printed) -> Result<Vec<Diagnostic>, Error> {
+    fn report(
+        &self,
+        _repo: &Repository,
+        root: &str,
+        action: &str,
+        printed: &Printed,
+    ) -> Result<Vec<Diagnostic>, Error> {
         if action != "lint" {
             return Ok(Vec::new());
         }
@@ -77,7 +93,9 @@ frontseat_plugin::serve!(Make);
   `analyze` only of a directory that holds one. The SDK leaves every
   `testdata` directory out: what is in one is a fixture, and no project.
 - `analyze` reads through the `Repository` and answers the projects
-  under a root, each with its actions. An action runs a command with the
+  under a root, each with its actions. A project has a name, at the
+  repository's root too, where its directory's is empty: Frontseat
+  refuses one without. An action runs a command with the
   tools the repository pins (`mise.toml`), reads the inputs it names and
   leaves the outputs it names, and nothing else.
 - `report` reads a check's findings from what it printed.
@@ -138,10 +156,11 @@ memory: see its README.
 | `Action`, `Command`, `Output`, `Input` | what an action is, with constructors |
 | `version` | what a versioned action's command writes for the host to fill: a release's version, tag, commit and unit |
 | `Action::package`, `Repository::platforms` | what a project ships: the action that makes it, and the platforms its entity ships for |
-| `Error` | a refusal, with its reason, file, line and help |
+| `Error` | a refusal, with its reason, file, line and help; a `std::error::Error`, printed as a person reads it |
 | `diagnostics` | findings read from what a check printed |
 | `repository` | paths: `join`, `beneath`, `resolve`, `plain`, `literal` |
 | `checksum`, `entity`, `javascript` | what several plugins read alike |
+| `wire`, `abi` | the contract's messages as generated, and the module's half of the ABI: what `serve!` and the testkit use |
 
 The examples other than `make` are fixtures of the contract's
 conformance tests, not plugins to start from.

@@ -8,6 +8,7 @@ use base64::Engine;
 
 /// Decode one checksum of the expected algorithm and byte length. Unknown
 /// algorithms, malformed base64, trailing data and wrong lengths are refused.
+#[must_use]
 pub fn decode(checksum: &str, algorithm: &str, bytes: usize) -> Option<Vec<u8>> {
     let raw = STANDARD
         .decode(checksum.strip_prefix(algorithm)?.strip_prefix('-')?)

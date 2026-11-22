@@ -10,7 +10,7 @@ use prost::Message;
 
 use crate::repository::NOT_FIXTURES;
 use crate::wire;
-use crate::{Error, Host, Plugin, Repository, ABI};
+use crate::{Description, Error, Host, Plugin, Repository, ABI};
 
 #[cfg(target_arch = "wasm32")]
 pub use guest::{alloc, call, free};
@@ -46,21 +46,32 @@ pub fn dispatch(
     host: &dyn Host,
     call: &wire::Call,
 ) -> Option<Result<Vec<u8>, Error>> {
+    dispatched(plugin, plugin.describe(), host, call)
+}
+
+/// A call answered by a plugin that has said what it is: it is asked
+/// once in a call, and what it said is what the call is held to.
+fn dispatched(
+    plugin: &dyn Plugin,
+    described: Description,
+    host: &dyn Host,
+    call: &wire::Call,
+) -> Option<Result<Vec<u8>, Error>> {
     let request = call.request.as_slice();
     match call.method.as_str() {
-        "Describe" => Some(describe(plugin, request)),
-        "Analyze" => Some(analyze(plugin, host, request)),
-        "Arrange" => Some(arrange(plugin, host, request)),
-        "Report" => Some(report(plugin, host, request)),
-        "Reconcile" => Some(reconcile(plugin, host, request)),
-        "Branch" => Some(branch(plugin, request)),
-        "Version" => Some(version(plugin, request)),
-        "Service" => Some(service(plugin, request)),
+        "Describe" => Some(describe(described, request)),
+        "Analyze" => Some(analyze(plugin, &described, host, request)),
+        "Arrange" => Some(arrange(plugin, &described, host, request)),
+        "Report" => Some(report(plugin, &described, host, request)),
+        "Reconcile" => Some(reconcile(plugin, &described, host, request)),
+        "Branch" => Some(branch(plugin, &described, request)),
+        "Version" => Some(version(plugin, &described, request)),
+        "Service" => Some(service(plugin, &described, request)),
         _ => None,
     }
 }
 
-fn describe(plugin: &dyn Plugin, request: &[u8]) -> Result<Vec<u8>, Error> {
+fn describe(d: Description, request: &[u8]) -> Result<Vec<u8>, Error> {
     let req = wire::DescribeRequest::decode(request).map_err(invalid_request)?;
     if req.host_abi_max != 0 && (ABI < req.host_abi_min || ABI > req.host_abi_max) {
         return Err(Error::new(
@@ -73,14 +84,13 @@ fn describe(plugin: &dyn Plugin, request: &[u8]) -> Result<Vec<u8>, Error> {
         )
         .help("Build the plugin against an SDK the host supports."));
     }
-    let d = plugin.describe();
     let options = d
         .options
-        .iter()
+        .into_iter()
         .map(|o| wire::Option {
             name: o.name.into(),
             kind: o.kind() as i32,
-            default: Some(o.default.clone().into()),
+            default: Some(o.default.into()),
             entity_settable: o.entity_settable,
         })
         .collect();
@@ -105,10 +115,15 @@ fn describe(plugin: &dyn Plugin, request: &[u8]) -> Result<Vec<u8>, Error> {
     .encode_to_vec())
 }
 
-fn analyze(plugin: &dyn Plugin, host: &dyn Host, request: &[u8]) -> Result<Vec<u8>, Error> {
+fn analyze(
+    plugin: &dyn Plugin,
+    described: &Description,
+    host: &dyn Host,
+    request: &[u8],
+) -> Result<Vec<u8>, Error> {
     let req = wire::AnalyzeRequest::decode(request).map_err(invalid_request)?;
     let repo = Repository::new(host, req.context);
-    repo.validate_context(&plugin.describe().options)?;
+    repo.validate_context(&described.options)?;
     let roots = if req.roots.is_empty() {
         vec![String::new()]
     } else {
@@ -123,18 +138,28 @@ fn analyze(plugin: &dyn Plugin, host: &dyn Host, request: &[u8]) -> Result<Vec<u
     Ok(wire::AnalyzeResponse { analyses }.encode_to_vec())
 }
 
-fn arrange(plugin: &dyn Plugin, host: &dyn Host, request: &[u8]) -> Result<Vec<u8>, Error> {
+fn arrange(
+    plugin: &dyn Plugin,
+    described: &Description,
+    host: &dyn Host,
+    request: &[u8],
+) -> Result<Vec<u8>, Error> {
     let req = wire::ArrangeRequest::decode(request).map_err(invalid_request)?;
     let repo = Repository::new(host, req.context);
-    repo.validate_context(&plugin.describe().options)?;
+    repo.validate_context(&described.options)?;
     let files = plugin.arrange(&repo, &req.root, &req.actions, &req.handed)?;
     Ok(wire::ArrangeResponse { files }.encode_to_vec())
 }
 
-fn report(plugin: &dyn Plugin, host: &dyn Host, request: &[u8]) -> Result<Vec<u8>, Error> {
+fn report(
+    plugin: &dyn Plugin,
+    described: &Description,
+    host: &dyn Host,
+    request: &[u8],
+) -> Result<Vec<u8>, Error> {
     let req = wire::ReportRequest::decode(request).map_err(invalid_request)?;
     let repo = Repository::new(host, req.context);
-    repo.validate_context(&plugin.describe().options)?;
+    repo.validate_context(&described.options)?;
     let printed = crate::Printed {
         exit_code: req.exit_code,
         stdout: req.stdout,
@@ -162,31 +187,36 @@ fn claimed(claims: &[String], kind: &str, strategy: &str) -> Result<(), Error> {
     Ok(())
 }
 
-fn branch(plugin: &dyn Plugin, request: &[u8]) -> Result<Vec<u8>, Error> {
+fn branch(plugin: &dyn Plugin, described: &Description, request: &[u8]) -> Result<Vec<u8>, Error> {
     let req = wire::BranchRequest::decode(request).map_err(invalid_request)?;
-    claimed(&plugin.describe().branchings, "branching", &req.strategy)?;
+    claimed(&described.branchings, "branching", &req.strategy)?;
     Ok(plugin.branch(&req)?.encode_to_vec())
 }
 
-fn version(plugin: &dyn Plugin, request: &[u8]) -> Result<Vec<u8>, Error> {
+fn version(plugin: &dyn Plugin, described: &Description, request: &[u8]) -> Result<Vec<u8>, Error> {
     let req = wire::VersionRequest::decode(request).map_err(invalid_request)?;
-    claimed(&plugin.describe().versionings, "versioning", &req.strategy)?;
+    claimed(&described.versionings, "versioning", &req.strategy)?;
     Ok(plugin.version(&req)?.encode_to_vec())
 }
 
-fn reconcile(plugin: &dyn Plugin, host: &dyn Host, request: &[u8]) -> Result<Vec<u8>, Error> {
+fn reconcile(
+    plugin: &dyn Plugin,
+    described: &Description,
+    host: &dyn Host,
+    request: &[u8],
+) -> Result<Vec<u8>, Error> {
     let req = wire::ReconcileRequest::decode(request).map_err(invalid_request)?;
     let repo = Repository::new(host, req.context);
-    repo.validate_context(&plugin.describe().options)?;
+    repo.validate_context(&described.options)?;
     let edits = plugin.reconcile(&repo, &req.root, &req.entities)?;
     Ok(wire::ReconcileResponse { edits }.encode_to_vec())
 }
 
 /// Service is asked only for a name the plugin claimed, and is told
 /// nothing of a repository. A plugin that claims none starts none.
-fn service(plugin: &dyn Plugin, request: &[u8]) -> Result<Vec<u8>, Error> {
+fn service(plugin: &dyn Plugin, described: &Description, request: &[u8]) -> Result<Vec<u8>, Error> {
     let req = wire::ServiceRequest::decode(request).map_err(invalid_request)?;
-    let services = plugin.describe().services;
+    let services = &described.services;
     if services.is_empty() {
         return Err(crate::contract::no_service(&req.name));
     }
@@ -210,11 +240,13 @@ fn service(plugin: &dyn Plugin, request: &[u8]) -> Result<Vec<u8>, Error> {
 /// `google.rpc.Status`, `UNIMPLEMENTED` for a method the plugin does not
 /// serve.
 pub fn answer(plugin: &dyn Plugin, host: &dyn Host, call: &[u8]) -> Vec<u8> {
+    let described = plugin.describe();
+    let name = described.name.clone();
     let result = match wire::Call::decode(call) {
-        Ok(call) => dispatch(plugin, host, &call),
+        Ok(call) => dispatched(plugin, described, host, &call),
         Err(e) => Some(Err(invalid_request(e))),
     };
-    let failure = |e: Error| wire::reply::Result::Error(e.into_status(&plugin.describe().name));
+    let failure = |e: Error| wire::reply::Result::Error(e.into_status(&name));
     wire::Reply {
         result: Some(match result {
             Some(Ok(response)) => wire::reply::Result::Response(response),
@@ -272,8 +304,14 @@ mod guest {
 
     /// Answers a serialized `Call` with a serialized `Reply`.
     pub fn call(plugin: &dyn Plugin, ptr: u32, size: u32) -> u64 {
-        // SAFETY: the host wrote `size` bytes at `ptr`, into memory alloc gave it.
-        let request = unsafe { std::slice::from_raw_parts(ptr as *const u8, size as usize) };
+        // A call of no bytes was written nowhere: alloc gives no address
+        // for none, and a slice is never made of the null address.
+        let request: &[u8] = if size == 0 {
+            &[]
+        } else {
+            // SAFETY: the host wrote `size` bytes at `ptr`, into memory alloc gave it.
+            unsafe { std::slice::from_raw_parts(ptr as *const u8, size as usize) }
+        };
         pack(super::answer(plugin, &WasmHost, request))
     }
 
