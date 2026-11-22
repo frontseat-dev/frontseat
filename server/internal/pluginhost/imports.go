@@ -26,6 +26,10 @@ type Source interface {
 	Glob(ctx context.Context, directory string, patterns []string) ([]string, error)
 }
 
+// ReadAtMost is the most bytes of a file a plugin may take: a file
+// larger is answered too large, with none of its content.
+const ReadAtMost = 4 << 20
+
 // Read is one thing a plugin read through the host during a call.
 type Read struct {
 	// Import is the import it came through: "read" or "glob".
@@ -222,11 +226,23 @@ func serveImports(ctx context.Context, rt wazero.Runtime) error {
 	serve("read", func() proto.Message { return &pluginv1.ReadRequest{} },
 		func(ctx context.Context, s *callState, m proto.Message) (proto.Message, error) {
 			req := m.(*pluginv1.ReadRequest)
+			most := int(req.GetMostBytes())
+			switch {
+			case most == 0:
+				most = ReadAtMost
+			case most > ReadAtMost:
+				return nil, fmt.Errorf("a read asks for %d bytes, more than the %d a plugin may take", most, ReadAtMost)
+			}
 			content, found, err := s.source.Read(ctx, req.GetPath())
 			if err != nil {
 				return nil, err
 			}
 			s.record("read", req.GetPath(), content, found)
+			// What is larger than the plugin takes is said to be, and not
+			// copied into the module, whose memory it could fill.
+			if len(content) > most {
+				return &pluginv1.ReadResponse{Found: true, TooLarge: true}, nil
+			}
 			return &pluginv1.ReadResponse{Found: found, Content: content}, nil
 		})
 	serve("glob", func() proto.Message { return &pluginv1.GlobRequest{} },

@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/source"
-	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
 )
 
 // The answers an evaluation that is kept rests on are asked for by every
@@ -94,7 +94,7 @@ func TestAWorkspaceOverTheLimitsAsksNoPluginAgain(t *testing.T) {
 				t.Fatal(err)
 			}
 			retainedWrite(t, root, "frontseat.yaml", "unknown: refused\n")
-			if _, err := s.Build(t.Context(), retainedTake(t, files, root), pluginv1.Profile_PROFILE_DEVELOPMENT, nil, nil, nil); err == nil {
+			if _, err := s.Build(t.Context(), retainedTake(t, files, root), typev1.Profile_PROFILE_DEVELOPMENT, nil, nil, nil); err == nil {
 				t.Fatal("a repository that says what it may not was built")
 			}
 			retainedWrite(t, root, "frontseat.yaml", string(said))

@@ -19,9 +19,10 @@ type BuildRequest struct {
 	// Only keeps the actions of these names, such as lint; none keeps
 	// every action.
 	Only []string
-	// Profile is the profile to build with: development, the default,
-	// or production, as a release builds.
-	Profile string
+	// Profile is the profile to build with: PROFILE_DEVELOPMENT, the
+	// default where it is unspecified, or PROFILE_PRODUCTION, as a
+	// release builds.
+	Profile typev1.Profile
 	// Fix writes what is out of step as it should be, where a check would
 	// fail and say so.
 	Fix bool

@@ -16,9 +16,10 @@ type RunRequest struct {
 	Target string
 	// Arguments are what the program is given.
 	Arguments []string
-	// Profile is the profile the program is built with: development, the
-	// default, or production.
-	Profile string
+	// Profile is the profile the program is built with:
+	// PROFILE_DEVELOPMENT, the default where it is unspecified, or
+	// PROFILE_PRODUCTION.
+	Profile typev1.Profile
 	// RequestID makes the request safe to send again, as
 	// BuildRequest.RequestID does a build's: one sent again with the
 	// same id is the run the first made.

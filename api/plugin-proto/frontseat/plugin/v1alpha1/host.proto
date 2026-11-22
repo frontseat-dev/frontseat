@@ -77,6 +77,10 @@ service HostService {
 message ReadRequest {
   // Path is the file, relative to the repository.
   string path = 1;
+  // Most_bytes is the most of the file the plugin takes, more than none
+  // and at most 4 MiB (4194304): a file larger is answered too_large,
+  // with no content, and is never copied into the module. Zero is 4 MiB.
+  uint32 most_bytes = 2;
 }
 
 // ReadResponse is a file of the repository.
@@ -84,8 +88,11 @@ message ReadResponse {
   // Found is whether the file is there. A file that is not is not an
   // error.
   bool found = 1;
-  // Content is its bytes.
+  // Content is its bytes; none where the file is too large.
   bytes content = 2;
+  // Too_large says the file is there and holds more than most_bytes:
+  // its content is not sent.
+  bool too_large = 3;
 }
 
 // GlobRequest selects files beneath a literal repository directory.

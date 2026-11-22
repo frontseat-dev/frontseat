@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/source"
-	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/source/record"
 )
 
@@ -35,7 +35,7 @@ func TestGraphSourceAdmissionDoesNotBlockRunOwnedEvaluation(t *testing.T) {
 	// the evaluator gate and prevent this real Wasm evaluation from finishing.
 	building, stop := context.WithTimeout(t.Context(), 5*time.Second)
 	defer stop()
-	got, err := s.Build(building, retainedTake(t, files, root), pluginv1.Profile_PROFILE_DEVELOPMENT, nil, nil, []string{"compile"})
+	got, err := s.Build(building, retainedTake(t, files, root), typev1.Profile_PROFILE_DEVELOPMENT, nil, nil, []string{"compile"})
 	if err != nil {
 		t.Fatalf("build blocked by graph source acquisition: %v", err)
 	}
@@ -49,7 +49,7 @@ func TestGraphSourceAdmissionDoesNotBlockRunOwnedEvaluation(t *testing.T) {
 	if err := <-graph; !errors.Is(err, context.Canceled) {
 		t.Fatalf("graph cancellation: %v", err)
 	}
-	projectsMatch(t, s, root, pluginv1.Profile_PROFILE_DEVELOPMENT, "graph differs from ordinary evaluation after source cancellation")
+	projectsMatch(t, s, root, typev1.Profile_PROFILE_DEVELOPMENT, "graph differs from ordinary evaluation after source cancellation")
 	stats, err := s.Stats(t.Context())
 	if err != nil || stats.Evaluations != 1 {
 		t.Fatalf("cancelled acquisition poisoned the build's retained evaluation: %+v %v", stats, err)
@@ -59,7 +59,7 @@ func TestGraphSourceAdmissionDoesNotBlockRunOwnedEvaluation(t *testing.T) {
 func TestGraphSourceAdmissionPreservesTheRunsStartingSnapshot(t *testing.T) {
 	root := retainedFixture(t, 2)
 	s, files := buildSession(t, root)
-	profile := pluginv1.Profile_PROFILE_DEVELOPMENT
+	profile := typev1.Profile_PROFILE_DEVELOPMENT
 	if _, err := s.Projects(t.Context()); err != nil {
 		t.Fatal(err)
 	}

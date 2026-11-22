@@ -2,6 +2,7 @@ package pluginhost_test
 
 import (
 	"errors"
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/pluginhost"
 	"github.com/frontseat-dev/frontseat/server/internal/pluginhost/conformance"
@@ -13,7 +14,7 @@ import (
 )
 
 func jestContext() *pluginv1.Context {
-	return &pluginv1.Context{Profile: pluginv1.Profile_PROFILE_DEVELOPMENT}
+	return &pluginv1.Context{Profile: typev1.Profile_PROFILE_DEVELOPMENT}
 }
 
 func jestFixture() conformance.Fixture {

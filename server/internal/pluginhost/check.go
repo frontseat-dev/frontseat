@@ -229,8 +229,8 @@ func checkSourcePattern(what, selection string) error {
 func checkDependency(what string, dependency *pluginv1.DependencyInput) error {
 	switch selection := dependency.GetSelection().(type) {
 	case *pluginv1.DependencyInput_All:
-		if !selection.All {
-			return fmt.Errorf("%s has a dependency input whose all selection is false", what)
+		if selection.All == nil {
+			return fmt.Errorf("%s has a dependency input without a selection", what)
 		}
 	case *pluginv1.DependencyInput_Coordinate:
 		if selection.Coordinate.GetEcosystem() == "" || selection.Coordinate.GetName() == "" {

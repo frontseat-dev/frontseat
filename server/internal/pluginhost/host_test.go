@@ -267,7 +267,7 @@ func TestAPluginToldWhatAProjectWasHandedWritesWhatItsToolNeeds(t *testing.T) {
 
 	got := &pluginv1.ArrangeResponse{}
 	_, err := plugin.Call(context.Background(), source, "Arrange", &pluginv1.ArrangeRequest{
-		Context: &pluginv1.Context{Profile: pluginv1.Profile_PROFILE_DEVELOPMENT, Options: goContext().Options, Tools: map[string]string{"go": "1.27.3"}},
+		Context: &pluginv1.Context{Profile: typev1.Profile_PROFILE_DEVELOPMENT, Options: goContext().Options, Tools: map[string]string{"go": "1.27.3"}},
 		Root:    "services/hello",
 		Actions: []string{"compile"},
 		Handed: []*pluginv1.Handed{
@@ -498,7 +498,7 @@ func TestWhatTheBoundaryCosts(t *testing.T) {
 
 // goContext is the fixture's explicit values, independent of plugin defaults.
 func goContext() *pluginv1.Context {
-	return &pluginv1.Context{Profile: pluginv1.Profile_PROFILE_DEVELOPMENT, Options: map[string]*typev1.OptionValue{
+	return &pluginv1.Context{Profile: typev1.Profile_PROFILE_DEVELOPMENT, Options: map[string]*typev1.OptionValue{
 		"test-timeout": {Value: &typev1.OptionValue_StringValue{StringValue: "10m"}},
 		"test-shards":  {Value: &typev1.OptionValue_IntValue{IntValue: 1}},
 		"tags":         {Value: &typev1.OptionValue_StringListValue{StringListValue: &typev1.OptionValue_StringList{}}},

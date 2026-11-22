@@ -1,6 +1,7 @@
 package pluginhost_test
 
 import (
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/pluginhost"
 	"github.com/frontseat-dev/frontseat/server/internal/pluginhost/conformance"
@@ -69,7 +70,7 @@ func expectedApkoActions() []*pluginv1.Action {
 }
 
 func apkoFixture(t *testing.T) conformance.Fixture {
-	context := &pluginv1.Context{Profile: pluginv1.Profile_PROFILE_DEVELOPMENT}
+	context := &pluginv1.Context{Profile: typev1.Profile_PROFILE_DEVELOPMENT}
 	return arrangingNothing(context, conformance.Fixture{
 		Name: "apko", ABI: 25, Description: &pluginv1.DescribeResponse{Name: "apko", Interests: []string{"**/apko.lock.json", "!**/testdata/**"}},
 		Source: fixtureSource(t, "apko", "valid"), Absent: files{}, Malformed: fixtureSource(t, "apko", "malformed"), ErrorCode: "INVALID_LOCK",
@@ -82,7 +83,7 @@ func apkoFixture(t *testing.T) conformance.Fixture {
 // analyzeApko asks the real module for the image in app/ of some files.
 func analyzeApko(t testing.TB, plugin *pluginhost.Plugin, source files) (*pluginv1.AnalyzeResponse, error) {
 	t.Helper()
-	request := &pluginv1.AnalyzeRequest{Roots: []string{"app"}, Context: &pluginv1.Context{Profile: pluginv1.Profile_PROFILE_DEVELOPMENT}}
+	request := &pluginv1.AnalyzeRequest{Roots: []string{"app"}, Context: &pluginv1.Context{Profile: typev1.Profile_PROFILE_DEVELOPMENT}}
 	response := new(pluginv1.AnalyzeResponse)
 	if _, err := plugin.Call(t.Context(), source, "Analyze", request, response); err != nil {
 		return nil, err

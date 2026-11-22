@@ -240,9 +240,8 @@ type Build struct {
 	Counts *Counts `protobuf:"bytes,13,opt,name=counts,proto3" json:"counts,omitempty"`
 	// Cost is what the build used.
 	Cost *Cost `protobuf:"bytes,15,opt,name=cost,proto3" json:"cost,omitempty"`
-	// Profile is the name of the profile the source was built with: never
-	// empty.
-	Profile string `protobuf:"bytes,17,opt,name=profile,proto3" json:"profile,omitempty"`
+	// Profile is the profile the source was built with: never unspecified.
+	Profile v1alpha1.Profile `protobuf:"varint,17,opt,name=profile,proto3,enum=frontseat.type.v1alpha1.Profile" json:"profile,omitempty"`
 	// `last_sequence` is the sequence of the build's latest event.
 	LastSequence  int64 `protobuf:"varint,16,opt,name=last_sequence,json=lastSequence,proto3" json:"last_sequence,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -356,11 +355,11 @@ func (x *Build) GetCost() *Cost {
 	return nil
 }
 
-func (x *Build) GetProfile() string {
+func (x *Build) GetProfile() v1alpha1.Profile {
 	if x != nil {
 		return x.Profile
 	}
-	return ""
+	return v1alpha1.Profile(0)
 }
 
 func (x *Build) GetLastSequence() int64 {
@@ -812,12 +811,10 @@ type CreateBuildRequest struct {
 	// is, before the check, and what it changes written to the daemon's
 	// checkout; without it a check only reports, and fails the build.
 	Fix bool `protobuf:"varint,5,opt,name=fix,proto3" json:"fix,omitempty"`
-	// Profile is the name of the profile the source is built with. Empty,
-	// it is `development`. A build may ask for `production`, to see that
-	// what will be released builds: a release builds with it. Those two
-	// are the profiles frontseat defines; any other name is refused
-	// (PROFILE_UNKNOWN).
-	Profile string `protobuf:"bytes,12,opt,name=profile,proto3" json:"profile,omitempty"`
+	// Profile is the profile the source is built with. Unspecified, it is
+	// PROFILE_DEVELOPMENT. A build may ask for PROFILE_PRODUCTION, to see
+	// that what will be released builds: a release builds with it.
+	Profile v1alpha1.Profile `protobuf:"varint,12,opt,name=profile,proto3,enum=frontseat.type.v1alpha1.Profile" json:"profile,omitempty"`
 	// Only keeps the actions that have one of these names, such as
 	// "lint", of whatever the targets point at. Empty keeps every action.
 	// A name no action has fails the build, which says so in its failure.
@@ -885,11 +882,11 @@ func (x *CreateBuildRequest) GetFix() bool {
 	return false
 }
 
-func (x *CreateBuildRequest) GetProfile() string {
+func (x *CreateBuildRequest) GetProfile() v1alpha1.Profile {
 	if x != nil {
 		return x.Profile
 	}
-	return ""
+	return v1alpha1.Profile(0)
 }
 
 func (x *CreateBuildRequest) GetOnly() []string {
@@ -2352,7 +2349,7 @@ var File_frontseat_build_v1alpha1_build_proto protoreflect.FileDescriptor
 
 const file_frontseat_build_v1alpha1_build_proto_rawDesc = "" +
 	"\n" +
-	"$frontseat/build/v1alpha1/build.proto\x12\x18frontseat.build.v1alpha1\x1a$frontseat/build/v1alpha1/types.proto\x1a(frontseat/type/v1alpha1/diagnostic.proto\x1a#frontseat/type/v1alpha1/types.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xe3\x06\n" +
+	"$frontseat/build/v1alpha1/build.proto\x12\x18frontseat.build.v1alpha1\x1a$frontseat/build/v1alpha1/types.proto\x1a(frontseat/type/v1alpha1/diagnostic.proto\x1a#frontseat/type/v1alpha1/types.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x85\a\n" +
 	"\x05Build\x12\x14\n" +
 	"\x02id\x18\x01 \x01(\tB\x04\xe2A\x01\x03R\x02id\x12\x1e\n" +
 	"\atargets\x18\x03 \x03(\tB\x04\xe2A\x01\x03R\atargets\x12A\n" +
@@ -2365,8 +2362,8 @@ const file_frontseat_build_v1alpha1_build_proto_rawDesc = "" +
 	"createTime\x12;\n" +
 	"\bend_time\x18\f \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\aendTime\x12>\n" +
 	"\x06counts\x18\r \x01(\v2 .frontseat.build.v1alpha1.CountsB\x04\xe2A\x01\x03R\x06counts\x128\n" +
-	"\x04cost\x18\x0f \x01(\v2\x1e.frontseat.build.v1alpha1.CostB\x04\xe2A\x01\x03R\x04cost\x12\x1e\n" +
-	"\aprofile\x18\x11 \x01(\tB\x04\xe2A\x01\x03R\aprofile\x12)\n" +
+	"\x04cost\x18\x0f \x01(\v2\x1e.frontseat.build.v1alpha1.CostB\x04\xe2A\x01\x03R\x04cost\x12@\n" +
+	"\aprofile\x18\x11 \x01(\x0e2 .frontseat.type.v1alpha1.ProfileB\x04\xe2A\x01\x03R\aprofile\x12)\n" +
 	"\rlast_sequence\x18\x10 \x01(\x03B\x04\xe2A\x01\x03R\flastSequence\"Z\n" +
 	"\x05State\x12\x15\n" +
 	"\x11STATE_UNSPECIFIED\x10\x00\x12\x11\n" +
@@ -2423,11 +2420,11 @@ const file_frontseat_build_v1alpha1_build_proto_rawDesc = "" +
 	"\x10KIND_UNSPECIFIED\x10\x00\x12\x10\n" +
 	"\fKIND_REPLACE\x10\x01\x12\x0f\n" +
 	"\vKIND_CREATE\x10\x02\x12\x0f\n" +
-	"\vKIND_DELETE\x10\x03\"\xa3\x01\n" +
+	"\vKIND_DELETE\x10\x03\"\xc5\x01\n" +
 	"\x12CreateBuildRequest\x12\x18\n" +
 	"\atargets\x18\x02 \x03(\tR\atargets\x12\x10\n" +
-	"\x03fix\x18\x05 \x01(\bR\x03fix\x12\x18\n" +
-	"\aprofile\x18\f \x01(\tR\aprofile\x12\x12\n" +
+	"\x03fix\x18\x05 \x01(\bR\x03fix\x12:\n" +
+	"\aprofile\x18\f \x01(\x0e2 .frontseat.type.v1alpha1.ProfileR\aprofile\x12\x12\n" +
 	"\x04only\x18\r \x03(\tR\x04only\x12\x14\n" +
 	"\x05tests\x18\x0f \x01(\bR\x05tests\x12\x1d\n" +
 	"\n" +
@@ -2574,13 +2571,14 @@ var file_frontseat_build_v1alpha1_build_proto_goTypes = []any{
 	(*BuildEvent_Finished)(nil),       // 33: frontseat.build.v1alpha1.BuildEvent.Finished
 	(*v1alpha1.Diagnostic)(nil),       // 34: frontseat.type.v1alpha1.Diagnostic
 	(*timestamppb.Timestamp)(nil),     // 35: google.protobuf.Timestamp
-	(*durationpb.Duration)(nil),       // 36: google.protobuf.Duration
-	(*v1alpha1.EntityRef)(nil),        // 37: frontseat.type.v1alpha1.EntityRef
-	(Outcome)(0),                      // 38: frontseat.build.v1alpha1.Outcome
-	(Provenance)(0),                   // 39: frontseat.build.v1alpha1.Provenance
-	(*Digest)(nil),                    // 40: frontseat.build.v1alpha1.Digest
-	(*v1alpha1.SourceLocation)(nil),   // 41: frontseat.type.v1alpha1.SourceLocation
-	(*v1alpha1.LogLine)(nil),          // 42: frontseat.type.v1alpha1.LogLine
+	(v1alpha1.Profile)(0),             // 36: frontseat.type.v1alpha1.Profile
+	(*durationpb.Duration)(nil),       // 37: google.protobuf.Duration
+	(*v1alpha1.EntityRef)(nil),        // 38: frontseat.type.v1alpha1.EntityRef
+	(Outcome)(0),                      // 39: frontseat.build.v1alpha1.Outcome
+	(Provenance)(0),                   // 40: frontseat.build.v1alpha1.Provenance
+	(*Digest)(nil),                    // 41: frontseat.build.v1alpha1.Digest
+	(*v1alpha1.SourceLocation)(nil),   // 42: frontseat.type.v1alpha1.SourceLocation
+	(*v1alpha1.LogLine)(nil),          // 43: frontseat.type.v1alpha1.LogLine
 }
 var file_frontseat_build_v1alpha1_build_proto_depIdxs = []int32{
 	0,  // 0: frontseat.build.v1alpha1.Build.state:type_name -> frontseat.build.v1alpha1.Build.State
@@ -2591,64 +2589,66 @@ var file_frontseat_build_v1alpha1_build_proto_depIdxs = []int32{
 	35, // 5: frontseat.build.v1alpha1.Build.end_time:type_name -> google.protobuf.Timestamp
 	4,  // 6: frontseat.build.v1alpha1.Build.counts:type_name -> frontseat.build.v1alpha1.Counts
 	5,  // 7: frontseat.build.v1alpha1.Build.cost:type_name -> frontseat.build.v1alpha1.Cost
-	36, // 8: frontseat.build.v1alpha1.Cost.worker_time:type_name -> google.protobuf.Duration
-	36, // 9: frontseat.build.v1alpha1.Cost.wall_time:type_name -> google.protobuf.Duration
-	37, // 10: frontseat.build.v1alpha1.ActionResult.entity:type_name -> frontseat.type.v1alpha1.EntityRef
-	38, // 11: frontseat.build.v1alpha1.ActionResult.outcome:type_name -> frontseat.build.v1alpha1.Outcome
-	39, // 12: frontseat.build.v1alpha1.ActionResult.provenance:type_name -> frontseat.build.v1alpha1.Provenance
-	40, // 13: frontseat.build.v1alpha1.ActionResult.action_digest:type_name -> frontseat.build.v1alpha1.Digest
-	35, // 14: frontseat.build.v1alpha1.ActionResult.start_time:type_name -> google.protobuf.Timestamp
-	36, // 15: frontseat.build.v1alpha1.ActionResult.duration:type_name -> google.protobuf.Duration
-	36, // 16: frontseat.build.v1alpha1.ActionResult.worker_time:type_name -> google.protobuf.Duration
-	40, // 17: frontseat.build.v1alpha1.ActionResult.stdout:type_name -> frontseat.build.v1alpha1.Digest
-	40, // 18: frontseat.build.v1alpha1.ActionResult.stderr:type_name -> frontseat.build.v1alpha1.Digest
-	34, // 19: frontseat.build.v1alpha1.ActionResult.diagnostics:type_name -> frontseat.type.v1alpha1.Diagnostic
-	7,  // 20: frontseat.build.v1alpha1.ActionResult.rewrites:type_name -> frontseat.build.v1alpha1.Rewrite
-	41, // 21: frontseat.build.v1alpha1.Rewrite.location:type_name -> frontseat.type.v1alpha1.SourceLocation
-	2,  // 22: frontseat.build.v1alpha1.Rewrite.kind:type_name -> frontseat.build.v1alpha1.Rewrite.Kind
-	40, // 23: frontseat.build.v1alpha1.Rewrite.content:type_name -> frontseat.build.v1alpha1.Digest
-	3,  // 24: frontseat.build.v1alpha1.CreateBuildResponse.build:type_name -> frontseat.build.v1alpha1.Build
-	3,  // 25: frontseat.build.v1alpha1.DescribeBuildResponse.build:type_name -> frontseat.build.v1alpha1.Build
-	3,  // 26: frontseat.build.v1alpha1.ListBuildsResponse.builds:type_name -> frontseat.build.v1alpha1.Build
-	3,  // 27: frontseat.build.v1alpha1.CancelBuildResponse.build:type_name -> frontseat.build.v1alpha1.Build
-	3,  // 28: frontseat.build.v1alpha1.WaitBuildResponse.build:type_name -> frontseat.build.v1alpha1.Build
-	24, // 29: frontseat.build.v1alpha1.StreamBuildEventsResponse.events:type_name -> frontseat.build.v1alpha1.BuildEvent
-	6,  // 30: frontseat.build.v1alpha1.ListBuildActionsResponse.actions:type_name -> frontseat.build.v1alpha1.ActionResult
-	42, // 31: frontseat.build.v1alpha1.StreamBuildLogsResponse.lines:type_name -> frontseat.type.v1alpha1.LogLine
-	35, // 32: frontseat.build.v1alpha1.BuildEvent.time:type_name -> google.protobuf.Timestamp
-	26, // 33: frontseat.build.v1alpha1.BuildEvent.stage_changed:type_name -> frontseat.build.v1alpha1.BuildEvent.StageChanged
-	27, // 34: frontseat.build.v1alpha1.BuildEvent.planned:type_name -> frontseat.build.v1alpha1.BuildEvent.Planned
-	29, // 35: frontseat.build.v1alpha1.BuildEvent.action_started:type_name -> frontseat.build.v1alpha1.BuildEvent.ActionStarted
-	30, // 36: frontseat.build.v1alpha1.BuildEvent.action_finished:type_name -> frontseat.build.v1alpha1.BuildEvent.ActionFinished
-	31, // 37: frontseat.build.v1alpha1.BuildEvent.patched:type_name -> frontseat.build.v1alpha1.BuildEvent.Patched
-	33, // 38: frontseat.build.v1alpha1.BuildEvent.finished:type_name -> frontseat.build.v1alpha1.BuildEvent.Finished
-	32, // 39: frontseat.build.v1alpha1.BuildEvent.started_over:type_name -> frontseat.build.v1alpha1.BuildEvent.StartedOver
-	1,  // 40: frontseat.build.v1alpha1.BuildEvent.StageChanged.stage:type_name -> frontseat.build.v1alpha1.Build.Stage
-	28, // 41: frontseat.build.v1alpha1.BuildEvent.Planned.actions:type_name -> frontseat.build.v1alpha1.BuildEvent.PlannedAction
-	37, // 42: frontseat.build.v1alpha1.BuildEvent.PlannedAction.entity:type_name -> frontseat.type.v1alpha1.EntityRef
-	6,  // 43: frontseat.build.v1alpha1.BuildEvent.ActionFinished.result:type_name -> frontseat.build.v1alpha1.ActionResult
-	3,  // 44: frontseat.build.v1alpha1.BuildEvent.Finished.build:type_name -> frontseat.build.v1alpha1.Build
-	8,  // 45: frontseat.build.v1alpha1.BuildService.CreateBuild:input_type -> frontseat.build.v1alpha1.CreateBuildRequest
-	10, // 46: frontseat.build.v1alpha1.BuildService.DescribeBuild:input_type -> frontseat.build.v1alpha1.DescribeBuildRequest
-	12, // 47: frontseat.build.v1alpha1.BuildService.ListBuilds:input_type -> frontseat.build.v1alpha1.ListBuildsRequest
-	14, // 48: frontseat.build.v1alpha1.BuildService.CancelBuild:input_type -> frontseat.build.v1alpha1.CancelBuildRequest
-	16, // 49: frontseat.build.v1alpha1.BuildService.WaitBuild:input_type -> frontseat.build.v1alpha1.WaitBuildRequest
-	18, // 50: frontseat.build.v1alpha1.BuildService.StreamBuildEvents:input_type -> frontseat.build.v1alpha1.StreamBuildEventsRequest
-	20, // 51: frontseat.build.v1alpha1.BuildService.ListBuildActions:input_type -> frontseat.build.v1alpha1.ListBuildActionsRequest
-	22, // 52: frontseat.build.v1alpha1.BuildService.StreamBuildLogs:input_type -> frontseat.build.v1alpha1.StreamBuildLogsRequest
-	9,  // 53: frontseat.build.v1alpha1.BuildService.CreateBuild:output_type -> frontseat.build.v1alpha1.CreateBuildResponse
-	11, // 54: frontseat.build.v1alpha1.BuildService.DescribeBuild:output_type -> frontseat.build.v1alpha1.DescribeBuildResponse
-	13, // 55: frontseat.build.v1alpha1.BuildService.ListBuilds:output_type -> frontseat.build.v1alpha1.ListBuildsResponse
-	15, // 56: frontseat.build.v1alpha1.BuildService.CancelBuild:output_type -> frontseat.build.v1alpha1.CancelBuildResponse
-	17, // 57: frontseat.build.v1alpha1.BuildService.WaitBuild:output_type -> frontseat.build.v1alpha1.WaitBuildResponse
-	19, // 58: frontseat.build.v1alpha1.BuildService.StreamBuildEvents:output_type -> frontseat.build.v1alpha1.StreamBuildEventsResponse
-	21, // 59: frontseat.build.v1alpha1.BuildService.ListBuildActions:output_type -> frontseat.build.v1alpha1.ListBuildActionsResponse
-	23, // 60: frontseat.build.v1alpha1.BuildService.StreamBuildLogs:output_type -> frontseat.build.v1alpha1.StreamBuildLogsResponse
-	53, // [53:61] is the sub-list for method output_type
-	45, // [45:53] is the sub-list for method input_type
-	45, // [45:45] is the sub-list for extension type_name
-	45, // [45:45] is the sub-list for extension extendee
-	0,  // [0:45] is the sub-list for field type_name
+	36, // 8: frontseat.build.v1alpha1.Build.profile:type_name -> frontseat.type.v1alpha1.Profile
+	37, // 9: frontseat.build.v1alpha1.Cost.worker_time:type_name -> google.protobuf.Duration
+	37, // 10: frontseat.build.v1alpha1.Cost.wall_time:type_name -> google.protobuf.Duration
+	38, // 11: frontseat.build.v1alpha1.ActionResult.entity:type_name -> frontseat.type.v1alpha1.EntityRef
+	39, // 12: frontseat.build.v1alpha1.ActionResult.outcome:type_name -> frontseat.build.v1alpha1.Outcome
+	40, // 13: frontseat.build.v1alpha1.ActionResult.provenance:type_name -> frontseat.build.v1alpha1.Provenance
+	41, // 14: frontseat.build.v1alpha1.ActionResult.action_digest:type_name -> frontseat.build.v1alpha1.Digest
+	35, // 15: frontseat.build.v1alpha1.ActionResult.start_time:type_name -> google.protobuf.Timestamp
+	37, // 16: frontseat.build.v1alpha1.ActionResult.duration:type_name -> google.protobuf.Duration
+	37, // 17: frontseat.build.v1alpha1.ActionResult.worker_time:type_name -> google.protobuf.Duration
+	41, // 18: frontseat.build.v1alpha1.ActionResult.stdout:type_name -> frontseat.build.v1alpha1.Digest
+	41, // 19: frontseat.build.v1alpha1.ActionResult.stderr:type_name -> frontseat.build.v1alpha1.Digest
+	34, // 20: frontseat.build.v1alpha1.ActionResult.diagnostics:type_name -> frontseat.type.v1alpha1.Diagnostic
+	7,  // 21: frontseat.build.v1alpha1.ActionResult.rewrites:type_name -> frontseat.build.v1alpha1.Rewrite
+	42, // 22: frontseat.build.v1alpha1.Rewrite.location:type_name -> frontseat.type.v1alpha1.SourceLocation
+	2,  // 23: frontseat.build.v1alpha1.Rewrite.kind:type_name -> frontseat.build.v1alpha1.Rewrite.Kind
+	41, // 24: frontseat.build.v1alpha1.Rewrite.content:type_name -> frontseat.build.v1alpha1.Digest
+	36, // 25: frontseat.build.v1alpha1.CreateBuildRequest.profile:type_name -> frontseat.type.v1alpha1.Profile
+	3,  // 26: frontseat.build.v1alpha1.CreateBuildResponse.build:type_name -> frontseat.build.v1alpha1.Build
+	3,  // 27: frontseat.build.v1alpha1.DescribeBuildResponse.build:type_name -> frontseat.build.v1alpha1.Build
+	3,  // 28: frontseat.build.v1alpha1.ListBuildsResponse.builds:type_name -> frontseat.build.v1alpha1.Build
+	3,  // 29: frontseat.build.v1alpha1.CancelBuildResponse.build:type_name -> frontseat.build.v1alpha1.Build
+	3,  // 30: frontseat.build.v1alpha1.WaitBuildResponse.build:type_name -> frontseat.build.v1alpha1.Build
+	24, // 31: frontseat.build.v1alpha1.StreamBuildEventsResponse.events:type_name -> frontseat.build.v1alpha1.BuildEvent
+	6,  // 32: frontseat.build.v1alpha1.ListBuildActionsResponse.actions:type_name -> frontseat.build.v1alpha1.ActionResult
+	43, // 33: frontseat.build.v1alpha1.StreamBuildLogsResponse.lines:type_name -> frontseat.type.v1alpha1.LogLine
+	35, // 34: frontseat.build.v1alpha1.BuildEvent.time:type_name -> google.protobuf.Timestamp
+	26, // 35: frontseat.build.v1alpha1.BuildEvent.stage_changed:type_name -> frontseat.build.v1alpha1.BuildEvent.StageChanged
+	27, // 36: frontseat.build.v1alpha1.BuildEvent.planned:type_name -> frontseat.build.v1alpha1.BuildEvent.Planned
+	29, // 37: frontseat.build.v1alpha1.BuildEvent.action_started:type_name -> frontseat.build.v1alpha1.BuildEvent.ActionStarted
+	30, // 38: frontseat.build.v1alpha1.BuildEvent.action_finished:type_name -> frontseat.build.v1alpha1.BuildEvent.ActionFinished
+	31, // 39: frontseat.build.v1alpha1.BuildEvent.patched:type_name -> frontseat.build.v1alpha1.BuildEvent.Patched
+	33, // 40: frontseat.build.v1alpha1.BuildEvent.finished:type_name -> frontseat.build.v1alpha1.BuildEvent.Finished
+	32, // 41: frontseat.build.v1alpha1.BuildEvent.started_over:type_name -> frontseat.build.v1alpha1.BuildEvent.StartedOver
+	1,  // 42: frontseat.build.v1alpha1.BuildEvent.StageChanged.stage:type_name -> frontseat.build.v1alpha1.Build.Stage
+	28, // 43: frontseat.build.v1alpha1.BuildEvent.Planned.actions:type_name -> frontseat.build.v1alpha1.BuildEvent.PlannedAction
+	38, // 44: frontseat.build.v1alpha1.BuildEvent.PlannedAction.entity:type_name -> frontseat.type.v1alpha1.EntityRef
+	6,  // 45: frontseat.build.v1alpha1.BuildEvent.ActionFinished.result:type_name -> frontseat.build.v1alpha1.ActionResult
+	3,  // 46: frontseat.build.v1alpha1.BuildEvent.Finished.build:type_name -> frontseat.build.v1alpha1.Build
+	8,  // 47: frontseat.build.v1alpha1.BuildService.CreateBuild:input_type -> frontseat.build.v1alpha1.CreateBuildRequest
+	10, // 48: frontseat.build.v1alpha1.BuildService.DescribeBuild:input_type -> frontseat.build.v1alpha1.DescribeBuildRequest
+	12, // 49: frontseat.build.v1alpha1.BuildService.ListBuilds:input_type -> frontseat.build.v1alpha1.ListBuildsRequest
+	14, // 50: frontseat.build.v1alpha1.BuildService.CancelBuild:input_type -> frontseat.build.v1alpha1.CancelBuildRequest
+	16, // 51: frontseat.build.v1alpha1.BuildService.WaitBuild:input_type -> frontseat.build.v1alpha1.WaitBuildRequest
+	18, // 52: frontseat.build.v1alpha1.BuildService.StreamBuildEvents:input_type -> frontseat.build.v1alpha1.StreamBuildEventsRequest
+	20, // 53: frontseat.build.v1alpha1.BuildService.ListBuildActions:input_type -> frontseat.build.v1alpha1.ListBuildActionsRequest
+	22, // 54: frontseat.build.v1alpha1.BuildService.StreamBuildLogs:input_type -> frontseat.build.v1alpha1.StreamBuildLogsRequest
+	9,  // 55: frontseat.build.v1alpha1.BuildService.CreateBuild:output_type -> frontseat.build.v1alpha1.CreateBuildResponse
+	11, // 56: frontseat.build.v1alpha1.BuildService.DescribeBuild:output_type -> frontseat.build.v1alpha1.DescribeBuildResponse
+	13, // 57: frontseat.build.v1alpha1.BuildService.ListBuilds:output_type -> frontseat.build.v1alpha1.ListBuildsResponse
+	15, // 58: frontseat.build.v1alpha1.BuildService.CancelBuild:output_type -> frontseat.build.v1alpha1.CancelBuildResponse
+	17, // 59: frontseat.build.v1alpha1.BuildService.WaitBuild:output_type -> frontseat.build.v1alpha1.WaitBuildResponse
+	19, // 60: frontseat.build.v1alpha1.BuildService.StreamBuildEvents:output_type -> frontseat.build.v1alpha1.StreamBuildEventsResponse
+	21, // 61: frontseat.build.v1alpha1.BuildService.ListBuildActions:output_type -> frontseat.build.v1alpha1.ListBuildActionsResponse
+	23, // 62: frontseat.build.v1alpha1.BuildService.StreamBuildLogs:output_type -> frontseat.build.v1alpha1.StreamBuildLogsResponse
+	55, // [55:63] is the sub-list for method output_type
+	47, // [47:55] is the sub-list for method input_type
+	47, // [47:47] is the sub-list for extension type_name
+	47, // [47:47] is the sub-list for extension extendee
+	0,  // [0:47] is the sub-list for field type_name
 }
 
 func init() { file_frontseat_build_v1alpha1_build_proto_init() }

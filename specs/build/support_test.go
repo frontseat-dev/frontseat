@@ -780,11 +780,11 @@ func (w *Workspace) requires(project string) []Requirement {
 type asking func(*buildv1.CreateBuildRequest)
 
 // production asks for a build as what will be released is built.
-func production() asking { return withProfile("production") }
+func production() asking { return withProfile(typev1.Profile_PROFILE_PRODUCTION) }
 
 // withProfile asks for a build with a profile, by name.
-func withProfile(name string) asking {
-	return func(r *buildv1.CreateBuildRequest) { r.Profile = name }
+func withProfile(profile typev1.Profile) asking {
+	return func(r *buildv1.CreateBuildRequest) { r.Profile = profile }
 }
 
 // fixing asks for what is out of step to be written as it should be,
@@ -906,7 +906,7 @@ func (b *Build) passed() int { return int(b.run.GetCounts().GetPassed()) }
 func (b *Build) ranOnAWorker() int { return int(b.run.GetCost().GetActionsExecuted()) }
 
 // profile is the name of the profile it was built with.
-func (b *Build) profile() string { return b.run.GetProfile() }
+func (b *Build) profile() typev1.Profile { return b.run.GetProfile() }
 
 // askingAfter is why nothing could be said of a build, by its name.
 func (w *Workspace) askingAfter(id string) error {

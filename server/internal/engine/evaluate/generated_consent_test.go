@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/entity"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/plan"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/source"
@@ -57,7 +58,7 @@ func TestAGeneratedDestinationNeedsTheConsentOfItsComponent(t *testing.T) {
 	testforge.GeneratedElsewhere(t, r.root)
 	retainedWrite(t, r.root, "app/catalog-info.yaml", testforge.ConsentingComponent("app", ""))
 	evaluated := func(answers asking) (Evaluation, error) {
-		return evaluate(t.Context(), retainedTake(t, &source.Keeper{}, r.root), r.plugins, answers, pluginv1.Profile_PROFILE_DEVELOPMENT, nil)
+		return evaluate(t.Context(), retainedTake(t, &source.Keeper{}, r.root), r.plugins, answers, typev1.Profile_PROFILE_DEVELOPMENT, nil)
 	}
 	consented, err := evaluated(&Answers{})
 	if err != nil {

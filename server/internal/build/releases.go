@@ -13,6 +13,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/entity"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/graph"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/plan"
@@ -21,7 +22,6 @@ import (
 	"github.com/frontseat-dev/frontseat/server/internal/exec/publish"
 	"github.com/frontseat-dev/frontseat/server/internal/exec/tools"
 	"github.com/frontseat-dev/frontseat/server/internal/model"
-	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/pluginhost"
 	"github.com/frontseat-dev/frontseat/server/internal/source/record"
 )
@@ -181,7 +181,7 @@ func (rs *releases) create(ctx context.Context, request *buildv1.CreateReleaseRe
 	// with.
 	var built *run
 	if len(targets) > 0 {
-		if built, err = rs.graph.runs.create(rs.ctx, "production", pluginv1.Profile_PROFILE_PRODUCTION, targets, nil, false, false, nil, versionsOf(planned.Plan)); err != nil {
+		if built, err = rs.graph.runs.create(rs.ctx, typev1.Profile_PROFILE_PRODUCTION, targets, nil, false, false, nil, versionsOf(planned.Plan)); err != nil {
 			return nil, err
 		}
 		m.state.BuildId = built.snapshot().GetId()

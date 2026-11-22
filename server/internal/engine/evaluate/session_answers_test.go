@@ -3,8 +3,8 @@ package evaluate
 import (
 	"testing"
 
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/source"
-	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
 )
 
 // What plugins answered is kept once for the daemon: what evaluates
@@ -21,11 +21,11 @@ func TestWhatEvaluatesBesideASessionAsksNothingAgain(t *testing.T) {
 	if _, err := s.Facts(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	apart, err := Evaluate(t.Context(), retainedTake(t, files, root), plugins, &Answers{}, pluginv1.Profile_PROFILE_DEVELOPMENT, nil)
+	apart, err := Evaluate(t.Context(), retainedTake(t, files, root), plugins, &Answers{}, typev1.Profile_PROFILE_DEVELOPMENT, nil)
 	if err != nil || apart.Asked == 0 {
 		t.Fatalf("an evaluation with a record of its own asked %d plugins, %v: this test proves nothing", apart.Asked, err)
 	}
-	beside, err := Evaluate(t.Context(), retainedTake(t, files, root), plugins, answers, pluginv1.Profile_PROFILE_DEVELOPMENT, nil)
+	beside, err := Evaluate(t.Context(), retainedTake(t, files, root), plugins, answers, typev1.Profile_PROFILE_DEVELOPMENT, nil)
 	if err != nil || beside.Asked != 0 {
 		t.Fatalf("an evaluation beside the session asked %d plugins again, %v", beside.Asked, err)
 	}

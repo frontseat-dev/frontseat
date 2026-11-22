@@ -37,6 +37,7 @@ import (
 	v1alpha1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -464,8 +465,8 @@ type ReleaseCommit struct {
 	Message string `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
 	// Members are the unit's members whose files it changed.
 	Members []*v1alpha1.EntityRef `protobuf:"bytes,4,rep,name=members,proto3" json:"members,omitempty"`
-	// Time is when it was committed, in seconds since the epoch.
-	Time          int64 `protobuf:"varint,5,opt,name=time,proto3" json:"time,omitempty"`
+	// Commit_time is when it was committed.
+	CommitTime    *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=commit_time,json=commitTime,proto3" json:"commit_time,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -528,11 +529,11 @@ func (x *ReleaseCommit) GetMembers() []*v1alpha1.EntityRef {
 	return nil
 }
 
-func (x *ReleaseCommit) GetTime() int64 {
+func (x *ReleaseCommit) GetCommitTime() *timestamppb.Timestamp {
 	if x != nil {
-		return x.Time
+		return x.CommitTime
 	}
-	return 0
+	return nil
 }
 
 // VersionResponse is a unit's next version.
@@ -677,7 +678,7 @@ var File_frontseat_plugin_v1alpha1_release_proto protoreflect.FileDescriptor
 
 const file_frontseat_plugin_v1alpha1_release_proto_rawDesc = "" +
 	"\n" +
-	"'frontseat/plugin/v1alpha1/release.proto\x12\x19frontseat.plugin.v1alpha1\x1a#frontseat/type/v1alpha1/types.proto\"P\n" +
+	"'frontseat/plugin/v1alpha1/release.proto\x12\x19frontseat.plugin.v1alpha1\x1a#frontseat/type/v1alpha1/types.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"P\n" +
 	"\fReleaseRoles\x12\x1e\n" +
 	"\n" +
 	"branchings\x18\x01 \x03(\tR\n" +
@@ -708,15 +709,16 @@ const file_frontseat_plugin_v1alpha1_release_proto_rawDesc = "" +
 	"\flast_version\x18\x03 \x01(\tR\vlastVersion\x12\x18\n" +
 	"\ainitial\x18\x04 \x01(\tR\ainitial\x12B\n" +
 	"\acommits\x18\x05 \x03(\v2(.frontseat.plugin.v1alpha1.ReleaseCommitR\acommits\x12A\n" +
-	"\x06branch\x18\b \x01(\v2).frontseat.plugin.v1alpha1.BranchResponseR\x06branch\"\xab\x01\n" +
+	"\x06branch\x18\b \x01(\v2).frontseat.plugin.v1alpha1.BranchResponseR\x06branch\"\xd4\x01\n" +
 	"\rReleaseCommit\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1e\n" +
 	"\n" +
 	"repository\x18\x02 \x01(\tR\n" +
 	"repository\x12\x18\n" +
 	"\amessage\x18\x03 \x01(\tR\amessage\x12<\n" +
-	"\amembers\x18\x04 \x03(\v2\".frontseat.type.v1alpha1.EntityRefR\amembers\x12\x12\n" +
-	"\x04time\x18\x05 \x01(\x03R\x04time\"\xb8\x01\n" +
+	"\amembers\x18\x04 \x03(\v2\".frontseat.type.v1alpha1.EntityRefR\amembers\x12;\n" +
+	"\vcommit_time\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"commitTime\"\xb8\x01\n" +
 	"\x0fVersionResponse\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\tR\aversion\x121\n" +
 	"\x04bump\x18\x02 \x01(\x0e2\x1d.frontseat.type.v1alpha1.BumpR\x04bump\x12B\n" +
@@ -742,16 +744,17 @@ func file_frontseat_plugin_v1alpha1_release_proto_rawDescGZIP() []byte {
 
 var file_frontseat_plugin_v1alpha1_release_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_frontseat_plugin_v1alpha1_release_proto_goTypes = []any{
-	(*ReleaseRoles)(nil),       // 0: frontseat.plugin.v1alpha1.ReleaseRoles
-	(*ReleaseUnitFacts)(nil),   // 1: frontseat.plugin.v1alpha1.ReleaseUnitFacts
-	(*BranchRequest)(nil),      // 2: frontseat.plugin.v1alpha1.BranchRequest
-	(*BranchResponse)(nil),     // 3: frontseat.plugin.v1alpha1.BranchResponse
-	(*VersionRequest)(nil),     // 4: frontseat.plugin.v1alpha1.VersionRequest
-	(*ReleaseCommit)(nil),      // 5: frontseat.plugin.v1alpha1.ReleaseCommit
-	(*VersionResponse)(nil),    // 6: frontseat.plugin.v1alpha1.VersionResponse
-	(*VersionReason)(nil),      // 7: frontseat.plugin.v1alpha1.VersionReason
-	(*v1alpha1.EntityRef)(nil), // 8: frontseat.type.v1alpha1.EntityRef
-	(v1alpha1.Bump)(0),         // 9: frontseat.type.v1alpha1.Bump
+	(*ReleaseRoles)(nil),          // 0: frontseat.plugin.v1alpha1.ReleaseRoles
+	(*ReleaseUnitFacts)(nil),      // 1: frontseat.plugin.v1alpha1.ReleaseUnitFacts
+	(*BranchRequest)(nil),         // 2: frontseat.plugin.v1alpha1.BranchRequest
+	(*BranchResponse)(nil),        // 3: frontseat.plugin.v1alpha1.BranchResponse
+	(*VersionRequest)(nil),        // 4: frontseat.plugin.v1alpha1.VersionRequest
+	(*ReleaseCommit)(nil),         // 5: frontseat.plugin.v1alpha1.ReleaseCommit
+	(*VersionResponse)(nil),       // 6: frontseat.plugin.v1alpha1.VersionResponse
+	(*VersionReason)(nil),         // 7: frontseat.plugin.v1alpha1.VersionReason
+	(*v1alpha1.EntityRef)(nil),    // 8: frontseat.type.v1alpha1.EntityRef
+	(v1alpha1.Bump)(0),            // 9: frontseat.type.v1alpha1.Bump
+	(*timestamppb.Timestamp)(nil), // 10: google.protobuf.Timestamp
 }
 var file_frontseat_plugin_v1alpha1_release_proto_depIdxs = []int32{
 	8,  // 0: frontseat.plugin.v1alpha1.ReleaseUnitFacts.unit:type_name -> frontseat.type.v1alpha1.EntityRef
@@ -763,14 +766,15 @@ var file_frontseat_plugin_v1alpha1_release_proto_depIdxs = []int32{
 	5,  // 6: frontseat.plugin.v1alpha1.VersionRequest.commits:type_name -> frontseat.plugin.v1alpha1.ReleaseCommit
 	3,  // 7: frontseat.plugin.v1alpha1.VersionRequest.branch:type_name -> frontseat.plugin.v1alpha1.BranchResponse
 	8,  // 8: frontseat.plugin.v1alpha1.ReleaseCommit.members:type_name -> frontseat.type.v1alpha1.EntityRef
-	9,  // 9: frontseat.plugin.v1alpha1.VersionResponse.bump:type_name -> frontseat.type.v1alpha1.Bump
-	7,  // 10: frontseat.plugin.v1alpha1.VersionResponse.reasons:type_name -> frontseat.plugin.v1alpha1.VersionReason
-	9,  // 11: frontseat.plugin.v1alpha1.VersionReason.bump:type_name -> frontseat.type.v1alpha1.Bump
-	12, // [12:12] is the sub-list for method output_type
-	12, // [12:12] is the sub-list for method input_type
-	12, // [12:12] is the sub-list for extension type_name
-	12, // [12:12] is the sub-list for extension extendee
-	0,  // [0:12] is the sub-list for field type_name
+	10, // 9: frontseat.plugin.v1alpha1.ReleaseCommit.commit_time:type_name -> google.protobuf.Timestamp
+	9,  // 10: frontseat.plugin.v1alpha1.VersionResponse.bump:type_name -> frontseat.type.v1alpha1.Bump
+	7,  // 11: frontseat.plugin.v1alpha1.VersionResponse.reasons:type_name -> frontseat.plugin.v1alpha1.VersionReason
+	9,  // 12: frontseat.plugin.v1alpha1.VersionReason.bump:type_name -> frontseat.type.v1alpha1.Bump
+	13, // [13:13] is the sub-list for method output_type
+	13, // [13:13] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_frontseat_plugin_v1alpha1_release_proto_init() }

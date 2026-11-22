@@ -9,6 +9,7 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/model"
 	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/pluginhost"
@@ -41,7 +42,7 @@ func TestTwoDocumentsThatDeclareOneActionAreRefused(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			src := &counted{files: map[string]string{"frontseat.yaml": "plugins: {backstage: {}}\n", "provider/catalog-info.yaml": c.file}}
-			out, err := evaluate(t.Context(), src, plugins, &Answers{}, pluginv1.Profile_PROFILE_DEVELOPMENT, nil)
+			out, err := evaluate(t.Context(), src, plugins, &Answers{}, typev1.Profile_PROFILE_DEVELOPMENT, nil)
 			if !c.refuse {
 				if err != nil {
 					t.Fatalf("one declaration refused: %v", err)
@@ -115,7 +116,7 @@ func TestALabelTwoSourcesDeclareIsRefused(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			plugins := []*pluginhost.Plugin{{Description: &pluginv1.DescribeResponse{Name: c.plugin, Interests: []string{"**/catalog-info.yaml"}}}}
 			src := &counted{files: map[string]string{"frontseat.yaml": "plugins: {" + c.plugin + ": {}}\n", "provider/catalog-info.yaml": catalogFile}}
-			_, err := evaluate(t.Context(), src, plugins, analyzing{asking: &Answers{}, projects: c.projects}, pluginv1.Profile_PROFILE_DEVELOPMENT, nil)
+			_, err := evaluate(t.Context(), src, plugins, analyzing{asking: &Answers{}, projects: c.projects}, typev1.Profile_PROFILE_DEVELOPMENT, nil)
 			if c.twice == "" {
 				if err != nil {
 					t.Fatalf("two labels refused: %v", err)

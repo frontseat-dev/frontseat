@@ -22,6 +22,6 @@ func OutputInput(name string) *pluginv1.Input {
 // handoffs, as a plugin names them.
 func AllDependencies(into string) *pluginv1.Input {
 	return &pluginv1.Input{Kind: &pluginv1.Input_Dependency{Dependency: &pluginv1.DependencyInput{
-		Selection: &pluginv1.DependencyInput_All{All: true}, Into: into,
+		Selection: &pluginv1.DependencyInput_All{All: &pluginv1.AllRequirements{}}, Into: into,
 	}}}
 }

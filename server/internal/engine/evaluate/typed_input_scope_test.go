@@ -1,6 +1,7 @@
 package evaluate
 
 import (
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/config"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/graph"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/plan"
@@ -50,7 +51,7 @@ func TestTypedDependencySelectionsCompareActualPlacement(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			out := Evaluation{Projects: []graph.Project{consumer, provider}, Actions: []plan.Action{{Label: model.Label{Path: "app", Plugin: "consumer", Name: "read"}, ProjectRoot: "app", Declared: &pluginv1.Action{Name: "read", Inputs: []*pluginv1.Input{pluginhost.DependencyInput(wire.Coordinate(coordinate), "deps/{name}"), pluginhost.DependencyInput(wire.Coordinate(coordinate), tc.second)}}}}}
-			_, err := hand(t.Context(), nil, nil, nil, pluginv1.Profile_PROFILE_DEVELOPMENT, nil, &out)
+			_, err := hand(t.Context(), nil, nil, nil, typev1.Profile_PROFILE_DEVELOPMENT, nil, &out)
 			if (err == nil) != tc.accepted {
 				t.Fatalf("second placement %q accepted=%v, want %v: %v", tc.second, err == nil, tc.accepted, err)
 			}
@@ -80,7 +81,7 @@ func TestTypedArtifactPlacementAliasesRetainRootRestrictions(t *testing.T) {
 			}
 			provider := graph.Project{Repository: tc.repository, Root: "app/.", Plugin: "producer", Provides: []graph.Provide{provided}}
 			out := Evaluation{Projects: []graph.Project{consumer, provider}, Actions: []plan.Action{{Label: model.Label{Path: "app", Plugin: "consumer", Name: "read"}, ProjectRoot: "app", Declared: &pluginv1.Action{Name: "read", Inputs: []*pluginv1.Input{pluginhost.DependencyInput(wire.Coordinate(coordinate), "{root}"), pluginhost.DependencyInput(wire.Coordinate(coordinate), ".")}}}}}
-			_, err := hand(t.Context(), nil, nil, nil, pluginv1.Profile_PROFILE_DEVELOPMENT, nil, &out)
+			_, err := hand(t.Context(), nil, nil, nil, typev1.Profile_PROFILE_DEVELOPMENT, nil, &out)
 			if (err == nil) != tc.accepted {
 				t.Fatalf("accepted=%v, want %v: %v", err == nil, tc.accepted, err)
 			}

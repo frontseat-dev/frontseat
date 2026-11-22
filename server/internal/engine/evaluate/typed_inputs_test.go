@@ -2,6 +2,7 @@ package evaluate
 
 import (
 	"fmt"
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/graph"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/plan"
 	"github.com/frontseat-dev/frontseat/server/internal/model"
@@ -40,9 +41,9 @@ func TestTypedInputsSelectOnlyTheDependencyTheirActionReads(t *testing.T) {
 		{Label: model.Label{Path: "fixture", Plugin: "cargo", Name: "compile"}, ProjectRoot: "fixture", Declared: &pluginv1.Action{Name: "compile"}},
 		action("compile", `[{"dependency":{"coordinate":{"ecosystem":"go","name":"example.com/lib"},"into":"deps/{name}"}}]`),
 		action("test", `[{"dependency":{"coordinate":{"ecosystem":"wasm","name":"fixture"},"into":"runtime/{name}"}}]`),
-		action("lint", `[{"dependency":{"all":true,"into":"all/{name}"}}]`),
+		action("lint", `[{"dependency":{"all":{},"into":"all/{name}"}}]`),
 	}}
-	if _, err := hand(t.Context(), nil, nil, nil, pluginv1.Profile_PROFILE_DEVELOPMENT, nil, &out); err != nil {
+	if _, err := hand(t.Context(), nil, nil, nil, typev1.Profile_PROFILE_DEVELOPMENT, nil, &out); err != nil {
 		t.Fatal(err)
 	}
 	if err := plan.BindProvided(out.Actions); err != nil {

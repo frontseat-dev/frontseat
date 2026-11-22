@@ -10,10 +10,10 @@ import (
 	"time"
 
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/graph"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/plan"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/source"
-	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
 	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 )
@@ -135,7 +135,7 @@ func projectionWanted(t *testing.T, e Evaluation, kind projectionKind, targets [
 
 // projectionMatches asks the retained engine for one operation over src
 // and fails the test unless it succeeds with what is wanted.
-func projectionMatches(t *testing.T, p *retainedEngine, src Source, profile pluginv1.Profile, targets []string, kind projectionKind, want testProjection) {
+func projectionMatches(t *testing.T, p *retainedEngine, src Source, profile typev1.Profile, targets []string, kind projectionKind, want testProjection) {
 	t.Helper()
 	got, err := p.operation(t.Context(), src, profile, targets, kind)
 	if err != nil {
@@ -166,10 +166,10 @@ func projectionEqual(t *testing.T, got, want testProjection, kind projectionKind
 func TestRetainedProjectionOperationTargetProfileAndRefusalTransitions(t *testing.T) {
 	root := retainedFixture(t, 3)
 	p, files := newRetainedEngine(), &source.Keeper{}
-	dev, prod := pluginv1.Profile_PROFILE_DEVELOPMENT, pluginv1.Profile_PROFILE_PRODUCTION
+	dev, prod := typev1.Profile_PROFILE_DEVELOPMENT, typev1.Profile_PROFILE_PRODUCTION
 	steps := []struct {
 		kind    projectionKind
-		profile pluginv1.Profile
+		profile typev1.Profile
 		targets []string
 	}{
 		{projectProjects, dev, nil}, {projectPlan, dev, []string{"m0000/"}},
@@ -214,7 +214,7 @@ func TestRetainedProjectionSelectionCannotHideInvalidOutsideProvider(t *testing.
 	for _, kind := range []projectionKind{projectProjects, projectPlan} {
 		root := retainedFixture(t, 3)
 		p, files := newRetainedEngine(), &source.Keeper{}
-		profile, targets := pluginv1.Profile_PROFILE_DEVELOPMENT, []string{"m0000/"}
+		profile, targets := typev1.Profile_PROFILE_DEVELOPMENT, []string{"m0000/"}
 		if _, err := p.operation(t.Context(), retainedTake(t, files, root), profile, targets, kind); err != nil {
 			t.Fatal(err)
 		}
@@ -238,7 +238,7 @@ func TestRetainedProjectionSelectionCannotHideInvalidOutsideProvider(t *testing.
 func TestRetainedProjectionConcurrentOperationsAndEarlierMutation(t *testing.T) {
 	root := retainedFixture(t, 3)
 	p, files := newRetainedEngine(), &source.Keeper{}
-	profile := pluginv1.Profile_PROFILE_DEVELOPMENT
+	profile := typev1.Profile_PROFILE_DEVELOPMENT
 	fresh := projectionFresh(t, retainedTake(t, &source.Keeper{}, root), profile)
 	firstProjects, err := p.projectList(t.Context(), retainedTake(t, files, root), profile)
 	if err != nil {
@@ -302,7 +302,7 @@ func TestRetainedProjectionCancellationAcrossOperations(t *testing.T) {
 		for _, cancelActive := range []bool{false, true} {
 			t.Run(fmt.Sprintf("kind%d/activeCancelled%v", activeKind, cancelActive), func(t *testing.T) {
 				root, p, files := warmRetained(t, 2)
-				profile := pluginv1.Profile_PROFILE_DEVELOPMENT
+				profile := typev1.Profile_PROFILE_DEVELOPMENT
 				gate := &retainedDigestGate{Source: retainedTake(t, files, root), started: make(chan struct{}), release: make(chan struct{})}
 				activeCtx, activeCancel := context.WithCancel(t.Context())
 				queuedCtx, queuedCancel := context.WithCancel(t.Context())

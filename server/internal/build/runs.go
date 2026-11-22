@@ -36,7 +36,6 @@ import (
 	runexec "github.com/frontseat-dev/frontseat/server/internal/exec/run"
 	"github.com/frontseat-dev/frontseat/server/internal/history"
 	"github.com/frontseat-dev/frontseat/server/internal/model"
-	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/pluginhost"
 	sourced "github.com/frontseat-dev/frontseat/server/internal/source"
 	"github.com/frontseat-dev/frontseat/server/internal/source/record"
@@ -233,28 +232,20 @@ func (rs *runs) prune() {
 	rs.order = kept
 }
 
-// profiles are the profiles there are, by name, each with the way of
-// building it is at its base. Frontseat defines these two; a profile a
-// repository defines for itself is found here once there are any.
-var profiles = map[string]pluginv1.Profile{
-	"development": pluginv1.Profile_PROFILE_DEVELOPMENT,
-	"production":  pluginv1.Profile_PROFILE_PRODUCTION,
-}
+// errNoProfile is a number that is no profile: proto3 enums are open,
+// and a client may send any.
+var errNoProfile = errors.New("the number asked for is no profile: the profiles are PROFILE_DEVELOPMENT and PROFILE_PRODUCTION")
 
-// errNoProfile is a profile nobody defined.
-var errNoProfile = errors.New("there is no profile of the name asked for: the profiles are development and production")
-
-// profileOf returns the profile a run builds with, by name, and what it
-// is at its base: the one asked for, or development where none is.
-func profileOf(asked string) (string, pluginv1.Profile, error) {
-	if asked == "" {
-		asked = "development"
+// profileOf returns the profile a run builds with: the one asked for,
+// or development where none is.
+func profileOf(asked typev1.Profile) (typev1.Profile, error) {
+	switch asked {
+	case typev1.Profile_PROFILE_UNSPECIFIED:
+		return typev1.Profile_PROFILE_DEVELOPMENT, nil
+	case typev1.Profile_PROFILE_DEVELOPMENT, typev1.Profile_PROFILE_PRODUCTION:
+		return asked, nil
 	}
-	base, defined := profiles[asked]
-	if !defined {
-		return "", 0, errNoProfile
-	}
-	return asked, base, nil
+	return 0, errNoProfile
 }
 
 // versions is what a release tells the build it makes: the version
@@ -297,7 +288,7 @@ func versioned(actions []plan.Action, entities []record.Located, of *versions) [
 // what the one program its target names is made of, and brings that to
 // where the daemon is; every other run is given nil. A run given
 // versions is made for a release.
-func (rs *runs) create(parent context.Context, profile string, base pluginv1.Profile, targets, only []string, fix, testsOnly bool, running *delivery, released *versions) (*run, error) {
+func (rs *runs) create(parent context.Context, profile typev1.Profile, targets, only []string, fix, testsOnly bool, running *delivery, released *versions) (*run, error) {
 	id, err := newID(history.IDPrefix, history.IDBytes)
 	if err != nil {
 		return nil, err
@@ -305,7 +296,7 @@ func (rs *runs) create(parent context.Context, profile string, base pluginv1.Pro
 	ctx, cancel := context.WithCancel(rs.telemetry.Context(context.WithoutCancel(parent)))
 	r := &run{
 		clock:     rs.clock,
-		base:      base,
+		base:      profile,
 		running:   running,
 		released:  released,
 		only:      only,
@@ -525,7 +516,7 @@ type run struct {
 	clock func() time.Time
 	// base is the way the source is built: which of the two the run's
 	// profile is.
-	base pluginv1.Profile
+	base typev1.Profile
 	// fix is whether what is out of step is written, and not failed.
 	fix bool
 	// released is what a release tells the build it makes; nil, the run

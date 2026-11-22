@@ -1,6 +1,7 @@
 package evaluate
 
 import (
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/source"
 	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
 	"google.golang.org/protobuf/proto"
@@ -10,7 +11,7 @@ import (
 func TestRetainedUnchangedAnswerIsSharedAcrossReassembly(t *testing.T) {
 	root := retainedFixture(t, 2)
 	p, files := newRetainedEngine(), &source.Keeper{}
-	profile := pluginv1.Profile_PROFILE_DEVELOPMENT
+	profile := typev1.Profile_PROFILE_DEVELOPMENT
 	answer := func() *answer {
 		for _, q := range p.trace.queries {
 			if q.method != "Analyze" {
@@ -41,7 +42,7 @@ func TestRetainedUnchangedAnswerIsSharedAcrossReassembly(t *testing.T) {
 
 func TestRetainedEqualValuesKeepEvaluationAndChangedValuesRebuild(t *testing.T) {
 	root, p, files := warmRetained(t, 20)
-	profile := pluginv1.Profile_PROFILE_DEVELOPMENT
+	profile := typev1.Profile_PROFILE_DEVELOPMENT
 	retainedWrite(t, root, "m0000/go.mod", "module example.com/m0000\n\ngo 1.27\n// comment\n")
 	retainedOracle(t, p, files, root, profile, nil)
 	if p.evaluations != 1 || p.plans != 1 || p.reasked != 1 {

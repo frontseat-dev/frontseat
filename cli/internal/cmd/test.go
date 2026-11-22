@@ -6,7 +6,7 @@ import (
 	"github.com/frontseat-dev/frontseat/sdk/go"
 )
 
-var testProfile string
+var testProfile profile
 
 // testCmd tests the workspace, or what it is pointed at.
 var testCmd = &cobra.Command{
@@ -27,7 +27,7 @@ build to its end and exits with its exit code: 3 where a test failed.`,
   frontseat test //platform/gateway:go.test`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return built(cmd, func(w *frontseat.Workspace) (*frontseat.Build, error) {
-			return w.Test(cmd.Context(), frontseat.BuildRequest{Targets: args, Profile: testProfile})
+			return w.Test(cmd.Context(), frontseat.BuildRequest{Targets: args, Profile: testProfile.Profile})
 		})
 	},
 }

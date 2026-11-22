@@ -104,7 +104,7 @@ message Context {
   // Profile is the way the source is to be built. A plugin declares the
   // commands of that way: its compiler flags and its tools' own switches.
   // It is never unspecified.
-  Profile profile = 7;
+  frontseat.type.v1alpha1.Profile profile = 7;
   // Platforms are the platforms what the plugin is asked about is
   // shipped for, as its entity says (spec.frontseat.platforms), each an
   // operating system and an architecture as "linux/amd64": what a
@@ -112,24 +112,6 @@ message Context {
   // none; a plugin whose tool makes what is the same on every platform
   // makes nothing of them.
   repeated string platforms = 8;
-}
-
-// Profile is one of the two ways source is built, which every profile is
-// at its base. A plugin knows what each means for its own tools: the
-// compiler flags and the tools' own switches. A profile is part of what
-// an action is, so the two never share an answer.
-//
-// A run names its profile, and the two here are the ones frontseat
-// defines.
-enum Profile {
-  // PROFILE_UNSPECIFIED: not said.
-  PROFILE_UNSPECIFIED = 0;
-  // PROFILE_DEVELOPMENT: for whoever is working on the source: quick to
-  // build and easy to debug.
-  PROFILE_DEVELOPMENT = 1;
-  // PROFILE_PRODUCTION: for what is shipped: compiled for speed and for
-  // safety.
-  PROFILE_PRODUCTION = 2;
 }
 
 // Option is an option a plugin takes: something a repository, or an
@@ -731,8 +713,8 @@ message Input {
 message DependencyInput {
   // Selection names all requirements or exactly one declared requirement.
   oneof selection {
-    // All must be true and selects every requirement of this project.
-    bool all = 1;
+    // All selects every requirement of this project.
+    AllRequirements all = 1;
     // Coordinate selects a requirement already declared by this project.
     // It selects the provider, never a producer action of another plugin.
     Coordinate coordinate = 2;
@@ -745,6 +727,10 @@ message DependencyInput {
   // root. Artifact paths retain their provider-relative layout beneath Into.
   string into = 3;
 }
+
+// AllRequirements selects every requirement of a project: see
+// DependencyInput.all. It says nothing more.
+message AllRequirements {}
 
 // Download is one thing a shared fetch brings from outside: see
 // Action.downloads. It is unpacked whole (sha256 and into) or cut into

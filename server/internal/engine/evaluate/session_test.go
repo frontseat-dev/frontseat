@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/entity"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/source"
-	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/pluginhost"
 	"github.com/frontseat-dev/frontseat/server/internal/source/record"
 	"testing"
@@ -102,7 +102,7 @@ func TestRetainedSessionSuppliedEntitiesInvalidateFacts(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		fresh, err := Evaluate(t.Context(), retainedTake(t, &source.Keeper{}, root), plugins, &Answers{}, pluginv1.Profile_PROFILE_DEVELOPMENT, entities)
+		fresh, err := Evaluate(t.Context(), retainedTake(t, &source.Keeper{}, root), plugins, &Answers{}, typev1.Profile_PROFILE_DEVELOPMENT, entities)
 		if err != nil {
 			t.Fatal(err)
 		}

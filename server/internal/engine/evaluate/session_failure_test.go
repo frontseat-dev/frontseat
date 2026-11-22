@@ -6,8 +6,8 @@ import (
 	"errors"
 	"testing"
 
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/source"
-	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
 )
 
 // A request that fails takes nothing of what is kept with it but what the
@@ -20,13 +20,13 @@ func TestARequestThatFailsKeepsWhatWasEvaluated(t *testing.T) {
 	s, files := buildingSession(t), &source.Keeper{}
 	targets := []string{"m0001/"}
 	build := func(ctx context.Context, targets []string) (BuildPlan, error) {
-		return s.Build(ctx, retainedTake(t, files, root), pluginv1.Profile_PROFILE_DEVELOPMENT, nil, targets, nil)
+		return s.Build(ctx, retainedTake(t, files, root), typev1.Profile_PROFILE_DEVELOPMENT, nil, targets, nil)
 	}
 	first, err := build(t.Context(), targets)
 	if err != nil || first.Work.Retained || s.core.evaluations != 1 {
 		t.Fatalf("the first request evaluated %d times, retained=%v, %v: this test proves nothing", s.core.evaluations, first.Work.Retained, err)
 	}
-	fresh := projectionFresh(t, retainedTake(t, &source.Keeper{}, root), pluginv1.Profile_PROFILE_DEVELOPMENT)
+	fresh := projectionFresh(t, retainedTake(t, &source.Keeper{}, root), typev1.Profile_PROFILE_DEVELOPMENT)
 	want := projectionBytes(t, freshPlan(t, fresh, targets))
 	held := func(after string) {
 		t.Helper()

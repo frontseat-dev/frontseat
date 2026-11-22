@@ -1,6 +1,7 @@
 package evaluate
 
 import (
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/graph"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/plan"
 	"github.com/frontseat-dev/frontseat/server/internal/model"
@@ -27,7 +28,7 @@ func TestProvidedArtifactsUseTheExistingGraphAndRootPlacement(t *testing.T) {
 				{Label: model.Label{Path: provider.Path(), Plugin: "prepare", Name: "install"}, Repository: tc.repo, ProjectRoot: tc.root, Declared: &pluginv1.Action{Name: "install"}},
 				{Label: model.Label{Path: "app", Plugin: "framework", Name: "test"}, ProjectRoot: "app", Declared: &pluginv1.Action{Name: "test", Inputs: append([]*pluginv1.Input{}, pluginhosttest.AllDependencies("{root}"))}},
 			}}
-			_, err := hand(t.Context(), nil, nil, nil, pluginv1.Profile_PROFILE_DEVELOPMENT, nil, &out)
+			_, err := hand(t.Context(), nil, nil, nil, typev1.Profile_PROFILE_DEVELOPMENT, nil, &out)
 			if tc.refused {
 				if err == nil || !strings.Contains(err.Error(), "another repository") {
 					t.Fatalf("foreign root: %v", err)

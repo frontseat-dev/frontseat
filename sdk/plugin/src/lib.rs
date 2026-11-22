@@ -46,8 +46,8 @@ pub use toml;
 /// reaches here for a message that has none.
 pub use frontseat::plugin::v1alpha1 as wire;
 pub use frontseat::r#type::v1alpha1::{
-    option_value, service_ready, Bump, Diagnostic, EntityRef, OptionValue, Service, ServiceApi,
-    ServiceCommandReady, ServiceHttpReady, ServiceReady, SourceLocation,
+    option_value, service_ready, Bump, Diagnostic, EntityRef, OptionValue, Profile, Service,
+    ServiceApi, ServiceCommandReady, ServiceHttpReady, ServiceReady, SourceLocation,
 };
 /// A length of time as the contract says one: how long a service is
 /// given to be ready (`Service::timeout`).
@@ -56,8 +56,8 @@ pub use wire::action::Kind as ActionKind;
 pub use wire::{
     Action, Analysis, BranchRequest, BranchResponse, Command, Coordinate, DependencyInput,
     Download, Edit, Entity, EntityRelation, File, GeneratedSource, Handed, Input, InputSet, Origin,
-    Output, Part, Produced, Profile, Project, Provide, ReleaseCommit, Requirement, Resolved,
-    VersionReason, VersionRequest, VersionResponse,
+    Output, Part, Produced, Project, Provide, ReleaseCommit, Requirement, Resolved, VersionReason,
+    VersionRequest, VersionResponse,
 };
 /// What a call is told beside its request, and what the calls answer as
 /// the host reads them: what a test of a plugin is answered

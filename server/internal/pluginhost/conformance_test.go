@@ -38,11 +38,11 @@ func pluginFixtures(t *testing.T) map[string]conformance.Fixture {
 			Projects:       []*pluginv1.Project{{Root: "app", Name: "example.com/hello", Kind: "go-module", Manifest: "app/go.mod", Actions: expectedGoActions(), InputSets: []*pluginv1.InputSet{{Name: "sources", AcceptsGenerated: true, Inputs: []*pluginv1.Input{pluginhost.SourceInput("go.mod"), pluginhost.SourceInput("go.sum"), pluginhost.SourceInput("**/*.go"), pluginhost.SourceInput("**/*.s"), pluginhost.SourceInput("**/*.h"), pluginhost.SourceInput("**/*.syso"), pluginhost.SourceInput("!**/testdata/**")}}, {Name: "module", AcceptsGenerated: true, Inputs: []*pluginv1.Input{pluginhost.SourceInput("go.mod"), pluginhost.SourceInput("go.sum"), pluginhost.SourceInput("**/*.go"), pluginhost.SourceInput("**/*.s"), pluginhost.SourceInput("**/*.h"), pluginhost.SourceInput("**/*.syso"), pluginhost.SourceInput("!**/testdata/**"), pluginhost.SourceInput("!**/*_test.go")}}}, Provides: []*pluginv1.Provide{{Coordinate: &pluginv1.Coordinate{Ecosystem: "go", Name: "example.com/hello"}, Sources: "module"}}, Requires: []*pluginv1.Requirement{{Coordinate: &pluginv1.Coordinate{Ecosystem: "go", Name: "example.com/dep"}, Origin: &pluginv1.Origin{Path: "app/go.mod", Line: 5}, Version: "v0.0.0"}}}},
 			Reads:          []conformance.Observation{{Import: "read", Argument: "app/go.mod", Found: true}, {Import: "read", Argument: "app/go.sum", Found: false}, {Import: "glob", Argument: "**/go.mod\x00!**/testdata/**", Directory: "app", Found: true}, {Import: "glob", Argument: "**/*.go\x00!**/testdata/**", Directory: "app", Found: true}, {Import: "read", Argument: "app/internal/ledger/ledger.go", Found: true}, {Import: "read", Argument: "app/internal/ledger/ledger_test.go", Found: true}, {Import: "read", Argument: "app/main.go", Found: true}, {Import: "read", Argument: "app/main_test.go", Found: true}},
 			Files:          []*pluginv1.File{{Path: "app/go.work", Content: []byte("go 1.27.3\n\nuse .\n\nreplace (\n\texample.com/dep => ./.frontseat/go/example.com/dep\n)\n")}},
-			Analyze:        &pluginv1.AnalyzeRequest{Roots: []string{"app"}, Context: &pluginv1.Context{Profile: pluginv1.Profile_PROFILE_DEVELOPMENT, Options: map[string]*typev1.OptionValue{"test-timeout": &typev1.OptionValue{Value: &typev1.OptionValue_StringValue{StringValue: "10m"}}, "test-shards": &typev1.OptionValue{Value: &typev1.OptionValue_IntValue{IntValue: 1}}, "tags": &typev1.OptionValue{Value: &typev1.OptionValue_StringListValue{StringListValue: &typev1.OptionValue_StringList{}}}, "version": &typev1.OptionValue{Value: &typev1.OptionValue_StringListValue{StringListValue: &typev1.OptionValue_StringList{}}}}}},
+			Analyze:        &pluginv1.AnalyzeRequest{Roots: []string{"app"}, Context: &pluginv1.Context{Profile: typev1.Profile_PROFILE_DEVELOPMENT, Options: map[string]*typev1.OptionValue{"test-timeout": &typev1.OptionValue{Value: &typev1.OptionValue_StringValue{StringValue: "10m"}}, "test-shards": &typev1.OptionValue{Value: &typev1.OptionValue_IntValue{IntValue: 1}}, "tags": &typev1.OptionValue{Value: &typev1.OptionValue_StringListValue{StringListValue: &typev1.OptionValue_StringList{}}}, "version": &typev1.OptionValue{Value: &typev1.OptionValue_StringListValue{StringListValue: &typev1.OptionValue_StringList{}}}}}},
 			InvalidArrange: &pluginv1.ArrangeRequest{Root: "app", Context: goContext()}, ArrangeErrorCode: "UNPINNED_TOOL", ArrangeErrorPath: "app/go.mod",
 			Report:   goReport,
 			Findings: goFindings,
-			Arrange:  &pluginv1.ArrangeRequest{Root: "app", Context: &pluginv1.Context{Profile: pluginv1.Profile_PROFILE_DEVELOPMENT, Options: goContext().Options, Tools: map[string]string{"go": "1.27.3"}}, Actions: []string{"compile"}, Handed: []*pluginv1.Handed{{Coordinate: &pluginv1.Coordinate{Ecosystem: "go", Name: "example.com/dep"}, Into: ".frontseat/go/example.com/dep"}}},
+			Arrange:  &pluginv1.ArrangeRequest{Root: "app", Context: &pluginv1.Context{Profile: typev1.Profile_PROFILE_DEVELOPMENT, Options: goContext().Options, Tools: map[string]string{"go": "1.27.3"}}, Actions: []string{"compile"}, Handed: []*pluginv1.Handed{{Coordinate: &pluginv1.Coordinate{Ecosystem: "go", Name: "example.com/dep"}, Into: ".frontseat/go/example.com/dep"}}},
 		},
 	}
 }
@@ -134,7 +134,7 @@ func arrangingNothing(context *pluginv1.Context, fixture conformance.Fixture) co
 // where vet printed this and failed.
 func vetFailed(stderr string) *pluginv1.ReportRequest {
 	return &pluginv1.ReportRequest{
-		Context:  &pluginv1.Context{Profile: pluginv1.Profile_PROFILE_DEVELOPMENT, Options: goContext().Options, Tools: map[string]string{"go": "1.27.3"}},
+		Context:  &pluginv1.Context{Profile: typev1.Profile_PROFILE_DEVELOPMENT, Options: goContext().Options, Tools: map[string]string{"go": "1.27.3"}},
 		Root:     "app",
 		Action:   "lint",
 		ExitCode: 1,
@@ -312,7 +312,7 @@ func TestAStrategyFixtureThatProvesTooLittleIsRefused(t *testing.T) {
 // it being there, which it never reads, it has one project at the
 // repository's root, whose one action publishes.
 func githubFixture() conformance.Fixture {
-	context := &pluginv1.Context{Profile: pluginv1.Profile_PROFILE_PRODUCTION, Tools: map[string]string{"gh": "2.105.0"}}
+	context := &pluginv1.Context{Profile: typev1.Profile_PROFILE_PRODUCTION, Tools: map[string]string{"gh": "2.105.0"}}
 	fixture := arrangingNothing(context, conformance.Fixture{
 		Name: "github", ABI: 25, Description: &pluginv1.DescribeResponse{Name: "github", Interests: []string{"frontseat.yaml", "!**/testdata/**"}},
 		Source: files{"frontseat.yaml": "plugins:\n  github: {}\n"}, Absent: files{},

@@ -3,9 +3,9 @@ package evaluate
 import (
 	"context"
 	"fmt"
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/config"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/plan"
-	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/pluginhost"
 	"github.com/frontseat-dev/frontseat/server/internal/source/record"
 	"github.com/frontseat-dev/frontseat/server/telemetry"
@@ -33,7 +33,7 @@ type retainedEngine struct {
 	// The evaluation that is kept, what it was asked with, and what it
 	// read, by which it is held to a later source.
 	valid    bool
-	profile  pluginv1.Profile
+	profile  typev1.Profile
 	supplied []record.Located
 	result   retainedResult
 	trace    *retainedTrace
@@ -54,7 +54,7 @@ type retainedEngine struct {
 // operationSelected admits one request, and gives it its own copy of the
 // projection it asked for (kind), of the evaluation of src. Only the
 // projections named here see what is kept.
-func (p *retainedEngine) operationSelected(ctx context.Context, src Source, profile pluginv1.Profile, targets, only []string, kind projectionKind, supplied []record.Located) (projectionResult, error) {
+func (p *retainedEngine) operationSelected(ctx context.Context, src Source, profile typev1.Profile, targets, only []string, kind projectionKind, supplied []record.Located) (projectionResult, error) {
 	release, err := p.admit(ctx)
 	if err != nil {
 		return projectionResult{}, err
@@ -87,7 +87,7 @@ func (p *retainedEngine) operationSelected(ctx context.Context, src Source, prof
 // evaluates again, plans where the request is for a plan (planned), and
 // has own take the request's copy of what is then kept. The caller holds
 // the engine's gate.
-func (p *retainedEngine) projected(ctx context.Context, src Source, profile pluginv1.Profile, targets, only []string, supplied []record.Located, planned bool, own func(kept retainedResult, asked []plan.Action, out *projectionResult)) (out projectionResult, err error) {
+func (p *retainedEngine) projected(ctx context.Context, src Source, profile typev1.Profile, targets, only []string, supplied []record.Located, planned bool, own func(kept retainedResult, asked []plan.Action, out *projectionResult)) (out projectionResult, err error) {
 	// What is kept is changed only by what succeeded, below: a request
 	// that fails takes nothing with it. An evaluation that failed leaves
 	// the one before, which the next request holds to its source again; a

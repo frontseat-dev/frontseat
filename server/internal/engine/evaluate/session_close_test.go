@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"slices"
 	"sync"
 	"sync/atomic"
@@ -167,7 +167,7 @@ func TestRetainedSessionSourceCancellationDoesNotFailIndependentAcquisition(t *t
 	if err := <-peerErr; err != nil {
 		t.Fatal(err)
 	}
-	want := projectionFresh(t, retainedTake(t, &source.Keeper{}, root), pluginv1.Profile_PROFILE_DEVELOPMENT).ProjectList()
+	want := projectionFresh(t, retainedTake(t, &source.Keeper{}, root), typev1.Profile_PROFILE_DEVELOPMENT).ProjectList()
 	if !proto.Equal(got, want) {
 		t.Fatal("independent acquisition changed result")
 	}
@@ -203,7 +203,7 @@ func TestRetainedSessionSuppliedEntitiesAndProviderErrorsMatchFresh(t *testing.T
 	for i, variant := range variants {
 		entities = slices.Clone(variant)
 		got, gotErr := s.Facts(t.Context())
-		want, wantErr := Evaluate(t.Context(), retainedTake(t, &source.Keeper{}, root), plugins, &Answers{}, pluginv1.Profile_PROFILE_DEVELOPMENT, slices.Clone(variant))
+		want, wantErr := Evaluate(t.Context(), retainedTake(t, &source.Keeper{}, root), plugins, &Answers{}, typev1.Profile_PROFILE_DEVELOPMENT, slices.Clone(variant))
 		if (gotErr == nil) != (wantErr == nil) || gotErr != nil && gotErr.Error() != wantErr.Error() {
 			t.Fatalf("variant %d: retained=%v fresh=%v", i, gotErr, wantErr)
 		}

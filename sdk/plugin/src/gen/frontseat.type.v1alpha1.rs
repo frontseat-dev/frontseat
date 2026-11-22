@@ -69,6 +69,47 @@ impl LogStream {
         }
     }
 }
+/// Profile is one of the two ways source is built, which every profile is
+/// at its base. A plugin knows what each means for its own tools: the
+/// compiler flags and the tools' own switches. A profile is part of what
+/// an action is, so the two never share an answer.
+///
+/// A build and a run name their profile, and a plugin is told it; the two
+/// here are the ones frontseat defines.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum Profile {
+    /// PROFILE_UNSPECIFIED: not said.
+    Unspecified = 0,
+    /// PROFILE_DEVELOPMENT: for whoever is working on the source: quick to
+    /// build and easy to debug.
+    Development = 1,
+    /// PROFILE_PRODUCTION: for what is shipped: compiled for speed and for
+    /// safety.
+    Production = 2,
+}
+impl Profile {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "PROFILE_UNSPECIFIED",
+            Self::Development => "PROFILE_DEVELOPMENT",
+            Self::Production => "PROFILE_PRODUCTION",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "PROFILE_UNSPECIFIED" => Some(Self::Unspecified),
+            "PROFILE_DEVELOPMENT" => Some(Self::Development),
+            "PROFILE_PRODUCTION" => Some(Self::Production),
+            _ => None,
+        }
+    }
+}
 /// Bump is how far a version moves, by semantic versioning.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]

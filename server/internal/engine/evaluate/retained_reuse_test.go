@@ -13,9 +13,9 @@ import (
 	"testing"
 	"time"
 
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/plan"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/source"
-	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/pluginhost"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testmodule"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testpins"
@@ -82,7 +82,7 @@ func retainedFixture(t testing.TB, modules int) string {
 }
 
 // The reference deliberately uses a fresh evaluator answer cache when requested.
-func retainedFresh(ctx context.Context, src Source, profile pluginv1.Profile, targets []string, answers *Answers) (retainedResult, error) {
+func retainedFresh(ctx context.Context, src Source, profile typev1.Profile, targets []string, answers *Answers) (retainedResult, error) {
 	plugins, err := retainedLoaded()
 	if err != nil {
 		return retainedResult{}, err
@@ -150,7 +150,7 @@ func TestRetainedUnchangedEvaluationIsReused(t *testing.T) {
 	root := retainedFixture(t, 2)
 	p, files := newRetainedEngine(), &source.Keeper{}
 	for range 2 {
-		if _, err := p.run(t.Context(), retainedTake(t, files, root), pluginv1.Profile_PROFILE_DEVELOPMENT, nil); err != nil {
+		if _, err := p.run(t.Context(), retainedTake(t, files, root), typev1.Profile_PROFILE_DEVELOPMENT, nil); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -160,10 +160,10 @@ func TestRetainedUnchangedEvaluationIsReused(t *testing.T) {
 }
 
 type retainedRunner interface {
-	run(context.Context, Source, pluginv1.Profile, []string) (retainedResult, error)
+	run(context.Context, Source, typev1.Profile, []string) (retainedResult, error)
 }
 
-func retainedOracle(t *testing.T, p retainedRunner, files *source.Keeper, root string, profile pluginv1.Profile, targets []string) retainedResult {
+func retainedOracle(t *testing.T, p retainedRunner, files *source.Keeper, root string, profile typev1.Profile, targets []string) retainedResult {
 	t.Helper()
 	return retainedCompare(t, p, files, root, profile, targets, false)
 }
@@ -174,11 +174,11 @@ func warmRetained(t *testing.T, modules int) (string, *retainedEngine, *source.K
 	t.Helper()
 	root := retainedFixture(t, modules)
 	p, files := newRetainedEngine(), &source.Keeper{}
-	retainedOracle(t, p, files, root, pluginv1.Profile_PROFILE_DEVELOPMENT, nil)
+	retainedOracle(t, p, files, root, typev1.Profile_PROFILE_DEVELOPMENT, nil)
 	return root, p, files
 }
 
-func retainedCompare(t *testing.T, p retainedRunner, files *source.Keeper, root string, profile pluginv1.Profile, targets []string, refusal bool) retainedResult {
+func retainedCompare(t *testing.T, p retainedRunner, files *source.Keeper, root string, profile typev1.Profile, targets []string, refusal bool) retainedResult {
 	t.Helper()
 	got, gotErr := p.run(t.Context(), retainedTake(t, files, root), profile, targets)
 	want, wantErr := retainedFresh(t.Context(), retainedTake(t, &source.Keeper{}, root), profile, targets, &Answers{})
@@ -211,7 +211,7 @@ func retainedCompare(t *testing.T, p retainedRunner, files *source.Keeper, root 
 
 func TestRetainedChangesAgreeWithFreshEvaluation(t *testing.T) {
 	root, p, files := warmRetained(t, 2)
-	profile := pluginv1.Profile_PROFILE_DEVELOPMENT
+	profile := typev1.Profile_PROFILE_DEVELOPMENT
 	t.Run("unobserved file", func(t *testing.T) {
 		before := p.evaluations
 		retainedWrite(t, root, "notes.txt", "not an analysis input\n")
@@ -248,7 +248,7 @@ func TestRetainedChangesAgreeWithFreshEvaluation(t *testing.T) {
 		retainedOracle(t, p, files, root, profile, nil)
 	})
 	t.Run("profile changes", func(t *testing.T) {
-		retainedOracle(t, p, files, root, pluginv1.Profile_PROFILE_PRODUCTION, nil)
+		retainedOracle(t, p, files, root, typev1.Profile_PROFILE_PRODUCTION, nil)
 		retainedOracle(t, p, files, root, profile, nil)
 	})
 	t.Run("selection changes", func(t *testing.T) {
@@ -287,12 +287,12 @@ func TestRetainedChangedSnapshotIsRefusedThenFreshOneSucceeds(t *testing.T) {
 	root, p, files := warmRetained(t, 1)
 	old := retainedTake(t, files, root)
 	retainedWrite(t, root, "m0000/go.mod", "module example.com/changed\n\ngo 1.27\n")
-	_, err := p.run(t.Context(), old, pluginv1.Profile_PROFILE_DEVELOPMENT, nil)
+	_, err := p.run(t.Context(), old, typev1.Profile_PROFILE_DEVELOPMENT, nil)
 	var changed *source.Changed
 	if !errors.As(err, &changed) {
 		t.Fatalf("changed snapshot: %v", err)
 	}
-	retainedOracle(t, p, files, root, pluginv1.Profile_PROFILE_DEVELOPMENT, nil)
+	retainedOracle(t, p, files, root, typev1.Profile_PROFILE_DEVELOPMENT, nil)
 }
 
 type retainedBlocking struct {
@@ -316,14 +316,14 @@ func TestRetainedCancellationDoesNotFailAnotherRequest(t *testing.T) {
 	defer cancel()
 	blocked := &retainedBlocking{Source: retainedTake(t, &source.Keeper{}, root), started: make(chan struct{})}
 	first, second := make(chan error, 1), make(chan error, 1)
-	go func() { _, err := p.run(ctx, blocked, pluginv1.Profile_PROFILE_DEVELOPMENT, nil); first <- err }()
+	go func() { _, err := p.run(ctx, blocked, typev1.Profile_PROFILE_DEVELOPMENT, nil); first <- err }()
 	select {
 	case <-blocked.started:
 	case <-time.After(10 * time.Second):
 		t.Fatal("first request never reached source")
 	}
 	next := retainedTake(t, &source.Keeper{}, root)
-	go func() { _, err := p.run(t.Context(), next, pluginv1.Profile_PROFILE_DEVELOPMENT, nil); second <- err }()
+	go func() { _, err := p.run(t.Context(), next, typev1.Profile_PROFILE_DEVELOPMENT, nil); second <- err }()
 	cancel()
 	if err := <-first; !errors.Is(err, context.Canceled) {
 		t.Fatalf("first: %v", err)
@@ -331,5 +331,5 @@ func TestRetainedCancellationDoesNotFailAnotherRequest(t *testing.T) {
 	if err := <-second; err != nil {
 		t.Fatalf("second: %v", err)
 	}
-	retainedOracle(t, p, &source.Keeper{}, root, pluginv1.Profile_PROFILE_DEVELOPMENT, nil)
+	retainedOracle(t, p, &source.Keeper{}, root, typev1.Profile_PROFILE_DEVELOPMENT, nil)
 }

@@ -12,7 +12,6 @@ import (
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/exec/program"
-	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
 )
 
 // runsAtOnce is how many runs a daemon has that have not ended:
@@ -175,7 +174,7 @@ func (rs *programRuns) list() []*programRun {
 
 // create makes a run, and returns at once. What it does is of the
 // trace of whoever asked, and goes on after they have been answered.
-func (rs *programRuns) create(ctx context.Context, profile string, base pluginv1.Profile, request *buildv1.CreateRunRequest) (*programRun, error) {
+func (rs *programRuns) create(ctx context.Context, profile typev1.Profile, request *buildv1.CreateRunRequest) (*programRun, error) {
 	id, err := newID("run_", 8)
 	if err != nil {
 		return nil, err
@@ -197,7 +196,7 @@ func (rs *programRuns) create(ctx context.Context, profile string, base pluginv1
 	// Its build is made with it, so that whoever made it follows the
 	// build by the run it is answered with.
 	bringing := &delivery{}
-	built, err := rs.runs.create(context.WithoutCancel(ctx), profile, base, []string{request.GetTarget()}, nil, false, false, bringing, nil)
+	built, err := rs.runs.create(context.WithoutCancel(ctx), profile, []string{request.GetTarget()}, nil, false, false, bringing, nil)
 	if err != nil {
 		return nil, err
 	}

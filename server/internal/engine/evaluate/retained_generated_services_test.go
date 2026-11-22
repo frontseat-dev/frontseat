@@ -5,9 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/plan"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/source"
-	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/pluginhost"
 	runnerv1 "github.com/frontseat-dev/frontseat/server/internal/runnerapi/frontseat/runner/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/source/record"
@@ -57,7 +57,7 @@ func newReadiness(t *testing.T, root string, names ...string) *readiness {
 }
 
 func (r *readiness) fresh() (Evaluation, error) {
-	return Evaluate(r.t.Context(), retainedTake(r.t, &source.Keeper{}, r.root), r.plugins, &Answers{}, pluginv1.Profile_PROFILE_DEVELOPMENT, nil)
+	return Evaluate(r.t.Context(), retainedTake(r.t, &source.Keeper{}, r.root), r.plugins, &Answers{}, typev1.Profile_PROFILE_DEVELOPMENT, nil)
 }
 
 func (r *readiness) facts() Evaluation {
@@ -80,7 +80,7 @@ func (r *readiness) facts() Evaluation {
 func (r *readiness) build(target string) BuildPlan {
 	r.t.Helper()
 	targets := []string{target}
-	got, err := r.session.Build(r.t.Context(), retainedTake(r.t, r.files, r.root), pluginv1.Profile_PROFILE_DEVELOPMENT, nil, targets, nil)
+	got, err := r.session.Build(r.t.Context(), retainedTake(r.t, r.files, r.root), typev1.Profile_PROFILE_DEVELOPMENT, nil, targets, nil)
 	if err != nil {
 		r.t.Fatalf("retained build: %v", err)
 	}
@@ -110,7 +110,7 @@ func (r *readiness) build(target string) BuildPlan {
 
 func (r *readiness) refuses(target, contains string) {
 	r.t.Helper()
-	_, got := r.session.Build(r.t.Context(), retainedTake(r.t, r.files, r.root), pluginv1.Profile_PROFILE_DEVELOPMENT, nil, []string{target}, nil)
+	_, got := r.session.Build(r.t.Context(), retainedTake(r.t, r.files, r.root), typev1.Profile_PROFILE_DEVELOPMENT, nil, []string{target}, nil)
 	_, want := r.fresh()
 	if got == nil || want == nil || got.Error() != want.Error() || !strings.Contains(got.Error(), contains) {
 		r.t.Fatalf("global refusal mismatch: retained=%v ordinary=%v; require %q", got, want, contains)
