@@ -40,9 +40,9 @@ func (d *meeting) Apply(ctx context.Context, wanted driver.Sandbox) (driver.Sand
 
 // started is a service over a driver, with its records in a directory:
 // a server as it starts.
-func started(t *testing.T, d driver.Driver, state string) *service {
+func started(t *testing.T, d driver.Driver, state string) *Server {
 	t.Helper()
-	s, err := newService(d, "", state)
+	s, err := New(Options{Driver: d, State: state})
 	if err != nil {
 		t.Fatal(err)
 	}

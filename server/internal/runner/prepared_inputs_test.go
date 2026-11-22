@@ -121,11 +121,11 @@ func TestPreparedHomeFileBindsWorkInTheRealRuntime(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	handler, err := sandbox.Handler(testcontainer.Driver{}, "http://runtime-review", t.TempDir())
+	served, err := sandbox.New(sandbox.Options{Driver: testcontainer.Driver{}, PublicURL: "http://runtime-review", State: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)
 	}
-	server := httptest.NewServer(handler)
+	server := httptest.NewServer(served.Handler())
 	t.Cleanup(server.Close)
 	client := sandboxv1alpha1connect.NewSandboxServiceClient(connect.NewClient(connecthttp.NewTransport(server.Client(), server.URL)))
 	ctx, cancel := context.WithTimeout(t.Context(), time.Minute)

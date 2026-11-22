@@ -58,7 +58,7 @@ func (d *holding) Delete(ctx context.Context, id string) error {
 // heldSandbox starts the service over a driver that holds what it is
 // armed for, and has it make a sandbox; it returns the driver, the
 // service and the sandbox's id.
-func heldSandbox(t *testing.T) (*holding, *service, string) {
+func heldSandbox(t *testing.T) (*holding, *Server, string) {
 	t.Helper()
 	d := newHolding()
 	s := started(t, d, t.TempDir())

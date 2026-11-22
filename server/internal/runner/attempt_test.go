@@ -49,10 +49,11 @@ func (c *interruptedSandboxes) DeleteSandbox(ctx context.Context, req *sandboxv1
 func runtimeSandboxes(t *testing.T, wrap ...func(http.Handler) http.Handler) (*runner, sandboxv1alpha1connect.SandboxServiceClient) {
 	testrequired.Stack(t)
 	t.Helper()
-	handler, err := sandbox.Handler(testcontainer.Driver{}, "http://runner-test", t.TempDir())
+	served, err := sandbox.New(sandbox.Options{Driver: testcontainer.Driver{}, PublicURL: "http://runner-test", State: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)
 	}
+	handler := served.Handler()
 	r := &runner{}
 	for _, wrapper := range wrap {
 		handler = wrapper(handler)

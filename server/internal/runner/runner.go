@@ -159,11 +159,13 @@ func Serve(ctx context.Context, config Config) error {
 	if err := os.MkdirAll(state, 0o700); err != nil {
 		return err
 	}
-	handler, err := sandbox.GatewayRunner("http://frontseat-runner", config.Gateway, config.Identity, config.Runtime, state)
+	sandboxes, err := sandbox.New(sandbox.Options{PublicURL: "http://frontseat-runner", State: state, Gateway: &sandbox.Gateway{
+		Address: config.Gateway, Identity: config.Identity, Runtime: config.Runtime, ReadAll: true, HostVolumes: true,
+	}})
 	if err != nil {
 		return err
 	}
-	r.creations.next = handler
+	r.creations.next = sandboxes.Handler()
 	api := filepath.Join(state, "sandbox.sock")
 	os.Remove(api)
 	apiListener, err := net.Listen("unix", api)

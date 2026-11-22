@@ -3,7 +3,6 @@ package sandbox_test
 import (
 	"context"
 	"errors"
-	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -73,8 +72,8 @@ func TestADriverThatCannotRunACommandInASandboxSaysSo(t *testing.T) {
 // driver of the container runtime (testcontainer).
 func overTheContainerRuntime(t *testing.T) sandboxv1alpha1connect.SandboxServiceClient {
 	t.Helper()
-	client, _ := serving(t, func(address string) (http.Handler, error) {
-		return sandbox.Handler(testcontainer.Driver{}, address, t.TempDir())
+	client, _ := serving(t, func(address string) (*sandbox.Server, error) {
+		return sandbox.New(sandbox.Options{Driver: testcontainer.Driver{}, PublicURL: address, State: t.TempDir()})
 	})
 	return client
 }

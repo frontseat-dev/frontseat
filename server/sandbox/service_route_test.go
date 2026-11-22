@@ -194,10 +194,11 @@ func newServiceRoutes(t *testing.T) *serviceRoutes {
 	if err := os.Mkdir(state, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	handler, err := sandbox.Handler(testcontainer.Driver{}, srv.URL, state)
+	served, err := sandbox.New(sandbox.Options{Driver: testcontainer.Driver{}, PublicURL: srv.URL, State: state})
 	if err != nil {
 		t.Fatal(err)
 	}
+	handler := served.Handler()
 	p := &serviceRoutes{t: t, bin: bin, root: root, owner: unique()}
 	srv.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		creating := strings.HasSuffix(r.URL.Path, "/CreateSandbox")
