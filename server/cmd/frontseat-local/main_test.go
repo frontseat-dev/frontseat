@@ -81,8 +81,30 @@ func TestWithoutAGatewayItIsKnownByTheServerDoesNotStart(t *testing.T) {
 	if err := os.Symlink(filepath.Join(sound, "tls.key"), filepath.Join(keyLinked, "tls.key")); err != nil {
 		t.Fatal(err)
 	}
+	// A certificate is public: one anyone may read is taken, and one
+	// another may write, or reached through a link, is refused.
+	certified := func(mode os.FileMode, linked bool) string {
+		directory := identityOf(t, 0o600)
+		certificate := filepath.Join(directory, "ca.crt")
+		if linked {
+			if err := os.Remove(certificate); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(filepath.Join(sound, "ca.crt"), certificate); err != nil {
+				t.Fatal(err)
+			}
+			return directory
+		}
+		if err := os.Chmod(certificate, mode); err != nil {
+			t.Fatal(err)
+		}
+		return directory
+	}
 	for name, c := range map[string]struct{ gateway, identity, says string }{
 		"no gateway":                     {"", sound, "name one with --openshell"},
+		"a certificate others may write": {"https://127.0.0.1:1", certified(0o666, false), "can be written by others"},
+		"a certificate that is a link":   {"https://127.0.0.1:1", certified(0, true), "no file of its own"},
+		"a certificate anyone may read":  {"https://127.0.0.1:1", certified(0o644, false), "does not answer this server"},
 		"a gateway that is not there":    {"https://127.0.0.1:1", sound, "does not answer this server"},
 		"a gateway of another authority": {another.URL, sound, "does not answer this server"},
 		"a path after the address":       {"https://127.0.0.1:8090/x", sound, "over https"},
