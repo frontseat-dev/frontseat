@@ -173,7 +173,7 @@ func TestAControlPlaneOnAnotherMachineIsAskedOverTLSAlone(t *testing.T) {
 // server file holds what is written, or why it asks none.
 func serverNamed(t *testing.T, written string) (string, error) {
 	t.Helper()
-	path, err := serverFile()
+	path, err := local.ServerFile()
 	if err != nil {
 		t.Fatal(err)
 	}
