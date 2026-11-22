@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/frontseat-dev/frontseat/local/ports"
+	"github.com/frontseat-dev/frontseat/sdk/go/bearer"
 )
 
 // tokenFile is where the local stack lays out its owner's token
@@ -74,9 +75,14 @@ func Token() (string, error) {
 }
 
 // Server is the control plane the command line asks: the one
-// frontseat/local/server names, written as http://HOST:PORT on one
+// frontseat/local/server names, written as https://HOST[:PORT] on one
 // line, or the local stack's where there is no such file. The token
-// beside it is for it, and is presented to it alone.
+// beside it is for it, and is presented to it alone. One on another
+// machine is asked over https alone (bearer.Private): the token, a
+// credential and what a workspace's shell says are read by no one on the
+// way, and the control plane is known to be the one named, which is
+// what vouches for a sandbox's host key. One on this machine is written
+// with http as well.
 func Server() (string, error) {
 	path, err := serverFile()
 	if err != nil {
@@ -104,7 +110,10 @@ func Server() (string, error) {
 	named := strings.TrimSuffix(string(raw), "\n")
 	at, err := url.Parse(named)
 	if err != nil || (at.Scheme != "http" && at.Scheme != "https") || at.Host == "" || at.User != nil || (at.Path != "" && at.Path != "/") || at.RawQuery != "" || at.Fragment != "" || strings.ContainsAny(named, "\r\n") {
-		return "", fmt.Errorf("%s names no control plane: it holds one address, written as http://HOST:PORT", path)
+		return "", fmt.Errorf("%s names no control plane: it holds one address, written as https://HOST[:PORT], or http://HOST[:PORT] where it is on this machine", path)
+	}
+	if !bearer.Private(at) {
+		return "", fmt.Errorf("%s names a control plane on another machine without TLS: your token would be sent to it in clear, so it is written https://HOST[:PORT]; http is for one on this machine (localhost, a loopback address)", path)
 	}
 	return strings.TrimSuffix(named, "/"), nil
 }

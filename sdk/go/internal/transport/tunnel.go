@@ -22,13 +22,17 @@ const message = 1 << 20
 // messages (coder/websocket), so it goes wherever the server's address
 // leads, with or without TLS and through what stands in front, over the
 // HTTP client reach names or the machine's own. The token is presented
-// where the address is of reach's origin. The connection lasts as long
-// as the context.
+// where the address is of reach's origin, and a tunnel that would carry
+// it in clear to another machine is not opened (bearer.ErrInClear). The
+// connection lasts as long as the context.
 func Tunnel(ctx context.Context, address string, reach Reach) (net.Conn, error) {
 	headers := make(http.Header)
 	propagation.TraceContext{}.Inject(ctx, propagation.HeaderCarrier(headers))
 	over := reach.HTTP
 	if Presents(address, reach) {
+		if at, err := url.Parse(address); err != nil || !bearer.Private(at) {
+			return nil, bearer.ErrInClear
+		}
 		bearer.Present(headers, reach.Token)
 		// A redirect is not followed: it would take the token where the
 		// server chose.
