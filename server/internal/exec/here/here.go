@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"sync"
 
@@ -149,7 +148,7 @@ func withTools(env, given []string, installs map[string]string) ([]string, error
 		merged[name] = value
 	}
 	for tool, install := range installs {
-		if !slices.ContainsFunc(filepath.SplitList(merged["PATH"]), func(dir string) bool { return beneath(install, dir) }) {
+		if !tools.OnPath(merged["PATH"], install, beneath) {
 			return nil, fmt.Errorf("the tool %s is not in the tree it was given: nothing of it is on the path mise gives", tool)
 		}
 	}
