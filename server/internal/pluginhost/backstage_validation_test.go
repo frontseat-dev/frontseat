@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-func TestReviewBackstageBuiltinValidation(t *testing.T) {
+func TestBackstageBuiltinValidation(t *testing.T) {
 	raw, err := testmodule.Plugin("backstage")
 	if err != nil {
 		t.Fatal(err)
@@ -75,7 +75,7 @@ func TestPluginCatalogIdentityIsProviderNeutral(t *testing.T) {
 	}
 }
 
-func TestReviewCatalogRootAliasCannotBypassOwnershipUniqueness(t *testing.T) {
+func TestCatalogRootAliasCannotBypassOwnershipUniqueness(t *testing.T) {
 	for _, root := range []string{"", "."} {
 		entity := &pluginv1.Entity{Ref: &typev1.EntityRef{Kind: "component", Namespace: "default", Name: "app"}, Manifest: "catalog-info.yaml", Roots: []string{root}}
 		err := pluginhost.CheckAnalysis("fake", []string{""}, &pluginv1.AnalyzeResponse{Analyses: []*pluginv1.Analysis{{Entities: []*pluginv1.Entity{entity}}}})
