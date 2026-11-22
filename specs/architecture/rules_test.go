@@ -79,6 +79,9 @@ var policies = []policy{
 	// A test logs in to a workspace's shell with its own key, through the
 	// SDK's tunnel, presenting the token its control plane knows it by.
 	{"server/testsupport/testidentity", []string{"sdk/go"}},
+	// The owner's token is a person's own: a test presents it as the
+	// SDK does, to its origin alone and following no redirect.
+	{"server/testsupport/testowner", []string{"local/ports", "sdk/go/bearer"}},
 	// The sandbox API is no part of the SDK: a test asks it, and opens a
 	// tunnel to a sandbox's port, through this.
 	{"server/testsupport/testsandbox", []string{"sdk/go/api/**", "server/testsupport/testwire"}},

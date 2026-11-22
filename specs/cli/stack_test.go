@@ -112,7 +112,7 @@ func TestTheStacksEndpointRunsNothingInASandbox(t *testing.T) {
 	for _, name := range []string{"no token", "the owner's token"} {
 		var over []*http.Client
 		if name != "no token" {
-			over = append(over, testowner.Client(testowner.Token(t)))
+			over = append(over, testowner.Client(testowner.Token(t), stack))
 		}
 		sandboxes := testsandbox.Client(stack, over...)
 		listed, err := sandboxes.ListSandboxes(context.Background(), &sandboxv1.ListSandboxesRequest{PageSize: 1000})

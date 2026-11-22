@@ -92,7 +92,7 @@ func beneathOf(at string) string { return planeOf(at).Sandboxes }
 // wire is a connection to the API at an address beneath a control
 // plane the specs started, as its owner, for what a spec asks that the
 // SDK does not serve: a request's own fields.
-func wire(at string) *connect.Client { return testwire.Conn(at, testowner.Client(ownerToken(at))) }
+func wire(at string) *connect.Client { return testwire.Conn(at, testowner.Client(ownerToken(at), at)) }
 
 // buildsAt, graphAt and runsAt are the builds, the graph and the runs
 // of a workspace's daemon at an address, over the wire.

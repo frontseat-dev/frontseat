@@ -15,6 +15,7 @@ import (
 	"testing"
 
 	"github.com/frontseat-dev/frontseat/local/ports"
+	"github.com/frontseat-dev/frontseat/sdk/go/bearer"
 )
 
 // Stack is where the local stack's control plane answers this machine,
@@ -23,11 +24,13 @@ var Stack = "http://" + net.JoinHostPort("127.0.0.1", strconv.Itoa(ports.Control
 
 // File is where the local stack lays out its owner's token, as the
 // command line reads it: frontseat/local/token in the configuration
-// directory of the XDG base directory specification.
+// directory of the XDG base directory specification, which takes
+// XDG_CONFIG_HOME only where it is an absolute path, as the command line
+// does (cli/internal/machine).
 func File(t testing.TB) string {
 	t.Helper()
 	config := os.Getenv("XDG_CONFIG_HOME")
-	if config == "" {
+	if !filepath.IsAbs(config) {
 		home, err := os.UserHomeDir()
 		if err != nil {
 			t.Fatal(err)
@@ -83,16 +86,10 @@ func Token(t testing.TB) string {
 	return strings.TrimSpace(string(raw))
 }
 
-// Client is an HTTP client that presents a token with every request, as
-// a bearer's.
-func Client(token string) *http.Client {
-	return &http.Client{Transport: bearer(token)}
-}
-
-type bearer string
-
-func (b bearer) RoundTrip(r *http.Request) (*http.Response, error) {
-	carried := r.Clone(r.Context())
-	carried.Header.Set("Authorization", "Bearer "+string(b))
-	return http.DefaultTransport.RoundTrip(carried)
+// Client is an HTTP client that presents a token, as a bearer's, to the
+// origin of the address given and to no other, following no redirect:
+// the SDK's own way (sdk/go/bearer), since the token may be the person's
+// at this machine.
+func Client(token, origin string) *http.Client {
+	return bearer.Client(nil, token, origin)
 }

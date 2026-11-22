@@ -65,6 +65,11 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		// A test logs in to a workspace through the SDK's tunnel, from its
 		// identity alone.
 		{"server/testsupport/testidentity/shell.go", "sdk/go", true},
+		// The owner's token is presented as the SDK presents one; the
+		// SDK's client is no test support's to reach through it.
+		{"server/testsupport/testowner/testowner.go", "sdk/go/bearer", true},
+		{"server/testsupport/testowner/testowner.go", "sdk/go", false},
+		{"server/testsupport/testgrid/testgrid.go", "sdk/go/bearer", false},
 		{"server/testsupport/testgrid/testgrid.go", "sdk/go", false},
 		// The command line hands the SDK its telemetry; the SDK takes it
 		// as an option.
