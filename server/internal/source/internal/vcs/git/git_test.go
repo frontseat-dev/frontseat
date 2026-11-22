@@ -1384,13 +1384,6 @@ func TestATagIsPushedAloneAndNeverOverAnother(t *testing.T) {
 	remote, commits := history(t)
 	clone := filepath.Join(t.TempDir(), "clone")
 	run(t, filepath.Dir(clone), "clone", "--quiet", remote, clone)
-	at := func(directory, tag string) string {
-		t.Helper()
-		cmd := exec.Command("git", "rev-parse", "--verify", "--quiet", "refs/tags/"+tag+"^{commit}")
-		cmd.Dir = directory
-		out, _ := cmd.Output()
-		return strings.TrimSpace(string(out))
-	}
 	head := run(t, clone, "rev-parse", "HEAD")
 	system := git.System{}
 	// Two tags of the clone alone, and a commit there the remote has not.
@@ -1410,8 +1403,8 @@ func TestATagIsPushedAloneAndNeverOverAnother(t *testing.T) {
 	if err := system.PushTag(ctx, clone, remote, "greet/v2.0.0"); err != nil {
 		t.Fatalf("a tag was not pushed: %v", err)
 	}
-	if at(remote, "greet/v2.0.0") != head {
-		t.Errorf("the remote has greet/v2.0.0 at %q, want %s", at(remote, "greet/v2.0.0"), head)
+	if taggedAt(remote, "greet/v2.0.0") != head {
+		t.Errorf("the remote has greet/v2.0.0 at %q, want %s", taggedAt(remote, "greet/v2.0.0"), head)
 	}
 	// The tag alone: every name the remote had is as it was, and it has
 	// one more.
@@ -1426,8 +1419,8 @@ func TestATagIsPushedAloneAndNeverOverAnother(t *testing.T) {
 	}
 	// One the remote has at another commit is refused, and stays.
 	run(t, remote, "tag", "log/v2.0.0", commits["first"])
-	if err := system.PushTag(ctx, clone, remote, "log/v2.0.0"); err == nil || at(remote, "log/v2.0.0") != commits["first"] {
-		t.Errorf("a tag the remote has at another commit: %v, and the remote has it at %s", err, at(remote, "log/v2.0.0"))
+	if err := system.PushTag(ctx, clone, remote, "log/v2.0.0"); err == nil || taggedAt(remote, "log/v2.0.0") != commits["first"] {
+		t.Errorf("a tag the remote has at another commit: %v, and the remote has it at %s", err, taggedAt(remote, "log/v2.0.0"))
 	}
 	// A tag of a commit made here, which no branch of the remote has, is
 	// not pushed: it would leave there what was pushed nowhere.
@@ -1435,8 +1428,8 @@ func TestATagIsPushedAloneAndNeverOverAnother(t *testing.T) {
 	if err := system.Tag(ctx, clone, "greet/v2.1.0", later); err != nil {
 		t.Fatal(err)
 	}
-	if err := system.PushTag(ctx, clone, remote, "greet/v2.1.0"); err == nil || !strings.Contains(err.Error(), "is on no branch of the remote") || at(remote, "greet/v2.1.0") != "" {
-		t.Errorf("a tag of a commit the remote has not: %v, and the remote has it at %q", err, at(remote, "greet/v2.1.0"))
+	if err := system.PushTag(ctx, clone, remote, "greet/v2.1.0"); err == nil || !strings.Contains(err.Error(), "is on no branch of the remote") || taggedAt(remote, "greet/v2.1.0") != "" {
+		t.Errorf("a tag of a commit the remote has not: %v, and the remote has it at %q", err, taggedAt(remote, "greet/v2.1.0"))
 	}
 	// A remote the repository describes by the remote's own address, as
 	// git reads a name before an address, is not where the tag goes.
@@ -1448,8 +1441,8 @@ func TestATagIsPushedAloneAndNeverOverAnother(t *testing.T) {
 	if err := system.Tag(ctx, addressed, "greet/v2.2.0", head); err != nil {
 		t.Fatal(err)
 	}
-	if err := system.PushTag(ctx, addressed, "file://"+remote, "greet/v2.2.0"); err != nil || at(remote, "greet/v2.2.0") != head || at(sink, "greet/v2.2.0") != "" {
-		t.Errorf("a tag was pushed where the repository's settings say: %v; the remote has it at %q, the sink at %q", err, at(remote, "greet/v2.2.0"), at(sink, "greet/v2.2.0"))
+	if err := system.PushTag(ctx, addressed, "file://"+remote, "greet/v2.2.0"); err != nil || taggedAt(remote, "greet/v2.2.0") != head || taggedAt(sink, "greet/v2.2.0") != "" {
+		t.Errorf("a tag was pushed where the repository's settings say: %v; the remote has it at %q, the sink at %q", err, taggedAt(remote, "greet/v2.2.0"), taggedAt(sink, "greet/v2.2.0"))
 	}
 	// A tag the repository has not, and a name that is none.
 	for _, name := range []string{"greet/v3.0.0", "", "--delete", "a..b"} {
@@ -1574,6 +1567,15 @@ func TestWhereASandboxClonesARemoteFrom(t *testing.T) {
 	}
 }
 
+// taggedAt is the commit a repository has a tag at, or nothing where it
+// has no such tag.
+func taggedAt(directory, tag string) string {
+	cmd := exec.Command("git", "rev-parse", "--verify", "--quiet", "refs/tags/"+tag+"^{commit}")
+	cmd.Dir = directory
+	out, _ := cmd.Output()
+	return strings.TrimSpace(string(out))
+}
+
 // broughtHistory is a clone of a repository with a history, and the
 // remote it was brought from.
 func broughtHistory(t *testing.T) (remote, clone string) {
@@ -1610,7 +1612,14 @@ func TestAGitThatCannotSayWhichBranchHasACommitIsNotACommitOnNoBranch(t *testing
 	ctx := context.Background()
 	remote, clone := broughtHistory(t)
 	system := git.System{}
+	// A commit the remote's branches have, and one made here, which the
+	// branch git cannot read might hold: neither is said to be on no
+	// branch, whichever way a git passes over what it cannot read.
 	if err := system.Tag(ctx, clone, "greet/v3.0.0", run(t, clone, "rev-parse", "HEAD")); err != nil {
+		t.Fatal(err)
+	}
+	run(t, clone, "commit", "--quiet", "--allow-empty", "--message", "made here")
+	if err := system.Tag(ctx, clone, "greet/v3.1.0", run(t, clone, "rev-parse", "HEAD")); err != nil {
 		t.Fatal(err)
 	}
 	// A branch of the remote, the first git reads, that names an object
@@ -1618,9 +1627,11 @@ func TestAGitThatCannotSayWhichBranchHasACommitIsNotACommitOnNoBranch(t *testing
 	write(t, clone, ".git/objects/11/11111111111111111111111111111111111111", "no object\n")
 	write(t, clone, ".git/refs/remotes/origin/A", "1111111111111111111111111111111111111111\n")
 
-	err := system.PushTag(ctx, clone, remote, "greet/v3.0.0")
+	for _, name := range []string{"greet/v3.0.0", "greet/v3.1.0"} {
+		err := system.PushTag(ctx, clone, remote, name)
 
-	if err == nil || strings.Contains(err.Error(), "is on no branch of the remote") {
-		t.Errorf("the push ended %v, want git's own failure", err)
+		if err == nil || strings.Contains(err.Error(), "is on no branch of the remote") || taggedAt(remote, name) != "" {
+			t.Errorf("the push of %s ended %v, and the remote has it at %q, want git's own failure", name, err, taggedAt(remote, name))
+		}
 	}
 }
