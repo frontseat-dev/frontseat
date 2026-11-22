@@ -407,12 +407,18 @@ func InstallConfiner(ctx context.Context, root string) (string, error) {
 // frontseat, whose Podman it is: the box, which each workspace's sandbox
 // runs.
 func Give(ctx context.Context, image string) error {
-	podman := []string{"exec", "-i", "-u", "frontseat", "-e", "XDG_RUNTIME_DIR=/run/user/1000", "-e", "HOME=/home/frontseat", local.Container, "podman"}
+	return GiveTo(ctx, local.Container, image)
+}
+
+// GiveTo hands an image to the Podman of a container of the stack's
+// image, as Give does to the stack's own: a test's stack beside it.
+func GiveTo(ctx context.Context, container, image string) error {
+	podman := []string{"exec", "-i", "-u", "frontseat", "-e", "XDG_RUNTIME_DIR=/run/user/1000", "-e", "HOME=/home/frontseat", container, "podman"}
 	// The stack's Podman answers once the container has laid out what is
 	// frontseat's, which a container just started has yet to do.
 	for tries := 0; exec.CommandContext(ctx, "docker", append(podman, "info", "--format", "{{.Host.Arch}}")...).Run() != nil; tries++ {
 		if tries >= 120 {
-			return fmt.Errorf("the stack's Podman did not answer in two minutes: docker logs %s", local.Container)
+			return fmt.Errorf("the stack's Podman did not answer in two minutes: docker logs %s", container)
 		}
 		select {
 		case <-ctx.Done():

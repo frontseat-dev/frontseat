@@ -38,12 +38,8 @@ func StackImage(t testing.TB) string {
 // by, and removed when the test ends.
 func Stack(t testing.TB) string {
 	t.Helper()
-	image := StackImage(t)
+	StackImage(t)
 	own := testrun.ID(t, "frontseat-test-stack")
-	profile, err := stack.Profile(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 		defer cancel()
@@ -57,9 +53,26 @@ func Stack(t testing.TB) string {
 	if out, err := exec.Command("docker", "volume", "create", "--label", testrun.Label+"="+testrun.This(), own).CombinedOutput(); err != nil {
 		t.Fatalf("making the test's stack's volume: %v: %s", err, out)
 	}
-	c := stack.Container{Name: own, Image: image, Volume: own, Labels: map[string]string{testrun.Label: testrun.This()}}
+	Anew(t, own)
+	return own
+}
+
+// Anew makes the container of a stack a test started (Stack) anew, on
+// the volume it had, as the stack is brought up again: the container
+// that was there is removed first, and what it kept on its volume is
+// what the new one finds. The container is the test's own, by the name
+// Stack gave it.
+func Anew(t testing.TB, own string) {
+	t.Helper()
+	profile, err := stack.Profile(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out, err := exec.Command("docker", "rm", "--force", own).CombinedOutput(); err != nil {
+		t.Fatalf("removing the test's stack's container: %v: %s", err, out)
+	}
+	c := stack.Container{Name: own, Image: StackImage(t), Volume: own, Labels: map[string]string{testrun.Label: testrun.This()}}
 	if out, err := exec.Command("docker", c.Arguments(profile)...).CombinedOutput(); err != nil {
 		t.Fatalf("starting the stack's container: %v\n%s", err, out)
 	}
-	return own
 }

@@ -2,6 +2,8 @@ package e2e
 
 import (
 	"context"
+	"encoding/json"
+	"github.com/frontseat-dev/frontseat/local/box"
 	"github.com/frontseat-dev/frontseat/local/ports"
 	"os/exec"
 	"strconv"
@@ -26,22 +28,10 @@ func TestTheStackBootsAsOneContainer(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	answered := func(token string) string {
-		arguments := []string{"run", "--rm", "--pull=never", "--network", "container:" + own, "--entrypoint", "curl", plain,
-			"-s", "-o", "/dev/null", "-w", "%{http_code}", "-X", "POST", "-H", "Content-Type: application/json", "-d", "{}"}
-		if token != "" {
-			arguments = append(arguments, "-H", "Authorization: Bearer "+token)
-		}
-		out, _ := exec.CommandContext(ctx, "docker", append(arguments, "http://127.0.0.1:7700/frontseat.workspace.v1alpha1.WorkspaceService/ListWorkspaces")...).Output()
-		return strings.TrimSpace(string(out))
+		status, _ := asked(ctx, own, plain, token, "ListWorkspaces", "{}")
+		return status
 	}
-	var token string
-	for deadline := time.Now().Add(3 * time.Minute); time.Now().Before(deadline); time.Sleep(2 * time.Second) {
-		if out, err := exec.CommandContext(ctx, "docker", "exec", own, "cat", "/var/lib/frontseat/controlplane/owner/token").Output(); err == nil {
-			if token = strings.TrimSpace(string(out)); answered(token) == "200" {
-				break
-			}
-		}
-	}
+	token := ownerOf(ctx, own, answered)
 	if got := answered(token); got != "200" {
 		logs, _ := exec.Command("docker", "logs", own).CombinedOutput()
 		t.Fatalf("the control plane answered its owner %q, want 200\n%s", got, logs)
@@ -106,6 +96,134 @@ func TestTheStackBootsAsOneContainer(t *testing.T) {
 	ask := `f=$(mktemp) && printf 'server:\n\tdo-not-query-localhost: no\nforward-zone:\n\tname: "."\n\tforward-addr: ` + ports.ResolverAddress + `\n' > "$f" && unbound-host -C "$f" -t A dl.google.com; s=$?; rm -f "$f"; exit $s`
 	if out, err := exec.CommandContext(ctx, "docker", "exec", own, "sh", "-c", ask).CombinedOutput(); err != nil || !strings.Contains(string(out), "has address") {
 		t.Errorf("the container's resolver answered no address of a host the grid's fetches reach: %v\n%s", err, out)
+	}
+}
+
+// asked asks the control plane of a stack's container one call of the
+// workspace API, as whoever holds the token given, or no one's, and
+// returns the status it answered with and what it answered. What asks is
+// the workers' own image, which holds curl, in the container's network:
+// a test's stack publishes nothing.
+func asked(ctx context.Context, own, plain, token, call, request string) (status string, answer []byte) {
+	arguments := []string{"run", "--rm", "--pull=never", "--network", "container:" + own, "--entrypoint", "curl", plain,
+		"-s", "-w", "\n%{http_code}", "-X", "POST", "-H", "Content-Type: application/json", "-d", request}
+	if token != "" {
+		arguments = append(arguments, "-H", "Authorization: Bearer "+token)
+	}
+	out, _ := exec.CommandContext(ctx, "docker", append(arguments, "http://127.0.0.1:"+port+"/frontseat.workspace.v1alpha1.WorkspaceService/"+call)...).Output()
+	at := strings.LastIndexByte(string(out), '\n')
+	if at < 0 {
+		return strings.TrimSpace(string(out)), nil
+	}
+	return strings.TrimSpace(string(out[at:])), out[:at]
+}
+
+// ownerOf waits until the control plane of a stack's container answers
+// its owner, and returns the owner's token as the stack laid it out;
+// answered says what a call with a token is answered with. A control
+// plane that does not come to answer is the caller's to report: the
+// token returned is then the last read, or none.
+func ownerOf(ctx context.Context, own string, answered func(token string) string) string {
+	var token string
+	for deadline := time.Now().Add(3 * time.Minute); time.Now().Before(deadline); time.Sleep(2 * time.Second) {
+		if out, err := exec.CommandContext(ctx, "docker", "exec", own, "cat", "/var/lib/frontseat/controlplane/owner/token").Output(); err == nil {
+			if token = strings.TrimSpace(string(out)); answered(token) == "200" {
+				break
+			}
+		}
+	}
+	return token
+}
+
+// A stack whose container is made anew, as bringing it up always makes
+// it, opens a workspace as it did before: the gateway's key, which it
+// encrypts what it keeps with, is on the stack's volume beside what it
+// encrypts, and not in the container's home, where a new container
+// found none and made another, and OpenShell's supervisor refused every
+// workspace's sandbox ("encrypted with a different key-encryption key").
+//
+// The control is the same stack with its key gone, as it went with the
+// container that held it: a workspace asked of it then does not come to
+// be worked in.
+func TestAStackMadeAnewOpensAWorkspaceAsItDidBefore(t *testing.T) {
+	testrequired.Stack(t)
+	own := testbox.Stack(t)
+	plain := testbox.Plain(t)
+	image := testbox.Image(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	defer cancel()
+	remote := cloned(t, helloModule(t))[0].Remote
+
+	// opened asks the stack as it is now for a workspace of a name and
+	// returns where it came to: its state, and what it says went wrong.
+	opened := func(name string) (state, failure string) {
+		t.Helper()
+		// The box a workspace's sandbox runs is handed to the container's
+		// Podman, as bringing the stack up hands it.
+		if err := box.GiveTo(ctx, own, image); err != nil {
+			t.Fatal(err)
+		}
+		token := ownerOf(ctx, own, func(token string) string {
+			status, _ := asked(ctx, own, plain, token, "ListWorkspaces", "{}")
+			return status
+		})
+		create, err := json.Marshal(map[string]any{"name": name, "spec": map[string]any{
+			"image":        image,
+			"repositories": []map[string]string{{"remote": remote}},
+		}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if status, answer := asked(ctx, own, plain, token, "CreateWorkspace", string(create)); status != "200" {
+			logs, _ := exec.Command("docker", "logs", "--tail", "200", own).CombinedOutput()
+			t.Fatalf("the workspace %s was not taken (%s): %s\n%s", name, status, answer, logs)
+		}
+		wait, err := json.Marshal(map[string]string{"name": name})
+		if err != nil {
+			t.Fatal(err)
+		}
+		status, answer := asked(ctx, own, plain, token, "WaitWorkspace", string(wait))
+		var waited struct {
+			Workspace struct {
+				Status struct{ State, Failure string }
+			}
+		}
+		if err := json.Unmarshal(answer, &waited); status != "200" || err != nil {
+			t.Fatalf("waiting for the workspace %s ended %s: %s %v", name, status, answer, err)
+		}
+		return waited.Workspace.Status.State, waited.Workspace.Status.Failure
+	}
+	// keys are the gateway's keys beneath a directory of the container.
+	keys := func(beneath string) []string {
+		t.Helper()
+		out, err := exec.CommandContext(ctx, "docker", "exec", own, "find", beneath, "-name", "key-encryption-key.bin").Output()
+		if err != nil {
+			t.Fatalf("looking for the gateway's key beneath %s: %v", beneath, err)
+		}
+		return strings.Fields(string(out))
+	}
+
+	if state, failure := opened("before"); state != "STATE_READY" {
+		t.Fatalf("the workspace asked of the stack as it was started is %s (%s), want it ready", state, failure)
+	}
+	kept := keys("/var/lib/frontseat")
+	if inHome := keys("/home"); len(kept) != 1 || len(inHome) != 0 {
+		t.Fatalf("the gateway keeps its key at %v beneath the stack's state and %v beneath a home, want one on the volume and none in the container", kept, inHome)
+	}
+
+	testbox.Anew(t, own)
+	if state, failure := opened("after"); state != "STATE_READY" {
+		t.Errorf("the workspace asked of the stack made anew is %s (%s), want it ready as the one before", state, failure)
+	}
+
+	// The control: the key gone, as with the container that held it. It
+	// is the test's own stack's, on the test's own volume.
+	if out, err := exec.CommandContext(ctx, "docker", "exec", own, "rm", kept[0]).CombinedOutput(); err != nil {
+		t.Fatalf("%v\n%s", err, out)
+	}
+	testbox.Anew(t, own)
+	if state, _ := opened("keyless"); state == "STATE_READY" {
+		t.Error("a workspace asked of a stack whose key is gone is ready: the spec would not see a key kept in the container")
 	}
 }
 
