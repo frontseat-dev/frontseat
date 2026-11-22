@@ -33,6 +33,7 @@ import (
 	"strings"
 
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
+	"github.com/frontseat-dev/frontseat/sdk/go/entity"
 	"go.yaml.in/yaml/v4"
 
 	"github.com/frontseat-dev/frontseat/server/internal/engine/catalog"
@@ -272,8 +273,16 @@ func Read(ctx context.Context, name string, files Reader) (*Repository, error) {
 					}
 				}
 			}
+			if frontseat == nil {
+				continue
+			}
+			// The entity is read once, one way, for every key it says.
+			ref, err := entityOf(document, frontseat)
+			if err != nil {
+				return nil, &model.Mistake{File: r.origin(file), Message: err.Error()}
+			}
 			if node := yamlnode.Child(frontseat, "test"); node != nil {
-				read, err := readTestRuntime(r.origin(file), directory, document, node)
+				read, err := readTestRuntime(r.origin(file), directory, ref, node)
 				if err != nil {
 					return nil, err
 				}
@@ -285,7 +294,7 @@ func Read(ctx context.Context, name string, files Reader) (*Repository, error) {
 				r.tests = append(r.tests, read)
 			}
 			if node := yamlnode.Child(frontseat, "generated"); node != nil {
-				read, err := readGenerated(r.origin(file), directory, document, node)
+				read, err := readGenerated(r.origin(file), directory, ref, node)
 				if err != nil {
 					return nil, err
 				}
@@ -302,7 +311,7 @@ func Read(ctx context.Context, name string, files Reader) (*Repository, error) {
 				// What ships for a platform is what is built beneath a
 				// directory, and a Component alone has one: a System or
 				// a Domain is no directory, and says none.
-				if kind := yamlnode.Child(document, "kind"); kind == nil || kind.Value != "Component" {
+				if ref.Kind != entity.KindComponent {
 					return nil, &model.Mistake{File: r.origin(file), Message: fmt.Sprintf("line %d: spec.frontseat.platforms is said by a Component, for what is built beneath its directory", node.Line)}
 				}
 				read, err := readPlatforms(r.origin(file), node)
@@ -317,14 +326,14 @@ func Read(ctx context.Context, name string, files Reader) (*Repository, error) {
 				r.platforms = append(r.platforms, shipped{file: r.origin(file), directory: directory, platforms: read})
 			}
 			if node := yamlnode.Child(frontseat, "service"); node != nil {
-				service, err := readService(r.origin(file), directory, document, node)
+				service, err := readService(r.origin(file), directory, ref, node)
 				if err != nil {
 					return nil, err
 				}
 				r.services = append(r.services, service)
 			}
 			if node := yamlnode.Child(frontseat, "release"); node != nil {
-				release, err := readRelease(r.origin(file), document, node)
+				release, err := readRelease(r.origin(file), ref, node)
 				if err != nil {
 					return nil, err
 				}
@@ -344,7 +353,7 @@ func Read(ctx context.Context, name string, files Reader) (*Repository, error) {
 			// An option holds for what is built beneath a directory, as a
 			// platform does, and a Component alone has one: what holds for
 			// the whole repository is said in its own file.
-			if kind := yamlnode.Child(document, "kind"); kind == nil || kind.Value != "Component" {
+			if ref.Kind != entity.KindComponent {
 				return nil, &model.Mistake{File: r.origin(file), Message: fmt.Sprintf("line %d: spec.frontseat.plugins is said by a Component, for what is built beneath its directory; what holds for the repository is said in %s", set.Line, File)}
 			}
 			for _, before := range r.entities {

@@ -210,7 +210,7 @@ func evaluate(ctx context.Context, src Source, plugins []*pluginhost.Plugin, ans
 		}
 		for _, written := range configured.Services() {
 			written.Repository = repository
-			ref := entity.New(written.Kind, written.Namespace, written.Name)
+			ref := written.Entity
 			if other, twice := started[ref]; twice {
 				return out, &model.Mistake{File: written.File, Message: fmt.Sprintf("%s is started twice: here and in %s", ref, other.File)}
 			}

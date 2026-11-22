@@ -55,7 +55,7 @@ func startedAs(ctx context.Context, answers asking, claimed map[string]*pluginho
 		if len(names) > 0 {
 			known = strings.Join(names, ", ")
 		}
-		return config.Service{}, written.Mistake(fmt.Errorf("%s is started as %s, which no plugin of the repository starts: %s", written.Ref(), written.As, known))
+		return config.Service{}, written.Mistake(fmt.Errorf("%s is started as %s, which no plugin of the repository starts: %s", written.Entity, written.As, known))
 	}
 	// A plugin is told only what could be a service.
 	if err := testservice.Shaped(written.Said); err != nil {
@@ -70,9 +70,9 @@ func startedAs(ctx context.Context, answers asking, claimed map[string]*pluginho
 		// no file. Anything else is the plugin's own failure.
 		var said *pluginhost.Error
 		if errors.As(err, &said) && said.Status.GetCode() == int32(codes.InvalidArgument) {
-			return config.Service{}, &model.Mistake{File: written.File, Message: fmt.Sprintf("line %d: %s, started as %s: %s", written.Line, written.Ref(), written.As, said.Error()), Cause: said}
+			return config.Service{}, &model.Mistake{File: written.File, Message: fmt.Sprintf("line %d: %s, started as %s: %s", written.Line, written.Entity, written.As, said.Error()), Cause: said}
 		}
-		return config.Service{}, fmt.Errorf("plugin %s, asked how %s is started: %w", plugin.Description.GetName(), written.Ref(), err)
+		return config.Service{}, fmt.Errorf("plugin %s, asked how %s is started: %w", plugin.Description.GetName(), written.Entity, err)
 	}
 	out.count(again)
 	if err := pluginhost.CheckService(plugin.Description.GetName(), request, response); err != nil {

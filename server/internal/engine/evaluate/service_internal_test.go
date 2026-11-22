@@ -6,6 +6,7 @@ import (
 
 	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
 
+	"github.com/frontseat-dev/frontseat/sdk/go/entity"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/config"
 	"github.com/frontseat-dev/frontseat/server/internal/pluginhost"
 )
@@ -36,7 +37,7 @@ func TestANameTwoPluginsOfARepositoryServiceIsRefused(t *testing.T) {
 // is asked, with what the repository's plugins do service, or that none
 // does.
 func TestAServiceAsWhatNoPluginStartsNamesWhatIs(t *testing.T) {
-	written := config.Service{File: "catalog-info.yaml", Line: 9, Namespace: "default", Name: "db", As: "mainframe"}
+	written := config.Service{File: "catalog-info.yaml", Line: 9, Entity: entity.New("resource", "default", "db"), As: "mainframe"}
 	_, err := startedAs(t.Context(), &Answers{}, map[string]*pluginhost.Plugin{"postgres": starting("postgres", "postgres"), "container": starting("container", "container")}, written, &Evaluation{})
 	if err == nil || !strings.Contains(err.Error(), "started as mainframe, which no plugin of the repository starts: container, postgres") {
 		t.Fatalf("got %v", err)

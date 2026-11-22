@@ -96,10 +96,29 @@ impl Document {
             ));
         }
         crate::metadata::validate(&self.metadata.fields, manifest)?;
-        let built_in = matches!(
-            reference.kind.as_str(),
-            "component" | "api" | "resource" | "system" | "domain" | "group" | "user" | "location"
-        );
+        // A built-in kind is the one Backstage spells: its schema takes
+        // `Component` and nothing else, and so does Frontseat, which reads
+        // `spec.frontseat` of a Component alone.
+        let spelled = match reference.kind.as_str() {
+            "component" => Some("Component"),
+            "api" => Some("API"),
+            "resource" => Some("Resource"),
+            "system" => Some("System"),
+            "domain" => Some("Domain"),
+            "group" => Some("Group"),
+            "user" => Some("User"),
+            "location" => Some("Location"),
+            _ => None,
+        };
+        if let Some(spelled) = spelled {
+            if self.kind != spelled {
+                return Err(invalid(
+                    manifest,
+                    format!("kind is written as Backstage writes it: {spelled}"),
+                ));
+            }
+        }
+        let built_in = spelled.is_some();
         if built_in
             && !matches!(
                 self.api_version.as_str(),
@@ -303,6 +322,32 @@ mod tests {
         );
         let custom = json!({"apiVersion": "example.com/v1", "kind": "Template", "metadata": {"name": "app"}});
         assert!(read(custom).is_ok(), "a custom kind needs no specification");
+    }
+
+    /// A built-in kind is written as Backstage writes it, and nothing
+    /// else is that kind; the control is the same entity spelled so.
+    #[test]
+    fn a_built_in_kind_is_spelled_as_backstage_spells_it() {
+        let spec = json!({"type": "service", "lifecycle": "production", "owner": "team"});
+        for (written, spelled) in [
+            ("component", "Component"),
+            ("COMPONENT", "Component"),
+            ("Api", "API"),
+            ("resource", "Resource"),
+        ] {
+            let mut document = component(spec.clone());
+            document["kind"] = json!(written);
+            let error = read(document).expect_err(written);
+            assert_eq!(error.reason, "invalid-catalog");
+            assert!(
+                error.message.contains(&format!(
+                    "kind is written as Backstage writes it: {spelled}"
+                )),
+                "{written}: {}",
+                error.message
+            );
+        }
+        assert!(read(component(spec)).is_ok(), "control: Component");
     }
 
     fn component(spec: Value) -> Value {

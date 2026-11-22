@@ -117,7 +117,7 @@ func TestCatalogAliasesDoNotWeakenExplicitFrontseatConfiguration(t *testing.T) {
 	base := files{config.File: "plugins:\n  tool: {}\n"}
 	for _, body := range []string{
 		"metadata: &metadata {name: service}\nspec: {owner: team}\nx-copy: *metadata\n",
-		"base: &base {owner: team}\nspec: {<<: *base, frontseat: {plugins: {tool: {strict: true}}}}\n",
+		"metadata: {name: service}\nbase: &base {owner: team}\nspec: {<<: *base, frontseat: {plugins: {tool: {strict: true}}}}\n",
 	} {
 		base["catalog-info.yaml"] = "kind: Component\n" + body
 		if _, err := config.Read(context.Background(), "repo", base); err != nil {
