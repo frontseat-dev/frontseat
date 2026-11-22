@@ -38,9 +38,10 @@ func Read(root string) (Files, error) {
 // Container is the local stack's one container's name.
 const Container = "frontseat-local"
 
-// Confiners is the directory of the stack's container bb_runner and each
-// form of the confiner (frontseat-action) are installed into, which every
-// runner sandbox holds at /bb.
+// Confiners is the directory of the stack's container each form of the
+// confiner (frontseat-action) is installed into, which every runner
+// sandbox holds at /bb, where its runner (frontseat-runner serve) runs
+// an action only by one of them.
 const Confiners = "/var/lib/frontseat/bb"
 
 // Image returns the image every runner sandbox of the grid is made of, at

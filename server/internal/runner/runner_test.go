@@ -139,7 +139,9 @@ func FuzzARequestIsHeldToOneDirectoryOfTheBuildDirectory(f *testing.F) {
 		dir := got.directory
 		m := dynamicpb.NewMessage(runRequest)
 		if err := proto.Unmarshal(req, m); err != nil {
-			// Allowed is not run: bb_runner refuses what it cannot read.
+			// Allowed is not run: the test sandbox's runner
+			// (Confined), which is handed the request as it came,
+			// refuses what protobuf cannot read.
 			return
 		}
 		fields := runRequest.Fields()
