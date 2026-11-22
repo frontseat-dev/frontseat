@@ -420,6 +420,26 @@ func Run(t *testing.T, f Fixture) {
 			t.Fatalf("unknown method: %v", err)
 		}
 	})
+	t.Run("what it claims none of is unserved", func(t *testing.T) {
+		// A plugin that claims no strategy or service of a kind answers
+		// the method of that kind as unserved, for the method's own
+		// reason.
+		left := map[string][2]proto.Message{}
+		if len(plugin.Description.GetRelease().GetBranchings()) == 0 {
+			left["Branch"] = [2]proto.Message{&pluginv1.BranchRequest{Strategy: "unclaimed"}, new(pluginv1.BranchResponse)}
+		}
+		if len(plugin.Description.GetRelease().GetVersionings()) == 0 {
+			left["Version"] = [2]proto.Message{&pluginv1.VersionRequest{Strategy: "unclaimed"}, new(pluginv1.VersionResponse)}
+		}
+		if len(plugin.Description.GetServices()) == 0 {
+			left["Service"] = [2]proto.Message{&pluginv1.ServiceRequest{Name: "unclaimed"}, new(pluginv1.ServiceResponse)}
+		}
+		for method, call := range left {
+			if _, err := plugin.Call(t.Context(), f.Source, method, call[0], call[1]); !errors.Is(err, pluginhost.ErrUnsupported) {
+				t.Errorf("%s of a plugin that claims none must be unsupported, got %v", method, err)
+			}
+		}
+	})
 }
 
 // describes holds Describe to the fixture: the same answer as when the

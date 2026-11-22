@@ -15,10 +15,14 @@
 // tool what they were handed (Arrange) and says what a check of its found
 // (Report); it finds catalog entities (Analyze) and says what their files
 // should say (Reconcile); it says how a service is started for a test
-// (Service); it is a release strategy (Branch, Version). A method it does
-// not serve it answers UNIMPLEMENTED, for the reason <METHOD>_NOT_SERVED,
-// the method's name in capitals. A name here is lower-case words of
-// [a-z0-9] joined by single hyphens.
+// (Service); it is a release strategy (Branch, Version). Every plugin
+// serves Describe, Analyze and Arrange. A method it does not serve it
+// answers UNIMPLEMENTED, for the method's own reason: REPORT_NOT_SERVED,
+// RECONCILE_NOT_SERVED and SERVICE_NOT_SERVED, the method's name in
+// capitals; BRANCHING_STRATEGY_NOT_SERVED and
+// VERSIONING_STRATEGY_NOT_SERVED, the kind of strategy, which is also
+// the answer for a strategy, or a service, it does not claim. A name here
+// is lower-case words of [a-z0-9] joined by single hyphens.
 syntax = "proto3";
 
 package frontseat.plugin.v1alpha1;
@@ -305,9 +309,11 @@ message ArrangeResponse {
 message Project {
   // Root is its directory, relative to the repository.
   string root = 1;
-  // Kind is what it is in its ecosystem, e.g. "go-module".
+  // Kind is what it is in its ecosystem, e.g. "go-module": a name, of at
+  // most 256 bytes.
   string kind = 2;
-  // Name is its name in its ecosystem.
+  // Name is its name in its ecosystem: one line of printable text, of at
+  // most 256 bytes, never empty, at the repository's root too.
   string name = 3;
   // Manifest is the file it was found from, relative to the repository.
   string manifest = 4;
@@ -442,9 +448,9 @@ message Action {
   // Name is its name within the project, lower-case words of [a-z0-9]
   // joined by single hyphens. Plugins use the same names for the same
   // things, since a run can be asked for only the actions of one name:
-  // lint, compile, test. A shared
-  // action's name is that, a slash, and what it is of, in letters,
-  // digits and "._~+@-/": fetch/github.com/spf13/cobra@v1.8.1.
+  // lint, compile, test. A shared action's name is that, a slash, and
+  // what it is of, in letters, digits and "._~+@-/":
+  // fetch/github.com/spf13/cobra@v1.8.1.
   //
   // A project's tests may be several actions, each a piece of them the
   // project's tool tests by itself: a test is named "test", or "test", a
@@ -462,8 +468,8 @@ message Action {
   // points at its shards.
   //
   // An action that publishes is named "publish", a slash and what it
-  // publishes to, a name as the first sentence says one:
-  // publish/github. Only one that publishes is named so.
+  // publishes to, in lower-case words of [a-z0-9] joined by single
+  // hyphens: publish/github. Only one that publishes is named so.
   string name = 1;
   // Command is what it runs.
   Command command = 4;

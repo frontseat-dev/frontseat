@@ -35,3 +35,21 @@ func TestAUsernameIsOneAForgeGives(t *testing.T) {
 		}
 	}
 }
+
+// What is shown of a text keeps what a person reads, lines and tabs
+// too, and nothing a terminal acts on.
+func TestWhatIsShownOfATextIsNothingATerminalActsOn(t *testing.T) {
+	for written, shown := range map[string]string{
+		"panicked at src/lib.rs:7:9:\n\tthe lock is gone\n": "panicked at src/lib.rs:7:9:\n\tthe lock is gone\n",
+		"na\u00efve \u65e5\u672c":                           "na\u00efve \u65e5\u672c",
+		"a\x1b[31mb\rc\x00d\x7fe":                           "a[31mbcde",
+		"a\u009b31mb":                                       "a31mb",
+		"a\u202eb\u2066c\u200bd\ufeffe":                     "abcde",
+		"a\u2028b\u2029c":                                   "abc",
+		"a\xffb\xe6\x97":                                    "a\ufffdb\ufffd",
+	} {
+		if got := plain.Shown(written); got != shown {
+			t.Errorf("%q is shown as %q, want %q", written, got, shown)
+		}
+	}
+}

@@ -74,9 +74,9 @@ const (
 	hostRead = 1
 )
 
-// print is the instructions that write what is at printedAt to standard
-// error.
-func print() []byte {
+// printing is the instructions that write what is at printedAt to
+// standard error.
+func printing() []byte {
 	var out []byte
 	for _, argument := range []int32{2, vectorAt, 1, vectorAt + 8} {
 		out = append(out, constant(argument)...)
@@ -101,6 +101,13 @@ func readsThroughTheHost(t *testing.T) (instructions, request []byte) {
 // address and size of its answer. Its memory holds printed at printedAt
 // and asked at askedAt.
 func moduleThat(t *testing.T, otherwise []byte, printed string, asked []byte) []byte {
+	t.Helper()
+	return moduleGiving(t, constant(givenAt), otherwise, printed, asked)
+}
+
+// moduleGiving is moduleThat whose frontseat_alloc runs the instructions
+// given, which leave the address it gives.
+func moduleGiving(t *testing.T, alloc, otherwise []byte, printed string, asked []byte) []byte {
 	t.Helper()
 	description, err := proto.Marshal(&pluginv1.DescribeResponse{Name: "hand", Abi: pluginhost.MaxABI})
 	if err != nil {
@@ -137,7 +144,7 @@ func moduleThat(t *testing.T, otherwise []byte, printed string, asked []byte) []
 	data := func(at int32, held []byte) []byte {
 		return append(append(append([]byte{0x00}, constant(at)...), 0x0b), counted(held)...)
 	}
-	vector := append(uleb32(printedAt), uleb32(uint32(len(printed)))...)
+	vector := append(word(printedAt), word(uint32(len(printed)))...)
 	// The third byte of a Call is the first letter of its method.
 	describe := append(append([]byte{0x20, 0x00, 0x2d, 0x00, 0x02}, constant('D')...), 0x46)
 	answer := append([]byte{0x42}, sleb(int64(replyAt)<<32|int64(len(reply)))...)
@@ -155,7 +162,7 @@ func moduleThat(t *testing.T, otherwise []byte, printed string, asked []byte) []
 		section(3, []byte{0}, []byte{1}, []byte{2}, []byte{3}),
 		section(5, []byte{0x00, 0x01}),
 		section(7, exported("memory", 0x02, 0), exported("frontseat_abi", 0x00, 2), exported("frontseat_alloc", 0x00, 3), exported("frontseat_free", 0x00, 4), exported("frontseat_call", 0x00, 5)),
-		section(10, body(constant(pluginhost.MaxABI)), body(constant(givenAt)), body(), call),
+		section(10, body(constant(pluginhost.MaxABI)), body(alloc), body(), call),
 		section(11, data(vectorAt, vector), data(printedAt, []byte(printed)), data(askedAt, asked), data(replyAt, reply)),
 	} {
 		module = append(module, each...)
@@ -163,9 +170,9 @@ func moduleThat(t *testing.T, otherwise []byte, printed string, asked []byte) []
 	return module
 }
 
-// uleb32 is a number as a module's memory holds one: four bytes, the
+// word is a number as a module's memory holds one: four bytes, the
 // least first.
-func uleb32(v uint32) []byte { return []byte{byte(v), byte(v >> 8), byte(v >> 16), byte(v >> 24)} }
+func word(v uint32) []byte { return []byte{byte(v), byte(v >> 8), byte(v >> 16), byte(v >> 24)} }
 
 // answering is the instructions of a module that answers every call but
 // Describe with one failure, held in its memory where it reads a request
@@ -193,13 +200,20 @@ func answering(t *testing.T, code codes.Code, reason string) (instructions, held
 	return append([]byte{0x42}, sleb(int64(askedAt)<<32|int64(len(held)))...), held
 }
 
-func report(t *testing.T, module []byte, ctx context.Context, source pluginhost.Source) error {
+// report asks a module Report.
+func report(t *testing.T, ctx context.Context, module []byte, source pluginhost.Source) error {
+	t.Helper()
+	return asking(t, ctx, "Report", module, source)
+}
+
+// asking asks a module a method, of an empty request.
+func asking(t *testing.T, ctx context.Context, method string, module []byte, source pluginhost.Source) error {
 	t.Helper()
 	plugin, err := loadModule(t, module)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = plugin.Call(ctx, source, "Report", &pluginv1.ReportRequest{Action: "lint"}, &pluginv1.ReportResponse{})
+	_, err = plugin.Call(ctx, source, method, &pluginv1.ReportRequest{}, &pluginv1.ReportResponse{})
 	return err
 }
 
@@ -207,7 +221,7 @@ func report(t *testing.T, module []byte, ctx context.Context, source pluginhost.
 // says it trapped, which plugin and in which call, with what it printed.
 func TestAModuleThatTrapsIsSaidToWithWhatItPrinted(t *testing.T) {
 	const panicked = "thread '<unnamed>' panicked at src/lib.rs:7:9:\nthe lock is gone\n"
-	err := report(t, moduleThat(t, append(print(), unreachable...), panicked, nil), t.Context(), files{})
+	err := report(t, t.Context(), moduleThat(t, append(printing(), unreachable...), panicked, nil), files{})
 	if err == nil {
 		t.Fatal("a call whose module trapped was answered")
 	}
@@ -220,14 +234,21 @@ func TestAModuleThatTrapsIsSaidToWithWhatItPrinted(t *testing.T) {
 	// One that prints more than is kept is said by the end of it, and one
 	// that prints nothing is said to have printed nothing.
 	long := strings.Repeat("x", 300) + "the end of it\n"
-	module := moduleThat(t, append(forty(print()), unreachable...), long, nil)
-	err = report(t, module, t.Context(), files{})
+	module := moduleThat(t, append(forty(printing()), unreachable...), long, nil)
+	err = report(t, t.Context(), module, files{})
 	if err == nil || !strings.Contains(err.Error(), "the end of what it printed") || !strings.HasSuffix(err.Error(), "the end of it") || len(err.Error()) > 9<<10 {
 		t.Errorf("a module that printed %d bytes is said in %d: %.200q", 40*len(long), len(err.Error()), err)
 	}
-	err = report(t, moduleThat(t, unreachable, "", nil), t.Context(), files{})
+	err = report(t, t.Context(), moduleThat(t, unreachable, "", nil), files{})
 	if err == nil || !strings.Contains(err.Error(), "it printed nothing") {
 		t.Errorf("a module that trapped in silence is said as %v", err)
+	}
+
+	// What it printed is said without what a terminal acts on: an
+	// escape, the one-rune escape above ASCII, a turn of direction.
+	err = report(t, t.Context(), moduleThat(t, append(printing(), unreachable...), "a\x1b[31mb\u009bc\u202ed\n", nil), files{})
+	if err == nil || !strings.Contains(err.Error(), "a[31mbcd") {
+		t.Errorf("what a module printed is said as %q", err)
 	}
 }
 
@@ -245,9 +266,28 @@ func forty(instructions []byte) []byte {
 func TestACallItsCallerGaveUpIsNotSaidToBeATrap(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	time.AfterFunc(50*time.Millisecond, cancel)
-	err := report(t, moduleThat(t, append(forever, unreachable...), "", nil), ctx, files{})
-	if !errors.Is(err, context.Canceled) || strings.Contains(err.Error(), "trapped") || !strings.Contains(err.Error(), "plugin hand") {
+	err := report(t, ctx, moduleThat(t, append(forever, unreachable...), "", nil), files{})
+	if !errors.Is(err, context.Canceled) || !strings.Contains(err.Error(), "its caller gave the call up") || !strings.Contains(err.Error(), "plugin hand") {
 		t.Errorf("a call given up is said as %v", err)
+	}
+	// One given up before it began is said so too, though the module had
+	// not yet started.
+	before, cancel := context.WithCancel(t.Context())
+	cancel()
+	err = report(t, before, moduleThat(t, unreachable, "", nil), files{})
+	if !errors.Is(err, context.Canceled) || !strings.Contains(err.Error(), "its caller gave the call up") {
+		t.Errorf("a call given up before it began is said as %v", err)
+	}
+}
+
+// A module that traps where it gives memory to be written into, before
+// it is called, is said to have trapped, with what it printed, as one
+// that traps once called is.
+func TestAModuleThatTrapsAsItGivesMemoryIsSaidToWithWhatItPrinted(t *testing.T) {
+	const failed = "memory allocation of 1024 bytes failed\n"
+	_, err := loadModule(t, moduleGiving(t, append(printing(), unreachable...), unreachable, failed, nil))
+	if err == nil || !strings.Contains(err.Error(), "the module trapped") || !strings.Contains(err.Error(), "memory allocation of 1024 bytes failed") {
+		t.Errorf("a module that trapped as it gave memory is said as %v", err)
 	}
 }
 
@@ -265,12 +305,12 @@ func (unavailable) Read(context.Context, string) ([]byte, bool, error) {
 func TestAReadTheHostCouldNotServeIsNotSaidToBeATrap(t *testing.T) {
 	reads, request := readsThroughTheHost(t)
 	module := moduleThat(t, append(reads, unreachable...), "", request)
-	err := report(t, module, t.Context(), unavailable{})
+	err := report(t, t.Context(), module, unavailable{})
 	if !errors.Is(err, errUnavailable) || strings.Contains(err.Error(), "trapped") || !strings.Contains(err.Error(), "plugin hand") {
 		t.Errorf("a read that failed is said as %v", err)
 	}
 	// The same module traps where the read is served.
-	if err := report(t, module, t.Context(), files{}); err == nil || !strings.Contains(err.Error(), "the module trapped") {
+	if err := report(t, t.Context(), module, files{}); err == nil || !strings.Contains(err.Error(), "the module trapped") {
 		t.Errorf("the control: %v", err)
 	}
 }
@@ -280,25 +320,39 @@ func TestAReadTheHostCouldNotServeIsNotSaidToBeATrap(t *testing.T) {
 // method was asked about, which the plugin does not build yet: a failure
 // of the call, and no word that the plugin has nothing to answer.
 func TestUnimplementedIsAMethodUnservedOnlyForTheMethodsOwnReason(t *testing.T) {
-	for reason, unserved := range map[string]bool{
-		"REPORT_NOT_SERVED":  true,
-		"UNKNOWN_METHOD":     true,
-		"SARIF_NOT_SERVED":   false,
-		"ANALYZE_NOT_SERVED": false,
+	for _, each := range []struct {
+		method, reason string
+		unserved       bool
+	}{
+		{"Report", "REPORT_NOT_SERVED", true},
+		{"Report", "UNKNOWN_METHOD", true},
+		{"Report", "SARIF_NOT_SERVED", false},
+		{"Report", "ANALYZE_NOT_SERVED", false},
+		{"Reconcile", "RECONCILE_NOT_SERVED", true},
+		{"Service", "SERVICE_NOT_SERVED", true},
+		// A release strategy's methods are unserved by the kind of
+		// strategy, as the SDK answers them.
+		{"Branch", "BRANCHING_STRATEGY_NOT_SERVED", true},
+		{"Branch", "BRANCH_NOT_SERVED", false},
+		{"Version", "VERSIONING_STRATEGY_NOT_SERVED", true},
+		{"Version", "BRANCHING_STRATEGY_NOT_SERVED", false},
+		// Every plugin serves Analyze and Arrange.
+		{"Analyze", "ANALYZE_NOT_SERVED", false},
+		{"Arrange", "ARRANGE_NOT_SERVED", false},
 	} {
-		instructions, held := answering(t, codes.Unimplemented, reason)
-		err := report(t, moduleThat(t, instructions, "", held), t.Context(), files{})
+		instructions, held := answering(t, codes.Unimplemented, each.reason)
+		err := asking(t, t.Context(), each.method, moduleThat(t, instructions, "", held), files{})
 		var failure *pluginhost.Error
-		if !errors.As(err, &failure) || failure.Reason != reason {
-			t.Fatalf("%s: the plugin's failure did not arrive: %v", reason, err)
+		if !errors.As(err, &failure) || failure.Reason != each.reason {
+			t.Fatalf("%s to %s: the plugin's failure did not arrive: %v", each.reason, each.method, err)
 		}
-		if got := errors.Is(err, pluginhost.ErrUnsupported); got != unserved {
-			t.Errorf("%s answered to Report: the method is unserved = %v, want %v", reason, got, unserved)
+		if got := errors.Is(err, pluginhost.ErrUnsupported); got != each.unserved {
+			t.Errorf("%s answered to %s: the method is unserved = %v, want %v", each.reason, each.method, got, each.unserved)
 		}
 	}
 	// Another code is never a method unserved, whatever its reason.
 	instructions, held := answering(t, codes.FailedPrecondition, "REPORT_NOT_SERVED")
-	if err := report(t, moduleThat(t, instructions, "", held), t.Context(), files{}); errors.Is(err, pluginhost.ErrUnsupported) {
+	if err := report(t, t.Context(), moduleThat(t, instructions, "", held), files{}); errors.Is(err, pluginhost.ErrUnsupported) {
 		t.Errorf("a failed precondition is read as a method unserved: %v", err)
 	}
 }

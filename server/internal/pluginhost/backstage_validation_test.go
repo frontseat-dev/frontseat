@@ -87,3 +87,29 @@ func TestCatalogRootAliasCannotBypassOwnershipUniqueness(t *testing.T) {
 		}
 	}
 }
+
+// Each rule an entity is held to is said by its own words, and the
+// control, an entity that keeps every rule, is accepted.
+func TestAnEntityIsRefusedByTheRuleItBroke(t *testing.T) {
+	entity := func(roots []string, relations ...*pluginv1.EntityRelation) *pluginv1.Entity {
+		return &pluginv1.Entity{Ref: &typev1.EntityRef{Kind: "component", Namespace: "default", Name: "app"}, Manifest: "app/catalog-info.yaml", Roots: roots, Relations: relations}
+	}
+	check := func(described *pluginv1.Entity) error {
+		return pluginhost.CheckAnalysis("catalog", []string{"app"}, &pluginv1.AnalyzeResponse{Analyses: []*pluginv1.Analysis{{Root: "app", Entities: []*pluginv1.Entity{described}}}})
+	}
+	owned := &pluginv1.EntityRelation{Type: "ownedBy", Target: &typev1.EntityRef{Kind: "group", Namespace: "default", Name: "team"}, InverseType: "ownerOf"}
+	if err := check(entity([]string{"app", "app/web"}, owned)); err != nil {
+		t.Fatalf("the control is refused: %v", err)
+	}
+	for rule, broken := range map[string]*pluginv1.Entity{
+		"is said twice":                 entity([]string{"app", "app"}),
+		"is not written plainly":        entity([]string{"app/./web"}),
+		"the root that was asked about": entity([]string{"lib"}),
+		"each lowerCamelCase":           entity([]string{"app"}, &pluginv1.EntityRelation{Type: "Owned-By", Target: owned.GetTarget(), InverseType: "ownerOf"}),
+		"a relation's target":           entity([]string{"app"}, &pluginv1.EntityRelation{Type: "ownedBy", Target: &typev1.EntityRef{Kind: "group"}, InverseType: "ownerOf"}),
+	} {
+		if err := check(broken); err == nil || !strings.Contains(err.Error(), rule) {
+			t.Errorf("an entity that breaks the rule %q is refused as %v", rule, err)
+		}
+	}
+}
