@@ -8,6 +8,7 @@
 package testorigin
 
 import (
+	"context"
 	"embed"
 	"net"
 	"net/http"
@@ -15,6 +16,7 @@ import (
 	"strconv"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/frontseat-dev/frontseat/server/testsupport/testlisten"
 )
@@ -51,6 +53,11 @@ func Crates(t testing.TB) *Origin {
 		_ = server.Serve(listener)
 	}()
 	t.Cleanup(func() {
+		// What is answering is let finish, so that nothing counts a
+		// download once the test has ended.
+		ending, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		_ = server.Shutdown(ending)
 		_ = server.Close()
 		<-served
 	})

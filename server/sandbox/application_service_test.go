@@ -265,7 +265,7 @@ func runArtifact(t *testing.T, root, target string) (*buildv1.ActionResult, stri
 	t.Helper()
 	address := artifactWorkspace(t, root)
 	target = "//fixture/" + strings.TrimPrefix(target, "//")
-	runs := buildv1alpha1connect.NewBuildServiceClient(connect.NewClient(connecthttp.NewTransport(testowner.Client(testowner.Token(t), address), address)))
+	runs := buildv1alpha1connect.NewBuildServiceClient(connect.NewClient(connecthttp.NewTransport(testowner.Client(testowner.Token(t), testowner.Stack), address)))
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	created, err := runs.CreateBuild(ctx, &buildv1.CreateBuildRequest{Targets: []string{target}})
