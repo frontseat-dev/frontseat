@@ -9,8 +9,9 @@ import (
 
 // source reads where an entity's source is from the URL its catalog
 // gives: the repository to clone, the branch or tag to stand at, and
-// the directory in it. Why it cannot is said without repeating it. The URL is the one a forge shows for a directory, and
-// each forge spells it its own way:
+// the directory in it. Why it cannot is said without repeating it. The
+// URL is the one a forge shows for a directory, and each forge spells it
+// its own way:
 //
 //	GitHub, GitLab (old)  <repository>/tree/<ref>/<directory>
 //	GitLab                <repository>/-/tree/<ref>/<directory>
