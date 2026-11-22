@@ -1,4 +1,4 @@
-# POC fixture: SHA-256 of the official release archives, whose SHA-512 values
+# A fixture: SHA-256 of the official release archives, whose SHA-512 values
 # were also checked against caddy_2.11.2_checksums.txt on 2026-11-13.
 lockfile_version = 3
 

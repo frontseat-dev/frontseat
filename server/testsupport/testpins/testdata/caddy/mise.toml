@@ -1,5 +1,5 @@
-# POC-only pin: official release archive, provisioned by mise on the grid.
-# The HTTP backend uses the worker's existing GitHub-release proxy rewrite.
+# A pin for tests alone: the official release archive, provisioned by mise
+# on the grid.
 [tools."http:caddy"]
 version = "2.11.2"
 url = 'https://github.com/caddyserver/caddy/releases/download/v{{ version }}/caddy_{{ version }}_linux_{{ arch(arm64="arm64", x64="amd64") }}.tar.gz'

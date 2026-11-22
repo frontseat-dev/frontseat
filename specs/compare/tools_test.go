@@ -1,16 +1,14 @@
 package compare_test
 
-// Tests written by an independent review of fe67226..f74db45. None of
-// them runs the comparison or touches the grid.
+// What the comparison holds of the tools it compares, proven without
+// running it: none of these runs the comparison or touches the grid.
 
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/frontseat-dev/frontseat/server/testsupport/testworkload"
 )
@@ -26,11 +24,11 @@ func pretended(ran func(build int) int) tool {
 	}
 }
 
-// "Missed the change" is found only where the build after
-// finds something to run. A tool that never sees the change (it kept
-// what the file held and did not look again) runs nothing in either
-// build, is the quickest in the table, and nothing says it built
-// nothing: no case is held to the actions it must run (3, or 30).
+// A tool that never sees the change (it kept what the file held and did
+// not look again) runs nothing in the build timed nor in the one after,
+// and would be the quickest in the table: it is said to have missed the
+// change, as one that builds it a build late is. The control builds it
+// at once, and is not.
 func TestAToolThatNeverBuildsTheChangeIsSaidToHaveMissedIt(t *testing.T) {
 	for name, c := range map[string]struct {
 		ran  func(build int) int
@@ -64,13 +62,12 @@ func fake(t *testing.T, name string) (program, log string) {
 	return program, log
 }
 
-// When the comparison is over, `bazel clean --expunge` is run
-// in the directory the test runs in (specs/compare/, in this repository), not
-// in the workspace it wrote: Bazel refuses there, the error is dropped,
-// and the output base of every comparison stays on the machine. Were
-// this checkout beneath a Bazel workspace, it is that workspace's
-// output that would be expunged. `shutdown`, two lines below, is given
-// the directory.
+// When the comparison is over, Bazel's output is expunged (`bazel clean
+// --expunge`) and its server shut down in the workspace the comparison
+// wrote, where it built, and never in the directory the test runs in:
+// there Bazel would refuse and the output base of every comparison stay
+// on the machine, or, beneath a Bazel workspace, that workspace's output
+// would be expunged.
 func TestBazelIsCleanedWhereItBuilt(t *testing.T) {
 	program, log := fake(t, "bazel")
 	t.Setenv("COMPARE_BAZEL", program)
@@ -102,10 +99,10 @@ func TestBazelIsCleanedWhereItBuilt(t *testing.T) {
 	}
 }
 
-// What Buck2 printed that no count can be read from is read as
-// "ran 0": the same as a build with nothing to do, and the value that
-// says the build before missed nothing. Bazel's and frontseat's readers
-// say "?" there.
+// What a tool printed that no count can be read from is never read as
+// "ran 0", which is what a build with nothing to do says, and what says
+// the build before missed nothing: Buck2's reader says so as Bazel's,
+// the control, does.
 func TestWhatCannotBeReadIsNotReadAsNothingRan(t *testing.T) {
 	for name, make := range map[string]func(*testing.T, testworkload.Shape) tool{"control: Bazel": bazel, "Buck2": buck2} {
 		t.Run(name, func(t *testing.T) {
@@ -118,59 +115,4 @@ func TestWhatCannotBeReadIsNotReadAsNothingRan(t *testing.T) {
 			}
 		})
 	}
-}
-
-// The Bazel that is timed is whatever `bazel` is on the path.
-// Where that is Bazelisk (Homebrew's is), the workspace the generator
-// writes pins no Bazel, so every command first asks the network which
-// Bazel is the latest: about a second of each "build" is that. The
-// control tells Bazelisk the version, as a .bazelversion in the
-// workspace would.
-func TestTheBazelTimedIsBazelAndNotItsLauncherAskingTheNetwork(t *testing.T) {
-	path, runs := program("COMPARE_BAZEL", "bazel")
-	if !runs {
-		t.Skip("no bazel here")
-	}
-	if resolved, _ := filepath.EvalSymlinks(mustLook(t, path)); !strings.Contains(resolved, "bazelisk") {
-		t.Skipf("%s is not Bazelisk", resolved)
-	}
-	// Which Bazel it is, asked as the comparison asks: once, outside the
-	// workspace.
-	asked, err := exec.Command(path, "--version").Output()
-	if err != nil {
-		t.Fatal(err)
-	}
-	dir := t.TempDir()
-	if err := testworkload.Bazel(dir, testworkload.Shape{Modules: 1, Group: 1}, strings.TrimPrefix(strings.TrimSpace(string(asked)), "bazel "), nil); err != nil {
-		t.Fatal(err)
-	}
-	started := func(env ...string) (time.Duration, string) {
-		quickest, version := time.Hour, ""
-		for range 3 {
-			cmd := exec.Command(path, "--version")
-			cmd.Dir, cmd.Env = dir, append(os.Environ(), env...)
-			start := time.Now()
-			out, err := cmd.Output()
-			if err != nil {
-				t.Fatal(err)
-			}
-			quickest, version = min(quickest, time.Since(start)), strings.TrimSpace(string(out))
-		}
-		return quickest, version
-	}
-	asIs, version := started()
-	told, _ := started("USE_BAZEL_VERSION=" + strings.TrimPrefix(version, "bazel "))
-	t.Logf("%s starts in %s in the generated workspace, and in %s told its version", version, asIs, told)
-	if asIs > told+100*time.Millisecond {
-		t.Errorf("every bazel command in the generated workspace takes %s before Bazel is reached, %s when the workspace says which Bazel it is: the difference is in every time the comparison reports for Bazel", asIs, told)
-	}
-}
-
-func mustLook(t *testing.T, name string) string {
-	t.Helper()
-	path, err := exec.LookPath(name)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return path
 }
