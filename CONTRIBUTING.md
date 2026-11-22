@@ -72,7 +72,7 @@ or from your own shell with `--workspace NAME`:
 
 ```sh
 frontseat build --only compile --only lint --only generate-sdk --only generate-daemon --only generate-runner --only generate-source --only wasm --only depends-on
-frontseat builds
+frontseat build list
 ```
 
 `frontseat test` builds what the tests need and runs the test actions of

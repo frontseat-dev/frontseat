@@ -27,7 +27,7 @@ const runsKept = 12
 const runsAtOnce = 32
 
 // errTooManyRuns is one run more than that.
-var errTooManyRuns = fmt.Errorf("the daemon has %d runs that have not ended: cancel one first (frontseat cancel)", runsAtOnce)
+var errTooManyRuns = fmt.Errorf("the daemon has %d runs that have not ended: cancel one first (frontseat run cancel)", runsAtOnce)
 
 // linesKept is how many lines of what a program printed a daemon keeps,
 // the newest, and bytesKept how much they may come to: a program may

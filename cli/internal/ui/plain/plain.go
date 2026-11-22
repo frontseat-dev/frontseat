@@ -47,7 +47,7 @@ func (p Printer) Event(e *buildv1.BuildEvent) {
 	case *buildv1.BuildEvent_Planned_:
 		fmt.Fprintf(p.Out, "%d actions\n", len(event.Planned.GetActions()))
 	case *buildv1.BuildEvent_ActionFinished_:
-		p.action(event.ActionFinished.GetResult())
+		p.Action(event.ActionFinished.GetResult())
 	case *buildv1.BuildEvent_StartedOver_:
 		fmt.Fprintf(p.Out, "starting over: the grid no longer held what %s was handed (%s)\n", shown(event.StartedOver.GetLabel()), shown(event.StartedOver.GetReason()))
 	case *buildv1.BuildEvent_Finished_:
@@ -55,7 +55,8 @@ func (p Printer) Event(e *buildv1.BuildEvent) {
 	}
 }
 
-func (p Printer) action(result *buildv1.ActionResult) {
+// Action writes what one action did, as a build's event of it says.
+func (p Printer) Action(result *buildv1.ActionResult) {
 	took := result.GetDuration().AsDuration().Round(time.Millisecond)
 	switch result.GetOutcome() {
 	case buildv1.Outcome_OUTCOME_PASSED:
