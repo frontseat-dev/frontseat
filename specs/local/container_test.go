@@ -1,4 +1,4 @@
-package e2e
+package local
 
 import (
 	"context"
@@ -122,7 +122,7 @@ func asked(ctx context.Context, own, plain, token, call, request string) (status
 	if token != "" {
 		arguments = append(arguments, "-H", "Authorization: Bearer "+token)
 	}
-	out, _ := exec.CommandContext(ctx, "docker", append(arguments, "http://127.0.0.1:"+port+"/"+call)...).Output()
+	out, _ := exec.CommandContext(ctx, "docker", append(arguments, "http://127.0.0.1:"+strconv.Itoa(ports.ControlPlane)+"/"+call)...).Output()
 	at := strings.LastIndexByte(string(out), '\n')
 	if at < 0 {
 		return strings.TrimSpace(string(out)), nil
