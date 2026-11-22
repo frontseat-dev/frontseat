@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testrequired"
 	"io"
 	"net"
 	"net/http"
@@ -14,6 +13,7 @@ import (
 	sdk "github.com/ai-openshell/sdk-go/openshell/v1"
 	"github.com/frontseat-dev/frontseat/server/sandbox/driver"
 	"github.com/frontseat-dev/frontseat/server/testsupport/drivertest"
+	"github.com/frontseat-dev/frontseat/server/testsupport/testrequired"
 )
 
 // Capture a failed fixture before conformance cleanup deletes its diagnostics.

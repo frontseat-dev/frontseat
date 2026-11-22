@@ -9,7 +9,6 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
-	"github.com/frontseat-dev/frontseat/server/internal/confine"
 	"io"
 	"net"
 	"os"
@@ -17,6 +16,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/frontseat-dev/frontseat/server/internal/confine"
 )
 
 func main() {

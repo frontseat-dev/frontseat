@@ -1,9 +1,7 @@
-package container_test
+package testcontainer_test
 
 import (
 	"context"
-	"github.com/frontseat-dev/frontseat/local/ports"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testrequired"
 	"net"
 	"net/http"
 	"os/exec"
@@ -28,7 +26,9 @@ import (
 	"github.com/frontseat-dev/frontseat/server/testsupport/testgrid"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testrun"
 
-	"github.com/frontseat-dev/frontseat/server/internal/driver/container"
+	"github.com/frontseat-dev/frontseat/local/ports"
+	"github.com/frontseat-dev/frontseat/server/testsupport/testcontainer"
+	"github.com/frontseat-dev/frontseat/server/testsupport/testrequired"
 )
 
 // The port the daemon in a box serves the build API on.
@@ -36,7 +36,7 @@ const buildPort = ports.Daemon
 
 func TestTheContainerDriverConforms(t *testing.T) {
 	image := testbox.Image(t)
-	drivertest.Conforms(t, container.Driver{}, drivertest.Labelled(driver.Sandbox{ID: testrun.ID(t, "frontseat-conformance"), Image: image, Ports: []int{buildPort}, Arguments: testgrid.InSandbox(t).Arguments()}))
+	drivertest.Conforms(t, testcontainer.Driver{}, drivertest.Labelled(driver.Sandbox{ID: testrun.ID(t, "frontseat-conformance"), Image: image, Ports: []int{buildPort}, Arguments: testgrid.InSandbox(t).Arguments()}))
 }
 
 // The runtime holds every container on the machine. The driver deletes
@@ -50,7 +50,7 @@ func TestAContainerTheDriverDidNotMakeIsNotDeleted(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = exec.Command("docker", "rm", "--force", name).Run() })
 
-	if err := (container.Driver{}).Delete(context.Background(), name); err != nil {
+	if err := (testcontainer.Driver{}).Delete(context.Background(), name); err != nil {
 		t.Fatal(err)
 	}
 
@@ -63,7 +63,7 @@ func TestAClientBuildsInASandboxFromOutsideItAndFromInside(t *testing.T) {
 	testrequired.Stack(t)
 	image := testbox.Image(t)
 	ctx := context.Background()
-	d := container.Driver{}
+	d := testcontainer.Driver{}
 
 	workspace := filepath.Join(t.TempDir(), "code")
 	testforge.Hello(t, workspace)

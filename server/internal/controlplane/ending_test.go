@@ -73,7 +73,7 @@ func overRealServed(t *testing.T) (workspacev1alpha1connect.WorkspaceServiceClie
 	under := httptest.NewUnstartedServer(nil)
 	under.Start()
 	t.Cleanup(under.Close)
-	handler, err := sandbox.Handler(held, under.URL, nil, t.TempDir())
+	handler, err := sandbox.Handler(held, under.URL, t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}

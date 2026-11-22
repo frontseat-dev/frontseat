@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testmodule"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testrequired"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -26,8 +24,10 @@ import (
 	"github.com/frontseat-dev/frontseat/server/testsupport/testbox"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testforge"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testgrid"
+	"github.com/frontseat-dev/frontseat/server/testsupport/testmodule"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testowner"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testpins"
+	"github.com/frontseat-dev/frontseat/server/testsupport/testrequired"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
@@ -35,22 +35,22 @@ import (
 // implemented Component service provider. The compile goes through RunService
 // and the real grid; only its exact executable is retrieved through REAPI and
 // given to SandboxService as an immutable artifact (never a source checkout).
-func TestApplicationServicePOCBuiltArtifactHasPrivateDependencies(t *testing.T) {
+func TestABuiltApplicationServiceHasPrivateDependencies(t *testing.T) {
 	testrequired.Stack(t)
-	artifact, identity := buildApplicationPOC(t)
-	p := newServiceRoutePOC(t)
-	pg := newPostgresPOC(p)
+	artifact, identity := buildApplication(t)
+	p := newServiceRoutes(t)
+	pg := newPostgres(p)
 	a, b := pg.allocate(), pg.allocate()
-	aa, ar := applicationPOC(p, pg, a, artifact)
-	_, br := applicationPOC(p, pg, b, artifact)
-	ca, cb := applicationClientPOC(p, ar), applicationClientPOC(p, br)
-	expectHTTPPOC(p, ca, "/build", identity)
-	expectHTTPPOC(p, cb, "/build", identity)
+	aa, ar := application(p, pg, a, artifact)
+	_, br := application(p, pg, b, artifact)
+	ca, cb := applicationClient(p, ar), applicationClient(p, br)
+	expectHTTP(p, ca, "/build", identity)
+	expectHTTP(p, cb, "/build", identity)
 	var workers sync.WaitGroup
 	results := make(chan error, 2)
 	for _, item := range []struct{ id, value string }{{ca, "101"}, {cb, "202"}} {
 		workers.Go(func() {
-			code, out, err := httpPOC(p, item.id, "/value?set="+item.value)
+			code, out, err := fetched(p, item.id, "/value?set="+item.value)
 			if err != nil || code != 0 || strings.TrimSpace(out) != item.value {
 				results <- fmt.Errorf("application write: exit %d: %v: %s", code, err, out)
 			}
@@ -64,42 +64,42 @@ func TestApplicationServicePOCBuiltArtifactHasPrivateDependencies(t *testing.T) 
 	if t.Failed() {
 		t.FailNow()
 	}
-	expectHTTPPOC(p, ca, "/value", "101")
-	expectHTTPPOC(p, cb, "/value", "202")
+	expectHTTP(p, ca, "/value", "101")
+	expectHTTP(p, cb, "/value", "202")
 	for _, id := range []string{ca, cb} {
 		// A client gets no transitive database grant. The application itself
 		// has already proved the upstream works by writing and reading SQL.
 		if code, out := p.run(id, "dial", "unix", "/upstream/service.sock"); code == 0 || !strings.Contains(out, "no such file") {
 			t.Fatalf("client reached a transitive dependency: exit %d: %s", code, out)
 		}
-		withoutDatabasePOC(p, id)
+		withoutDatabase(p, id)
 	}
 	p.proveBlocked(aa)
 	// Stop the dependent before releasing its allocation. The other branch
 	// shares the PostgreSQL process, but neither the app nor mutable state.
-	deletePOC(p, aa)
+	ended(p, aa)
 	pg.release(a)
-	if code, _, err := httpPOC(p, ca, "/value"); err != nil || code == 0 {
+	if code, _, err := fetched(p, ca, "/value"); err != nil || code == 0 {
 		t.Fatalf("ended application's client: exit %d: %v", code, err)
 	}
-	expectHTTPPOC(p, cb, "/value", "202")
+	expectHTTP(p, cb, "/value", "202")
 	retry := pg.allocate()
-	_, rr := applicationPOC(p, pg, retry, artifact)
-	expectHTTPPOC(p, applicationClientPOC(p, rr), "/value", "0")
+	_, rr := application(p, pg, retry, artifact)
+	expectHTTP(p, applicationClient(p, rr), "/value", "0")
 	t.Log("grid-built application; two isolated app→database branches, no transitive client grant, reverse teardown and fresh retry passed")
 }
 
 // This fast lifecycle control uses the locally cross-compiled probe fixture;
 // the test above independently requires a real Component build on the grid.
-func TestApplicationServicePOCDoesNotBecomeReadyWithAnInvalidDependency(t *testing.T) {
+func TestAnApplicationServiceIsNotReadyWithAnInvalidDependency(t *testing.T) {
 	testrequired.Stack(t)
-	p := newServiceRoutePOC(t)
-	pg := newPostgresPOC(p)
+	p := newServiceRoutes(t)
+	pg := newPostgres(p)
 	a := pg.allocate()
-	_, route := applicationPOC(p, pg, a, p.bin)
-	client := applicationClientPOC(p, route)
-	expectHTTPPOC(p, client, "/value", "0")
-	withoutDatabasePOC(p, client)
+	_, route := application(p, pg, a, p.bin)
+	client := applicationClient(p, route)
+	expectHTTP(p, client, "/value", "0")
+	withoutDatabase(p, client)
 	control := p.spec([]string{"proxy", "/route/service.sock", "127.0.0.1:7000"}, route, true)
 	control.Environment = map[string]string{"PGPASSWORD": a.password}
 	withCredential := p.create(control)
@@ -112,7 +112,7 @@ func TestApplicationServicePOCDoesNotBecomeReadyWithAnInvalidDependency(t *testi
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 	created, err := p.client.CreateSandbox(ctx, &sandboxv1.CreateSandboxRequest{
-		Spec: applicationSpecPOC(p, pg, bad, p.bin, badRoute), RequestId: pocName()})
+		Spec: applicationSpec(p, pg, bad, p.bin, badRoute), RequestId: unique()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,25 +137,25 @@ func TestApplicationServicePOCDoesNotBecomeReadyWithAnInvalidDependency(t *testi
 	if _, err := os.Stat(filepath.Join(badRoute, "service.sock")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("application published a route before its database was ready: %v", err)
 	}
-	expectHTTPPOC(p, client, "/value?set=303", "303")
+	expectHTTP(p, client, "/value?set=303", "303")
 }
 
-func withoutDatabasePOC(p *serviceRoutePOC, id string) {
+func withoutDatabase(p *serviceRoutes, id string) {
 	p.t.Helper()
 	if code, out := p.run(id, "without-db", "unused", "unused"); code != 0 {
 		p.t.Fatalf("client runtime received a database binding: exit %d: %s", code, out)
 	}
 }
 
-func applicationPOC(p *serviceRoutePOC, pg *postgresPOC, allocation pgAllocationPOC, artifact string) (string, string) {
+func application(p *serviceRoutes, pg *postgres, allocation pgAllocation, artifact string) (string, string) {
 	p.t.Helper()
 	route := p.route()
-	id := p.create(applicationSpecPOC(p, pg, allocation, artifact, route))
+	id := p.create(applicationSpec(p, pg, allocation, artifact, route))
 	p.waitFor(id, []string{"dial", "unix", "/route/service.sock"})
 	return id, route
 }
 
-func applicationSpecPOC(p *serviceRoutePOC, pg *postgresPOC, allocation pgAllocationPOC, artifact, route string) *sandboxv1.SandboxSpec {
+func applicationSpec(p *serviceRoutes, pg *postgres, allocation pgAllocation, artifact, route string) *sandboxv1.SandboxSpec {
 	spec := p.spec([]string{"application", "/upstream/service.sock", "/route/service.sock"}, route, false)
 	spec.Arguments[2] = "/application/actor"
 	spec.Volumes = append(spec.Volumes,
@@ -165,19 +165,19 @@ func applicationSpecPOC(p *serviceRoutePOC, pg *postgresPOC, allocation pgAlloca
 	return spec
 }
 
-func (a pgAllocationPOC) environment() map[string]string {
+func (a pgAllocation) environment() map[string]string {
 	return map[string]string{"PGHOST": "127.0.0.1", "PGPORT": "7000", "PGDATABASE": a.name,
 		"PGUSER": a.name, "PGPASSWORD": a.password, "PGCONNECT_TIMEOUT": "3", "PGSSLMODE": "disable"}
 }
 
-func applicationClientPOC(p *serviceRoutePOC, route string) string {
+func applicationClient(p *serviceRoutes, route string) string {
 	p.t.Helper()
 	id := p.make([]string{"proxy", "/route/service.sock", "127.0.0.1:7000"}, route, true)
 	p.waitFor(id, []string{"dial", "tcp", "127.0.0.1:7000"})
 	return id
 }
 
-func httpPOC(p *serviceRoutePOC, id, path string) (int32, string, error) {
+func fetched(p *serviceRoutes, id, path string) (int32, string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	answer, err := p.client.ExecSandbox(ctx, &sandboxv1.ExecSandboxRequest{SandboxId: id,
@@ -189,15 +189,15 @@ func httpPOC(p *serviceRoutePOC, id, path string) (int32, string, error) {
 	return answer.GetExitCode(), string(answer.GetOutput()), nil
 }
 
-func expectHTTPPOC(p *serviceRoutePOC, id, path, want string) {
+func expectHTTP(p *serviceRoutes, id, path, want string) {
 	p.t.Helper()
-	code, out, err := httpPOC(p, id, path)
+	code, out, err := fetched(p, id, path)
 	if err != nil || code != 0 || strings.TrimSpace(out) != want {
 		p.t.Fatalf("HTTP %s: exit %d: %v: got %q, want %q", path, code, err, out, want)
 	}
 }
 
-func deletePOC(p *serviceRoutePOC, id string) {
+func ended(p *serviceRoutes, id string) {
 	p.t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
@@ -206,7 +206,7 @@ func deletePOC(p *serviceRoutePOC, id string) {
 	}
 }
 
-func buildApplicationPOC(t *testing.T) (string, string) {
+func buildApplication(t *testing.T) (string, string) {
 	t.Helper()
 	testgrid.Address(t)
 	// The repository's directory is what the workspace names it by.
@@ -218,7 +218,7 @@ func buildApplicationPOC(t *testing.T) (string, string) {
 	// The probe imports the production relay. Give its isolated repository
 	// that source too, under its real internal package path: a host build
 	// can see the parent module, but the grid sees only this fixture.
-	pocWrite(t, root, "app/go.mod", "module github.com/frontseat-dev/frontseat/server\n\ngo 1.27\n")
+	wrote(t, root, "app/go.mod", "module github.com/frontseat-dev/frontseat/server\n\ngo 1.27\n")
 	source, err := testmodule.Root()
 	if err != nil {
 		t.Fatal(err)
@@ -227,8 +227,8 @@ func buildApplicationPOC(t *testing.T) (string, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pocWrite(t, root, "app/internal/confine/routes.go", string(routes))
-	pocWrite(t, root, "app/catalog-info.yaml", "apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata:\n  name: app\nspec:\n  type: service\n  lifecycle: experimental\n  owner: team\n")
+	wrote(t, root, "app/internal/confine/routes.go", string(routes))
+	wrote(t, root, "app/catalog-info.yaml", "apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata:\n  name: app\nspec:\n  type: service\n  lifecycle: experimental\n  owner: team\n")
 	files, err := os.ReadDir("testdata/service-route")
 	if err != nil {
 		t.Fatal(err)
@@ -241,16 +241,16 @@ func buildApplicationPOC(t *testing.T) (string, string) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		pocWrite(t, root, "app/"+file.Name(), string(contents))
+		wrote(t, root, "app/"+file.Name(), string(contents))
 	}
 	// Change observable code, not a comment, so this compile must execute on
 	// every proof run. Its artifact may still be reused by several instances.
-	identity := pocName()
-	pocWrite(t, root, "app/stamp.go", "package main\nimport \"os\"\nfunc init() { os.Setenv(\"POC_BUILD\", \""+identity+"\") }\n")
-	return buildArtifactPOC(t, root, "//app:go.compile", "../../.frontseat/home/go/bin/server", "actor"), identity
+	identity := unique()
+	wrote(t, root, "app/stamp.go", "package main\nimport \"os\"\nfunc init() { os.Setenv(\"APPLICATION_BUILD\", \""+identity+"\") }\n")
+	return buildArtifact(t, root, "//app:go.compile", "../../.frontseat/home/go/bin/server", "actor"), identity
 }
 
-func pocWrite(t *testing.T, root, path, contents string) {
+func wrote(t *testing.T, root, path, contents string) {
 	t.Helper()
 	path = filepath.Join(root, filepath.FromSlash(path))
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -261,9 +261,9 @@ func pocWrite(t *testing.T, root, path, contents string) {
 	}
 }
 
-func runArtifactPOC(t *testing.T, root, target string) (*buildv1.ActionResult, string) {
+func runArtifact(t *testing.T, root, target string) (*buildv1.ActionResult, string) {
 	t.Helper()
-	address := artifactWorkspacePOC(t, root)
+	address := artifactWorkspace(t, root)
 	target = "//fixture/" + strings.TrimPrefix(target, "//")
 	runs := buildv1alpha1connect.NewBuildServiceClient(connect.NewClient(connecthttp.NewTransport(testowner.Client(testowner.Token(t)), address)))
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
@@ -304,7 +304,7 @@ func runArtifactPOC(t *testing.T, root, target string) (*buildv1.ActionResult, s
 // Build setup goes through the running control plane. The sandbox package
 // does not import a build implementation or its test support (buildtest); an OpenShell
 // workspace clones the fixture and serves its daemon through the public API.
-func artifactWorkspacePOC(t *testing.T, root string) string {
+func artifactWorkspace(t *testing.T, root string) string {
 	t.Helper()
 	testgrid.Address(t)
 	plane := testowner.Stack
@@ -314,7 +314,7 @@ func artifactWorkspacePOC(t *testing.T, root string) string {
 	owner := testowner.Client(testowner.Token(t))
 	testforge.Committed(t, root)
 	remote := testforge.Serve(t, filepath.Dir(root)) + "/" + filepath.Base(root)
-	name := "service-poc-" + pocName()
+	name := "service-route-" + unique()
 	workspaces := workspacev1alpha1connect.NewWorkspaceServiceClient(connect.NewClient(connecthttp.NewTransport(owner, plane)))
 	cleanup := true
 	creationKnown := false
@@ -390,9 +390,9 @@ func artifactWorkspacePOC(t *testing.T, root string) string {
 	return ready.GetStatus().GetBuildUri()
 }
 
-func buildArtifactPOC(t *testing.T, root, target, output, name string) string {
+func buildArtifact(t *testing.T, root, target, output, name string) string {
 	t.Helper()
-	action, summary := runArtifactPOC(t, root, target)
+	action, summary := runArtifact(t, root, target)
 	if action == nil || action.GetOutcome() != buildv1.Outcome_OUTCOME_PASSED {
 		t.Fatalf("artifact build failed: %s", summary)
 	}

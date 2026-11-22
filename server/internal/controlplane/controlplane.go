@@ -348,9 +348,8 @@ type held struct {
 	resolved told.Resolved
 	// sandbox is the sandbox it lives in, once one was asked for.
 	sandbox string
-	// owner is who asked for it first: whose credentials its sandbox is
-	// let through with. Empty for one made before workspaces had owners,
-	// which is let through with none.
+	// owner is who asked for it first: whose it is, and whose
+	// credentials its sandbox is let through with.
 	owner string
 	// requests are what each sandbox asked for it was asked for under,
 	// kept before it was asked: a sandbox is its own where it carries one
@@ -593,8 +592,7 @@ func (s *service) view(h *held, status *workspacev1.WorkspaceStatus) *workspacev
 }
 
 // owned is the workspace of a name, where it is the caller's: one
-// another owns is refused, PERMISSION_DENIED with NOT_OWNER. One made
-// before workspaces had owners is anyone's who may call.
+// another owns is refused, PERMISSION_DENIED with NOT_OWNER.
 func (s *service) owned(ctx context.Context, called string) (*held, error) {
 	h, err := s.named(called)
 	if err != nil {
@@ -612,7 +610,7 @@ func ownedBy(ctx context.Context, h *held) error {
 	if err != nil {
 		return err
 	}
-	if h.owner != "" && h.owner != who {
+	if h.owner != who {
 		return refusedFor(connect.CodePermissionDenied, "NOT_OWNER", fmt.Sprintf("the workspace %s is another's", h.workspace.GetName()))
 	}
 	return nil
@@ -645,8 +643,7 @@ func (s *service) ListWorkspaces(ctx context.Context, req *workspacev1.ListWorks
 	s.mu.Lock()
 	var all []*held
 	for _, h := range s.held {
-		// The caller's own, and those of no one's.
-		if h.owner == "" || h.owner == who {
+		if h.owner == who {
 			all = append(all, h)
 		}
 	}
@@ -1236,7 +1233,9 @@ func (s *service) keep(h *held) error {
 
 // recover takes up the workspaces a control plane before this one kept:
 // each is worked on from what was asked for, wherever the one before
-// stopped.
+// stopped. A record of no one's workspace, or of one whose daemon was
+// told of no generation, is none this server wrote, and is refused: a
+// workspace is its owner's alone.
 func (s *service) recover() error {
 	entries, err := os.ReadDir(s.State)
 	if err != nil {
@@ -1252,18 +1251,27 @@ func (s *service) recover() error {
 		if err != nil {
 			return err
 		}
+		unread := func(err error) error {
+			return fmt.Errorf("the record of the workspace %s, %s, is not one this server reads (%w): remove the file, and end its sandbox through the gateway if it is still there", called, s.file(called), err)
+		}
 		var kept stored
 		h := &held{workspace: &workspacev1.Workspace{}, made: &workspacev1.WorkspaceSpec{}}
 		if err := json.Unmarshal(raw, &kept); err != nil {
-			return fmt.Errorf("the record of the workspace %s is not one: %w", called, err)
+			return unread(err)
 		}
-		if err := protojson.Unmarshal(kept.Workspace, h.workspace); err != nil || h.workspace.GetName() != called {
-			return fmt.Errorf("the record of the workspace %s is not one: %v", called, err)
+		if err := protojson.Unmarshal(kept.Workspace, h.workspace); err != nil {
+			return unread(err)
+		}
+		if h.workspace.GetName() != called {
+			return unread(errors.New("it is of another workspace"))
 		}
 		if err := protojson.Unmarshal(kept.Made, h.made); err != nil {
-			return fmt.Errorf("the record of the workspace %s is not one: %w", called, err)
+			return unread(err)
 		}
-		h.sandbox, h.requests, h.owner, h.ending, h.generation, h.resolved = kept.Sandbox, kept.Requests, kept.Owner, kept.Ending, max(kept.Generation, 1), kept.Resolved
+		if kept.Owner == "" || kept.Generation < 1 {
+			return unread(errors.New("it names no owner, or no generation its daemon was told"))
+		}
+		h.sandbox, h.requests, h.owner, h.ending, h.generation, h.resolved = kept.Sandbox, kept.Requests, kept.Owner, kept.Ending, kept.Generation, kept.Resolved
 		state := workspacev1.WorkspaceStatus_STATE_STARTING
 		if h.ending {
 			state = workspacev1.WorkspaceStatus_STATE_ENDING

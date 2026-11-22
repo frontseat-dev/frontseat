@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/frontseat-dev/frontseat/server/internal/confine"
 	"net"
 	"os"
 	"os/exec"
@@ -11,6 +10,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/frontseat-dev/frontseat/server/internal/confine"
 )
 
 // This fixture invokes PostgreSQL's own tools. It implements no SQL parser,

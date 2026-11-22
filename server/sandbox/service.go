@@ -6,10 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/coder/websocket"
-	"github.com/frontseat-dev/frontseat/server/internal/page"
-	"github.com/frontseat-dev/frontseat/server/internal/plain"
-	"github.com/frontseat-dev/frontseat/server/internal/refusal"
 	"io"
 	"log"
 	"net"
@@ -26,11 +22,17 @@ import (
 
 	connect "connectrpc.com/connect/v2"
 	"connectrpc.com/connect/v2/connecthttp"
+	"github.com/coder/websocket"
 	"github.com/distribution/reference"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
 	sandboxv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/sandbox/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/sandbox/v1alpha1/sandboxv1alpha1connect"
+	"github.com/frontseat-dev/frontseat/server/internal/page"
+	"github.com/frontseat-dev/frontseat/server/internal/plain"
+	"github.com/frontseat-dev/frontseat/server/internal/refusal"
 	"github.com/frontseat-dev/frontseat/server/sandbox/driver"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // Handler serves the sandbox API over a driver, and a sandbox's ports
@@ -39,14 +41,10 @@ import (
 // publicURL/sandboxes/<id>/tunnels/<port> is a WebSocket to the port
 // itself, for what is not HTTP.
 //
-// The environment is what every sandbox the server makes is given, beneath
-// what it was asked for with: what a sandbox is told of where it runs,
-// such as the grid it builds on.
-//
 // The state is a directory of the server's own, where its sandboxes are
 // recorded: a server that starts again finds there what it made.
-func Handler(d driver.Driver, publicURL string, environment map[string]string, state string) (http.Handler, error) {
-	s, err := newService(d, publicURL, environment, state)
+func Handler(d driver.Driver, publicURL, state string) (http.Handler, error) {
+	s, err := newService(d, publicURL, state)
 	if err != nil {
 		return nil, err
 	}
@@ -87,12 +85,12 @@ type Service interface {
 
 // newService returns the service over a driver, holding the sandboxes
 // its state records.
-func newService(d driver.Driver, publicURL string, environment map[string]string, state string) (*service, error) {
+func newService(d driver.Driver, publicURL, state string) (*service, error) {
 	files, err := open(state)
 	if err != nil {
 		return nil, err
 	}
-	s := &service{driver: d, publicURL: publicURL, environment: environment, kept: files, records: map[string]*record{}, asked: map[string]*asking{}}
+	s := &service{driver: d, publicURL: publicURL, kept: files, records: map[string]*record{}, asked: map[string]*asking{}}
 	if err := s.recover(context.Background()); err != nil {
 		return nil, err
 	}
@@ -146,14 +144,6 @@ func (s *service) asks(spec *sandboxv1.SandboxSpec, id string) (driver.Sandbox, 
 	if spec.GetEgress().GetMode() == sandboxv1.Egress_MODE_UNSPECIFIED && !s.driver.Capabilities().EgressOpen {
 		wanted.Egress.Listed = true
 	}
-	for name, value := range s.environment {
-		if _, asked := wanted.Environment[name]; !asked {
-			if wanted.Environment == nil {
-				wanted.Environment = map[string]string{}
-			}
-			wanted.Environment[name] = value
-		}
-	}
 	return wanted, nil
 }
 
@@ -168,12 +158,8 @@ func (s *service) Close() error {
 }
 
 type service struct {
-	sandboxv1alpha1connect.UnimplementedSandboxServiceHandler
 	driver    driver.Driver
 	publicURL string
-	// box is the image a workspace's sandbox runs where none is named.
-	box         string
-	environment map[string]string
 
 	// kept is where the records outlive the server.
 	kept kept
@@ -307,6 +293,9 @@ func (s *service) CreateSandbox(ctx context.Context, req *sandboxv1.CreateSandbo
 // a server that stops between the two finds the record when it starts,
 // and the sandbox, if there is one, is still the service's.
 func (s *service) make(ctx context.Context, spec *sandboxv1.SandboxSpec, request string) (*sandboxv1.Sandbox, error) {
+	// The spec is the service's own: a caller in its process keeps the
+	// one it asked with.
+	spec = proto.Clone(spec).(*sandboxv1.SandboxSpec)
 	id := newID()
 	wanted, err := s.asks(spec, id)
 	if err != nil {
@@ -617,7 +606,7 @@ func (s *service) observe(ctx context.Context, id string) (*sandboxv1.Sandbox, e
 	}
 	out := &sandboxv1.Sandbox{
 		Id:         id,
-		Spec:       r.spec,
+		Spec:       proto.Clone(r.spec).(*sandboxv1.SandboxSpec),
 		Driver:     s.driver.Name(),
 		CreateTime: timestamppb.New(r.created),
 	}

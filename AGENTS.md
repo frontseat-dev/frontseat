@@ -619,14 +619,16 @@ the change that fixes it.
 - A port is an interface package; its implementations are private
   (`server/internal/source/vcs` and its
   `server/internal/source/internal/vcs/git`; the sandbox `driver` and
-  its container driver, `server/internal/driver/container`; the command
-  line's `cli/internal/vcs` and its `cli/internal/vcs/git`). The
-  OpenShell driver is public, for frontseat-enterprise; the driver held
-  in memory is test support, in `drivertest`. Only one package on each
+  the OpenShell driver; the command line's `cli/internal/vcs` and its
+  `cli/internal/vcs/git`). The OpenShell driver is public, for
+  frontseat-enterprise; the driver held in memory is test support, in
+  `drivertest`, and so is the driver of the container runtime
+  (`testcontainer`), which a server's tests use where they need a
+  runtime and no program makes a sandbox with. Only one package on each
   side names a version control system
-  (`TestOnlyOnePackageNamesAVersionControlSystem`), and only the grid's
-  runner makes sandboxes with the container runtime
-  (`TestOnlyTheGridsRunnerMakesSandboxesWithTheContainerRuntime`).
+  (`TestOnlyOnePackageNamesAVersionControlSystem`), and no program makes
+  sandboxes with the container runtime
+  (`TestNoProgramMakesSandboxesWithTheContainerRuntime`).
 - A plugin uses the SDK and nothing else of the repository, except a crate
   nested in its own directory. What two plugins need goes into the SDK.
 - Held by: the architecture test (`specs/architecture`):
@@ -865,7 +867,7 @@ mise run docs:serve       # serve the TechDocs site on http://localhost:8000
 | `server/internal/model`, `.../wire` | Build labels, coordinates; their protobuf conversion |
 | `server/internal/pluginhost` | Wasm calls, read tracking, plugin-answer validation |
 | `server/internal/httpserver` | A server command's HTTP listener and request lifetime |
-| `server/internal/image` | An image's reference, read by Docker's own parser |
+| `server/internal/image` | An image's reference, read by Docker's own parser, and what the container runtime says an image is started with (`Started`) |
 | `server/internal/testservice` | What a service for tests is held to, for the daemon and the runner |
 | `server/internal/confine` | How a worker starts and confines an action (`frontseat-action`) |
 | `server/internal/exec/here` | A command made ready to run where the daemon is, with the grid's tools: a fix, and what publishes |
@@ -881,6 +883,7 @@ mise run docs:serve       # serve the TechDocs site on http://localhost:8000
 | `server/testsupport/*` | Test facilities: pins, Wasm modules, the grid, fixtures (`testfiles`, `testforge`, `commits`), budgets |
 | `server/testsupport/buildtest`, `server/testsupport/controlplanetest` | A daemon and a control plane started for a test, as `frontseatd` and `frontseat-local` start them |
 | `server/testsupport/drivertest` | What any sandbox driver is tested with: the conformance, a running sandbox of the test's own, the driver that holds sandboxes in memory |
+| `server/testsupport/testcontainer` | A sandbox driver over the container runtime, for a server's tests that need a runtime; no program makes a sandbox with it |
 | `server/testsupport/testsandbox` | The sandbox API's client and a tunnel to a sandbox's port, for tests: the SDK has none |
 | `server/testsupport/testwire` | A test's one way to a generated client over the wire, for what the SDK does not serve |
 | `specs/cmd/gate`, `specs/cmd/prepare-modules` | The gate programs, and what builds the plugins for the tests and for `dist/` |

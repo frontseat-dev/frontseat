@@ -3,17 +3,19 @@ package sandbox_test
 import (
 	"context"
 	"errors"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testrequired"
 	"net/http"
 	"strings"
 	"testing"
 	"time"
 
 	connect "connectrpc.com/connect/v2"
+	"google.golang.org/protobuf/types/known/durationpb"
+
 	sandboxv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/sandbox/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/sandbox"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testbox"
-	"google.golang.org/protobuf/types/known/durationpb"
+	"github.com/frontseat-dev/frontseat/server/testsupport/testcontainer"
+	"github.com/frontseat-dev/frontseat/server/testsupport/testrequired"
 )
 
 func codeOf(err error) connect.Code {
@@ -66,12 +68,14 @@ func TestADriverThatCannotRunACommandInASandboxSaysSo(t *testing.T) {
 	}
 }
 
-// Over the container driver: a command run in a sandbox's container, as
-// a runner sandbox's service is asked whether it is ready.
+// Over a driver of the container runtime (testcontainer): a command run
+// in a sandbox's further container, by the service, as it is asked.
 func TestACommandIsRunInASandboxsContainer(t *testing.T) {
 	testrequired.Stack(t)
 	image := testbox.Plain(t)
-	client, _ := serving(t, func(address string) (http.Handler, error) { return sandbox.Runner(address, nil, t.TempDir()) })
+	client, _ := serving(t, func(address string) (http.Handler, error) {
+		return sandbox.Handler(testcontainer.Driver{}, address, t.TempDir())
+	})
 	ctx := context.Background()
 	made, err := client.CreateSandbox(ctx, &sandboxv1.CreateSandboxRequest{Spec: &sandboxv1.SandboxSpec{
 		Image: image, Arguments: []string{"sleep", "600"}, Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_BLOCK},
@@ -109,12 +113,14 @@ func TestACommandIsRunInASandboxsContainer(t *testing.T) {
 }
 
 // The container runtime keeps nothing outside a sandbox, so the sandbox
-// API over it, the grid's runner's, takes no credential and makes no
-// sandbox whose rule attaches one. The gateway's takes both
+// API over it takes no credential and makes no sandbox whose rule
+// attaches one. The gateway's takes both
 // (TestASandboxReachesWhatItsRulesSayAndNoMore).
 func TestOverTheContainerRuntimeNoCredentialIsKept(t *testing.T) {
 	testrequired.Stack(t)
-	client, _ := serving(t, func(address string) (http.Handler, error) { return sandbox.Runner(address, nil, t.TempDir()) })
+	client, _ := serving(t, func(address string) (http.Handler, error) {
+		return sandbox.Handler(testcontainer.Driver{}, address, t.TempDir())
+	})
 	ctx := context.Background()
 	const says = "a credential kept outside its sandboxes"
 	if _, err := client.SetCredential(ctx, &sandboxv1.SetCredentialRequest{Credential: &sandboxv1.Credential{Name: "a-credential", Host: "forge.example", Secret: "a-made-up-secret"}}); connect.CodeOf(err) != connect.CodeUnimplemented || !strings.Contains(err.Error(), says) {

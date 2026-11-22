@@ -239,14 +239,9 @@ func (s *service) sandbox(ctx context.Context, name, owner string, spec *workspa
 		// Where its owner keeps a credential for the host, the sandbox is
 		// let through with it, and the system's program is told to present
 		// the stand-in as its password. Another's credential is never
-		// asked after: a workspace of no one's is let through with none.
-		var kept *sandboxv1.Credential
-		var err error
-		if owner != "" {
-			var said *sandboxv1.DescribeCredentialResponse
-			said, err = s.Sandboxes.DescribeCredential(ctx, &sandboxv1.DescribeCredentialRequest{Name: credentialID(owner, at.rule())})
-			kept = said.GetCredential()
-		}
+		// asked after.
+		said, err := s.Sandboxes.DescribeCredential(ctx, &sandboxv1.DescribeCredentialRequest{Name: credentialID(owner, at.rule())})
+		kept := said.GetCredential()
 		switch connect.CodeOf(err) {
 		case connect.CodeNotFound, connect.CodeUnimplemented:
 			// None is kept, or none can be: its repositories are fetched
@@ -489,22 +484,19 @@ func (s *service) publishing(ctx context.Context, out *sandboxv1.SandboxSpec, ow
 		out.Egress.Rules = append(out.Egress.Rules, rule)
 		// The credential is the one its owner gave for the host the
 		// repository is fetched from, as it is kept for this host.
-		// Another's is never asked after: a workspace of no one's is
-		// let through with none, and the forge refuses it.
-		if owner != "" {
-			said, err := s.Sandboxes.DescribeCredential(ctx, &sandboxv1.DescribeCredentialRequest{Name: besideID(owner, home.rule(), at.rule())})
-			switch connect.CodeOf(err) {
-			case connect.CodeNotFound, connect.CodeUnimplemented:
-			default:
-				if err != nil {
-					return "", err
+		// Another's is never asked after.
+		said, err := s.Sandboxes.DescribeCredential(ctx, &sandboxv1.DescribeCredentialRequest{Name: besideID(owner, home.rule(), at.rule())})
+		switch connect.CodeOf(err) {
+		case connect.CodeNotFound, connect.CodeUnimplemented:
+		default:
+			if err != nil {
+				return "", err
+			}
+			if kept := said.GetCredential(); kept != nil {
+				if kept.GetHost() != at.rule() {
+					return "", fmt.Errorf("the sandbox service says the credential for %s is for another host", at.host)
 				}
-				if kept := said.GetCredential(); kept != nil {
-					if kept.GetHost() != at.rule() {
-						return "", fmt.Errorf("the sandbox service says the credential for %s is for another host", at.host)
-					}
-					rule.Credential = kept.GetName()
-				}
+				rule.Credential = kept.GetName()
 			}
 		}
 	}

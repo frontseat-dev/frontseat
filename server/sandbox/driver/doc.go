@@ -3,9 +3,8 @@
 // port inside it, and says what it can enforce. Everything inside a
 // sandbox is the daemon's, the same on every provider.
 //
-//	container     a container runtime; the grid's runner's alone
 //	openshell     NVIDIA OpenShell's gateway, on whatever it stands on;
-//	              what makes every workspace's sandbox
+//	              what makes every sandbox a program makes
 //	drivertest    what any driver is tested with: the conformance every
 //	              driver is held to, a sandbox of the test's own, made and
 //	              ended, and a driver whose sandboxes are held in memory

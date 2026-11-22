@@ -122,7 +122,7 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		{"server/internal/build/releases.go", "server/internal/forge", false},
 		{"server/sandbox/driver/openshell/fetch.go", "server/internal/forge", false},
 		{"server/sandbox/driver/openshell/fetch.go", "server/internal/plain", true},
-		{"server/internal/driver/container/container.go", "server/internal/plain", false},
+		{"server/testsupport/testcontainer/container.go", "server/internal/plain", false},
 		{"server/internal/plain/plain.go", "server/sandbox", false},
 		// A process group is ended by one implementation, which a
 		// sandbox's refusal of a signal to a group does not stop: the
@@ -194,14 +194,16 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		{"server/testsupport/drivertest/drivertest_test.go", "server/testsupport/drivertest", true},
 		// The container driver is the sandbox service's to name, and its
 		// own tests' and the gateway's driver's tests'; nothing else's.
-		{"server/sandbox/sandbox.go", "server/internal/driver/container", true},
-		{"server/sandbox/driver/openshell/openshell.go", "server/internal/driver/container", false},
-		{"server/sandbox/driver/openshell/openshell_test.go", "server/internal/driver/container", true},
-		{"server/internal/runner/runner.go", "server/internal/driver/container", false},
+		{"server/sandbox/sandbox.go", "server/internal/image", true},
+		{"server/sandbox/sandbox.go", "server/testsupport/testcontainer", false},
+		{"server/sandbox/driver/openshell/openshell.go", "server/internal/image", false},
+		{"server/sandbox/driver/openshell/openshell_test.go", "server/internal/image", true},
+		{"server/internal/runner/runner.go", "server/testsupport/testcontainer", false},
+		{"server/internal/runner/attempt_test.go", "server/testsupport/testcontainer", true},
 		{"server/internal/runner/pool.go", "server/sandbox/driver/openshell", true},
 		{"server/internal/runner/pool.go", "server/internal/controlplane", false},
-		{"server/internal/driver/container/container.go", "server/sandbox/driver", true},
-		{"server/internal/driver/container/container.go", "server/sandbox", false},
+		{"server/testsupport/testcontainer/container.go", "server/sandbox/driver", true},
+		{"server/testsupport/testcontainer/container.go", "server/sandbox", false},
 		// The gate programs read their own packages and the test support.
 		{"specs/cmd/gate/main.go", "specs/internal/gatecommand", true},
 		{"specs/cmd/gate/main.go", "server/internal/build", false},
@@ -242,8 +244,8 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		{"server/cmd/frontseatd/main.go", "local", false},
 		{"cli/internal/machine/token.go", "local/ports", true},
 		{"cli/internal/machine/token.go", "local", false},
-		{"server/internal/driver/container/container_test.go", "local/ports", true},
-		{"server/internal/driver/container/container_test.go", "local", false},
+		{"server/testsupport/testcontainer/container_test.go", "local/ports", true},
+		{"server/testsupport/testcontainer/container_test.go", "local/stack", false},
 		{"local/stack.go", "local/ports", true},
 		{"local/ports/ports.go", "local", false},
 		{"local/stack.go", "server/telemetry", false},
@@ -303,7 +305,7 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		// A driver's test is given a running sandbox as drivertest makes
 		// one; a driver is not.
 		{"server/sandbox/driver/openshell/openshell_test.go", "server/testsupport/drivertest", true},
-		{"server/internal/driver/container/container_test.go", "server/testsupport/drivertest", true},
+		{"server/testsupport/testcontainer/container_test.go", "server/testsupport/drivertest", true},
 		{"server/sandbox/driver/openshell/openshell.go", "server/testsupport/drivertest", false},
 		{"server/internal/source/service_test.go", "server/testsupport/drivertest", false},
 		// A test of the control plane or of the build's service reads a

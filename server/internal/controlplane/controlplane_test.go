@@ -2,14 +2,16 @@ package controlplane
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/frontseat-dev/frontseat/sdk/go"
-	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
+	"maps"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -23,8 +25,10 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/frontseat-dev/frontseat/local/ports"
+	"github.com/frontseat-dev/frontseat/sdk/go"
 	sandboxv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/sandbox/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/sandbox/v1alpha1/sandboxv1alpha1connect"
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1/workspacev1alpha1connect"
 	"github.com/frontseat-dev/frontseat/server/internal/refusal"
@@ -740,6 +744,51 @@ func TestAControlPlaneThatStartsAgainGoesOnFromWhatWasAskedFor(t *testing.T) {
 	ready := waited(t, after, "kept")
 	if ready.GetStatus().GetState() != workspacev1.WorkspaceStatus_STATE_READY || s.of(ready.GetName()) != "sbx_1" || func() bool { n, _ := s.daemon("sbx_1").was(); return n != 1 }() || len(s.asked()) != 1 {
 		t.Errorf("under the one that came after it is %v, in %v", ready.GetStatus(), s.asked())
+	}
+}
+
+// A record of a workspace that names no owner is none this server
+// wrote: a control plane that finds one does not start, and names its
+// file, so that no one's workspace is handed to every caller. The
+// control is the same record with its owner, which is taken up.
+func TestARecordOfNoOnesWorkspaceIsRefusedWhenTheControlPlaneStarts(t *testing.T) {
+	s := over(t)
+	state := t.TempDir()
+	client, address, first := served(t, s, state, nil)
+	if _, err := client.CreateWorkspace(context.Background(), &workspacev1.CreateWorkspaceRequest{Name: "kept", Spec: of("https://forge.example/acme/code.git")}); err != nil {
+		t.Fatal(err)
+	}
+	first.Close()
+	file := filepath.Join(state, "kept.json")
+	written, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var record map[string]any
+	if err := json.Unmarshal(written, &record); err != nil {
+		t.Fatal(err)
+	}
+	for _, without := range []string{"owner", "generation"} {
+		lacking := maps.Clone(record)
+		delete(lacking, without)
+		raw, _ := json.Marshal(lacking)
+		if err := os.WriteFile(file, raw, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		plane, err := Serve(Config{Sandboxes: s, PublicURL: address, State: state, Callers: knowing(t)})
+		if err == nil {
+			plane.Close()
+			t.Errorf("a record without its %s was taken up", without)
+		} else if !strings.Contains(err.Error(), file) || !strings.Contains(err.Error(), "remove the file") {
+			t.Errorf("a record without its %s: %v, want its file named", without, err)
+		}
+	}
+	if err := os.WriteFile(file, written, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	after, _, _ := served(t, s, state, nil)
+	if _, err := after.DescribeWorkspace(context.Background(), &workspacev1.DescribeWorkspaceRequest{Name: "kept"}); err != nil {
+		t.Errorf("the control: the record with its owner is not taken up: %v", err)
 	}
 }
 

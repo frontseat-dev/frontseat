@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-// application is the POC repository's small HTTP application, not a service
+// application is the fixture repository's small HTTP application, not a service
 // manager. PostgreSQL's native client is its explicit runtime dependency,
 // supplied by the pinned runtime image. A private socket name makes libpq use
 // the granted byte route; authentication still happens at the PostgreSQL server.
@@ -56,7 +56,7 @@ func application(upstream, address string) error {
 		return err
 	}
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /build", func(w http.ResponseWriter, r *http.Request) { fmt.Fprintln(w, os.Getenv("POC_BUILD")) })
+	mux.HandleFunc("GET /build", func(w http.ResponseWriter, r *http.Request) { fmt.Fprintln(w, os.Getenv("APPLICATION_BUILD")) })
 	mux.HandleFunc("GET /value", func(w http.ResponseWriter, r *http.Request) {
 		statement := "SELECT value FROM value;"
 		if raw := r.URL.Query().Get("set"); raw != "" {

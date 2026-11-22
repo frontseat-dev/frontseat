@@ -1,11 +1,8 @@
-package container
-
-// Written by an independent review of fe67226..f74db45.
+package testcontainer
 
 import (
 	"context"
 	"errors"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testrequired"
 	"net"
 	"os"
 	osexec "os/exec"
@@ -14,17 +11,14 @@ import (
 	"time"
 
 	"github.com/frontseat-dev/frontseat/server/sandbox/driver"
+	"github.com/frontseat-dev/frontseat/server/testsupport/testrequired"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testrun"
 )
 
-// DEFECT. "A runtime that takes longer [than three minutes] is not
-// waited on: it is reported" holds for the docker command and not for
-// the engine, which is now what is asked first: a request to an engine
-// that takes the connection and does not answer has no bound of its
-// own. inspect's comment says the command is run "where the engine ...
-// does not answer"; it is run only where the engine refuses. With a
-// context that has no deadline (the server's recover, a delete) the
-// driver waits for ever.
+// A runtime that does not answer is not waited on, the engine no more
+// than the docker command: a request to an engine that takes the
+// connection and says nothing is bounded, so that a context with no
+// deadline (the server's recover, a delete) is not waited on for ever.
 //
 // The control is an engine that is not there: the command is run, and
 // says at once that there is no such container.
@@ -85,16 +79,15 @@ func TestAnEngineThatDoesNotAnswerIsNotWaitedOnForEver(t *testing.T) {
 	})
 }
 
-// What the driver says of a container that is no sandbox, and of one
-// paused, stopped and gone. (Exploration: Dial is the one call of the
-// driver that does not ask whether the container is a sandbox. It was
-// so before these commits, and the control plane asks first.)
+// What the driver reaches is a sandbox: a container that carries no
+// sandbox label is not found, by Observe and by Dial alike, and one
+// that is gone is not found either.
 func TestWhatIsReachedIsASandbox(t *testing.T) {
 	testrequired.Stack(t)
 	if engine() == "" {
 		t.Skip("no engine")
 	}
-	name := testrun.ID(t, "frontseat-review-not-a-sandbox")
+	name := testrun.ID(t, "frontseat-not-a-sandbox")
 	docker := func(args ...string) {
 		t.Helper()
 		if out, err := osexec.Command("docker", args...).CombinedOutput(); err != nil {
@@ -114,20 +107,8 @@ func TestWhatIsReachedIsASandbox(t *testing.T) {
 		conn.Close()
 		t.Errorf("the driver reached the port of %s, a container that carries no sandbox label and that Observe says is not found", name)
 	}
-	docker("pause", name)
-	conn, err := d.Dial(ctx, name, 7600)
-	t.Logf("paused: Dial says %v", err)
-	if err == nil {
-		conn.Close()
-	}
-	docker("unpause", name)
-	docker("stop", "--time", "0", name)
-	_, err = d.Dial(ctx, name, 7600)
-	t.Logf("stopped: Dial says %v", err)
 	docker("rm", "--force", name)
-	_, err = d.Dial(ctx, name, 7600)
-	t.Logf("gone: Dial says %v", err)
-	if !errors.Is(err, driver.ErrNotFound) {
+	if _, err := d.Dial(ctx, name, 7600); !errors.Is(err, driver.ErrNotFound) {
 		t.Errorf("reaching a container that is gone: %v; want not found", err)
 	}
 }

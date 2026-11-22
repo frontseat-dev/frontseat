@@ -4,11 +4,11 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/frontseat-dev/frontseat/local"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"github.com/frontseat-dev/frontseat/local"
 	"github.com/frontseat-dev/frontseat/local/box"
 	"github.com/frontseat-dev/frontseat/local/stack"
 )
