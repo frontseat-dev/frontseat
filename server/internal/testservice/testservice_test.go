@@ -35,13 +35,13 @@ func TestWhatAServiceCannotBeIsRefusedByItsKey(t *testing.T) {
 		"service names no port": func(l *typev1.Service) {
 			l.Ports, l.Ready = nil, []*typev1.ServiceReady{{Check: &typev1.ServiceReady_Command{Command: &typev1.ServiceCommandReady{Arguments: []string{"true"}}}}}
 		},
-		"service.ports: a name in lower-case letters, digits and dashes, and a port from 1 to 65535": func(l *typev1.Service) { l.Ports["http"] = 0 },
-		"and a port from 1 to 65535":                  func(l *typev1.Service) { l.Ports["http"] = 65536 },
-		"service.ports: a name in lower-case letters": func(l *typev1.Service) { l.Ports["HTTP"] = 80 },
-		"says nothing of when it is ready":            func(l *typev1.Service) { l.Ready = nil },
-		"is one of port, http or command":             func(l *typev1.Service) { l.Ready = []*typev1.ServiceReady{{}} },
-		"a port it does not name":                     func(l *typev1.Service) { l.Ready = []*typev1.ServiceReady{{Check: &typev1.ServiceReady_Port{}}} },
-		"names a port sql it does not serve": func(l *typev1.Service) {
+		"service.ports: a port is a number from 1 to 65535":                                                func(l *typev1.Service) { l.Ports["http"] = 0 },
+		"a port is a number from 1 to 65535":                                                               func(l *typev1.Service) { l.Ports["http"] = 65536 },
+		"service.ports: a port is named in lower-case letters, digits and dashes, beginning with a letter": func(l *typev1.Service) { l.Ports["HTTP"] = 80 },
+		"says nothing of when it is ready":                                                                 func(l *typev1.Service) { l.Ready = nil },
+		"is one of port, http or command":                                                                  func(l *typev1.Service) { l.Ready = []*typev1.ServiceReady{{}} },
+		"a port it does not name":                                                                          func(l *typev1.Service) { l.Ready = []*typev1.ServiceReady{{Check: &typev1.ServiceReady_Port{}}} },
+		"service.ready[0] names a port it does not serve": func(l *typev1.Service) {
 			l.Ready = []*typev1.ServiceReady{{Check: &typev1.ServiceReady_Port{Port: "sql"}}}
 		},
 		"at no port or path":      func(l *typev1.Service) { l.Ready[0].GetHttp().Path = "@evil.example/" },
@@ -132,7 +132,13 @@ func TestWhatAServiceRefusesIsNotRepeated(t *testing.T) {
 		"an API's export": func(l *typev1.Service) {
 			l.Apis = map[string]*typev1.ServiceApi{"api:default/orders": {Port: "http", Exports: map[string]string{"SECRET-A": "x"}}}
 		},
-		"a time to be ready": func(l *typev1.Service) { l.Timeout = durationpb.New(5346738 * time.Second) },
+		"a readiness check's port": func(l *typev1.Service) {
+			l.Ready = []*typev1.ServiceReady{{Check: &typev1.ServiceReady_Port{Port: "SECRET"}}}
+		},
+		"an image":                 func(l *typev1.Service) { l.Image = "https://user:SECRET@registry.example/x" },
+		"an image with no digest":  func(l *typev1.Service) { l.Image = "registry.example/SECRET" },
+		"an image the build makes": func(l *typev1.Service) { l.Image = "//SECRET:image" },
+		"a time to be ready":       func(l *typev1.Service) { l.Timeout = durationpb.New(5346738 * time.Second) },
 	} {
 		l := whole()
 		change(l)

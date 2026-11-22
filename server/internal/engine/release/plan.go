@@ -752,10 +752,12 @@ func planUnit(ctx context.Context, w Workspace, resolved *Resolved, strategies S
 		}
 		spelled, err := config.Prerelease(settings.Prerelease, standing.Branch, standing.Revision, standing.Time)
 		if err != nil {
-			return nil, "", none, mistaken("%s: spec.frontseat.release.prerelease: %v", unit.Name, err)
+			// The branch is said: it is what the person stands on, and
+			// as often what makes the form spell no prerelease.
+			return nil, "", none, mistaken("%s: spec.frontseat.release.prerelease, for the branch %q: %v", unit.Name, standing.Branch, err)
 		}
 		if next, err = semver.StrictNewVersion(next.String() + "-" + spelled); err != nil {
-			return nil, "", none, mistaken("%s: spec.frontseat.release.prerelease: %q is no prerelease of a semantic version", unit.Name, spelled)
+			return nil, "", none, mistaken("%s: spec.frontseat.release.prerelease, for the branch %q, spells what is no prerelease of a semantic version", unit.Name, standing.Branch)
 		}
 		planned.Prerelease, tagged = true, settings.PrereleaseTag
 	}

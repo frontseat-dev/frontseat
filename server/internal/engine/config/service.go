@@ -75,7 +75,7 @@ var serviceValues = map[string]string{
 	"ports":     "names, each with its port, a whole number",
 	"timeout":   "a whole number of seconds",
 	"ready":     "a list of checks, each one of port: <name>, http: {port, path, body} or command: [...]",
-	"user":      "text: the user its image runs as, by number, never 0",
+	"user":      "text: the user its image runs as, by number, never 0, written in quotes, as \"70\"",
 	"writable":  "a list of the directories of its image it writes, each an absolute path",
 }
 
@@ -289,6 +289,21 @@ func readService(file, directory string, document, node *yaml.Node) (Service, er
 		}
 		if nothing {
 			return mistake(key.Line, "service.%s is written and says nothing: leave it out, and it is its plugin's to say", key.Value)
+		}
+		// A name is held where it is written, so that its refusal says
+		// its own line: what a service's shape is held to again
+		// (testservice.Shaped) knows no line.
+		for i := 0; val.Kind == yaml.MappingNode && i+1 < len(val.Content); i += 2 {
+			name, held := val.Content[i], error(nil)
+			switch key.Value {
+			case "exports", "env":
+				held = testservice.Variable(key.Value, name.Value)
+			case "ports":
+				held = testservice.Port(name.Value, said.Ports[name.Value])
+			}
+			if held != nil {
+				return mistake(name.Line, "%v", held)
+			}
 		}
 		if key.Value == "timeout" {
 			said.Timeout = durationpb.New(time.Duration(seconds) * time.Second)

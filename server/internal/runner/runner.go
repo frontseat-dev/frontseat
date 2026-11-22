@@ -318,7 +318,7 @@ const mostDescribed = 1 << 20
 func (r *runner) proxied(written string) (string, error) {
 	pinned, err := image.Read(written)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("a service's image %w", err)
 	}
 	if len(r.registries) == 0 {
 		// No proxy is configured: the gateway's runtime pulls the image
