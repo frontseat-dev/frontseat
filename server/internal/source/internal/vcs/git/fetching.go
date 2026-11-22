@@ -9,11 +9,16 @@ import (
 )
 
 // Cloned implements vcs.Fetching: a remote as git clones it in a
-// sandbox (rungit.Over), over https where it is written for ssh.
+// sandbox (rungit.Over), over https where it is written for ssh. One
+// that names anyone but git, as git@host:path and ssh://git@host/path
+// do, is vcs.ErrCredentialed.
 func (System) Cloned(remote string) (string, error) {
 	address, err := rungit.Over(remote)
 	if err != nil {
 		return "", err
+	}
+	if address.Named {
+		return "", vcs.ErrCredentialed
 	}
 	return address.Cloned, nil
 }

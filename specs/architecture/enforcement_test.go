@@ -327,6 +327,8 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		// stream with the SDK's one public reader, not its transport,
 		// which is the SDK's alone.
 		{"server/internal/controlplane/controlplane_test.go", "sdk/go/internal/transport", false},
+		{"server/internal/controlplane/controlplane_test.go", "server/internal/source", true},
+		{"server/internal/controlplane/rules.go", "server/internal/source", false},
 		{"server/internal/build/history_test.go", "sdk/go/internal/transport", false},
 		{"server/internal/controlplane/controlplane_test.go", "sdk/go/api/frontseat/workspace/v1alpha1/workspacev1alpha1connect", true},
 		// The architecture test is a spec: it reads the catalog's

@@ -1,5 +1,13 @@
 package vcs
 
+import "errors"
+
+// ErrCredentialed is a remote that names someone before its host, other
+// than the one user a forge serves every repository by: what is written
+// there may be a token, and a remote is kept and said as it is written.
+// A secret is given as a credential, and a remote never holds one.
+var ErrCredentialed = errors.New("a repository's address holds a user or a password")
+
 // Fetching is what a system says of a repository fetched over HTTP by
 // what cannot be trusted with its credential: what a fetch asks of the
 // forge, which programs ask it, and how the system's program is told to
@@ -11,7 +19,8 @@ type Fetching interface {
 	// http or https, as the system reads the remote: one the system
 	// converts, as one written for another transport, is returned as it
 	// is converted. A remote no sandbox clones is an error, which never
-	// repeats the remote: it may hold a password or a token.
+	// repeats the remote: it may hold a password or a token. One that
+	// names someone, however it is written, is ErrCredentialed.
 	Cloned(remote string) (string, error)
 	// NameOf returns the name a repository is brought under when it is
 	// given none, as System.NameOf does.

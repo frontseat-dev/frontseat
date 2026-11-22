@@ -3,6 +3,7 @@ package git_test
 import (
 	"context"
 	"encoding/pem"
+	"errors"
 	"net/http"
 	"net/http/cgi"
 	"net/http/httptest"
@@ -1526,30 +1527,47 @@ func TestADirectoryWithinARepositoryIsNotOne(t *testing.T) {
 
 // A remote is cloned in a sandbox over http or https, as git's package
 // reads it: one written for ssh is cloned over https from the same host
-// and path, and what no sandbox clones is refused without being
-// repeated, since it may hold a token.
+// and path, whether it names git or no one; one that names anyone else
+// is refused as credentialed, whichever way it is written; and what no
+// sandbox clones is refused. Neither refusal repeats the remote, since
+// it may hold a token.
 func TestWhereASandboxClonesARemoteFrom(t *testing.T) {
+	const refusedValue = "v4lue-of-adas"
 	for remote, want := range map[string]string{
-		"https://forge.example/acme/code.git":     "https://forge.example/acme/code.git",
-		"http://forge.example:8080/acme/code":     "http://forge.example:8080/acme/code",
-		"git@forge.example:acme/code.git":         "https://forge.example/acme/code.git",
-		"ssh://git@forge.example/acme/code.git":   "https://forge.example/acme/code.git",
-		"https://someone@forge.example/acme/code": "https://forge.example/acme/code",
+		"https://forge.example/acme/code.git":       "https://forge.example/acme/code.git",
+		"http://forge.example:8080/acme/code":       "http://forge.example:8080/acme/code",
+		"git@forge.example:acme/code.git":           "https://forge.example/acme/code.git",
+		"forge.example:acme/code.git":               "https://forge.example/acme/code.git",
+		"ssh://git@forge.example/acme/code.git":     "https://forge.example/acme/code.git",
+		"ssh://forge.example:2222/acme/code":        "https://forge.example/acme/code",
+		"git+ssh://git@forge.example/acme/code.git": "https://forge.example/acme/code.git",
 	} {
 		if got, err := (git.System{}).Cloned(remote); err != nil || got != want {
 			t.Errorf("Cloned(%q) = %q, %v; want %q", remote, got, err, want)
 		}
 	}
-	const refusedValue = "v4lue-of-adas"
+	for _, remote := range []string{
+		"https://someone@forge.example/acme/code",
+		"https://" + refusedValue + "@forge.example/acme/code",
+		"ghp_" + refusedValue + "@forge.example:acme/code.git",
+		"ssh://" + refusedValue + "@forge.example/acme/code.git",
+	} {
+		if got, err := (git.System{}).Cloned(remote); !errors.Is(err, vcs.ErrCredentialed) {
+			t.Errorf("Cloned(%q) = %q, %v; want it refused as credentialed", remote, got, err)
+		} else if strings.Contains(err.Error(), refusedValue) {
+			t.Errorf("the refusal of a remote repeats it: %v", err)
+		}
+	}
 	for _, remote := range []string{
 		"https://forge.example/acme/code.git?access_token=" + refusedValue,
 		"https://someone:" + refusedValue + "@forge.example/acme/code",
+		"ghp:" + refusedValue + "@forge.example:acme/code.git",
 		"http://2130706433/" + refusedValue,
 		"file:///remotes/" + refusedValue,
 		"/remotes/" + refusedValue,
 	} {
-		if got, err := (git.System{}).Cloned(remote); err == nil {
-			t.Errorf("Cloned(%q) = %q, want it refused", remote, got)
+		if got, err := (git.System{}).Cloned(remote); err == nil || errors.Is(err, vcs.ErrCredentialed) {
+			t.Errorf("Cloned(%q) = %q, %v; want it refused as none a sandbox clones", remote, got, err)
 		} else if strings.Contains(err.Error(), refusedValue) {
 			t.Errorf("the refusal of a remote repeats it: %v", err)
 		}

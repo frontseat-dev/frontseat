@@ -44,6 +44,13 @@ type Address struct {
 	Repository string
 	// Converted is whether Cloned is not the remote as it was written.
 	Converted bool
+	// Named is whether the remote names someone before its host other
+	// than git, the user a forge serves every repository over ssh by:
+	// anyone over http or https, and anyone else over ssh, whichever
+	// way it is written. Cloned names no one; what keeps a remote as it
+	// is written refuses one that is Named, since what is written there
+	// may be a token.
+	Named bool
 }
 
 // Over is a remote as a sandbox clones it. A remote over http or https
@@ -59,7 +66,7 @@ func Over(written string) (Address, error) {
 		return Address{}, errUnread
 	}
 	var scheme, host, port, path string
-	converted := false
+	converted, someone := false, false
 	if strings.Contains(written, "://") {
 		at, err := url.Parse(written)
 		if err != nil {
@@ -72,9 +79,9 @@ func Over(written string) (Address, error) {
 		case "https", "http":
 			// Whoever is named before the host is left out, and so is a
 			// token written there: what is sent on names no one.
-			scheme, port, converted = at.Scheme, at.Port(), at.User != nil
+			scheme, port, converted, someone = at.Scheme, at.Port(), at.User != nil, at.User != nil
 		case "ssh", "git+ssh", "ssh+git":
-			scheme, converted = "https", true
+			scheme, converted, someone = "https", true, at.User != nil && at.User.Username() != "git"
 		case "file":
 			return Address{}, ErrLocal
 		default:
@@ -98,11 +105,11 @@ func Over(written string) (Address, error) {
 			return Address{}, ErrLocal
 		}
 		at, err := giturls.Parse(written)
-		if err != nil || at.Scheme != "ssh" || at.Hostname() != shape[1] || strings.TrimLeft(at.Path, "/") != strings.TrimLeft(shape[2], "/") {
+		if err != nil || at.Scheme != "ssh" || at.Hostname() != shape[2] || strings.TrimLeft(at.Path, "/") != strings.TrimLeft(shape[3], "/") {
 			return Address{}, errUnread
 		}
-		scheme, converted = "https", true
-		host, path = shape[1], "/"+strings.TrimLeft(shape[2], "/")
+		scheme, converted, someone = "https", true, shape[1] != "" && shape[1] != "git"
+		host, path = shape[2], "/"+strings.TrimLeft(shape[3], "/")
 	}
 	host = strings.ToLower(host)
 	path = strings.TrimRight(path, "/")
@@ -113,13 +120,14 @@ func Over(written string) (Address, error) {
 	if port != "" {
 		at += ":" + port
 	}
-	return Address{Cloned: scheme + "://" + at + path, Repository: at + strings.TrimSuffix(path, ".git"), Converted: converted}, nil
+	return Address{Cloned: scheme + "://" + at + path, Repository: at + strings.TrimSuffix(path, ".git"), Converted: converted, Named: someone}, nil
 }
 
 // scpLike is a remote written as a host and a path with a colon between,
 // a user before the host or none: the whole of it, each part of the
-// characters a host's name and a plainly written path hold.
-var scpLike = regexp.MustCompile(`^(?:[A-Za-z0-9._-]+@)?([A-Za-z0-9.-]+):([A-Za-z0-9._+/-]+)$`)
+// characters a host's name and a plainly written path hold. Its groups
+// are the user, the host and the path.
+var scpLike = regexp.MustCompile(`^(?:([A-Za-z0-9._-]+)@)?([A-Za-z0-9.-]+):([A-Za-z0-9._+/-]+)$`)
 
 // named is whether a host is a name: letters, digits, dots and hyphens,
 // beginning and ending with a letter or a digit, its last part beginning
