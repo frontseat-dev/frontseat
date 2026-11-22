@@ -1,77 +1,35 @@
-package frontseat_test
+package frontseat
 
 import (
 	"errors"
-	"io"
 	"slices"
 	"testing"
-
-	"github.com/frontseat-dev/frontseat/sdk/go"
 )
 
-// sent hands each of its messages, then its end.
-type sent struct {
-	messages []string
-	end      error
-}
-
-func (s *sent) Receive() (string, error) {
-	if len(s.messages) == 0 {
-		return "", s.end
-	}
-	message := s.messages[0]
-	s.messages = s.messages[1:]
-	return message, nil
-}
-
-func TestEveryMessageIsReceivedInTheOrderItCame(t *testing.T) {
-	all, err := frontseat.Received[string](&sent{messages: []string{"a", "b"}, end: io.EOF})
-	if err != nil || !slices.Equal(all, []string{"a", "b"}) {
-		t.Fatalf("received %q, %v; want a, b", all, err)
-	}
-}
-
-func TestWhatCameBeforeABreakIsKeptWithTheError(t *testing.T) {
+// A list ends with the error of a page that fails, after the items that
+// came before it, and with an error where a server answers a token it
+// was asked with before, which would be asked for again and again. The
+// control is a list whose last page answers no token.
+func TestAListEndsWhereAPageFailsOrComesRound(t *testing.T) {
 	broken := errors.New("broken")
-	all, err := frontseat.Received[string](&sent{messages: []string{"a"}, end: broken})
-	if !errors.Is(err, broken) || !slices.Equal(all, []string{"a"}) {
-		t.Fatalf("received %q, %v; want a and the break", all, err)
+	answers := map[string]func(string) ([]int, string, error){
+		"fails": func(token string) ([]int, string, error) {
+			return []int{1}, "next", map[string]error{"next": broken}[token]
+		},
+		"comes round": func(token string) ([]int, string, error) {
+			return []int{1}, map[string]string{"": "a", "a": "b", "b": "a"}[token], nil
+		},
+		"ends": func(token string) ([]int, string, error) { return []int{1}, map[string]string{"": "a"}[token], nil },
 	}
-}
-
-func TestEveryPageIsGatheredInOrder(t *testing.T) {
-	pages := map[string]struct {
-		items []int
-		next  string
-	}{"": {[]int{1, 2}, "b"}, "b": {[]int{3}, "c"}, "c": {[]int{4}, ""}}
-	var asked []string
-	got, err := frontseat.Listed(func(token string) ([]int, string, error) {
-		asked = append(asked, token)
-		return pages[token].items, pages[token].next, nil
-	})
-	if err != nil || !slices.Equal(got, []int{1, 2, 3, 4}) || !slices.Equal(asked, []string{"", "b", "c"}) {
-		t.Fatalf("gathered %v asking %q (%v); want 1 to 4 over three pages", got, asked, err)
-	}
-}
-
-func TestAPageThatFailsFailsTheWhole(t *testing.T) {
-	broken := errors.New("broken")
-	got, err := frontseat.Listed(func(token string) ([]int, string, error) {
-		if token == "" {
-			return []int{1}, "b", nil
-		}
-		return nil, "", broken
-	})
-	if !errors.Is(err, broken) || got != nil {
-		t.Fatalf("gathered %v, %v; want nothing and the break", got, err)
-	}
-}
-
-func TestAServerThatAnswersATokenAskedBeforeIsNotAskedForEver(t *testing.T) {
-	for name, next := range map[string]map[string]string{"its own": {"": "a", "a": "a"}, "an earlier one": {"": "a", "a": "b", "b": "a"}, "the first": {"": "a", "a": ""}} {
-		_, err := frontseat.Listed(func(token string) ([]int, string, error) { return []int{1}, next[token], nil })
-		if (err == nil) != (name == "the first") {
-			t.Errorf("a page answering %s token: %v", name, err)
+	for name, answer := range answers {
+		got, err := Collect(paged(answer))
+		switch {
+		case name == "fails" && (!errors.Is(err, broken) || !slices.Equal(got, []int{1})):
+			t.Errorf("a list whose second page fails: %v, %v", got, err)
+		case name == "comes round" && err == nil:
+			t.Errorf("a list that comes round to a token asked before ended with %v", got)
+		case name == "ends" && (err != nil || len(got) != 2):
+			t.Errorf("the control: a list of two pages: %v, %v", got, err)
 		}
 	}
 }

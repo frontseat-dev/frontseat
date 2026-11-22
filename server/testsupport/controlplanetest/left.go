@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/frontseat-dev/frontseat/sdk/go"
 	sandboxv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/sandbox/v1alpha1"
+	"github.com/frontseat-dev/frontseat/server/internal/page"
 	"github.com/frontseat-dev/frontseat/server/sandbox"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testgateway"
 )
@@ -31,7 +31,7 @@ func EndLeft(identity, state string) error {
 	defer left.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-	listed, err := frontseat.Listed(func(token string) ([]*sandboxv1.Sandbox, string, error) {
+	listed, err := page.All(func(token string) ([]*sandboxv1.Sandbox, string, error) {
 		page, err := left.ListSandboxes(ctx, &sandboxv1.ListSandboxesRequest{PageToken: token})
 		return page.GetSandboxes(), page.GetNextPageToken(), err
 	})
