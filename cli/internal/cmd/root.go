@@ -46,8 +46,8 @@ var fixed = errors.New("inside a workspace's sandbox its source is fixed: worksp
 // token laid out beside it, and that token presented to it alone.
 // Inside a workspace's sandbox none is asked.
 func server() (*frontseat.Client, error) {
-	if in, err := inside(); err != nil || in {
-		return nil, errors.Join(err, refusedInside(in))
+	if inside() {
+		return nil, fixed
 	}
 	at, err := machine.Server()
 	if err != nil {
@@ -64,25 +64,12 @@ func server() (*frontseat.Client, error) {
 	return frontseat.New(at, options...), nil
 }
 
-// refusedInside is the refusal of a command inside a workspace's
-// sandbox, where it is refused; nil outside.
-func refusedInside(in bool) error {
-	if in {
-		return fixed
-	}
-	return nil
-}
-
 // asked is the workspace a command asks: inside a workspace's sandbox,
 // that workspace, whose daemon is on the loopback, and no other; else
 // the one --workspace names, of the control plane; else the one last
 // opened, where it was opened of the control plane asked now.
 func asked() (*frontseat.Workspace, error) {
-	in, err := inside()
-	if err != nil {
-		return nil, err
-	}
-	if in {
+	if inside() {
 		if workspaceFlag != "" {
 			return nil, errors.New("inside a workspace's sandbox the command line asks this workspace's daemon, and no other workspace: --workspace is given outside")
 		}
@@ -114,11 +101,16 @@ var workspaceFlag string
 // out is where a command prints what it says.
 var out io.Writer = os.Stdout
 
+// errOut is where a command says what went wrong of what it was asked
+// to do, and warns: never where what was asked for is printed, which
+// another program may read.
+var errOut io.Writer = os.Stderr
+
 // exitCode is what the command ends with where it ran and ended: a
 // build's exit code, a release that failed, a command over SSH.
 var exitCode int
 
-// rootCmd represents the base command when called without any subcommands
+// rootCmd is frontseat itself: every command is beneath it.
 var rootCmd = &cobra.Command{
 	Use:   "frontseat",
 	Short: "Build, test and release what a workspace holds",
@@ -152,11 +144,25 @@ func Execute(ctx context.Context, args []string) (int, error) {
 	rootCmd.SetArgs(args)
 	if err := rootCmd.ExecuteContext(ctx); err != nil {
 		if connect.CodeOf(err) == connect.CodeUnavailable {
-			return 0, fmt.Errorf("%w\nthe server does not answer: where it is the local stack's, `mise start` starts it", err)
+			return 0, fmt.Errorf("%w\n%s", err, unanswered())
 		}
 		return 0, err
 	}
 	return exitCode, nil
+}
+
+// unanswered says, of a server that does not answer, which it is and
+// what starts it, as far as the command line knows: the local stack is
+// started with the stack's own program, which a checkout of Frontseat
+// runs with mise.
+func unanswered() string {
+	if inside() {
+		return "this workspace's daemon does not answer"
+	}
+	if at, err := machine.Server(); err == nil && at != machine.Stack {
+		return "the control plane frontseat/local/server names does not answer"
+	}
+	return "the local stack does not answer: `frontseat-local up` starts it (in a checkout of Frontseat, `mise start`)"
 }
 
 // Name is the command the arguments name, as it is said of in a trace:
@@ -237,3 +243,7 @@ func fresh(cmd *cobra.Command, ctx context.Context) {
 
 // said prints a line a command says.
 func said(format string, a ...any) { fmt.Fprintf(out, format+"\n", a...) }
+
+// complained prints a line of what went wrong, or a warning, apart from
+// what the command says.
+func complained(format string, a ...any) { fmt.Fprintf(errOut, format+"\n", a...) }

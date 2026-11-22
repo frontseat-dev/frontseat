@@ -8,7 +8,7 @@ import (
 	"github.com/frontseat-dev/frontseat/cli/internal/ui/plain"
 )
 
-// workspaceCmd represents the workspace command
+// workspaceCmd is the group of commands that are asked of the control plane about workspaces.
 var workspaceCmd = &cobra.Command{
 	Use:   "workspace",
 	Short: "Open, fill, list and delete workspaces, and reach their shells, from outside them",
@@ -17,15 +17,14 @@ var workspaceCmd = &cobra.Command{
 	// Inside a workspace's sandbox its source is fixed: every workspace
 	// command is refused there, before anything is asked.
 	PersistentPreRunE: func(*cobra.Command, []string) error {
-		in, err := inside()
-		if err != nil {
-			return err
+		if inside() {
+			return fixed
 		}
-		return refusedInside(in)
+		return nil
 	},
 }
 
-// describeCmd represents the workspace describe command
+// describeCmd says what a workspace holds.
 var describeCmd = &cobra.Command{
 	Use:   "describe",
 	Short: "Say what the workspace holds",

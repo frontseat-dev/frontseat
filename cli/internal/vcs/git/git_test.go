@@ -85,10 +85,13 @@ func TestACheckoutSaysWhatAWorkspaceOfItClones(t *testing.T) {
 			t.Errorf("%s: %v", written, err)
 			continue
 		}
-		if got.Remote != want.remote || got.Repository != want.repository || got.Converted != want.converted {
-			t.Errorf("%s: cloned from %s, the repository %s, converted %v; want %s, %s, %v", written, got.Remote, got.Repository, got.Converted, want.remote, want.repository, want.converted)
+		if got.Remote != want.remote || got.Converted != want.converted {
+			t.Errorf("%s: cloned from %s, converted %v; want %s, %v", written, got.Remote, got.Converted, want.remote, want.converted)
 		}
-		if strings.Contains(got.Remote+got.Repository, "a-secret-of-the-tests") {
+		if !(git.System{}).Same(got.Remote, "https://"+want.repository) || (git.System{}).Same(got.Remote, "https://"+want.repository+"-of-another") {
+			t.Errorf("%s: cloned from %s, which is not said to be the repository %s and no other", written, got.Remote, want.repository)
+		}
+		if strings.Contains(got.Remote, "a-secret-of-the-tests") {
 			t.Errorf("%s: what is cloned repeats what was written before the host: %+v", written, got)
 		}
 		if got.Branch != "main" || got.Unpushed != 0 || got.Uncommitted != 0 {
@@ -160,15 +163,15 @@ func TestTheBranchIsTheOneTheCheckoutIsOn(t *testing.T) {
 	}
 }
 
-// Who commits in the checkout is said, and told to a sandbox through its
-// environment; a checkout that names no one tells nothing.
+// Who commits in the checkout is said; a checkout that names no one
+// says no one.
 func TestWhoCommitsIsSaid(t *testing.T) {
 	checkout := cloned(t, forge)
 	none, err := git.System{}.Standing(context.Background(), checkout)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if none.Author != (vcs.Author{}) || len(git.System{}.Authoring(none.Author)) != 0 {
+	if none.Author != (vcs.Author{}) {
 		t.Errorf("a checkout that names no one says %+v", none.Author)
 	}
 	run(t, checkout, "config", "user.name", "Someone Here")
@@ -177,23 +180,8 @@ func TestWhoCommitsIsSaid(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	told := git.System{}.Authoring(got.Author)
-	for _, name := range []string{"GIT_AUTHOR_NAME", "GIT_COMMITTER_NAME"} {
-		if told[name] != "Someone Here" {
-			t.Errorf("%s = %q", name, told[name])
-		}
-	}
-	for _, name := range []string{"GIT_AUTHOR_EMAIL", "GIT_COMMITTER_EMAIL"} {
-		if told[name] != "someone@example.com" {
-			t.Errorf("%s = %q", name, told[name])
-		}
-	}
-	if len(told) != 4 {
-		t.Errorf("a sandbox is told %v", told)
-	}
-	// A name of two lines is not one, and is not told.
-	if told := (git.System{}).Authoring(vcs.Author{Name: "one\ntwo", Email: "someone@example.com"}); told["GIT_AUTHOR_NAME"] != "" || len(told) != 2 {
-		t.Errorf("a name of two lines was told: %v", told)
+	if got.Author != (vcs.Author{Name: "Someone Here", Email: "someone@example.com"}) {
+		t.Errorf("who commits is said to be %+v", got.Author)
 	}
 }
 

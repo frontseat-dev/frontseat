@@ -20,7 +20,7 @@ var (
 	queryJSON bool
 )
 
-// queryCmd represents the query command
+// queryCmd says what the workspace is made of.
 var queryCmd = &cobra.Command{
 	Use:   "query [TARGET]",
 	Short: "Say what the workspace is made of, and why one thing depends on another",
@@ -170,8 +170,11 @@ func (g graph) find(written string) (*buildv1.Entity, error) {
 		return nil, fmt.Errorf("%w %q: %v", errNoEntity, written, err)
 	}
 	var refs []entity.Ref
+	held := map[entity.Ref]*buildv1.Entity{}
 	for _, e := range g.entities {
-		refs = append(refs, entity.FromProto(e.GetRef()))
+		ref := entity.FromProto(e.GetRef())
+		refs = append(refs, ref)
+		held[ref] = e
 	}
 	one, found, err := entity.Find(typed, refs)
 	if err != nil {
@@ -180,12 +183,7 @@ func (g graph) find(written string) (*buildv1.Entity, error) {
 	if !found {
 		return nil, fmt.Errorf("%w %s", errNoEntity, written)
 	}
-	for _, e := range g.entities {
-		if entity.FromProto(e.GetRef()) == one {
-			return e, nil
-		}
-	}
-	return nil, fmt.Errorf("the workspace holds no entity %s", written)
+	return held[one], nil
 }
 
 // entity is an entity as query answers it: with what depends on it and
@@ -279,7 +277,7 @@ func (g graph) why(from, to string, commits map[string]string) (*plain.Why, erro
 	steps := func(chain []string) []plain.Step {
 		var out []plain.Step
 		for i := 1; i < len(chain); i++ {
-			step := plain.Step{From: chain[i-1], To: chain[i], Repository: byRef[chain[i]].GetRepository(), Because: []plain.Requirement{}}
+			step := plain.Step{From: chain[i-1], To: chain[i], Repository: byRef[chain[i]].GetRepository()}
 			step.Commit = commits[step.Repository]
 			step.Because = g.because(chain[i-1], func(r plain.Requirement) bool { return r.Provider == chain[i] })
 			out = append(out, step)

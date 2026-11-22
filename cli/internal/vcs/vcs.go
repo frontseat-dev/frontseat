@@ -20,10 +20,6 @@ type Checkout interface {
 	// Same is whether two remotes are of one repository, whatever their
 	// spelling.
 	Same(one, other string) bool
-	// Authoring returns what a sandbox's environment holds so that what
-	// is committed there is its author's: nothing where the checkout
-	// names none.
-	Authoring(author Author) map[string]string
 }
 
 // Standing is where a checkout stands.
@@ -32,9 +28,6 @@ type Standing struct {
 	// what a sandbox is let fetch. It names no user and holds no password
 	// or token.
 	Remote string
-	// Repository is what repository that is, however its remote is
-	// spelled: what a workspace of it is found by.
-	Repository string
 	// Converted is whether the checkout writes its remote otherwise than
 	// it is cloned: for another transport, so that Remote is the same
 	// host and path over https, or with a user before the host, who is

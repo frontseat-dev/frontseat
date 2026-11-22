@@ -132,7 +132,7 @@ func layOut(t *testing.T, server string) string {
 
 // outside is where the tests' command lines run by default: outside any
 // workspace's sandbox.
-func outside() (bool, error) { return false, nil }
+func outside() bool { return false }
 
 // TestMain has every command line of the tests keep what it keeps
 // beneath a root of their own, where it finds no token of this
@@ -182,5 +182,21 @@ func TestNoCommandAsksAControlPlaneOnAnotherMachineInClear(t *testing.T) {
 		case strings.Contains(err.Error(), "frontseat.example") || strings.Contains(err.Error(), token):
 			t.Errorf("frontseat %s: the refusal repeats what it refused: %v", strings.Join(command, " "), err)
 		}
+	}
+}
+
+// A server that does not answer is said to be the one it is, with what
+// starts it where the command line knows: the local stack by the
+// stack's own program, which someone with a released frontseat has, and
+// another control plane as the one the server file names.
+func TestAServerThatDoesNotAnswerIsSaidWithWhatStartsIt(t *testing.T) {
+	serverAt(t, "http://127.0.0.1:1")
+	_, _, err := runAt(t, context.Background(), "", "workspace", "list")
+	if err == nil || !strings.Contains(err.Error(), "the control plane frontseat/local/server names does not answer") || strings.Contains(err.Error(), "mise") {
+		t.Errorf("a control plane that does not answer: %v", err)
+	}
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	if said := unanswered(); !strings.Contains(said, "the local stack does not answer: `frontseat-local up` starts it") {
+		t.Errorf("of the local stack, it says %q", said)
 	}
 }

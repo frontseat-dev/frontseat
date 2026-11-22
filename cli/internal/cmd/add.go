@@ -15,7 +15,7 @@ var (
 	addWhole        bool
 )
 
-// addCmd represents the add command
+// addCmd has a workspace clone more.
 var addCmd = &cobra.Command{
 	Use:   "add",
 	Short: "Clone more into the workspace",

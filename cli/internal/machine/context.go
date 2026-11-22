@@ -75,12 +75,14 @@ func ReadContext() (Context, bool, error) {
 }
 
 // WriteContext keeps the context, replacing the one there was at once.
+// The directory it makes is the person's alone, as the key and the token
+// kept beside it are (Identity).
 func WriteContext(c Context) error {
 	path, err := contextFile()
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
 	}
 	raw, err := json.MarshalIndent(c, "", "  ")

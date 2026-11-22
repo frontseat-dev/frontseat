@@ -17,7 +17,7 @@ const targets = `  a name is an entity         gateway
   a path is all beneath it    platform/
   an action, as printed       //platform/gateway:go.test`
 
-// buildCmd represents the build command
+// buildCmd builds the workspace, or what it is pointed at.
 var buildCmd = &cobra.Command{
 	Use:   "build [TARGET...]",
 	Short: "Build the workspace, or what you point at",

@@ -10,7 +10,7 @@ import (
 // version every build that is no release is given, and no commit.
 var version, commit = "0.0.0-dev", ""
 
-// versionCmd represents the version command
+// versionCmd says which release of frontseat this is.
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Say which release of frontseat this is",

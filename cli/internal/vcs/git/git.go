@@ -84,7 +84,7 @@ func (System) Standing(ctx context.Context, directory string) (vcs.Standing, err
 	if _, err := ask("rev-parse", "--verify", "--quiet", held+"^{commit}"); err != nil {
 		return vcs.Standing{}, fmt.Errorf("%w (%s, on %s)", vcs.ErrNotOnRemote, branch, remote)
 	}
-	standing := vcs.Standing{Remote: address.Cloned, Repository: address.Repository, Converted: address.Converted, Branch: branch}
+	standing := vcs.Standing{Remote: address.Cloned, Converted: address.Converted, Branch: branch}
 	counted, err := ask("rev-list", "--count", held+"..HEAD")
 	if err != nil {
 		return vcs.Standing{}, fmt.Errorf("counting what is not pushed: %w", err)
@@ -115,10 +115,4 @@ func (System) Same(one, other string) bool {
 	}
 	second, err := rungit.Over(other)
 	return err == nil && first.Repository == second.Repository
-}
-
-// Authoring implements vcs.Checkout: git reads who commits from its
-// environment, before anything a repository's own settings say.
-func (System) Authoring(author vcs.Author) map[string]string {
-	return rungit.Authoring(author.Name, author.Email)
 }
