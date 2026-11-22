@@ -907,7 +907,7 @@ func TestAWorkspaceThatIsEndedIsGoneAndItsNameCanBeGivenAgain(t *testing.T) {
 	if request == "" {
 		t.Fatalf("the workspace's sandbox carries no request: %v", s.sandbox(s.of(first.GetName())).GetLabels())
 	}
-	if _, err := s.CreateSandbox(ctx, &sandboxv1.CreateSandboxRequest{RequestId: "left-behind", Spec: &sandboxv1.SandboxSpec{Labels: map[string]string{Named: "x", Made: request}}}); err != nil {
+	if _, err := s.CreateSandbox(ctx, &sandboxv1.CreateSandboxRequest{RequestId: "left-behind", Spec: &sandboxv1.SandboxSpec{Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_ALL}, Labels: map[string]string{Named: "x", Made: request}}}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := client.DeleteWorkspace(ctx, &workspacev1.DeleteWorkspaceRequest{Name: "x"}); err != nil {

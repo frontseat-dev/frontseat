@@ -61,12 +61,8 @@ func (d *holding) Delete(ctx context.Context, id string) error {
 func heldSandbox(t *testing.T) (*holding, *Server, string) {
 	t.Helper()
 	d := newHolding()
-	s := started(t, d, t.TempDir())
-	made, err := s.CreateSandbox(context.Background(), box(nil))
-	if err != nil {
-		t.Fatal(err)
-	}
-	return d, s, made.GetSandbox().GetId()
+	s, id := runningOver(t, d)
+	return d, s, id
 }
 
 // A sandbox deleted while it was being paused is not made again by the

@@ -11,6 +11,7 @@ import (
 	"path"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -242,7 +243,7 @@ func (a *attempt) specs() ([]*sandboxv1.SandboxSpec, error) {
 		volumes = append(volumes, a.bbVolume())
 		// As the user it says it runs as, writing what it says it writes.
 		spec := &sandboxv1.SandboxSpec{Image: s.Service.Image, Wrapper: append(routes, "--"), Arguments: s.Service.Arguments, Environment: s.Service.Environment, Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_BLOCK},
-			User: s.GetService().GetUser(), Writable: s.GetService().GetWritable()}
+			UserId: userID(s.GetService().GetUser()), Writable: s.GetService().GetWritable()}
 		if s.Program != nil {
 			spec.Image = a.r.image
 			spec.Arguments = programArguments(s.Program, s.Program.Arguments)
@@ -288,4 +289,15 @@ func programReadiness(p *runnerv1.RunnerProgram, command []string) ([]string, er
 		return nil, err
 	}
 	return programArguments(p, confine.Arguments(encoded, p.Arguments[2], command)), nil
+}
+
+// userID is the user a service says it runs as, by number, as a sandbox
+// is told it; zero, its image's own, where it says none. What a service
+// is held to (testservice) has refused any other.
+func userID(user string) uint32 {
+	id, err := strconv.ParseUint(user, 10, 32)
+	if err != nil {
+		return 0
+	}
+	return uint32(id)
 }

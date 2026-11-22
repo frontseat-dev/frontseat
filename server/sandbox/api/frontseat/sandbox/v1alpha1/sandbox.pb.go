@@ -126,9 +126,8 @@ func (Sandbox_State) EnumDescriptor() ([]byte, []int) {
 type Egress_Mode int32
 
 const (
-	// MODE_UNSPECIFIED: the driver's default. Under a driver that lets a
-	// sandbox reach only hosts that are named, it is what the rules
-	// name; under any other, it is anything.
+	// MODE_UNSPECIFIED: not said. A sandbox is refused without a mode
+	// (SPEC_INVALID).
 	Egress_MODE_UNSPECIFIED Egress_Mode = 0
 	// MODE_ALLOW_ALL: anything. A driver that lets a sandbox reach only
 	// hosts that are named refuses it.
@@ -350,9 +349,9 @@ type SandboxSpec struct {
 	// image's own command), as one command line, as `tini --` is run before
 	// a command. Empty for none.
 	Wrapper []string `protobuf:"bytes,15,rep,name=wrapper,proto3" json:"wrapper,omitempty"`
-	// User is the user its first process runs as, by number, never root's
-	// (0); empty for the sandbox's own.
-	User string `protobuf:"bytes,16,opt,name=user,proto3" json:"user,omitempty"`
+	// `user_id` is the user its first process runs as, by number; zero
+	// for its image's own. No sandbox is asked to run as root.
+	UserId uint32 `protobuf:"varint,16,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	// Writable are the directories of its image it may write, each an
 	// absolute path, beside its own temporary directory and what is
 	// mounted in it. Under a driver that does not restrict what a sandbox
@@ -361,7 +360,7 @@ type SandboxSpec struct {
 	Writable []string `protobuf:"bytes,17,rep,name=writable,proto3" json:"writable,omitempty"`
 	// Environment is the environment its first process starts with.
 	Environment map[string]string `protobuf:"bytes,3,rep,name=environment,proto3" json:"environment,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	// Egress is what it may reach.
+	// Egress is what it may reach: every sandbox says.
 	Egress *Egress `protobuf:"bytes,7,opt,name=egress,proto3" json:"egress,omitempty"`
 	// Ports are the ports of it to make reachable.
 	Ports []int32 `protobuf:"varint,9,rep,packed,name=ports,proto3" json:"ports,omitempty"`
@@ -437,11 +436,11 @@ func (x *SandboxSpec) GetWrapper() []string {
 	return nil
 }
 
-func (x *SandboxSpec) GetUser() string {
+func (x *SandboxSpec) GetUserId() uint32 {
 	if x != nil {
-		return x.User
+		return x.UserId
 	}
-	return ""
+	return 0
 }
 
 func (x *SandboxSpec) GetWritable() []string {
@@ -650,10 +649,8 @@ type Egress struct {
 	// Rules are the hosts it may reach under MODE_ALLOW_LISTED, each with
 	// its limits: which programs may reach the host, which requests are
 	// let through, and which kept credential is added to them. At most one
-	// rule names a host. Under a driver that lets a sandbox reach only
-	// hosts that are named, they are also what a sandbox of
-	// MODE_UNSPECIFIED may reach. With MODE_ALLOW_ALL and MODE_BLOCK there
-	// are none. A driver that cannot limit a rule to its programs or its
+	// rule names a host. With MODE_ALLOW_ALL and MODE_BLOCK there are
+	// none. A driver that cannot limit a rule to its programs or its
 	// requests, or that keeps no credential, refuses a rule that asks for
 	// that (CAPABILITY_NOT_SERVED).
 	Rules         []*EgressRule `protobuf:"bytes,3,rep,name=rules,proto3" json:"rules,omitempty"`
@@ -1697,8 +1694,8 @@ type ExecSandboxRequest struct {
 	// Arguments are the program and its arguments.
 	Arguments []string `protobuf:"bytes,3,rep,name=arguments,proto3" json:"arguments,omitempty"`
 	// Timeout is how long the command may run: past it, the command is
-	// ended and the call is refused. Unset, it is a minute. It has no
-	// upper limit.
+	// ended and the call is refused. Unset, it is a minute; it is at most
+	// ten minutes.
 	Timeout       *durationpb.Duration `protobuf:"bytes,4,opt,name=timeout,proto3" json:"timeout,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1769,9 +1766,11 @@ type ExecSandboxResponse struct {
 	ExitCode int32 `protobuf:"varint,1,opt,name=exit_code,json=exitCode,proto3" json:"exit_code,omitempty"`
 	// Output is what it printed, stdout and stderr as written: the first
 	// 1 MiB of it.
-	Output        []byte `protobuf:"bytes,2,opt,name=output,proto3" json:"output,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Output []byte `protobuf:"bytes,2,opt,name=output,proto3" json:"output,omitempty"`
+	// `output_truncated` is whether it printed more than output holds.
+	OutputTruncated bool `protobuf:"varint,3,opt,name=output_truncated,json=outputTruncated,proto3" json:"output_truncated,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *ExecSandboxResponse) Reset() {
@@ -1816,6 +1815,13 @@ func (x *ExecSandboxResponse) GetOutput() []byte {
 		return x.Output
 	}
 	return nil
+}
+
+func (x *ExecSandboxResponse) GetOutputTruncated() bool {
+	if x != nil {
+		return x.OutputTruncated
+	}
+	return false
 }
 
 // Credential is a secret for one host, kept by the server outside every
@@ -2206,15 +2212,15 @@ const file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDesc = "" +
 	"\rSTATE_RUNNING\x10\x02\x12\x10\n" +
 	"\fSTATE_PAUSED\x10\x03\x12\x10\n" +
 	"\fSTATE_FAILED\x10\x04\x12\x10\n" +
-	"\fSTATE_ENDING\x10\x06\"\xe2\x05\n" +
+	"\fSTATE_ENDING\x10\x06\"\xed\x05\n" +
 	"\vSandboxSpec\x12\x1a\n" +
 	"\x05image\x18\x01 \x01(\tB\x04\xe2A\x01\x02R\x05image\x12\x1c\n" +
 	"\targuments\x18\x02 \x03(\tR\targuments\x12\x18\n" +
-	"\awrapper\x18\x0f \x03(\tR\awrapper\x12\x12\n" +
-	"\x04user\x18\x10 \x01(\tR\x04user\x12\x1a\n" +
+	"\awrapper\x18\x0f \x03(\tR\awrapper\x12\x17\n" +
+	"\auser_id\x18\x10 \x01(\rR\x06userId\x12\x1a\n" +
 	"\bwritable\x18\x11 \x03(\tR\bwritable\x12Z\n" +
-	"\venvironment\x18\x03 \x03(\v28.frontseat.sandbox.v1alpha1.SandboxSpec.EnvironmentEntryR\venvironment\x12:\n" +
-	"\x06egress\x18\a \x01(\v2\".frontseat.sandbox.v1alpha1.EgressR\x06egress\x12\x14\n" +
+	"\venvironment\x18\x03 \x03(\v28.frontseat.sandbox.v1alpha1.SandboxSpec.EnvironmentEntryR\venvironment\x12@\n" +
+	"\x06egress\x18\a \x01(\v2\".frontseat.sandbox.v1alpha1.EgressB\x04\xe2A\x01\x02R\x06egress\x12\x14\n" +
 	"\x05ports\x18\t \x03(\x05R\x05ports\x12<\n" +
 	"\avolumes\x18\n" +
 	" \x03(\v2\".frontseat.sandbox.v1alpha1.VolumeR\avolumes\x12K\n" +
@@ -2240,9 +2246,9 @@ const file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDesc = "" +
 	"\avolumes\x18\x06 \x03(\v2\".frontseat.sandbox.v1alpha1.VolumeR\avolumes\x1a>\n" +
 	"\x10EnvironmentEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xdc\x01\n" +
-	"\x06Egress\x12;\n" +
-	"\x04mode\x18\x01 \x01(\x0e2'.frontseat.sandbox.v1alpha1.Egress.ModeR\x04mode\x12<\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xe2\x01\n" +
+	"\x06Egress\x12A\n" +
+	"\x04mode\x18\x01 \x01(\x0e2'.frontseat.sandbox.v1alpha1.Egress.ModeB\x04\xe2A\x01\x02R\x04mode\x12<\n" +
 	"\x05rules\x18\x03 \x03(\v2&.frontseat.sandbox.v1alpha1.EgressRuleR\x05rules\"W\n" +
 	"\x04Mode\x12\x14\n" +
 	"\x10MODE_UNSPECIFIED\x10\x00\x12\x12\n" +
@@ -2323,10 +2329,11 @@ const file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDesc = "" +
 	"sandbox_id\x18\x01 \x01(\tB\x04\xe2A\x01\x02R\tsandboxId\x12\x1c\n" +
 	"\tcontainer\x18\x02 \x01(\tR\tcontainer\x12\"\n" +
 	"\targuments\x18\x03 \x03(\tB\x04\xe2A\x01\x02R\targuments\x123\n" +
-	"\atimeout\x18\x04 \x01(\v2\x19.google.protobuf.DurationR\atimeout\"J\n" +
+	"\atimeout\x18\x04 \x01(\v2\x19.google.protobuf.DurationR\atimeout\"u\n" +
 	"\x13ExecSandboxResponse\x12\x1b\n" +
 	"\texit_code\x18\x01 \x01(\x05R\bexitCode\x12\x16\n" +
-	"\x06output\x18\x02 \x01(\fR\x06output\"\x9d\x01\n" +
+	"\x06output\x18\x02 \x01(\fR\x06output\x12)\n" +
+	"\x10output_truncated\x18\x03 \x01(\bR\x0foutputTruncated\"\x9d\x01\n" +
 	"\n" +
 	"Credential\x12\x18\n" +
 	"\x04name\x18\x01 \x01(\tB\x04\xe2A\x01\x02R\x04name\x12\x18\n" +

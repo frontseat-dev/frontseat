@@ -809,7 +809,7 @@ func aRequestName() string {
 // askForASandbox asks for a sandbox, and ends it with the spec.
 func (spec *scenario) askForASandbox(what ...wanting) *Sandbox {
 	spec.Helper()
-	request := &sandboxv1.CreateSandboxRequest{Spec: &sandboxv1.SandboxSpec{Image: image}}
+	request := &sandboxv1.CreateSandboxRequest{Spec: &sandboxv1.SandboxSpec{Image: image, Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_LISTED}}}
 	for _, each := range what {
 		each(request)
 	}

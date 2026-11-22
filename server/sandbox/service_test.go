@@ -65,7 +65,7 @@ func create(t *testing.T, client sandboxv1alpha1connect.SandboxServiceClient, sp
 func TestASandboxIsMadeAndRuns(t *testing.T) {
 	client, _ := serve(t)
 
-	made := create(t, client, &sandboxv1.SandboxSpec{Image: "box", Ports: []int32{7600}})
+	made := create(t, client, &sandboxv1.SandboxSpec{Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_ALL}, Image: "box", Ports: []int32{7600}})
 
 	if !strings.HasPrefix(made.GetId(), "sbx_") || made.GetDriver() != "memory" {
 		t.Errorf("made %s by %s, want an sbx_ id by the memory driver", made.GetId(), made.GetDriver())
@@ -98,8 +98,8 @@ func TestWhatTheDriverCannotEnforceIsRefusedByNameAndNothingIsMade(t *testing.T)
 
 func TestAStartupGateIsNotSilentlyDroppedByAnotherDriver(t *testing.T) {
 	client, _ := serve(t)
-	control := create(t, client, &sandboxv1.SandboxSpec{Image: "box"})
-	_, err := client.CreateSandbox(t.Context(), &sandboxv1.CreateSandboxRequest{Spec: &sandboxv1.SandboxSpec{
+	control := create(t, client, &sandboxv1.SandboxSpec{Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_ALL}, Image: "box"})
+	_, err := client.CreateSandbox(t.Context(), &sandboxv1.CreateSandboxRequest{Spec: &sandboxv1.SandboxSpec{Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_ALL},
 		Image: "box", Containers: []*sandboxv1.Container{{Name: "app", Image: "box"}},
 		BeforeContainers: &sandboxv1.StartupGate{Arguments: []string{"true"}, Timeout: durationpb.New(time.Second)},
 	}})
@@ -114,7 +114,7 @@ func TestAStartupGateIsNotSilentlyDroppedByAnotherDriver(t *testing.T) {
 
 func TestASandboxsPortIsReachedBeneathItsPath(t *testing.T) {
 	client, srv := serve(t)
-	made := create(t, client, &sandboxv1.SandboxSpec{Image: "box", Ports: []int32{7600}})
+	made := create(t, client, &sandboxv1.SandboxSpec{Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_ALL}, Image: "box", Ports: []int32{7600}})
 
 	endpoint := made.GetEndpoints()[0]
 	if want := srv.URL + "/sandboxes/" + made.GetId() + "/ports/7600"; endpoint.GetUrl() != want {
@@ -153,7 +153,7 @@ func TestASandboxsPortIsReachedBeneathItsPath(t *testing.T) {
 func TestASandboxIsPausedResumedAndDeleted(t *testing.T) {
 	client, _ := serve(t)
 	ctx := context.Background()
-	made := create(t, client, &sandboxv1.SandboxSpec{Image: "box"})
+	made := create(t, client, &sandboxv1.SandboxSpec{Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_ALL}, Image: "box"})
 
 	paused, err := client.PauseSandbox(ctx, &sandboxv1.PauseSandboxRequest{SandboxId: made.GetId()})
 	if err != nil || paused.GetSandbox().GetState() != sandboxv1.Sandbox_STATE_PAUSED {

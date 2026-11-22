@@ -94,8 +94,8 @@ type sweepingClient struct {
 
 func (c *sweepingClient) ListSandboxes(context.Context, *sandboxv1.ListSandboxesRequest) (*sandboxv1.ListSandboxesResponse, error) {
 	return &sandboxv1.ListSandboxesResponse{Sandboxes: []*sandboxv1.Sandbox{
-		{Id: "provider", Spec: &sandboxv1.SandboxSpec{Labels: map[string]string{label: "1", "dev.frontseat.runner-order": "000"}}},
-		{Id: "consumer", Spec: &sandboxv1.SandboxSpec{Labels: map[string]string{label: "1", "dev.frontseat.runner-order": "001"}}},
+		{Id: "provider", Spec: &sandboxv1.SandboxSpec{Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_ALL}, Labels: map[string]string{label: "1", "dev.frontseat.runner-order": "000"}}},
+		{Id: "consumer", Spec: &sandboxv1.SandboxSpec{Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_ALL}, Labels: map[string]string{label: "1", "dev.frontseat.runner-order": "001"}}},
 	}}, nil
 }
 

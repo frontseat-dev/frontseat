@@ -30,7 +30,7 @@ func TestWhatAStoppedServerLeftInTheGatewayIsEnded(t *testing.T) {
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 		defer cancel()
-		made, err := server.CreateSandbox(ctx, &sandboxv1.CreateSandboxRequest{Spec: &sandboxv1.SandboxSpec{Image: image}})
+		made, err := server.CreateSandbox(ctx, &sandboxv1.CreateSandboxRequest{Spec: &sandboxv1.SandboxSpec{Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_ALL}, Image: image}})
 		if err != nil {
 			t.Fatal(err)
 		}

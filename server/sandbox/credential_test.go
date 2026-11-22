@@ -105,7 +105,7 @@ func TestACredentialThatIsNotOneIsRefusedByWhatIsWrong(t *testing.T) {
 func TestARequestIDLongerThanACreateTakesIsRefused(t *testing.T) {
 	client, _ := serveOver(t, drivertest.NewMemory())
 	ask := func(id string) error {
-		_, err := client.CreateSandbox(context.Background(), &sandboxv1.CreateSandboxRequest{RequestId: id, Spec: &sandboxv1.SandboxSpec{Image: "box"}})
+		_, err := client.CreateSandbox(context.Background(), &sandboxv1.CreateSandboxRequest{RequestId: id, Spec: &sandboxv1.SandboxSpec{Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_ALL}, Image: "box"}})
 		return err
 	}
 	if err := ask(strings.Repeat("r", 128)); err != nil {

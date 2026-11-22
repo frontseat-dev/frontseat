@@ -112,12 +112,6 @@ func (s *Server) asks(spec *sandboxv1.SandboxSpec, id string) (driver.Sandbox, e
 		return driver.Sandbox{}, err
 	}
 	wanted.ID = id
-	// Where nothing is said of what a sandbox may reach, it is the
-	// driver's default: anything, or, under a driver that lets nothing be
-	// reached unnamed, what the spec's rules name and no other.
-	if spec.GetEgress().GetMode() == sandboxv1.Egress_MODE_UNSPECIFIED && !s.driver.Capabilities().EgressOpen {
-		wanted.Egress.Listed = true
-	}
 	return wanted, nil
 }
 
@@ -322,6 +316,16 @@ func selector(given string) (map[string]string, error) {
 	return out, nil
 }
 
+// userOf is the user a sandbox's first process runs as, as a driver
+// takes it: by number, or empty for the image's own. Zero, root's, is
+// the image's own: no sandbox is asked to run as root.
+func userOf(id uint32) string {
+	if id == 0 {
+		return ""
+	}
+	return strconv.FormatUint(uint64(id), 10)
+}
+
 // forget drops a sandbox that is gone: its record, and the request that
 // made it. The caller holds the lock.
 func (s *Server) forget(id string, r *record) error {
@@ -408,7 +412,7 @@ func wanted(spec *sandboxv1.SandboxSpec) (out driver.Sandbox, err error) {
 		Image:       spec.GetImage(),
 		Arguments:   spec.GetArguments(),
 		Wrapper:     spec.GetWrapper(),
-		User:        spec.GetUser(),
+		User:        userOf(spec.GetUserId()),
 		Writable:    spec.GetWritable(),
 		Environment: spec.GetEnvironment(),
 		Labels:      spec.GetLabels(),
@@ -423,12 +427,6 @@ func wanted(spec *sandboxv1.SandboxSpec) (out driver.Sandbox, err error) {
 			}
 		}
 		out.BeforeContainers = &driver.StartupGate{Arguments: slices.Clone(gate.GetArguments()), Timeout: gate.GetTimeout().AsDuration()}
-	}
-	// A user is a number, and never root's: no sandbox runs as root.
-	if out.User != "" {
-		if !plain.User(out.User) {
-			return driver.Sandbox{}, errors.New("a sandbox's user is a number, and not root's")
-		}
 	}
 	// What it writes is a directory named plainly, and never the whole of
 	// its image.
@@ -450,8 +448,13 @@ func wanted(spec *sandboxv1.SandboxSpec) (out driver.Sandbox, err error) {
 			return driver.Sandbox{}, errors.New("a sandbox's wrapper holds a word no command line holds")
 		}
 	}
+	// What a sandbox may reach is said by every spec: no driver's default
+	// stands in for it, which would mean anything under one driver and
+	// what the rules name under another.
 	switch spec.GetEgress().GetMode() {
-	case sandboxv1.Egress_MODE_UNSPECIFIED, sandboxv1.Egress_MODE_ALLOW_ALL:
+	case sandboxv1.Egress_MODE_UNSPECIFIED:
+		return driver.Sandbox{}, errors.New("a sandbox says what it may reach: its egress has no mode")
+	case sandboxv1.Egress_MODE_ALLOW_ALL:
 	case sandboxv1.Egress_MODE_BLOCK:
 		out.Egress.Block = true
 	case sandboxv1.Egress_MODE_ALLOW_LISTED:
@@ -744,6 +747,10 @@ func (s *Server) WaitSandbox(ctx context.Context, req *sandboxv1.WaitSandboxRequ
 // returns.
 const execOutput = 1 << 20
 
+// execLongest is the longest a command ExecSandbox runs may be given:
+// a caller that would wait longer starts a service instead.
+const execLongest = 10 * time.Minute
+
 func (s *Server) ExecSandbox(ctx context.Context, req *sandboxv1.ExecSandboxRequest) (*sandboxv1.ExecSandboxResponse, error) {
 	if len(req.GetArguments()) == 0 {
 		return nil, refuse(connect.CodeInvalidArgument, "COMMAND_MISSING", "ExecSandbox runs a command, and none is given")
@@ -779,13 +786,13 @@ func (s *Server) ExecSandbox(ctx context.Context, req *sandboxv1.ExecSandboxRequ
 	}
 	timeout := time.Minute
 	if t := req.GetTimeout(); t != nil {
-		if timeout = t.AsDuration(); timeout <= 0 {
-			return nil, refuse(connect.CodeInvalidArgument, "TIMEOUT_INVALID", "a timeout is more than nothing")
+		if timeout = t.AsDuration(); timeout <= 0 || timeout > execLongest {
+			return nil, refuse(connect.CodeInvalidArgument, "TIMEOUT_INVALID", "a timeout is more than nothing, and at most ten minutes")
 		}
 	}
 	within, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	exit, output, _, err := execer.Exec(within, req.GetSandboxId(), container, req.GetArguments(), execOutput)
+	exit, output, truncated, err := execer.Exec(within, req.GetSandboxId(), container, req.GetArguments(), execOutput)
 	// A caller who stopped waiting, by a deadline of their own or by
 	// going away, is told that: the command did not run past its timeout.
 	if ctx.Err() != nil {
@@ -797,7 +804,7 @@ func (s *Server) ExecSandbox(ctx context.Context, req *sandboxv1.ExecSandboxRequ
 	if err != nil {
 		return nil, refused(err)
 	}
-	return &sandboxv1.ExecSandboxResponse{ExitCode: int32(exit), Output: output}, nil
+	return &sandboxv1.ExecSandboxResponse{ExitCode: int32(exit), Output: output, OutputTruncated: truncated}, nil
 }
 
 // held reads which sandbox and which port of it a request names, and

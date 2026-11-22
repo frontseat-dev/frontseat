@@ -50,7 +50,7 @@ func started(t *testing.T, d driver.Driver, state string) *Server {
 }
 
 func box(change func(*sandboxv1.SandboxSpec)) *sandboxv1.CreateSandboxRequest {
-	spec := &sandboxv1.SandboxSpec{Image: "box"}
+	spec := &sandboxv1.SandboxSpec{Image: "box", Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_ALL}}
 	if change != nil {
 		change(spec)
 	}
@@ -112,8 +112,8 @@ func TestASpecThatWouldBeRunWeakerIsRefused(t *testing.T) {
 		{"a volume that starts empty and cannot be written", func(s *sandboxv1.SandboxSpec) {
 			s.Volumes = []*sandboxv1.Volume{{Name: "scratch", Path: "/scratch", ReadOnly: true}}
 		}, connect.CodeInvalidArgument},
-		{"root's user", func(s *sandboxv1.SandboxSpec) { s.User = "0" }, connect.CodeInvalidArgument},
-		{"a user by name", func(s *sandboxv1.SandboxSpec) { s.User = "postgres" }, connect.CodeInvalidArgument},
+		{"no egress", func(s *sandboxv1.SandboxSpec) { s.Egress = nil }, connect.CodeInvalidArgument},
+		{"an egress of no mode", func(s *sandboxv1.SandboxSpec) { s.Egress.Mode = sandboxv1.Egress_MODE_UNSPECIFIED }, connect.CodeInvalidArgument},
 		{"the whole image written", func(s *sandboxv1.SandboxSpec) { s.Writable = []string{"/"} }, connect.CodeInvalidArgument},
 		{"more directories written than a sandbox may", func(s *sandboxv1.SandboxSpec) {
 			for i := range 33 {
@@ -145,7 +145,7 @@ func TestASpecThatWouldBeRunWeakerIsRefused(t *testing.T) {
 	// And one that runs as a user by number, writes a directory of its
 	// image and is wrapped by a program named absolutely.
 	if _, err := started(t, drivertest.NewMemory(), t.TempDir()).CreateSandbox(context.Background(), box(func(s *sandboxv1.SandboxSpec) {
-		s.User, s.Writable, s.Wrapper = "70", []string{"/var/lib/postgresql"}, []string{"/bb/frontseat-action", "routes", "--"}
+		s.UserId, s.Writable, s.Wrapper = 70, []string{"/var/lib/postgresql"}, []string{"/bb/frontseat-action", "routes", "--"}
 	})); err != nil {
 		t.Errorf("a sandbox with its user, what it writes and its wrapper: %v", err)
 	}
