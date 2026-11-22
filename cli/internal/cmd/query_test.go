@@ -331,7 +331,7 @@ func TestABuildWhoseEventsEndBeforeItIsNoPass(t *testing.T) {
 	_, code, err := runAt(t, context.Background(), serving(t, func(api *connect.Server) {
 		buildv1alpha1connect.RegisterBuildServiceHandler(api, g)
 	}), "build", "events", "build_1")
-	if err == nil || code != 0 || !strings.Contains(err.Error(), "ended before it did") {
+	if err == nil || code != ExitUnanswered || !strings.Contains(err.Error(), "ended before it did") {
 		t.Errorf("events that ended before the build: %d, %v", code, err)
 	}
 }

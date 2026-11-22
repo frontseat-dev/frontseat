@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"iter"
 	"time"
@@ -186,8 +187,12 @@ func follow(cmd *cobra.Command, build *frontseat.Build, from int64) (int, error)
 	}
 	// A build is followed to the event that says how it ended: a stream
 	// that ends before it is no build that passed.
-	return 0, fmt.Errorf("the events of %s ended before it did: frontseat build events %s --from %d goes on from where they were", build.ID(), build.ID(), next)
+	return 0, fmt.Errorf("%w: the events of %s ended before it did: frontseat build events %s --from %d goes on from where they were", errUnfinished, build.ID(), build.ID(), next)
 }
+
+// errUnfinished is a stream the server ended before what it follows
+// did: the server no longer answers of it.
+var errUnfinished = errors.New("the server stopped answering")
 
 func state(b *buildv1.Build) string {
 	if b.GetState() == buildv1.Build_STATE_RUNNING {
