@@ -1291,7 +1291,7 @@ type Gateway struct {
 // box's. The state is a directory of the control plane's own: its
 // sandboxes' records are kept there, and its workspaces' beneath it.
 func OverGateway(c Config, gateway Gateway) (*Plane, error) {
-	sandboxes, err := sandbox.Gateway(c.PublicURL, gateway.Address, gateway.Identity, gateway.Runtime, c.State, written)
+	sandboxes, err := sandbox.New(sandbox.Options{PublicURL: c.PublicURL, State: c.State, Gateway: &sandbox.Gateway{Address: gateway.Address, Identity: gateway.Identity, Runtime: gateway.Runtime, Writable: written}})
 	if err != nil {
 		return nil, err
 	}

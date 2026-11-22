@@ -117,7 +117,7 @@ func TestARecordThisServerCannotReadIsNamedByItsFile(t *testing.T) {
 	if err := os.WriteFile(file, []byte(`{"spec":{"image":"example.com/box@sha256:`+strings.Repeat("a", 64)+`","ttl":"60s"},"created":"2026-11-01T00:00:00Z"}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	_, err := newService(drivertest.NewMemory(), "", state)
+	_, err := New(Options{Driver: drivertest.NewMemory(), State: state})
 	if err == nil {
 		t.Fatal("a record with a field this server does not know was read")
 	}

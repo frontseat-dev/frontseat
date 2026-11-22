@@ -24,7 +24,7 @@ func TestWhatAStoppedServerLeftInTheGatewayIsEnded(t *testing.T) {
 	left := func() (string, string) {
 		t.Helper()
 		state := filepath.Join(t.TempDir(), "state")
-		server, err := sandbox.Gateway("http://127.0.0.1", testgateway.Address, identity, "docker", state, nil)
+		server, err := sandbox.New(sandbox.Options{PublicURL: "http://127.0.0.1", State: state, Gateway: &sandbox.Gateway{Address: testgateway.Address, Identity: identity, Runtime: "docker"}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -40,7 +40,7 @@ func TestWhatAStoppedServerLeftInTheGatewayIsEnded(t *testing.T) {
 	// What the gateway holds of it, as a server over its state finds.
 	held := func(state, id string) sandboxv1.Sandbox_State {
 		t.Helper()
-		again, err := sandbox.Gateway("http://127.0.0.1", testgateway.Address, identity, "docker", state, nil)
+		again, err := sandbox.New(sandbox.Options{PublicURL: "http://127.0.0.1", State: state, Gateway: &sandbox.Gateway{Address: testgateway.Address, Identity: identity, Runtime: "docker"}})
 		if err != nil {
 			t.Fatal(err)
 		}

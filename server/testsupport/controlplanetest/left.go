@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"sync"
 	"time"
 
@@ -25,13 +24,11 @@ import (
 // end, to whoever is there to hear it: a suite's plane is stopped after
 // its tests have ended.
 func EndLeft(identity, state string) error {
-	left, err := sandbox.Gateway("http://127.0.0.1", testgateway.Address, identity, "docker", state, nil)
+	left, err := sandbox.New(sandbox.Options{PublicURL: "http://127.0.0.1", State: state, Gateway: &sandbox.Gateway{Address: testgateway.Address, Identity: identity, Runtime: "docker"}})
 	if err != nil {
 		return fmt.Errorf("the sandboxes a stopped server left could not be ended: %w", err)
 	}
-	if closer, ok := left.(io.Closer); ok {
-		defer closer.Close()
-	}
+	defer left.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	listed, err := frontseat.Listed(func(token string) ([]*sandboxv1.Sandbox, string, error) {

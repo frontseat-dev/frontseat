@@ -35,25 +35,13 @@ import (
 	"github.com/frontseat-dev/frontseat/server/sandbox/driver"
 )
 
-// Handler serves the sandbox API over a driver, and a sandbox's ports
-// beneath the sandbox's own path: publicURL/sandboxes/<id>/ports/<port>/
-// reaches what that port serves over HTTP, and
-// publicURL/sandboxes/<id>/tunnels/<port> is a WebSocket to the port
-// itself, for what is not HTTP.
-//
-// The state is a directory of the server's own, where its sandboxes are
-// recorded: a server that starts again finds there what it made.
-func Handler(d driver.Driver, publicURL, state string) (http.Handler, error) {
-	s, err := newService(d, publicURL, state)
-	if err != nil {
-		return nil, err
-	}
-	return s.served(), nil
-}
-
-// served is the service as it is asked over a network: its calls, and the
-// ways to its sandboxes' ports.
-func (s *service) served() *http.ServeMux {
+// Handler serves the sandbox API, and a sandbox's ports beneath the
+// sandbox's own path: PublicURL/sandboxes/<id>/ports/<port>/ reaches
+// what that port serves over HTTP, and
+// PublicURL/sandboxes/<id>/tunnels/<port> is a WebSocket to the port
+// itself, for what is not HTTP. It checks no one: whoever serves it says
+// who may reach it.
+func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	s.mount(mux)
 	return mux
@@ -61,7 +49,7 @@ func (s *service) served() *http.ServeMux {
 
 // mount serves the sandbox API on a mux: its calls, and the ways to its
 // sandboxes' ports.
-func (s *service) mount(mux *http.ServeMux) {
+func (s *Server) mount(mux *http.ServeMux) {
 	api := connect.NewServer()
 	sandboxv1alpha1connect.RegisterSandboxServiceHandler(api, s)
 	connecthttp.Mount(mux, api)
@@ -83,24 +71,10 @@ type Service interface {
 	Tunnel(w http.ResponseWriter, r *http.Request, id string, port int)
 }
 
-// newService returns the service over a driver, holding the sandboxes
-// its state records.
-func newService(d driver.Driver, publicURL, state string) (*service, error) {
-	files, err := open(state)
-	if err != nil {
-		return nil, err
-	}
-	s := &service{driver: d, publicURL: publicURL, kept: files, records: map[string]*record{}, asked: map[string]*asking{}}
-	if err := s.recover(context.Background()); err != nil {
-		return nil, err
-	}
-	return s, nil
-}
-
 // recover takes up the sandboxes a server before this one made. One
 // that is gone is forgotten; one that is there is the service's again,
 // with the request that made it.
-func (s *service) recover(ctx context.Context) error {
+func (s *Server) recover(ctx context.Context) error {
 	recorded, err := s.kept.all()
 	if err != nil {
 		return fmt.Errorf("the sandboxes' records: %w", err)
@@ -132,7 +106,7 @@ func (s *service) recover(ctx context.Context) error {
 // asks turns a spec into what the driver is asked for, for a sandbox of
 // an id: the spec, and beneath it what every sandbox is told of where it
 // runs.
-func (s *service) asks(spec *sandboxv1.SandboxSpec, id string) (driver.Sandbox, error) {
+func (s *Server) asks(spec *sandboxv1.SandboxSpec, id string) (driver.Sandbox, error) {
 	wanted, err := wanted(spec)
 	if err != nil {
 		return driver.Sandbox{}, err
@@ -149,15 +123,18 @@ func (s *service) asks(spec *sandboxv1.SandboxSpec, id string) (driver.Sandbox, 
 
 // Close lets go of what its driver holds open, where the driver holds
 // anything: a gateway's connection. A service is closed by whoever made
-// it for a while and is done with it.
-func (s *service) Close() error {
+// it once it is done with it.
+func (s *Server) Close() error {
 	if closer, ok := s.driver.(io.Closer); ok {
 		return closer.Close()
 	}
 	return nil
 }
 
-type service struct {
+// Server is the sandbox service over one driver, made by New: it is a
+// Service, to whatever holds it in its own process, and its Handler
+// serves it over a network.
+type Server struct {
 	driver    driver.Driver
 	publicURL string
 
@@ -213,9 +190,9 @@ func (t turn) take(ctx context.Context) error {
 // give lets the next have it.
 func (t turn) give() { <-t }
 
-var _ sandboxv1alpha1connect.SandboxServiceHandler = (*service)(nil)
+var _ sandboxv1alpha1connect.SandboxServiceHandler = (*Server)(nil)
 
-func (s *service) CreateSandbox(ctx context.Context, req *sandboxv1.CreateSandboxRequest) (*sandboxv1.CreateSandboxResponse, error) {
+func (s *Server) CreateSandbox(ctx context.Context, req *sandboxv1.CreateSandboxRequest) (*sandboxv1.CreateSandboxResponse, error) {
 	// The spec is the service's own from here, checked and kept as one:
 	// a caller in its process keeps the one it asked with, and what it
 	// changes after is neither checked nor kept.
@@ -296,7 +273,7 @@ func (s *service) CreateSandbox(ctx context.Context, req *sandboxv1.CreateSandbo
 // own (CreateSandbox clones it). It is recorded before it is made:
 // a server that stops between the two finds the record when it starts,
 // and the sandbox, if there is one, is still the service's.
-func (s *service) make(ctx context.Context, spec *sandboxv1.SandboxSpec, request string) (*sandboxv1.Sandbox, error) {
+func (s *Server) make(ctx context.Context, spec *sandboxv1.SandboxSpec, request string) (*sandboxv1.Sandbox, error) {
 	id := newID()
 	wanted, err := s.asks(spec, id)
 	if err != nil {
@@ -344,7 +321,7 @@ func selector(given string) (map[string]string, error) {
 
 // forget drops a sandbox that is gone: its record, and the request that
 // made it. The caller holds the lock.
-func (s *service) forget(id string, r *record) error {
+func (s *Server) forget(id string, r *record) error {
 	if err := s.kept.drop(id); err != nil {
 		return err
 	}
@@ -363,7 +340,7 @@ func (s *service) forget(id string, r *record) error {
 // the turn leaves one that is being changed to whoever changes it. A
 // record is dropped on the driver's one word that there is no such
 // sandbox, as it is when a server starts (recover).
-func (s *service) lost(ctx context.Context, id string, wait bool) bool {
+func (s *Server) lost(ctx context.Context, id string, wait bool) bool {
 	s.mu.Lock()
 	r, there := s.records[id]
 	s.mu.Unlock()
@@ -397,7 +374,7 @@ func (s *service) lost(ctx context.Context, id string, wait bool) bool {
 // what had the turn before may have ended the sandbox. The turn is taken
 // before the service's lock, never while it is held, and waited for only
 // as long as the asker waits. The caller gives the turn back.
-func (s *service) turnOf(ctx context.Context, id string) (*record, error) {
+func (s *Server) turnOf(ctx context.Context, id string) (*record, error) {
 	s.mu.Lock()
 	r, there := s.records[id]
 	s.mu.Unlock()
@@ -591,7 +568,7 @@ func refused(err error) error {
 }
 
 // observe returns a sandbox as it is now.
-func (s *service) observe(ctx context.Context, id string) (*sandboxv1.Sandbox, error) {
+func (s *Server) observe(ctx context.Context, id string) (*sandboxv1.Sandbox, error) {
 	s.mu.Lock()
 	r, ok := s.records[id]
 	s.mu.Unlock()
@@ -632,7 +609,7 @@ func (s *service) observe(ctx context.Context, id string) (*sandboxv1.Sandbox, e
 	return out, nil
 }
 
-func (s *service) DescribeSandbox(ctx context.Context, req *sandboxv1.DescribeSandboxRequest) (*sandboxv1.DescribeSandboxResponse, error) {
+func (s *Server) DescribeSandbox(ctx context.Context, req *sandboxv1.DescribeSandboxRequest) (*sandboxv1.DescribeSandboxResponse, error) {
 	now, err := s.observe(ctx, req.GetSandboxId())
 	if err != nil {
 		return nil, err
@@ -640,7 +617,7 @@ func (s *service) DescribeSandbox(ctx context.Context, req *sandboxv1.DescribeSa
 	return &sandboxv1.DescribeSandboxResponse{Sandbox: now}, nil
 }
 
-func (s *service) ListSandboxes(ctx context.Context, req *sandboxv1.ListSandboxesRequest) (*sandboxv1.ListSandboxesResponse, error) {
+func (s *Server) ListSandboxes(ctx context.Context, req *sandboxv1.ListSandboxesRequest) (*sandboxv1.ListSandboxesResponse, error) {
 	selected, err := selector(req.GetLabelSelector())
 	if err != nil {
 		return nil, refuse(connect.CodeInvalidArgument, "LABEL_SELECTOR_INVALID", err.Error())
@@ -680,7 +657,7 @@ func (s *service) ListSandboxes(ctx context.Context, req *sandboxv1.ListSandboxe
 	return out, nil
 }
 
-func (s *service) DeleteSandbox(ctx context.Context, req *sandboxv1.DeleteSandboxRequest) (*sandboxv1.DeleteSandboxResponse, error) {
+func (s *Server) DeleteSandbox(ctx context.Context, req *sandboxv1.DeleteSandboxRequest) (*sandboxv1.DeleteSandboxResponse, error) {
 	// Only what this service made is its to delete: what makes sandboxes
 	// may hold other things by other names.
 	r, err := s.turnOf(ctx, req.GetSandboxId())
@@ -702,7 +679,7 @@ func (s *service) DeleteSandbox(ctx context.Context, req *sandboxv1.DeleteSandbo
 }
 
 // pause brings a sandbox to running or paused, as asked.
-func (s *service) pause(ctx context.Context, id string, paused bool) (*sandboxv1.Sandbox, error) {
+func (s *Server) pause(ctx context.Context, id string, paused bool) (*sandboxv1.Sandbox, error) {
 	// One change to a sandbox at a time: what the driver is asked for is
 	// what was asked last, and it is asked in that order.
 	r, err := s.turnOf(ctx, id)
@@ -720,7 +697,7 @@ func (s *service) pause(ctx context.Context, id string, paused bool) (*sandboxv1
 	return s.observe(ctx, id)
 }
 
-func (s *service) PauseSandbox(ctx context.Context, req *sandboxv1.PauseSandboxRequest) (*sandboxv1.PauseSandboxResponse, error) {
+func (s *Server) PauseSandbox(ctx context.Context, req *sandboxv1.PauseSandboxRequest) (*sandboxv1.PauseSandboxResponse, error) {
 	now, err := s.pause(ctx, req.GetSandboxId(), true)
 	if err != nil {
 		return nil, err
@@ -728,7 +705,7 @@ func (s *service) PauseSandbox(ctx context.Context, req *sandboxv1.PauseSandboxR
 	return &sandboxv1.PauseSandboxResponse{Sandbox: now}, nil
 }
 
-func (s *service) ResumeSandbox(ctx context.Context, req *sandboxv1.ResumeSandboxRequest) (*sandboxv1.ResumeSandboxResponse, error) {
+func (s *Server) ResumeSandbox(ctx context.Context, req *sandboxv1.ResumeSandboxRequest) (*sandboxv1.ResumeSandboxResponse, error) {
 	now, err := s.pause(ctx, req.GetSandboxId(), false)
 	if err != nil {
 		return nil, err
@@ -738,7 +715,7 @@ func (s *service) ResumeSandbox(ctx context.Context, req *sandboxv1.ResumeSandbo
 
 // WaitSandbox asks the driver where a sandbox is until it is no longer
 // starting, or the caller gives up.
-func (s *service) WaitSandbox(ctx context.Context, req *sandboxv1.WaitSandboxRequest) (*sandboxv1.WaitSandboxResponse, error) {
+func (s *Server) WaitSandbox(ctx context.Context, req *sandboxv1.WaitSandboxRequest) (*sandboxv1.WaitSandboxResponse, error) {
 	for {
 		now, err := s.observe(ctx, req.GetSandboxId())
 		if err != nil {
@@ -759,7 +736,7 @@ func (s *service) WaitSandbox(ctx context.Context, req *sandboxv1.WaitSandboxReq
 // returns.
 const execOutput = 1 << 20
 
-func (s *service) ExecSandbox(ctx context.Context, req *sandboxv1.ExecSandboxRequest) (*sandboxv1.ExecSandboxResponse, error) {
+func (s *Server) ExecSandbox(ctx context.Context, req *sandboxv1.ExecSandboxRequest) (*sandboxv1.ExecSandboxResponse, error) {
 	if len(req.GetArguments()) == 0 {
 		return nil, refuse(connect.CodeInvalidArgument, "COMMAND_MISSING", "ExecSandbox runs a command, and none is given")
 	}
@@ -817,7 +794,7 @@ func (s *service) ExecSandbox(ctx context.Context, req *sandboxv1.ExecSandboxReq
 
 // held reads which sandbox and which port of it a request names, and
 // answers the request itself where it names none the service made.
-func (s *service) held(w http.ResponseWriter, r *http.Request) (id string, port int, ok bool) {
+func (s *Server) held(w http.ResponseWriter, r *http.Request) (id string, port int, ok bool) {
 	id = r.PathValue("id")
 	port, err := strconv.Atoi(r.PathValue("port"))
 	if err != nil {
@@ -844,7 +821,7 @@ const message = 1 << 20
 // are the port's, so that it passes whatever speaks HTTP in front of
 // the server. It ends, both ways, when either end does: a tunnel
 // carries no closing of one direction alone.
-func (s *service) tunnel(w http.ResponseWriter, r *http.Request) {
+func (s *Server) tunnel(w http.ResponseWriter, r *http.Request) {
 	id, port, ok := s.held(w, r)
 	if !ok {
 		return
@@ -853,7 +830,7 @@ func (s *service) tunnel(w http.ResponseWriter, r *http.Request) {
 }
 
 // Dial connects to a port inside a sandbox the service made.
-func (s *service) Dial(ctx context.Context, id string, port int) (net.Conn, error) {
+func (s *Server) Dial(ctx context.Context, id string, port int) (net.Conn, error) {
 	s.mu.Lock()
 	_, made := s.records[id]
 	s.mu.Unlock()
@@ -864,7 +841,7 @@ func (s *service) Dial(ctx context.Context, id string, port int) (net.Conn, erro
 }
 
 // Tunnel answers a request with a tunnel to a port of a sandbox.
-func (s *service) Tunnel(w http.ResponseWriter, r *http.Request, id string, port int) {
+func (s *Server) Tunnel(w http.ResponseWriter, r *http.Request, id string, port int) {
 	inside, err := s.Dial(r.Context(), id, port)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadGateway)
@@ -888,7 +865,7 @@ func (s *service) Tunnel(w http.ResponseWriter, r *http.Request, id string, port
 }
 
 // port passes a request on to a port inside a sandbox.
-func (s *service) port(w http.ResponseWriter, r *http.Request) {
+func (s *Server) port(w http.ResponseWriter, r *http.Request) {
 	id, port, ok := s.held(w, r)
 	if !ok {
 		return
@@ -898,7 +875,7 @@ func (s *service) port(w http.ResponseWriter, r *http.Request) {
 
 // Proxy passes a request on to a port inside a sandbox, asking there for
 // the rest of its path.
-func (s *service) Proxy(w http.ResponseWriter, r *http.Request, id string, port int, rest string) {
+func (s *Server) Proxy(w http.ResponseWriter, r *http.Request, id string, port int, rest string) {
 	proxy := &httputil.ReverseProxy{
 		Rewrite: func(pr *httputil.ProxyRequest) {
 			pr.Out.URL.Scheme, pr.Out.URL.Host = "http", "sandbox"
@@ -943,7 +920,7 @@ func newID() string {
 
 // credentialed returns the driver as one that keeps a credential outside
 // its sandboxes, or the refusal of one that keeps none.
-func (s *service) credentialed() (driver.Credentialed, error) {
+func (s *Server) credentialed() (driver.Credentialed, error) {
 	keeps, ok := s.driver.(driver.Credentialed)
 	if !ok || !s.driver.Capabilities().Credentials {
 		return nil, refuse(connect.CodeUnimplemented, "CAPABILITY_NOT_SERVED", (&driver.Unsupported{Driver: s.driver.Name(), Capability: "a credential kept outside its sandboxes"}).Error())
@@ -962,7 +939,7 @@ func credentialOf(call, name string) error {
 
 // SetCredential gives the driver a host's credential to keep, under an
 // id. Nothing of the secret is kept here, logged or said back.
-func (s *service) SetCredential(ctx context.Context, req *sandboxv1.SetCredentialRequest) (*sandboxv1.SetCredentialResponse, error) {
+func (s *Server) SetCredential(ctx context.Context, req *sandboxv1.SetCredentialRequest) (*sandboxv1.SetCredentialResponse, error) {
 	given := req.GetCredential()
 	if err := credentialOf("SetCredential", given.GetName()); err != nil {
 		return nil, err
@@ -987,7 +964,7 @@ func (s *service) SetCredential(ctx context.Context, req *sandboxv1.SetCredentia
 
 // DescribeCredential says what the driver keeps under an id, and never
 // its secret.
-func (s *service) DescribeCredential(ctx context.Context, req *sandboxv1.DescribeCredentialRequest) (*sandboxv1.DescribeCredentialResponse, error) {
+func (s *Server) DescribeCredential(ctx context.Context, req *sandboxv1.DescribeCredentialRequest) (*sandboxv1.DescribeCredentialResponse, error) {
 	if err := credentialOf("DescribeCredential", req.GetName()); err != nil {
 		return nil, err
 	}
@@ -1006,7 +983,7 @@ func (s *service) DescribeCredential(ctx context.Context, req *sandboxv1.Describ
 }
 
 // DeleteCredential has the driver let go of the credential under an id.
-func (s *service) DeleteCredential(ctx context.Context, req *sandboxv1.DeleteCredentialRequest) (*sandboxv1.DeleteCredentialResponse, error) {
+func (s *Server) DeleteCredential(ctx context.Context, req *sandboxv1.DeleteCredentialRequest) (*sandboxv1.DeleteCredentialResponse, error) {
 	if err := credentialOf("DeleteCredential", req.GetName()); err != nil {
 		return nil, err
 	}

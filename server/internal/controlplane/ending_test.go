@@ -73,11 +73,11 @@ func overRealServed(t *testing.T) (workspacev1alpha1connect.WorkspaceServiceClie
 	under := httptest.NewUnstartedServer(nil)
 	under.Start()
 	t.Cleanup(under.Close)
-	handler, err := sandbox.Handler(held, under.URL, t.TempDir())
+	served, err := sandbox.New(sandbox.Options{Driver: held, PublicURL: under.URL, State: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)
 	}
-	under.Config.Handler = handler
+	under.Config.Handler = served.Handler()
 	sandboxes := sandboxv1alpha1connect.NewSandboxServiceClient(connect.NewClient(connecthttp.NewTransport(under.Client(), under.URL)))
 	client, address, _ := serve(t, func(address string) Config {
 		return Config{

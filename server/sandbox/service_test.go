@@ -3,6 +3,7 @@ package sandbox_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -30,22 +31,24 @@ func serve(t *testing.T) (sandboxv1alpha1connect.SandboxServiceClient, *httptest
 // serveOver serves the sandbox API over a driver the test keeps hold of.
 func serveOver(t *testing.T, d driver.Driver) (sandboxv1alpha1connect.SandboxServiceClient, *httptest.Server) {
 	t.Helper()
-	return serving(t, func(address string) (http.Handler, error) { return sandbox.Handler(d, address, t.TempDir()) })
+	return serving(t, func(address string) (*sandbox.Server, error) {
+		return sandbox.New(sandbox.Options{Driver: d, PublicURL: address, State: t.TempDir()})
+	})
 }
 
 // serving serves the sandbox API that made returns for the address it is
 // served at, until the test ends, and returns a client of it and the
 // server.
-func serving(t *testing.T, made func(address string) (http.Handler, error)) (sandboxv1alpha1connect.SandboxServiceClient, *httptest.Server) {
+func serving(t *testing.T, made func(address string) (*sandbox.Server, error)) (sandboxv1alpha1connect.SandboxServiceClient, *httptest.Server) {
 	t.Helper()
 	srv := httptest.NewUnstartedServer(nil)
 	srv.Start()
 	t.Cleanup(srv.Close)
-	handler, err := made(srv.URL)
+	served, err := made(srv.URL)
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv.Config.Handler = handler
+	srv.Config.Handler = served.Handler()
 	client := sandboxv1alpha1connect.NewSandboxServiceClient(connect.NewClient(connecthttp.NewTransport(srv.Client(), srv.URL)))
 	return client, srv
 }
@@ -186,5 +189,45 @@ func TestWhatTheServiceDidNotMakeIsNotDeleted(t *testing.T) {
 	}
 	if _, err := held.Observe(ctx, "somebody-elses"); err != nil {
 		t.Errorf("what the service did not make is gone: %v", err)
+	}
+}
+
+// silent is a driver whose provider does not answer, and which says
+// whether it was let go of.
+type silent struct {
+	*drivertest.Memory
+	closed bool
+}
+
+func (s *silent) Answers(context.Context) error { return errors.New("nothing answers") }
+
+func (s *silent) Close() error {
+	s.closed = true
+	return nil
+}
+
+// A service is made over a driver or a gateway, one of the two: one
+// given both, or neither, is refused, and one over a driver whose
+// provider does not answer is refused and lets go of the driver. The
+// control is the service over a driver alone, which is made.
+func TestAServiceIsMadeOverADriverOrAGatewayThatAnswers(t *testing.T) {
+	for name, options := range map[string]sandbox.Options{
+		"neither": {State: t.TempDir()},
+		"both":    {State: t.TempDir(), Driver: drivertest.NewMemory(), Gateway: &sandbox.Gateway{Address: "127.0.0.1:1"}},
+	} {
+		if made, err := sandbox.New(options); err == nil || made != nil || !strings.Contains(err.Error(), "a driver or a gateway") {
+			t.Errorf("%s: %v, %v; want it refused, naming a driver or a gateway", name, made, err)
+		}
+	}
+	unanswering := &silent{Memory: drivertest.NewMemory()}
+	if _, err := sandbox.New(sandbox.Options{State: t.TempDir(), Driver: unanswering}); err == nil || !strings.Contains(err.Error(), "nothing answers") || !unanswering.closed {
+		t.Errorf("over a driver whose provider does not answer: %v, the driver let go of: %v", err, unanswering.closed)
+	}
+	made, err := sandbox.New(sandbox.Options{State: t.TempDir(), Driver: drivertest.NewMemory()})
+	if err != nil || made.Handler() == nil {
+		t.Fatalf("over a driver alone: %v", err)
+	}
+	if err := made.Close(); err != nil {
+		t.Error(err)
 	}
 }
