@@ -1573,3 +1573,54 @@ func TestWhereASandboxClonesARemoteFrom(t *testing.T) {
 		}
 	}
 }
+
+// broughtHistory is a clone of a repository with a history, and the
+// remote it was brought from.
+func broughtHistory(t *testing.T) (remote, clone string) {
+	t.Helper()
+	remote, _ = history(t)
+	clone = filepath.Join(t.TempDir(), "clone")
+	run(t, filepath.Dir(clone), "clone", "--quiet", remote, clone)
+	return remote, clone
+}
+
+// A name is held to git's rule for a tag by git alone, asked where
+// nothing is: a repository the daemon happens to run in, whose settings
+// git cannot list, does not make a sound name unsound. The name git does
+// not take is refused there as anywhere.
+func TestATagNameIsHeldToGitsRuleWhereverTheDaemonRuns(t *testing.T) {
+	ctx := context.Background()
+	_, clone := broughtHistory(t)
+	write(t, clone, ".git/config", "[core\n")
+	t.Chdir(clone)
+
+	if err := (git.System{}).TagName(ctx, "greet/v1.0.0"); err != nil {
+		t.Errorf("a name git takes for a tag: %v", err)
+	}
+	if err := (git.System{}).TagName(ctx, "greet/v1..0"); err == nil {
+		t.Error("a name git does not take for a tag was taken")
+	}
+}
+
+// A push of a tag asks git which branch of the remote has the tag's
+// commit. A git that fails to say is a failure of its own, and not a
+// commit on no branch: whoever reads it would push a commit the remote
+// has. The control is in TestATagIsPushedAloneAndNeverOverAnother.
+func TestAGitThatCannotSayWhichBranchHasACommitIsNotACommitOnNoBranch(t *testing.T) {
+	ctx := context.Background()
+	remote, clone := broughtHistory(t)
+	system := git.System{}
+	if err := system.Tag(ctx, clone, "greet/v3.0.0", run(t, clone, "rev-parse", "HEAD")); err != nil {
+		t.Fatal(err)
+	}
+	// A branch of the remote, the first git reads, that names an object
+	// it cannot read.
+	write(t, clone, ".git/objects/11/11111111111111111111111111111111111111", "no object\n")
+	write(t, clone, ".git/refs/remotes/origin/A", "1111111111111111111111111111111111111111\n")
+
+	err := system.PushTag(ctx, clone, remote, "greet/v3.0.0")
+
+	if err == nil || strings.Contains(err.Error(), "is on no branch of the remote") {
+		t.Errorf("the push ended %v, want git's own failure", err)
+	}
+}

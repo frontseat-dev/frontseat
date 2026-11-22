@@ -117,6 +117,10 @@ func TestShellConfigurationAndSessionLifetime(t *testing.T) {
 	if s, err := source.NewShell(source.ShellConfig{Address: "invalid", AuthorizedKeys: "# no editor"}); err != nil || s != nil {
 		t.Fatalf("disabled: %v %v", s, err)
 	}
+	var disabled *source.Shell
+	if err := disabled.Close(); err != nil {
+		t.Fatalf("closing the shell of a sandbox that serves none: %v", err)
+	}
 	if s, err := source.NewShell(source.ShellConfig{Address: "127.0.0.1:0", AuthorizedKeys: "invalid-key"}); err == nil || s != nil {
 		t.Fatalf("invalid key accepted: %v %v", s, err)
 	}

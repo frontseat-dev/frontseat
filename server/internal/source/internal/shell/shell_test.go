@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	gossh "golang.org/x/crypto/ssh"
 
@@ -36,6 +37,13 @@ func key(t *testing.T) gossh.Signer {
 // address.
 func served(t *testing.T, authorized gossh.Signer, dir string) string {
 	t.Helper()
+	return servedWithin(t, authorized, dir, 0)
+}
+
+// servedWithin is served, with how long a connection has to log in; none
+// is the shell's own bound.
+func servedWithin(t *testing.T, authorized gossh.Signer, dir string, handshake time.Duration) string {
+	t.Helper()
 	keys, err := shell.Authorized(string(gossh.MarshalAuthorizedKey(authorized.PublicKey())))
 	if err != nil {
 		t.Fatal(err)
@@ -45,7 +53,9 @@ func served(t *testing.T, authorized gossh.Signer, dir string) string {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { listener.Close() })
-	go func() { _ = shell.Serve(listener, shell.Config{Authorized: keys, Directory: dir}) }()
+	go func() {
+		_ = shell.Serve(listener, shell.Config{Authorized: keys, Directory: dir, Handshake: handshake})
+	}()
 	return listener.Addr().String()
 }
 
@@ -166,5 +176,23 @@ func TestAConnectionIsForwardedToAPortOfTheSandbox(t *testing.T) {
 
 	if string(body) != "the back end" {
 		t.Errorf("through the forwarded connection: %q", body)
+	}
+}
+
+// A connection that shows no key is held no longer than a login may
+// take: whoever reaches the port and says nothing is hung up on. The
+// control is every test that logs in, within the same bound.
+func TestAConnectionThatDoesNotLogInIsClosed(t *testing.T) {
+	silent, err := net.Dial("tcp", servedWithin(t, key(t), t.TempDir(), 200*time.Millisecond))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer silent.Close()
+
+	_ = silent.SetReadDeadline(time.Now().Add(10 * time.Second))
+	_, err = io.Copy(io.Discard, silent)
+
+	if err != nil {
+		t.Errorf("a connection that never logged in was still held after ten seconds: %v", err)
 	}
 }
