@@ -4,10 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/frontseat-dev/frontseat/sdk/go"
-	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
-	"github.com/frontseat-dev/frontseat/server/internal/engine/release"
-	"github.com/frontseat-dev/frontseat/server/internal/refusal"
 	"testing"
 
 	"connectrpc.com/connect/v2"
@@ -16,6 +12,11 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/frontseat-dev/frontseat/sdk/go"
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
+	"github.com/frontseat-dev/frontseat/server/internal/engine/release"
+	"github.com/frontseat-dev/frontseat/server/internal/refusal"
 )
 
 func TestFailureAdaptersPreserveCodesAndDetails(t *testing.T) {
