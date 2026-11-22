@@ -40,5 +40,42 @@ description, options, profiles, errors, tracked reads, cancellation, repetition 
 concurrency checks used for Go. API specs live in
 [`specs/build/catalog_test.go`](../../specs/build/catalog_test.go).
 
-General plugin rule/rewrite results, CODEOWNERS inference, remote catalog processing
-and the complete five-plugin self-build remain separate implementation work.
+General plugin rule/rewrite results, CODEOWNERS inference and remote catalog
+processing remain separate implementation work.
+
+## Options
+
+None. The plugin is listed with nothing set, and an option written for
+it is refused by name.
+
+```yaml
+# frontseat.yaml
+plugins:
+  backstage: {}
+```
+
+## Catalog keys
+
+The plugin reads each document of a `catalog-info.yaml` as Backstage
+writes one, and nothing beneath `spec.frontseat`, which is the host's.
+
+| Key | Read by | What it does |
+|---|---|---|
+| `apiVersion`, `kind` | the plugin | What the document is: a built-in kind is held to `backstage.io/v1alpha1` or `backstage.io/v1beta1`. |
+| `metadata.name`, `metadata.namespace` | the plugin | The entity's identity; a namespace left out is `default`, as it is Backstage's. |
+| `metadata` (`title`, `description`, `labels`, `annotations`, `tags`, `links`) | the plugin | Held to the shape Backstage gives each, and otherwise kept as written. |
+| `spec.type`, `spec.lifecycle`, `spec.owner`, `spec.definition` | the plugin | Required of the kinds Backstage requires them of. |
+| `spec.owner`, `spec.system`, `spec.domain`, `spec.subdomainOf`, `spec.subcomponentOf`, `spec.providesApis`, `spec.consumesApis`, `spec.dependsOn`, `spec.dependencyOf`, `spec.parent`, `spec.children`, `spec.members`, `spec.memberOf` | the plugin | The entity's relations, each with its inverse, as Backstage maps them. `dependsOn` and `dependencyOf` between Components are held to what the source says. |
+
+```yaml
+# catalog-info.yaml
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: greet
+spec:
+  type: service
+  lifecycle: production
+  owner: team-a
+  system: examples
+```

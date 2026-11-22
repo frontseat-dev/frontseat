@@ -38,3 +38,39 @@ It finds no projects and declares no actions.
 
 Not implemented: a database or schema of each test's own on a shared
 server, `init` scripts and a snapshot to start from.
+
+## Options
+
+None. The plugin is listed with nothing set, and an option written for
+it is refused by name.
+
+```yaml
+# frontseat.yaml
+plugins:
+  postgres: {}
+```
+
+## Catalog keys
+
+| Key | Read by | What it does |
+|---|---|---|
+| `spec.frontseat.service` with `as: postgres` | the host, which asks the plugin | The service. Whatever is written beside `as` is kept, and each key left out has the plugin's own, as below. |
+
+| Key beside `as` | Where it is left out |
+|---|---|
+| `image` | PostgreSQL 17 on Alpine, the official image by digest, run as user `70` |
+| `ports` | `{sql: 5432}` |
+| `env` | `POSTGRES_USER`, `POSTGRES_PASSWORD` and `POSTGRES_DB`, each `postgres` |
+| `writable` | `/var/lib/postgresql` and `/var/run/postgresql` |
+| `ready` | `pg_isready` over the network, for the port, the role and the database that hold |
+| `endpoints` | `sql`, at `{host}:{port.sql}` |
+| `exports` | `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD` and `PGDATABASE` |
+
+```yaml
+# catalog-info.yaml
+kind: Resource
+spec:
+  frontseat:
+    service:
+      as: postgres
+```
