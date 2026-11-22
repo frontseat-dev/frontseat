@@ -202,7 +202,7 @@ func (c *Client) Open(ctx context.Context, spec Spec) (Opened, error) {
 
 // Workspace is a workspace the control plane keeps, by its name. Nothing
 // is asked of the control plane until a call is made. A name is given:
-// with none, every call fails with ErrUnnamed before anything is asked,
+// with none, every call fails with ErrWorkspaceUnnamed before anything is asked,
 // and the workspace a daemon's Client is in is Here, never an empty
 // name.
 func (c *Client) Workspace(name string) *Workspace {
@@ -245,19 +245,28 @@ func (w *Workspace) Name() string { return w.name }
 // from outside it, and inside a workspace's sandbox its source is fixed.
 var ErrHere = errors.New("inside a workspace's sandbox its source is fixed, and its daemon is asked to build, run and release alone: describe, fill, end and open a shell in a workspace from outside it, by its name")
 
-// ErrUnnamed is what a workspace given no name is refused with: nothing
-// is asked of a control plane for it.
-var ErrUnnamed = errors.New("a workspace is asked for by its name, and this one was given none")
+// ErrWorkspaceUnnamed is what a workspace given no name is refused
+// with: nothing is asked of a control plane for it.
+var ErrWorkspaceUnnamed = errors.New("a workspace is asked for by its name, and this one was given none")
+
+// ErrWorkspaceFailed is what a workspace that failed is refused with by
+// Open and Add: Error.Message says why. It is ErrWorkspaceNotReady too.
+var ErrWorkspaceFailed = errors.New("the workspace failed")
+
+// ErrWorkspacePaused is what a workspace that is paused is refused with
+// by Open and Add: open it to go on with it. It is ErrWorkspaceNotReady
+// too.
+var ErrWorkspacePaused = errors.New("the workspace is paused")
 
 // named refuses what is asked of a workspace by its name where it has
 // none: the one Here is (ErrHere), and one the caller named with
-// nothing (ErrUnnamed), which is no workspace and not the one Here is.
+// nothing (ErrWorkspaceUnnamed), which is no workspace and not the one Here is.
 func (w *Workspace) named() error {
 	switch {
 	case w.here:
 		return ErrHere
 	case w.name == "":
-		return ErrUnnamed
+		return ErrWorkspaceUnnamed
 	}
 	return nil
 }
@@ -388,7 +397,7 @@ func (w *Workspace) at(ctx context.Context) (*connect.Client, error) {
 	}
 	address := held.GetStatus().GetBuildUri()
 	if address == "" {
-		return nil, fmt.Errorf("the workspace %s is %s, and has no daemon to ask yet", w.name, stateOf(held))
+		return nil, notReady(nil, "the workspace %s is %s, and has no daemon to ask yet", w.name, stateOf(held))
 	}
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -408,11 +417,18 @@ func ready(name string, w *workspacev1.Workspace) error {
 	case workspacev1.WorkspaceStatus_STATE_READY:
 		return nil
 	case workspacev1.WorkspaceStatus_STATE_FAILED:
-		return fmt.Errorf("the workspace %s failed: %s", name, w.GetStatus().GetFailure())
+		return notReady(ErrWorkspaceFailed, "the workspace %s failed: %s", name, w.GetStatus().GetFailure())
 	case workspacev1.WorkspaceStatus_STATE_PAUSED:
-		return fmt.Errorf("the workspace %s is paused: open it to go on with it", name)
+		return notReady(ErrWorkspacePaused, "the workspace %s is paused: open it to go on with it", name)
 	}
-	return fmt.Errorf("the workspace %s is %s", name, stateOf(w))
+	return notReady(nil, "the workspace %s is %s", name, stateOf(w))
+}
+
+// notReady is the SDK's own refusal of a workspace that cannot be worked
+// in, as a control plane would refuse it: ErrWorkspaceNotReady, and the
+// sentinel of the state it is in, where one is given.
+func notReady(state error, format string, a ...any) error {
+	return &Error{Code: connect.CodeFailedPrecondition, Reason: ReasonWorkspaceNotReady, Domain: DomainWorkspace, Message: fmt.Sprintf(format, a...), cause: state}
 }
 
 // stateOf is where a workspace is, in a word: ready, starting, failed.

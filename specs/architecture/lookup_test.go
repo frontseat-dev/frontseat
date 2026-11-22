@@ -31,6 +31,29 @@ var opens = map[string][]string{
 // constant of the file, or a part of what filepath.Join joins. A test
 // that climbs within its own fixture writes the fixture's path whole.
 func climbs(file *ast.File) []string {
+	consts := stringConstants(file)
+	var found []string
+	ast.Inspect(file, func(n ast.Node) bool {
+		switch at := n.(type) {
+		case *ast.CallExpr:
+			if name, ok := opening(at.Fun); ok && len(at.Args) > 0 && up(at.Args[0], consts) {
+				found = append(found, name)
+			}
+		case *ast.AssignStmt:
+			for i, lhs := range at.Lhs {
+				if sel, ok := lhs.(*ast.SelectorExpr); ok && sel.Sel.Name == "Dir" && i < len(at.Rhs) && up(at.Rhs[i], consts) {
+					found = append(found, "a command's Dir")
+				}
+			}
+		}
+		return true
+	})
+	return found
+}
+
+// stringConstants are the constants a Go file declares as string
+// literals, by their names.
+func stringConstants(file *ast.File) map[string]string {
 	consts := map[string]string{}
 	for _, decl := range file.Decls {
 		gen, ok := decl.(*ast.GenDecl)
@@ -50,23 +73,7 @@ func climbs(file *ast.File) []string {
 			}
 		}
 	}
-	var found []string
-	ast.Inspect(file, func(n ast.Node) bool {
-		switch at := n.(type) {
-		case *ast.CallExpr:
-			if name, ok := opening(at.Fun); ok && len(at.Args) > 0 && up(at.Args[0], consts) {
-				found = append(found, name)
-			}
-		case *ast.AssignStmt:
-			for i, lhs := range at.Lhs {
-				if sel, ok := lhs.(*ast.SelectorExpr); ok && sel.Sel.Name == "Dir" && i < len(at.Rhs) && up(at.Rhs[i], consts) {
-					found = append(found, "a command's Dir")
-				}
-			}
-		}
-		return true
-	})
-	return found
+	return consts
 }
 
 // opening says whether a call opens a path, and names it.

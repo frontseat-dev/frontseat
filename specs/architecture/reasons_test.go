@@ -5,6 +5,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -397,5 +398,98 @@ func New(domain string, code int, reason, message string) error { return nil }
 	elsewhere := map[string][]byte{"server/internal/other/other.go": []byte(strings.Replace(source, "package build", "package other", 1)), "server/internal/refusal/refusal.go": []byte(refusal)}
 	if _, unread := reasonsGiven(elsewhere); len(unread) == 0 {
 		t.Error("a reason given by a package that is not known to refuse by name is not said")
+	}
+}
+
+// clientContracts are the proto packages whose refusals a client of the Go SDK
+// reads.
+var clientContracts = []string{"frontseat.build.v1alpha1", "frontseat.workspace.v1alpha1", "frontseat.credential.v1alpha1"}
+
+// sdkReasons are the reasons the Go SDK names (its constants Reason…),
+// by their value, each with where it is named.
+func sdkReasons(t *testing.T, dir string) map[string]string {
+	t.Helper()
+	set := token.NewFileSet()
+	files, err := filepath.Glob(filepath.Join(dir, "*.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := map[string]string{}
+	for _, path := range files {
+		if strings.HasSuffix(path, "_test.go") {
+			continue
+		}
+		f, err := parser.ParseFile(set, path, nil, parser.SkipObjectResolution)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for name, reason := range stringConstants(f) {
+			if strings.HasPrefix(name, "Reason") {
+				out[reason] = filepath.Base(path) + ": " + name
+			}
+		}
+	}
+	return out
+}
+
+// reasonsMissed compares the reasons servers give in the public
+// contracts' domains with those the SDK names: each given is named, and
+// each named is given.
+func reasonsMissed(given []givenReason, named map[string]string) []string {
+	clients := map[string]string{}
+	for _, g := range given {
+		for _, contract := range g.contracts {
+			if slices.Contains(clientContracts, contract) {
+				clients[g.reason] = g.at
+			}
+		}
+	}
+	var out []string
+	for _, reason := range slices.Sorted(maps.Keys(clients)) {
+		if _, ok := named[reason]; !ok {
+			out = append(out, fmt.Sprintf("%s: %s is given to a client, and the Go SDK names no Reason constant for it", clients[reason], reason))
+		}
+	}
+	for _, reason := range slices.Sorted(maps.Keys(named)) {
+		if _, ok := clients[reason]; !ok {
+			out = append(out, fmt.Sprintf("%s: the Go SDK names %s, which no server gives a client", named[reason], reason))
+		}
+	}
+	return out
+}
+
+func TestEveryReasonAClientIsGivenIsOneTheGoSDKNames(t *testing.T) {
+	root := repositoryRoot(t)
+	given, _ := reasonsGiven(serverSources(t, root))
+	named := sdkReasons(t, filepath.Join(root, "sdk", "go"))
+	if len(named) < 20 {
+		t.Fatalf("found %d reasons the Go SDK names; its constants were not read", len(named))
+	}
+	for _, missed := range reasonsMissed(given, named) {
+		t.Error(missed)
+	}
+}
+
+// TestAReasonTheGoSDKMissesOrMakesUpIsFound is the control: the SDK
+// naming what is given passes; one left out, and one named that no
+// server gives, are each found, and a reason given only in the sandbox
+// service's domain is no client's.
+func TestAReasonTheGoSDKMissesOrMakesUpIsFound(t *testing.T) {
+	given := []givenReason{
+		{"THING_NOT_FOUND", "build.go:1", []string{"frontseat.build.v1alpha1"}},
+		{"KEY_INVALID", "credential.go:1", []string{"frontseat.credential.v1alpha1"}},
+		{"SLOT_BUSY", "sandbox.go:1", []string{"frontseat.sandbox.v1alpha1"}},
+	}
+	if missed := reasonsMissed(given, map[string]string{"THING_NOT_FOUND": "a", "KEY_INVALID": "b"}); len(missed) != 0 {
+		t.Errorf("the SDK naming every reason a client is given is refused: %v", missed)
+	}
+	for name, named := range map[string]map[string]string{
+		"one left out":  {"THING_NOT_FOUND": "a"},
+		"one made up":   {"THING_NOT_FOUND": "a", "KEY_INVALID": "b", "THING_LOST": "c"},
+		"the sandbox's": {"THING_NOT_FOUND": "a", "KEY_INVALID": "b", "SLOT_BUSY": "c"},
+	} {
+		if missed := reasonsMissed(given, named); len(missed) != 1 {
+			t.Errorf("%s: found %v; want it alone", name, missed)
+		}
 	}
 }

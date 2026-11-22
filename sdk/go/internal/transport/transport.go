@@ -23,13 +23,14 @@ type Reach struct {
 }
 
 // New connects API requests to an endpoint, presenting the token where
-// the endpoint is of the origin, and nowhere else.
-func New(endpoint string, reach Reach) *connect.Client {
+// the endpoint is of the origin, and nowhere else, through the
+// interceptors given.
+func New(endpoint string, reach Reach, interceptors ...connect.ClientInterceptor) *connect.Client {
 	over := reach.HTTP
 	if over == nil {
 		over = &http.Client{Transport: traced{}}
 	}
-	return connect.NewClient(connecthttp.NewTransport(bearer.Client(over, reach.Token, reach.Origin), endpoint))
+	return connect.NewClient(connecthttp.NewTransport(bearer.Client(over, reach.Token, reach.Origin), endpoint), interceptors...)
 }
 
 // traced makes a request with Go's own transport, carrying the trace of
