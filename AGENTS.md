@@ -757,7 +757,10 @@ the change that fixes it.
   its own parser first and passed after `--`.
 - A refusal never repeats what it refused: a value may hold a token.
 - Credentials stay outside sandboxes, except a test's disposable
-  credentials for its own services.
+  credentials for its own services. Not held: a credential kept for a
+  host over https goes with a request a sandbox sends to that host and
+  port in the clear too, since OpenShell's gateway has no rule that asks
+  for TLS (`TestTheGatewayStillSendsACredentialInTheClearWhereASandboxAsks`).
 - **A grid that asks who a daemon is, is told by a token the daemon reads
   from a file** (owner, 2026-11-16): `frontseatd --grid-token FILE`, with
   `--grid-ca FILE`, for the grid and its asset service alike
