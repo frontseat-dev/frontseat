@@ -46,7 +46,7 @@ func started(t *testing.T, gateway, identity string) error {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	return serve(ctx, "127.0.0.1:0", "", "host.docker.internal:8980", t.TempDir(), gateway, identity, "docker", "", filepath.Join(t.TempDir(), "owner", "token"), nil, nil)
+	return serve(ctx, told{listen: "127.0.0.1:0", grid: "host.docker.internal:8980", state: t.TempDir(), openshell: gateway, identity: identity, runtime: "docker", token: filepath.Join(t.TempDir(), "owner", "token")})
 }
 
 // The local server makes its sandboxes with an OpenShell gateway and has
@@ -67,6 +67,20 @@ func TestWithoutAGatewayItIsKnownByTheServerDoesNotStart(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	// What is reached through a link is another's to change: a
+	// directory that is a link to a sound one, and a key that is a link
+	// to a sound key, are each refused, where the sound ones are taken.
+	linked := filepath.Join(t.TempDir(), "identity")
+	if err := os.Symlink(sound, linked); err != nil {
+		t.Fatal(err)
+	}
+	keyLinked := identityOf(t, 0o600)
+	if err := os.Remove(filepath.Join(keyLinked, "tls.key")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(sound, "tls.key"), filepath.Join(keyLinked, "tls.key")); err != nil {
+		t.Fatal(err)
+	}
 	for name, c := range map[string]struct{ gateway, identity, says string }{
 		"no gateway":                     {"", sound, "name one with --openshell"},
 		"a gateway that is not there":    {"https://127.0.0.1:1", sound, "does not answer this server"},
@@ -83,6 +97,9 @@ func TestWithoutAGatewayItIsKnownByTheServerDoesNotStart(t *testing.T) {
 		"no certificate":                 {"https://127.0.0.1:8090", "", "--openshell-identity"},
 		"no certificate, in capitals":    {"HTTPS://127.0.0.1:8090", "", "--openshell-identity"},
 		"a directory that holds none":    {"https://127.0.0.1:8090", empty, "holds no ca.crt"},
+		"a directory that is not there":  {"https://127.0.0.1:1", filepath.Join(empty, "absent"), "no directory"},
+		"a directory that is a link":     {"https://127.0.0.1:1", linked, "no directory"},
+		"a key that is a link":           {"https://127.0.0.1:1", keyLinked, "no file of its own"},
 		"a key others can read":          {"https://127.0.0.1:8090", identityOf(t, 0o644), "can be read by others"},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -117,7 +134,7 @@ func TestWithTheGatewayThatKnowsItTheServerStarts(t *testing.T) {
 	known := testgateway.Identity(t)
 	for _, public := range []string{"", "http://127.0.0.1:7700"} {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		err := serve(ctx, "127.0.0.1:0", public, "host.docker.internal:8980", t.TempDir(), testgateway.Address, known, "docker", "", filepath.Join(t.TempDir(), "owner", "token"), nil, nil)
+		err := serve(ctx, told{listen: "127.0.0.1:0", public: public, grid: "host.docker.internal:8980", state: t.TempDir(), openshell: testgateway.Address, identity: known, runtime: "docker", token: filepath.Join(t.TempDir(), "owner", "token")})
 		cancel()
 		if err != nil {
 			t.Errorf("with the gateway and what it is known by, clients told to reach it at %q, the server did not start: %v", public, err)
@@ -149,7 +166,7 @@ func TestWhereClientsReachTheServerIsAnAddress(t *testing.T) {
 	}
 	// It is asked before any gateway is: a server told nowhere a client
 	// can reach does not start.
-	if err := serve(context.Background(), "0.0.0.0:0", "", "host.docker.internal:8980", t.TempDir(), "https://127.0.0.1:1", identityOf(t, 0o600), "docker", "", filepath.Join(t.TempDir(), "owner", "token"), nil, nil); err == nil || !strings.Contains(err.Error(), "--public") {
+	if err := serve(context.Background(), told{listen: "0.0.0.0:0", grid: "host.docker.internal:8980", state: t.TempDir(), openshell: "https://127.0.0.1:1", identity: identityOf(t, 0o600), runtime: "docker", token: filepath.Join(t.TempDir(), "owner", "token")}); err == nil || !strings.Contains(err.Error(), "--public") {
 		t.Errorf("listening on every address and told no other: %v, want --public named", err)
 	}
 }

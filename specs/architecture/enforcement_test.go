@@ -106,6 +106,11 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		// forge: what it may reach is its sandbox's to hold.
 		{"server/internal/controlplane/rules.go", "server/internal/forge", true},
 		{"server/cmd/frontseat-local/main.go", "server/internal/forge", true},
+		// What the local control plane is known to its gateway by is a
+		// secret in files of its own, held as its other secrets are; a
+		// daemon keeps none so.
+		{"server/cmd/frontseat-local/main.go", "server/internal/secretfile", true},
+		{"server/cmd/frontseatd/main.go", "server/internal/secretfile", false},
 		{"server/testsupport/controlplanetest/controlplanetest.go", "server/internal/forge", true},
 		{"server/internal/forge/forge.go", "server/internal/plain", true},
 		{"server/internal/exec/fix/fix.go", "server/internal/exec/here", true},

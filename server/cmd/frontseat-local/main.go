@@ -29,6 +29,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io/fs"
 	"net"
 	"net/url"
 	"os"
@@ -44,6 +45,7 @@ import (
 	"github.com/frontseat-dev/frontseat/server/internal/controlplane"
 	"github.com/frontseat-dev/frontseat/server/internal/forge"
 	"github.com/frontseat-dev/frontseat/server/internal/httpserver"
+	"github.com/frontseat-dev/frontseat/server/internal/secretfile"
 	"github.com/frontseat-dev/frontseat/server/internal/source"
 	"github.com/frontseat-dev/frontseat/server/telemetry"
 )
@@ -94,7 +96,7 @@ func main() {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	if err := serve(ctx, *listen, *public, *grid, *state, *openshell, *identity, *runtime, *box, token, catalog, forges); err != nil {
+	if err := serve(ctx, told{listen: *listen, public: *public, grid: *grid, state: *state, openshell: *openshell, identity: *identity, runtime: *runtime, box: *box, token: token, catalog: catalog, forges: forges}); err != nil {
 		fmt.Fprintln(os.Stderr, "frontseat-local:", err)
 		os.Exit(1)
 	}
@@ -154,21 +156,27 @@ func asked(address, identity string) (string, error) {
 		return "", errors.New("a gateway knows its callers by certificate: name the directory holding ca.crt, tls.crt and tls.key with --openshell-identity (" + copied + ")")
 	}
 	// What says whom the server trusts is as much its own as its key:
-	// another who could write there could put an authority of their own.
-	if directory, err := os.Stat(identity); err == nil && directory.Mode().Perm()&0o077 != 0 {
-		return "", fmt.Errorf("--openshell-identity %s is open to others (%s): it holds whom this server trusts and its key, so it is this server's alone (chmod 700)", identity, directory.Mode().Perm())
+	// another who could write there could put an authority of their own,
+	// and the key is worth every credential the gateway keeps. Each is
+	// held as any secret this server keeps in a file is (secretfile): a
+	// directory and files of its own, and no link.
+	const what = "what the gateway is known by and knows this server by (--openshell-identity)"
+	if err := secretfile.Directory(identity, what); err != nil {
+		return "", err
 	}
 	for _, held := range []string{"ca.crt", "tls.crt", "tls.key"} {
-		file, err := os.Stat(filepath.Join(identity, held))
-		if err != nil || !file.Mode().IsRegular() {
+		if _, err := secretfile.Read(filepath.Join(identity, held), what, identityLimit); errors.Is(err, fs.ErrNotExist) {
 			return "", fmt.Errorf("--openshell-identity %s holds no %s, which the gateway is known by or knows this server by (%s)", identity, held, copied)
-		}
-		if held == "tls.key" && file.Mode().Perm()&0o077 != 0 {
-			return "", fmt.Errorf("%s can be read by others (%s): it is worth every credential the gateway keeps, so it is this server's alone (chmod 600)", filepath.Join(identity, held), file.Mode().Perm())
+		} else if err != nil {
+			return "", err
 		}
 	}
 	return gateway.String(), nil
 }
+
+// identityLimit is more than a certificate, a chain of them or a key
+// holds.
+const identityLimit = 1 << 20
 
 // catalogOf is the Backstage entities are resolved through, as its flags
 // give it: none without --backstage, and nothing else of it then. Its
@@ -195,7 +203,30 @@ func catalogOf(base, tokenFile string, loopback bool) (*backstage.Catalog, error
 	return catalog, nil
 }
 
-func serve(ctx context.Context, listen, public, grid, state, openshell, identity, runtime, box, token string, catalog *backstage.Catalog, forges []string) error {
+// told is what the server is told by its flags.
+type told struct {
+	// listen is the address it serves on, and public where its clients
+	// reach it, where that is another.
+	listen, public string
+	// grid is the grid its sandboxes build on, as a sandbox reaches it.
+	grid string
+	// state is the directory it keeps everything of its own in, and
+	// token the file its owner's token is in.
+	state, token string
+	// openshell is the gateway that makes its sandboxes, identity the
+	// directory holding what they know each other by, and runtime the
+	// command line of the container runtime the gateway makes them with.
+	openshell, identity, runtime string
+	// box is the image a workspace's sandbox runs where none is named.
+	box string
+	// catalog is the Backstage entities are resolved through; nil for
+	// none.
+	catalog *backstage.Catalog
+	// forges are the forges that answer as GitHub does, beside it.
+	forges []string
+}
+
+func serve(ctx context.Context, f told) error {
 	signals, stop, err := telemetry.Setup(ctx, "frontseat-local")
 	defer func() {
 		if err := telemetry.Ended(stop); err != nil {
@@ -205,40 +236,44 @@ func serve(ctx context.Context, listen, public, grid, state, openshell, identity
 	if err != nil {
 		return err
 	}
-	told, err := local.Embedded.Grid(grid)
+	grid, err := local.Embedded.Grid(f.grid)
 	if err != nil {
 		return err
 	}
-	public, err = reached(listen, public)
+	public, err := reached(f.listen, f.public)
 	if err != nil {
 		return err
 	}
-	gateway, err := asked(openshell, identity)
+	gateway, err := asked(f.openshell, f.identity)
 	if err != nil {
 		return err
 	}
-	callers, err := controlplane.OwnerToken(token)
+	callers, err := controlplane.OwnerToken(f.token)
 	if err != nil {
 		return err
 	}
 	// A nil catalog is no resolver at all, and not one that is nil.
 	var entities controlplane.Entities
-	if catalog != nil {
-		entities = catalog
+	if f.catalog != nil {
+		entities = f.catalog
 	}
-	releasing, err := forge.GitHub(forges...)
+	releasing, err := forge.GitHub(f.forges...)
 	if err != nil {
 		return fmt.Errorf("--github: %w", err)
 	}
-	plane, err := controlplane.OverGateway(public, controlplane.Gateway{Address: gateway, Identity: identity, Runtime: runtime}, state, box, controlplane.Grid{Hosts: told.Hosts(), Arguments: told.Arguments()}, nil, source.Fetching(), releasing, callers, entities)
+	plane, err := controlplane.OverGateway(controlplane.Config{
+		PublicURL: public, State: f.state, Box: f.box, Callers: callers,
+		Grid:     controlplane.Grid{Hosts: grid.Hosts(), Arguments: grid.Arguments()},
+		Fetching: source.Fetching(), Releasing: releasing, Entities: entities,
+	}, controlplane.Gateway{Address: gateway, Identity: f.identity, Runtime: f.runtime})
 	if err != nil {
 		return err
 	}
 	defer plane.Close()
-	listener, err := net.Listen("tcp", listen)
+	listener, err := net.Listen("tcp", f.listen)
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(os.Stderr, "frontseat-local: serving workspaces on %s to the owner of the token in %s, in sandboxes made by the OpenShell gateway at %s, building on the grid at %s\n", listen, token, gateway, grid)
+	fmt.Fprintf(os.Stderr, "frontseat-local: serving workspaces on %s to the owner of the token in %s, in sandboxes made by the OpenShell gateway at %s, building on the grid at %s\n", f.listen, f.token, gateway, f.grid)
 	return httpserver.Serve(ctx, listener, signals.Handler(plane, "control plane"))
 }
