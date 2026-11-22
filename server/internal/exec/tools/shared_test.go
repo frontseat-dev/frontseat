@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/frontseat-dev/frontseat/server/internal/exec"
+	"github.com/frontseat-dev/frontseat/server/internal/exec/tools"
 	"github.com/frontseat-dev/frontseat/server/internal/exec/tools/toolstest"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testpins"
 )
@@ -144,10 +145,11 @@ func TestAskingForAnEnvironmentNoneWaitsForStops(t *testing.T) {
 
 // holding is a grid that answers what mise is asked at once, and holds
 // the install of Go until it is let go or given up on, counting the
-// installs of Go it was asked for.
+// installs of Go it was asked for, and failing them while it refuses.
 type holding struct {
 	installing
 	installs, gaveUp atomic.Int32
+	refuse           atomic.Bool
 	started          chan struct{}
 	let              chan struct{}
 }
@@ -163,8 +165,23 @@ func (h *holding) Execute(ctx context.Context, action exec.Action) (exec.Result,
 			h.gaveUp.Add(1)
 			return exec.Result{}, ctx.Err()
 		}
+		if h.refuse.Load() {
+			return exec.Result{}, errors.New("the grid could not install it")
+		}
 	}
 	return h.installing.Execute(ctx, action)
+}
+
+// impatient asks for the Go the repository at root pins on a context it
+// returns the cancelling of, and tells on the channel what it was told.
+func impatient(p *tools.Provisioner, root string) (context.CancelFunc, <-chan error) {
+	ctx, giveUp := context.WithCancel(context.Background())
+	told := make(chan error, 1)
+	go func() {
+		_, _, err := p.Installed(ctx, root, nil, "repo", "go")
+		told <- err
+	}()
+	return giveUp, told
 }
 
 // within is how long what is not to wait for an install is given.
@@ -225,12 +242,7 @@ func TestAnActionThatGivesUpWaitingForAnInstallIsToldSo(t *testing.T) {
 	var waiting sync.WaitGroup
 	waiting.Go(func() { installedGo(t, p, root) })
 	<-grid.started
-	impatient, giveUp := context.WithCancel(context.Background())
-	gaveUp := make(chan error, 1)
-	go func() {
-		_, _, err := p.Installed(impatient, root, nil, "repo", "go")
-		gaveUp <- err
-	}()
+	giveUp, gaveUp := impatient(p, root)
 	time.Sleep(10 * time.Millisecond)
 	giveUp()
 
@@ -249,5 +261,45 @@ func TestAnActionThatGivesUpWaitingForAnInstallIsToldSo(t *testing.T) {
 	waiting.Wait()
 	if n := grid.installs.Load(); n != 1 {
 		t.Errorf("the tool was installed %d times; want once", n)
+	}
+}
+
+// An install that failed is not kept: the next action that needs the
+// tool has it installed again, and is given it.
+func TestAnInstallThatFailedIsNotKept(t *testing.T) {
+	grid := &holding{started: make(chan struct{}), let: make(chan struct{})}
+	root, p, _ := pinnedGo(t, grid)
+	close(grid.let)
+	grid.refuse.Store(true)
+	if _, _, err := p.Installed(context.Background(), root, nil, "repo", "go"); err == nil {
+		t.Fatal("an install the grid failed was given")
+	}
+	grid.refuse.Store(false)
+	installedGo(t, p, root)
+	if n := grid.installs.Load(); n != 2 {
+		t.Errorf("the tool was installed %d times; want again after it failed", n)
+	}
+}
+
+// An install none waits for any more is stopped: the grid is told to
+// give up, and the next action that needs the tool installs it anew.
+func TestAnInstallNoneWaitsForIsStopped(t *testing.T) {
+	grid := &holding{started: make(chan struct{}), let: make(chan struct{})}
+	root, p, _ := pinnedGo(t, grid)
+	giveUp, gaveUp := impatient(p, root)
+	<-grid.started
+	giveUp()
+	if err := <-gaveUp; !errors.Is(err, context.Canceled) {
+		t.Fatalf("the action that gave up was told %v", err)
+	}
+	for begun := time.Now(); grid.gaveUp.Load() == 0; time.Sleep(time.Millisecond) {
+		if time.Since(begun) > within {
+			t.Fatal("the grid was never told to give up: the install goes on with none waiting for it")
+		}
+	}
+	close(grid.let)
+	installedGo(t, p, root)
+	if n := grid.installs.Load(); n != 2 {
+		t.Errorf("the tool was installed %d times; want anew after it was stopped", n)
 	}
 }

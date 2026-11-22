@@ -19,12 +19,22 @@ func Within(directory, at string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	base, err := filepath.EvalSymlinks(directory)
-	if err != nil {
+	if err := Holds(directory, led); err != nil {
 		return "", err
 	}
-	if rel, err := filepath.Rel(base, led); err != nil || rel != "." && !filepath.IsLocal(rel) {
-		return "", ErrOutside
-	}
 	return led, nil
+}
+
+// Holds says whether led, a path as it is on the disk, is a directory or
+// beneath it, the directory taken as it is on the disk: one path held to
+// several directories is followed once, by its caller.
+func Holds(directory, led string) error {
+	base, err := filepath.EvalSymlinks(directory)
+	if err != nil {
+		return err
+	}
+	if rel, err := filepath.Rel(base, led); err != nil || rel != "." && !filepath.IsLocal(rel) {
+		return ErrOutside
+	}
+	return nil
 }

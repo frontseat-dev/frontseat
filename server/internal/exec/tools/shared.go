@@ -28,9 +28,9 @@ type flight[T any] struct {
 	err     error
 }
 
-// known returns what was answered for a key and kept, if anything was.
-// Asked first, it spares a caller on a path every action takes the work
-// it would hand do.
+// known returns what was answered for a key and kept, if anything was,
+// so that a caller makes the work it would hand do only where nothing
+// was.
 func (s *shared[T]) known(key string) (T, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
