@@ -1,15 +1,16 @@
 package populate
 
-import "github.com/frontseat-dev/frontseat/server/internal/source/record"
-
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/frontseat-dev/frontseat/server/internal/source/internal/vcs/git"
+	"github.com/frontseat-dev/frontseat/server/internal/source/record"
+	"github.com/frontseat-dev/frontseat/server/internal/source/vcs"
 	"github.com/frontseat-dev/frontseat/server/testsupport/commits"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testfiles"
 )
@@ -234,5 +235,71 @@ func TestACloneThatFailsLeavesNothing(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(workspace, "services", "hello", "go.mod")); err != nil {
 		t.Errorf("the repository that was there is gone after a clone into its place failed: %v", err)
+	}
+}
+
+// turns is a version control system whose clones each wait to be told
+// how to end: brought, by writing a file where it was asked to, or
+// failed, having written nothing.
+type turns struct {
+	entered chan chan bool
+}
+
+func (s turns) NameOf(string) string  { return "" }
+func (s turns) Revision(string) error { return nil }
+func (s turns) Widen(context.Context, string, string, []string) error {
+	return nil
+}
+
+func (s turns) Clone(_ context.Context, directory string, _ vcs.Source) (string, error) {
+	end := make(chan bool)
+	s.entered <- end
+	if !<-end {
+		return "", errors.New("the remote did not answer")
+	}
+	if err := os.MkdirAll(directory, 0o755); err != nil {
+		return "", err
+	}
+	return "0", os.WriteFile(filepath.Join(directory, "brought.txt"), []byte("brought\n"), 0o644)
+}
+
+// A clone that fails removes what it made and nothing else: of two
+// asked into one place at once, the one that fails leaves the other's
+// repository where it was brought.
+func TestACloneThatFailsRemovesNothingAnotherBrought(t *testing.T) {
+	workspace, system := empty(t), turns{entered: make(chan chan bool)}
+	asked := record.Checkout{Name: "services", Remote: "forge/services"}
+	first, second := make(chan error, 1), make(chan error, 1)
+	go func() {
+		_, err := Clone(context.Background(), system, workspace, asked)
+		first <- err
+	}()
+	bringing := <-system.entered
+	go func() {
+		_, err := Clone(context.Background(), system, workspace, asked)
+		second <- err
+	}()
+	// The second is refused the place, or is asked of its remote too,
+	// which then fails it once the first has brought its own.
+	var failing chan bool
+	var refused error
+	select {
+	case failing = <-system.entered:
+	case refused = <-second:
+	}
+	bringing <- true
+	if err := <-first; err != nil {
+		t.Fatal(err)
+	}
+	if failing != nil {
+		failing <- false
+		refused = <-second
+	}
+
+	if refused == nil {
+		t.Error("the second clone into one place was taken")
+	}
+	if _, err := os.Stat(filepath.Join(workspace, "services", "brought.txt")); err != nil {
+		t.Errorf("what the first brought is gone: %v", err)
 	}
 }

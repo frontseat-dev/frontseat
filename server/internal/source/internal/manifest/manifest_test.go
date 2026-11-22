@@ -71,41 +71,63 @@ func TestAManifestThatNamesWhatAWorkspaceCannotHoldIsNotRead(t *testing.T) {
 	}
 }
 
-// A manifest is read strictly: one that holds a key this reader does
-// not know was written by something else, and is not read in part. The
-// control is the same manifest without the key, which is read
-// (TestAManifestIsReadAsItWasWritten).
-func TestAManifestOfAKeyUnknownIsNotReadInPart(t *testing.T) {
-	dir := t.TempDir()
-	testfiles.Tree(t, dir, map[string]string{manifest.File: sound + "another: true\n"})
-	if got, found, err := manifest.Read(dir, git.System{}.Revision); err == nil {
-		t.Errorf("a manifest of a key unknown was read as %+v (found %v)", got, found)
+// A manifest is read as what this daemon writes and nothing more: a key
+// it does not know, a version it does not write, or a second document,
+// is one another reader meant something by, and is refused by name, as
+// is a manifest that says nothing. The control is
+// the manifest as written, which TestAManifestIsReadAsItWasWritten reads.
+func TestAManifestOfAnotherVersionOrWithAKeyUnknownIsNotRead(t *testing.T) {
+	for name, c := range map[string]struct{ change, to, says string }{
+		"a later version":       {"version: 1", "version: 2", "version 2"},
+		"no version":            {"version: 1\n", "", "version 0"},
+		"a key of the manifest": {"known:", "mounts: []\nknown:", "mounts"},
+		"a key of a repository": {"    roots: [hello]", "    roots: [hello]\n    depth: 1", "depth"},
+		"a second document":     {"version: 1\n", "version: 1\n---\nanything: at all\n---\n", "more than one document"},
+		"nothing":               {sound, "# nothing\n", "it is empty"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if !strings.Contains(sound, c.change) {
+				t.Fatalf("the manifest holds no %q to change", c.change)
+			}
+			dir := t.TempDir()
+			testfiles.Tree(t, dir, map[string]string{manifest.File: strings.Replace(sound, c.change, c.to, 1)})
+
+			_, _, err := manifest.Read(dir, git.System{}.Revision)
+
+			if err == nil || !strings.Contains(err.Error(), c.says) {
+				t.Errorf("read: %v, want it refused, naming %s", err, c.says)
+			}
+		})
 	}
 }
 
-// A manifest is written whole: what is written is read back as it was,
-// a reader that reads while it is written again and again, at two
-// sizes, finds all of one or of the other and never part of one, and
-// nothing of the writing is left beside it.
-func TestAManifestIsWrittenWholeAndReadBack(t *testing.T) {
+// A manifest is written whole or not at all: beside the one it
+// replaces, then put in its place, so that what is written is read
+// back as it was, a reader that reads while it is written again and
+// again, at two sizes, finds all of one or of the other and never part
+// of one, and nothing but the manifest is left where it is kept.
+func TestAManifestIsWrittenWholeInThePlaceOfTheOneItReplaces(t *testing.T) {
 	dir := t.TempDir()
 	testfiles.Tree(t, dir, map[string]string{manifest.File: sound})
-	first, _, err := manifest.Read(dir, git.System{}.Revision)
+	whole, _, err := manifest.Read(dir, git.System{}.Revision)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := manifest.Write(dir, first); err != nil {
+	shorter := whole
+	shorter.Known = nil
+
+	if err := manifest.Write(dir, shorter); err != nil {
 		t.Fatal(err)
 	}
+
 	again, found, err := manifest.Read(dir, git.System{}.Revision)
-	if err != nil || !found || len(again.Repositories) != 1 || again.Repositories[0].Name != "services" {
-		t.Errorf("what was written is read back as %+v (found %v, %v)", again, found, err)
+	if err != nil || !found || len(again.Known) != 0 || len(again.Repositories) != 1 {
+		t.Errorf("read back %+v (found %v, %v), want the repository and no entity", again, found, err)
 	}
-	shorter := manifest.Manifest{Repositories: first.Repositories}
 	written := make(chan error, 1)
 	go func() {
 		for i := range 200 {
-			if err := manifest.Write(dir, []manifest.Manifest{first, shorter}[i%2]); err != nil {
+			if err := manifest.Write(dir, []manifest.Manifest{whole, shorter}[i%2]); err != nil {
 				written <- err
 				return
 			}
@@ -129,5 +151,26 @@ func TestAManifestIsWrittenWholeAndReadBack(t *testing.T) {
 	left, err := os.ReadDir(filepath.Dir(filepath.Join(dir, filepath.FromSlash(manifest.File))))
 	if err != nil || len(left) != 1 {
 		t.Errorf("beside the manifest there is %v (%v), want it alone", left, err)
+	}
+}
+
+// What a write left beside the manifest, by a daemon that ended before
+// putting it in place, is cleared; the manifest, and what is beside it
+// of another name, are kept.
+func TestWhatAWriteLeftUnfinishedIsCleared(t *testing.T) {
+	dir := t.TempDir()
+	testfiles.Tree(t, dir, map[string]string{manifest.File: sound, ".frontseat/.workspace.yaml1234": "version: 1\n", ".frontseat/other.yaml": "kept\n"})
+
+	if err := manifest.Settle(dir); err != nil {
+		t.Fatal(err)
+	}
+
+	kept, err := os.ReadDir(filepath.Dir(filepath.Join(dir, filepath.FromSlash(manifest.File))))
+	var names []string
+	for _, entry := range kept {
+		names = append(names, entry.Name())
+	}
+	if err != nil || strings.Join(names, ",") != "other.yaml,workspace.yaml" {
+		t.Errorf("beside the manifest are %v (%v), want the manifest and other.yaml", names, err)
 	}
 }
