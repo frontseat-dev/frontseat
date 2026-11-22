@@ -530,7 +530,7 @@ func wanted(spec *sandboxv1.SandboxSpec) (out driver.Sandbox, err error) {
 		}
 		named[c.GetName()] = true
 		if err := imageOf(c.GetImage()); err != nil {
-			return driver.Sandbox{}, fmt.Errorf("the container %q: %w", c.GetName(), err)
+			return driver.Sandbox{}, fmt.Errorf("a container's image: %w", err)
 		}
 		container := driver.SandboxContainer{Name: c.GetName(), Image: c.GetImage(), Arguments: c.GetArguments(), Environment: c.GetEnvironment()}
 		if container.Volumes, err = volumesOf(c.GetVolumes()); err != nil {

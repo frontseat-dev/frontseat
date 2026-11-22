@@ -179,7 +179,7 @@ func Conforms(t *testing.T, d driver.Driver, template driver.Sandbox) {
 			}
 		}
 		if !caps.VolumeSubpaths && slices.Contains(caps.Volumes, driver.Host) {
-			asks[`a subpath of the volume "work"`] = func(s *driver.Sandbox) {
+			asks["a volume's subpath"] = func(s *driver.Sandbox) {
 				s.Volumes = []driver.Volume{{Name: "work", Kind: driver.Host, Source: t.TempDir(), Subpath: "mine", Path: "/work"}}
 			}
 		}

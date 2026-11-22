@@ -221,7 +221,7 @@ func mounted(volumes []driver.Volume) ([]string, error) {
 			args = append(args, "--volume", mount)
 		default:
 			if strings.ContainsAny(v.Path+v.Source+v.Subpath, ",\n") {
-				return nil, fmt.Errorf("container: the volume %q names a path with a comma", v.Name)
+				return nil, errors.New("container: a volume names a path with a comma")
 			}
 			mount := "type=bind,source=" + path.Join(v.Source, v.Subpath) + ",target=" + v.Path
 			if v.ReadOnly {

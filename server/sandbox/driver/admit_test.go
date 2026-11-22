@@ -34,7 +34,7 @@ func TestASandboxAskingForMoreThanTheDriverEnforcesIsRefused(t *testing.T) {
 	}{
 		{"blocked egress", Sandbox{Egress: Egress{Block: true}}, "blocked egress"},
 		{"a pause", Sandbox{Paused: true}, "pause"},
-		{"a host volume", Sandbox{Volumes: []Volume{{Name: "work", Kind: Host}}}, `the volume "work"`},
+		{"a host volume", Sandbox{Volumes: []Volume{{Name: "work", Kind: Host}}}, "a volume of a kind it does not give"},
 		{"a disk size", Sandbox{DiskBytes: 1 << 30}, "a disk size"},
 	}
 	for _, c := range cases {
