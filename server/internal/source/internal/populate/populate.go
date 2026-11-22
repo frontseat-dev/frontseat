@@ -1,15 +1,16 @@
 package populate
 
-import "github.com/frontseat-dev/frontseat/server/internal/source/record"
-
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
 	"sort"
 
+	"github.com/frontseat-dev/frontseat/server/internal/source/record"
 	"github.com/frontseat-dev/frontseat/server/internal/source/vcs"
 )
 
@@ -23,11 +24,17 @@ func Clone(ctx context.Context, system vcs.System, workspace string, c record.Ch
 		return record.Repository{}, err
 	}
 	dir := filepath.Join(workspace, c.Name)
-	if _, taken := os.Lstat(dir); taken == nil {
+	// The directory is made here, by a call that makes none where
+	// anything is: of two clones asked into one place, one is refused it.
+	if err := os.Mkdir(dir, 0o755); errors.Is(err, fs.ErrExist) {
 		return record.Repository{}, fmt.Errorf("populate: %s is in the workspace already", c.Name)
+	} else if err != nil {
+		return record.Repository{}, fmt.Errorf("populate: %w", err)
 	}
 	defer func() {
 		if err != nil {
+			// Its own to delete: the directory this call made, which no
+			// other clone was given.
 			_ = os.RemoveAll(dir)
 		}
 	}()

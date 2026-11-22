@@ -3,6 +3,7 @@ package manifest
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -13,10 +14,16 @@ import (
 	"github.com/frontseat-dev/frontseat/server/internal/records"
 )
 
+// version is the manifest's version this daemon writes, and the one it
+// reads.
+const version = 1
+
 // Read returns the manifest of the workspace in a directory, and whether
 // it has one. The file is the workspace's, and whatever runs there can
 // write it: one that names a place outside the workspace, or a commit
-// that is not one as revision holds it, is an error.
+// that is not one as revision holds it, is an error. So is one of
+// another version, or with a key this daemon does not write: another
+// reader meant something by it that this one would pass over.
 func Read(dir string, revision func(name string) error) (Manifest, bool, error) {
 	raw, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(File)))
 	if errors.Is(err, fs.ErrNotExist) {
@@ -28,10 +35,21 @@ func Read(dir string, revision func(name string) error) (Manifest, bool, error) 
 	// Read strictly: a key this reader does not know was written by
 	// something else, and the file is not read in part.
 	var m Manifest
-	reader := yaml.NewDecoder(bytes.NewReader(raw))
-	reader.KnownFields(true)
-	if err := reader.Decode(&m); err != nil && !errors.Is(err, io.EOF) {
+	strict := yaml.NewDecoder(bytes.NewReader(raw))
+	strict.KnownFields(true)
+	if err := strict.Decode(&m); errors.Is(err, io.EOF) {
+		return Manifest{}, false, errors.New("it is empty")
+	} else if err != nil {
 		return Manifest{}, false, err
+	}
+	// One document is written: a second is what another writer meant
+	// something by, which this reader would pass over.
+	var more yaml.Node
+	if err := strict.Decode(&more); !errors.Is(err, io.EOF) {
+		return Manifest{}, false, errors.New("it holds more than one document, and one is written")
+	}
+	if m.Version != version {
+		return Manifest{}, false, fmt.Errorf("it says version %d, and version %d is the one read", m.Version, version)
 	}
 	if err := m.Within(revision); err != nil {
 		return Manifest{}, false, err
@@ -39,10 +57,20 @@ func Read(dir string, revision func(name string) error) (Manifest, bool, error) 
 	return m, true, nil
 }
 
+// Settle removes what a write that was never finished left beside the
+// manifest, in a daemon that ended between making it and putting it in
+// place. It is called where nothing is being written: when the
+// workspace is opened.
+func Settle(dir string) error {
+	return records.Settle(filepath.Join(dir, filepath.FromSlash(File)))
+}
+
 // Write keeps the manifest in the workspace's directory, whole or as it
-// was: whoever reads it finds all of it or the one before.
+// was: it is written beside the one it replaces and put in its place,
+// so that whoever reads it finds all of it or the one before, and a
+// daemon stopped while it writes leaves the one that was there.
 func Write(dir string, m Manifest) error {
-	m.Version = 1
+	m.Version = version
 	raw, err := yaml.Marshal(m)
 	if err != nil {
 		return err
