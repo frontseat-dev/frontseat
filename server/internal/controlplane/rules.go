@@ -219,7 +219,7 @@ func (s *service) sandbox(ctx context.Context, name, owner string, spec *workspa
 			// A repository is asked for as it is spelled, and not by another
 			// spelling, which a forge may hold as another repository.
 			if !plain.Text(repository) || strings.Contains(repository, "..") || strings.Contains(repository, "//") {
-				return nil, malformed("%q names no repository: its path is one repository's, written plainly, in letters, digits and . _ - + /", repository)
+				return nil, malformed("a repository's path on %s is no one repository's, written plainly, in letters, digits and . _ - + /", at.host)
 			}
 			asked := s.Fetching.Requests(repository)
 			if err := asking("a fetch", repository, asked); err != nil {
@@ -262,7 +262,7 @@ func (s *service) sandbox(ctx context.Context, name, owner string, spec *workspa
 			// program's configuration: a variable's name and a username are
 			// each one word, and the credential is the one for this host.
 			if !variable.MatchString(kept.GetVariable()) || !plain.Username(kept.GetUsername()) || kept.GetHost() != at.rule() {
-				return nil, fmt.Errorf("the sandbox service says the credential for %s is of %q under %q, for %q, which is no username and variable of a credential for that host", at.host, kept.GetUsername(), kept.GetVariable(), kept.GetHost())
+				return nil, fmt.Errorf("the sandbox service says of the credential for %s what is no username and variable of a credential for that host", at.host)
 			}
 			rule.Credential = kept.GetName()
 			presenting, err := s.Fetching.Presenting(environment, at.scheme+"://"+at.host, kept.GetUsername(), kept.GetVariable())
@@ -436,7 +436,7 @@ func reaches(made *workspacev1.WorkspaceSpec, was told.Resolved, wanted *workspa
 	}
 	for _, repository := range wanted.GetRepositories() {
 		if !had[repository.GetRemote()] {
-			return "the repository " + strconv.Quote(repository.GetRemote()) + " was not named when the workspace's sandbox was made, and what a sandbox may reach is said then"
+			return "a repository asked for was not named when the workspace's sandbox was made, and what a sandbox may reach is said then"
 		}
 	}
 	for _, c := range resolved.Checkouts {
@@ -501,7 +501,7 @@ func (s *service) publishing(ctx context.Context, out *sandboxv1.SandboxSpec, ow
 				}
 				if kept := said.GetCredential(); kept != nil {
 					if kept.GetHost() != at.rule() {
-						return "", fmt.Errorf("the sandbox service says the credential for %s is for %q", at.host, kept.GetHost())
+						return "", fmt.Errorf("the sandbox service says the credential for %s is for another host", at.host)
 					}
 					rule.Credential = kept.GetName()
 				}

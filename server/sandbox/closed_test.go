@@ -283,3 +283,45 @@ func TestWhatASandboxMayReachIsAskedOfTheDriverRuleByRule(t *testing.T) {
 		t.Errorf("a credential asked after under a driver that keeps none: %v, want it refused by name", err)
 	}
 }
+
+// A refusal of the sandbox service repeats nothing of what it refused:
+// an id, a name, a selector, a rule's credential, a container's name, an
+// image and a volume's subpath are each the caller's to write, and any
+// may hold a token. The control is the same sandbox asked for with each
+// written as one is, which is made.
+func TestARefusalOfASandboxRepeatsNothingItRefused(t *testing.T) {
+	const refusedValue = "V4lue_of adas"
+	_, client := overClosed(t)
+	ctx := context.Background()
+	asked := func(change func(*sandboxv1.SandboxSpec)) error {
+		spec := &sandboxv1.SandboxSpec{Image: "box", Egress: &sandboxv1.Egress{Rules: []*sandboxv1.EgressRule{{Host: "forge.example:443"}}}}
+		change(spec)
+		_, err := client.CreateSandbox(ctx, &sandboxv1.CreateSandboxRequest{Spec: spec})
+		return err
+	}
+	if err := asked(func(*sandboxv1.SandboxSpec) {}); err != nil {
+		t.Fatalf("the control: %v", err)
+	}
+	refusals := map[string]error{
+		"an image that is none": asked(func(s *sandboxv1.SandboxSpec) { s.Image = refusedValue }),
+		"a rule's credential that is none": asked(func(s *sandboxv1.SandboxSpec) {
+			s.Egress.Rules[0].Credential = refusedValue
+		}),
+		"a container's name that is none": asked(func(s *sandboxv1.SandboxSpec) {
+			s.Containers = []*sandboxv1.Container{{Name: refusedValue, Image: "box"}}
+		}),
+		"a volume's subpath that climbs": asked(func(s *sandboxv1.SandboxSpec) {
+			s.Volumes = []*sandboxv1.Volume{{Name: refusedValue, Kind: sandboxv1.Volume_KIND_HOST, Source: "/srv", Path: "/srv", Subpath: "../" + refusedValue}}
+		}),
+	}
+	_, refusals["an id no sandbox has"] = client.DescribeSandbox(ctx, &sandboxv1.DescribeSandboxRequest{SandboxId: refusedValue})
+	_, refusals["a selector that is none"] = client.ListSandboxes(ctx, &sandboxv1.ListSandboxesRequest{LabelSelector: refusedValue})
+	_, refusals["a credential's name nothing is kept by"] = client.DescribeCredential(ctx, &sandboxv1.DescribeCredentialRequest{Name: "cred-of-" + strings.ToLower(refusedValue[:5])})
+	for what, err := range refusals {
+		if err == nil {
+			t.Errorf("%s was taken", what)
+		} else if strings.Contains(strings.ToLower(err.Error()), strings.ToLower(refusedValue[:5])) {
+			t.Errorf("the refusal of %s repeats what it refused: %v", what, err)
+		}
+	}
+}

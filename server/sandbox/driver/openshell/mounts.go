@@ -1,6 +1,7 @@
 package openshell
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -41,16 +42,16 @@ func mounts(compute string, volumes []driver.Volume) (map[string]any, error) {
 	var bound []any
 	for _, v := range volumes {
 		if v.Kind != driver.Host {
-			return nil, fmt.Errorf("openshell: the volume %q is not of the host, the one kind the gateway binds", v.Name)
+			return nil, errors.New("openshell: a volume is not of the host, the one kind the gateway binds")
 		}
 		for _, path := range []string{v.Source, v.Path} {
 			if !filepath.IsAbs(path) || filepath.Clean(path) != path {
-				return nil, fmt.Errorf("openshell: the volume %q names %q, which is no plain absolute path", v.Name, path)
+				return nil, errors.New("openshell: a volume names what is no plain absolute path")
 			}
 		}
 		source, err := beneath(v.Source, v.Subpath)
 		if err != nil {
-			return nil, fmt.Errorf("openshell: the volume %q: %w", v.Name, err)
+			return nil, fmt.Errorf("openshell: a volume's subpath: %w", err)
 		}
 		bound = append(bound, map[string]any{"type": "bind", "source": source, "target": v.Path, "read_only": v.ReadOnly})
 	}
@@ -68,7 +69,7 @@ func beneath(source, subpath string) (string, error) {
 		return source, nil
 	}
 	if !filepath.IsLocal(subpath) || filepath.Clean(subpath) != subpath {
-		return "", fmt.Errorf("the subpath %q is no plain path beneath its volume", subpath)
+		return "", errors.New("it is no plain path beneath its volume")
 	}
 	at := source
 	for _, step := range strings.Split(subpath, string(filepath.Separator)) {

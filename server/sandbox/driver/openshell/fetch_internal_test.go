@@ -173,6 +173,23 @@ func TestWhatARuleSaysIsHeld(t *testing.T) {
 			t.Errorf("%s: %v, want it refused as not well formed", name, err)
 		}
 	}
+	// What is refused is not said back: a host, a program, a path and a
+	// parameter are the asker's to write, and any may hold a token.
+	const refusedValue = "v4lue of adas"
+	for name, rule := range map[string]driver.Rule{
+		"a host":      {Host: refusedValue + "@forge.example"},
+		"a program":   {Host: "forge.example", Programs: []string{refusedValue}},
+		"a path":      {Host: "forge.example", Requests: []driver.Request{{Method: "GET", Path: "/" + refusedValue}}},
+		"a method":    {Host: "forge.example", Requests: []driver.Request{{Method: refusedValue, Path: "/a"}}},
+		"a parameter": {Host: "forge.example", Requests: []driver.Request{{Method: "GET", Path: "/a", Query: map[string]string{"token": refusedValue}}}},
+	} {
+		_, err := d.ruled(context.Background(), driver.Sandbox{Egress: driver.Egress{Listed: true, Rules: []driver.Rule{rule}}})
+		if !errors.Is(err, driver.ErrInvalid) {
+			t.Errorf("%s that is none: %v, want it refused as not well formed", name, err)
+		} else if strings.Contains(err.Error(), refusedValue) {
+			t.Errorf("the refusal of %s repeats what it refused: %v", name, err)
+		}
+	}
 	if _, err := d.ruled(context.Background(), driver.Sandbox{Egress: driver.Egress{Listed: true, Rules: []driver.Rule{{Host: "forge.example", Requests: get}}}}); err != nil {
 		t.Errorf("a rule of one request was refused: %v", err)
 	}

@@ -62,9 +62,11 @@ func besideID(owner, host, beside string) string {
 
 // credentialHost is a host as a credential is kept for it, and as a
 // sandbox's rule names it: name:port, over https, or http://name:port,
-// over http. A host is a name, never an address, and nothing more.
+// over http. A host is a name, never an address, and nothing more. What
+// was written is not said back: a user written before a host is a
+// secret as often as not.
 func credentialHost(written string) (string, error) {
-	refused := fmt.Errorf("%q is no host's name: write it as forge.example, forge.example:8443 or http://forge.example:8080", written)
+	refused := errors.New("the host is no host's name, as a credential is kept for one: write it as forge.example, forge.example:8443 or http://forge.example:8080, with no user, path or address")
 	scheme, rest := "https", strings.TrimPrefix(written, "https://")
 	if plain, ok := strings.CutPrefix(written, "http://"); ok {
 		scheme, rest = "http", plain
