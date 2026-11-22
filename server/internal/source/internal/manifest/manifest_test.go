@@ -174,24 +174,3 @@ func TestWhatAWriteLeftUnfinishedIsCleared(t *testing.T) {
 		t.Errorf("beside the manifest are %v (%v), want the manifest and other.yaml", names, err)
 	}
 }
-
-// What a write left beside the manifest, by a daemon that ended before
-// putting it in place, is cleared; the manifest, and what is beside it
-// of another name, are kept.
-func TestWhatAWriteLeftUnfinishedIsCleared(t *testing.T) {
-	dir := t.TempDir()
-	testfiles.Tree(t, dir, map[string]string{manifest.File: sound, manifest.File + ".1234": "version: 1\n", ".frontseat/other.yaml": "kept\n"})
-
-	if err := manifest.Settle(dir); err != nil {
-		t.Fatal(err)
-	}
-
-	kept, err := os.ReadDir(filepath.Dir(filepath.Join(dir, filepath.FromSlash(manifest.File))))
-	var names []string
-	for _, entry := range kept {
-		names = append(names, entry.Name())
-	}
-	if err != nil || strings.Join(names, ",") != "other.yaml,workspace.yaml" {
-		t.Errorf("beside the manifest are %v (%v), want the manifest and other.yaml", names, err)
-	}
-}
