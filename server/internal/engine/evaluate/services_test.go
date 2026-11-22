@@ -493,3 +493,67 @@ func TestWhatIsWrongInATestsServicesIsItsFilesMistake(t *testing.T) {
 		t.Errorf("a Resource given soundly: %v %v, want its services", beside, err)
 	}
 }
+
+// A mistake in what a Component's tests are given is said of the catalog
+// file the Component is written in, as services finds it in the catalog;
+// one with no file is a mistake of none. The control is the same
+// Component given a sound service.
+func TestAMistakeInATestsServicesIsSaidOfItsComponentsFile(t *testing.T) {
+	db := ref("default", "db")
+	exporting := resource("default", "db", map[string]int32{"sql": 5432})
+	exporting.Said.Exports = map[string]string{EndpointsVariable: "{host}:{port.sql}"}
+	catalogOf := func(manifest string) Evaluation {
+		return serviceCatalog(t, component, []catalog.Descriptor{
+			{Entity: catalog.Entity{Ref: component, Manifest: manifest, Roots: []string{"app"}}, Relations: []catalog.DeclaredRelation{{Type: "dependsOn", InverseType: "dependencyOf", Target: db}}},
+			{Entity: catalog.Entity{Ref: db}},
+		})
+	}
+	sound := catalogOf("app/catalog-info.yaml")
+	if err := services(&sound, map[entity.Ref]config.Service{db: resource("default", "db", map[string]int32{"sql": 5432})}); err != nil {
+		t.Fatalf("a sound service: %v", err)
+	}
+	for _, manifest := range []string{"app/catalog-info.yaml", ""} {
+		out := catalogOf(manifest)
+		err := services(&out, map[entity.Ref]config.Service{db: exporting})
+		var mistake *model.Mistake
+		if !errors.As(err, &mistake) || mistake.File != manifest {
+			t.Errorf("described in %q: %v, want a mistake of that file", manifest, err)
+		}
+	}
+}
+
+// Of two endpoints a Resource's service cannot say, the one named is
+// the first by name each time.
+func TestAnEndpointThatCannotBeSaidIsNamedTheSameEachTime(t *testing.T) {
+	db := ref("default", "db")
+	unsaid := resource("default", "db", map[string]int32{"sql": 5432})
+	if _, err := besideOf(component, "app/catalog-info.yaml", map[entity.Ref][]entity.Ref{component: {db}}, map[entity.Ref]config.Service{db: unsaid}, nil); err != nil {
+		t.Fatalf("a Resource with no endpoints: %v", err)
+	}
+	unsaid.Said.Endpoints = map[string]string{"a": "{host}:{port.first}", "z": "{host}:{port.last}"}
+	for range 64 {
+		_, err := besideOf(component, "app/catalog-info.yaml", map[entity.Ref][]entity.Ref{component: {db}}, map[entity.Ref]config.Service{db: unsaid}, nil)
+		if err == nil || !strings.Contains(err.Error(), "{port.first}") {
+			t.Fatalf("%v, want the endpoint a named", err)
+		}
+	}
+}
+
+// Of two repositories whose catalog files consent to what is not theirs
+// to give, the one named is the first by name each time.
+func TestAConsentNotItsToGiveIsNamedTheSameEachTime(t *testing.T) {
+	said := map[string][]config.Generated{}
+	for _, repository := range []string{"a", "z"} {
+		said[repository] = []config.Generated{{File: repository + "/catalog-info.yaml", Directory: "gen", Entity: component, By: component}}
+	}
+	if err := consented(Evaluation{}, nil); err != nil {
+		t.Fatalf("no consent: %v", err)
+	}
+	for range 64 {
+		err := consented(Evaluation{}, said)
+		var mistake *model.Mistake
+		if !errors.As(err, &mistake) || mistake.File != "a/catalog-info.yaml" {
+			t.Fatalf("%v, want the first repository's consent named", err)
+		}
+	}
+}
