@@ -1,4 +1,4 @@
-package container_test
+package testcontainer_test
 
 import (
 	"context"
@@ -8,13 +8,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/frontseat-dev/frontseat/server/internal/driver/container"
 	"github.com/frontseat-dev/frontseat/server/sandbox/driver"
 	"github.com/frontseat-dev/frontseat/server/testsupport/drivertest"
+	"github.com/frontseat-dev/frontseat/server/testsupport/testcontainer"
 )
 
 func TestFurtherContainersWaitForTheMainStartupGate(t *testing.T) {
-	d := container.Driver{}
+	d := testcontainer.Driver{}
 	for _, allowed := range []bool{true, false} {
 		name := "ready"
 		if !allowed {

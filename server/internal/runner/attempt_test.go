@@ -2,7 +2,6 @@ package runner
 
 import (
 	"context"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testrequired"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -12,10 +11,13 @@ import (
 
 	connect "connectrpc.com/connect/v2"
 	"connectrpc.com/connect/v2/connecthttp"
+
 	sandboxv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/sandbox/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/sandbox/v1alpha1/sandboxv1alpha1connect"
 	"github.com/frontseat-dev/frontseat/server/sandbox"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testbox"
+	"github.com/frontseat-dev/frontseat/server/testsupport/testcontainer"
+	"github.com/frontseat-dev/frontseat/server/testsupport/testrequired"
 )
 
 type interruptedSandboxes struct {
@@ -47,7 +49,7 @@ func (c *interruptedSandboxes) DeleteSandbox(ctx context.Context, req *sandboxv1
 func runtimeSandboxes(t *testing.T, wrap ...func(http.Handler) http.Handler) (*runner, sandboxv1alpha1connect.SandboxServiceClient) {
 	testrequired.Stack(t)
 	t.Helper()
-	handler, err := sandbox.Runner("http://runner-test", nil, t.TempDir())
+	handler, err := sandbox.Handler(testcontainer.Driver{}, "http://runner-test", t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testrequired"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -24,7 +23,9 @@ import (
 	sandboxv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/sandbox/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/sandbox/v1alpha1/sandboxv1alpha1connect"
 	"github.com/frontseat-dev/frontseat/server/sandbox"
+	"github.com/frontseat-dev/frontseat/server/testsupport/testcontainer"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testlisten"
+	"github.com/frontseat-dev/frontseat/server/testsupport/testrequired"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
@@ -33,11 +34,11 @@ import (
 // service remains separate from each consumer's process and network namespace.
 // SQL allocation, framework adapters and a production forwarding API are not
 // established by this test.
-func TestServiceRoutePOCSeparateBlockedConsumersReachOneService(t *testing.T) {
+func TestSeparateBlockedConsumersReachOneServiceByItsRoute(t *testing.T) {
 	testrequired.Stack(t)
-	p := newServiceRoutePOC(t)
+	p := newServiceRoutes(t)
 	route := p.route()
-	identity := pocName()
+	identity := unique()
 	service := p.make([]string{"echo", "/route/service.sock", identity}, route, false)
 	p.waitFor(service, []string{"check", "/route/service.sock", identity})
 
@@ -96,12 +97,12 @@ func TestServiceRoutePOCSeparateBlockedConsumersReachOneService(t *testing.T) {
 	t.Log("one service, two separate non-root blocked consumers; binary roundtrips, absent-grant, read-only and host-egress controls passed")
 }
 
-func TestServiceRoutePOCServerCanHalfCloseBeforeReceivingTheRequest(t *testing.T) {
+func TestAServiceRouteCarriesARequestSentAfterTheServerHalfClosed(t *testing.T) {
 	testrequired.Stack(t)
-	p := newServiceRoutePOC(t)
+	p := newServiceRoutes(t)
 	for _, throughProxy := range []bool{false, true} {
 		route := p.route()
-		identity := pocName()
+		identity := unique()
 		service := p.make([]string{"halfclose", "/route/service.sock", identity}, route, false)
 		p.waitFor(service, []string{"dial", "unix", "/route/service.sock"})
 		consumer, address := service, "/route/service.sock"
@@ -120,11 +121,11 @@ func TestServiceRoutePOCServerCanHalfCloseBeforeReceivingTheRequest(t *testing.T
 	}
 }
 
-func TestServiceRoutePOCCleansUpAfterTheCreationReplyIsLost(t *testing.T) {
-	p := newServiceRoutePOC(t)
+func TestASandboxWhoseCreationReplyWasLostIsCleanedUp(t *testing.T) {
+	p := newServiceRoutes(t)
 	p.dropCreate.Store(true)
 	_, err := p.client.CreateSandbox(context.Background(), &sandboxv1.CreateSandboxRequest{
-		Spec: p.spec([]string{"proxy", "/absent", "127.0.0.1:7000"}, "", true), RequestId: pocName(),
+		Spec: p.spec([]string{"proxy", "/absent", "127.0.0.1:7000"}, "", true), RequestId: unique(),
 	})
 	if err == nil {
 		t.Fatal("the transport did not lose the creation reply")
@@ -143,9 +144,9 @@ func TestServiceRoutePOCCleansUpAfterTheCreationReplyIsLost(t *testing.T) {
 // The image and proxy are the already-used PostgreSQL plugin's pinned image.
 // Here it supplies gosu; no database or credentials are created by the route
 // proof. Both the fixture service and its consumers run as nobody.
-const pocServiceImage = "localhost:8081/dockerhub/library/postgres@sha256:3540c0362c809df084ffac0ae69fe794515f9de92692f02178bcdce0ef0302ac"
+const serviceImage = "localhost:8081/dockerhub/library/postgres@sha256:3540c0362c809df084ffac0ae69fe794515f9de92692f02178bcdce0ef0302ac"
 
-type serviceRoutePOC struct {
+type serviceRoutes struct {
 	t          *testing.T
 	client     sandboxv1alpha1connect.SandboxServiceClient
 	bin        string
@@ -158,7 +159,7 @@ type serviceRoutePOC struct {
 	cleanupMu  sync.Mutex
 }
 
-func newServiceRoutePOC(t *testing.T) *serviceRoutePOC {
+func newServiceRoutes(t *testing.T) *serviceRoutes {
 	testrequired.Stack(t)
 	t.Helper()
 	arch, err := exec.Command("docker", "info", "--format", "{{.Architecture}}").Output()
@@ -191,11 +192,11 @@ func newServiceRoutePOC(t *testing.T) *serviceRoutePOC {
 	if err := os.Mkdir(state, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	handler, err := sandbox.Runner(srv.URL, nil, state)
+	handler, err := sandbox.Handler(testcontainer.Driver{}, srv.URL, state)
 	if err != nil {
 		t.Fatal(err)
 	}
-	p := &serviceRoutePOC{t: t, bin: bin, root: root, owner: pocName()}
+	p := &serviceRoutes{t: t, bin: bin, root: root, owner: unique()}
 	srv.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		creating := strings.HasSuffix(r.URL.Path, "/CreateSandbox")
 		if creating {
@@ -235,7 +236,7 @@ func newServiceRoutePOC(t *testing.T) *serviceRoutePOC {
 	return p
 }
 
-func (p *serviceRoutePOC) route() string {
+func (p *serviceRoutes) route() string {
 	p.t.Helper()
 	dir, err := os.MkdirTemp(p.root, "route-")
 	if err != nil {
@@ -247,18 +248,18 @@ func (p *serviceRoutePOC) route() string {
 	return dir
 }
 
-func (p *serviceRoutePOC) make(args []string, route string, readonly bool) string {
+func (p *serviceRoutes) make(args []string, route string, readonly bool) string {
 	p.t.Helper()
 	return p.create(p.spec(args, route, readonly))
 }
 
-func (p *serviceRoutePOC) spec(args []string, route string, readonly bool) *sandboxv1.SandboxSpec {
+func (p *serviceRoutes) spec(args []string, route string, readonly bool) *sandboxv1.SandboxSpec {
 	spec := &sandboxv1.SandboxSpec{
-		Image:     pocServiceImage,
+		Image:     serviceImage,
 		Arguments: append([]string{"gosu", "65534:65534", "/probe/actor"}, args...),
 		Egress:    &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_BLOCK},
 		Volumes:   []*sandboxv1.Volume{{Name: "artifact", Kind: sandboxv1.Volume_KIND_HOST, Source: p.bin, Path: "/probe", ReadOnly: true}},
-		Labels:    map[string]string{"dev.frontseat.poc": p.owner},
+		Labels:    map[string]string{"dev.frontseat.test-owner": p.owner},
 	}
 	if route != "" {
 		spec.Volumes = append(spec.Volumes, &sandboxv1.Volume{Name: "route", Kind: sandboxv1.Volume_KIND_HOST, Source: route, Path: "/route", ReadOnly: readonly})
@@ -266,12 +267,12 @@ func (p *serviceRoutePOC) spec(args []string, route string, readonly bool) *sand
 	return spec
 }
 
-func (p *serviceRoutePOC) create(spec *sandboxv1.SandboxSpec) string {
+func (p *serviceRoutes) create(spec *sandboxv1.SandboxSpec) string {
 	p.t.Helper()
-	spec.Labels = map[string]string{"dev.frontseat.poc": p.owner}
+	spec.Labels = map[string]string{"dev.frontseat.test-owner": p.owner}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	created, err := p.client.CreateSandbox(ctx, &sandboxv1.CreateSandboxRequest{Spec: spec, RequestId: pocName()})
+	created, err := p.client.CreateSandbox(ctx, &sandboxv1.CreateSandboxRequest{Spec: spec, RequestId: unique()})
 	if err != nil {
 		p.t.Fatal(err)
 	}
@@ -295,18 +296,18 @@ func (p *serviceRoutePOC) create(spec *sandboxv1.SandboxSpec) string {
 	return id
 }
 
-func (p *serviceRoutePOC) owned() []*sandboxv1.Sandbox {
+func (p *serviceRoutes) owned() []*sandboxv1.Sandbox {
 	p.t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	answer, err := p.client.ListSandboxes(ctx, &sandboxv1.ListSandboxesRequest{LabelSelector: "dev.frontseat.poc=" + p.owner})
+	answer, err := p.client.ListSandboxes(ctx, &sandboxv1.ListSandboxesRequest{LabelSelector: "dev.frontseat.test-owner=" + p.owner})
 	if err != nil {
 		p.t.Fatal(err)
 	}
 	return answer.GetSandboxes()
 }
 
-func (p *serviceRoutePOC) cleanup() error {
+func (p *serviceRoutes) cleanup() error {
 	// This API server and its records belong only to this probe. Close
 	// creation admission and join accepted requests before finding everything
 	// it made, including a sandbox whose response was lost. The marker limits
@@ -325,7 +326,7 @@ func (p *serviceRoutePOC) cleanup() error {
 	case <-ctx.Done():
 		return fmt.Errorf("probe creations did not finish: %w", ctx.Err())
 	}
-	answer, err := p.client.ListSandboxes(ctx, &sandboxv1.ListSandboxesRequest{LabelSelector: "dev.frontseat.poc=" + p.owner})
+	answer, err := p.client.ListSandboxes(ctx, &sandboxv1.ListSandboxesRequest{LabelSelector: "dev.frontseat.test-owner=" + p.owner})
 	if err != nil {
 		return err
 	}
@@ -338,7 +339,7 @@ func (p *serviceRoutePOC) cleanup() error {
 	return errors.Join(failures...)
 }
 
-func (p *serviceRoutePOC) run(id string, args ...string) (int32, string) {
+func (p *serviceRoutes) run(id string, args ...string) (int32, string) {
 	p.t.Helper()
 	code, output, err := p.exec(context.Background(), id, args...)
 	if err != nil {
@@ -347,7 +348,7 @@ func (p *serviceRoutePOC) run(id string, args ...string) (int32, string) {
 	return code, output
 }
 
-func (p *serviceRoutePOC) exec(parent context.Context, id string, args ...string) (int32, string, error) {
+func (p *serviceRoutes) exec(parent context.Context, id string, args ...string) (int32, string, error) {
 	ctx, cancel := context.WithTimeout(parent, 20*time.Second)
 	defer cancel()
 	response, err := p.client.ExecSandbox(ctx, &sandboxv1.ExecSandboxRequest{
@@ -361,7 +362,7 @@ func (p *serviceRoutePOC) exec(parent context.Context, id string, args ...string
 	return response.GetExitCode(), string(response.GetOutput()), nil
 }
 
-func (p *serviceRoutePOC) proveBlocked(blocked string) {
+func (p *serviceRoutes) proveBlocked(blocked string) {
 	p.t.Helper()
 	canary, err := testlisten.Own("tcp4")
 	if err != nil {
@@ -380,7 +381,7 @@ func (p *serviceRoutePOC) proveBlocked(blocked string) {
 	}()
 	defer func() { canary.Close(); <-finished }()
 	control := p.create(&sandboxv1.SandboxSpec{
-		Image:     pocServiceImage,
+		Image:     serviceImage,
 		Arguments: []string{"sleep", "600"},
 		Egress:    &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_ALL},
 		Volumes:   []*sandboxv1.Volume{{Name: "artifact", Kind: sandboxv1.Volume_KIND_HOST, Source: p.bin, Path: "/probe", ReadOnly: true}},
@@ -398,7 +399,7 @@ func (p *serviceRoutePOC) proveBlocked(blocked string) {
 	}
 }
 
-func (p *serviceRoutePOC) waitFor(id string, args []string) {
+func (p *serviceRoutes) waitFor(id string, args []string) {
 	p.t.Helper()
 	deadline := time.Now().Add(30 * time.Second)
 	for {
@@ -413,7 +414,7 @@ func (p *serviceRoutePOC) waitFor(id string, args []string) {
 	}
 }
 
-func pocName() string {
+func unique() string {
 	var value [12]byte
 	if _, err := rand.Read(value[:]); err != nil {
 		panic(err)

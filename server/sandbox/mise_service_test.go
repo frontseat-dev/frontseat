@@ -2,7 +2,6 @@ package sandbox_test
 
 import (
 	"context"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testrequired"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,11 +12,12 @@ import (
 	sandboxv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/sandbox/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testgrid"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testpins"
+	"github.com/frontseat-dev/frontseat/server/testsupport/testrequired"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
-func TestMiseServicePOCRejectsAWrongArchiveChecksum(t *testing.T) {
-	root := caddySourcePOC(t)
+func TestAToolServiceOfAWrongArchiveChecksumIsRefused(t *testing.T) {
+	root := caddySource(t)
 	path := filepath.Join(root, "mise.lock")
 	held, err := os.ReadFile(path)
 	if err != nil {
@@ -36,7 +36,7 @@ func TestMiseServicePOCRejectsAWrongArchiveChecksum(t *testing.T) {
 	if err := os.WriteFile(path, []byte(wrong), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	action, summary := runArtifactPOC(t, root, "//proxy:custom.prepare")
+	action, summary := runArtifact(t, root, "//proxy:custom.prepare")
 	if action.GetOutcome() == buildv1.Outcome_OUTCOME_PASSED || !strings.Contains(strings.ToLower(summary), "checksum mismatch") {
 		t.Fatalf("wrong lock was not refused for its checksum: %s", summary)
 	}
@@ -47,25 +47,25 @@ func TestMiseServicePOCRejectsAWrongArchiveChecksum(t *testing.T) {
 // The server is the real Caddy release installed by mise on a worker, exported
 // by a finite preparation action, then run directly in its own sandbox. Neither
 // the service nor its client receives mise, a tool cache or network egress.
-func TestMiseServicePOCPinnedServerCanDependOnABuiltApplication(t *testing.T) {
+func TestAPinnedToolServiceCanDependOnABuiltApplication(t *testing.T) {
 	testrequired.Stack(t)
-	tool := buildCaddyPOC(t)
-	app, identity := buildApplicationPOC(t)
-	p := newServiceRoutePOC(t)
-	pg := newPostgresPOC(p)
+	tool := buildCaddy(t)
+	app, identity := buildApplication(t)
+	p := newServiceRoutes(t)
+	pg := newPostgres(p)
 	a, b := pg.allocate(), pg.allocate()
-	aa, ar := applicationPOC(p, pg, a, app)
-	ab, br := applicationPOC(p, pg, b, app)
-	proxyA, routeA := caddyPOC(p, tool, ar)
-	proxyB, routeB := caddyPOC(p, tool, br)
-	ca, cb := applicationClientPOC(p, routeA), applicationClientPOC(p, routeB)
+	aa, ar := application(p, pg, a, app)
+	ab, br := application(p, pg, b, app)
+	proxyA, routeA := caddy(p, tool, ar)
+	proxyB, routeB := caddy(p, tool, br)
+	ca, cb := applicationClient(p, routeA), applicationClient(p, routeB)
 	for _, id := range []string{ca, cb, proxyA, proxyB} {
-		withoutDatabasePOC(p, id)
+		withoutDatabase(p, id)
 	}
-	expectHTTPPOC(p, ca, "/build", identity)
-	expectHTTPPOC(p, ca, "/value?set=11", "11")
-	expectHTTPPOC(p, cb, "/value?set=22", "22")
-	expectHTTPPOC(p, ca, "/value", "11")
+	expectHTTP(p, ca, "/build", identity)
+	expectHTTP(p, ca, "/value?set=11", "11")
+	expectHTTP(p, cb, "/value?set=22", "22")
+	expectHTTP(p, ca, "/value", "11")
 	// The pinned binary executes, and the service process has no authority
 	// to fetch another tool or reconfigure itself through a local admin API.
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -82,28 +82,28 @@ func TestMiseServicePOCPinnedServerCanDependOnABuiltApplication(t *testing.T) {
 		t.Fatalf("service modified its prepared tool: exit %d: %s", code, out)
 	}
 	p.proveBlocked(proxyA)
-	deletePOC(p, proxyA)
-	deletePOC(p, aa)
+	ended(p, proxyA)
+	ended(p, aa)
 	pg.release(a)
-	expectHTTPPOC(p, cb, "/value", "22")
-	if code, _, err := httpPOC(p, ca, "/value"); err != nil || code == 0 {
+	expectHTTP(p, cb, "/value", "22")
+	if code, _, err := fetched(p, ca, "/value"); err != nil || code == 0 {
 		t.Fatalf("ended proxy still serves: exit %d: %v", code, err)
 	}
 	// Removing the downstream application while Caddy still runs cannot be
 	// mistaken for readiness: a live proxy must report the failed upstream.
-	deletePOC(p, ab)
-	if code, out, err := httpPOC(p, cb, "/value"); err != nil || code == 0 || !strings.Contains(out, "502") {
+	ended(p, ab)
+	if code, out, err := fetched(p, cb, "/value"); err != nil || code == 0 || !strings.Contains(out, "502") {
 		t.Fatalf("missing upstream did not produce a gateway failure: exit %d: %v: %s", code, err, out)
 	}
-	deletePOC(p, proxyB)
+	ended(p, proxyB)
 	t.Log("mise-installed Caddy → grid-built application → isolated PostgreSQL; native version, immutable tool, no admin/egress and independent teardown passed")
 }
 
-func caddyPOC(p *serviceRoutePOC, tool, upstream string) (string, string) {
+func caddy(p *serviceRoutes, tool, upstream string) (string, string) {
 	p.t.Helper()
 	route := p.route()
 	config := p.t.TempDir()
-	pocWrite(p.t, config, "caddy.json", `{
+	wrote(p.t, config, "caddy.json", `{
   "admin": {"disabled": true, "config": {"persist": false}},
   "apps": {"http": {"servers": {"proxy": {
     "listen": ["unix//route/service.sock|0666"],
@@ -123,19 +123,19 @@ func caddyPOC(p *serviceRoutePOC, tool, upstream string) (string, string) {
 	return id, route
 }
 
-func buildCaddyPOC(t *testing.T) string {
+func buildCaddy(t *testing.T) string {
 	t.Helper()
-	return buildArtifactPOC(t, caddySourcePOC(t), "//proxy:custom.prepare", "runtime/caddy", "caddy")
+	return buildArtifact(t, caddySource(t), "//proxy:custom.prepare", "runtime/caddy", "caddy")
 }
 
-func caddySourcePOC(t *testing.T) string {
+func caddySource(t *testing.T) string {
 	t.Helper()
 	testgrid.Address(t)
 	root := t.TempDir()
 	testpins.Caddy(t, root)
-	pocWrite(t, root, "frontseat.yaml", "plugins:\n  backstage: {}\n")
-	pocWrite(t, root, "proxy/stamp", pocName())
-	pocWrite(t, root, "proxy/catalog-info.yaml", `apiVersion: backstage.io/v1alpha1
+	wrote(t, root, "frontseat.yaml", "plugins:\n  backstage: {}\n")
+	wrote(t, root, "proxy/stamp", unique())
+	wrote(t, root, "proxy/catalog-info.yaml", `apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
   name: proxy

@@ -42,7 +42,7 @@ func (d *meeting) Apply(ctx context.Context, wanted driver.Sandbox) (driver.Sand
 // a server as it starts.
 func started(t *testing.T, d driver.Driver, state string) *service {
 	t.Helper()
-	s, err := newService(d, "", nil, state)
+	s, err := newService(d, "", state)
 	if err != nil {
 		t.Fatal(err)
 	}

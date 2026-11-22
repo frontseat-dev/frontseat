@@ -5,16 +5,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/frontseat-dev/frontseat/server/internal/driver/container"
+	"github.com/frontseat-dev/frontseat/server/internal/image"
 	"github.com/frontseat-dev/frontseat/server/sandbox/driver/openshell"
 )
-
-// Runner serves the sandbox API over the container runtime, for the
-// grid's runner: a test's services are containers beside its sandbox,
-// which no gateway makes. No workspace's sandbox is made this way.
-func Runner(publicURL string, environment map[string]string, state string) (http.Handler, error) {
-	return Handler(container.Driver{}, publicURL, environment, state)
-}
 
 // GatewayRunner is the sandbox service over an OpenShell gateway, as the
 // runner of tests with services asks it, over a socket of its own: each
@@ -49,11 +42,11 @@ func overGateway(publicURL string, config openshell.Config, runtime, state strin
 	// The gateway makes its sandboxes with a container runtime, the one
 	// whose command line is runtime (docker, podman), which is asked what
 	// an image is started with.
-	started := func(ctx context.Context, image string) (openshell.Started, error) {
-		if err := imageOf(image); err != nil {
+	started := func(ctx context.Context, ref string) (openshell.Started, error) {
+		if err := imageOf(ref); err != nil {
 			return openshell.Started{}, err
 		}
-		entrypoint, command, environment, err := container.Started(ctx, runtime, image)
+		entrypoint, command, environment, err := image.Started(ctx, runtime, ref)
 		return openshell.Started{Entrypoint: entrypoint, Command: command, Environment: environment}, err
 	}
 	config.Image = started
@@ -67,7 +60,7 @@ func overGateway(publicURL string, config openshell.Config, runtime, state strin
 		_ = d.Close()
 		return nil, err
 	}
-	s, err := newService(d, publicURL, nil, state)
+	s, err := newService(d, publicURL, state)
 	if err != nil {
 		_ = d.Close()
 		return nil, err

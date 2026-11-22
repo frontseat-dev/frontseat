@@ -3,20 +3,20 @@ package sandbox_test
 import (
 	"context"
 	"fmt"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testrequired"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	sandboxv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/sandbox/v1alpha1"
+	"github.com/frontseat-dev/frontseat/server/testsupport/testrequired"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 // A real PostgreSQL proof below the build path. These fixtures exercise
 // native clients in separate consumer sandboxes, not a served provider API.
-func TestPostgresServicePOCSharedAllocationsStaySeparate(t *testing.T) {
-	p, pg, a, b, ca, cb := twoConsumersPOC(t)
+func TestSharedPostgresAllocationsStaySeparate(t *testing.T) {
+	p, pg, a, b, ca, cb := twoConsumers(t)
 	var workers sync.WaitGroup
 	results := make(chan error, 2)
 	for _, item := range []struct{ consumer, value string }{{ca, "first"}, {cb, "second"}} {
@@ -77,9 +77,9 @@ func TestPostgresServicePOCSharedAllocationsStaySeparate(t *testing.T) {
 	}
 }
 
-func TestPostgresServicePOCReleaseEndsLiveSessionsAndRetryStartsFresh(t *testing.T) {
+func TestReleasingAPostgresAllocationEndsItsSessionsAndARetryStartsFresh(t *testing.T) {
 	testrequired.Stack(t)
-	p, pg, a, _, ca, cb := twoConsumersPOC(t)
+	p, pg, a, _, ca, cb := twoConsumers(t)
 	pg.expect(ca, "", "CREATE TABLE attempt_state(value int); INSERT INTO attempt_state VALUES (1); SELECT count(*) FROM attempt_state;", "1")
 	pg.expect(cb, "", "SELECT 42;", "42")
 	active := make(chan sqlResult, 1)
@@ -128,13 +128,13 @@ func TestPostgresServicePOCReleaseEndsLiveSessionsAndRetryStartsFresh(t *testing
 	t.Log("release ended a live session and revoked its credential; a fresh allocation and the neighbour both work")
 }
 
-func TestPostgresServicePOCAllocationIsClosedWhileItsGrantsArePrepared(t *testing.T) {
+func TestAPostgresAllocationIsClosedWhileItsGrantsArePrepared(t *testing.T) {
 	testrequired.Stack(t)
-	p := newServiceRoutePOC(t)
-	pg := newPostgresPOC(p)
+	p := newServiceRoutes(t)
+	pg := newPostgres(p)
 	first := pg.consumer(pg.allocate())
 	pg.expect(first, "", "SELECT 41;", "41")
-	next := pg.allocateObserved(func(a pgAllocationPOC) {
+	next := pg.allocateObserved(func(a pgAllocation) {
 		// Allocation is paused after CREATE DATABASE and before its grants.
 		// An already-running consumer has both a live route and valid credentials.
 		pg.expectAdmin("SELECT count(*) FROM pg_database WHERE datname='"+a.name+"';", "1")
@@ -150,10 +150,10 @@ func TestPostgresServicePOCAllocationIsClosedWhileItsGrantsArePrepared(t *testin
 	pg.expect(first, "", "SELECT 41;", "41")
 }
 
-func TestPostgresServicePOCDedicatedInstanceIsSeparate(t *testing.T) {
+func TestADedicatedPostgresInstanceIsSeparate(t *testing.T) {
 	testrequired.Stack(t)
-	p := newServiceRoutePOC(t)
-	shared, dedicated := newPostgresPOC(p), newPostgresPOC(p)
+	p := newServiceRoutes(t)
+	shared, dedicated := newPostgres(p), newPostgres(p)
 	sharedID := shared.admin("SELECT system_identifier FROM pg_control_system();")
 	dedicatedID := dedicated.admin("SELECT system_identifier FROM pg_control_system();")
 	if shared.id == dedicated.id || sharedID == dedicatedID {
@@ -175,29 +175,29 @@ type sqlResult struct {
 	err    error
 }
 
-type pgAllocationPOC struct{ name, password string }
+type pgAllocation struct{ name, password string }
 
-type postgresPOC struct {
-	p         *serviceRoutePOC
+type postgres struct {
+	p         *serviceRoutes
 	id, route string
-	owned     map[string]pgAllocationPOC
+	owned     map[string]pgAllocation
 }
 
-// twoConsumersPOC starts a PostgreSQL with two allocations, each given a
+// twoConsumers starts a PostgreSQL with two allocations, each given a
 // consumer sandbox of its own, and returns them with the consumers.
-func twoConsumersPOC(t *testing.T) (p *serviceRoutePOC, pg *postgresPOC, a, b pgAllocationPOC, ca, cb string) {
+func twoConsumers(t *testing.T) (p *serviceRoutes, pg *postgres, a, b pgAllocation, ca, cb string) {
 	testrequired.Stack(t)
 	t.Helper()
-	p = newServiceRoutePOC(t)
-	pg = newPostgresPOC(p)
+	p = newServiceRoutes(t)
+	pg = newPostgres(p)
 	a, b = pg.allocate(), pg.allocate()
 	ca, cb = pg.consumer(a), pg.consumer(b)
 	return p, pg, a, b, ca, cb
 }
 
-func newPostgresPOC(p *serviceRoutePOC) *postgresPOC {
+func newPostgres(p *serviceRoutes) *postgres {
 	p.t.Helper()
-	pg := &postgresPOC{p: p, route: p.route(), owned: make(map[string]pgAllocationPOC)}
+	pg := &postgres{p: p, route: p.route(), owned: make(map[string]pgAllocation)}
 	spec := p.spec([]string{"postgres", "unused", "unused"}, pg.route, false)
 	spec.Arguments[1] = "postgres"
 	pg.id = p.create(spec)
@@ -207,15 +207,15 @@ func newPostgresPOC(p *serviceRoutePOC) *postgresPOC {
 	return pg
 }
 
-func (pg *postgresPOC) allocate() pgAllocationPOC {
+func (pg *postgres) allocate() pgAllocation {
 	return pg.allocateObserved(nil)
 }
 
-func (pg *postgresPOC) allocateObserved(afterCreate func(pgAllocationPOC)) pgAllocationPOC {
+func (pg *postgres) allocateObserved(afterCreate func(pgAllocation)) pgAllocation {
 	pg.p.t.Helper()
 	// Only private, random identifiers generated here reach these SQL strings;
 	// this fixture accepts no catalog-provided name or executable provisioner.
-	a := pgAllocationPOC{name: "poc_" + pocName(), password: pocName() + pocName()}
+	a := pgAllocation{name: "alloc_" + unique(), password: unique() + unique()}
 	pg.owned[a.name] = a
 	pg.admin("CREATE ROLE " + a.name + " LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 4 PASSWORD '" + a.password + "' VALID UNTIL '" + time.Now().UTC().Add(10*time.Minute).Format(time.RFC3339) + "';")
 	pg.admin("CREATE DATABASE " + a.name + " OWNER postgres TEMPLATE template0 ALLOW_CONNECTIONS false;")
@@ -229,7 +229,7 @@ func (pg *postgresPOC) allocateObserved(afterCreate func(pgAllocationPOC)) pgAll
 	return a
 }
 
-func (pg *postgresPOC) consumer(a pgAllocationPOC) string {
+func (pg *postgres) consumer(a pgAllocation) string {
 	pg.p.t.Helper()
 	spec := pg.p.spec([]string{"proxy", "/route/service.sock", "127.0.0.1:7000"}, pg.route, true)
 	spec.Environment = a.environment()
@@ -238,7 +238,7 @@ func (pg *postgresPOC) consumer(a pgAllocationPOC) string {
 	return id
 }
 
-func (pg *postgresPOC) release(a pgAllocationPOC) {
+func (pg *postgres) release(a pgAllocation) {
 	pg.p.t.Helper()
 	owned, ok := pg.owned[a.name]
 	if !ok {
@@ -255,7 +255,7 @@ func (pg *postgresPOC) release(a pgAllocationPOC) {
 	delete(pg.owned, a.name)
 }
 
-func (pg *postgresPOC) adminSQL(database, statement string) (int32, string, error) {
+func (pg *postgres) adminSQL(database, statement string) (int32, string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	response, err := pg.p.client.ExecSandbox(ctx, &sandboxv1.ExecSandboxRequest{
@@ -268,9 +268,9 @@ func (pg *postgresPOC) adminSQL(database, statement string) (int32, string, erro
 	return response.GetExitCode(), strings.TrimSpace(string(response.GetOutput())), nil
 }
 
-func (pg *postgresPOC) admin(statement string) string { return pg.adminAt("postgres", statement) }
+func (pg *postgres) admin(statement string) string { return pg.adminAt("postgres", statement) }
 
-func (pg *postgresPOC) adminAt(database, statement string) string {
+func (pg *postgres) adminAt(database, statement string) string {
 	pg.p.t.Helper()
 	code, out, err := pg.adminSQL(database, statement)
 	if err != nil || code != 0 {
@@ -279,14 +279,14 @@ func (pg *postgresPOC) adminAt(database, statement string) string {
 	return out
 }
 
-func (pg *postgresPOC) expectAdmin(statement, want string) {
+func (pg *postgres) expectAdmin(statement, want string) {
 	pg.p.t.Helper()
 	if got := pg.admin(statement); got != want {
 		pg.p.t.Fatalf("provider result: got %q, want %q", got, want)
 	}
 }
 
-func (pg *postgresPOC) expect(consumer, connection, statement, want string) {
+func (pg *postgres) expect(consumer, connection, statement, want string) {
 	pg.p.t.Helper()
 	code, out := pg.p.run(consumer, "sql", connection, statement)
 	if code != 0 || strings.TrimSpace(out) != want {
@@ -294,7 +294,7 @@ func (pg *postgresPOC) expect(consumer, connection, statement, want string) {
 	}
 }
 
-func (pg *postgresPOC) waitSQL(statement, want string) {
+func (pg *postgres) waitSQL(statement, want string) {
 	pg.p.t.Helper()
 	deadline := time.Now().Add(20 * time.Second)
 	for {

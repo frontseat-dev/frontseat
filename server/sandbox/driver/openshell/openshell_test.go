@@ -3,8 +3,6 @@ package openshell_test
 import (
 	"context"
 	"errors"
-	"github.com/frontseat-dev/frontseat/local/ports"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testrequired"
 	"io"
 	"net"
 	"net/http"
@@ -27,8 +25,10 @@ import (
 	"github.com/frontseat-dev/frontseat/server/testsupport/testlisten"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testrun"
 
-	"github.com/frontseat-dev/frontseat/server/internal/driver/container"
+	"github.com/frontseat-dev/frontseat/local/ports"
+	"github.com/frontseat-dev/frontseat/server/internal/image"
 	"github.com/frontseat-dev/frontseat/server/sandbox/driver/openshell"
+	"github.com/frontseat-dev/frontseat/server/testsupport/testrequired"
 )
 
 // The port the daemon in a box serves the build API on.
@@ -76,8 +76,8 @@ func driven(t *testing.T) *openshell.Driver {
 	identity := testgateway.Identity(t)
 	// The gateway makes its sandboxes with this machine's container
 	// runtime, which is asked what an image is started with.
-	started := func(ctx context.Context, image string) (openshell.Started, error) {
-		entrypoint, command, environment, err := container.Started(ctx, "docker", image)
+	started := func(ctx context.Context, ref string) (openshell.Started, error) {
+		entrypoint, command, environment, err := image.Started(ctx, "docker", ref)
 		return openshell.Started{Entrypoint: entrypoint, Command: command, Environment: environment}, err
 	}
 	d, err := openshell.New(openshell.Config{Address: testgateway.Address, Identity: identity, Image: started, Writable: []string{"/work", "/var/lib/frontseat"}})

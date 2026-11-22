@@ -175,9 +175,12 @@ var policies = []policy{
 	// A sandbox is the isolation and knows nothing of what lives in one.
 	// A driver's tests, and the service's, are held to the conformance
 	// and run over the driver held in memory (drivertest).
-	{"server/sandbox/**", []string{"sdk/go/api/**", "server/sandbox/**", "server/internal/driver/container", "server/testsupport/drivertest", "server/internal/page", "server/internal/refusal", "server/internal/plain"}},
+	{"server/sandbox/**", []string{"sdk/go/api/**", "server/sandbox/**", "server/internal/image", "server/testsupport/drivertest", "server/internal/page", "server/internal/refusal", "server/internal/plain"}},
 	{"server/sandbox/driver/openshell", []string{"sdk/go/api/**", "server/sandbox/**", "server/testsupport/drivertest", "server/internal/plain", "local/ports"}},
-	{"server/internal/driver/container", []string{"sdk/go/api/**", "server/sandbox/driver", "server/testsupport/drivertest", "local/ports", "server/internal/source/told", "server/internal/sourceapi/**"}},
+	// A driver of the container runtime, for tests alone: what an image
+	// starts is asked through the image package, as the gateway's way
+	// asks it. Its tests start a box and ask its daemon.
+	{"server/testsupport/testcontainer", []string{"server/sandbox/driver", "server/internal/image", "server/testsupport/**", "local", "local/ports", "sdk/go/api/**", "server/internal/source/told", "server/internal/sourceapi/**"}},
 	// The control plane keeps workspaces over the sandboxes they live in,
 	// and asks the version control system through its port (vcs.Fetching)
 	// what reaching a repository takes. It tells a workspace's daemon
@@ -297,7 +300,10 @@ func permits(file, imported string) bool {
 		starts := slices.ContainsFunc(starters, func(root string) bool { return beneath(path, root) })
 		// Test support uses nothing it is there to test: what starts a
 		// daemon, a control plane or a driver is no other test support's.
-		if starts && beneath(dir, "server/testsupport") && !slices.ContainsFunc(starters, func(root string) bool { return beneath(path, root) && beneath(dir, root) }) {
+		// The driver of the container runtime is held to what any driver
+		// is held to (drivertest.Conforms), as the gateway's is.
+		driven := dir == containerDriver && path == "server/testsupport/drivertest"
+		if starts && !driven && beneath(dir, "server/testsupport") && !slices.ContainsFunc(starters, func(root string) bool { return beneath(path, root) && beneath(dir, root) }) {
 			return false
 		}
 		// Acceptance specs can start implementations only in their setup file.
@@ -349,8 +355,8 @@ func permits(file, imported string) bool {
 		return true
 	}
 	// The gateway's driver's tests ask the container runtime what an
-	// image starts, through the container driver; the driver does not.
-	if test && dir == "server/sandbox/driver/openshell" && path == "server/internal/driver/container" {
+	// image starts, as the sandbox service does; the driver does not.
+	if test && dir == "server/sandbox/driver/openshell" && path == "server/internal/image" {
 		return true
 	}
 	if file == "server/internal/build/build.go" && path == "server/internal/exec/reapi" {
@@ -511,156 +517,73 @@ func TestOnlyOnePackageNamesAVersionControlSystem(t *testing.T) {
 	}
 }
 
-// The sandbox API over the container runtime (sandbox.Runner), what
-// makes a sandbox with that runtime (the container driver), and who may
-// name each.
-const (
-	sandboxAPI      = "server/sandbox"
-	runtimeDrivers  = "server/internal/driver"
-	containerDriver = runtimeDrivers + "/container"
-	gridsRunner     = "server/internal/runner"
-)
+// containerDriver is the one driver of the container runtime: test
+// support, which no program links.
+const containerDriver = "server/testsupport/testcontainer"
 
 // containerRuntimeUses is what a file does that could make a sandbox
-// with the container runtime where it may not: a workspace's sandbox is
-// made by the OpenShell gateway and by nothing else, and the sandbox API
-// over the container runtime is the grid's runner's, which starts a
-// test's services beside its sandbox. A test is held as any file is,
-// since a test that made a workspace so would prove nothing of what a
-// person is given. It also says whether the file was seen serving that
-// API, so that the scan can be shown to see.
-func containerRuntimeUses(file string, source []byte) (refused []string, serves bool, err error) {
+// with the container runtime where it may not: every sandbox a program
+// makes is the OpenShell gateway's, and the driver of the container
+// runtime is for tests alone. A test of the journey is held as a
+// program is, since one that made a workspace so would prove nothing of
+// what a person is given.
+func containerRuntimeUses(file string, source []byte) ([]string, error) {
 	file = filepath.ToSlash(file)
-	directory := filepath.ToSlash(filepath.Dir(file))
-	parsed, err := parser.ParseFile(token.NewFileSet(), file, source, 0)
+	parsed, err := parser.ParseFile(token.NewFileSet(), file, source, parser.ImportsOnly)
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
-	// Every name the file knows each package by: one may be imported
-	// more than once.
-	api, runtimes := map[string]bool{}, map[string]bool{}
+	test := strings.HasSuffix(file, "_test.go")
+	var refused []string
 	for _, spec := range parsed.Imports {
-		path := strings.Trim(spec.Path.Value, "\"`")
-		name := filepath.Base(path)
-		if spec.Name != nil {
-			name = spec.Name.Name
+		path := strings.TrimPrefix(strings.Trim(spec.Path.Value, "\"`"), module+"/")
+		if path != containerDriver && !strings.HasPrefix(path, "server/internal/driver/") {
+			continue
 		}
-		switch {
-		case path == module+"/"+sandboxAPI:
-			// Imported without a name, or only to be linked to, what is
-			// used of it has nothing to be seen by.
-			if name == "." || name == "_" {
-				refused = append(refused, fmt.Sprintf("%s imports %s without a name, so what it uses of it cannot be held", file, path))
-			}
-			api[name] = true
-		case strings.HasPrefix(path, module+"/"+runtimeDrivers+"/"):
-			// A runtime's driver is named by its own tests, by the one
-			// function that serves the API over it, and by the gateway's
-			// driver's tests, which ask the runtime what an image starts.
-			own := strings.HasPrefix(file, runtimeDrivers+"/") && strings.HasSuffix(file, "_test.go")
-			if file != sandboxAPI+"/sandbox.go" && !own && file != "server/sandbox/driver/openshell/openshell_test.go" {
-				refused = append(refused, fmt.Sprintf("%s imports a container runtime's driver (%s): only %s/sandbox.go names one", file, path, sandboxAPI))
-			}
-			runtimes[name] = true
+		if !test || strings.HasPrefix(file, "specs/") || strings.HasPrefix(path, "server/internal/driver/") {
+			refused = append(refused, fmt.Sprintf("%s makes sandboxes with the container runtime (%s): a program's are the gateway's, and that driver is for a test of a server alone", file, path))
 		}
 	}
-	// Within the package that serves the API, the function is named with
-	// no package before it.
-	within := directory == sandboxAPI && !strings.HasSuffix(file, "_test.go")
-	for _, declared := range parsed.Decls {
-		function, _ := declared.(*ast.FuncDecl)
-		runner := within && function != nil && function.Recv == nil && function.Name.Name == "Runner"
-		ast.Inspect(declared, func(n ast.Node) bool {
-			switch node := n.(type) {
-			case *ast.SelectorExpr:
-				of, is := node.X.(*ast.Ident)
-				if !is {
-					return true
-				}
-				if api[of.Name] && node.Sel.Name == "Runner" {
-					if directory == gridsRunner {
-						serves = true
-					} else if !(directory == sandboxAPI && strings.HasSuffix(file, "_test.go")) {
-						refused = append(refused, fmt.Sprintf("%s serves the sandbox API over the container runtime: only %s does, and a workspace's sandbox is the gateway's to make", file, gridsRunner))
-					}
-					return false
-				}
-				// Of a runtime's driver the package uses nothing outside
-				// Runner but what an image starts, which the gateway's
-				// way asks: anything else could be another way to a
-				// sandbox the runtime makes.
-				if within && runtimes[of.Name] && !runner && node.Sel.Name != "Started" {
-					refused = append(refused, fmt.Sprintf("%s uses %s.%s outside Runner", file, of.Name, node.Sel.Name))
-				}
-			case *ast.Ident:
-				// Runner is named by its declaration and by nothing else
-				// of the package: called, kept in a variable or handed
-				// on, it would be served under another name.
-				if within && node.Name == "Runner" && (function == nil || node != function.Name) {
-					refused = append(refused, fmt.Sprintf("%s names Runner: the package serves the API over the container runtime for the grid's runner alone, under that one name", file))
-				}
-			}
-			return true
-		})
-	}
-	return refused, serves, nil
+	return refused, nil
 }
 
-func TestOnlyTheGridsRunnerMakesSandboxesWithTheContainerRuntime(t *testing.T) {
+func TestNoProgramMakesSandboxesWithTheContainerRuntime(t *testing.T) {
 	root := repositoryRoot(t)
-	seen := false
 	for file := range importsUnder(t, root, root) {
 		source, err := os.ReadFile(filepath.Join(root, file))
 		if err != nil {
 			t.Fatal(err)
 		}
-		refused, serves, err := containerRuntimeUses(file, source)
+		refused, err := containerRuntimeUses(file, source)
 		if err != nil {
 			t.Fatal(err)
 		}
 		for _, why := range refused {
 			t.Error(why)
 		}
-		seen = seen || serves
-	}
-	if !seen {
-		t.Errorf("%s was not seen serving the sandbox API over the container runtime, so this test would see no other either", gridsRunner)
 	}
 }
 
 // What the rule above refuses, each tried, beside what it allows.
 func TestEveryWayToTheContainerRuntimeIsSeen(t *testing.T) {
-	api, driver := module+"/"+sandboxAPI, module+"/"+containerDriver
+	driver := module + "/" + containerDriver
 	for name, c := range map[string]struct {
 		file, source string
 		refused      bool
 	}{
-		"the grid's runner":                   {gridsRunner + "/runner.go", `package runner; import "` + api + `"; var _ = sandbox.Runner`, false},
-		"the grid's runner's main":            {"server/cmd/frontseat-runner/main.go", `package main; import "` + api + `"; var _ = sandbox.Runner`, true},
-		"the package's own test":              {sandboxAPI + "/runner_test.go", `package sandbox_test; import "` + api + `"; var _ = sandbox.Runner`, false},
-		"the function itself":                 {sandboxAPI + "/sandbox.go", `package sandbox; import "` + driver + `"; func Runner() any { return container.Driver{} }`, false},
-		"the gateway's way":                   {"server/cmd/frontseat-local/main.go", `package main; import "` + api + `"; var _ = sandbox.OpenShell`, false},
-		"another program":                     {"server/cmd/frontseat-local/main.go", `package main; import "` + api + `"; var _ = sandbox.Runner`, true},
-		"under another name":                  {"server/cmd/frontseat-local/main.go", `package main; import made "` + api + `"; var _ = made.Runner`, true},
-		"with no name":                        {"server/cmd/frontseat-local/main.go", `package main; import . "` + api + `"; var _ = Runner`, true},
-		"a test of the journey":               {"specs/cli/local_test.go", `package cli; import "` + api + `"; var _ = sandbox.Runner`, true},
-		"a comparison":                        {"specs/compare/compare_test.go", `package compare; import "` + api + `"; var _ = sandbox.Runner`, true},
-		"a second function of the package":    {sandboxAPI + "/sandbox.go", `package sandbox; import "` + driver + `"; func Local() any { return container.Driver{} }`, true},
-		"a wrapper in the package":            {sandboxAPI + "/sandbox.go", `package sandbox; func Runner() any { return nil }; func Local() any { return Runner() }`, true},
-		"the driver named in another file":    {sandboxAPI + "/service.go", `package sandbox; import "` + driver + `"; var _ = container.Started`, true},
-		"Runner kept in a variable":           {sandboxAPI + "/sandbox.go", `package sandbox; func Runner() any { return nil }; var Local = Runner`, true},
-		"Runner kept and then called":         {sandboxAPI + "/other.go", `package sandbox; func Local() any { f := Runner; return f() }`, true},
-		"Runner called in brackets":           {sandboxAPI + "/other.go", `package sandbox; func Local() any { return (Runner)() }`, true},
-		"another maker of the driver":         {sandboxAPI + "/sandbox.go", `package sandbox; import "` + driver + `"; func Local() any { return container.New() }`, true},
-		"what an image starts, asked":         {sandboxAPI + "/sandbox.go", `package sandbox; import "` + driver + `"; func OpenShell() any { return container.Started }`, false},
-		"imported twice":                      {"server/cmd/frontseat-local/main.go", `package main; import a "` + api + `"; import b "` + api + `"; var _, _ = a.Runner, b.OpenShell`, true},
-		"imported to be linked to":            {"server/cmd/frontseat-local/main.go", `package main; import _ "` + api + `"`, true},
-		"another runtime's driver":            {sandboxAPI + "/sandbox.go", `package sandbox; import "` + module + "/" + runtimeDrivers + `/podman"; func Local() any { return podman.Driver{} }`, true},
-		"another runtime's driver, elsewhere": {"server/cmd/frontseat-local/main.go", `package main; import "` + module + "/" + runtimeDrivers + `/podman"; var _ = podman.Driver{}`, true},
-		"the driver named beneath the port":   {"server/sandbox/driver/openshell/openshell.go", `package openshell; import "` + driver + `"; var _ = container.Driver{}`, true},
+		"a server's test":                 {"server/internal/runner/attempt_test.go", `package runner; import "` + driver + `"`, false},
+		"the sandbox service's test":      {"server/sandbox/runner_test.go", `package sandbox_test; import "` + driver + `"`, false},
+		"under another name, in a test":   {"server/sandbox/runner_test.go", `package sandbox_test; import made "` + driver + `"`, false},
+		"the grid's runner":               {"server/internal/runner/runner.go", `package runner; import "` + driver + `"`, true},
+		"the sandbox service":             {"server/sandbox/sandbox.go", `package sandbox; import made "` + driver + `"`, true},
+		"a program":                       {"server/cmd/frontseat-local/main.go", `package main; import _ "` + driver + `"`, true},
+		"a test of the journey":           {"specs/cli/local_test.go", `package cli; import "` + driver + `"`, true},
+		"a driver beside the gateway's":   {"server/sandbox/sandbox.go", `package sandbox; import "` + module + `/server/internal/driver/podman"`, true},
+		"a driver beside, even in a test": {"server/sandbox/runner_test.go", `package sandbox_test; import "` + module + `/server/internal/driver/podman"`, true},
+		"what an image starts, asked":     {"server/sandbox/sandbox.go", `package sandbox; import "` + module + `/server/internal/image"`, false},
 	} {
 		t.Run(name, func(t *testing.T) {
-			refused, _, err := containerRuntimeUses(c.file, []byte(c.source))
+			refused, err := containerRuntimeUses(c.file, []byte(c.source))
 			if err != nil {
 				t.Fatal(err)
 			}

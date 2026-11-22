@@ -1,4 +1,8 @@
-package container
+// Package testcontainer is a sandbox driver over the container runtime
+// on the machine a test runs on, for the tests that need a runtime
+// beside the driver held in memory. No program makes a sandbox with it:
+// every sandbox a program makes is the OpenShell gateway's.
+package testcontainer
 
 import (
 	"bytes"
@@ -20,6 +24,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/frontseat-dev/frontseat/server/internal/image"
 	"github.com/frontseat-dev/frontseat/server/sandbox/driver"
 )
 
@@ -73,7 +78,7 @@ func (d Driver) Apply(ctx context.Context, record driver.Sandbox) (driver.Sandbo
 		if len(record.Wrapper) > 0 {
 			// The wrapper stands as the entrypoint, and runs the image's
 			// own and its command after it.
-			entrypoint, command, _, err := Started(ctx, "docker", record.Image)
+			entrypoint, command, _, err := image.Started(ctx, "docker", record.Image)
 			if err != nil {
 				return driver.Sandbox{}, err
 			}
@@ -95,10 +100,11 @@ func (d Driver) Apply(ctx context.Context, record driver.Sandbox) (driver.Sandbo
 			exit, output, _, err := d.Exec(waiting, record.ID, "", gate.Arguments, 4096)
 			cancel()
 			if err != nil || exit != 0 {
-				cleaning, stop := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Minute)
-				defer stop()
-				_ = d.Delete(cleaning, record.ID)
-				return driver.Sandbox{}, fmt.Errorf("startup gate failed (exit %d): %v: %s", exit, err, strings.TrimSpace(string(output)))
+				d.ended(ctx, record.ID)
+				if err != nil {
+					return driver.Sandbox{}, fmt.Errorf("startup gate failed: %w: %s", err, strings.TrimSpace(string(output)))
+				}
+				return driver.Sandbox{}, fmt.Errorf("startup gate failed (exit %d): %s", exit, strings.TrimSpace(string(output)))
 			}
 		}
 		// Its further containers join its network once it is there; one
@@ -110,7 +116,7 @@ func (d Driver) Apply(ctx context.Context, record driver.Sandbox) (driver.Sandbo
 				_, err = docker(ctx, args...)
 			}
 			if err != nil {
-				d.Delete(context.WithoutCancel(ctx), record.ID)
+				d.ended(ctx, record.ID)
 				return driver.Sandbox{}, err
 			}
 		}
@@ -139,6 +145,15 @@ func (d Driver) Apply(ctx context.Context, record driver.Sandbox) (driver.Sandbo
 		return driver.Sandbox{}, err
 	}
 	return d.Observe(ctx, record.ID)
+}
+
+// ended ends a sandbox that could not be made whole, though whoever
+// asked for it has gone, and within a time: it is this call's own, made
+// a moment before under the id it was asked for.
+func (d Driver) ended(ctx context.Context, id string) {
+	cleaning, stop := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Minute)
+	defer stop()
+	_ = d.Delete(cleaning, id)
 }
 
 func runArguments(s driver.Sandbox) ([]string, error) {
@@ -281,8 +296,11 @@ func commandedFor(ctx context.Context, id string) (inspected, error) {
 		return inspected{}, err
 	}
 	var found []inspected
-	if err := json.Unmarshal(out, &found); err != nil || len(found) != 1 {
-		return inspected{}, fmt.Errorf("container: reading what docker says of %s: %v", id, err)
+	if err := json.Unmarshal(out, &found); err != nil {
+		return inspected{}, fmt.Errorf("container: reading what docker says of %s: %w", id, err)
+	}
+	if len(found) != 1 {
+		return inspected{}, fmt.Errorf("container: docker says of %d containers where it was asked of %s", len(found), id)
 	}
 	return found[0], nil
 }
@@ -572,35 +590,4 @@ func runtimeCommand(ctx context.Context, program string, args ...string) ([]byte
 	// Both streams are a container's output; everything else prints to
 	// standard output alone.
 	return append(stdout.Bytes(), stderr.Bytes()...), nil
-}
-
-// Started returns what an image the runtime holds is started with, as
-// its configuration has it: its entrypoint, its command and the
-// environment it sets. The runtime is the program of its command line,
-// docker or podman, which answer alike. The image is one already checked
-// to be named as an image is.
-func Started(ctx context.Context, runtime, image string) (entrypoint, command []string, environment map[string]string, err error) {
-	out, err := runtimeCommand(ctx, runtime, "image", "inspect", "--format", "{{json .Config}}", "--", image)
-	if err != nil {
-		// An image the runtime does not hold yet is pulled, once, as it
-		// would be to run it.
-		if _, pulled := runtimeCommand(ctx, runtime, "pull", "--quiet", "--", image); pulled != nil {
-			return nil, nil, nil, err
-		}
-		if out, err = runtimeCommand(ctx, runtime, "image", "inspect", "--format", "{{json .Config}}", "--", image); err != nil {
-			return nil, nil, nil, err
-		}
-	}
-	var config struct {
-		Entrypoint, Cmd, Env []string
-	}
-	if err := json.Unmarshal(out, &config); err != nil {
-		return nil, nil, nil, fmt.Errorf("container: what the runtime says of %s: %w", image, err)
-	}
-	environment = map[string]string{}
-	for _, each := range config.Env {
-		name, value, _ := strings.Cut(each, "=")
-		environment[name] = value
-	}
-	return config.Entrypoint, config.Cmd, environment, nil
 }

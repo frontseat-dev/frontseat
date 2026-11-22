@@ -17,6 +17,7 @@ import (
 	"github.com/frontseat-dev/frontseat/server/internal/testservice"
 	"github.com/frontseat-dev/frontseat/server/sandbox"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testbox"
+	"github.com/frontseat-dev/frontseat/server/testsupport/testcontainer"
 )
 
 func TestReviewAPreparedProgramCannotSetItsConfinerEnvironment(t *testing.T) {
@@ -119,7 +120,7 @@ func TestReviewPreparedHomeFileBindsWorkInTheRealRuntime(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	handler, err := sandbox.Runner("http://runtime-review", nil, t.TempDir())
+	handler, err := sandbox.Handler(testcontainer.Driver{}, "http://runtime-review", t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}

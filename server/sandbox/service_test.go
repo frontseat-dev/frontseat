@@ -30,7 +30,7 @@ func serve(t *testing.T) (sandboxv1alpha1connect.SandboxServiceClient, *httptest
 // serveOver serves the sandbox API over a driver the test keeps hold of.
 func serveOver(t *testing.T, d driver.Driver) (sandboxv1alpha1connect.SandboxServiceClient, *httptest.Server) {
 	t.Helper()
-	return serving(t, func(address string) (http.Handler, error) { return sandbox.Handler(d, address, nil, t.TempDir()) })
+	return serving(t, func(address string) (http.Handler, error) { return sandbox.Handler(d, address, t.TempDir()) })
 }
 
 // serving serves the sandbox API that made returns for the address it is

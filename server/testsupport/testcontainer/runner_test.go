@@ -1,17 +1,17 @@
-package container_test
+package testcontainer_test
 
 import (
 	"context"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testrequired"
 	"os/exec"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/frontseat-dev/frontseat/server/internal/driver/container"
 	"github.com/frontseat-dev/frontseat/server/sandbox/driver"
 	"github.com/frontseat-dev/frontseat/server/testsupport/drivertest"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testbox"
+	"github.com/frontseat-dev/frontseat/server/testsupport/testcontainer"
+	"github.com/frontseat-dev/frontseat/server/testsupport/testrequired"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testrun"
 )
 
@@ -41,14 +41,14 @@ func runnerSandbox(t *testing.T, name string, block bool, subpath string) (drive
 
 // applied has the driver make a sandbox of the test's own, running, and
 // end it when the test ends (drivertest.Running).
-func applied(t *testing.T, d container.Driver, s driver.Sandbox) {
+func applied(t *testing.T, d testcontainer.Driver, s driver.Sandbox) {
 	t.Helper()
 	drivertest.Running(t, d, s)
 }
 
 // execIn runs a command in a sandbox's container until it succeeds or
 // ten seconds pass, and returns its last exit and output.
-func execIn(t *testing.T, d container.Driver, id, container string, args ...string) (int, string) {
+func execIn(t *testing.T, d testcontainer.Driver, id, container string, args ...string) (int, string) {
 	t.Helper()
 	deadline := time.Now().Add(10 * time.Second)
 	for {
@@ -64,7 +64,7 @@ func execIn(t *testing.T, d container.Driver, id, container string, args ...stri
 }
 
 func TestASandboxsContainersShareItsLoopbackAndReachNothingElse(t *testing.T) {
-	d := container.Driver{}
+	d := testcontainer.Driver{}
 	s, _ := runnerSandbox(t, "frontseat-test-loopback", true, "")
 	applied(t, d, s)
 
@@ -88,7 +88,7 @@ func TestASandboxsContainersShareItsLoopbackAndReachNothingElse(t *testing.T) {
 }
 
 func TestASubpathMountsOneDirectoryAndNothingBesideIt(t *testing.T) {
-	d := container.Driver{}
+	d := testcontainer.Driver{}
 	s, _ := runnerSandbox(t, "frontseat-test-subpath", true, "mine")
 	s.Containers = nil
 	applied(t, d, s)
@@ -105,7 +105,7 @@ func TestASubpathMountsOneDirectoryAndNothingBesideIt(t *testing.T) {
 }
 
 func TestExecSaysHowACommandEndedAndWhatItPrinted(t *testing.T) {
-	d := container.Driver{}
+	d := testcontainer.Driver{}
 	s, _ := runnerSandbox(t, "frontseat-test-exec", true, "")
 	applied(t, d, s)
 	exit, out, _, err := d.Exec(context.Background(), s.ID, "web", []string{"sh", "-c", "echo printed; echo also >&2; exit 3"}, 1<<20)
@@ -119,7 +119,7 @@ func TestExecSaysHowACommandEndedAndWhatItPrinted(t *testing.T) {
 }
 
 func TestDeletingASandboxRemovesItsContainers(t *testing.T) {
-	d := container.Driver{}
+	d := testcontainer.Driver{}
 	s, _ := runnerSandbox(t, "frontseat-test-removed", true, "")
 	applied(t, d, s)
 	if err := d.Delete(context.Background(), s.ID); err != nil {
@@ -132,7 +132,7 @@ func TestDeletingASandboxRemovesItsContainers(t *testing.T) {
 }
 
 func TestAPortOfASandboxThatReachesNothingIsRefused(t *testing.T) {
-	d := container.Driver{}
+	d := testcontainer.Driver{}
 	s, _ := runnerSandbox(t, "frontseat-test-blocked-port", true, "")
 	s.Ports = []int{8000}
 	var refused *driver.Unsupported
