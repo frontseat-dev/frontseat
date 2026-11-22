@@ -1,6 +1,7 @@
 package entity
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -39,7 +40,7 @@ func Typed(written string) (Ref, error) {
 // part; its namespace may be left out.
 func (r Ref) ValidateTyped() error {
 	if r.Kind == "" || r.Name == "" {
-		return fmt.Errorf("a reference has a kind and a name")
+		return errors.New("a reference has a kind and a name")
 	}
 	for _, part := range []string{r.Kind, r.Namespace, r.Name} {
 		if part != "" && (len(part) > 255 || !identityPartPattern.MatchString(part)) {
