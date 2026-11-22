@@ -12,6 +12,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	sandboxv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/sandbox/v1alpha1"
+	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/sandbox/v1alpha1/sandboxv1alpha1connect"
 	"github.com/frontseat-dev/frontseat/server/sandbox"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testbox"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testcontainer"
@@ -68,14 +69,22 @@ func TestADriverThatCannotRunACommandInASandboxSaysSo(t *testing.T) {
 	}
 }
 
+// overTheContainerRuntime is a client of the sandbox API served over a
+// driver of the container runtime (testcontainer).
+func overTheContainerRuntime(t *testing.T) sandboxv1alpha1connect.SandboxServiceClient {
+	t.Helper()
+	client, _ := serving(t, func(address string) (http.Handler, error) {
+		return sandbox.Handler(testcontainer.Driver{}, address, t.TempDir())
+	})
+	return client
+}
+
 // Over a driver of the container runtime (testcontainer): a command run
 // in a sandbox's further container, by the service, as it is asked.
 func TestACommandIsRunInASandboxsContainer(t *testing.T) {
 	testrequired.Stack(t)
 	image := testbox.Plain(t)
-	client, _ := serving(t, func(address string) (http.Handler, error) {
-		return sandbox.Handler(testcontainer.Driver{}, address, t.TempDir())
-	})
+	client := overTheContainerRuntime(t)
 	ctx := context.Background()
 	made, err := client.CreateSandbox(ctx, &sandboxv1.CreateSandboxRequest{Spec: &sandboxv1.SandboxSpec{
 		Image: image, Arguments: []string{"sleep", "600"}, Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_BLOCK},
@@ -118,9 +127,7 @@ func TestACommandIsRunInASandboxsContainer(t *testing.T) {
 // (TestASandboxReachesWhatItsRulesSayAndNoMore).
 func TestOverTheContainerRuntimeNoCredentialIsKept(t *testing.T) {
 	testrequired.Stack(t)
-	client, _ := serving(t, func(address string) (http.Handler, error) {
-		return sandbox.Handler(testcontainer.Driver{}, address, t.TempDir())
-	})
+	client := overTheContainerRuntime(t)
 	ctx := context.Background()
 	const says = "a credential kept outside its sandboxes"
 	if _, err := client.SetCredential(ctx, &sandboxv1.SetCredentialRequest{Credential: &sandboxv1.Credential{Name: "a-credential", Host: "forge.example", Secret: "a-made-up-secret"}}); connect.CodeOf(err) != connect.CodeUnimplemented || !strings.Contains(err.Error(), says) {
