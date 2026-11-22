@@ -57,7 +57,10 @@ var (
 type GraphServiceClient interface {
 	// ListEntities returns the workspace's entities, each with the
 	// repository and the directories it governs, and what it depends on,
-	// a page at a time, in the order of their references.
+	// a page at a time, in the order of their references. A page token
+	// names a position in that order: where the workspace's source changes
+	// between two pages, the next page may repeat an entity or leave one
+	// out.
 	//
 	// ### Errors
 	// - INVALID_ARGUMENT: the page token is not one this call gave
@@ -76,7 +79,10 @@ type GraphServiceClient interface {
 	// Maven module, a package of a JavaScript workspace. Each says which
 	// plugin found it, from which manifest, which entity owns it, what it
 	// provides and what it requires. It returns them a page at a time, in
-	// the order of their repositories, directories and plugins.
+	// the order of their repositories, directories and plugins. A page
+	// token names a position in that order: where the workspace's source
+	// changes between two pages, the next page may repeat a project or
+	// leave one out.
 	//
 	// ### Errors
 	// - INVALID_ARGUMENT: the page token is not one this call gave
@@ -96,7 +102,10 @@ func NewGraphServiceClient(client *connect.Client) GraphServiceClient {
 type GraphServiceHandler interface {
 	// ListEntities returns the workspace's entities, each with the
 	// repository and the directories it governs, and what it depends on,
-	// a page at a time, in the order of their references.
+	// a page at a time, in the order of their references. A page token
+	// names a position in that order: where the workspace's source changes
+	// between two pages, the next page may repeat an entity or leave one
+	// out.
 	//
 	// ### Errors
 	// - INVALID_ARGUMENT: the page token is not one this call gave
@@ -115,7 +124,10 @@ type GraphServiceHandler interface {
 	// Maven module, a package of a JavaScript workspace. Each says which
 	// plugin found it, from which manifest, which entity owns it, what it
 	// provides and what it requires. It returns them a page at a time, in
-	// the order of their repositories, directories and plugins.
+	// the order of their repositories, directories and plugins. A page
+	// token names a position in that order: where the workspace's source
+	// changes between two pages, the next page may repeat a project or
+	// leave one out.
 	//
 	// ### Errors
 	// - INVALID_ARGUMENT: the page token is not one this call gave

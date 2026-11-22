@@ -1,26 +1,37 @@
-// Source findings shared by plugin failures, graph requests and build runs.
+// frontseat.type.v1alpha1: a finding about source, and where in the
+// source it is: what a plugin reports of a file, and what a build says
+// is wrong with what it was given to build.
 syntax = "proto3";
 
 package frontseat.type.v1alpha1;
 
-// SourceLocation identifies source, never a private host filesystem path.
+// SourceLocation is a place in the workspace's source: a file of a
+// repository, and a line of it. It is never a path on the machine a
+// server runs on.
 message SourceLocation {
-  // Repository is bound by the host; a plugin leaves it empty.
+  // Repository is the workspace's name for the repository. The server
+  // sets it: a plugin, which is asked about one repository, leaves it
+  // empty.
   string repository = 1;
-  // Path is a literal repository-relative file path.
+  // Path is the file, relative to the repository, written plainly: no
+  // pattern.
   string path = 2;
-  // Line is one-based; zero means the finding names no line.
+  // Line is the line, counted from one; zero where no line is meant.
   int32 line = 3;
 }
 
-// Diagnostic is an actionable finding carried as a google.rpc.Status detail.
+// Diagnostic is one finding about the source that a person or an agent
+// can act on: which rule found it, what is wrong, where, and what to do.
+// A build carries its own in Build.diagnostics, and those of each of its
+// actions in ActionResult.diagnostics.
 message Diagnostic {
-  // Rule_id identifies the plugin and finding, e.g. "go/invalid-manifest".
+  // `rule_id` names the rule that found it, as "<plugin>/<rule>":
+  // "go/invalid-manifest".
   string rule_id = 1;
-  // Message explains the finding independently of its presentation.
+  // Message says what is wrong, as text to show as it is.
   string message = 2;
-  // Source_location is absent when the finding is about no source file.
+  // `source_location` is where it is; unset for a finding about no file.
   SourceLocation source_location = 3;
-  // Help explains the corrective action, including for a finding with no path.
+  // Help says what to do about it.
   string help = 4;
 }

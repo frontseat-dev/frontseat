@@ -5,14 +5,16 @@
 // holds; the daemon keeps no spec of its own. A daemon holds one source,
 // and so a source has no name.
 //
-// It is the daemon's internal API: served on a port of its own, beside
-// the build API's, which the control plane dials and to which it leads no
-// caller. No client, SDK or command line asks it, and its Go is the
-// server's alone (server/internal/sourceapi). The port is no security
-// boundary inside the daemon's sandbox, where anything may reach it:
-// what holds the workspace is that the control plane never reads what
-// is asked for back from the daemon, and tells a daemon that holds
-// another generation its own again.
+// It is the daemon's internal API, not a public one. It is served on a
+// port of its own, beside the build API's. The control plane calls it,
+// and forwards no caller's request to it. No client, SDK or command
+// line calls it, and its Go is the server's alone
+// (server/internal/sourceapi). The port is not a security boundary
+// inside the daemon's sandbox, where any program may reach it. What
+// protects a workspace is that the control plane never takes what a
+// workspace is asked for from the daemon: it keeps that itself, and
+// where a daemon holds another generation than the control plane's, it
+// tells the daemon its own again.
 //
 // What it refuses by name carries ErrorInfo of the domain
 // source.frontseat.dev, whose reason the control plane acts on.
@@ -42,18 +44,18 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// State is where bringing a source is.
+// State is how far cloning a source is.
 type Source_State int32
 
 const (
 	// STATE_UNSPECIFIED: not known.
 	Source_STATE_UNSPECIFIED Source_State = 0
-	// STATE_POPULATING: it is bringing what it was told.
+	// STATE_POPULATING: it is cloning what it was told.
 	Source_STATE_POPULATING Source_State = 1
 	// STATE_READY: it holds what it was told, or was told nothing.
 	Source_STATE_READY Source_State = 2
-	// STATE_FAILED: bringing what it was told failed; failure says why.
-	// What it brought by then is held.
+	// STATE_FAILED: cloning what it was told failed; failure says why.
+	// What it cloned by then is held.
 	Source_STATE_FAILED Source_State = 3
 )
 
@@ -100,15 +102,15 @@ func (Source_State) EnumDescriptor() ([]byte, []int) {
 	return file_frontseat_source_v1alpha1_source_proto_rawDescGZIP(), []int{0, 0}
 }
 
-// Source is what a daemon holds, and how bringing it went.
+// Source is what a daemon holds, and how cloning it went.
 type Source struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// State is where bringing it is.
+	// State is how far cloning it is.
 	State Source_State `protobuf:"varint,1,opt,name=state,proto3,enum=frontseat.source.v1alpha1.Source_State" json:"state,omitempty"`
-	// Failure says why bringing it failed; empty where it did not.
+	// Failure says why cloning it failed; empty where it did not.
 	Failure string `protobuf:"bytes,2,opt,name=failure,proto3" json:"failure,omitempty"`
-	// Generation is the generation it took last; zero for a daemon that
-	// was told none since it started.
+	// Generation is the generation it last accepted; zero for a daemon
+	// that was told none since it started.
 	Generation int64 `protobuf:"varint,3,opt,name=generation,proto3" json:"generation,omitempty"`
 	// Repositories are the repositories it holds.
 	Repositories  []*Repository `protobuf:"bytes,4,rep,name=repositories,proto3" json:"repositories,omitempty"`
@@ -177,15 +179,16 @@ func (x *Source) GetRepositories() []*Repository {
 // SourceSpec is the whole source a daemon is to hold.
 type SourceSpec struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Generation is the control plane's count of what it told: the same
-	// spec, the same generation.
+	// Generation numbers the specs the control plane has given, from
+	// one: it gives the same spec with the same generation, and a changed
+	// spec with a higher one.
 	Generation int64 `protobuf:"varint,1,opt,name=generation,proto3" json:"generation,omitempty"`
 	// Repositories are repositories to clone: those a workspace was asked
 	// for, and those the control plane resolved its entities to.
 	Repositories []*Checkout `protobuf:"bytes,2,rep,name=repositories,proto3" json:"repositories,omitempty"`
 	// Located are the entities the control plane resolved, and where each
-	// is among the repositories: what the daemon knows its entities by. It
-	// resolves nothing itself.
+	// is among the repositories. The daemon resolves nothing itself: this
+	// is all it knows of which entity is where.
 	Located       []*LocatedEntity `protobuf:"bytes,3,rep,name=located,proto3" json:"located,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -307,7 +310,7 @@ func (x *LocatedEntity) GetRoot() string {
 	return ""
 }
 
-// Checkout is a repository to clone.
+// Checkout is a repository for the daemon to clone.
 type Checkout struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Remote is its URL.
@@ -386,7 +389,7 @@ func (x *Checkout) GetName() string {
 type Repository struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Name is its name: what a label and a path name it by. Empty for a
-	// checkout the daemon was given and did not bring.
+	// directory the daemon was started over and did not clone.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Remote is where it was cloned from.
 	Remote string `protobuf:"bytes,2,opt,name=remote,proto3" json:"remote,omitempty"`
@@ -505,7 +508,7 @@ func (x *SetSourceRequest) GetSpec() *SourceSpec {
 // SetSourceResponse is the source as the request left it.
 type SetSourceResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Source is the source, being brought.
+	// Source is the source, being cloned.
 	Source        *Source `protobuf:"bytes,1,opt,name=source,proto3" json:"source,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -548,7 +551,7 @@ func (x *SetSourceResponse) GetSource() *Source {
 	return nil
 }
 
-// WaitSourceRequest says which generation is waited after.
+// WaitSourceRequest names the generation the caller waits for.
 type WaitSourceRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Generation is the generation the caller last gave.

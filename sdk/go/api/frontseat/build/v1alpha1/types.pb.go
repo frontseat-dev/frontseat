@@ -42,12 +42,13 @@ const (
 	// OUTCOME_ERROR: it could not be run: the grid, the sandbox or staging
 	// failed, not the action.
 	Outcome_OUTCOME_ERROR Outcome = 4
-	// OUTCOME_REWRITE: a check that rewrites passed, and its patch is not
-	// empty: the source is not as the check would leave it.
+	// OUTCOME_REWRITE: a check that can rewrite the source ran, and would
+	// change it: the source is not as the check would leave it. It is
+	// counted among a build's failed actions.
 	Outcome_OUTCOME_REWRITE Outcome = 5
-	// OUTCOME_IDLE: it was not run, having nothing to do: something it
-	// reads, which the action before it may leave or not, was not left.
-	// It fails nothing; its message says what was not left.
+	// OUTCOME_IDLE: it was not run, having nothing to do: an optional
+	// output of an action before it, which this one reads, was not made.
+	// It fails nothing; its message says what was not made.
 	Outcome_OUTCOME_IDLE Outcome = 6
 )
 
@@ -224,7 +225,7 @@ type Digest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Hash is the content's SHA-256, in lower-case hex.
 	Hash string `protobuf:"bytes,1,opt,name=hash,proto3" json:"hash,omitempty"`
-	// Size_bytes is the content's size.
+	// `size_bytes` is the content's size.
 	SizeBytes     int64 `protobuf:"varint,2,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

@@ -5,6 +5,12 @@
 // resource: it has an id, it outlives the call that made it, and it is
 // there until the program ends or it is stopped.
 //
+// A daemon keeps every run that has not ended, and the twelve newest of
+// those that have, for as long as it runs: a daemon that stops cancels
+// its runs, and one started again has none. A run the daemon no longer
+// keeps is not listed, and a call that names it is refused NOT_FOUND
+// (RUN_NOT_FOUND).
+//
 // What can be run is said by a plugin, from its ecosystem's own
 // files: an action that says it is a program (Action.program of the
 // plugin contract). Nobody writes one. No build runs such an action, and a
@@ -121,13 +127,13 @@ type Run struct {
 	Profile string `protobuf:"bytes,4,opt,name=profile,proto3" json:"profile,omitempty"`
 	// State is where it is.
 	State Run_State `protobuf:"varint,5,opt,name=state,proto3,enum=frontseat.build.v1alpha1.Run_State" json:"state,omitempty"`
-	// Build_id is the build of what the program is made of, a build of
+	// `build_id` is the build of what the program is made of, a build of
 	// BuildService, made with the run.
 	BuildId string `protobuf:"bytes,6,opt,name=build_id,json=buildId,proto3" json:"build_id,omitempty"`
 	// Label is the action that is the program, as it is printed; empty
 	// until the build has found it.
 	Label string `protobuf:"bytes,7,opt,name=label,proto3" json:"label,omitempty"`
-	// Exit_code is what the program exited with, once it has; 128 and the
+	// `exit_code` is what the program exited with, once it has; 128 and the
 	// signal's number where a signal ended it, as a shell says it.
 	ExitCode int32 `protobuf:"varint,8,opt,name=exit_code,json=exitCode,proto3" json:"exit_code,omitempty"`
 	// Failure says why a run that failed did: what is no program, or
@@ -135,11 +141,11 @@ type Run struct {
 	// run that was cancelled, it says what could not be done of ending
 	// it, if anything.
 	Failure string `protobuf:"bytes,9,opt,name=failure,proto3" json:"failure,omitempty"`
-	// Create_time is when it was made.
+	// `create_time` is when it was made.
 	CreateTime *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=create_time,json=createTime,proto3" json:"create_time,omitempty"`
-	// Start_time is when the program was started; unset until it was.
+	// `start_time` is when the program was started; unset until it was.
 	StartTime *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=start_time,json=startTime,proto3" json:"start_time,omitempty"`
-	// End_time is when the run ended; unset until it has.
+	// `end_time` is when the run ended; unset until it has.
 	EndTime       *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=end_time,json=endTime,proto3" json:"end_time,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -270,9 +276,13 @@ type CreateRunRequest struct {
 	// Profile is the name of the profile the program is built with. Empty,
 	// it is `development`.
 	Profile string `protobuf:"bytes,3,opt,name=profile,proto3" json:"profile,omitempty"`
-	// Request_id makes a retry return the run the first call made: a
+	// `request_id` makes a retry return the run the first call made: a
 	// client that lost the answer sends the same request again with it.
-	// Empty, every call runs.
+	// It is at most 128 bytes; a UUID serves. The daemon remembers the
+	// 4096 newest it was sent, while it runs and still keeps the run each
+	// made: one it has forgotten starts another run. What is sent with it
+	// again is not compared with the first request. Empty, every call
+	// starts a run.
 	RequestId     string `protobuf:"bytes,4,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -385,7 +395,7 @@ func (x *CreateRunResponse) GetRun() *Run {
 // DescribeRunRequest names a run.
 type DescribeRunRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Run_id is the run's id.
+	// `run_id` is the run's id.
 	RunId         string `protobuf:"bytes,1,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -477,10 +487,10 @@ func (x *DescribeRunResponse) GetRun() *Run {
 // ListRunsRequest asks for a page of the runs.
 type ListRunsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Page_size is the most runs to return; zero is a hundred, and
+	// `page_size` is the most runs to return; zero is a hundred, and
 	// more than a thousand is a thousand.
 	PageSize int32 `protobuf:"varint,1,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
-	// Page_token is the next_page_token of the page before; empty for the
+	// `page_token` is the next_page_token of the page before; empty for the
 	// first page.
 	PageToken     string `protobuf:"bytes,2,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -536,7 +546,7 @@ type ListRunsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Runs are the runs, newest first.
 	Runs []*Run `protobuf:"bytes,1,rep,name=runs,proto3" json:"runs,omitempty"`
-	// Next_page_token asks for the page after this one; empty on the last.
+	// `next_page_token` asks for the page after this one; empty on the last.
 	NextPageToken string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -589,7 +599,7 @@ func (x *ListRunsResponse) GetNextPageToken() string {
 // CancelRunRequest names a run to end.
 type CancelRunRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Run_id is the run's id.
+	// `run_id` is the run's id.
 	RunId         string `protobuf:"bytes,1,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -681,7 +691,7 @@ func (x *CancelRunResponse) GetRun() *Run {
 // WaitRunRequest names a run to wait for.
 type WaitRunRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Run_id is the run's id.
+	// `run_id` is the run's id.
 	RunId         string `protobuf:"bytes,1,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -773,7 +783,7 @@ func (x *WaitRunResponse) GetRun() *Run {
 // StreamRunLogsRequest names a run.
 type StreamRunLogsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Run_id is the run's id.
+	// `run_id` is the run's id.
 	RunId         string `protobuf:"bytes,1,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

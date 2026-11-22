@@ -5,6 +5,12 @@
 // resource: it has an id, it outlives the call that made it, and it is
 // there until the program ends or it is stopped.
 //
+// A daemon keeps every run that has not ended, and the twelve newest of
+// those that have, for as long as it runs: a daemon that stops cancels
+// its runs, and one started again has none. A run the daemon no longer
+// keeps is not listed, and a call that names it is refused NOT_FOUND
+// (RUN_NOT_FOUND).
+//
 // What can be run is said by a plugin, from its ecosystem's own
 // files: an action that says it is a program (Action.program of the
 // plugin contract). Nobody writes one. No build runs such an action, and a
@@ -29,7 +35,8 @@ service RunService {
   // BuildService follows the build, StreamRunLogs the program, and
   // WaitRun ends when the program has. Sent again with the same
   // request_id, it returns the run the first call made, and starts
-  // none.
+  // none, for as long as the daemon remembers the request_id
+  // (CreateRunRequest.request_id).
   //
   // ### Errors
   // - INVALID_ARGUMENT: no target is given (TARGET_MISSING), the profile
@@ -53,9 +60,11 @@ service RunService {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
 
-  // ListRuns returns the workspace's runs, newest first, a page
-  // at a time: every one that has not ended, and the newest of those
-  // that have.
+  // ListRuns returns the runs the daemon keeps of the workspace, newest
+  // first, a page at a time: every one that has not ended, and the
+  // twelve newest of those that have. A page token names a position in
+  // that list: where a run is made or let go of between two pages, the
+  // next page may repeat a run or leave one out.
   //
   // ### Errors
   // - INVALID_ARGUMENT: the page token is not one this call gave
@@ -113,13 +122,13 @@ message Run {
   string profile = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
   // State is where it is.
   State state = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // Build_id is the build of what the program is made of, a build of
+  // `build_id` is the build of what the program is made of, a build of
   // BuildService, made with the run.
   string build_id = 6 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Label is the action that is the program, as it is printed; empty
   // until the build has found it.
   string label = 7 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // Exit_code is what the program exited with, once it has; 128 and the
+  // `exit_code` is what the program exited with, once it has; 128 and the
   // signal's number where a signal ended it, as a shell says it.
   int32 exit_code = 8 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Failure says why a run that failed did: what is no program, or
@@ -127,11 +136,11 @@ message Run {
   // run that was cancelled, it says what could not be done of ending
   // it, if anything.
   string failure = 9 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // Create_time is when it was made.
+  // `create_time` is when it was made.
   google.protobuf.Timestamp create_time = 10 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // Start_time is when the program was started; unset until it was.
+  // `start_time` is when the program was started; unset until it was.
   google.protobuf.Timestamp start_time = 11 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // End_time is when the run ended; unset until it has.
+  // `end_time` is when the run ended; unset until it has.
   google.protobuf.Timestamp end_time = 12 [(google.api.field_behavior) = OUTPUT_ONLY];
 
   // State is where a run is.
@@ -164,9 +173,13 @@ message CreateRunRequest {
   // Profile is the name of the profile the program is built with. Empty,
   // it is `development`.
   string profile = 3;
-  // Request_id makes a retry return the run the first call made: a
+  // `request_id` makes a retry return the run the first call made: a
   // client that lost the answer sends the same request again with it.
-  // Empty, every call runs.
+  // It is at most 128 bytes; a UUID serves. The daemon remembers the
+  // 4096 newest it was sent, while it runs and still keeps the run each
+  // made: one it has forgotten starts another run. What is sent with it
+  // again is not compared with the first request. Empty, every call
+  // starts a run.
   string request_id = 4;
 }
 
@@ -178,7 +191,7 @@ message CreateRunResponse {
 
 // DescribeRunRequest names a run.
 message DescribeRunRequest {
-  // Run_id is the run's id.
+  // `run_id` is the run's id.
   string run_id = 1 [(google.api.field_behavior) = REQUIRED];
 }
 
@@ -190,10 +203,10 @@ message DescribeRunResponse {
 
 // ListRunsRequest asks for a page of the runs.
 message ListRunsRequest {
-  // Page_size is the most runs to return; zero is a hundred, and
+  // `page_size` is the most runs to return; zero is a hundred, and
   // more than a thousand is a thousand.
   int32 page_size = 1;
-  // Page_token is the next_page_token of the page before; empty for the
+  // `page_token` is the next_page_token of the page before; empty for the
   // first page.
   string page_token = 2;
 }
@@ -202,13 +215,13 @@ message ListRunsRequest {
 message ListRunsResponse {
   // Runs are the runs, newest first.
   repeated Run runs = 1;
-  // Next_page_token asks for the page after this one; empty on the last.
+  // `next_page_token` asks for the page after this one; empty on the last.
   string next_page_token = 2;
 }
 
 // CancelRunRequest names a run to end.
 message CancelRunRequest {
-  // Run_id is the run's id.
+  // `run_id` is the run's id.
   string run_id = 1 [(google.api.field_behavior) = REQUIRED];
 }
 
@@ -220,7 +233,7 @@ message CancelRunResponse {
 
 // WaitRunRequest names a run to wait for.
 message WaitRunRequest {
-  // Run_id is the run's id.
+  // `run_id` is the run's id.
   string run_id = 1 [(google.api.field_behavior) = REQUIRED];
 }
 
@@ -232,7 +245,7 @@ message WaitRunResponse {
 
 // StreamRunLogsRequest names a run.
 message StreamRunLogsRequest {
-  // Run_id is the run's id.
+  // `run_id` is the run's id.
   string run_id = 1 [(google.api.field_behavior) = REQUIRED];
 }
 

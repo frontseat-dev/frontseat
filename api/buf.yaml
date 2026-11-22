@@ -31,7 +31,10 @@ lint:
 breaking:
   use:
     - FILE
-  # v1alpha1 may break until the first release; v1 never does.
+  # Every package there is is a v1alpha1, which Buf counts unstable and
+  # this setting leaves out: nothing is checked for breaking changes
+  # until a v1 package exists. v1alpha1 may break until the first
+  # release; v1 never does.
   ignore_unstable_packages: true
   ignore:
     - third-party-proto

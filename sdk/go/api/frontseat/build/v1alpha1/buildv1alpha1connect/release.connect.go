@@ -3,6 +3,12 @@
 // resource: it has an id, it outlives the call that made it, and its
 // record says what each unit became.
 //
+// A daemon keeps every release that has not ended, and the twelve
+// newest of those that have, for as long as it runs: a daemon started
+// again has none, though the tags its releases wrote are in its
+// checkout. A release the daemon no longer keeps is refused NOT_FOUND
+// (RELEASE_NOT_FOUND).
+//
 // What is released is pointed at: an entity, alone, or a system or a
 // domain, as a group. Nobody writes a group: it is the catalog's own
 // containment (partOf). Nobody writes what a unit depends on: it is the
@@ -13,7 +19,7 @@
 // systems, a system's its members, and the nearest level that sets a key
 // wins, key by key.
 //
-// There are no phases. Planning reads and changes nothing; it is what a
+// A release has two calls. Planning reads and changes nothing; it is what a
 // person or an agent looks at before releasing. Releasing carries out a
 // plan that was seen, named by its etag, and is refused if the source has
 // moved since.
@@ -104,11 +110,11 @@ type ReleaseServiceClient interface {
 	// - FAILED_PRECONDITION: what an entity says of how it is released is
 	//   mistaken; a repository the request reaches lists no release plugin;
 	//   a unit's members are in more than one repository; units depend on
-	//   each other in a cycle; a unit would be released against an
-	//   unreleased change of a unit it depends on that the request does not
-	//   release; a version is tagged on another commit already. The
-	//   message names what (SOURCE_MISTAKEN, or the catalog's own reason,
-	//   as GraphService.ListEntities gives it).
+	//   each other in a cycle; a unit depends on a unit that has a change
+	//   not yet released, and the request does not release that unit; a
+	//   version is tagged on another commit already. The message names
+	//   what (SOURCE_MISTAKEN, or the catalog's own reason, as
+	//   GraphService.ListEntities gives it).
 	// - UNIMPLEMENTED: what is released is part of a domain within a
 	//   domain, whose release is not served (RELEASE_NOT_SERVED).
 	// - UNAVAILABLE: the daemon is ending (DAEMON_ENDING).
@@ -116,7 +122,7 @@ type ReleaseServiceClient interface {
 	// CreateRelease carries out a plan: it builds the plan's units for
 	// production and tags each unit that moves, at the commit it was
 	// planned from, in the daemon's checkout, and pushes each tag to where
-	// its repository was brought from, the tag alone.
+	// its repository was cloned from, the tag alone.
 	// It returns at once, with the production build's build_id where the
 	// plan builds anything; WaitRelease ends when it does. Releasing what
 	// is already released tags nothing, pushes its tags where they are not
@@ -128,8 +134,8 @@ type ReleaseServiceClient interface {
 	// ### Errors
 	// - INVALID_ARGUMENT: the plan's etag is missing (ETAG_MISSING); or as
 	//   for PlanRelease.
-	// - ABORTED (ETAG_MISMATCH): the plan is no longer what releasing the
-	//   same request would do now; plan again.
+	// - ABORTED: the plan is no longer what releasing the same request
+	//   would do now; plan again (ETAG_MISMATCH).
 	// - FAILED_PRECONDITION: another release is being made (RELEASE_BUSY);
 	//   or as for PlanRelease.
 	// - NOT_FOUND, UNIMPLEMENTED, UNAVAILABLE: as for PlanRelease.
@@ -167,11 +173,11 @@ type ReleaseServiceHandler interface {
 	// - FAILED_PRECONDITION: what an entity says of how it is released is
 	//   mistaken; a repository the request reaches lists no release plugin;
 	//   a unit's members are in more than one repository; units depend on
-	//   each other in a cycle; a unit would be released against an
-	//   unreleased change of a unit it depends on that the request does not
-	//   release; a version is tagged on another commit already. The
-	//   message names what (SOURCE_MISTAKEN, or the catalog's own reason,
-	//   as GraphService.ListEntities gives it).
+	//   each other in a cycle; a unit depends on a unit that has a change
+	//   not yet released, and the request does not release that unit; a
+	//   version is tagged on another commit already. The message names
+	//   what (SOURCE_MISTAKEN, or the catalog's own reason, as
+	//   GraphService.ListEntities gives it).
 	// - UNIMPLEMENTED: what is released is part of a domain within a
 	//   domain, whose release is not served (RELEASE_NOT_SERVED).
 	// - UNAVAILABLE: the daemon is ending (DAEMON_ENDING).
@@ -179,7 +185,7 @@ type ReleaseServiceHandler interface {
 	// CreateRelease carries out a plan: it builds the plan's units for
 	// production and tags each unit that moves, at the commit it was
 	// planned from, in the daemon's checkout, and pushes each tag to where
-	// its repository was brought from, the tag alone.
+	// its repository was cloned from, the tag alone.
 	// It returns at once, with the production build's build_id where the
 	// plan builds anything; WaitRelease ends when it does. Releasing what
 	// is already released tags nothing, pushes its tags where they are not
@@ -191,8 +197,8 @@ type ReleaseServiceHandler interface {
 	// ### Errors
 	// - INVALID_ARGUMENT: the plan's etag is missing (ETAG_MISSING); or as
 	//   for PlanRelease.
-	// - ABORTED (ETAG_MISMATCH): the plan is no longer what releasing the
-	//   same request would do now; plan again.
+	// - ABORTED: the plan is no longer what releasing the same request
+	//   would do now; plan again (ETAG_MISMATCH).
 	// - FAILED_PRECONDITION: another release is being made (RELEASE_BUSY);
 	//   or as for PlanRelease.
 	// - NOT_FOUND, UNIMPLEMENTED, UNAVAILABLE: as for PlanRelease.

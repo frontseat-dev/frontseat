@@ -1,8 +1,15 @@
 // frontseat.build.v1alpha1: builds. A build builds targets, on the
 // daemon of a workspace. A release builds too: it makes a build of its
-// own (ReleaseService, release.proto). It is a
-// resource: it has an id, it outlives the call that made it, and anything
-// that may see it can watch it, read its results and cancel it.
+// own (ReleaseService, release.proto). A build is a resource: it has an
+// id, it outlives the call that made it, and anything that may see it
+// can watch it, read its results and cancel it.
+//
+// A daemon keeps every build that has not ended. Of those that have, it
+// keeps the twelve newest, and any other until five minutes after it
+// ended, and it keeps them when it is started again: a build that was
+// under way when its daemon stopped has ended in error. A build the
+// daemon no longer keeps is not listed, and a call that names it is
+// refused NOT_FOUND (BUILD_NOT_FOUND).
 //
 // What the build API's services refuse by name carries ErrorInfo of the
 // domain build.frontseat.dev, with the reason each call names.
@@ -213,7 +220,7 @@ type Build struct {
 	State Build_State `protobuf:"varint,5,opt,name=state,proto3,enum=frontseat.build.v1alpha1.Build_State" json:"state,omitempty"`
 	// Stage is what a running build is doing now.
 	Stage Build_Stage `protobuf:"varint,6,opt,name=stage,proto3,enum=frontseat.build.v1alpha1.Build_Stage" json:"stage,omitempty"`
-	// Exit_code is how the build ended, in Bazel's names and numbers; unset
+	// `exit_code` is how the build ended, in Bazel's names and numbers; unset
 	// until it has.
 	ExitCode *ExitCode `protobuf:"bytes,7,opt,name=exit_code,json=exitCode,proto3" json:"exit_code,omitempty"`
 	// Failure says, for a build that ended in an error no action explains,
@@ -225,9 +232,9 @@ type Build struct {
 	// do, as the plugin or the host that found it says them, so that a
 	// client reads the file and the rule without parsing the failure.
 	Diagnostics []*v1alpha1.Diagnostic `protobuf:"bytes,19,rep,name=diagnostics,proto3" json:"diagnostics,omitempty"`
-	// Create_time is when the build was made.
+	// `create_time` is when the build was made.
 	CreateTime *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=create_time,json=createTime,proto3" json:"create_time,omitempty"`
-	// End_time is when it ended; unset until it has.
+	// `end_time` is when it ended; unset until it has.
 	EndTime *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=end_time,json=endTime,proto3" json:"end_time,omitempty"`
 	// Counts are its actions by outcome, as they stand.
 	Counts *Counts `protobuf:"bytes,13,opt,name=counts,proto3" json:"counts,omitempty"`
@@ -236,7 +243,7 @@ type Build struct {
 	// Profile is the name of the profile the source was built with: never
 	// empty.
 	Profile string `protobuf:"bytes,17,opt,name=profile,proto3" json:"profile,omitempty"`
-	// Last_sequence is the sequence of the build's latest event.
+	// `last_sequence` is the sequence of the build's latest event.
 	LastSequence  int64 `protobuf:"varint,16,opt,name=last_sequence,json=lastSequence,proto3" json:"last_sequence,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -363,20 +370,24 @@ func (x *Build) GetLastSequence() int64 {
 	return 0
 }
 
-// Counts are a build's actions by outcome.
+// Counts are a build's actions by outcome. Once the build has ended,
+// passed, failed, skipped, errored and idle add up to total.
 type Counts struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Total is how many actions the build selected.
 	Total int32 `protobuf:"varint,1,opt,name=total,proto3" json:"total,omitempty"`
-	// Passed is how many passed.
+	// Passed is how many passed (OUTCOME_PASSED).
 	Passed int32 `protobuf:"varint,2,opt,name=passed,proto3" json:"passed,omitempty"`
-	// Failed is how many failed.
+	// Failed is how many ran and did not pass (OUTCOME_FAILED), and how
+	// many checks would rewrite the source (OUTCOME_REWRITE).
 	Failed int32 `protobuf:"varint,3,opt,name=failed,proto3" json:"failed,omitempty"`
-	// Skipped is how many did not run.
+	// Skipped is how many did not run because something they need did not
+	// pass (OUTCOME_SKIPPED), and, once the build has ended, how many it
+	// never reached, as when it was cancelled.
 	Skipped int32 `protobuf:"varint,4,opt,name=skipped,proto3" json:"skipped,omitempty"`
-	// Errored is how many could not be run.
+	// Errored is how many could not be run (OUTCOME_ERROR).
 	Errored int32 `protobuf:"varint,5,opt,name=errored,proto3" json:"errored,omitempty"`
-	// Idle is how many were not run, having nothing to do.
+	// Idle is how many were not run, having nothing to do (OUTCOME_IDLE).
 	Idle          int32 `protobuf:"varint,6,opt,name=idle,proto3" json:"idle,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -457,11 +468,11 @@ func (x *Counts) GetIdle() int32 {
 // Cost is what a build used: what a budget counts.
 type Cost struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Actions_executed is how many actions a worker ran.
+	// `actions_executed` is how many actions a worker ran.
 	ActionsExecuted int32 `protobuf:"varint,1,opt,name=actions_executed,json=actionsExecuted,proto3" json:"actions_executed,omitempty"`
-	// Worker_time is the time workers spent running them, summed.
+	// `worker_time` is the time workers spent running them, summed.
 	WorkerTime *durationpb.Duration `protobuf:"bytes,2,opt,name=worker_time,json=workerTime,proto3" json:"worker_time,omitempty"`
-	// Wall_time is how long the build took.
+	// `wall_time` is how long the build took.
 	WallTime      *durationpb.Duration `protobuf:"bytes,3,opt,name=wall_time,json=wallTime,proto3" json:"wall_time,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -533,19 +544,19 @@ type ActionResult struct {
 	Outcome Outcome `protobuf:"varint,4,opt,name=outcome,proto3,enum=frontseat.build.v1alpha1.Outcome" json:"outcome,omitempty"`
 	// Provenance is where its result came from.
 	Provenance Provenance `protobuf:"varint,5,opt,name=provenance,proto3,enum=frontseat.build.v1alpha1.Provenance" json:"provenance,omitempty"`
-	// Exit_code is the command's exit code.
+	// `exit_code` is the command's exit code.
 	ExitCode int32 `protobuf:"varint,6,opt,name=exit_code,json=exitCode,proto3" json:"exit_code,omitempty"`
 	// Message says, for an outcome of error, what failed; for a skipped
 	// action, what it needed that did not pass.
 	Message string `protobuf:"bytes,7,opt,name=message,proto3" json:"message,omitempty"`
-	// Action_digest is the action's digest on the grid: what a portal links
+	// `action_digest` is the action's digest on the grid: what a portal links
 	// to, and what two builds are compared by.
 	ActionDigest *Digest `protobuf:"bytes,9,opt,name=action_digest,json=actionDigest,proto3" json:"action_digest,omitempty"`
-	// Start_time is when it started; unset for one answered from a cache.
+	// `start_time` is when it started; unset for one answered from a cache.
 	StartTime *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=start_time,json=startTime,proto3" json:"start_time,omitempty"`
 	// Duration is how long it took, as the build saw it.
 	Duration *durationpb.Duration `protobuf:"bytes,11,opt,name=duration,proto3" json:"duration,omitempty"`
-	// Worker_time is how long a worker spent running it, as the worker
+	// `worker_time` is how long a worker spent running it, as the worker
 	// says; unset for one no worker ran for this build. What a build cost its
 	// workers is the sum of these.
 	WorkerTime *durationpb.Duration `protobuf:"bytes,12,opt,name=worker_time,json=workerTime,proto3" json:"worker_time,omitempty"`
@@ -711,7 +722,7 @@ type Rewrite struct {
 	Content *Digest `protobuf:"bytes,3,opt,name=content,proto3" json:"content,omitempty"`
 	// Executable is whether the file may be run after the change.
 	Executable bool `protobuf:"varint,4,opt,name=executable,proto3" json:"executable,omitempty"`
-	// Rule_id is the rule the change satisfies.
+	// `rule_id` is the rule the change satisfies.
 	RuleId string `protobuf:"bytes,5,opt,name=rule_id,json=ruleId,proto3" json:"rule_id,omitempty"`
 	// Applied is whether the build wrote it to the daemon's checkout.
 	Applied       bool `protobuf:"varint,6,opt,name=applied,proto3" json:"applied,omitempty"`
@@ -803,12 +814,13 @@ type CreateBuildRequest struct {
 	Fix bool `protobuf:"varint,5,opt,name=fix,proto3" json:"fix,omitempty"`
 	// Profile is the name of the profile the source is built with. Empty,
 	// it is `development`. A build may ask for `production`, to see that
-	// what will be released builds: a release builds with it. Those two are the profiles frontseat defines; a name
-	// nobody defined is refused.
+	// what will be released builds: a release builds with it. Those two
+	// are the profiles frontseat defines; any other name is refused
+	// (PROFILE_UNKNOWN).
 	Profile string `protobuf:"bytes,12,opt,name=profile,proto3" json:"profile,omitempty"`
 	// Only keeps the actions that have one of these names, such as
 	// "lint", of whatever the targets point at. Empty keeps every action.
-	// A name no action has is refused.
+	// A name no action has fails the build, which says so in its failure.
 	Only []string `protobuf:"bytes,13,rep,name=only,proto3" json:"only,omitempty"`
 	// Tests keeps the actions that run tests, as the plugin that declared
 	// each says (its test flag), of whatever the targets point at, and
@@ -816,9 +828,14 @@ type CreateBuildRequest struct {
 	// ends with the exit code NO_TESTS_FOUND, 4, saying so in its failure,
 	// as Bazel ends `bazel test` with no test targets.
 	Tests bool `protobuf:"varint,15,opt,name=tests,proto3" json:"tests,omitempty"`
-	// Request_id makes a retry return the build the first call made: a
+	// `request_id` makes a retry return the build the first call made: a
 	// client that lost the answer sends the same request again with it.
-	// Empty, every call starts a build.
+	// It is at most 128 bytes; a UUID serves. The daemon remembers the
+	// 4096 newest it was sent, while it runs and still keeps the build
+	// each made: one it has forgotten, or one sent to a daemon started
+	// again since, starts another build. What is sent with it again is
+	// not compared with the first request. Empty, every call starts a
+	// build.
 	RequestId     string `protobuf:"bytes,14,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -945,7 +962,7 @@ func (x *CreateBuildResponse) GetBuild() *Build {
 // DescribeBuildRequest names a build.
 type DescribeBuildRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Build_id is the build's id.
+	// `build_id` is the build's id.
 	BuildId       string `protobuf:"bytes,1,opt,name=build_id,json=buildId,proto3" json:"build_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1037,10 +1054,10 @@ func (x *DescribeBuildResponse) GetBuild() *Build {
 // ListBuildsRequest asks for a page of the workspace's builds.
 type ListBuildsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Page_size is the most builds to return; zero is a hundred, and more
+	// `page_size` is the most builds to return; zero is a hundred, and more
 	// than a thousand is a thousand.
 	PageSize int32 `protobuf:"varint,1,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
-	// Page_token is the next_page_token of the page before; empty for the
+	// `page_token` is the next_page_token of the page before; empty for the
 	// first page.
 	PageToken     string `protobuf:"bytes,2,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -1096,7 +1113,7 @@ type ListBuildsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Builds are the builds, newest first.
 	Builds []*Build `protobuf:"bytes,1,rep,name=builds,proto3" json:"builds,omitempty"`
-	// Next_page_token asks for the page after this one; empty on the last.
+	// `next_page_token` asks for the page after this one; empty on the last.
 	NextPageToken string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1149,7 +1166,7 @@ func (x *ListBuildsResponse) GetNextPageToken() string {
 // CancelBuildRequest names a build to stop.
 type CancelBuildRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Build_id is the build's id.
+	// `build_id` is the build's id.
 	BuildId       string `protobuf:"bytes,1,opt,name=build_id,json=buildId,proto3" json:"build_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1241,7 +1258,7 @@ func (x *CancelBuildResponse) GetBuild() *Build {
 // WaitBuildRequest names the build to wait for.
 type WaitBuildRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Build_id is the build's id.
+	// `build_id` is the build's id.
 	BuildId       string `protobuf:"bytes,1,opt,name=build_id,json=buildId,proto3" json:"build_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1333,9 +1350,9 @@ func (x *WaitBuildResponse) GetBuild() *Build {
 // StreamBuildEventsRequest names a build and where to start.
 type StreamBuildEventsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Build_id is the build's id.
+	// `build_id` is the build's id.
 	BuildId string `protobuf:"bytes,1,opt,name=build_id,json=buildId,proto3" json:"build_id,omitempty"`
-	// From_sequence is the first event to send, from 1; zero is the first.
+	// `from_sequence` is the first event to send, from 1; zero is the first.
 	FromSequence  int64 `protobuf:"varint,2,opt,name=from_sequence,json=fromSequence,proto3" json:"from_sequence,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1434,12 +1451,12 @@ func (x *StreamBuildEventsResponse) GetEvents() []*BuildEvent {
 // ListBuildActionsRequest names a build whose actions are listed.
 type ListBuildActionsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Build_id is the build's id.
+	// `build_id` is the build's id.
 	BuildId string `protobuf:"bytes,1,opt,name=build_id,json=buildId,proto3" json:"build_id,omitempty"`
-	// Page_size is the most actions to return; zero is a hundred, and more
+	// `page_size` is the most actions to return; zero is a hundred, and more
 	// than a thousand is a thousand.
 	PageSize int32 `protobuf:"varint,3,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
-	// Page_token is the next_page_token of the page before; empty for the
+	// `page_token` is the next_page_token of the page before; empty for the
 	// first page.
 	PageToken     string `protobuf:"bytes,4,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -1502,7 +1519,7 @@ type ListBuildActionsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Actions are the actions, in the order the build planned them.
 	Actions []*ActionResult `protobuf:"bytes,1,rep,name=actions,proto3" json:"actions,omitempty"`
-	// Next_page_token asks for the page after this one; empty on the last.
+	// `next_page_token` asks for the page after this one; empty on the last.
 	NextPageToken string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1555,7 +1572,7 @@ func (x *ListBuildActionsResponse) GetNextPageToken() string {
 // StreamBuildLogsRequest names an action of a build.
 type StreamBuildLogsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Build_id is the build's id.
+	// `build_id` is the build's id.
 	BuildId string `protobuf:"bytes,1,opt,name=build_id,json=buildId,proto3" json:"build_id,omitempty"`
 	// Label is the action's label.
 	Label         string `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"`
@@ -1653,8 +1670,8 @@ func (x *StreamBuildLogsResponse) GetLines() []*v1alpha1.LogLine {
 	return nil
 }
 
-// BuildEvent is one thing that happened in a build. Every renderer and every
-// diagnostic reads this stream and nothing else.
+// BuildEvent is one thing that happened in a build. A client that shows
+// a build's progress needs these events and nothing else.
 type BuildEvent struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Sequence numbers the build's events from 1, with no gaps.
@@ -1796,7 +1813,7 @@ type isBuildEvent_Event interface {
 }
 
 type BuildEvent_StageChanged_ struct {
-	// Stage_changed: the build moved to another stage.
+	// `stage_changed`: the build moved to another stage.
 	StageChanged *BuildEvent_StageChanged `protobuf:"bytes,3,opt,name=stage_changed,json=stageChanged,proto3,oneof"`
 }
 
@@ -1806,17 +1823,17 @@ type BuildEvent_Planned_ struct {
 }
 
 type BuildEvent_ActionStarted_ struct {
-	// Action_started: an action began.
+	// `action_started`: an action began.
 	ActionStarted *BuildEvent_ActionStarted `protobuf:"bytes,5,opt,name=action_started,json=actionStarted,proto3,oneof"`
 }
 
 type BuildEvent_ActionFinished_ struct {
-	// Action_finished: an action ended.
+	// `action_finished`: an action ended.
 	ActionFinished *BuildEvent_ActionFinished `protobuf:"bytes,6,opt,name=action_finished,json=actionFinished,proto3,oneof"`
 }
 
 type BuildEvent_Patched_ struct {
-	// Patched: the daemon applied a fix's patch to its own checkout.
+	// Patched: the daemon wrote what a fix changed to its own checkout.
 	Patched *BuildEvent_Patched `protobuf:"bytes,7,opt,name=patched,proto3,oneof"`
 }
 
@@ -1826,7 +1843,7 @@ type BuildEvent_Finished_ struct {
 }
 
 type BuildEvent_StartedOver_ struct {
-	// Started_over: the build began again from its plan.
+	// `started_over`: the build began again from its plan.
 	StartedOver *BuildEvent_StartedOver `protobuf:"bytes,9,opt,name=started_over,json=startedOver,proto3,oneof"`
 }
 
@@ -1947,8 +1964,8 @@ func (x *BuildEvent_StageChanged) GetStage() Build_Stage {
 	return Build_STAGE_UNSPECIFIED
 }
 
-// Planned announces every action the build will account for, so a reader
-// knows at once what is outstanding.
+// Planned lists every action the build will run or answer for, so
+// that a reader knows from the start how many are still to end.
 type BuildEvent_Planned struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Actions are the build's actions, in dependency order.
@@ -2003,7 +2020,7 @@ func (x *BuildEvent_Planned) GetRoots() []string {
 	return nil
 }
 
-// PlannedAction is an action the build will account for.
+// PlannedAction is one action of a build's plan.
 type BuildEvent_PlannedAction struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Label is the action's label.
@@ -2224,15 +2241,16 @@ func (x *BuildEvent_Patched) GetPaths() []string {
 	return nil
 }
 
-// StartedOver is the build beginning again from its plan, once: the grid
-// no longer held something one of its actions was handed, a tool or
-// what another action left, and whatever made it must make it again.
-// What its actions did before this event is no part of the build's
-// result: every action is planned, started and finished again after
-// it. A build that meets the same a second time ends in error.
+// StartedOver is the build beginning again from its plan. It happens
+// at most once in a build: the grid no longer held an input of one of
+// its actions, a tool or another action's output, so the action that
+// makes that input has to run again. What the build's actions did
+// before this event is no part of its result: every action is
+// planned, started and finished again after it. A build that loses an
+// input a second time ends in error.
 type BuildEvent_StartedOver struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Label is the action that was handed what the grid no longer held.
+	// Label is the action whose input the grid no longer held.
 	Label string `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
 	// Reason is what the grid said.
 	Reason        string `protobuf:"bytes,2,opt,name=reason,proto3" json:"reason,omitempty"`
