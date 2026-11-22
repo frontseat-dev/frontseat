@@ -2,6 +2,7 @@ package source
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
@@ -13,7 +14,8 @@ import (
 )
 
 // stalled is a version control system whose remote accepts and never
-// answers: a clone waits until it is stopped, unless it is let through.
+// answers: a clone writes the first of what it brings and waits until it
+// is stopped, unless it is let through.
 type stalled struct {
 	entered chan struct{}
 	through atomic.Bool
@@ -24,8 +26,11 @@ func (s *stalled) NameOf(remote string) string { return filepath.Base(remote) }
 
 func (s *stalled) Revision(string) error { return nil }
 
-func (s *stalled) Clone(ctx context.Context, _ string, _ vcs.Source) (string, error) {
+func (s *stalled) Clone(ctx context.Context, directory string, _ vcs.Source) (string, error) {
 	defer s.left.Add(1)
+	if err := os.WriteFile(filepath.Join(directory, "brought.txt"), []byte("brought\n"), 0o644); err != nil {
+		return "", err
+	}
 	if s.through.Load() {
 		return "0", nil
 	}
@@ -49,6 +54,18 @@ func overStalled(t *testing.T) (*stalled, *Workspace, []record.Checkout) {
 		t.Fatal(err)
 	}
 	return system, w, []record.Checkout{{Name: "services", Remote: "forge/services"}}
+}
+
+// underWay is a workspace over a stalled system, told to bring the
+// repository asked, once the clone of it is under way.
+func underWay(t *testing.T) (*stalled, *Workspace, []record.Checkout) {
+	t.Helper()
+	system, w, asked := overStalled(t)
+	if err := w.Populate(1, asked, nil); err != nil {
+		t.Fatal(err)
+	}
+	<-system.entered
+	return system, w, asked
 }
 
 // ended waits for a workspace to stop being populated, for no longer
@@ -99,11 +116,7 @@ func TestARepositoryNotBroughtWithinItsBoundFailsTheWorkspaceWhichSaysSo(t *test
 // stops it and returns only once it has stopped, the workspace says why
 // it was not populated, and nothing is brought after.
 func TestClosingAWorkspaceStopsWhatIsBringingItsRepositories(t *testing.T) {
-	system, w, asked := overStalled(t)
-	if err := w.Populate(1, asked, nil); err != nil {
-		t.Fatal(err)
-	}
-	<-system.entered
+	system, w, asked := underWay(t)
 
 	closed := make(chan struct{})
 	go func() { w.Close(); close(closed) }()
@@ -125,5 +138,77 @@ func TestClosingAWorkspaceStopsWhatIsBringingItsRepositories(t *testing.T) {
 	}
 	if now, _ := w.Now(); now.State != Failed || system.left.Load() != 1 {
 		t.Errorf("told a source once closed, the workspace is %v after %d clones, want failed and nothing brought", now.State, system.left.Load())
+	}
+}
+
+// A daemon that ends while a repository is being cloned, killed with
+// its sandbox, leaves what it had cloned so far; the daemon started
+// again over the same directory is told the same source and brings the
+// repository. What is on the disk while the clone is under way is what
+// such a daemon leaves. The control: a directory of the repository's
+// name that no clone of the workspace made is another's, and is refused.
+func TestAWorkspaceOpenedAgainOverACloneStoppedMidwayBringsIt(t *testing.T) {
+	_, w, asked := underWay(t)
+	left := t.TempDir()
+	if err := os.CopyFS(left, os.DirFS(w.Root())); err != nil {
+		t.Fatal(err)
+	}
+	w.Close()
+
+	again := &stalled{entered: make(chan struct{}, 1)}
+	again.through.Store(true)
+	reopened, err := Open(left, false, again)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reopened.Close()
+	if err := reopened.Populate(1, asked, nil); err != nil {
+		t.Fatal(err)
+	}
+	if now := ended(t, reopened); now.State != Ready {
+		t.Errorf("opened again over a clone stopped midway, the workspace is %v (%s), want ready", now.State, now.Message)
+	}
+
+	another := t.TempDir()
+	if err := os.Mkdir(filepath.Join(another, "services"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(another, "services", "mine.txt"), []byte("mine\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	held, err := Open(another, false, again)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer held.Close()
+	if err := held.Populate(1, asked, nil); err != nil {
+		t.Fatal(err)
+	}
+	if now := ended(t, held); now.State != Failed || !strings.Contains(now.Message, "services is in the workspace already") {
+		t.Errorf("over a directory no clone made, the workspace is %v (%s), want failed, saying it is there already", now.State, now.Message)
+	}
+	if _, err := os.Stat(filepath.Join(another, "services", "mine.txt")); err != nil {
+		t.Errorf("what was in a directory no clone made is gone: %v", err)
+	}
+}
+
+// A repository that fails for a reason of its own while the workspace
+// is closing is said to fail for that reason, and not to have been
+// stopped: only what was stopped is said to be. The control is
+// TestClosingAWorkspaceStopsWhatIsBringingItsRepositories.
+func TestARepositoryThatFailsOfItselfWhileTheWorkspaceClosesSaysWhy(t *testing.T) {
+	_, w, asked := overStalled(t)
+	defer w.Close()
+	if err := os.Mkdir(filepath.Join(w.Root(), "services"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	w.stop()
+
+	if err := w.Populate(1, asked, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	if now := ended(t, w); now.State != Failed || !strings.Contains(now.Message, "services is in the workspace already") {
+		t.Errorf("the workspace is %v (%s), want failed, saying the repository is there already", now.State, now.Message)
 	}
 }
