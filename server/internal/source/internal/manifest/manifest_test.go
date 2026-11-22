@@ -1,6 +1,7 @@
 package manifest_test
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -83,7 +84,9 @@ func TestAManifestOfAKeyUnknownIsNotReadInPart(t *testing.T) {
 }
 
 // A manifest is written whole: what is written is read back as it was,
-// and nothing of the writing is left beside it.
+// a reader that reads while it is written again and again, at two
+// sizes, finds all of one or of the other and never part of one, and
+// nothing of the writing is left beside it.
 func TestAManifestIsWrittenWholeAndReadBack(t *testing.T) {
 	dir := t.TempDir()
 	testfiles.Tree(t, dir, map[string]string{manifest.File: sound})
@@ -98,7 +101,32 @@ func TestAManifestIsWrittenWholeAndReadBack(t *testing.T) {
 	if err != nil || !found || len(again.Repositories) != 1 || again.Repositories[0].Name != "services" {
 		t.Errorf("what was written is read back as %+v (found %v, %v)", again, found, err)
 	}
-	left, err := filepath.Glob(filepath.Join(filepath.Dir(filepath.Join(dir, filepath.FromSlash(manifest.File))), "*"))
+	shorter := manifest.Manifest{Repositories: first.Repositories}
+	written := make(chan error, 1)
+	go func() {
+		for i := range 200 {
+			if err := manifest.Write(dir, []manifest.Manifest{first, shorter}[i%2]); err != nil {
+				written <- err
+				return
+			}
+		}
+		written <- nil
+	}()
+	for done := false; !done; {
+		select {
+		case err := <-written:
+			if err != nil {
+				t.Fatal(err)
+			}
+			done = true
+		default:
+		}
+		read, found, err := manifest.Read(dir, git.System{}.Revision)
+		if err != nil || !found || len(read.Repositories) != 1 {
+			t.Fatalf("a manifest read while it is written is %+v (found %v, %v), want all of one", read, found, err)
+		}
+	}
+	left, err := os.ReadDir(filepath.Dir(filepath.Join(dir, filepath.FromSlash(manifest.File))))
 	if err != nil || len(left) != 1 {
 		t.Errorf("beside the manifest there is %v (%v), want it alone", left, err)
 	}
