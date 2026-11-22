@@ -27,8 +27,10 @@ or host imports of its own.
 | `frontseat_call` | `(ptr: i32, size: i32) -> i64` | Takes a serialized `Call`, returns a serialized `Reply`. |
 
 A returned `i64` is an address in its high 32 bits and a size in its low
-32. The host frees what a module returns, with `frontseat_free`, once it
-has read it.
+32. The host frees the `Call` it wrote, with `frontseat_free`. What
+`frontseat_call` returns it reads and does not free: each call is made
+on an instance of its own, which the host discards with its memory once
+it has read the reply.
 
 ## Imports
 
@@ -63,14 +65,20 @@ and patterns when deciding whether a previously computed answer still holds.
    spells it, and its request.
 2. It writes it into the module and calls `frontseat_call`.
 3. The module answers with a `Reply`: the response or a `google.rpc.Status`
-   failure. A method it does not serve returns `UNIMPLEMENTED`.
+   failure. A method it does not serve returns `UNIMPLEMENTED` for the
+   reason `<METHOD>_NOT_SERVED`, the method's name in capitals
+   (`REPORT_NOT_SERVED`); the Rust SDK answers a method it does not know
+   `UNIMPLEMENTED` for the reason `UNKNOWN_METHOD`, which the host reads
+   alike.
 
 The methods are `Describe`, `Analyze`, `Arrange`, `Report`, `Reconcile`,
 `Service`, `Branch` and `Version`. `Report` is
 asked of a check once it has ended, with its exit code and what it
-printed, each cut to its first MiB; a plugin that answers it
-`UNIMPLEMENTED` has checks with no findings but their exit code and what
-they printed, and the host records none. A check writes nothing on the
+printed, each cut to its first MiB; a plugin that does not serve it
+(`UNIMPLEMENTED`, `REPORT_NOT_SERVED`) has checks with no findings but
+their exit code and what they printed, and the host records none.
+`UNIMPLEMENTED` for any other reason is a failure of the call, as any
+other code is. A check writes nothing on the
 grid. What a check's fix may change is declared on the action
 (`rewrites`); the fix runs where the checkout is, over a copy, and the
 host compares the copy with what the run read. A plugin writes nothing
@@ -93,8 +101,23 @@ schemas that a generic JSON client would be unable to read.
 What a plugin finds valid and does not build yet it refuses as every
 server of Frontseat refuses what it does not serve: `UNIMPLEMENTED`, for
 the reason `<WHAT>_NOT_SERVED` (`WORKSPACES_NOT_SERVED`), with the file it
-is about. A file that is not as the plugin reads one is
-`FAILED_PRECONDITION`, for a reason of the plugin's own.
+is about. The host tells it from a method the plugin does not serve by
+its reason, which names what is not served and not the method. A file
+that is not as the plugin reads one is `FAILED_PRECONDITION`, for a
+reason of the plugin's own.
+
+The host refuses a failure that is not as this section says, each rule
+by a refusal of its own: a canonical code of a failure, and a message;
+one `ErrorInfo`, its reason `[A-Z][A-Z0-9_]*`, its domain the plugin's;
+one `Diagnostic`, its rule ID the plugin's name, a slash and the reason
+as lower-case words of `[a-z0-9]` joined by single hyphens, with a
+message, and where it names a file, a path relative to the repository's
+root that stays within it, no repository and no line below zero. The
+Rust SDK holds a failure to the same rules before it encodes one, and
+sends in its place an `INTERNAL` failure for the reason
+`invalid-failure` that says the rule broken and the message the plugin
+wrote; one table of cases holds the two to agree
+(`sdk/plugin-test/testdata/failures.json`).
 
 A plugin's interests are patterns of the language `host.proto` says, of
 files beneath the repository's root; the host refuses a plugin whose
@@ -103,7 +126,11 @@ interests, last: a `testdata` directory holds fixtures, and what is in
 one is no project.
 
 A module never traps to report a failure. A trap is a bug in the module,
-and the host reports it as one.
+and the host reports it as one, naming the plugin and the call, with the
+end of what the module printed to standard error (its last 8 KiB): where
+a Rust plugin's panic says its file, line and message. A call its caller
+gave up, and one in which the host could not serve a read, are reported
+as that, whatever the module did after.
 
 ## Rules a module can rely on, and must keep
 
@@ -122,8 +149,8 @@ and the host reports it as one.
   before ecosystem code runs. Missing, unknown, unset and mistyped values fail;
   empty strings/lists, false and zero are present values. All signed int64
   values are carried exactly, without floating-point conversion.
-- **Profiles are explicit.** Analyze and Arrange require development or
-  production. The SDK rejects unspecified and unknown values before source
+- **Profiles are explicit.** Analyze, Arrange, Report and Reconcile
+  require development or production. The SDK rejects unspecified and unknown values before source
   access, just as it validates options before ecosystem code.
 - **Each call is made on an instance of its own.** Nothing a call
   leaves in memory is there for the next, and calls do not wait for

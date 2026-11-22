@@ -26,7 +26,10 @@ pub mod reply {
         #[prost(bytes, tag = "1")]
         Response(::prost::alloc::vec::Vec<u8>),
         /// Error says the call failed, with ErrorInfo and shared Diagnostic details.
-        /// A method the plugin does not serve uses UNIMPLEMENTED.
+        /// A method the plugin does not serve uses UNIMPLEMENTED, for the
+        /// reason <METHOD>_NOT_SERVED in its ErrorInfo, the method's name in
+        /// capitals. UNIMPLEMENTED for another reason is a failure of the
+        /// call, of something the method was asked about.
         /// Additional details use standard google.rpc error-detail messages only;
         /// custom message types and nested Status messages are refused. Every detail
         /// must be valid for both protobuf and JSON clients.
@@ -266,7 +269,8 @@ pub struct Context {
 /// the value that holds where the plugin is asked.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct Option {
-    /// Name is what it is set by, lower-case \[a-z0-9-\].
+    /// Name is what it is set by, lower-case words of \[a-z0-9\] joined by
+    /// single hyphens.
     #[prost(string, tag = "1")]
     pub name: ::prost::alloc::string::String,
     /// Kind is the kind of value it takes.
@@ -347,8 +351,8 @@ pub struct DescribeRequest {
 /// DescribeResponse is what a plugin is.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DescribeResponse {
-    /// Name is the plugin's name, lower-case \[a-z0-9-\]. It qualifies every
-    /// action the plugin declares.
+    /// Name is the plugin's name, lower-case words of \[a-z0-9\] joined by
+    /// single hyphens. It qualifies every action the plugin declares.
     #[prost(string, tag = "1")]
     pub name: ::prost::alloc::string::String,
     /// Abi is the ABI the module speaks. The host refuses a module outside
@@ -647,9 +651,10 @@ pub struct Requirement {
     /// Coordinate is what is needed.
     #[prost(message, optional, tag = "1")]
     pub coordinate: ::core::option::Option<Coordinate>,
-    /// Origin is where the ecosystem's own files say so. An edge is shown
-    /// with it, so that whoever asks why one project needs another is
-    /// pointed at the line.
+    /// Origin is where the ecosystem's own files say so, and is required:
+    /// the host refuses a requirement without a file and a line. An edge
+    /// is shown with it, so that whoever asks why one project needs another
+    /// is pointed at the line.
     #[prost(message, optional, tag = "5")]
     pub origin: ::core::option::Option<Origin>,
     /// Version is the version the project's own files resolve it to, as the
@@ -663,10 +668,10 @@ pub struct Requirement {
 /// Origin is a place in a file of the repository.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct Origin {
-    /// Path is the file, relative to the repository.
+    /// Path is the file, relative to the repository's root and within it.
     #[prost(string, tag = "1")]
     pub path: ::prost::alloc::string::String,
-    /// Line is the line in it, from 1; zero when it names none.
+    /// Line is the line in it, from 1.
     #[prost(int32, tag = "2")]
     pub line: i32,
 }
@@ -674,9 +679,10 @@ pub struct Origin {
 /// entity that owns its project, the plugin's name and the action's name.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Action {
-    /// Name is its name within the project, lower-case \[a-z0-9-\]. Plugins
-    /// use the same names for the same things, since a run can be asked
-    /// for only the actions of one name: lint, compile, test. A shared
+    /// Name is its name within the project, lower-case words of \[a-z0-9\]
+    /// joined by single hyphens. Plugins use the same names for the same
+    /// things, since a run can be asked for only the actions of one name:
+    /// lint, compile, test. A shared
     /// action's name is that, a slash, and what it is of, in letters,
     /// digits and "._~+@-/": fetch/github.com/spf13/cobra@v1.8.1.
     ///
@@ -694,6 +700,10 @@ pub struct Action {
     /// is and of how many, from 1, as test/internal/ledger@2of4. No piece's
     /// own name holds "@". The label of a piece that is cut into shards
     /// points at its shards.
+    ///
+    /// An action that publishes is named "publish", a slash and what it
+    /// publishes to, a name as the first sentence says one:
+    /// publish/github. Only one that publishes is named so.
     #[prost(string, tag = "1")]
     pub name: ::prost::alloc::string::String,
     /// Command is what it runs.
