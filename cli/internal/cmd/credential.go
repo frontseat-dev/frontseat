@@ -1,15 +1,17 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
-	"net/url"
 	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 
+	"github.com/frontseat-dev/frontseat/cli/internal/ui/plain"
 	"github.com/frontseat-dev/frontseat/sdk/go"
 )
 
@@ -25,12 +27,13 @@ const longest = 4096
 // standard input.
 var secretFrom io.Reader
 
-// credentialCmd represents the credential command
+// credentialCmd gives the control plane a host's credential, or has it let go of one.
 var credentialCmd = &cobra.Command{
 	Use:   "credential HOST",
 	Short: "Give the control plane your credential for a host, which no sandbox holds",
 	Long: `Give the control plane your credential for a host, read from
-standard input: a password or a token, on one line. It is yours: the
+standard input: a password or a token, on one line. At a terminal it is
+asked for, and what is typed is not shown. It is yours: the
 control plane keeps it outside every sandbox, and a workspace of yours
 that fetches a repository of that host is let through with it and never
 holds it; no one else's workspace is. It is never shown or read back,
@@ -52,37 +55,78 @@ reads no more than it must.`,
 		if err != nil {
 			return err
 		}
-		// A secret is sent over https, or to this machine.
-		if at, err := url.Parse(fs.Server()); err != nil || (at.Scheme != "https" && !local(fs.Server())) {
-			return fmt.Errorf("a credential is given to a control plane over https, or on this machine, and %s is neither", fs.Server())
-		}
+		// A secret is sent over https, or to this machine: the command
+		// line asks no control plane otherwise (machine.Server).
 		credentials := fs.Credentials()
 		if credentialForget {
 			return credentials.Delete(cmd.Context(), args[0])
 		}
-		// A secret is a line, and no long one.
+		secret, err := secretRead(cmd.Context(), cmd.ErrOrStderr(), args[0])
+		if err != nil {
+			return err
+		}
+		return credentials.Set(cmd.Context(), frontseat.Credential{Host: args[0], Username: credentialUsername, Secret: secret})
+	},
+}
+
+// secretRead reads the secret of a host's credential: a line, and no
+// long one. A person at a terminal is asked for it on asking, and what
+// they type is not shown; anything else is read from standard input to
+// its end. An interrupt while a person is asked ends the asking: the
+// terminal is given back as it was, and the read is left to end with
+// the command.
+func secretRead(ctx context.Context, asking io.Writer, host string) (string, error) {
+	var read []byte
+	var err error
+	if stdin := int(os.Stdin.Fd()); secretFrom == nil && term.IsTerminal(stdin) {
+		was, held := term.GetState(stdin)
+		if held != nil {
+			return "", held
+		}
+		type typing struct {
+			read []byte
+			err  error
+		}
+		typed := make(chan typing, 1)
+		fmt.Fprintf(asking, "Secret for %s (it is not shown): ", plain.Shown(host))
+		go func() {
+			read, err := term.ReadPassword(stdin)
+			typed <- typing{read, err}
+		}()
+		select {
+		case got := <-typed:
+			read, err = got.read, got.err
+			fmt.Fprintln(asking)
+		case <-ctx.Done():
+			restored := term.Restore(stdin, was)
+			fmt.Fprintln(asking)
+			return "", errors.Join(ctx.Err(), restored)
+		}
+	} else {
 		from := secretFrom
 		if from == nil {
 			from = os.Stdin
 		}
-		read, err := io.ReadAll(io.LimitReader(from, longest+2))
-		if err != nil {
-			return err
-		}
-		// One longer is refused, never cut and handed over as another.
-		if len(strings.TrimRight(string(read), "\r\n")) > longest {
-			return errors.New("the secret on standard input is longer than a credential is")
-		}
-		secret := strings.TrimRight(string(read), "\r\n")
-		if secret == "" || strings.ContainsAny(secret, "\r\n") {
-			return errors.New("give the secret on standard input, on one line")
-		}
-		return credentials.Set(cmd.Context(), frontseat.Credential{Host: args[0], Username: credentialUsername, Secret: secret})
-	},
+		read, err = io.ReadAll(io.LimitReader(from, longest+2))
+	}
+	if err != nil {
+		return "", err
+	}
+	secret := strings.TrimRight(string(read), "\r\n")
+	// One longer is refused, never cut and handed over as another.
+	if len(secret) > longest {
+		return "", errors.New("the secret is longer than a credential is")
+	}
+	if secret == "" || strings.ContainsAny(secret, "\r\n") {
+		return "", errors.New("give the secret on standard input, on one line")
+	}
+	return secret, nil
 }
 
 func init() {
 	workspaceCmd.AddCommand(credentialCmd)
 	credentialCmd.Flags().StringVar(&credentialUsername, "username", "", "who the credential is of, as the host asks")
 	credentialCmd.Flags().BoolVar(&credentialForget, "forget", false, "let go of the host's credential")
+	// What lets go of a credential says nothing of whose it is.
+	credentialCmd.MarkFlagsMutuallyExclusive("forget", "username")
 }

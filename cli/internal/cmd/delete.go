@@ -8,7 +8,7 @@ import (
 	"github.com/frontseat-dev/frontseat/cli/internal/machine"
 )
 
-// deleteCmd represents the delete command
+// deleteCmd ends a workspace.
 var deleteCmd = &cobra.Command{
 	Use:   "delete [WORKSPACE]",
 	Short: "End a workspace, with what it holds",

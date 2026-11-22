@@ -50,7 +50,7 @@ var policies = []policy{
 	// What the command line keeps and reads on this machine; what it asks
 	// of a version control system about a checkout, and git, which
 	// answers it.
-	{"cli/internal/machine", []string{"sdk/go/api/**", "sdk/go", "cli/internal/vcs", "cli/internal/vcs/git", "local/ports"}},
+	{"cli/internal/machine", []string{"sdk/go/api/**", "sdk/go", "sdk/go/bearer", "cli/internal/vcs", "cli/internal/vcs/git", "local/ports"}},
 	{"cli/internal/vcs", []string{}},
 	{"cli/internal/vcs/git", []string{"cli/internal/vcs", "server/git"}},
 	{"cli/internal/ui/**", []string{"sdk/go/api/**", "sdk/go/entity", "cli/internal/ui/**"}},

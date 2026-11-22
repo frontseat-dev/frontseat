@@ -11,7 +11,7 @@ import (
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 )
 
-// buildsCmd represents the builds command
+// buildsCmd lists the workspace's builds.
 var buildsCmd = &cobra.Command{
 	Use:   "builds",
 	Short: "List the workspace's builds",
@@ -31,7 +31,7 @@ var buildsCmd = &cobra.Command{
 	},
 }
 
-// buildsEventsCmd represents the builds events command
+// buildsEventsCmd follows a build from one of its events on.
 var buildsEventsCmd = &cobra.Command{
 	Use:   "events BUILD [N]",
 	Short: "Follow a build from event N, to its end",

@@ -19,10 +19,9 @@ import (
 
 var sshStdio, sshConfig bool
 
-// sshCmd represents the ssh command. It opens the workspace's sandbox
-// over SSH. The connection goes through the server that made the
-// sandbox, by this same command with --stdio as the SSH client's proxy;
-// an editor is given the same.
+// sshCmd opens the workspace's sandbox over SSH. The connection goes
+// through the server that made the sandbox, by this same command with
+// --stdio as the SSH client's proxy; an editor is given the same.
 var sshCmd = &cobra.Command{
 	Use:   "ssh [COMMAND...]",
 	Short: "A shell in the sandbox, or a command",
@@ -34,6 +33,15 @@ frontseat-workspace, which follows the workspace last opened, or, with
 --workspace NAME, the host frontseat-NAME, which is that workspace's.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
+		// What prints the host for an editor runs nothing, and what
+		// carries a connection is given no command: either with a command
+		// is refused, and not run without it.
+		switch {
+		case sshConfig && len(args) > 0:
+			return errors.New("--config prints what an SSH client is told and runs nothing: it is given with no command")
+		case sshStdio && len(args) > 0:
+			return errors.New("--stdio carries an SSH client's connection and runs nothing: it is given with no command")
+		}
 		if sshStdio {
 			w, err := asked()
 			if err != nil {
@@ -105,7 +113,11 @@ func shell(ctx context.Context, workspace string, terminal bool, arguments []str
 		told = append(told, "-t")
 	}
 	told = append(told, hostOf(workspace))
-	ssh := exec.CommandContext(ctx, "ssh", append(told, arguments...)...)
+	client, err := exec.LookPath("ssh")
+	if err != nil {
+		return fmt.Errorf("no SSH client is found on this machine, and a workspace's shell is reached with one (ssh): %w", err)
+	}
+	ssh := exec.CommandContext(ctx, client, append(told, arguments...)...)
 	ssh.Stdin, ssh.Stdout, ssh.Stderr = os.Stdin, os.Stdout, os.Stderr
 	err = ssh.Run()
 	var exit *exec.ExitError
@@ -170,6 +182,7 @@ func init() {
 	sshCmd.Flags().BoolVar(&sshStdio, "stdio", false, "carry an SSH client's connection to the sandbox on standard input and output")
 	sshCmd.Flags().BoolVar(&sshConfig, "config", false, "print the host an editor opens the workspace as, for ~/.ssh/config")
 	_ = sshCmd.Flags().MarkHidden("stdio")
+	sshCmd.MarkFlagsMutuallyExclusive("stdio", "config")
 	// What follows the command to run is the command's own: its flags are
 	// not this command's.
 	sshCmd.Flags().SetInterspersed(false)

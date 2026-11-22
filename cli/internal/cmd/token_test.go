@@ -115,11 +115,6 @@ func TestTheTokenIsPresentedToTheControlPlaneAlone(t *testing.T) {
 	if got := taken(); len(got) != 1 || got[0] != plane+" " {
 		t.Errorf("with no token, the control plane was presented %q", got)
 	}
-	for at, here := range map[string]bool{"http://127.0.0.1:7700": true, "http://[::1]:1": true, "http://localhost:1": true, "https://cp.example.com": false, "http://127.0.0.1.example.com": false} {
-		if local(at) != here {
-			t.Errorf("%s is said to be of this machine: %v, want %v", at, local(at), here)
-		}
-	}
 }
 
 // layOut lays out the owner's token where the command line finds it,
@@ -137,7 +132,7 @@ func layOut(t *testing.T, server string) string {
 
 // outside is where the tests' command lines run by default: outside any
 // workspace's sandbox.
-func outside() (bool, error) { return false, nil }
+func outside() bool { return false }
 
 // TestMain has every command line of the tests keep what it keeps
 // beneath a root of their own, where it finds no token of this
@@ -158,4 +153,50 @@ func TestMain(m *testing.M) {
 	// The directory is the tests' own, made just above.
 	_ = os.RemoveAll(config)
 	os.Exit(code)
+}
+
+// No command asks a control plane on another machine in clear: named
+// with http, it is refused by every command before anything is sent,
+// the token and a credential's secret among it, and the refusal does not
+// repeat the address. The control is the same commands asking a control
+// plane on this machine over http
+// (TestTheTokenIsPresentedToTheControlPlaneAlone,
+// TestACredentialIsReadFromStandardInputAndHandedToTheServer).
+func TestNoCommandAsksAControlPlaneOnAnotherMachineInClear(t *testing.T) {
+	layOut(t, "http://frontseat.example:7700")
+	secretFrom = strings.NewReader("a-made-up-secret\n")
+	t.Cleanup(func() { secretFrom = nil })
+	for _, command := range [][]string{
+		{"workspace", "list"},
+		{"workspace", "describe", "--workspace", "named"},
+		{"workspace", "delete", "named"},
+		{"workspace", "ssh", "--stdio", "--workspace", "named"},
+		{"workspace", "credential", "forge.example"},
+		{"builds", "--workspace", "named"},
+		{"build", "--workspace", "named"},
+	} {
+		_, _, err := runAt(t, context.Background(), "", command...)
+		switch {
+		case err == nil || !strings.Contains(err.Error(), "without TLS"):
+			t.Errorf("frontseat %s asked a control plane on another machine in clear: %v", strings.Join(command, " "), err)
+		case strings.Contains(err.Error(), "frontseat.example") || strings.Contains(err.Error(), token):
+			t.Errorf("frontseat %s: the refusal repeats what it refused: %v", strings.Join(command, " "), err)
+		}
+	}
+}
+
+// A server that does not answer is said to be the one it is, with what
+// starts it where the command line knows: the local stack by the
+// stack's own program, which someone with a released frontseat has, and
+// another control plane as the one the server file names.
+func TestAServerThatDoesNotAnswerIsSaidWithWhatStartsIt(t *testing.T) {
+	serverAt(t, "http://127.0.0.1:1")
+	_, _, err := runAt(t, context.Background(), "", "workspace", "list")
+	if err == nil || !strings.Contains(err.Error(), "the control plane frontseat/local/server names does not answer") || strings.Contains(err.Error(), "mise") {
+		t.Errorf("a control plane that does not answer: %v", err)
+	}
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	if said := unanswered(); !strings.Contains(said, "the local stack does not answer: `frontseat-local up` starts it") {
+		t.Errorf("of the local stack, it says %q", said)
+	}
 }

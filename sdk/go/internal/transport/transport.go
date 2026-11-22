@@ -4,7 +4,10 @@
 package transport
 
 import (
+	"context"
 	"net/http"
+	"net/url"
+	"slices"
 
 	connect "connectrpc.com/connect/v2"
 	"connectrpc.com/connect/v2/connecthttp"
@@ -24,13 +27,39 @@ type Reach struct {
 
 // New connects API requests to an endpoint, presenting the token where
 // the endpoint is of the origin, and nowhere else, through the
-// interceptors given.
+// interceptors given. Where the token would
+// go in clear to another machine, every call is refused before an HTTP
+// client is asked, FAILED_PRECONDITION with bearer.ErrInClear as its
+// cause, by an error that names neither the address nor the token: an
+// HTTP client names the address of every request it fails.
 func New(endpoint string, reach Reach, interceptors ...connect.ClientInterceptor) *connect.Client {
 	over := reach.HTTP
 	if over == nil {
 		over = &http.Client{Transport: traced{}}
 	}
-	return connect.NewClient(connecthttp.NewTransport(bearer.Client(over, reach.Token, reach.Origin), endpoint), interceptors...)
+	connected := connecthttp.NewTransport(bearer.Client(over, reach.Token, reach.Origin), endpoint)
+	if reach.Token != "" && inClear(endpoint, reach.Origin) {
+		return connect.NewClient(connected, slices.Concat(interceptors, []connect.ClientInterceptor{refusedInClear})...)
+	}
+	return connect.NewClient(connected, interceptors...)
+}
+
+// inClear is whether requests to an endpoint of an origin would carry
+// its token in clear to another machine.
+func inClear(endpoint, origin string) bool {
+	at, err := url.Parse(endpoint)
+	if err != nil {
+		return false
+	}
+	of, err := url.Parse(origin)
+	return err == nil && bearer.Of(at, of) && !bearer.Private(at)
+}
+
+// refusedInClear refuses every call: its token would go in clear.
+func refusedInClear(connect.ClientFunc) connect.ClientFunc {
+	return func(context.Context, connect.Spec) (connect.ClientStream, error) {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, bearer.ErrInClear.Error()).WithCause(bearer.ErrInClear)
+	}
 }
 
 // traced makes a request with Go's own transport, carrying the trace of

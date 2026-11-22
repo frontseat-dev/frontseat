@@ -7,7 +7,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// cancelCmd represents the cancel command
+// cancelCmd cancels a build or a run.
 var cancelCmd = &cobra.Command{
 	Use:   "cancel ID",
 	Short: "Stop a build, or a run of a program",

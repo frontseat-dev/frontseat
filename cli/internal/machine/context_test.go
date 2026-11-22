@@ -53,6 +53,11 @@ func TestTheContextFileIsWrittenInItsFormat(t *testing.T) {
 	if err := WriteContext(Context{Server: "http://s", Workspace: "w"}); err != nil {
 		t.Fatal(err)
 	}
+	// The directory it made holds a key and a token besides: it is the
+	// person's alone.
+	if kept, err := os.Stat(filepath.Dir(at)); err != nil || kept.Mode().Perm() != 0o700 {
+		t.Errorf("the directory the context is kept in is %v (%v), want it its owner's alone", kept.Mode().Perm(), err)
+	}
 	raw, err := os.ReadFile(at)
 	if want := "{\n  \"server\": \"http://s\",\n  \"workspace\": \"w\"\n}\n"; err != nil || string(raw) != want {
 		t.Fatalf("wrote %q (%v), want %q", raw, err, want)
@@ -104,9 +109,6 @@ func TestTheServerIsTheLocalStacksOrTheOneNamedBesideTheToken(t *testing.T) {
 		t.Fatalf("with nothing named the command line asks %s (%v), want the local stack's", server, err)
 	}
 	kept := filepath.Join(config, "frontseat", "local")
-	if err := os.MkdirAll(kept, 0o700); err != nil {
-		t.Fatal(err)
-	}
 	for written, want := range map[string]string{
 		"http://127.0.0.1:41234\n": "http://127.0.0.1:41234",
 		"http://127.0.0.1:41234/":  "http://127.0.0.1:41234",
@@ -116,10 +118,7 @@ func TestTheServerIsTheLocalStacksOrTheOneNamedBesideTheToken(t *testing.T) {
 		"127.0.0.1:1":              "",
 		"http://a\nhttp://b":       "",
 	} {
-		if err := os.WriteFile(filepath.Join(kept, "server"), []byte(written), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		server, err := Server()
+		server, err := serverNamed(t, written)
 		if want == "" && err == nil {
 			t.Errorf("%q was taken for the control plane %s", written, server)
 		}
@@ -137,4 +136,50 @@ func TestTheServerIsTheLocalStacksOrTheOneNamedBesideTheToken(t *testing.T) {
 	if server, err := Server(); err == nil {
 		t.Errorf("a file others can write was taken for the control plane %s", server)
 	}
+}
+
+// A control plane on another machine is asked over TLS alone: a file
+// that names one over http is refused, without the address, since the
+// owner's token would be sent to it in clear. The controls are the same
+// machine over https, and this machine over http, by its name and by
+// its loopback addresses.
+func TestAControlPlaneOnAnotherMachineIsAskedOverTLSAlone(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	for written, taken := range map[string]bool{
+		"http://frontseat.example:7700\n":      false,
+		"http://192.0.2.1:7700\n":              false,
+		"http://127.0.0.1.frontseat.example\n": false,
+		"https://frontseat.example\n":          true,
+		"https://frontseat.example:7700\n":     true,
+		"http://localhost:7700\n":              true,
+		"http://127.0.0.1:7700\n":              true,
+		"http://[::1]:7700\n":                  true,
+	} {
+		server, err := serverNamed(t, written)
+		switch {
+		case taken && (err != nil || server != strings.TrimSuffix(written, "\n")):
+			t.Errorf("the control: %q: the command line asks %q (%v)", written, server, err)
+		case !taken && err == nil:
+			t.Errorf("%q was taken for the control plane %s, and is asked in clear", written, server)
+		case !taken && strings.Contains(err.Error(), "example") || !taken && strings.Contains(err.Error(), "192.0.2.1"):
+			t.Errorf("the refusal of %q repeats it: %v", written, err)
+		}
+	}
+}
+
+// serverNamed is the control plane the command line asks where the
+// server file holds what is written, or why it asks none.
+func serverNamed(t *testing.T, written string) (string, error) {
+	t.Helper()
+	path, err := serverFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(written), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return Server()
 }

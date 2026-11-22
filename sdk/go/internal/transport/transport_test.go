@@ -2,15 +2,20 @@ package transport_test
 
 import (
 	"context"
+	"errors"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 
+	connect "connectrpc.com/connect/v2"
 	"go.opentelemetry.io/otel/trace"
 
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1/buildv1alpha1connect"
+	"github.com/frontseat-dev/frontseat/sdk/go/bearer"
 	"github.com/frontseat-dev/frontseat/sdk/go/internal/transport"
 )
 
@@ -210,5 +215,34 @@ func TestAnOriginIsItsSchemeHostAndPort(t *testing.T) {
 	}
 	if !transport.Presents("ws://127.0.0.1:1/shell", transport.Reach{Token: "a-token", Origin: "http://127.0.0.1:1"}) {
 		t.Error("the control: the origin's own tunnel was not presented its token")
+	}
+}
+
+// A call that would carry a token in clear to another machine is
+// refused, FAILED_PRECONDITION and never as a server that does not
+// answer, by an error that repeats neither the token nor the address,
+// and nothing is asked. The control is the same call over TLS, which
+// the caller's client is asked to make.
+func TestACallRefusedInClearRepeatsNeitherItsTokenNorItsAddress(t *testing.T) {
+	for _, origin := range []string{"http://frontseat.example:7700", "http://192.0.2.1:7700"} {
+		counting := &countingTransport{}
+		runs := buildv1alpha1connect.NewBuildServiceClient(transport.New(origin, transport.Reach{HTTP: &http.Client{Transport: unreached{counting}}, Token: "a-token", Origin: origin}))
+		_, err := runs.ListBuilds(context.Background(), &buildv1.ListBuildsRequest{})
+		if !errors.Is(err, bearer.ErrInClear) || connect.CodeOf(err) != connect.CodeFailedPrecondition {
+			t.Fatalf("a call in clear to another machine: %v, want it refused, failed_precondition", err)
+		}
+		host, _, _ := net.SplitHostPort(strings.TrimPrefix(origin, "http://"))
+		if said := err.Error(); strings.Contains(said, host) || strings.Contains(said, "7700") || strings.Contains(said, "a-token") {
+			t.Errorf("the refusal repeats what it refused: %v", err)
+		}
+		if counting.made.Load() != 0 {
+			t.Errorf("what was refused was asked %d times", counting.made.Load())
+		}
+	}
+	counting := &countingTransport{}
+	origin := "https://frontseat.example:7700"
+	runs := buildv1alpha1connect.NewBuildServiceClient(transport.New(origin, transport.Reach{HTTP: &http.Client{Transport: unreached{counting}}, Token: "a-token", Origin: origin}))
+	if _, err := runs.ListBuilds(context.Background(), &buildv1.ListBuildsRequest{}); errors.Is(err, bearer.ErrInClear) || counting.made.Load() != 1 {
+		t.Errorf("the control: a call over TLS: %v, asked %d times, want it made", err, counting.made.Load())
 	}
 }

@@ -10,7 +10,7 @@ import (
 	"github.com/frontseat-dev/frontseat/sdk/go/entity"
 )
 
-// listCmd represents the list command
+// listCmd lists the workspaces the control plane keeps.
 var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List the workspaces there are",

@@ -15,7 +15,7 @@ var (
 	addWhole        bool
 )
 
-// addCmd represents the add command
+// addCmd has a workspace clone more.
 var addCmd = &cobra.Command{
 	Use:   "add",
 	Short: "Clone more into the workspace",
@@ -26,6 +26,11 @@ var addCmd = &cobra.Command{
 		more := frontseat.WorkspaceSpec{Whole: addWhole, Entities: addEntities}
 		if len(addRepositories)+len(addEntities) == 0 {
 			return errors.New("name what to add with --entity or --repository")
+		}
+		// Repositories are cloned whole: there are no entities whose
+		// directories alone could be.
+		if addWhole && len(addEntities) == 0 {
+			return errors.New("--whole is said of the entities added, and none is named: a repository is cloned whole as it is")
 		}
 		for _, r := range addRepositories {
 			named, err := machine.Repository(r)
