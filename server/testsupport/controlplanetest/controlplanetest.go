@@ -166,7 +166,11 @@ func serving(t testing.TB, state string, extra map[string]string, given []Option
 	}
 	srv := httptest.NewUnstartedServer(nil)
 	srv.Start()
-	plane, err := controlplane.OverGateway(srv.URL, controlplane.Gateway{Address: testgateway.Address, Identity: identity, Runtime: "docker"}, state, image, controlplane.Grid{Hosts: grid.Hosts(), Arguments: grid.Arguments()}, extra, source.Fetching(), forge.GitHubAlone(), callers, with.entities)
+	plane, err := controlplane.OverGateway(controlplane.Config{
+		PublicURL: srv.URL, State: state, Box: image, Callers: callers, Environment: extra,
+		Grid:     controlplane.Grid{Hosts: grid.Hosts(), Arguments: grid.Arguments()},
+		Fetching: source.Fetching(), Releasing: forge.GitHubAlone(), Entities: with.entities,
+	}, controlplane.Gateway{Address: testgateway.Address, Identity: identity, Runtime: "docker"})
 	if err != nil {
 		srv.Close()
 		t.Fatal(err)

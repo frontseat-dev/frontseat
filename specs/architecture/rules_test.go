@@ -211,7 +211,7 @@ var policies = []policy{
 	{"server/cmd/frontseatd", []string{"server/internal/build", "server/internal/source", "server/internal/httpserver", "server/telemetry", "local/ports"}},
 	// The local stack's control plane: the control plane, told what the
 	// stack is by the stack's own package.
-	{"server/cmd/frontseat-local", []string{"server/internal/controlplane", "server/internal/backstage", "server/internal/source", "server/internal/forge", "server/internal/httpserver", "server/telemetry", "local", "local/ports", "local/stack", "local/box"}},
+	{"server/cmd/frontseat-local", []string{"server/internal/controlplane", "server/internal/backstage", "server/internal/source", "server/internal/forge", "server/internal/httpserver", "server/internal/secretfile", "server/telemetry", "local", "local/ports", "local/stack", "local/box"}},
 	{"server/cmd/frontseat-action", []string{"server/internal/confine"}},
 	// The grid's runner: a thin main over the runner, which serves the
 	// sandbox API over the container runtime to itself.

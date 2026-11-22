@@ -1308,21 +1308,22 @@ type Gateway struct {
 // keeps, and nowhere else. A gateway that does not answer is an error
 // here, and nothing is served over it.
 //
-// The state is a directory of the control plane's own: its sandboxes'
-// records are kept there, and its workspaces' beneath it. Entities
-// resolves the entities workspaces are asked for; nil for none. Releasing
-// is what a forge asks of whoever publishes a release to it; nil for
-// none, and then no workspace is let through to publish one.
-func OverGateway(publicURL string, gateway Gateway, state, box string, grid Grid, environment map[string]string, fetching vcs.Fetching, releasing forge.Releasing, callers identity.Authenticator, entities Entities) (*Plane, error) {
-	sandboxes, err := sandbox.Gateway(publicURL, gateway.Address, gateway.Identity, gateway.Runtime, state, []string{"/work", "/var/lib/frontseat"})
+// It is configured as any control plane is, but that its sandbox
+// service is made here, over the gateway, and its daemon's program is a
+// box's. The state is a directory of the control plane's own: its
+// sandboxes' records are kept there, and its workspaces' beneath it.
+func OverGateway(c Config, gateway Gateway) (*Plane, error) {
+	sandboxes, err := sandbox.Gateway(c.PublicURL, gateway.Address, gateway.Identity, gateway.Runtime, c.State, written)
 	if err != nil {
 		return nil, err
 	}
-	return Serve(Config{
-		Sandboxes: sandboxes, Callers: callers, PublicURL: publicURL, State: filepath.Join(state, "workspaces"),
-		Box: box, Daemon: Daemon, Grid: grid, Environment: environment, Fetching: fetching, Releasing: releasing, Entities: entities,
-	})
+	c.Sandboxes, c.Daemon, c.State = sandboxes, Daemon, filepath.Join(c.State, "workspaces")
+	return Serve(c)
 }
+
+// written is what runs in a workspace's sandbox may write of a box
+// (local/box.Dockerfile): the workspace, and what the daemon keeps.
+var written = []string{"/work", "/var/lib/frontseat"}
 
 // relayed is a daemon's refusal as the control plane says it on: what
 // the daemon refused by name is refused by the same reason, in the
