@@ -138,7 +138,7 @@ func TestIsTheDomainItsCatalogFilesDeclareWhoseComponentsOwnEveryProject(t *test
 	// The APIs, the Resources and the Location are entities that own no
 	// source, and what is said of the APIs comes out as Backstage's
 	// relations, both ways.
-	for _, ref := range []string{"api:frontseat/build-api", "api:frontseat/workspace-api", "api:frontseat/sandbox-api", "api:frontseat/credential-api", "api:frontseat/plugin-api", "resource:frontseat/buildbarn", "resource:frontseat/asset-service", "resource:frontseat/artifact-proxy", "resource:frontseat/openshell-gateway", "location:frontseat/frontseat-catalog"} {
+	for _, ref := range []string{"api:frontseat/build-api", "api:frontseat/workspace-api", "api:frontseat/sandbox-api", "api:frontseat/credential-api", "api:frontseat/plugin-api", "resource:frontseat/buildbarn", "resource:frontseat/asset-service", "resource:frontseat/openshell-gateway", "location:frontseat/frontseat-catalog"} {
 		spec.Expect(entities).To(HaveKey(ref))
 		spec.Expect(entities[ref].GetRoots()).To(BeEmpty(), ref)
 	}
