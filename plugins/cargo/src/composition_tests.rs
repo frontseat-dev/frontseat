@@ -96,14 +96,14 @@ fn a_package_is_a_project_requiring_what_it_depends_on_by_path() {
     // directory source reads beside it, with the configuration that
     // points cargo there; it runs no tool and reads no source.
     let itoa = &project.actions[1];
-    assert!(itoa.shared && itoa.fetch && itoa.command.is_none() && itoa.tools.is_empty());
+    assert!(itoa.as_shared_fetch().is_some() && itoa.command.is_none() && itoa.tools.is_empty());
     assert!(itoa.inputs.is_empty());
-    assert_eq!(itoa.downloads.len(), 1);
+    assert_eq!(itoa.as_shared_fetch().unwrap().downloads.len(), 1);
     assert_eq!(
         (
-            itoa.downloads[0].url.as_str(),
-            itoa.downloads[0].sha256.as_str(),
-            itoa.downloads[0].into.as_str()
+            itoa.as_shared_fetch().unwrap().downloads[0].url.as_str(),
+            itoa.as_shared_fetch().unwrap().downloads[0].sha256.as_str(),
+            itoa.as_shared_fetch().unwrap().downloads[0].into.as_str()
         ),
         (
             "https://static.crates.io/crates/itoa/1.0.18/download",
@@ -112,6 +112,8 @@ fn a_package_is_a_project_requiring_what_it_depends_on_by_path() {
         )
     );
     let files: Vec<(&str, &str)> = itoa
+        .as_shared_fetch()
+        .unwrap()
         .files
         .iter()
         .map(|f| (f.path.as_str(), std::str::from_utf8(&f.content).unwrap()))
@@ -157,9 +159,9 @@ fn a_package_is_a_project_requiring_what_it_depends_on_by_path() {
     }
     let format = project.actions.iter().find(|a| a.name == "format").unwrap();
     assert!(
-        format.check
-            && format.fix.is_some()
-            && format.rewrites == ["**/*.rs"]
+        format.as_check().is_some()
+            && format.as_check().unwrap().fix.is_some()
+            && format.as_check().unwrap().rewrites == ["**/*.rs"]
             && format.inputs == [Input::set("package"), Input::dependencies("{root}")]
     );
     let compile = project
@@ -225,7 +227,7 @@ fn a_lock_with_a_crate_cargo_alone_can_fetch_is_fetched_whole() {
         .collect();
     assert_eq!(names, ["fetch", "compile", "test", "lint", "format"]);
     let fetch = &got.projects[0].actions[0];
-    assert!(fetch.fetch && !fetch.shared && fetch.downloads.is_empty());
+    assert!(fetch.is_fetch());
     assert_eq!(fetch.tools, ["rust"]);
     assert_eq!(
         fetch.command.as_ref().unwrap().arguments,

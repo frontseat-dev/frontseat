@@ -76,7 +76,7 @@ type Runner struct {
 	// that to where the daemon is. Nil, a run that is a build: it plans
 	// no program, and one it is handed all the same is not run.
 	Deliver func(ctx context.Context, action plan.Action, left map[string]exec.Held) error
-	// Packaged is told what a package left (Action.package), by where
+	// Packaged is told what a package left (the action kind Package), by where
 	// each thing sits in the workspace, once it has passed: what a
 	// release ships. Nil, nobody is told.
 	Packaged func(action plan.Action, left map[string]exec.Held)
@@ -224,14 +224,14 @@ func (ing running) Run(ctx context.Context, action plan.Action, handed []schedul
 }
 
 // nothingToDo reports whether an action that says it has nothing to do
-// without what it reads (Action.idle_without_inputs) was handed less
+// without what it reads (Test.idle_without_inputs) was handed less
 // than its plugin named one by one (plan.Action.IdleWithout), and what
 // was not left: one output of an action it names, which that action
 // passed without leaving. What a catalog file added to what it reads
 // is no part of this: a test is not skipped for a fixture that was not
 // left, and is still skipped where its own program was not.
 func nothingToDo(tree source.Tree, action plan.Action, handed []schedule.Handed) (missing string, idle bool) {
-	if !action.Declared.GetIdleWithoutInputs() {
+	if !action.Declared.GetTest().GetIdleWithoutInputs() {
 		return "", false
 	}
 	for _, read := range action.IdleWithout {
@@ -462,7 +462,7 @@ func (runner Runner) run(ctx context.Context, events Events, snapshot *source.Sn
 	// A run that fixes runs the check's fix first, where the checkout
 	// is, and writes what it changed: the check then runs over that.
 	var proposals []proposal
-	if runner.Fix && action.IsCheck() && action.Declared.GetFix() != nil {
+	if runner.Fix && action.IsCheck() && action.Declared.GetCheck().GetFix() != nil {
 		changes, err := fixer.Run(ctx, snapshot, action)
 		if err == nil {
 			proposals = record(events, action, changes)
@@ -586,7 +586,7 @@ func (runner Runner) run(ctx context.Context, events Events, snapshot *source.Sn
 		// A check that found something did not pass, whatever it exited
 		// with: gofmt -l exits 0 and lists what it would change.
 		result.Outcome, result.Message = buildv1.Outcome_OUTCOME_FAILED, "it found what it reports"
-		if action.Declared.GetFix() != nil && !runner.Fix {
+		if action.Declared.GetCheck().GetFix() != nil && !runner.Fix {
 			result.Message += ": frontseat build --fix puts it right"
 		}
 	case missing != "":
@@ -604,7 +604,7 @@ func (runner Runner) run(ctx context.Context, events Events, snapshot *source.Sn
 	telemetry.Output(ctx, "stdout", done.Stdout, done.Cached)
 	telemetry.Output(ctx, "stderr", done.Stderr, done.Cached)
 
-	if runner.Packaged != nil && action.Declared.GetPackage() && result.GetOutcome() == buildv1.Outcome_OUTCOME_PASSED {
+	if runner.Packaged != nil && action.Declared.GetPackage() != nil && result.GetOutcome() == buildv1.Outcome_OUTCOME_PASSED {
 		runner.Packaged(action, left)
 	}
 	events.Finished(result)

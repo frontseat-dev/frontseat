@@ -14,29 +14,26 @@ const APKO: &str = "apko";
 /// signature section is left; apko reads none when it installs from a
 /// lock. It runs no tool.
 fn fetch(package: &Package) -> Action {
-    Action {
-        downloads: vec![Download {
-            url: package.url.clone(),
-            parts: vec![
-                Part {
-                    offset: package.control.offset,
-                    length: package.control.length,
-                    sha1: package.control.hex.clone(),
-                    path: format!("{}{}.ctl.tar.gz", package.directory, package.control.hex),
-                    ..Default::default()
-                },
-                Part {
-                    offset: package.data.offset,
-                    length: package.data.length,
-                    sha256: package.data.hex.clone(),
-                    path: format!("{}{}.dat.tar.gz", package.directory, package.data.hex),
-                    ..Default::default()
-                },
-            ],
-            ..Default::default()
-        }],
-        ..Action::fetch(&package.fetch, [&package.directory])
-    }
+    Action::shared_fetch(&package.fetch, [&package.directory]).download(Download {
+        url: package.url.clone(),
+        parts: vec![
+            Part {
+                offset: package.control.offset,
+                length: package.control.length,
+                sha1: package.control.hex.clone(),
+                path: format!("{}{}.ctl.tar.gz", package.directory, package.control.hex),
+                ..Default::default()
+            },
+            Part {
+                offset: package.data.offset,
+                length: package.data.length,
+                sha256: package.data.hex.clone(),
+                path: format!("{}{}.dat.tar.gz", package.directory, package.data.hex),
+                ..Default::default()
+            },
+        ],
+        ..Default::default()
+    })
 }
 
 /// The fetch of one signing key: the lock holds the key whole, so
@@ -44,14 +41,11 @@ fn fetch(package: &Package) -> Action {
 /// reads it from when it starts offline. apko takes the newest file of
 /// the directory, whatever it is named.
 fn key(key: &Key) -> Action {
-    Action {
-        files: vec![File {
-            path: format!("{}locked.etag", key.directory),
-            content: key.content.clone().into_bytes(),
-            executable: false,
-        }],
-        ..Action::fetch(&key.fetch, [&key.directory])
-    }
+    Action::shared_fetch(&key.fetch, [&key.directory]).file(File {
+        path: format!("{}locked.etag", key.directory),
+        content: key.content.clone().into_bytes(),
+        executable: false,
+    })
 }
 
 /// The build of the image for one architecture, as an OCI layout: from

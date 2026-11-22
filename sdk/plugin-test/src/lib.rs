@@ -58,7 +58,7 @@ use std::path::Path;
 use frontseat_plugin::{
     wire, AnalyzeResponse, ArrangeResponse, BranchRequest, BranchResponse, Code, DescribeResponse,
     Error, Handed, Host, Plugin, Printed, Profile, ReconcileResponse, ReportResponse, Repository,
-    Resolved, Service, ServiceResponse, Value, VersionRequest, VersionResponse, ABI,
+    Resolved, Service, ServiceResponse, Value, VersionRequest, VersionResponse,
 };
 use prost::Message;
 
@@ -496,15 +496,8 @@ impl<P: Plugin> TestPlugin<P> {
     /// as the real one does.
     #[track_caller]
     pub fn describe(&self) -> DescribeResponse {
-        self.ask(
-            &unreadable(),
-            "Describe",
-            wire::DescribeRequest {
-                host_abi_min: ABI,
-                host_abi_max: ABI,
-            },
-        )
-        .answered()
+        self.ask(&unreadable(), "Describe", wire::DescribeRequest {})
+            .answered()
     }
 
     /// A context with this profile and every option at its declared

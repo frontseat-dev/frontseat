@@ -12,7 +12,7 @@ import (
 func TestRuntimeEnvironmentUsesTheConfinedExactValuePath(t *testing.T) {
 	snapshot := sourcetest.Taken(t, nil)
 	p := installed()
-	action := plan.Action{Environment: map[string]string{"FIXTURE": "literal value"}, Declared: &pluginv1.Action{Test: true, Command: &pluginv1.Command{Arguments: []string{"true"}}}}
+	action := plan.Action{Environment: map[string]string{"FIXTURE": "literal value"}, Declared: &pluginv1.Action{Kind: &pluginv1.Action_Test{Test: &pluginv1.Test{}}, Command: &pluginv1.Command{Arguments: []string{"true"}}}}
 	staged, err := Of(t.Context(), snapshot, action, p, nil, nil)
 	if err != nil || len(staged.Environment) != 0 || !strings.Contains(strings.Join(staged.Arguments, " "), "literal value") {
 		t.Fatalf("runtime environment escaped confinement or was lost: %+v, %v", staged, err)

@@ -24,7 +24,7 @@ func TestRuntimeDataFollowsComponentOwnershipAndKeepsItsLiteralBase(t *testing.T
 	nested := entity.New("component", "default", "nested")
 	declaration := config.TestRuntime{Entity: owner, Directory: "parent[1]", File: "repo/parent[1]/catalog-info.yaml",
 		Inputs: []string{"fixtures/**", ":custom.prepare"}, Tools: []string{"node", "node"}, Environment: map[string]string{"FIXTURE": "value"}}
-	base := &pluginv1.Action{Name: "test/cases@1of2", Test: true, Command: &pluginv1.Command{Arguments: []string{"native", "selection"}, Directory: "cases"}}
+	base := &pluginv1.Action{Name: "test/cases@1of2", Kind: &pluginv1.Action_Test{Test: &pluginv1.Test{}}, Command: &pluginv1.Command{Arguments: []string{"native", "selection"}, Directory: "cases"}}
 	before := proto.Clone(base)
 	makeAction := func(root, plugin string, declared *pluginv1.Action) plan.Action {
 		return plan.Action{Repository: "repo", ProjectRoot: root, Label: model.Label{Path: "repo/" + root, Plugin: plugin, Name: declared.GetName()}, Declared: declared,
@@ -33,7 +33,7 @@ func TestRuntimeDataFollowsComponentOwnershipAndKeepsItsLiteralBase(t *testing.T
 	out := Evaluation{Entities: []record.Located{{Repository: "repo", Root: "parent[1]", Ref: owner}, {Repository: "repo", Root: "parent[1]/nested", Ref: nested}}, Actions: []plan.Action{
 		makeAction("parent[1]/go", "go", base), makeAction("parent[1]/js", "jest", base),
 		makeAction("parent[1]/nested", "go", base), makeAction("parent1", "go", base),
-		makeAction("parent[1]/go", "go", &pluginv1.Action{Name: "compile", Command: base.Command}),
+		makeAction("parent[1]/go", "go", &pluginv1.Action{Name: "compile", Command: base.Command, Kind: &pluginv1.Action_Build{Build: &pluginv1.Build{}}}),
 	}}
 	if err := testRuntimes(&out, map[string][]config.TestRuntime{"repo": {declaration}}, map[string]map[string]string{"repo": {"node": "locked"}}); err != nil {
 		t.Fatal(err)
@@ -78,7 +78,7 @@ func BenchmarkTestRuntimeInputs(b *testing.B) {
 		for j := range 10 {
 			base.Actions = append(base.Actions, plan.Action{Repository: "repo", ProjectRoot: root,
 				Label:    model.Label{Path: "repo/" + root, Plugin: "go", Name: "test/p" + strconv.Itoa(j)},
-				Declared: &pluginv1.Action{Test: true, Command: &pluginv1.Command{Arguments: []string{"test-program"}}},
+				Declared: &pluginv1.Action{Kind: &pluginv1.Action_Test{Test: &pluginv1.Test{}}, Command: &pluginv1.Command{Arguments: []string{"test-program"}}},
 				Sources:  []pattern.Group{{Directory: root, Patterns: []string{"testdata/**"}}},
 			})
 		}

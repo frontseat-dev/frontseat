@@ -130,7 +130,7 @@ func elsewhere(action *pluginv1.Action) string {
 			return "a tool"
 		}
 	}
-	for _, rewrite := range action.GetRewrites() {
+	for _, rewrite := range action.GetCheck().GetRewrites() {
 		if strings.Contains(rewrite, begins) {
 			return "what its fix may change"
 		}
@@ -146,12 +146,12 @@ func elsewhere(action *pluginv1.Action) string {
 			return "what it reads"
 		}
 	}
-	for _, file := range action.GetFiles() {
+	for _, file := range action.GetSharedFetch().GetFiles() {
 		if strings.Contains(file.GetPath(), begins) || bytes.Contains(file.GetContent(), beginning) {
 			return "a file it is given"
 		}
 	}
-	for _, download := range action.GetDownloads() {
+	for _, download := range action.GetSharedFetch().GetDownloads() {
 		if strings.Contains(download.GetUrl(), begins) || strings.Contains(download.GetInto(), begins) {
 			return "what it downloads"
 		}
@@ -170,17 +170,21 @@ func CheckVersion(what string, action *pluginv1.Action) error {
 	}
 	// Nearly every action is not versioned and names nothing: it is
 	// passed on what it holds, with nothing made to look at it.
-	if !action.GetVersioned() && !mentions(action.GetCommand()) && !mentions(action.GetFix()) {
+	if !action.GetVersioned() && !mentions(action.GetCommand()) && !mentions(action.GetCheck().GetFix()) {
 		return nil
 	}
 	if action.GetVersioned() {
-		for _, kind := range []struct {
-			is   bool
-			what string
-		}{{action.GetFetch(), "a fetch"}, {action.GetShared(), "a shared action"}, {action.GetProgram(), "a program to run"}} {
-			if kind.is {
-				return fmt.Errorf("%s is versioned, and is %s: only a step of a build is given the version", what, kind.what)
-			}
+		var kind string
+		switch action.GetKind().(type) {
+		case *pluginv1.Action_Fetch:
+			kind = "a fetch"
+		case *pluginv1.Action_SharedFetch:
+			kind = "a shared fetch"
+		case *pluginv1.Action_Program:
+			kind = "a program to run"
+		}
+		if kind != "" {
+			return fmt.Errorf("%s is versioned, and is %s: only a step of a build is given the version", what, kind)
 		}
 	}
 	command := action.GetCommand()
@@ -198,7 +202,7 @@ func CheckVersion(what string, action *pluginv1.Action) error {
 		return false
 	}
 	environment := slices.Sorted(maps.Keys(command.GetEnvironment()))
-	fix := action.GetFix()
+	fix := action.GetCheck().GetFix()
 	fixed := append(slices.Clone(fix.GetArguments()), fix.GetDirectory())
 	for _, name := range slices.Sorted(maps.Keys(fix.GetEnvironment())) {
 		fixed = append(fixed, name, fix.GetEnvironment()[name])

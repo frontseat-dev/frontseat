@@ -24,7 +24,7 @@ func reading(name, program string, idle bool) plan.Action {
 	read := plan.Read{From: testBuild, Repository: "lab", ProjectRoot: "fixtures", Output: program}
 	action := plan.Action{
 		Label: model.Label{Path: "lab/fixtures", Plugin: "go", Name: name}, Repository: "lab", ProjectRoot: "fixtures",
-		Declared: &pluginv1.Action{Name: name, Test: true, IdleWithoutInputs: idle, Inputs: []*pluginv1.Input{{Kind: &pluginv1.Input_Output{Output: program}}}},
+		Declared: &pluginv1.Action{Name: name, Kind: &pluginv1.Action_Test{Test: &pluginv1.Test{IdleWithoutInputs: idle}}, Inputs: []*pluginv1.Input{{Kind: &pluginv1.Input_Output{Output: program}}}},
 		Reads:    []plan.Read{read},
 		Needs:    []model.Label{testBuild},
 	}

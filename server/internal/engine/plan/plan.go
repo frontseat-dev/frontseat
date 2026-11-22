@@ -39,7 +39,7 @@ type Action struct {
 	Reads []Read
 	// IdleWithout are the outputs its own plugin named one by one, for an
 	// action that has nothing to do without what it reads
-	// (Action.idle_without_inputs): where one was not left, the action
+	// (Test.idle_without_inputs): where one was not left, the action
 	// is not run. They are kept apart from Reads, which what a catalog
 	// file adds may extend, and may fold into a read of a whole action:
 	// neither says what the action's tool has nothing to do without.
@@ -165,11 +165,11 @@ func (a Action) Name() string { return a.Declared.GetName() }
 // one thing a lock holds, the repository's, run once for every project
 // that locks it alike. No entity owns it, and it is the project of no
 // file.
-func (a Action) IsShared() bool { return a.Declared.GetShared() }
+func (a Action) IsShared() bool { return a.Declared.GetSharedFetch() != nil }
 
 // IsTest reports whether the action is a test: one whose failure is a
 // test that failed, and not a build that broke.
-func (a Action) IsTest() bool { return a.Declared.GetTest() }
+func (a Action) IsTest() bool { return a.Declared.GetTest() != nil }
 
 // HasSources distinguishes source-reading programs from artifact-only ones,
 // including a declaration normalized to an empty source group.
@@ -184,15 +184,15 @@ func (a Action) HasSources() bool {
 
 // IsCheck reports whether the action is a check: one asked what it found
 // once it has ended.
-func (a Action) IsCheck() bool { return a.Declared.GetCheck() }
+func (a Action) IsCheck() bool { return a.Declared.GetCheck() != nil }
 
 // IsPackage reports whether the action makes what its project ships:
 // each file it leaves is an artifact of a release.
-func (a Action) IsPackage() bool { return a.Declared.GetPackage() }
+func (a Action) IsPackage() bool { return a.Declared.GetPackage() != nil }
 
 // IsProgram reports whether the action is a program to run: no step of
 // a build, which no build runs.
-func (a Action) IsProgram() bool { return a.Declared.GetProgram() }
+func (a Action) IsProgram() bool { return a.Declared.GetProgram() != nil }
 
 // IsPublish reports whether the action publishes what a release
 // shipped: no step of a build, which a release runs where the daemon is.
@@ -204,7 +204,7 @@ func (a Action) Built() bool { return !a.IsProgram() && !a.IsPublish() }
 
 // Rewrites are the patterns, relative to its project, of the inputs the
 // action's tool may change on the copy it is given.
-func (a Action) Rewrites() []string { return a.Declared.GetRewrites() }
+func (a Action) Rewrites() []string { return a.Declared.GetCheck().GetRewrites() }
 
 // Of returns what a run does. Of a workspace's actions it takes those
 // its targets point at, keeping only the names in only: these are what

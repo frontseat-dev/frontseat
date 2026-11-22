@@ -12,7 +12,7 @@ func publishing(change func(*pluginv1.Action)) *pluginv1.Action {
 	action := &pluginv1.Action{
 		Name: "publish/release", Tools: []string{"gh"},
 		Command: &pluginv1.Command{Arguments: []string{"gh", "release", "create", "{frontseat.tag}", "{frontseat.artifacts}", "--repo", "{frontseat.remote}", "--notes-file", "{frontseat.notes}", "--prerelease={frontseat.prerelease}"}},
-		Publish: &pluginv1.Publish{Environment: []string{"GH_TOKEN"}},
+		Kind:    &pluginv1.Action_Publish{Publish: &pluginv1.Publish{Environment: []string{"GH_TOKEN"}}},
 	}
 	change(action)
 	return action
@@ -40,29 +40,25 @@ func TestAnActionThatPublishesIsGivenTheReleaseAndItsArtifacts(t *testing.T) {
 	}
 }
 
-// An action that publishes is that alone, runs something and leaves
-// nothing; what it is given of where it runs is named as a tool reads
+// An action that publishes runs something and leaves nothing; what it is given of where it runs is named as a tool reads
 // it, and is nothing the host sets; and only one that publishes names
 // what one is given. The control is one that does.
-func TestAnActionThatPublishesIsThatAlone(t *testing.T) {
+func TestAnActionThatPublishesRunsSomethingAndLeavesNothing(t *testing.T) {
 	for name, c := range map[string]struct {
 		action *pluginv1.Action
 		says   string
 	}{
-		"a test":                       {publishing(func(a *pluginv1.Action) { a.Test = true }), "the action p publishes, and is a test: one that publishes is that alone"},
-		"a package":                    {publishing(func(a *pluginv1.Action) { a.Package = true }), "publishes, and is a package"},
-		"a program to run":             {publishing(func(a *pluginv1.Action) { a.Program = true }), "publishes, and is a program to run"},
-		"said to be versioned":         {publishing(func(a *pluginv1.Action) { a.Versioned = true }), "publishes, and is said to be versioned, which one that publishes is"},
+		"said to be versioned":         {publishing(func(a *pluginv1.Action) { a.Versioned = true }), "the action p publishes, and is said to be versioned, which one that publishes is"},
 		"runs nothing":                 {publishing(func(a *pluginv1.Action) { a.Command = nil }), "the action p publishes and runs nothing"},
 		"a program to be filled":       {publishing(func(a *pluginv1.Action) { a.Command.Arguments = []string{"{frontseat.artifacts}"} }), "names what it runs by something to be filled"},
 		"leaves something":             {publishing(func(a *pluginv1.Action) { a.Outputs = []*pluginv1.Output{{Path: "out/x"}} }), `the action p publishes and says it leaves "out/x"`},
 		"reads something":              {publishing(func(a *pluginv1.Action) { a.Inputs = []*pluginv1.Input{SourceInput("**")} }), "the action p publishes and says what it reads"},
 		"says where it runs":           {publishing(func(a *pluginv1.Action) { a.Command.Directory = "x" }), "the action p publishes and says where it runs"},
-		"a variable not one":           {publishing(func(a *pluginv1.Action) { a.Publish.Environment = []string{"gh token"} }), `is given the variable "gh token", which is no name a tool reads one by`},
-		"a variable in small letters":  {publishing(func(a *pluginv1.Action) { a.Publish.Environment = []string{"gh_token"} }), "which is no name a tool reads one by"},
-		"the path":                     {publishing(func(a *pluginv1.Action) { a.Publish.Environment = []string{"PATH"} }), "is given the variable PATH, which the host sets or keeps"},
-		"a stand-in":                   {publishing(func(a *pluginv1.Action) { a.Publish.Environment = []string{"FRONTSEAT_CRED_A"} }), "is given the variable FRONTSEAT_CRED_A, which the host sets or keeps"},
-		"a variable twice":             {publishing(func(a *pluginv1.Action) { a.Publish.Environment = []string{"GH_TOKEN", "GH_TOKEN"} }), "is given the variable GH_TOKEN twice"},
+		"a variable not one":           {publishing(func(a *pluginv1.Action) { a.GetPublish().Environment = []string{"gh token"} }), `is given the variable "gh token", which is no name a tool reads one by`},
+		"a variable in small letters":  {publishing(func(a *pluginv1.Action) { a.GetPublish().Environment = []string{"gh_token"} }), "which is no name a tool reads one by"},
+		"the path":                     {publishing(func(a *pluginv1.Action) { a.GetPublish().Environment = []string{"PATH"} }), "is given the variable PATH, which the host sets or keeps"},
+		"a stand-in":                   {publishing(func(a *pluginv1.Action) { a.GetPublish().Environment = []string{"FRONTSEAT_CRED_A"} }), "is given the variable FRONTSEAT_CRED_A, which the host sets or keeps"},
+		"a variable twice":             {publishing(func(a *pluginv1.Action) { a.GetPublish().Environment = []string{"GH_TOKEN", "GH_TOKEN"} }), "is given the variable GH_TOKEN twice"},
 		"given and set":                {publishing(func(a *pluginv1.Action) { a.Command.Environment = map[string]string{"GH_TOKEN": "x"} }), "is given the variable GH_TOKEN, and sets it too"},
 		"artifacts within an argument": {publishing(func(a *pluginv1.Action) { a.Command.Arguments[4] = "--files={frontseat.artifacts}" }), "names {frontseat.artifacts} within an argument: it is an argument by itself"},
 		"artifacts in a value":         {publishing(func(a *pluginv1.Action) { a.Command.Environment = map[string]string{"FILES": "{frontseat.artifacts}"} }), "names {frontseat.artifacts} in the value of FILES"},
@@ -71,8 +67,8 @@ func TestAnActionThatPublishesIsThatAlone(t *testing.T) {
 	}
 	for name, action := range map[string]*pluginv1.Action{
 		"one that publishes":             publishing(func(*pluginv1.Action) {}),
-		"given nothing of where it runs": publishing(func(a *pluginv1.Action) { a.Publish.Environment = nil }),
-		"one that does not":              {Name: "compile", Test: true, Outputs: []*pluginv1.Output{{Path: "out/"}}},
+		"given nothing of where it runs": publishing(func(a *pluginv1.Action) { a.GetPublish().Environment = nil }),
+		"one that does not":              {Name: "compile", Kind: &pluginv1.Action_Test{Test: &pluginv1.Test{}}, Outputs: []*pluginv1.Output{{Path: "out/"}}},
 	} {
 		if err := CheckPublish("the action p", action); err != nil {
 			t.Errorf("%s: refused, %v", name, err)

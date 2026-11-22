@@ -36,7 +36,7 @@ func TestResolveSaysWhatAnActionHasNothingToDoWithout(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			reader := Action{Label: model.Label{Path: "lab/app", Plugin: "go", Name: "test/exists"}, Repository: "lab", ProjectRoot: "app",
-				Declared: &pluginv1.Action{Name: "test/exists", Test: true, IdleWithoutInputs: tc.idle}, References: tc.references}
+				Declared: &pluginv1.Action{Name: "test/exists", Kind: &pluginv1.Action_Test{Test: &pluginv1.Test{IdleWithoutInputs: tc.idle}}}, References: tc.references}
 			actions := []Action{build, reader}
 			if err := Resolve(actions); err != nil {
 				t.Fatal(err)

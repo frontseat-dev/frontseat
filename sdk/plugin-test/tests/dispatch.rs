@@ -3,7 +3,7 @@
 use frontseat_plugin::abi::dispatch;
 use frontseat_plugin::option_value::{StringList, Value as Kind};
 use frontseat_plugin::prelude::*;
-use frontseat_plugin::{wire, OptionValue, ABI};
+use frontseat_plugin::{wire, OptionValue};
 use frontseat_plugin_test::{Files, Read, TestHost};
 use prost::Message;
 
@@ -78,11 +78,7 @@ fn integer_options_round_trip_without_float_conversion() {
         &host,
         &wire::Call {
             method: "Describe".into(),
-            request: wire::DescribeRequest {
-                host_abi_min: ABI,
-                host_abi_max: ABI,
-            }
-            .encode_to_vec(),
+            request: wire::DescribeRequest {}.encode_to_vec(),
         },
     )
     .unwrap()
@@ -179,19 +175,11 @@ fn ask<R: Message>(host: &TestHost, method: &str, request: R) -> Result<Vec<u8>,
     .unwrap()
 }
 #[test]
-fn dispatch_encodes_all_setting_kinds_and_refuses_incompatible_abi() {
+fn dispatch_encodes_all_setting_kinds() {
     let host = source();
-    let response = ask(
-        &host,
-        "Describe",
-        wire::DescribeRequest {
-            host_abi_min: ABI,
-            host_abi_max: ABI,
-        },
-    )
-    .unwrap();
+    let response = ask(&host, "Describe", wire::DescribeRequest {}).unwrap();
     let got = wire::DescribeResponse::decode(response.as_slice()).unwrap();
-    assert_eq!((got.name.as_str(), got.abi), ("example", ABI));
+    assert_eq!(got.name, "example");
     let kinds: Vec<_> = got.options.iter().map(|o| o.kind).collect();
     assert_eq!(
         kinds,
@@ -221,19 +209,6 @@ fn dispatch_encodes_all_setting_kinds_and_refuses_incompatible_abi() {
         }))
     );
     assert!(got.options[0].entity_settable && !got.options[1].entity_settable);
-    assert_eq!(
-        ask(
-            &host,
-            "Describe",
-            wire::DescribeRequest {
-                host_abi_min: ABI + 1,
-                host_abi_max: ABI + 1
-            }
-        )
-        .unwrap_err()
-        .reason,
-        "abi-mismatch"
-    );
     assert!(host.reads().is_empty());
 }
 #[test]

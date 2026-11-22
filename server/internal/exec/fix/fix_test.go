@@ -30,7 +30,7 @@ func TestAFixWithToolsOfAnotherPlatformIsRefused(t *testing.T) {
 	snapshot := sourcetest.Taken(t, nil)
 	action := plan.Action{
 		Label:    model.Label{Path: "app", Plugin: "go", Name: "format"},
-		Declared: &pluginv1.Action{Name: "format", Check: true, Tools: []string{"go"}, Rewrites: []string{"**/*.go"}, Fix: &pluginv1.Command{Arguments: []string{"gofmt", "-w", "."}}},
+		Declared: &pluginv1.Action{Name: "format", Kind: &pluginv1.Action_Check{Check: &pluginv1.Check{Fix: &pluginv1.Command{Arguments: []string{"gofmt", "-w", "."}}, Rewrites: []string{"**/*.go"}}}, Tools: []string{"go"}},
 	}
 	runner := fix.Runner{Tools: &tools.Provisioner{Platform: other}, Kept: t.TempDir()}
 	_, err := runner.Run(context.Background(), snapshot, action)
@@ -69,9 +69,7 @@ func TestAFixIsGivenItsChecksWorkspaceAndArrangedFiles(t *testing.T) {
 		Sources:        []pattern.Group{{Directory: "crates/hello", Patterns: []string{"f.txt"}}},
 		WorkspaceFiles: []string{"Cargo.lock"},
 		Arranged:       []plan.Arranged{{Path: "Cargo.toml", Content: []byte("narrowed\n")}},
-		Declared: &pluginv1.Action{Name: "own", Check: true, Inputs: []*pluginv1.Input{{Kind: &pluginv1.Input_Source{Source: "f.txt"}}}, Rewrites: []string{"f.txt"},
-			Command: &pluginv1.Command{Arguments: []string{"true"}},
-			Fix:     &pluginv1.Command{Arguments: []string{"sh", "-c", "cat ../../Cargo.lock ../../Cargo.toml > f.txt"}}},
+		Declared:       &pluginv1.Action{Name: "own", Kind: &pluginv1.Action_Check{Check: &pluginv1.Check{Fix: &pluginv1.Command{Arguments: []string{"sh", "-c", "cat ../../Cargo.lock ../../Cargo.toml > f.txt"}}, Rewrites: []string{"f.txt"}}}, Inputs: []*pluginv1.Input{{Kind: &pluginv1.Input_Source{Source: "f.txt"}}}, Command: &pluginv1.Command{Arguments: []string{"true"}}},
 	}
 	changes, err := fix.Runner{Tools: &tools.Provisioner{}, Kept: t.TempDir()}.Run(context.Background(), snapshot, action)
 	if err != nil {
@@ -96,9 +94,7 @@ func TestAFixRunsWithWhatItsRepositorysMiseTomlPutsInTheEnvironment(t *testing.T
 			Label:       model.Label{Path: "app", Plugin: "custom", Name: "own"},
 			ProjectRoot: "app",
 			Sources:     []pattern.Group{{Directory: "app", Patterns: []string{"f.txt"}}},
-			Declared: &pluginv1.Action{Name: "own", Check: true, Inputs: []*pluginv1.Input{{Kind: &pluginv1.Input_Source{Source: "f.txt"}}}, Rewrites: []string{"f.txt"},
-				Command: &pluginv1.Command{Arguments: []string{"true"}},
-				Fix:     &pluginv1.Command{Arguments: []string{"sh", "-c", `printf '%s\n%s\n' "$FROM_THE_REPOSITORY" "$PATH" > f.txt`}}},
+			Declared:    &pluginv1.Action{Name: "own", Kind: &pluginv1.Action_Check{Check: &pluginv1.Check{Fix: &pluginv1.Command{Arguments: []string{"sh", "-c", `printf '%s\n%s\n' "$FROM_THE_REPOSITORY" "$PATH" > f.txt`}}, Rewrites: []string{"f.txt"}}}, Inputs: []*pluginv1.Input{{Kind: &pluginv1.Input_Source{Source: "f.txt"}}}, Command: &pluginv1.Command{Arguments: []string{"true"}}},
 		}
 		runner := fix.Runner{Tools: &tools.Provisioner{Executor: grid, Platform: testgrid.Platform()}, Kept: t.TempDir()}
 		changes, err := runner.Run(context.Background(), snapshot, action)
@@ -133,10 +129,8 @@ func TestAFixIsNotGivenWhatMiseSets(t *testing.T) {
 	fixed := func(given map[string]string) ([]source.Change, error) {
 		action := plan.Action{
 			Label: model.Label{Path: "app", Plugin: "custom", Name: "own"}, ProjectRoot: "app", Environment: given,
-			Sources: []pattern.Group{{Directory: "app", Patterns: []string{"f.txt"}}},
-			Declared: &pluginv1.Action{Name: "own", Test: true, Check: true, Inputs: []*pluginv1.Input{{Kind: &pluginv1.Input_Source{Source: "f.txt"}}}, Rewrites: []string{"f.txt"},
-				Command: &pluginv1.Command{Arguments: []string{"true"}},
-				Fix:     &pluginv1.Command{Arguments: []string{"sh", "-c", `printf '%s' "$GIVEN" > f.txt`}}},
+			Sources:  []pattern.Group{{Directory: "app", Patterns: []string{"f.txt"}}},
+			Declared: &pluginv1.Action{Name: "own", Kind: &pluginv1.Action_Check{Check: &pluginv1.Check{Fix: &pluginv1.Command{Arguments: []string{"sh", "-c", `printf '%s' "$GIVEN" > f.txt`}}, Rewrites: []string{"f.txt"}}}, Inputs: []*pluginv1.Input{{Kind: &pluginv1.Input_Source{Source: "f.txt"}}}, Command: &pluginv1.Command{Arguments: []string{"true"}}},
 		}
 		return fix.Runner{Tools: &tools.Provisioner{Executor: grid, Platform: testgrid.Platform()}, Kept: t.TempDir()}.Run(context.Background(), snapshot, action)
 	}

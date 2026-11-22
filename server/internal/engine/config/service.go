@@ -35,7 +35,7 @@ type Service struct {
 	Entity entity.Ref
 	// Repository locates its declared program.
 	Repository string
-	// Program selects a program action (Action.program), exclusively of
+	// Program selects a program action (the action kind Program), exclusively of
 	// As.
 	Program string
 	// As is what it is: "container" for an image written out here, or

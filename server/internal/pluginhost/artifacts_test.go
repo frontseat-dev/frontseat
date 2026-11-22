@@ -11,7 +11,7 @@ func TestAProvidedArtifactNamesAnOutputOfItsOwnProject(t *testing.T) {
 	sound := func() *pluginv1.Project {
 		return &pluginv1.Project{Root: "app", Kind: "fixture", Name: "app", Manifest: "app/package.json",
 			Provides: []*pluginv1.Provide{{Coordinate: &pluginv1.Coordinate{Ecosystem: "fixture", Name: "app"}, Artifacts: []*pluginv1.Produced{{Action: "install", Output: "modules/"}}}},
-			Actions:  []*pluginv1.Action{{Name: "install", Command: &pluginv1.Command{Arguments: []string{"fixture"}}, Outputs: []*pluginv1.Output{{Path: "modules/"}}}},
+			Actions:  []*pluginv1.Action{{Name: "install", Command: &pluginv1.Command{Arguments: []string{"fixture"}}, Outputs: []*pluginv1.Output{{Path: "modules/"}}, Kind: &pluginv1.Action_Build{Build: &pluginv1.Build{}}}},
 		}
 	}
 	check := func(p *pluginv1.Project) error {

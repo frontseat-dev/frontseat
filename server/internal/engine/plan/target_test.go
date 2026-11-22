@@ -76,23 +76,24 @@ func pointsAt(t *testing.T, actions []Action, entities []record.Located, says st
 func TestTestsInPiecesAreAskedForAndPointedAtTogether(t *testing.T) {
 	var actions []Action
 	for _, name := range []string{"lint", "test-build", "test/.", "test/internal/ledger"} {
-		actions = append(actions, Action{
-			Label:    model.Label{Path: "services/greet", Plugin: "go", Name: name},
-			Declared: &pluginv1.Action{Name: name, Test: strings.HasPrefix(name, "test/")},
-		})
+		declared := &pluginv1.Action{Name: name, Kind: &pluginv1.Action_Build{Build: &pluginv1.Build{}}}
+		if strings.HasPrefix(name, "test/") {
+			declared.Kind = &pluginv1.Action_Test{Test: &pluginv1.Test{}}
+		}
+		actions = append(actions, Action{Label: model.Label{Path: "services/greet", Plugin: "go", Name: name}, Declared: declared})
 	}
 	// A project in a directory whose name ends as the label of a
 	// project's tests does, and a piece whose own name does.
 	for _, name := range []string{"test/.", "test/pkg.test/sub"} {
-		actions = append(actions, Action{Label: model.Label{Path: "odd.test/svc", Plugin: "go", Name: name}, Declared: &pluginv1.Action{Name: name, Test: true}})
+		actions = append(actions, Action{Label: model.Label{Path: "odd.test/svc", Plugin: "go", Name: name}, Declared: &pluginv1.Action{Name: name, Kind: &pluginv1.Action_Test{Test: &pluginv1.Test{}}}})
 	}
 	// A project with a piece cut into shards, beside a piece whose name
 	// begins as the first's does.
 	for _, name := range []string{"test/.", "test/internal/ledger@1of2", "test/internal/ledger@2of2", "test/internal/ledgers"} {
-		actions = append(actions, Action{Label: model.Label{Path: "sharded", Plugin: "go", Name: name}, Declared: &pluginv1.Action{Name: name, Test: true}})
+		actions = append(actions, Action{Label: model.Label{Path: "sharded", Plugin: "go", Name: name}, Declared: &pluginv1.Action{Name: name, Kind: &pluginv1.Action_Test{Test: &pluginv1.Test{}}}})
 	}
 	// A project whose tests are one action, beside it.
-	actions = append(actions, Action{Label: model.Label{Path: "platform/log", Plugin: "go", Name: "test"}, Declared: &pluginv1.Action{Name: "test", Test: true}})
+	actions = append(actions, Action{Label: model.Label{Path: "platform/log", Plugin: "go", Name: "test"}, Declared: &pluginv1.Action{Name: "test", Kind: &pluginv1.Action_Test{Test: &pluginv1.Test{}}}})
 	for _, c := range []struct {
 		says          string
 		targets, only []string
@@ -160,10 +161,11 @@ func TestWhatPointsAtNothingIsRefusedWithTheNearest(t *testing.T) {
 func TestASharedActionIsPointedAtOnlyByItsLabel(t *testing.T) {
 	for _, shared := range []bool{false, true} {
 		actions, entities := workspace()
-		actions = append(actions, Action{
-			Label:    model.Label{Path: "platform", Plugin: "go", Name: "fetch/example.com/dep@v1.0.0"},
-			Declared: &pluginv1.Action{Name: "fetch/example.com/dep@v1.0.0", Shared: shared, Fetch: true},
-		})
+		declared := &pluginv1.Action{Name: "fetch/example.com/dep@v1.0.0", Kind: &pluginv1.Action_Fetch{Fetch: &pluginv1.Fetch{}}}
+		if shared {
+			declared.Kind = &pluginv1.Action_SharedFetch{SharedFetch: &pluginv1.SharedFetch{}}
+		}
+		actions = append(actions, Action{Label: model.Label{Path: "platform", Plugin: "go", Name: "fetch/example.com/dep@v1.0.0"}, Declared: declared})
 		for _, target := range []string{"platform/", "platform/notes.md"} {
 			selected, err := Pointed(actions, entities, []string{target}, nil)
 			fetched := false
@@ -214,7 +216,7 @@ func programs() ([]Action, []record.Located) {
 	lint := model.Label{Path: "services/greet", Plugin: "go", Name: "lint"}
 	actions = append(actions, Action{
 		Label:    model.Label{Path: "services/greet", Plugin: "go", Name: "run/greet"},
-		Declared: &pluginv1.Action{Name: "run/greet", Program: true},
+		Declared: &pluginv1.Action{Name: "run/greet", Kind: &pluginv1.Action_Program{Program: &pluginv1.Program{}}},
 		Needs:    []model.Label{lint},
 	})
 	return actions, entities
@@ -301,7 +303,7 @@ func TestWhatCanBeRunIsSaidUpToAFew(t *testing.T) {
 	var actions []Action
 	for i := range 25 {
 		name := "run/p" + string(rune('a'+i))
-		actions = append(actions, Action{Label: model.Label{Path: "m", Plugin: "go", Name: name}, Declared: &pluginv1.Action{Name: name, Program: true}})
+		actions = append(actions, Action{Label: model.Label{Path: "m", Plugin: "go", Name: name}, Declared: &pluginv1.Action{Name: name, Kind: &pluginv1.Action_Program{Program: &pluginv1.Program{}}}})
 	}
 	_, _, err := Program(actions, "//m:go.run/none")
 	if err == nil || !strings.Contains(err.Error(), "//m:go.run/pa, ") || !strings.Contains(err.Error(), "and 5 more") || strings.Contains(err.Error(), "run/py") {
@@ -334,12 +336,13 @@ func TestANameFindsItsEntityInAnyNamespaceAndAnAmbiguousNameIsRefused(t *testing
 func TestTheBuildsPackagesAreAskedForAndPointedAtTogether(t *testing.T) {
 	var actions []Action
 	for _, name := range []string{"compile", "package/greet-linux-amd64", "package/greet-darwin-arm64"} {
-		actions = append(actions, Action{
-			Label:    model.Label{Path: "services/greet", Plugin: "go", Name: name},
-			Declared: &pluginv1.Action{Name: name, Package: strings.HasPrefix(name, "package/")},
-		})
+		declared := &pluginv1.Action{Name: name, Kind: &pluginv1.Action_Build{Build: &pluginv1.Build{}}}
+		if strings.HasPrefix(name, "package/") {
+			declared.Kind = &pluginv1.Action_Package{Package: &pluginv1.Package{}}
+		}
+		actions = append(actions, Action{Label: model.Label{Path: "services/greet", Plugin: "go", Name: name}, Declared: declared})
 	}
-	actions = append(actions, Action{Label: model.Label{Path: "services/greet", Plugin: "cargo", Name: "wasm"}, Declared: &pluginv1.Action{Name: "wasm", Package: true}})
+	actions = append(actions, Action{Label: model.Label{Path: "services/greet", Plugin: "cargo", Name: "wasm"}, Declared: &pluginv1.Action{Name: "wasm", Kind: &pluginv1.Action_Package{Package: &pluginv1.Package{}}}})
 	for _, c := range []struct {
 		says          string
 		targets, only []string

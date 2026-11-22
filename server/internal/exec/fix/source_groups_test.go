@@ -17,9 +17,9 @@ func TestAdditionalSourceGroupsDoNotExtendRewriteAuthority(t *testing.T) {
 	snapshot := sourcetest.Taken(t, map[string]string{"fixture.txt": "original", "app/own.txt": "original"})
 	action := plan.Action{Label: model.Label{Path: "app", Plugin: "custom", Name: "format"}, ProjectRoot: "app",
 		Sources: []pattern.Group{{Directory: "app", Patterns: []string{"*.txt"}}, {Patterns: []string{"fixture.txt"}}},
-		Declared: &pluginv1.Action{Name: "format", Check: true, Rewrites: []string{"**"}, Fix: &pluginv1.Command{
+		Declared: &pluginv1.Action{Name: "format", Kind: &pluginv1.Action_Check{Check: &pluginv1.Check{Fix: &pluginv1.Command{
 			Arguments: []string{"sh", "-c", "printf changed > own.txt; printf changed > ../fixture.txt"},
-		}},
+		}, Rewrites: []string{"**"}}}},
 	}
 	changeable, err := fix.Changeable(t.Context(), snapshot, action)
 	if err != nil || !slices.Equal(changeable, []string{"app/own.txt"}) {

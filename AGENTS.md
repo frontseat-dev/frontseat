@@ -80,7 +80,7 @@ the change that fixes it.
 - **What to build is pointed at**: an entity, a path, or an action as it is
   printed, by `frontseat build` and `frontseat test` alike. `test` is a
   build that keeps the actions their plugins say run tests (the
-  contract's test flag, never an action's name), and ends
+  contract's action kind `Test`, never an action's name), and ends
   `NO_TESTS_FOUND`, exit 4, where there are none. `--only NAME` keeps the
   actions of a name. `frontseat run PROGRAM` runs a program (a run, of
   `RunService`); a build is of `BuildService`. `frontseat query` reads
@@ -345,7 +345,7 @@ the change that fixes it.
   is what git said, the remote's own words among it.
 - A release publishes with actions, and with each tool's own way of
   publishing: an action says it publishes (the contract's
-  `Action.publish`; `publish: true` on an entity's own action) and runs
+  action kind `Publish`; `publish: true` on an entity's own action) and runs
   a forge's command line or a registry's client. Nothing of Frontseat's
   speaks to a forge or a registry. No build runs it. A release runs it
   once every tag is pushed, where the daemon is
@@ -440,7 +440,7 @@ the change that fixes it.
   credential the environment told. What a release says of a checkout
   names it by its empty name.
 - A release ships what its packages leave. An action says it makes
-  what its project ships (the contract's `Action.package`; `package:
+  what its project ships (the contract's action kind `Package`; `package:
   true` on a Component's own action), and each file it leaves is an
   artifact of the release that builds it, by the name its tool gave it,
   with the sha256 and the size the grid holds of it

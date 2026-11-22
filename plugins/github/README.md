@@ -21,7 +21,7 @@ gh = "2.105.0"
   Where no Component owns the root, no entity owns the project, and its
   publish runs for each unit of the repository a release tags.
 - **One action, `publish/release`**, which publishes
-  (`Action.publish`): no build runs it. A release runs it once its tags
+  (the action kind `Publish`): no build runs it. A release runs it once its tags
   are pushed, where the daemon is, as
 
   ```

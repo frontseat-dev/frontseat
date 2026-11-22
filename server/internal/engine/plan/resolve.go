@@ -153,7 +153,7 @@ func Resolve(actions []Action) error {
 			sofar.add(reader, read)
 			// What its own plugin named one by one is what it has nothing
 			// to do without, whatever else is read beside it or over it.
-			if ref.Plugin != "" && !read.All() && reader.Declared.GetIdleWithoutInputs() && !slices.Contains(reader.IdleWithout, read) {
+			if ref.Plugin != "" && !read.All() && reader.Declared.GetTest().GetIdleWithoutInputs() && !slices.Contains(reader.IdleWithout, read) {
 				reader.IdleWithout = append(reader.IdleWithout, read)
 			}
 		}

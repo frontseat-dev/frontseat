@@ -10,7 +10,7 @@ use prost::Message;
 
 use crate::repository::NOT_FIXTURES;
 use crate::wire;
-use crate::{Description, Error, Host, Plugin, Repository, ABI};
+use crate::{Description, Error, Host, Plugin, Repository};
 
 #[cfg(target_arch = "wasm32")]
 pub use guest::{alloc, call, free};
@@ -72,18 +72,9 @@ fn dispatched(
 }
 
 fn describe(d: Description, request: &[u8]) -> Result<Vec<u8>, Error> {
-    let req = wire::DescribeRequest::decode(request).map_err(invalid_request)?;
-    if req.host_abi_max != 0 && (ABI < req.host_abi_min || ABI > req.host_abi_max) {
-        return Err(Error::new(
-            crate::Code::FailedPrecondition,
-            "abi-mismatch",
-            format!(
-                "the plugin speaks ABI {ABI} and the host {} to {}",
-                req.host_abi_min, req.host_abi_max
-            ),
-        )
-        .help("Build the plugin against an SDK the host supports."));
-    }
+    // The ABI is said once, by the module's export: the request says
+    // nothing, and is read only to refuse one that is not a request.
+    wire::DescribeRequest::decode(request).map_err(invalid_request)?;
     let options = d
         .options
         .into_iter()
@@ -100,7 +91,6 @@ fn describe(d: Description, request: &[u8]) -> Result<Vec<u8>, Error> {
     }
     Ok(wire::DescribeResponse {
         name: d.name,
-        abi: ABI,
         interests,
         options,
         generates_sources: d.generates_sources,

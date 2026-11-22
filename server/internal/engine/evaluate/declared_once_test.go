@@ -102,7 +102,7 @@ func TestALabelTwoSourcesDeclareIsRefused(t *testing.T) {
 		return &pluginv1.Project{Root: root, Name: root, Kind: "custom", Manifest: root + "/catalog-info.yaml", Actions: actions}
 	}
 	action := func(name string) *pluginv1.Action {
-		return &pluginv1.Action{Name: name, Command: &pluginv1.Command{Arguments: []string{name}}}
+		return &pluginv1.Action{Name: name, Command: &pluginv1.Command{Arguments: []string{name}}, Kind: &pluginv1.Action_Build{Build: &pluginv1.Build{}}}
 	}
 	for name, c := range map[string]struct {
 		plugin   string

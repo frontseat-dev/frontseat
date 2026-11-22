@@ -11,16 +11,14 @@ pub(super) fn of() -> Vec<Action> {
     // npm ci checks the native lock's SRI. `npm cache add URL` cannot be
     // told that SRI, so fetching one URL that way would lose the check.
     // Only the cache survives; no dependency code runs with a network.
-    let fetch = Action {
-        fetch: true,
-        ..Action::new(
-            FETCH,
-            Command::new(["npm", "ci", "--ignore-scripts", "--no-audit", "--no-fund"]),
-        )
-        .tool("node")
-        .inputs(["package.json", "package-lock.json"].map(Input::source))
-        .output(Output::optional("~/.npm/_cacache/"))
-    };
+    let fetch = Action::new(
+        FETCH,
+        Command::new(["npm", "ci", "--ignore-scripts", "--no-audit", "--no-fund"]),
+    )
+    .tool("node")
+    .inputs(["package.json", "package-lock.json"].map(Input::source))
+    .output(Output::optional("~/.npm/_cacache/"))
+    .fetch();
     // npm owns layout, optional/platform dependencies and dependency install
     // hooks. They run without a network and leave only node_modules.
     let install = Action::new(
