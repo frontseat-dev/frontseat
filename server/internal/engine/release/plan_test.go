@@ -628,8 +628,8 @@ func TestAStrategysAnswerIsHeldToTheContract(t *testing.T) {
 		"a prerelease above by none":     {"release/1.26", &wrong{branch: func(a *pluginv1.BranchResponse) { a.Prerelease, a.Line, a.AtLeast = true, "", typev1.Bump_BUMP_NONE }}},
 	} {
 		err := plan(c.branch, c.w)
-		var mistake *model.Mistake
-		if err == nil || errors.As(err, &mistake) {
+		var wrong *release.WrongAnswer
+		if !errors.As(err, &wrong) {
 			t.Errorf("%s: want the strategy's answer refused as its own fault, got %v", name, err)
 		}
 	}

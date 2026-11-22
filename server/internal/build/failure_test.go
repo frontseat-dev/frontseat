@@ -4,7 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/frontseat-dev/frontseat/sdk/go"
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
+	"github.com/frontseat-dev/frontseat/server/internal/engine/release"
+	"github.com/frontseat-dev/frontseat/server/internal/refusal"
 	"testing"
 
 	"connectrpc.com/connect/v2"
@@ -97,5 +100,20 @@ func TestAReasonGivenKeepsTheDetailsAFailureCarries(t *testing.T) {
 	named, _ := status.New(codes.FailedPrecondition, "x").WithDetails(&errdetails.ErrorInfo{Reason: "INVALID_MANIFEST"})
 	if !errors.As(failedRPC(named.Err(), codes.Internal, "SOURCE_MISTAKEN"), &rpc) || len(rpc.Details()) != 1 {
 		t.Errorf("a failure with a reason of its own was given another: %v", rpc.Details())
+	}
+}
+
+// A release strategy's answer that the plugin contract does not let it
+// give is refused as the contract says, INVALID_ARGUMENT with
+// RELEASE_INVALID; what went wrong otherwise is refused by no reason.
+func TestAStrategysWrongAnswerIsRefusedByItsReason(t *testing.T) {
+	refused := releaseFailure(fmt.Errorf("planning greet: %w", &release.WrongAnswer{Message: "the versioning strategy answered wrongly"}))
+	if reason, domain := frontseat.Reason(refused); connect.CodeOf(refused) != connect.CodeInvalidArgument || reason != "RELEASE_INVALID" || domain != refusal.Build {
+		t.Errorf("a strategy's wrong answer was answered %v (%s of %s); want INVALID_ARGUMENT with RELEASE_INVALID", refused, reason, domain)
+	}
+	// The control: what is no wrong answer is given no reason.
+	other := releaseFailure(errors.New("the disk is full"))
+	if reason, _ := frontseat.Reason(other); connect.CodeOf(other) != connect.CodeInternal || reason != "" {
+		t.Errorf("a failure that is no wrong answer was answered %v (%s); want INTERNAL and no reason", other, reason)
 	}
 }

@@ -51,6 +51,13 @@ type Refusal struct {
 
 func (r *Refusal) Error() string { return r.Message }
 
+// WrongAnswer is a strategy's answer that the plugin contract does not
+// let it give: its plugin's fault, not the request's and not the
+// workspace's.
+type WrongAnswer struct{ Message string }
+
+func (w *WrongAnswer) Error() string { return w.Message }
+
 func mistaken(format string, a ...any) error {
 	return &model.Mistake{Message: fmt.Sprintf(format, a...)}
 }
@@ -725,13 +732,13 @@ func planUnit(ctx context.Context, w Workspace, resolved *Resolved, strategies S
 		return holds(buildv1.ReasonKind_REASON_KIND_UNCHANGED, "")
 	default:
 		if next, err = semver.StrictNewVersion(answered.GetVersion()); err != nil {
-			return nil, "", none, fmt.Errorf("the versioning strategy %s answered %q for %s, which is no semantic version", settings.Versioning, answered.GetVersion(), unit.Name)
+			return nil, "", none, &WrongAnswer{fmt.Sprintf("the versioning strategy %s answered %q for %s, which is no semantic version", settings.Versioning, answered.GetVersion(), unit.Name)}
 		}
 		if !next.GreaterThan(last.version) {
-			return nil, "", none, fmt.Errorf("the versioning strategy %s answered %s for %s, which is not above its last release %s", settings.Versioning, next, unit.Name, core(last.version))
+			return nil, "", none, &WrongAnswer{fmt.Sprintf("the versioning strategy %s answered %s for %s, which is not above its last release %s", settings.Versioning, next, unit.Name, core(last.version))}
 		}
 		if next.Prerelease() != "" || next.Metadata() != "" {
-			return nil, "", none, fmt.Errorf("the versioning strategy %s answered %s for %s, which is more than three dotted numbers", settings.Versioning, next, unit.Name)
+			return nil, "", none, &WrongAnswer{fmt.Sprintf("the versioning strategy %s answered %s for %s, which is more than three dotted numbers", settings.Versioning, next, unit.Name)}
 		}
 		planned.Bump = answered.GetBump()
 	}
@@ -794,7 +801,7 @@ var channelName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`)
 // the plugin's fault, not the workspace's.
 func checkBranch(strategy, branch string, unit entity.Ref, answered *pluginv1.BranchResponse) (*line, error) {
 	wrong := func(format string, a ...any) (*line, error) {
-		return nil, fmt.Errorf("the branching strategy %s answered wrongly of %s on %s: %s", strategy, unit.Name, branch, fmt.Sprintf(format, a...))
+		return nil, &WrongAnswer{fmt.Sprintf("the branching strategy %s answered wrongly of %s on %s: %s", strategy, unit.Name, branch, fmt.Sprintf(format, a...))}
 	}
 	if !answered.GetReleases() {
 		switch {
@@ -835,7 +842,7 @@ func checkBranch(strategy, branch string, unit entity.Ref, answered *pluginv1.Br
 // said in a line, and notes of a size.
 func checkVersion(strategy string, unit entity.Ref, answered *pluginv1.VersionResponse, commits []*pluginv1.ReleaseCommit) error {
 	wrong := func(format string, a ...any) error {
-		return fmt.Errorf("the versioning strategy %s answered wrongly of %s: %s", strategy, unit.Name, fmt.Sprintf(format, a...))
+		return &WrongAnswer{fmt.Sprintf("the versioning strategy %s answered wrongly of %s: %s", strategy, unit.Name, fmt.Sprintf(format, a...))}
 	}
 	bump := func(b typev1.Bump) bool { return b >= typev1.Bump_BUMP_NONE && b <= typev1.Bump_BUMP_MAJOR }
 	given := map[string]bool{}

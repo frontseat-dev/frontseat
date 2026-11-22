@@ -84,8 +84,9 @@ func (s *releaseService) WaitRelease(ctx context.Context, request *buildv1.WaitR
 }
 
 // releaseFailure is a failure to plan, as whoever asked hears of it: a
-// request refused for what it asks, a mistake in what the workspace
-// says, or what went wrong.
+// request refused for what it asks, a strategy's answer the plugin
+// contract does not let it give, a mistake in what the workspace says,
+// or what went wrong.
 func releaseFailure(err error) error {
 	// What is refused already, as evaluating the workspace refuses a
 	// mistake in it, is refused as it was.
@@ -97,6 +98,7 @@ func releaseFailure(err error) error {
 	var refusal *release.Refusal
 	var mistake *model.Mistake
 	var refused *refusedRelease
+	var wrong *release.WrongAnswer
 	switch {
 	case errors.As(err, &refused):
 		fallback, reason = refused.code, refused.reason
@@ -106,7 +108,7 @@ func releaseFailure(err error) error {
 		fallback, reason = codes.NotFound, "ENTITY_NOT_FOUND"
 	case errors.As(err, &refusal) && refusal.Unserved:
 		fallback, reason = codes.Unimplemented, "RELEASE_NOT_SERVED"
-	case errors.As(err, &refusal):
+	case errors.As(err, &refusal), errors.As(err, &wrong):
 		fallback, reason = codes.InvalidArgument, "RELEASE_INVALID"
 	case errors.As(err, &mistake):
 		fallback, reason = codes.FailedPrecondition, "SOURCE_MISTAKEN"
