@@ -171,7 +171,8 @@ func TestNoCommandAsksAControlPlaneOnAnotherMachineInClear(t *testing.T) {
 		{"workspace", "describe", "named"},
 		{"workspace", "delete", "named"},
 		{"workspace", "ssh", "--stdio", "named"},
-		{"workspace", "credential", "forge.example"},
+		{"credential", "set", "forge.example"},
+		{"credential", "list"},
 		{"build", "list", "--workspace", "named"},
 		{"build", "--workspace", "named"},
 	} {

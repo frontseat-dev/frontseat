@@ -50,12 +50,13 @@ credential to fetch from, as a private fork does, give the control plane
 one before `frontseat workspace open`:
 
 ```sh
-frontseat workspace credential github.com --username YOU < token.txt
+frontseat credential set github.com --username YOU < token.txt
 ```
 
 The token is read from standard input and is never an argument. Give
-one that reads only the repository it is for. `frontseat workspace
-credential github.com --forget` lets go of it.
+one that reads only the repository it is for. `frontseat credential
+list` lists yours by host, and `frontseat credential delete github.com`
+lets go of it.
 
 ## When something goes wrong
 

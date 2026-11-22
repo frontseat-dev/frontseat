@@ -70,7 +70,9 @@ func TestInsideAWorkspaceItsSourceIsFixed(t *testing.T) {
 		{"workspace", "open", "https://forge.example/acme/code.git"},
 		{"workspace", "delete", "named"},
 		{"workspace", "ssh", "true"},
-		{"workspace", "credential", "forge.example"},
+		{"credential", "set", "forge.example"},
+		{"credential", "list"},
+		{"credential", "delete", "forge.example"},
 	} {
 		if _, _, err := run(t, d, args...); err == nil || !strings.Contains(err.Error(), "its source is fixed") {
 			t.Errorf("inside, %v: %v; want it refused by name", args, err)
