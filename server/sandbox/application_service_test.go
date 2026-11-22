@@ -209,11 +209,7 @@ func ended(p *serviceRoutes, id string) {
 func buildApplication(t *testing.T) (string, string) {
 	t.Helper()
 	testgrid.Address(t)
-	// The repository's directory is what the workspace names it by.
-	root := filepath.Join(t.TempDir(), "fixture")
-	if err := os.Mkdir(root, 0o755); err != nil {
-		t.Fatal(err)
-	}
+	root := fixtureRoot(t)
 	testpins.Go(t, root)
 	// The probe imports the production relay. Give its isolated repository
 	// that source too, under its real internal package path: a host build
@@ -248,6 +244,18 @@ func buildApplication(t *testing.T) (string, string) {
 	identity := unique()
 	wrote(t, root, "app/stamp.go", "package main\nimport \"os\"\nfunc init() { os.Setenv(\"APPLICATION_BUILD\", \""+identity+"\") }\n")
 	return buildArtifact(t, root, "//app:go.compile", "../../.frontseat/home/go/bin/server", "actor"), identity
+}
+
+// fixtureRoot is a new directory for a fixture repository, named "fixture":
+// a workspace names a repository by the last element of its remote, which is
+// the directory's name, and runArtifact asks for its targets by that name.
+func fixtureRoot(t *testing.T) string {
+	t.Helper()
+	root := filepath.Join(t.TempDir(), "fixture")
+	if err := os.Mkdir(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return root
 }
 
 func wrote(t *testing.T, root, path, contents string) {
