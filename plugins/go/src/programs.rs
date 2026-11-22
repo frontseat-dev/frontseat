@@ -4,8 +4,8 @@
 //! builds on a worker, no test, says `package main`. Which files those
 //! are is read here as the go command reads it (go/build's
 //! parseFileHeader, shouldBuild and goodOSArchFile): not a file or a
-//! directory whose name begins with `_` or `.`, not a `vendor`
-//! directory, not a file named for another system, not one that
+//! directory whose name begins with `_` or `.`, nothing beneath a
+//! `vendor` directory, not a file named for another system, not one that
 //! imports "C", and not one whose build constraint, `//go:build` or the
 //! older `// +build`, does not hold. A worker is Linux, builds without
 //! cgo, and is arm64 or amd64: a file is counted where it is built on
@@ -15,9 +15,11 @@
 //! a release tag (`go1.21`) up to the go it pins.
 //!
 //! This is the go command's rule written again, and so proven against
-//! it: `differs_from_the_go_command_nowhere` below, run over real
-//! repositories and over files written to be hard to read.
+//! it: `differs_from_the_go_command_nowhere` below, run with every
+//! other test over files written to be hard to read, and over real
+//! repositories where it is told of some.
 
+use crate::actions::{COMPILE, PROGRAMS};
 use frontseat_plugin::prelude::*;
 
 /// The operating systems and architectures the go command reads from a
@@ -89,14 +91,8 @@ pub(super) struct Built<'a> {
 /// clause names `main`.
 pub(super) fn is_program(within: &str, source: &str, built: &Built) -> bool {
     let (directory, file) = within.rsplit_once('/').unwrap_or(("", within));
-    let hidden = |name: &str| name.starts_with('_') || name.starts_with('.');
-    if hidden(file) || file.ends_with("_test.go") {
+    if hidden(file) || file.ends_with("_test.go") || !visited(directory) {
         return false;
-    }
-    for part in directory.split('/') {
-        if hidden(part) || part == "vendor" || part == "testdata" {
-            return false;
-        }
     }
     let Some(header) = read(source.as_bytes()) else {
         return false;
@@ -638,12 +634,11 @@ pub(super) fn programs(module: &str, directories: &[String]) -> Vec<Action> {
         .map(|(name, _)| Action {
             name: format!("run/{name}"),
             command: Some(Command {
-                arguments: vec![format!("~/go/bin/{name}")],
-                environment: Default::default(),
+                arguments: vec![format!("{PROGRAMS}{name}")],
                 ..Default::default()
             }),
             // All the compile left: the programs, and nothing else.
-            inputs: vec![Input::output("compile")],
+            inputs: vec![Input::output(COMPILE)],
             program: true,
             ..Default::default()
         })
@@ -757,6 +752,10 @@ mod tests {
             "cmd/serve/windows.go",
             "cmd/serve/a_b.go",
             "cmd/serve/x_unknown.go",
+            // A directory named vendor is looked in, and nothing
+            // beneath it.
+            "cmd/vendor/main.go",
+            "vendor/main.go",
         ] {
             assert!(program(built, main), "{built}");
         }
@@ -897,26 +896,34 @@ mod tests {
     }
 
     /// The differential run that proves the rules above against the go
-    /// command itself. It is run by hand, over modules of real
-    /// repositories, since it needs them and a go command:
+    /// command itself, which the test is given (`spec.frontseat.test.tools`
+    /// of the plugin's catalog file, and mise): a module of files written
+    /// to be hard to read (`TRICKY`), which needs nothing fetched. Over
+    /// modules of real repositories too, where it is told of some:
     ///
-    ///   GO_PROGRAMS_GO=$(mise which go) GO_PROGRAMS_MINOR=27 GO_PROGRAMS_ROOTS=/a/module:/b/module \
-    ///     cargo test -p frontseat-plugin-go differs_from -- --ignored --nocapture
+    ///   GO_PROGRAMS_ROOTS=/a/module:/b/module \
+    ///     cargo test -p frontseat-plugin-go differs_from -- --nocapture
     ///
     /// For each module it asks the go command which directories are
     /// programs on Linux, without cgo, on arm64 and on amd64, and holds
     /// the two together to what is found here.
     #[test]
-    #[ignore = "needs a go command and modules to read: see its comment"]
     fn differs_from_the_go_command_nowhere() {
         use std::collections::BTreeSet;
         use std::path::Path;
-        let go = std::env::var("GO_PROGRAMS_GO").expect("GO_PROGRAMS_GO");
-        let roots = std::env::var("GO_PROGRAMS_ROOTS").expect("GO_PROGRAMS_ROOTS");
-        // The minor version of that go command: 27 for go 1.27.
-        let minor = std::env::var("GO_PROGRAMS_MINOR")
-            .ok()
-            .and_then(|minor| minor.parse().ok());
+        let go = "go";
+        let roots = std::env::var("GO_PROGRAMS_ROOTS").unwrap_or_default();
+        // The minor version of that go command: 27 for go1.27.3.
+        let version = std::process::Command::new(go)
+            .args(["env", "GOVERSION"])
+            .env("GOTOOLCHAIN", "local")
+            .output()
+            .expect("the go command this test holds the plugin to is not found");
+        let minor = String::from_utf8_lossy(&version.stdout)
+            .trim()
+            .strip_prefix("go1.")
+            .and_then(|rest| rest.split('.').next()?.parse().ok());
+        assert!(minor.is_some(), "the go command says no version");
         fn walk(root: &Path, at: &Path, minor: Option<u32>, found: &mut BTreeSet<String>) {
             for entry in std::fs::read_dir(at).unwrap().flatten() {
                 let path = entry.path();
@@ -957,10 +964,13 @@ mod tests {
         )
         .unwrap();
         for (i, (file, source)) in TRICKY.iter().enumerate() {
-            let directory = tricky.join(format!("d{i:03}"));
-            std::fs::create_dir_all(&directory).unwrap();
-            std::fs::write(directory.join(file), source).unwrap();
+            let file = tricky.join(format!("d{i:03}")).join(file);
+            std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+            std::fs::write(file, source).unwrap();
         }
+        // What the go command keeps is kept beside the module, and goes
+        // with it.
+        let kept = tricky.join("_kept");
         let roots = format!("{roots}:{}", tricky.display());
         let mut modules = 0;
         let mut differences = Vec::new();
@@ -970,7 +980,7 @@ mod tests {
             walk(&root, &root, minor, &mut here);
             let mut there = BTreeSet::new();
             for arch in ["arm64", "amd64"] {
-                let listed = std::process::Command::new(&go)
+                let listed = std::process::Command::new(go)
                     .args([
                         "list",
                         "-e",
@@ -987,9 +997,17 @@ mod tests {
                         ("GOFLAGS", "-mod=mod"),
                         ("GOWORK", "off"),
                         ("GOPROXY", "off"),
+                        ("GOTOOLCHAIN", "local"),
                     ])
+                    .env("GOCACHE", kept.join("cache"))
+                    .env("GOPATH", kept.join("path"))
                     .output()
                     .unwrap();
+                assert!(
+                    listed.status.success(),
+                    "the go command lists nothing: {}",
+                    String::from_utf8_lossy(&listed.stderr)
+                );
                 for line in String::from_utf8_lossy(&listed.stdout)
                     .lines()
                     .filter(|l| !l.is_empty())
@@ -1011,7 +1029,9 @@ mod tests {
             );
             let said = |directory: &str| -> String {
                 directory
-                    .strip_prefix('d')
+                    .split('/')
+                    .next()
+                    .and_then(|first| first.strip_prefix('d'))
                     .and_then(|index| index.parse::<usize>().ok())
                     .filter(|_| root.ends_with(tricky.file_name().unwrap()))
                     .and_then(|index| TRICKY.get(index))
@@ -1038,8 +1058,9 @@ mod tests {
         assert!(differences.is_empty(), "{}", differences.join("\n"));
     }
 
-    /// Files written to be hard to read, each a file name and what it
-    /// holds: the differential run holds each to the go command.
+    /// Files written to be hard to read, each a file's path in a
+    /// directory of its own and what it holds: the differential run
+    /// holds each to the go command.
     const TRICKY: &[(&str, &str)] = &[
         ("main.go", "package main\n"),
         ("main.go", "package lib\n"),
@@ -1151,5 +1172,12 @@ mod tests {
         ("x_unknown.go", "package main\n"),
         ("_x.go", "package main\n"),
         (".x.go", "package main\n"),
+        ("vendor/main.go", "package main\n"),
+        ("vendor/x/main.go", "package main\n"),
+        ("cmd/vendor/main.go", "package main\n"),
+        ("cmd/vendor/x/y/main.go", "package main\n"),
+        ("_x/main.go", "package main\n"),
+        (".x/main.go", "package main\n"),
+        ("x/_y/main.go", "package main\n"),
     ];
 }
