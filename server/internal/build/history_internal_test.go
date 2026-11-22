@@ -122,7 +122,7 @@ func TestWhatWasBeingWrittenWhenADaemonDiedIsClearedAway(t *testing.T) {
 
 // A daemon keeps its runs somewhere, or does not start.
 func TestADaemonGivenNowhereToKeepItsRunsDoesNotStart(t *testing.T) {
-	if _, err := newRuns(nil, nil, nil, nil, nil, nil, "", nil); err == nil {
+	if _, err := newBuilds(nil, nil, nil, nil, nil, nil, "", nil); err == nil {
 		t.Error("a daemon given no directory for its runs started")
 	}
 }

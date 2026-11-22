@@ -62,9 +62,9 @@ func bazelName(code buildv1.ExitCode) string {
 // errNotFound is a run that does not exist.
 var errNotFound = errors.New("no build has that id")
 
-// runs is a daemon's runs. A run belongs to the daemon, not to the call
-// that made it: it goes on when its caller goes away.
-type runs struct {
+// builds is a daemon's builds. A build belongs to the daemon, not to the
+// call that made it: it goes on when its caller goes away.
+type builds struct {
 	workspace *sourced.Workspace
 	plugins   []*pluginhost.Plugin
 	// tools is where a fix's work is kept: tool trees by digest, and copies.
@@ -109,7 +109,7 @@ var errStopped = errors.New("the daemon is ending, and makes no run")
 
 // stop ends the daemon's runs: each is cancelled, and stop returns once
 // all have ended.
-func (rs *runs) stop() {
+func (rs *builds) stop() {
 	rs.mu.Lock()
 	rs.stopped = true
 	made := append([]*run(nil), rs.order...)
@@ -125,11 +125,11 @@ func (rs *runs) stop() {
 	_ = os.RemoveAll(rs.tools)
 }
 
-// newRuns returns a daemon's runs: those kept in a directory by the
+// newBuilds returns a daemon's builds: those kept in a directory by the
 // daemons before it, and those it will make. A run a daemon died under
 // is ended here, and says so. The runs that ended long ago are let go by
 // the clock given, which is the machine's own where none is.
-func newRuns(held *sourced.Workspace, plugins []*pluginhost.Plugin, executor exec.Executor, downloads download.Fetcher, platform map[string]string, signals *telemetry.Signals, kept string, now func() time.Time) (*runs, error) {
+func newBuilds(held *sourced.Workspace, plugins []*pluginhost.Plugin, executor exec.Executor, downloads download.Fetcher, platform map[string]string, signals *telemetry.Signals, kept string, now func() time.Time) (*builds, error) {
 	keptHistory, err := history.Open(kept)
 	if err != nil {
 		return nil, err
@@ -143,7 +143,7 @@ func newRuns(held *sourced.Workspace, plugins []*pluginhost.Plugin, executor exe
 		keptHistory.Release()
 		return nil, err
 	}
-	rs := &runs{workspace: held, plugins: plugins, executor: executor, downloads: downloads, answered: &exec.Remembering{Executor: executor}, platform: platform, telemetry: signals, history: keptHistory, files: &source.Keeper{}, answers: &evaluate.Answers{}, byID: map[string]*run{}, tools: tools, now: now}
+	rs := &builds{workspace: held, plugins: plugins, executor: executor, downloads: downloads, answered: &exec.Remembering{Executor: executor}, platform: platform, telemetry: signals, history: keptHistory, files: &source.Keeper{}, answers: &evaluate.Answers{}, byID: map[string]*run{}, tools: tools, now: now}
 	before, err := keptHistory.All()
 	if err != nil {
 		keptHistory.Release()
@@ -199,7 +199,7 @@ func recorded(kept history.Read, clock func() time.Time) *run {
 const lingers = 5 * time.Minute
 
 // clock is the time, as the daemon is told it.
-func (rs *runs) clock() time.Time {
+func (rs *builds) clock() time.Time {
 	if rs.now != nil {
 		return rs.now()
 	}
@@ -209,7 +209,7 @@ func (rs *runs) clock() time.Time {
 // prune lets go of the oldest runs that have ended, beyond the newest
 // the daemon keeps and those that have only just ended. A run that has
 // not ended is never let go.
-func (rs *runs) prune() {
+func (rs *builds) prune() {
 	now := rs.clock
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
@@ -294,7 +294,7 @@ func versioned(actions []plan.Action, entities []record.Located, of *versions) [
 // what the one program its target names is made of, and brings that to
 // where the daemon is; every other run is given nil. A run given
 // versions is made for a release.
-func (rs *runs) create(parent context.Context, profile typev1.Profile, targets, only []string, fix, testsOnly bool, running *delivery, released *versions) (*run, error) {
+func (rs *builds) create(parent context.Context, profile typev1.Profile, targets, only []string, fix, testsOnly bool, running *delivery, released *versions) (*run, error) {
 	id, err := newID(history.IDPrefix, history.IDBytes)
 	if err != nil {
 		return nil, err
@@ -341,7 +341,7 @@ func (rs *runs) create(parent context.Context, profile typev1.Profile, targets, 
 	return r, nil
 }
 
-func (rs *runs) get(id string) (*run, error) {
+func (rs *builds) get(id string) (*run, error) {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 	r, ok := rs.byID[id]
@@ -352,7 +352,7 @@ func (rs *runs) get(id string) (*run, error) {
 }
 
 // list returns the runs, newest first.
-func (rs *runs) list() []*run {
+func (rs *builds) list() []*run {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 	out := make([]*run, 0, len(rs.order))
@@ -365,7 +365,7 @@ func (rs *runs) list() []*run {
 // execute is a run, from evaluation to its last event. Its span has
 // ended before its last event is out, so that whoever saw the run end
 // finds the whole trace.
-func (rs *runs) execute(ctx context.Context, r *run) {
+func (rs *builds) execute(ctx context.Context, r *run) {
 	ctx, span := telemetry.Pipeline(ctx, "build", r.state.GetId())
 	started := time.Now()
 	code, err, cancelled := rs.work(ctx, r)
@@ -400,7 +400,7 @@ func (rs *runs) execute(ctx context.Context, r *run) {
 
 // work does what a run does and returns how it ended, why where it
 // ended before anything ran, and whether it was cancelled.
-func (rs *runs) work(ctx context.Context, r *run) (code buildv1.ExitCode, failure error, cancelled bool) {
+func (rs *builds) work(ctx context.Context, r *run) (code buildv1.ExitCode, failure error, cancelled bool) {
 	r.stage(buildv1.Build_STAGE_EVALUATING)
 	rs.answered.Begin()
 	tree, err := sourceOf(rs.workspace)
