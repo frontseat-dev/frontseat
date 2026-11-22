@@ -9,4 +9,11 @@
 // a sandbox that is to reach anything is refused. What runs in one is
 // not root, is given no volume and no container beside it, and a paused
 // one keeps its disk and not its memory.
+//
+// Not held: a credential kept for a host over https is traded for its
+// stand-in in a request a sandbox sends to that host and port in the
+// clear too, since the gateway has no rule that asks for TLS. What is in
+// a sandbox can have the credential sent unencrypted to the host and
+// port it was kept for, and to no other
+// (TestTheGatewayStillSendsACredentialInTheClearWhereASandboxAsks).
 package openshell

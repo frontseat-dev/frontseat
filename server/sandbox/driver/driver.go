@@ -68,8 +68,11 @@ type Credentialed interface {
 	// Credential keeps a credential for a host, a name and a port, under
 	// an id, in place of the one it held under the id for the same host;
 	// one held under the id for another host is ErrInvalid. The host is
-	// written with "http://" before it where the credential may be sent
-	// unencrypted; otherwise it is sent over https alone.
+	// written with "http://" before it where it is reached over http.
+	// What a driver holds is the host and the port the credential goes
+	// to, and the requests it goes with; that a request to a host kept
+	// for https is encrypted is held only where the driver says so. The
+	// OpenShell driver does not: see its package.
 	Credential(ctx context.Context, id, host, username, secret string) error
 	// Forget lets go of the credential under an id; one it holds none
 	// under is no error, and one a sandbox is still let through with is
