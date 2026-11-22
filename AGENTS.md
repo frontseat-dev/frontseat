@@ -684,7 +684,9 @@ the change that fixes it.
   `OUTPUT_ONLY`.
 - A `List` pages: it takes `page_size` and `page_token` and answers its
   list and `next_page_token`, empty on the last page
-  (`server/internal/page`); the Go SDK gathers every page (`Listed`). A
+  (`server/internal/page`), whose `All` is a server's one reader of every
+  page of another's List; the Go SDK hands every list as an iterator
+  that asks for a page at a time (`Collect` gathers one). A
   `Create` that a retry would make twice takes a `request_id`, and the
   same id sent again returns what the first call made; one keyed by a
   name the caller chooses, or by a plan's `etag`, is that already.
@@ -861,7 +863,7 @@ mise run docs:serve       # serve the TechDocs site on http://localhost:8000
 
 | Where | What it holds |
 |---|---|
-| `sdk/go` | The Go SDK's one client (`frontseat.New`), the one reading of a refusal (`Error`, its `Reason…` constants held to what the servers give by `TestEveryReasonAClientIsGivenIsOneTheGoSDKNames`), and the one reader of a stream to its end (`Received`), of every page of a List (`Listed`), of a refusal's reason (`Reason`) and of a workspace's name (`IsWorkspaceName`) |
+| `sdk/go` | The Go SDK's one client (`frontseat.New`), the one reading of a refusal (`Error`, its `Reason…` constants held to what the servers give by `TestEveryReasonAClientIsGivenIsOneTheGoSDKNames`), every list and log as an iterator (`Collect` gathers one), the one reader of a refusal's reason (`Reason`) and of a workspace's name (`IsWorkspaceName`) |
 | `sdk/go/api` | The API's generated Go and Connect clients and handlers |
 | `sdk/go/entity` | Entity references: the one parser and formatter, for a file (`String`), as typed (`Written`) and on a line (`Short`) |
 | `sdk/go/bearer` | A token presented to its origin alone, following no redirect, and never in clear to another machine (`Private`, `ErrInClear`), and what an origin is (`Of`): the SDK's and the server's |
@@ -880,7 +882,7 @@ mise run docs:serve       # serve the TechDocs site on http://localhost:8000
 | `server/internal/secretfile` | A secret read from a file and a directory that are the server's alone |
 | `server/internal/backstage` | The Backstage catalog the control plane resolves entities through |
 | `server/internal/refusal` | A refusal by name: its code, `ErrorInfo` reason and the domain of each service |
-| `server/internal/page` | A List cut into pages, by `page_size` and `page_token` |
+| `server/internal/page` | A List cut into pages, by `page_size` and `page_token`, and every page of another's List gathered (`All`) |
 | `server/internal/source/vcs` | What a workspace asks of a version control system |
 | `local` | What the local stack is, read from its files: the workers' image and platform, what a sandbox is told; the checkout a program is started at (`Checkout`); the directory the command line keeps what it keeps in, and the owner's token and server files beneath it (`Config`, `TokenFile`, `ServerFile`) |
 | `local/ports` | Every port a box and the local stack are reached on |

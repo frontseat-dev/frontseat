@@ -54,13 +54,13 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	"github.com/frontseat-dev/frontseat/sdk/go"
 	sandboxv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/sandbox/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/sandbox/v1alpha1/sandboxv1alpha1connect"
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/confine"
 	"github.com/frontseat-dev/frontseat/server/internal/httpserver"
 	"github.com/frontseat-dev/frontseat/server/internal/image"
+	"github.com/frontseat-dev/frontseat/server/internal/page"
 	runnerv1 "github.com/frontseat-dev/frontseat/server/internal/runnerapi/frontseat/runner/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/testservice"
 	"github.com/frontseat-dev/frontseat/server/sandbox"
@@ -210,7 +210,7 @@ func Serve(ctx context.Context, config Config) error {
 
 // labelled are the sandboxes that carry labels, every page of them.
 func (r *runner) labelled(ctx context.Context, selector string) ([]*sandboxv1.Sandbox, error) {
-	return frontseat.Listed(func(token string) ([]*sandboxv1.Sandbox, string, error) {
+	return page.All(func(token string) ([]*sandboxv1.Sandbox, string, error) {
 		page, err := r.sandboxes.ListSandboxes(ctx, &sandboxv1.ListSandboxesRequest{LabelSelector: selector, PageToken: token})
 		return page.GetSandboxes(), page.GetNextPageToken(), err
 	})

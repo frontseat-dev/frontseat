@@ -71,3 +71,33 @@ func offset(token string) (int, error) {
 	}
 	return at, nil
 }
+
+// All is every item a List call answers, asked for page after page, in
+// the order the call lists them, for a client of one: ask is the call,
+// given the token of the page to ask for, empty for the first, and
+// answering that page's items and the token of the next, empty after
+// the last. Where a page fails, it is nil, with the error; a server that
+// answers a token it was asked with before is not asked again.
+func All[T any](ask func(token string) ([]T, string, error)) ([]T, error) {
+	var all []T
+	seen := map[string]bool{}
+	for token := ""; ; {
+		seen[token] = true
+		items, next, err := ask(token)
+		if err != nil {
+			return nil, err
+		}
+		all = append(all, items...)
+		switch {
+		case next == "":
+			return all, nil
+		case seen[next]:
+			return nil, ErrLoop
+		}
+		token = next
+	}
+}
+
+// ErrLoop is a List that answered a page with a token it was asked with
+// before, and would be asked for the same pages for ever.
+var ErrLoop = errors.New("the server answered a page with a token it was asked with before")

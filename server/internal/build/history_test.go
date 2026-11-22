@@ -2,6 +2,8 @@ package build
 
 import (
 	"context"
+	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,7 +14,6 @@ import (
 	"connectrpc.com/connect/v2"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/frontseat-dev/frontseat/sdk/go"
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1/buildv1alpha1connect"
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
@@ -20,20 +21,24 @@ import (
 )
 
 // logsOf is what one action of a run printed, every part of it, read
-// from the stream as any client of the API reads it, with the SDK's
-// reader of a stream to its end.
+// from the stream as any client of the API reads it, to its end.
 func logsOf(runs buildv1alpha1connect.BuildServiceClient, id, label string) ([]*typev1.LogLine, error) {
 	logs, err := runs.StreamBuildLogs(context.Background(), &buildv1.StreamBuildLogsRequest{BuildId: id, Label: label})
 	if err != nil {
 		return nil, err
 	}
 	defer logs.Close()
-	parts, err := frontseat.Received(logs)
 	var lines []*typev1.LogLine
-	for _, part := range parts {
+	for {
+		part, err := logs.Receive()
+		if errors.Is(err, io.EOF) {
+			return lines, nil
+		}
+		if err != nil {
+			return lines, err
+		}
 		lines = append(lines, part.GetLines()...)
 	}
-	return lines, err
 }
 
 // told is all a daemon says of a run: the run, what its actions did,

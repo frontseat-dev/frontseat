@@ -6,30 +6,16 @@ import (
 	"iter"
 )
 
-// Receiver is a stream of a call that hands one message at a time, and
+// receiver is a stream of a call that hands one message at a time, and
 // io.EOF where it has ended, as a Connect server stream does to its
 // client.
-type Receiver[T any] interface {
+type receiver[T any] interface {
 	Receive() (T, error)
-}
-
-// Received is every message of a stream, in the order they came, read
-// to its end. Where the stream breaks, it is those that came before,
-// with the error.
-func Received[T any](stream Receiver[T]) ([]T, error) {
-	var messages []T
-	for message, err := range each(stream) {
-		if err != nil {
-			return messages, err
-		}
-		messages = append(messages, message)
-	}
-	return messages, nil
 }
 
 // each hands a stream's messages one at a time, as they come, to its
 // end; where it breaks, the error, last.
-func each[T any](stream Receiver[T]) iter.Seq2[T, error] {
+func each[T any](stream receiver[T]) iter.Seq2[T, error] {
 	return func(yield func(T, error) bool) {
 		for {
 			message, err := stream.Receive()
@@ -45,19 +31,6 @@ func each[T any](stream Receiver[T]) iter.Seq2[T, error] {
 			}
 		}
 	}
-}
-
-// Listed gathers every item a List call answers, page after page, in the
-// order the call lists them. Page is the call: given the token of the
-// page to ask for, empty for the first, it answers that page's items
-// and the token of the next, empty after the last. Where a page fails,
-// it is nil, with the error.
-func Listed[T any](page func(token string) ([]T, string, error)) ([]T, error) {
-	all, err := Collect(paged(page))
-	if err != nil {
-		return nil, err
-	}
-	return all, nil
 }
 
 // Collect gathers what a sequence the SDK hands back yields, in order:
@@ -76,7 +49,9 @@ func Collect[T any](seq iter.Seq2[T, error]) ([]T, error) {
 
 // paged hands the items a List call answers one at a time, asking for
 // each page as the one before is read through, to the last; where a
-// page fails, the error, last. Page is the call, as Listed takes it.
+// page fails, the error, last. Page is the call: given the token of the
+// page to ask for, empty for the first, it answers that page's items and
+// the token of the next, empty after the last.
 func paged[T any](page func(token string) ([]T, string, error)) iter.Seq2[T, error] {
 	return func(yield func(T, error) bool) {
 		var none T
@@ -109,7 +84,7 @@ func paged[T any](page func(token string) ([]T, string, error)) iter.Seq2[T, err
 // stream is a stream of a call as its client holds it: received, then
 // closed.
 type stream[T any] interface {
-	Receiver[T]
+	receiver[T]
 	Close() error
 }
 

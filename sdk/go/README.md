@@ -149,8 +149,7 @@ reason and the domain.
 - `bearer` presents a token to one origin and follows no redirect, for a
   program that makes HTTP requests of its own.
 - `api` is the generated Go of the contracts, with a Connect client for
-  each service, for a program that wants the wire itself. `Received` and
-  `Listed` read a stream and a paged list to their ends.
+  each service, for a program that wants the wire itself.
 
 ## Examples
 

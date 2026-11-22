@@ -206,7 +206,7 @@ var policies = []policy{
 	{"server/testsupport/drivertest", []string{"server/sandbox/driver", "server/testsupport/drivertest"}},
 	// It serves the sandbox service beneath the plane to the test alone,
 	// and says how the plane's owner is known as the SDK's clients take it.
-	{"server/testsupport/controlplanetest", []string{"server/internal/controlplane", "server/internal/backstage", "server/internal/source", "server/sandbox", "server/testsupport/**", "sdk/go/api/**", "sdk/go"}},
+	{"server/testsupport/controlplanetest", []string{"server/internal/controlplane", "server/internal/page", "server/internal/backstage", "server/internal/source", "server/sandbox", "server/testsupport/**", "sdk/go/api/**", "sdk/go"}},
 	// The daemon: a thin main over the package that is it, which reads
 	// its flags and serves the build API over what it is told.
 	{"server/cmd/frontseatd", []string{"server/internal/daemon"}},
@@ -221,7 +221,7 @@ var policies = []policy{
 	// The runner keeps the grid's pool of runner sandboxes with the
 	// OpenShell driver itself: their bound directories and private policy
 	// are the driver's to say, and no client's of the sandbox API.
-	{"server/internal/runner", []string{"server/sandbox", "server/sandbox/driver", "server/sandbox/driver/openshell", "server/internal/httpserver", "server/internal/image", "sdk/go/api/**", "sdk/go/entity", "server/internal/testservice", "server/internal/confine", "sdk/go", "server/internal/runnerapi/**"}},
+	{"server/internal/runner", []string{"server/internal/page", "server/sandbox", "server/sandbox/driver", "server/sandbox/driver/openshell", "server/internal/httpserver", "server/internal/image", "sdk/go/api/**", "sdk/go/entity", "server/internal/testservice", "server/internal/confine", "sdk/go", "server/internal/runnerapi/**"}},
 	// The box's one build, asked by the spec that holds a box to what it
 	// was built with; no other spec builds one.
 	{"specs/cli", []string{"sdk/go", "sdk/go/api/**", "server/testsupport/**", "local/ports", "local/box"}},

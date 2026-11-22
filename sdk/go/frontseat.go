@@ -16,8 +16,8 @@
 //
 // What the SDK hands back is the API's own messages, generated from its
 // contract into the packages beneath api/; they stay there for a
-// program that wants the wire itself, which Received and Listed read to
-// their ends.
+// program that wants the wire itself. Every list and every log is an
+// iter.Seq2, which Collect gathers into a slice.
 //
 // Every call that a server refuses fails with an Error, which says the
 // canonical code and, where the server refused it by name, the reason
