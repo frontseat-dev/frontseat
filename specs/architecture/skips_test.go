@@ -4,8 +4,6 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -103,14 +101,7 @@ func skipsItself(statements []ast.Stmt, parameter string) bool {
 // ignored is not read here.
 func TestNoTestIsSkippedOutright(t *testing.T) {
 	root := repositoryRoot(t)
-	for _, file := range repositoryFiles(t, root) {
-		if !strings.HasSuffix(file, "_test.go") || slices.Contains(strings.Split(file, "/"), "testdata") {
-			continue
-		}
-		source, err := os.ReadFile(filepath.Join(root, file))
-		if err != nil {
-			t.Fatal(err)
-		}
+	goTestFiles(t, root, func(file string, source []byte) {
 		found, err := skippedOutright(file, source)
 		if err != nil {
 			t.Fatal(err)
@@ -118,7 +109,7 @@ func TestNoTestIsSkippedOutright(t *testing.T) {
 		for _, test := range found {
 			t.Errorf("%s: %s skips itself whatever it is given and runs nothing: delete it, or skip only where what it needs is missing", file, test)
 		}
-	}
+	})
 }
 
 func TestATestSkippedOutrightIsFound(t *testing.T) {

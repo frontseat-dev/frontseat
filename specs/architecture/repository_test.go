@@ -46,6 +46,22 @@ func repositoryFiles(t *testing.T, root string) []string {
 	return out
 }
 
+// goTestFiles gives each Go test file of the repository, beside its
+// source, leaving out fixtures, which are no test of this repository.
+func goTestFiles(t *testing.T, root string, each func(file string, source []byte)) {
+	t.Helper()
+	for _, file := range repositoryFiles(t, root) {
+		if !strings.HasSuffix(file, "_test.go") || slices.Contains(strings.Split(file, "/"), "testdata") {
+			continue
+		}
+		source, err := os.ReadFile(filepath.Join(root, file))
+		if err != nil {
+			t.Fatal(err)
+		}
+		each(file, source)
+	}
+}
+
 // fixture reports whether a file is a test's own: what it names is the
 // fixture's, and not a path of this repository.
 func fixture(file string) bool {
