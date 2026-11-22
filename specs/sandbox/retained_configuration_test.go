@@ -5,6 +5,7 @@ import (
 	"time"
 
 	connect "connectrpc.com/connect/v2"
+	"github.com/frontseat-dev/frontseat/sdk/go"
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/proto"
@@ -58,7 +59,7 @@ func TestRetainedWorkspaceRevalidatesOptionsAndRecoversAfterMalformedSettings(t 
 	spec.Expect(compile).To(HaveLen(1))
 	spec.Expect(compile[0].GetOutcome()).To(Equal(buildv1.Outcome_OUTCOME_FAILED))
 	spec.Expect(compile[0].GetProvenance()).To(Equal(buildv1.Provenance_PROVENANCE_EXECUTED))
-	logs, err := w.sdk().BuildByID(failed.run.GetId()).Logs(ctx, retainedCompile)
+	logs, err := frontseat.Collect(w.sdk().BuildByID(failed.run.GetId()).Logs(ctx, retainedCompile))
 	spec.Expect(err).NotTo(HaveOccurred())
 	spec.Expect(logs).To(ContainElement(HaveField("Text", ContainSubstring("selected by the changed option"))))
 

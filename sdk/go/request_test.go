@@ -42,7 +42,10 @@ func (d *daemon) CreateRun(_ context.Context, r *buildv1.CreateRunRequest) (*bui
 	return &buildv1.CreateRunResponse{Run: &buildv1.Run{Id: "run_1", BuildId: "build_1"}}, nil
 }
 
-func servedDaemon(t *testing.T, d *daemon) *Workspace {
+func servedDaemon(t *testing.T, d interface {
+	buildv1alpha1connect.BuildServiceHandler
+	buildv1alpha1connect.RunServiceHandler
+}) *Workspace {
 	t.Helper()
 	api := connect.NewServer()
 	buildv1alpha1connect.RegisterBuildServiceHandler(api, d)

@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/frontseat-dev/frontseat/cli/internal/ui/plain"
+	"github.com/frontseat-dev/frontseat/sdk/go"
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/entity"
@@ -65,11 +66,11 @@ program to read.`,
 			return err
 		}
 		ctx := cmd.Context()
-		entities, err := w.Entities(ctx)
+		entities, err := frontseat.Collect(w.Entities(ctx))
 		if err != nil {
 			return err
 		}
-		projects, err := w.Projects(ctx)
+		projects, err := frontseat.Collect(w.Projects(ctx))
 		if err != nil {
 			return err
 		}

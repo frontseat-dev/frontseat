@@ -31,6 +31,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/frontseat-dev/frontseat/sdk/go"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testgrid"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testmodule"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testworkload"
@@ -313,7 +314,7 @@ func TestPerf(t *testing.T) {
 // first build by: of its runs, the one that ran the most.
 func ranOnTheGrid(t *testing.T, fs tool) []*repb.Digest {
 	t.Helper()
-	listed, err := fs.fixture.Builds(context.Background())
+	listed, err := frontseat.Collect(fs.fixture.Builds(context.Background()))
 	if err != nil || len(listed) == 0 {
 		t.Fatalf("no run to read: %v", err)
 	}
@@ -323,7 +324,7 @@ func ranOnTheGrid(t *testing.T, fs tool) []*repb.Digest {
 			most = run
 		}
 	}
-	actions, err := fs.fixture.BuildByID(most.GetId()).Actions(context.Background())
+	actions, err := frontseat.Collect(fs.fixture.BuildByID(most.GetId()).Actions(context.Background()))
 	if err != nil {
 		t.Fatal(err)
 	}

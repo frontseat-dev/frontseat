@@ -2,9 +2,7 @@ package frontseat
 
 import (
 	"context"
-	"fmt"
 	"iter"
-	"strings"
 
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1/buildv1alpha1connect"
@@ -40,10 +38,12 @@ type BuildRequest struct {
 
 // Build is one build of a workspace, by its id.
 type Build struct {
-	// ID is the build's id, as the daemon gave it: "build_" and more.
-	ID string
+	id string
 	w  *Workspace
 }
+
+// ID is the build's id, as the daemon gave it: "build_" and more.
+func (b *Build) ID() string { return b.id }
 
 // Build starts a build, and returns it at once: it goes on whether or
 // not it is followed.
@@ -67,13 +67,14 @@ func (w *Workspace) Test(ctx context.Context, request BuildRequest) (*Build, err
 	return w.Build(ctx, request)
 }
 
-// Builds lists the workspace's builds, newest first.
-func (w *Workspace) Builds(ctx context.Context) ([]*buildv1.Build, error) {
-	api, err := w.builds(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return Listed(func(token string) ([]*buildv1.Build, string, error) {
+// Builds are the workspace's builds, newest first, asked for a page at
+// a time as they are read.
+func (w *Workspace) Builds(ctx context.Context) iter.Seq2[*buildv1.Build, error] {
+	return paged(func(token string) ([]*buildv1.Build, string, error) {
+		api, err := w.builds(ctx)
+		if err != nil {
+			return nil, "", err
+		}
 		page, err := api.ListBuilds(ctx, &buildv1.ListBuildsRequest{PageToken: token})
 		return page.GetBuilds(), page.GetNextPageToken(), err
 	})
@@ -81,22 +82,7 @@ func (w *Workspace) Builds(ctx context.Context) ([]*buildv1.Build, error) {
 
 // BuildByID is the workspace's build of an id. Nothing is asked of the
 // daemon until a call is made.
-func (w *Workspace) BuildByID(id string) *Build { return &Build{ID: id, w: w} }
-
-// Cancel cancels a build or a run of a program, by its id: a build is
-// stopped, and a run's build stopped or its program ended. Cancelling
-// one that has ended changes nothing.
-func (w *Workspace) Cancel(ctx context.Context, id string) error {
-	switch {
-	case strings.HasPrefix(id, "build_"):
-		_, err := w.BuildByID(id).Cancel(ctx)
-		return err
-	case strings.HasPrefix(id, "run_"):
-		_, err := w.RunByID(id).Cancel(ctx)
-		return err
-	}
-	return fmt.Errorf("%q is no build's id and no run's: a build's begins build_, and a run's run_", id)
-}
+func (w *Workspace) BuildByID(id string) *Build { return &Build{id: id, w: w} }
 
 // Describe returns the build as it is now.
 func (b *Build) Describe(ctx context.Context) (*buildv1.Build, error) {
@@ -104,7 +90,7 @@ func (b *Build) Describe(ctx context.Context) (*buildv1.Build, error) {
 	if err != nil {
 		return nil, err
 	}
-	said, err := api.DescribeBuild(ctx, &buildv1.DescribeBuildRequest{BuildId: b.ID})
+	said, err := api.DescribeBuild(ctx, &buildv1.DescribeBuildRequest{BuildId: b.id})
 	return said.GetBuild(), err
 }
 
@@ -114,7 +100,7 @@ func (b *Build) Wait(ctx context.Context) (*buildv1.Build, error) {
 	if err != nil {
 		return nil, err
 	}
-	said, err := api.WaitBuild(ctx, &buildv1.WaitBuildRequest{BuildId: b.ID})
+	said, err := api.WaitBuild(ctx, &buildv1.WaitBuildRequest{BuildId: b.id})
 	return said.GetBuild(), err
 }
 
@@ -124,7 +110,7 @@ func (b *Build) Cancel(ctx context.Context) (*buildv1.Build, error) {
 	if err != nil {
 		return nil, err
 	}
-	said, err := api.CancelBuild(ctx, &buildv1.CancelBuildRequest{BuildId: b.ID})
+	said, err := api.CancelBuild(ctx, &buildv1.CancelBuildRequest{BuildId: b.id})
 	return said.GetBuild(), err
 }
 
@@ -137,40 +123,34 @@ func (b *Build) Events(ctx context.Context, from int64) iter.Seq2[*buildv1.Build
 		if err != nil {
 			return nil, err
 		}
-		return api.StreamBuildEvents(ctx, &buildv1.StreamBuildEventsRequest{BuildId: b.ID, FromSequence: from})
+		return api.StreamBuildEvents(ctx, &buildv1.StreamBuildEventsRequest{BuildId: b.id, FromSequence: from})
 	}, (*buildv1.StreamBuildEventsResponse).GetEvents)
 }
 
-// Actions are what each of the build's actions did, as they stand.
-func (b *Build) Actions(ctx context.Context) ([]*buildv1.ActionResult, error) {
-	api, err := b.w.builds(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return Listed(func(token string) ([]*buildv1.ActionResult, string, error) {
-		page, err := api.ListBuildActions(ctx, &buildv1.ListBuildActionsRequest{BuildId: b.ID, PageToken: token})
+// Actions are what each of the build's actions did, as they stand,
+// asked for a page at a time as they are read.
+func (b *Build) Actions(ctx context.Context) iter.Seq2[*buildv1.ActionResult, error] {
+	return paged(func(token string) ([]*buildv1.ActionResult, string, error) {
+		api, err := b.w.builds(ctx)
+		if err != nil {
+			return nil, "", err
+		}
+		page, err := api.ListBuildActions(ctx, &buildv1.ListBuildActionsRequest{BuildId: b.id, PageToken: token})
 		return page.GetActions(), page.GetNextPageToken(), err
 	})
 }
 
 // Logs are what one action of the build printed, by its label: every
-// line, in order. Where the stream breaks, they are the lines that came
-// before it did, with the error.
-func (b *Build) Logs(ctx context.Context, label string) ([]*typev1.LogLine, error) {
-	var lines []*typev1.LogLine
-	for line, err := range flattened(func() (stream[*buildv1.StreamBuildLogsResponse], error) {
+// line, in order, as a run's are. Where the stream breaks, the error
+// comes last.
+func (b *Build) Logs(ctx context.Context, label string) iter.Seq2[*typev1.LogLine, error] {
+	return flattened(func() (stream[*buildv1.StreamBuildLogsResponse], error) {
 		api, err := b.w.builds(ctx)
 		if err != nil {
 			return nil, err
 		}
-		return api.StreamBuildLogs(ctx, &buildv1.StreamBuildLogsRequest{BuildId: b.ID, Label: label})
-	}, (*buildv1.StreamBuildLogsResponse).GetLines) {
-		if err != nil {
-			return lines, err
-		}
-		lines = append(lines, line)
-	}
-	return lines, nil
+		return api.StreamBuildLogs(ctx, &buildv1.StreamBuildLogsRequest{BuildId: b.id, Label: label})
+	}, (*buildv1.StreamBuildLogsResponse).GetLines)
 }
 
 func (w *Workspace) builds(ctx context.Context) (buildv1alpha1connect.BuildServiceClient, error) {

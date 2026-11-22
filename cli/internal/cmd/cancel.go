@@ -1,6 +1,9 @@
 package cmd
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/spf13/cobra"
 )
 
@@ -20,7 +23,17 @@ nothing.`,
 		if err != nil {
 			return err
 		}
-		return w.Cancel(cmd.Context(), args[0])
+		// Until build cancel and run cancel are commands of their own,
+		// the id says which it is.
+		switch id := args[0]; {
+		case strings.HasPrefix(id, "build_"):
+			_, err = w.BuildByID(id).Cancel(cmd.Context())
+		case strings.HasPrefix(id, "run_"):
+			_, err = w.RunByID(id).Cancel(cmd.Context())
+		default:
+			err = fmt.Errorf("%q is no build's id and no run's: a build's begins build_, and a run's run_", id)
+		}
+		return err
 	},
 }
 

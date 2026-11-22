@@ -18,12 +18,11 @@ not ended, and the newest of those that have.`,
 		if err != nil {
 			return err
 		}
-		listed, err := w.Runs(cmd.Context())
-		if err != nil {
-			return err
-		}
 		printer := plain.Printer{Out: out}
-		for _, each := range listed {
+		for each, err := range w.Runs(cmd.Context()) {
+			if err != nil {
+				return err
+			}
 			printer.Run(each)
 		}
 		return nil

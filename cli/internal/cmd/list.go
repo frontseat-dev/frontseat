@@ -23,11 +23,10 @@ name, where it is, and what it was asked for with. A name is what
 		if err != nil {
 			return err
 		}
-		got, err := fs.Workspaces(cmd.Context())
-		if err != nil {
-			return err
-		}
-		for _, each := range got {
+		for each, err := range fs.Workspaces(cmd.Context()) {
+			if err != nil {
+				return err
+			}
 			said("%s  %s  %s", each.GetName(), plain.Word(each.GetStatus().GetState()), askedFor(each.GetSpec()))
 			if why := each.GetStatus().GetFailure(); why != "" {
 				said("  %s", plain.Shown(why))

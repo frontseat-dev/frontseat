@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"iter"
 	"net"
 	"net/url"
 	"regexp"
@@ -164,11 +165,11 @@ type OpenResult struct {
 	Status *workspacev1.Workspace
 }
 
-// Workspaces lists the workspaces the control plane keeps for the
-// caller, oldest first.
-func (c *Client) Workspaces(ctx context.Context) ([]*workspacev1.Workspace, error) {
+// Workspaces are the workspaces the control plane keeps for the
+// caller, oldest first, asked for a page at a time as they are read.
+func (c *Client) Workspaces(ctx context.Context) iter.Seq2[*workspacev1.Workspace, error] {
 	api := c.workspaces()
-	return Listed(func(token string) ([]*workspacev1.Workspace, string, error) {
+	return paged(func(token string) ([]*workspacev1.Workspace, string, error) {
 		page, err := api.ListWorkspaces(ctx, &workspacev1.ListWorkspacesRequest{PageToken: token})
 		return page.GetWorkspaces(), page.GetNextPageToken(), err
 	})

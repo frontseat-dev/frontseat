@@ -82,7 +82,7 @@ func ExampleWorkspace_Build() {
 		fmt.Println(err)
 		return
 	}
-	fmt.Println(build.ID, ended.GetExitCode().GetName())
+	fmt.Println(build.ID(), ended.GetExitCode().GetName())
 	// Output:
 	// //services/greeter:go.compile true
 	// //services/greeter:go.test true
@@ -98,7 +98,7 @@ func ExampleWorkspace_Release() {
 	ctx := context.Background()
 
 	ws := frontseat.New(server.URL).Workspace("services-main")
-	plan, err := ws.PlanRelease(ctx, "greeter")
+	plan, err := ws.PlanRelease(ctx, frontseat.ReleaseRequest{Entities: []string{"greeter"}})
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -106,7 +106,7 @@ func ExampleWorkspace_Release() {
 	for _, unit := range plan.GetUnits() {
 		fmt.Println(entity.FromProto(unit.GetEntity()).Short(), unit.GetLastVersion(), "->", unit.GetNextVersion())
 	}
-	release, err := ws.Release(ctx, plan.GetEtag(), "greeter")
+	release, err := ws.Release(ctx, frontseat.ReleaseRequest{Entities: []string{"greeter"}, Etag: plan.GetEtag()})
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -116,7 +116,7 @@ func ExampleWorkspace_Release() {
 		fmt.Println(err)
 		return
 	}
-	fmt.Println(release.ID, ended.GetState() == buildv1.Release_STATE_SUCCEEDED)
+	fmt.Println(release.ID(), ended.GetState() == buildv1.Release_STATE_SUCCEEDED)
 	// Output:
 	// greeter 1.2.0 -> 1.3.0
 	// rel_1 true

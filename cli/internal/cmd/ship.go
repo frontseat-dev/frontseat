@@ -56,24 +56,29 @@ An entity named plan is written in full, component:plan.`,
 				return err
 			}
 		}
-		release, err := w.Release(ctx, etag, args...)
+		release, err := w.Release(ctx, frontseat.ReleaseRequest{Entities: args, Etag: etag})
 		if err != nil {
 			return err
 		}
 		// It is named at once: whoever is interrupted from here on, or
 		// loses the daemon, finds it again by this, and it goes on.
-		printer.Began(release.ID)
+		printer.Began(release.ID())
 		// Its build is followed as a build is; a plan that builds nothing
 		// has none.
-		if release.Build != nil {
+		built, err := release.BuildID(ctx)
+		if err != nil {
+			return err
+		}
+		if built != "" {
+			build := w.BuildByID(built)
 			// A build that cannot be followed is still a release that
 			// goes on: it is waited for all the same, and says how it
 			// ended.
-			if _, err := follow(cmd, release.Build, 0); err != nil {
+			if _, err := follow(cmd, build, 0); err != nil {
 				if ctx.Err() != nil {
 					return ctx.Err()
 				}
-				fmt.Fprintf(os.Stderr, "frontseat: the build %s could not be followed: %v\n", release.Build.ID, err)
+				fmt.Fprintf(os.Stderr, "frontseat: the build %s could not be followed: %v\n", build.ID(), err)
 			}
 		}
 		ended, err := release.Wait(ctx)
@@ -110,7 +115,7 @@ func releasing(names []string) (*frontseat.Workspace, error) {
 // plan prints what releasing entities would do, and returns the plan's
 // etag.
 func plan(cmd *cobra.Command, w *frontseat.Workspace, names []string) (string, error) {
-	planned, err := w.PlanRelease(cmd.Context(), names...)
+	planned, err := w.PlanRelease(cmd.Context(), frontseat.ReleaseRequest{Entities: names})
 	if err != nil {
 		return "", err
 	}
