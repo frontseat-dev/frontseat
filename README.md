@@ -24,6 +24,8 @@ AI is changing how software gets written. Frontseat changes how it gets built.
 
 Get started at [frontseat.dev](https://www.frontseat.dev).
 
+Everything a repository writes for Frontseat is in the [configuration reference](docs/configuration.md).
+
 ## Community
 
 - **Contributing:** Want to help build Frontseat? See [CONTRIBUTING.md](CONTRIBUTING.md).
