@@ -1,7 +1,7 @@
-// Package wire turns the host's vocabulary into the contract's messages
-// and back. It is the one place where the two meet: the daemon, the
-// command line and the specs all cross here, so that nothing spells a
-// message's fields out for itself.
+// Package wire turns the host's vocabulary into the plugin contract's
+// messages and back, and a mistake in the source into the build API's
+// diagnostic: evaluation crosses here, so that it spells no message's
+// fields out for itself.
 package wire
 
 import (

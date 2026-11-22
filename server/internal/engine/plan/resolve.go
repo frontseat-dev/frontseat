@@ -96,13 +96,13 @@ func Resolve(actions []Action) error {
 			}
 		}
 	}
-	var reading reading
+	var sofar reading
 	for i := range actions {
 		reader := &actions[i]
 		if len(reader.References) == 0 {
 			continue
 		}
-		reading.begin(reader)
+		sofar.begin(reader)
 		// Every reference is walked again, so what its plugin named one
 		// by one is said again from them, never added to what was said.
 		reader.IdleWithout = nil
@@ -150,14 +150,14 @@ func Resolve(actions []Action) error {
 			}
 			producer := actions[action]
 			read.From, read.Repository, read.ProjectRoot = producer.Label, producer.Repository, producer.ProjectRoot
-			reading.add(reader, read)
+			sofar.add(reader, read)
 			// What its own plugin named one by one is what it has nothing
 			// to do without, whatever else is read beside it or over it.
 			if ref.Plugin != "" && !read.All() && reader.Declared.GetIdleWithoutInputs() && !slices.Contains(reader.IdleWithout, read) {
 				reader.IdleWithout = append(reader.IdleWithout, read)
 			}
 		}
-		reading.end(reader)
+		sofar.end(reader)
 	}
 	return nil
 }

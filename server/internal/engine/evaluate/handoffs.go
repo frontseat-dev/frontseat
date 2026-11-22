@@ -16,7 +16,7 @@ type placedHandoff struct {
 	into    string
 }
 
-// selectedHandoffs follows the existing project graph from only the requirements
+// selectedHandoffs follows the project graph from only the requirements
 // the action reads. Shared transitive handoffs are included once; requesting the
 // same coordinate with conflicting placements is refused before arrangement.
 func selectedHandoffs(resolved *graph.Graph, project graph.Project, inputs []*pluginv1.DependencyInput) ([]placedHandoff, error) {
@@ -94,7 +94,7 @@ func selectedHandoffs(resolved *graph.Graph, project graph.Project, inputs []*pl
 
 // handoffPlacement is shared by staging selection and duplicate comparison:
 // different templates can name the same directory. Artifact-only handoffs may
-// be co-located; source handoffs retain the existing same-root refusal.
+// be co-located; source handoffs at one root are refused.
 func handoffPlacement(project graph.Project, handed graph.Handover, into string) (string, error) {
 	if into == "{root}" && len(handed.Provide.Sources) == 0 && handed.From.Repository == project.Repository && path.Clean(handed.From.Root) == path.Clean(project.Root) {
 		into = "."

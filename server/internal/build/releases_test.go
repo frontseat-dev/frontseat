@@ -266,7 +266,7 @@ func TestASourceThatMovedWhileItWasBuiltIsNotTagged(t *testing.T) {
 				t.Fatalf("a release whose source moved ended %v (%s) with the tags %q", release.GetState(), release.GetFailure(), tagsOf(t, clone))
 			}
 			if name == "by a commit of no file" && !strings.Contains(release.GetFailure(), "is no longer the commit") {
-				built, err := (&runService{runs: d.runs}).DescribeBuild(context.Background(), &buildv1.DescribeBuildRequest{BuildId: release.GetBuildId()})
+				built, err := (&buildService{runs: d.runs}).DescribeBuild(context.Background(), &buildv1.DescribeBuildRequest{BuildId: release.GetBuildId()})
 				t.Errorf("a release whose repository alone moved failed %q (its build: %v, %v), want it refused at tagging", release.GetFailure(), built.GetBuild().GetFailure(), err)
 			}
 		})

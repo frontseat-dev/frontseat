@@ -3,8 +3,6 @@ package evaluate
 import (
 	"encoding/json"
 	"fmt"
-	runnerv1 "github.com/frontseat-dev/frontseat/server/internal/runnerapi/frontseat/runner/v1alpha1"
-	"google.golang.org/protobuf/types/known/durationpb"
 	"maps"
 	"path"
 	"regexp"
@@ -13,15 +11,17 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
+
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/entity"
-	"google.golang.org/protobuf/proto"
-
 	"github.com/frontseat-dev/frontseat/server/internal/engine/catalog"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/config"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/graph"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/plan"
 	"github.com/frontseat-dev/frontseat/server/internal/model"
+	runnerv1 "github.com/frontseat-dev/frontseat/server/internal/runnerapi/frontseat/runner/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/testservice"
 )
 
@@ -29,7 +29,25 @@ const (
 	// defaultReady is how long a service is given to be ready where
 	// neither its Resource nor its plugin says.
 	defaultReady = 2 * time.Minute
+	// servicesAtMost is the most services one component's tests are given.
+	servicesAtMost = 32
+	// firstFreePort is where a consumer's loopback port is looked for
+	// when the port a service listens on is held there already.
+	firstFreePort = 20000
 )
+
+// givenBeside is what a component's tests are given, and the name each
+// of its services has in the sandbox, in the order they start.
+type givenBeside struct {
+	given    *plan.Beside
+	services []sandboxed
+}
+
+// sandboxed is a service by its entity and its name in the sandbox.
+type sandboxed struct {
+	ref  entity.Ref
+	name string
+}
 
 // address is what a Resource names an address by: {host}, a port of its
 // own ({port.http}), or one of a Resource it depends on
@@ -61,7 +79,7 @@ func services(out *Evaluation, services map[entity.Ref]config.Service) error {
 	for _, node := range out.Catalog.Nodes(nil) {
 		files[node.Ref] = path.Join(node.Repository, node.Manifest)
 	}
-	made := map[entity.Ref]*plan.Beside{}
+	made := map[entity.Ref]givenBeside{}
 	for i := range out.Actions {
 		action := &out.Actions[i]
 		if !action.IsTest() || action.IsShared() || action.InStep != nil {
@@ -71,26 +89,21 @@ func services(out *Evaluation, services map[entity.Ref]config.Service) error {
 		if !ok || owner.Ref.Kind != entity.KindComponent {
 			continue
 		}
-		beside, done := made[owner.Ref]
+		of, done := made[owner.Ref]
 		if !done {
 			var err error
-			if beside, err = besideOf(owner.Ref, files[owner.Ref], declared, services, apis); err != nil {
+			if of.given, of.services, err = besideOf(owner.Ref, files[owner.Ref], declared, services, apis); err != nil {
 				return err
 			}
-			made[owner.Ref] = beside
+			made[owner.Ref] = of
 		}
-		if beside != nil {
-			copy := *beside
-			copy.TestNeeds = slices.Clone(action.Needs)
-			copy.Programs = map[string]plan.Action{}
-			var described runnerv1.RunnerSandbox
-			if err := proto.Unmarshal(beside.Sandbox, &described); err != nil {
-				return err
-			}
-			for _, service := range described.GetServices() {
-				ref, _ := entity.Parse(service.GetEntity())
-				if program, found := programs[ref]; found {
-					copy.Programs[service.GetName()] = program
+		if of.given != nil {
+			given := *of.given
+			given.TestNeeds = slices.Clone(action.Needs)
+			given.Programs = map[string]plan.Action{}
+			for _, service := range of.services {
+				if program, found := programs[service.ref]; found {
+					given.Programs[service.name] = program
 					for _, need := range program.Needs {
 						if !slices.Contains(action.Needs, need) {
 							action.Needs = append(action.Needs, need)
@@ -98,25 +111,20 @@ func services(out *Evaluation, services map[entity.Ref]config.Service) error {
 					}
 				}
 			}
-			action.Beside = &copy
+			action.Beside = &given
 		}
 	}
 	return nil
 }
 
-// serviceDependencies projects the existing catalog relations onto prepared
+// apiEdges retain the API identity on every direct provider relationship.
+type apiEdges map[entity.Ref]map[entity.Ref][]string
+
+// serviceRelationships projects the catalog's relations onto prepared
 // services. API entities describe contracts; the provider Component
 // supplies the runtime and owns its Resource dependencies. An API without a
 // prepared local provider supplies no runtime binding, just as a Resource
 // without a service does not start anything. It never grants external access.
-func serviceDependencies(nodes []catalog.Node, descriptors []catalog.Descriptor, services map[entity.Ref]config.Service) (map[entity.Ref][]entity.Ref, error) {
-	dependencies, _, err := serviceRelationships(nodes, descriptors, services)
-	return dependencies, err
-}
-
-// apiEdges retain the API identity on every direct provider relationship.
-type apiEdges map[entity.Ref]map[entity.Ref][]string
-
 func serviceRelationships(nodes []catalog.Node, descriptors []catalog.Descriptor, services map[entity.Ref]config.Service) (map[entity.Ref][]entity.Ref, apiEdges, error) {
 	apis := apiEdges{}
 	// Resource runtime dependencies remain declarations by their consumer.
@@ -222,37 +230,41 @@ func servicePrograms(out *Evaluation, services map[entity.Ref]config.Service) (m
 // besideOf derives one independent network for every service and grants only
 // the immediate consumer's endpoints. Equal listening ports do not collide.
 // What is wrong in what a catalog file says is that file's mistake: the
-// component's own, written in file, or a service's.
-func besideOf(component entity.Ref, file string, declared map[entity.Ref][]entity.Ref, services map[entity.Ref]config.Service, apis apiEdges) (*plan.Beside, error) {
+// component's own, written in file, or a service's. With what the tests
+// are given it returns each service's name in the sandbox, so that
+// nobody reads the sandbox again to learn them.
+func besideOf(component entity.Ref, file string, declared map[entity.Ref][]entity.Ref, services map[entity.Ref]config.Service, apis apiEdges) (*plan.Beside, []sandboxed, error) {
 	order, err := startOrder(component, declared, services)
 	if err != nil || len(order) == 0 {
-		return nil, err
+		return nil, nil, err
 	}
-	if len(order) > 32 {
-		return nil, &model.Mistake{File: file, Message: fmt.Sprintf("%s needs more than 32 runtime services", component)}
+	if len(order) > servicesAtMost {
+		return nil, nil, &model.Mistake{File: file, Message: fmt.Sprintf("%s needs more than %d runtime services", component, servicesAtMost)}
 	}
 	names := map[entity.Ref]string{}
+	started := make([]sandboxed, len(order))
 	for i, ref := range order {
 		names[ref] = "service-" + strconv.Itoa(i)
+		started[i] = sandboxed{ref: ref, name: names[ref]}
 	}
 	sandbox := &runnerv1.RunnerSandbox{}
 	for _, ref := range order {
 		l := services[ref]
 		routes, bindings, _, err := directRoutes(ref, declared, services, apis, names)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		said := proto.Clone(l.Said).(*typev1.Service)
 		said.Exports, said.Endpoints = nil, nil
 		fill := routedFiller(ref, services, routes, names, false)
 		for i, argument := range said.Arguments {
 			if said.Arguments[i], err = fill(argument); err != nil {
-				return nil, l.Mistake(err)
+				return nil, nil, l.Mistake(err)
 			}
 		}
 		for _, name := range slices.Sorted(maps.Keys(said.Environment)) {
 			if said.Environment[name], err = fill(said.Environment[name]); err != nil {
-				return nil, l.Mistake(err)
+				return nil, nil, l.Mistake(err)
 			}
 		}
 		// Image Resources keep explicit address substitution. A program
@@ -260,7 +272,7 @@ func besideOf(component entity.Ref, file string, declared map[entity.Ref][]entit
 		if ref.Kind == "component" || l.Program != "" {
 			for _, name := range slices.Sorted(maps.Keys(bindings)) {
 				if _, set := said.Environment[name]; set {
-					return nil, l.Mistake(fmt.Errorf("%s sets %s, which a dependency exports to it", ref, name))
+					return nil, nil, l.Mistake(fmt.Errorf("%s sets %s, which a dependency exports to it", ref, name))
 				}
 				if said.Environment == nil {
 					said.Environment = map[string]string{}
@@ -272,7 +284,7 @@ func besideOf(component entity.Ref, file string, declared map[entity.Ref][]entit
 			arguments := ready.GetCommand().GetArguments()
 			for i, argument := range arguments {
 				if arguments[i], err = fill(argument); err != nil {
-					return nil, l.Mistake(err)
+					return nil, nil, l.Mistake(err)
 				}
 			}
 		}
@@ -283,33 +295,33 @@ func besideOf(component entity.Ref, file string, declared map[entity.Ref][]entit
 	}
 	routes, environment, endpoints, err := directRoutes(component, declared, services, apis, names)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	// What a test reaches each service at is told in one variable, of
 	// every service it is given an endpoint of, by its entity; no export
 	// is named so, whether or not there are endpoints to tell.
-	if _, exported := environment[EndpointsVariable]; exported {
-		return nil, &model.Mistake{File: file, Message: fmt.Sprintf("%s is given %s by an export, and it is where a test is told its services' endpoints", component, EndpointsVariable)}
+	if _, exported := environment[endpointsVariable]; exported {
+		return nil, nil, &model.Mistake{File: file, Message: fmt.Sprintf("%s is given %s by an export, and it is where a test is told its services' endpoints", component, endpointsVariable)}
 	}
 	if len(endpoints) > 0 {
 		told, err := json.Marshal(endpoints)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		environment[EndpointsVariable] = string(told)
+		environment[endpointsVariable] = string(told)
 	}
 	sandbox.Routes = routes
 	encoded, err := proto.MarshalOptions{Deterministic: true}.Marshal(sandbox)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return &plan.Beside{Sandbox: encoded, Environment: environment}, nil
+	return &plan.Beside{Sandbox: encoded, Environment: environment}, started, nil
 }
 
-// EndpointsVariable is what a test is told its services' endpoints in:
+// endpointsVariable is what a test is told its services' endpoints in:
 // a JSON object of each service by its entity reference, each holding its
 // endpoints, by name, as the test reaches them.
-const EndpointsVariable = "FRONTSEAT_ENDPOINTS"
+const endpointsVariable = "FRONTSEAT_ENDPOINTS"
 
 // directRoutes maps a dependency's port to a free consumer loopback port, then
 // renders only that edge's exports and endpoints. API identity is retained
@@ -350,7 +362,7 @@ func directRoutes(consumer entity.Ref, declared map[entity.Ref][]entity.Ref, ser
 			return 0, fmt.Errorf("%s names a port %s does not serve", consumer, ref)
 		}
 		if held[local] {
-			local = 20000
+			local = firstFreePort
 			for local <= 65535 && held[local] {
 				local++
 			}

@@ -70,7 +70,7 @@ func (p *retainedEngine) admit(ctx context.Context) (func(), error) {
 }
 
 // forget drops only this owner's reuse. Caller-owned results, source.Keeper and
-// compiled plugins have independent lifetimes. This adds no timer or goroutine.
+// compiled plugins have independent lifetimes. It starts no timer and no goroutine.
 func (p *retainedEngine) forget(ctx context.Context) error {
 	release, err := p.admit(ctx)
 	if err != nil {

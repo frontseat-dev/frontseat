@@ -115,8 +115,8 @@ func splice(raw []byte, document int, keys []string, changed []*yaml.Node, docum
 		var name *yaml.Node
 		for i := 0; i+1 < len(changed[depth].Content); i += 2 {
 			if changed[depth].Content[i].Value == keys[depth] {
-				copy := *changed[depth].Content[i]
-				name = &copy
+				written := *changed[depth].Content[i]
+				name = &written
 			}
 		}
 		if name == nil {
@@ -608,11 +608,11 @@ func lineEnding(lines []line, at int) string {
 // untailed is a node with no comment after it: of it and of its last
 // entry, and of that one's, as far down as they go, each a copy.
 func untailed(node *yaml.Node) *yaml.Node {
-	copy := *node
-	copy.FootComment = ""
-	if n := len(copy.Content); n > 0 {
-		copy.Content = append([]*yaml.Node(nil), copy.Content...)
-		copy.Content[n-1] = untailed(copy.Content[n-1])
+	bare := *node
+	bare.FootComment = ""
+	if n := len(bare.Content); n > 0 {
+		bare.Content = append([]*yaml.Node(nil), bare.Content...)
+		bare.Content[n-1] = untailed(bare.Content[n-1])
 	}
-	return &copy
+	return &bare
 }

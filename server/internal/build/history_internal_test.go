@@ -14,7 +14,7 @@ import (
 // since it began: whoever follows it is still being told of it.
 func TestARunThatHasNotEndedIsNeverLetGo(t *testing.T) {
 	dir := t.TempDir()
-	endedRuns(t, dir, 1, newest+1)
+	endedRuns(t, dir, 1, endedKept+1)
 	rs := readRuns(t, dir)
 	defer rs.stop()
 	// The oldest of all, and still under way.
@@ -48,8 +48,8 @@ func TestARunThatHasNotEndedIsNeverLetGo(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, "build_aaaaaaaaaaaa", recordFile)); !found || err != nil {
 		t.Errorf("the run under way is listed: %v, and its record: %v; want it kept", found, err)
 	}
-	if len(rs.list()) != newest+1 {
-		t.Errorf("%d runs are kept; want the %d newest that ended and the one under way", len(rs.list()), newest)
+	if len(rs.list()) != endedKept+1 {
+		t.Errorf("%d runs are kept; want the %d newest that ended and the one under way", len(rs.list()), endedKept)
 	}
 }
 
@@ -122,7 +122,7 @@ func TestWhatWasBeingWrittenWhenADaemonDiedIsClearedAway(t *testing.T) {
 
 // A daemon keeps its runs somewhere, or does not start.
 func TestADaemonGivenNowhereToKeepItsRunsDoesNotStart(t *testing.T) {
-	if _, err := newRuns(nil, nil, nil, nil, nil, nil, ""); err == nil {
+	if _, err := newRuns(nil, nil, nil, nil, nil, nil, "", nil); err == nil {
 		t.Error("a daemon given no directory for its runs started")
 	}
 }

@@ -80,11 +80,11 @@ func Materialize(roots ...*yaml.Node) error {
 	}
 	copied := make([]*yaml.Node, 0, len(roots))
 	for _, root := range roots {
-		copy, err := copyNode(root, 0)
+		whole, err := copyNode(root, 0)
 		if err != nil {
 			return err
 		}
-		copied = append(copied, copy)
+		copied = append(copied, whole)
 	}
 	for i, root := range roots {
 		*root = *copied[i]

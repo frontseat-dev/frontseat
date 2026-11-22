@@ -2,8 +2,9 @@ package plan
 
 import (
 	"fmt"
-	"github.com/frontseat-dev/frontseat/server/internal/model"
 	"strings"
+
+	"github.com/frontseat-dev/frontseat/server/internal/model"
 )
 
 // Check holds a workspace's actions to what a graph is: everything an

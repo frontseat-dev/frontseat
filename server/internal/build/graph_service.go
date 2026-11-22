@@ -1,19 +1,19 @@
 package build
 
-import "github.com/frontseat-dev/frontseat/sdk/go/entity"
-
 import (
 	"context"
 	"errors"
-	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
+
+	"google.golang.org/grpc/codes"
 
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1/buildv1alpha1connect"
+	"github.com/frontseat-dev/frontseat/sdk/go/entity"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/evaluate"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/release"
 	"github.com/frontseat-dev/frontseat/server/internal/model"
+	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/source/record"
-	"google.golang.org/grpc/codes"
 )
 
 // graphService serves what a workspace is made of, without running any

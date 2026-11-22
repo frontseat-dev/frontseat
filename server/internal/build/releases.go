@@ -2,35 +2,28 @@ package build
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/frontseat-dev/frontseat/server/internal/engine/graph"
-	"github.com/frontseat-dev/frontseat/server/internal/exec/publish"
-	"github.com/frontseat-dev/frontseat/server/internal/exec/tools"
-	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
-	"github.com/frontseat-dev/frontseat/server/internal/pluginhost"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
 	"google.golang.org/grpc/codes"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/entity"
+	"github.com/frontseat-dev/frontseat/server/internal/engine/graph"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/plan"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/release"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/source"
+	"github.com/frontseat-dev/frontseat/server/internal/exec/publish"
+	"github.com/frontseat-dev/frontseat/server/internal/exec/tools"
 	"github.com/frontseat-dev/frontseat/server/internal/model"
+	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
+	"github.com/frontseat-dev/frontseat/server/internal/pluginhost"
 )
-
-// releasesKept is how many releases that have ended a daemon remembers,
-// the newest; one that has not ended is always remembered.
-const releasesKept = 12
 
 // errReleaseNotFound is what asking for a release no daemon made, or one
 // it remembers no more, fails with.
@@ -60,32 +53,9 @@ type releases struct {
 
 // made is one release, as it is now.
 type made struct {
-	mu      sync.Mutex
-	release *buildv1.Release
-	// etag is the plan's, and ended is closed when the release has ended.
-	etag  string
-	ended chan struct{}
-}
-
-func (m *made) snapshot() *buildv1.Release {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return proto.Clone(m.release).(*buildv1.Release)
-}
-
-func (m *made) change(change func(*buildv1.Release)) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	change(m.release)
-}
-
-func (m *made) over() bool {
-	select {
-	case <-m.ended:
-		return true
-	default:
-		return false
-	}
+	lasting[*buildv1.Release]
+	// etag is the plan's.
+	etag string
 }
 
 func newReleases(graph *graphService) *releases {
@@ -108,7 +78,7 @@ func (rs *releases) get(id string) (*made, error) {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 	for _, m := range rs.made {
-		if m.release.GetId() == id {
+		if m.state.GetId() == id {
 			return m, nil
 		}
 	}
@@ -181,19 +151,18 @@ func (rs *releases) create(ctx context.Context, request *buildv1.CreateReleaseRe
 		if m.etag == request.GetEtag() {
 			return m, nil
 		}
-		return nil, &refusedRelease{codes.FailedPrecondition, "RELEASE_BUSY", fmt.Sprintf("the release %s is being made; a daemon makes one at a time", m.release.GetId())}
+		return nil, &refusedRelease{codes.FailedPrecondition, "RELEASE_BUSY", fmt.Sprintf("the release %s is being made; a daemon makes one at a time", m.state.GetId())}
 	}
-	id, err := newReleaseID()
+	id, err := newID("rel_", 8)
 	if err != nil {
 		return nil, err
 	}
 	m := &made{
-		etag:  request.GetEtag(),
-		ended: make(chan struct{}),
-		release: &buildv1.Release{
+		etag: request.GetEtag(),
+		lasting: lasting[*buildv1.Release]{ended: make(chan struct{}), state: &buildv1.Release{
 			Id: id, Plan: planned.Plan, State: buildv1.Release_STATE_BUILDING,
 			CreateTime: timestamppb.New(rs.graph.runs.clock()),
-		},
+		}},
 	}
 	// What moves is built for production by a run made with the release,
 	// so that whoever made it follows the build by the run it is answered
@@ -203,10 +172,9 @@ func (rs *releases) create(ctx context.Context, request *buildv1.CreateReleaseRe
 		if built, err = rs.graph.runs.create(rs.ctx, "production", pluginv1.Profile_PROFILE_PRODUCTION, targets, nil, false, false, nil, versionsOf(planned.Plan)); err != nil {
 			return nil, err
 		}
-		m.release.BuildId = built.snapshot().GetId()
+		m.state.BuildId = built.snapshot().GetId()
 	}
-	rs.made = append(rs.made, m)
-	rs.forget()
+	rs.made = remembered(append(rs.made, m))
 	rs.joined.Add(1)
 	go func() {
 		defer rs.joined.Done()
@@ -233,26 +201,6 @@ func versionsOf(planned *buildv1.ReleasePlan) *versions {
 		}
 	}
 	return out
-}
-
-// forget lets go of releases that have ended beyond the newest kept.
-// It is called with the lock held.
-func (rs *releases) forget() {
-	over := 0
-	for _, m := range rs.made {
-		if m.over() {
-			over++
-		}
-	}
-	kept := rs.made[:0]
-	for _, m := range rs.made {
-		if m.over() && over > releasesKept {
-			over--
-			continue
-		}
-		kept = append(kept, m)
-	}
-	rs.made = kept
 }
 
 // committed holds a repository of the workspace to being its commit, as
@@ -314,17 +262,9 @@ func (rs *releases) carryOut(m *made, planned *release.Planned, built *run) {
 		commit[at.GetRepository()] = at.GetCommit()
 	}
 	if built != nil {
-		for {
-			_, ended, changed := built.since(1 << 62)
-			if ended {
-				break
-			}
-			select {
-			case <-changed:
-			case <-ctx.Done():
-				fail("the daemon ended before its units were built; nothing is tagged")
-				return
-			}
+		if !built.wait(ctx.Done()) {
+			fail("the daemon ended before its units were built; nothing is tagged")
+			return
 		}
 		if ran := built.snapshot(); ran.GetExitCode().GetCode() != 0 {
 			fail("the production build %s ended %s; nothing is tagged", ran.GetId(), ran.GetExitCode().GetName())
@@ -542,12 +482,4 @@ func (rs *releases) publish(ctx context.Context, m *made, planned *release.Plann
 		}
 	}
 	return failed, false
-}
-
-func newReleaseID() (string, error) {
-	var b [8]byte
-	if _, err := rand.Read(b[:]); err != nil {
-		return "", err
-	}
-	return "rel_" + hex.EncodeToString(b[:]), nil
 }

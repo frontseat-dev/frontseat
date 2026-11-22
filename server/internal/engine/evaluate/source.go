@@ -15,3 +15,19 @@ type Source interface {
 	// Within selects files beneath a literal directory using relative patterns.
 	Within(ctx context.Context, repository, directory string, patterns []string) ([]string, error)
 }
+
+// Counting is a Source that counts what it read: an evaluation's span
+// says how many files one hashed. A Source that does not count is none.
+type Counting interface {
+	// Hashed is how many files the source has hashed so far.
+	Hashed() int
+}
+
+// Hinting is a Source that knows which files may have changed since it
+// was last taken: what a kept evaluation checks first. A hint orders
+// the checks and decides none of them.
+type Hinting interface {
+	// MayHaveChanged says whether a file of a repository may differ
+	// from what it held.
+	MayHaveChanged(repository, path string) bool
+}

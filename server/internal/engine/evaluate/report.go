@@ -23,12 +23,7 @@ const printedAtMost = 1 << 20
 // is held to the contract: a rule it qualifies, a message, a file of the
 // repository or none.
 func Report(ctx context.Context, src Source, plugins []*pluginhost.Plugin, answers *Answers, action plan.Action, exitCode int, stdout, stderr []byte) ([]*typev1.Diagnostic, error) {
-	var plugin *pluginhost.Plugin
-	for _, each := range plugins {
-		if each.Description.GetName() == action.Label.Plugin {
-			plugin = each
-		}
-	}
+	plugin := pluginNamed(plugins, action.Label.Plugin)
 	if plugin == nil || action.Context == nil {
 		return nil, nil
 	}

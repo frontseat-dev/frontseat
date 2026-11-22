@@ -24,7 +24,7 @@ const (
 
 // printedBy is a run, kept in a directory, whose one action //a:b
 // printed this; kept says which of the two the directory holds.
-func printedBy(t *testing.T, stdout, stderr string, kept ...string) (*runService, string) {
+func printedBy(t *testing.T, stdout, stderr string, kept ...string) (*buildService, string) {
 	t.Helper()
 	dir, id := filepath.Join(t.TempDir(), "runs"), "build_0123456789ab"
 	messages := whole(id, 0, id)
@@ -42,7 +42,7 @@ func printedBy(t *testing.T, stdout, stderr string, kept ...string) (*runService
 		}
 	}
 	rs := readRuns(t, dir)
-	return &runService{runs: rs}, id
+	return &buildService{runs: rs}, id
 }
 
 func digestOf(content string) *buildv1.Digest {

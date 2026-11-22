@@ -569,6 +569,10 @@ func (s *Snapshot) remove(t *taken, repository, key, file string) error {
 	return nil
 }
 
+// linksFollowed is how many links are followed from one file before it
+// is said to lead nowhere.
+const linksFollowed = 16
+
 // led returns where a file of the repository is, any link it is
 // followed: the file a link within the repository leads to. A link that
 // leads out of the repository leads nowhere.
@@ -578,7 +582,7 @@ func (t *taken) led(key string) (string, error) {
 		return "", err
 	}
 	defer root.Close()
-	for range 16 {
+	for range linksFollowed {
 		info, err := root.Lstat(filepath.FromSlash(key))
 		if err != nil {
 			return "", err
@@ -706,7 +710,7 @@ func (s *Snapshot) ask(repository, name string, read func(*os.File) (hash string
 		// Named or not, what the repository ignores is not there to the run.
 		return held{}, false, nil
 	}
-	for range 100 {
+	for range asksAtMost {
 		when := s.knows(t, key)
 		found, there, err := s.once(t, repository, name, key, when, read)
 		if errors.Is(err, errAgain) {
@@ -720,6 +724,10 @@ func (s *Snapshot) ask(repository, name string, read func(*os.File) (hash string
 	}
 	return held{}, false, fmt.Errorf("reading %s of the repository: it was rewritten each time it was read", name)
 }
+
+// asksAtMost is how many times a file the run keeps rewriting is asked
+// about before the asking gives up.
+const asksAtMost = 100
 
 // errAgain is what was found of a file the run has rewritten since the
 // asking began.

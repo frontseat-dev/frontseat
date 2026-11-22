@@ -1,16 +1,16 @@
 package plan
 
-import "github.com/frontseat-dev/frontseat/server/internal/source/record"
-
-import "github.com/frontseat-dev/frontseat/sdk/go/entity"
-
 import (
 	"fmt"
+	"maps"
 	"path"
+	"slices"
 	"sort"
 	"strings"
 
+	"github.com/frontseat-dev/frontseat/sdk/go/entity"
 	"github.com/frontseat-dev/frontseat/server/internal/model"
+	"github.com/frontseat-dev/frontseat/server/internal/source/record"
 )
 
 // Pointed returns, of a workspace's actions, those the targets point at,
@@ -63,7 +63,7 @@ func Pointed(actions []Action, entities []record.Located, targets, only []string
 			}
 		}
 		if !known[name] {
-			return nil, &model.Mistake{Message: fmt.Sprintf("no action is named %s%s", name, nearest(name, keys(known)))}
+			return nil, &model.Mistake{Message: fmt.Sprintf("no action is named %s%s", name, nearest(name, slices.Sorted(maps.Keys(known))))}
 		}
 		names[name] = true
 	}
@@ -259,15 +259,7 @@ func distance(a, b string) int {
 	return previous[len(b)]
 }
 
-func keys(set map[string]bool) []string {
-	out := make([]string, 0, len(set))
-	for key := range set {
-		out = append(out, key)
-	}
-	return out
-}
-
-// Running returns what running a program does: the action a target
+// Program returns what running a program does: the action a target
 // names, exactly as it is printed, which must be a program, and what
 // runs for it, the program last, each after all it needs.
 //
