@@ -1,4 +1,18 @@
-// Package entity owns provider-neutral entity references and their API representation.
+// Package entity is the reference of an entity of a software catalog,
+// as Frontseat names one: a kind, a namespace and a name, written
+// "component:default/gateway".
+//
+// A reference is read from text in two ways. Parse reads one that names
+// one entity: what it leaves out is filled in, a kind as a component and
+// a namespace as the default one, so "gateway" is
+// component:default/gateway. Typed reads one as a person types it to
+// find an entity: a namespace left out stays empty and stands for any,
+// so "gateway" finds the component of that name in whatever namespace
+// its catalog put it (Names, Find). The API takes entities as Typed
+// reads them, and answers with references in full.
+//
+// Proto and FromProto carry a reference to and from the API's message
+// for one.
 package entity
 
 import (
@@ -13,9 +27,10 @@ const (
 	NamespaceDefault = "default"
 )
 
-// Ref names a Frontseat entity by kind, namespace and name. It is written
-// "component:default/gateway". Adapters map provider identities to this key;
-// provider-native identifiers and schemas are not part of its grammar.
+// Ref names an entity by its kind, its namespace and its name. It is
+// written "component:default/gateway". One that Typed read may leave its
+// namespace empty, which stands for any; every other Ref is whole
+// (Whole).
 type Ref struct {
 	// Kind is its kind, in lower case: "component", "system", "domain".
 	Kind string
@@ -77,10 +92,10 @@ func ParseIn(written, namespace string) (Ref, error) {
 
 var identityPartPattern = regexp.MustCompile(`^[a-z0-9]([-a-z0-9_.]*[a-z0-9])?$`)
 
-// Validate checks Frontseat's canonical key: each part is 1–255 ASCII bytes,
-// lower case, with alphanumeric endpoints and hyphens, dots or underscores
-// inside. Provider-specific field policies belong to the provider adapter.
-// It supplies no defaults; a plugin's wire reference must be fully qualified.
+// Validate checks a reference in full: each part is 1–255 ASCII bytes,
+// lower case, beginning and ending with a letter or a digit, with
+// hyphens, dots or underscores inside. It fills nothing in: a reference
+// that leaves a part out is refused.
 func (r Ref) Validate() error {
 	for _, part := range []string{r.Kind, r.Namespace, r.Name} {
 		if len(part) > 255 || !identityPartPattern.MatchString(part) {

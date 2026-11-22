@@ -34,9 +34,9 @@ func New(endpoint string, reach Reach) *connect.Client {
 
 // traced makes a request with Go's own transport, carrying the trace of
 // the request's context, as W3C trace context headers: a caller with a
-// tracer of its own, as an agent has, is followed into the server. The
-// command line's telemetry (server/telemetry's Transport) does the same
-// where its command has no providers; the SDK imports none of it.
+// tracer of its own, as an agent has, is followed into the server. A
+// caller that instruments its requests itself gives its own client
+// (Reach.HTTP), and this is not used.
 type traced struct{}
 
 func (traced) RoundTrip(r *http.Request) (*http.Response, error) {
