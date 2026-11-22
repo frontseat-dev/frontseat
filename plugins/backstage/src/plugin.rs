@@ -19,10 +19,11 @@ impl Plugin for BackstagePlugin {
     // What each file should say of what the source says. The schema is
     // Backstage's: a component's dependencies are `spec.dependsOn`, its
     // dependents `spec.dependencyOf`, written only where the file states
-    // it already; a bare reference is a component of the entity's
-    // namespace. An entry that is no component stays where it was; a
-    // component the source still names stays as it was written; the
-    // rest of what the source says is added, in canonical order.
+    // it already; each entry names its kind, and one without a
+    // namespace is of the entity's. An entry that is no component stays
+    // where it was; a component the source still names stays as it was
+    // written; the rest of what the source says is added, in canonical
+    // order.
     fn reconcile(
         &self,
         repo: &Repository,
@@ -103,13 +104,14 @@ impl Plugin for BackstagePlugin {
 /// A list as it should be, given what it says and the components the
 /// source says: what is no component stays in its place, a component the
 /// source still names stays as written, and what the source names beyond
-/// that is added in canonical order. A bare reference is a component of
-/// the entity's namespace, as Backstage reads one.
+/// that is added in canonical order. An entry names its kind, as
+/// Backstage reads one, and is of the entity's namespace where it names
+/// none.
 fn should_say(written: Vec<&str>, components: &[EntityRef], namespace: &str) -> Vec<String> {
     let mut remaining: Vec<&EntityRef> = components.iter().collect();
     let mut out = Vec::with_capacity(written.len() + components.len());
     for entry in written {
-        match entity::parse(entry, Some("component"), namespace) {
+        match entity::parse(entry, None, namespace) {
             Ok(reference) if reference.kind == "component" => {
                 if let Some(i) = remaining.iter().position(|wanted| **wanted == reference) {
                     remaining.remove(i);

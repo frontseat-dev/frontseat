@@ -10,7 +10,7 @@ pub(super) fn extract(
     let mut result = Vec::new();
     let mut emit = |field: &str,
                     list: bool,
-                    default_kind,
+                    default_kind: Option<&str>,
                     outgoing: &str,
                     incoming: &str|
      -> Result<(), Error> {
@@ -20,6 +20,14 @@ pub(super) fn extract(
             spec.text(field)?.into_iter().collect()
         };
         for target in targets {
+            // A field with no kind of its own takes none for granted, as
+            // Backstage reads it: each entry names its kind.
+            if default_kind.is_none() && !target.contains(':') {
+                return Err(invalid(
+                    spec.path,
+                    format!("spec.{field}: an entry names no kind: write its kind before it, as component:<name> or resource:<name>"),
+                ));
+            }
             let target = entity::parse(target, default_kind, &source.namespace)
                 .map_err(|message| invalid(spec.path, format!("spec.{field}: {message}")))?;
             result.push(EntityRelation {
