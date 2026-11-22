@@ -190,6 +190,10 @@ type SandboxServiceClient interface {
 	//   the message names it (CAPABILITY_NOT_SERVED).
 	// - FAILED_PRECONDITION: the sandbox the same request_id made is
 	//   ending; the request is sent again once it is gone (SANDBOX_ENDING).
+	// - INTERNAL: the command of SandboxSpec.before_containers failed, and
+	//   no sandbox is made; or the driver could not make the sandbox, and
+	//   what it left of one, if anything, is listed, to be deleted. No
+	//   reason is given.
 	CreateSandbox(context.Context, *v1alpha1.CreateSandboxRequest) (*v1alpha1.CreateSandboxResponse, error)
 	// DescribeSandbox returns one sandbox, as it is now.
 	//
@@ -313,6 +317,10 @@ type SandboxServiceHandler interface {
 	//   the message names it (CAPABILITY_NOT_SERVED).
 	// - FAILED_PRECONDITION: the sandbox the same request_id made is
 	//   ending; the request is sent again once it is gone (SANDBOX_ENDING).
+	// - INTERNAL: the command of SandboxSpec.before_containers failed, and
+	//   no sandbox is made; or the driver could not make the sandbox, and
+	//   what it left of one, if anything, is listed, to be deleted. No
+	//   reason is given.
 	CreateSandbox(context.Context, *v1alpha1.CreateSandboxRequest) (*v1alpha1.CreateSandboxResponse, error)
 	// DescribeSandbox returns one sandbox, as it is now.
 	//

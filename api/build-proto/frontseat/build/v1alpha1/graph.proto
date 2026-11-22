@@ -73,9 +73,10 @@ message Entity {
   // describes.
   string manifest = 7 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Relations are what its catalog file says it is related to, and what
-  // other entities' catalog files say of it, sorted by type and target.
-  // What a Component needs to build is not read from them: depends_on
-  // says that, from what its projects require.
+  // other entities' catalog files say of it, except between two
+  // Components: there dependsOn and dependencyOf are what depends_on
+  // says, from what their projects require, and never what a catalog
+  // file says. They are sorted by type and target.
   repeated EntityRelation relations = 8 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Release is how it is released, as its settings resolve: for an
   // entity that owns projects, and for a system or a domain, whose
@@ -104,7 +105,8 @@ message EntityRelease {
   // Initial is the version of its first release.
   string initial = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
   // `versioning_strategy` is the versioning strategy its unit's next
-  // version is asked of, as "<plugin>:<name>": "release:conventional-commits".
+  // version is asked of, as "<plugin>:<name>":
+  // "release:conventional-commits".
   string versioning_strategy = 8 [(google.api.field_behavior) = OUTPUT_ONLY];
   // `branching_strategy` is the branching strategy that says what a branch
   // releases of it, as "<plugin>:<name>": "release:github-flow".

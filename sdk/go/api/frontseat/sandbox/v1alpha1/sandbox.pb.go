@@ -378,8 +378,9 @@ type SandboxSpec struct {
 	// `before_containers` is a command run in its first container before
 	// any further container starts, as when the first has something to
 	// set up that the others need. It is given only with further
-	// containers. Where the command fails, the sandbox fails. A driver
-	// that cannot run it refuses the sandbox, and makes nothing.
+	// containers. Where the command fails, CreateSandbox fails, INTERNAL
+	// with no reason, and no sandbox is made. A driver that cannot run it
+	// refuses the sandbox, and makes nothing.
 	BeforeContainers *StartupGate `protobuf:"bytes,14,opt,name=before_containers,json=beforeContainers,proto3" json:"before_containers,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
@@ -1210,8 +1211,8 @@ type ListSandboxesRequest struct {
 	// `label_selector` keeps the sandboxes that carry every label it names:
 	// name=value, separated by commas. Empty keeps all.
 	LabelSelector string `protobuf:"bytes,1,opt,name=label_selector,json=labelSelector,proto3" json:"label_selector,omitempty"`
-	// `page_size` is the most sandboxes to return; zero is a hundred, and more
-	// than a thousand is a thousand.
+	// `page_size` is the most sandboxes to return; zero is a hundred,
+	// and more than a thousand is a thousand.
 	PageSize int32 `protobuf:"varint,2,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
 	// `page_token` is the next_page_token of the page before; empty for the
 	// first page.

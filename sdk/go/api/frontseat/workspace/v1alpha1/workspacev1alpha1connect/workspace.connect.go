@@ -239,7 +239,8 @@ type WorkspaceServiceClient interface {
 	//   message says which (REACH_NOT_SERVED). Or entities are added,
 	//   and the control plane resolves none (ENTITIES_NOT_SERVED).
 	// - UNAVAILABLE: the catalog did not answer, as for CreateWorkspace
-	//   (ENTITIES_UNAVAILABLE).
+	//   (ENTITIES_UNAVAILABLE). Or the workspace's daemon was not reached;
+	//   no reason is given then.
 	UpdateWorkspace(context.Context, *v1alpha1.UpdateWorkspaceRequest) (*v1alpha1.UpdateWorkspaceResponse, error)
 	// DeleteWorkspace ends a workspace and its sandbox, with what it holds:
 	// what was changed there and not pushed goes with it. It returns at
@@ -368,7 +369,8 @@ type WorkspaceServiceHandler interface {
 	//   message says which (REACH_NOT_SERVED). Or entities are added,
 	//   and the control plane resolves none (ENTITIES_NOT_SERVED).
 	// - UNAVAILABLE: the catalog did not answer, as for CreateWorkspace
-	//   (ENTITIES_UNAVAILABLE).
+	//   (ENTITIES_UNAVAILABLE). Or the workspace's daemon was not reached;
+	//   no reason is given then.
 	UpdateWorkspace(context.Context, *v1alpha1.UpdateWorkspaceRequest) (*v1alpha1.UpdateWorkspaceResponse, error)
 	// DeleteWorkspace ends a workspace and its sandbox, with what it holds:
 	// what was changed there and not pushed goes with it. It returns at
