@@ -28,6 +28,15 @@ import (
 func (runner Runner) drift(ctx context.Context, snapshot *source.Snapshot, action plan.Action, left map[string]exec.Held) ([]source.Change, error) {
 	repository := snapshot.Paths[action.Repository]
 	var changes []source.Change
+	// What is brought to be compared is its own to delete: a directory
+	// made here, for one claim of this action, which nothing else names.
+	// It is gone however this ends.
+	var made []string
+	defer func() {
+		for _, dir := range made {
+			_ = os.RemoveAll(dir)
+		}
+	}()
 	for _, claim := range action.GeneratedSources {
 		if claim.Producer != action.Label || claim.Repository != action.Repository {
 			continue
@@ -58,6 +67,7 @@ func (runner Runner) drift(ctx context.Context, snapshot *source.Snapshot, actio
 				if err != nil {
 					return nil, err
 				}
+				made = append(made, dir)
 				brought = filepath.Join(dir, "produced")
 				if err := runner.Answers.Materialize(ctx, held, brought); err != nil {
 					return nil, err
@@ -105,9 +115,6 @@ func (runner Runner) drift(ctx context.Context, snapshot *source.Snapshot, actio
 				return nil, err
 			}
 			changes = append(changes, source.Change{Path: file, Kind: source.Delete, From: was})
-		}
-		if brought != "" {
-			_ = os.RemoveAll(filepath.Dir(brought))
 		}
 	}
 	sort.Slice(changes, func(i, j int) bool { return changes[i].Path < changes[j].Path })
