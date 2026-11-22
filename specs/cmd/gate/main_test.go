@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"net"
 	"os"
 	"os/exec"
@@ -287,7 +289,9 @@ func TestAGateWithNoStackReachesNoContainerRuntime(t *testing.T) {
 // never left to skip, and the gate to end green with no spec of the
 // stack run. Here the container runtime is named as an engine nothing
 // listens at, so no stack answers whatever this machine runs. The
-// control is the same gate with -no-stack, which runs.
+// control is the same gate with -no-stack, which gets past the asking
+// and runs go test over the package (the test it names does nothing
+// unless told to).
 func TestAGateThatNeedsTheStackFailsWhereNoneAnswers(t *testing.T) {
 	runsTheGate(t)
 	t.Setenv("DOCKER_HOST", NoEngine)
@@ -300,8 +304,39 @@ func TestAGateThatNeedsTheStackFailsWhereNoneAnswers(t *testing.T) {
 	if strings.Contains(printed, "ok ") || strings.Contains(printed, "PASS") {
 		t.Errorf("a gate that needs the stack ran a test before it found none:\n%s", printed)
 	}
-	if code, printed := quietly(t, func() int { return gate(append([]string{"test", "-no-stack"}, only...)) }); code != 0 {
+	if code, printed := quietly(t, func() int { return gate(append([]string{"test", "-no-stack"}, only...)) }); code != 0 || !strings.Contains(printed, "ok ") {
 		t.Fatalf("the control, a gate with no stack, failed (exit %d):\n%s", code, printed)
+	}
+}
+
+// Where the container runtime answers and a service of the stack does
+// not listen, no stack answers, naming the service; where each listens,
+// as at a listener of this test's own, it does. A runtime that does not
+// answer is said before any service is asked.
+func TestAStackWhoseServiceDoesNotListenDoesNotAnswer(t *testing.T) {
+	listening, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listening.Close()
+	gone, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	closed := gone.Addr().String()
+	gone.Close()
+	answers := func(context.Context) error { return nil }
+	ctx := context.Background()
+	err = stackAnswers(ctx, answers, []service{{"the control plane", listening.Addr().String()}, {"the grid", closed}})
+	if err == nil || !strings.Contains(err.Error(), "the grid does not answer") {
+		t.Fatalf("a stack whose grid does not listen: %v; want it said that the grid does not answer", err)
+	}
+	if err := stackAnswers(ctx, answers, []service{{"the control plane", listening.Addr().String()}, {"the grid", listening.Addr().String()}}); err != nil {
+		t.Fatalf("the control, a stack whose every service listens: %v", err)
+	}
+	silent := func(context.Context) error { return errors.New("no engine") }
+	if err := stackAnswers(ctx, silent, []service{{"the grid", closed}}); err == nil || !strings.Contains(err.Error(), "no engine") || strings.Contains(err.Error(), "the grid") {
+		t.Fatalf("a runtime that does not answer: %v; want it said before any service", err)
 	}
 }
 

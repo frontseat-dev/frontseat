@@ -23,22 +23,21 @@
 // runs against the stack (FRONTSEAT_TEST_STACK=required, package
 // testrequired): a test that finds what it needs of the stack not
 // answering fails, so neither ends green with a test of the stack
-// skipped. Where a gate runs with
-// the stack and a container runtime answers, it first builds
-// the box image of this checkout and installs its frontseat-action for
-// the stack's workers (local/box, the one build of the box), and tells
-// the tests both (FRONTSEAT_TEST_BOX, the box's tag of its content, and
-// FRONTSEAT_TEST_CONFINER): they are built from the source of the server
-// and the command line, which no test builds itself. With -no-stack the
-// tests are told that the gate runs with no local stack
-// (FRONTSEAT_TEST_STACK=none, package testrequired): every test that
-// needs it says so first and is skipped, and the container runtime is
-// out of every test's reach (DOCKER_HOST names an engine there is none
-// at), so the gate starts no container whatever this machine runs.
-// Without it the gate takes that word out of what it runs, whoever
-// exported it: a gate that needs the stack is never told there is none.
-// A test that reaches the runtime without saying so first is named by
-// the architecture test
+// skipped. Where a gate runs with the stack and a container runtime
+// answers, it first builds the box image of this checkout and installs
+// its frontseat-action for the stack's workers (local/box, the one build
+// of the box), and tells the tests both (FRONTSEAT_TEST_BOX, the box's
+// tag of its content, and FRONTSEAT_TEST_CONFINER): they are built from
+// the source of the server and the command line, which no test builds
+// itself. With -no-stack the tests are told that the gate runs with no
+// local stack (FRONTSEAT_TEST_STACK=none, package testrequired): every
+// test that needs it says so first and is skipped, and the container
+// runtime is out of every test's reach (DOCKER_HOST names an engine
+// there is none at), so the gate starts no container whatever this
+// machine runs. Without it the gate takes that word out of what it runs,
+// whoever exported it: a gate that needs the stack is never told there
+// is none. A test that reaches the runtime without saying so first is
+// named by the architecture test
 // (TestATestThatReachesTheContainerRuntimeSaysItNeedsTheStack). Its
 // command line is read by package gatecommand, as the architecture test
 // reads the tasks that run it.
@@ -108,7 +107,7 @@ func gate(arguments []string) int {
 			return failed(err)
 		}
 		if !command.NoStack {
-			if err := stackAnswers(context.Background()); err != nil {
+			if err := stackAnswers(context.Background(), box.Answers, theStack()); err != nil {
 				return failed(err)
 			}
 		}
@@ -162,26 +161,36 @@ func gate(arguments []string) int {
 	return failed(fmt.Errorf("gate does not %s", command.Verb))
 }
 
+// service is a service of the local stack a gate asks before it runs
+// the tests against the stack: its name, as a person is told it, and
+// the address it listens at.
+type service struct{ name, address string }
+
+// theStack is what of the local stack a gate asks: its control plane
+// and its grid on this machine's loopback, where local/ports says.
+func theStack() []service {
+	at := func(port int) string { return net.JoinHostPort("localhost", strconv.Itoa(port)) }
+	return []service{{"the control plane", at(ports.ControlPlane)}, {"the grid", at(ports.Grid)}}
+}
+
 // stackAnswers returns where no local stack answers the tests a gate
-// runs with it: the container runtime does not, or the stack's control
-// plane or grid does not on this machine's loopback, where local/ports
-// says. A gate that runs the tests with the stack asks it before
-// anything is built or run, so that a test that needs the stack is
-// never left to skip and the gate to end green with none.
-func stackAnswers(ctx context.Context) error {
+// runs with it: the container runtime does not, as runtime asks it, or
+// one of the services does not listen at its address. A gate that runs
+// the tests with the stack asks it before anything is built or run, so
+// that a test that needs the stack is never left to skip and the gate
+// to end green with none. That something listens is all it asks of a
+// service: a test of one holds it first.
+func stackAnswers(ctx context.Context, runtime func(context.Context) error, services []service) error {
 	refused := func(why error) error {
 		return fmt.Errorf("no local stack answers (%w): mise run test runs against it, so start it first (mise start); mise run check runs what needs none", why)
 	}
-	if err := box.Answers(ctx); err != nil {
+	if err := runtime(ctx); err != nil {
 		return refused(err)
 	}
-	for _, each := range []struct {
-		name string
-		port int
-	}{{"the control plane", ports.ControlPlane}, {"the grid", ports.Grid}} {
-		conn, err := net.DialTimeout("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(each.port)), time.Second)
+	for _, each := range services {
+		conn, err := (&net.Dialer{Timeout: time.Second}).DialContext(ctx, "tcp", each.address)
 		if err != nil {
-			return refused(fmt.Errorf("%s does not answer at port %d: %w", each.name, each.port, err))
+			return refused(fmt.Errorf("%s does not answer at %s: %w", each.name, each.address, err))
 		}
 		conn.Close()
 	}
@@ -366,7 +375,7 @@ func prepared(root string) (string, error) {
 // the stack answers (stackAnswers).
 func boxed(root, artifacts string) ([]string, error) {
 	ctx := context.Background()
-	if err := box.Answers(ctx); err != nil {
+	if box.Answers(ctx) != nil {
 		return nil, nil
 	}
 	_, dir, _ := strings.Cut(artifacts, "=")
@@ -416,12 +425,12 @@ const (
 // where it runs with no stack, required where it runs the tests against
 // it, and nothing otherwise), but a grid a test's own process names in
 // the stack's place, but the box and the confiner, which are the gate's
-// to build and to name (boxed), and but GOFLAGS, through which what runs the gate could add to go what its
-// task does not say (-run, -short, -count, -race=false): what go is told
-// is the task's alone. Where it runs with no stack, the container
-// runtime is named as an engine at an address nothing can listen at, and
-// no context of the runtime's is named beside it, so that whatever a
-// test runs reaches no runtime. Git reads none of this machine's
+// to build and to name (boxed), and but GOFLAGS, through which what runs
+// the gate could add to go what its task does not say (-run, -short,
+// -count, -race=false): what go is told is the task's alone. Where it
+// runs with no stack, the container runtime is named as an engine at an
+// address nothing can listen at, and no context of the runtime's is
+// named beside it, so that whatever a test runs reaches no runtime. Git reads none of this machine's
 // settings, its system's or a person's own: a test runs git as anyone
 // would, and a credential helper of this machine's (macOS's keychain)
 // would answer it with what an earlier test, at another port of the same

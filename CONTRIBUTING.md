@@ -149,6 +149,17 @@ the stack is missing; only `go test` run by hand skips it, and skipped
 integration coverage is not a successful full validation. Report any
 unrun checks and their reason.
 
+`mise run go:test -- ARGS` runs the tests you choose against the stack.
+With no stack up, run them as `check` does, over the wasm modules of this
+checkout and with every test that needs the stack skipped:
+
+```sh
+go run ./specs/cmd/gate test -no-stack -only server/internal/build -- -race -run TestName
+```
+
+`-only` takes a directory of the repository, and what follows `--` is
+go test's own.
+
 For documentation changes, run `mise run docs`. Keep docs renderable by
 the TechDocs image from the checkout alone.
 

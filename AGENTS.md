@@ -844,7 +844,7 @@ mise start                # build, then bring the local stack up from this check
 mise stop                 # bring the local stack down, whichever checkout started it
 mise run check            # what must always pass; needs no stack
 mise run test             # everything, against the local stack
-mise run go:test -- ARGS  # go test with ARGS, over the wasm modules of this checkout
+mise run go:test -- ARGS  # go test with ARGS, over the wasm modules of this checkout, against the local stack
 mise run protos           # lint the contracts and regenerate their Go and Rust
 mise run bench            # measure what is budgeted
 mise run perf             # hold Frontseat to Bazel on the local grid
