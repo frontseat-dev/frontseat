@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"unicode/utf8"
 
 	connect "connectrpc.com/connect/v2"
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
@@ -149,17 +150,17 @@ func (s *buildService) ListBuildActions(_ context.Context, req *buildv1.ListBuil
 }
 
 // part is how much of what an action printed is sent at once, in bytes:
-// what Buildbarn sends of a blob at once. A line longer than that is a
-// part of its own.
+// what Buildbarn sends of a blob at once. A line longer than that is
+// sent as several, each a part at most.
 const part = 1 << 16
 
 func (s *buildService) StreamBuildLogs(ctx context.Context, req *buildv1.StreamBuildLogsRequest, stream buildv1alpha1connect.BuildServiceStreamBuildLogsServerStream) error {
 	return s.logs(ctx, req, stream.Send)
 }
 
-// logs sends what one action printed, in parts of whole
-// lines. It is read as it is sent, so that what is held of it is a part
-// and a line, however much the action printed.
+// logs sends what one action printed, in parts of lines. It is read as
+// it is sent, so that what is held of it is a part, however much the
+// action printed and however long its lines.
 func (s *buildService) logs(ctx context.Context, req *buildv1.StreamBuildLogsRequest, send func(*buildv1.StreamBuildLogsResponse) error) error {
 	r, err := s.find(req.GetBuildId())
 	if err != nil {
@@ -190,7 +191,7 @@ func (s *buildService) logs(ctx context.Context, req *buildv1.StreamBuildLogsReq
 			if stream.from == nil {
 				continue
 			}
-			if err := lines(ctx, stream.from, func(line []byte) error { return sending.add(stream.of, line) }); err != nil {
+			if err := lines(ctx, stream.from, func(line []byte, continues bool) error { return sending.add(stream.of, line, continues) }); err != nil {
 				return err
 			}
 		}
@@ -206,11 +207,12 @@ type parts struct {
 	size int
 }
 
-// add gathers a line, sending what was gathered first where the line
-// would make it more than a part. What of the line is not UTF-8, which
-// a message's text has to be, is given as U+FFFD, as Docker gives it.
-func (p *parts) add(stream typev1.LogStream, text []byte) error {
-	line := &typev1.LogLine{Stream: stream, Text: strings.ToValidUTF8(string(text), "\uFFFD")}
+// add gathers a line, or a part of one that continues, sending what was
+// gathered first where the line would make it more than a part. What of
+// the line is not UTF-8, which a message's text has to be, is given as
+// U+FFFD, as Docker gives it.
+func (p *parts) add(stream typev1.LogStream, text []byte, continues bool) error {
+	line := &typev1.LogLine{Stream: stream, Text: strings.ToValidUTF8(string(text), "\uFFFD"), Continues: continues}
 	if len(p.held) > 0 && p.size+sent(line) > part {
 		if err := p.flush(); err != nil {
 			return err
@@ -234,36 +236,63 @@ func (p *parts) flush() error {
 // what names it, its stream and its length.
 func sent(line *typev1.LogLine) int { return len(line.GetText()) + 16 }
 
-// lines gives each line of what an action printed to a stream, whole and
-// without what ends it: a line of any length, and the last where no
-// newline ends it. It stops when whoever asked has gone.
-func lines(ctx context.Context, from io.Reader, each func(line []byte) error) error {
+// lines gives each line of what an action printed to a stream, without
+// what ends it, and the last where no newline ends it. A line longer
+// than a part is given as several, each a part at most and cut between
+// characters, every one but the last saying it continues, so that what
+// is held of a stream is one part whatever the action printed: an
+// action that prints no newline is not read whole. It stops when
+// whoever asked has gone.
+func lines(ctx context.Context, from io.Reader, each func(line []byte, continues bool) error) error {
 	reader := bufio.NewReaderSize(from, part)
-	var long []byte
+	// cut is what a part ended within and is given with what follows it:
+	// the start of a character, and a carriage return that may be half
+	// of what ends the line. open says the last given continues.
+	var cut []byte
+	open := false
 	for {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
 		piece, err := reader.ReadSlice('\n')
 		if errors.Is(err, bufio.ErrBufferFull) {
-			long = append(long, piece...)
+			whole := len(piece) - partial(piece)
+			if whole > 0 && piece[whole-1] == '\r' {
+				whole--
+			}
+			if err := each(append(cut, piece[:whole]...), true); err != nil {
+				return err
+			}
+			cut, open = append(cut[:0], piece[whole:]...), true
 			continue
 		}
 		if err != nil && !errors.Is(err, io.EOF) {
 			return connect.NewError(connect.CodeInternal, fmt.Sprintf("reading what was printed: %v", err))
 		}
-		line := piece
-		if len(long) > 0 {
-			line = append(long, piece...)
-			long = nil
-		}
-		if len(line) > 0 {
-			if err := each(bytes.TrimRight(line, "\r\n")); err != nil {
+		// A line that was given in parts is ended by its last, though
+		// nothing follows its cut.
+		if line := append(cut, piece...); len(line) > 0 || open {
+			if err := each(bytes.TrimRight(line, "\r\n"), false); err != nil {
 				return err
 			}
 		}
+		cut, open = cut[:0], false
 		if err != nil {
 			return nil
 		}
 	}
+}
+
+// partial is how many bytes at the end of a piece begin a character the
+// piece does not hold the rest of.
+func partial(piece []byte) int {
+	for back := 1; back < utf8.UTFMax && back <= len(piece); back++ {
+		if first := piece[len(piece)-back]; utf8.RuneStart(first) {
+			if utf8.FullRune(piece[len(piece)-back:]) {
+				return 0
+			}
+			return back
+		}
+	}
+	return 0
 }

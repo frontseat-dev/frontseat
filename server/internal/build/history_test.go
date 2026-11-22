@@ -28,7 +28,10 @@ func logsOf(runs buildv1alpha1connect.BuildServiceClient, id, label string) ([]*
 		return nil, err
 	}
 	defer logs.Close()
+	// A line sent in parts is read as the one line it is, as a client
+	// joins it.
 	var lines []*typev1.LogLine
+	continuing := false
 	for {
 		part, err := logs.Receive()
 		if errors.Is(err, io.EOF) {
@@ -37,7 +40,14 @@ func logsOf(runs buildv1alpha1connect.BuildServiceClient, id, label string) ([]*
 		if err != nil {
 			return lines, err
 		}
-		lines = append(lines, part.GetLines()...)
+		for _, line := range part.GetLines() {
+			if n := len(lines); n > 0 && continuing {
+				lines[n-1].Text += line.GetText()
+			} else {
+				lines = append(lines, line)
+			}
+			continuing = line.GetContinues()
+		}
 	}
 }
 

@@ -14,8 +14,14 @@ message LogLine {
   google.protobuf.Timestamp time = 1;
   // Stream is where the line was written.
   LogStream stream = 2;
-  // Text is the line, without its newline.
+  // Text is the line, without its newline: or a part of it, where the
+  // line is longer than a server sends whole.
   string text = 3;
+  // Continues says the line goes on in the next of the same stream: a
+  // line longer than a server sends whole is sent in parts, each but the
+  // last with continues set, and the parts together are the line. A
+  // part is cut between characters, never within one.
+  bool continues = 4;
 }
 
 // LogStream is where a log line was written.

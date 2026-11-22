@@ -205,8 +205,9 @@ type BuildServiceClient interface {
 	// follow an action that is still running: for one the build has
 	// planned and that has not ended, it sends nothing. It does not say
 	// how the two outputs were interleaved, and its lines carry no time.
-	// It is sent in parts, each some whole lines, so an action may have
-	// printed any amount.
+	// It is sent in parts, each some lines, so an action may have printed
+	// any amount. A line longer than 64 KiB is sent as several, each but
+	// the last saying it continues (LogLine.continues).
 	//
 	// A line's text is UTF-8: bytes an action printed that are not are
 	// given as U+FFFD.
@@ -346,8 +347,9 @@ type BuildServiceHandler interface {
 	// follow an action that is still running: for one the build has
 	// planned and that has not ended, it sends nothing. It does not say
 	// how the two outputs were interleaved, and its lines carry no time.
-	// It is sent in parts, each some whole lines, so an action may have
-	// printed any amount.
+	// It is sent in parts, each some lines, so an action may have printed
+	// any amount. A line longer than 64 KiB is sent as several, each but
+	// the last saying it continues (LogLine.continues).
 	//
 	// A line's text is UTF-8: bytes an action printed that are not are
 	// given as U+FFFD.

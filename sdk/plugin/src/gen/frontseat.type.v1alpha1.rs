@@ -10,9 +10,16 @@ pub struct LogLine {
     /// Stream is where the line was written.
     #[prost(enumeration = "LogStream", tag = "2")]
     pub stream: i32,
-    /// Text is the line, without its newline.
+    /// Text is the line, without its newline: or a part of it, where the
+    /// line is longer than a server sends whole.
     #[prost(string, tag = "3")]
     pub text: ::prost::alloc::string::String,
+    /// Continues says the line goes on in the next of the same stream: a
+    /// line longer than a server sends whole is sent in parts, each but the
+    /// last with continues set, and the parts together are the line. A
+    /// part is cut between characters, never within one.
+    #[prost(bool, tag = "4")]
+    pub continues: bool,
 }
 /// EntityRef names an entity of the catalog by its kind, its namespace
 /// and its name. Each part is 1 to 255 bytes of lower-case ASCII letters,
