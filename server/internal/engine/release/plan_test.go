@@ -1227,3 +1227,82 @@ func TestWhichSettingOfAMemberIsRefusedDoesNotChangeBetweenReads(t *testing.T) {
 		}
 	}
 }
+
+// depending is company with more said of what depends on what, each
+// pair an entity and one it depends on.
+func depending(w release.Workspace, pairs ...string) release.Workspace {
+	for i := 0; i+1 < len(pairs); i += 2 {
+		w.DependsOn[ref(pairs[i])] = append(w.DependsOn[ref(pairs[i])], ref(pairs[i+1]))
+	}
+	return w
+}
+
+// Units that depend on each other in a cycle are refused naming them:
+// no order releases them. One that depends on the other, and is not
+// depended on by it, is released after it.
+func TestUnitsThatDependOnEachOtherInACycleAreRefusedNamingThem(t *testing.T) {
+	history := on("release/1.0", nil, "fix: trim")
+	plansUnits(t, "one depends on the other", depending(company(), "greet", "log"), history, []string{"greet", "log"}, "log greet")
+	_, err := release.Plan(context.Background(), depending(company(), "greet", "log", "log", "greet"), &strategies{}, history, asking("greet", "log"))
+	mistaken(t, "each depends on the other", err, "component:default/greet, component:default/log depend on each other in a cycle; no order releases them")
+	// Of a cycle one end of which is not released, the other is.
+	plansUnits(t, "a cycle with what is not released", depending(company(), "greet", "log", "log", "greet"), history, []string{"greet"}, "greet")
+}
+
+// Members of one synced group are no dependency of each other: the
+// group is one unit, and depends on itself in no plan.
+func TestMembersOfOneSyncedGroupAreNoDependencyOfEachOther(t *testing.T) {
+	siblings := depending(company(), "banner", "ticker", "ticker", "banner")
+	plan, err := release.Plan(context.Background(), siblings, &strategies{}, on("release/1.0", nil, "fix: trim"), asking("system:kiosk", "greet"))
+	if err != nil {
+		t.Fatalf("a synced group whose members depend on each other: %v", err)
+	}
+	if units := plannedUnits(plan); units != "greet kiosk" {
+		t.Errorf("the units are %s, want greet kiosk", units)
+	}
+	if on := unitOf(t, plan, "kiosk").GetDependsOn(); len(on) != 1 || on[0].GetName() != "greet" {
+		t.Errorf("kiosk depends on %v, want greet alone", on)
+	}
+}
+
+// A unit may depend on one in another repository: it is released after
+// it, and the plan says so.
+func TestAUnitMayDependOnOneInAnotherRepository(t *testing.T) {
+	plan, err := release.Plan(context.Background(), depending(company(), "greet", "log"), &strategies{}, on("release/1.0", nil, "fix: trim"), asking("log", "greet"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if units := plannedUnits(plan); units != "log greet" {
+		t.Errorf("the units are %s, want log greet", units)
+	}
+	if on := unitOf(t, plan, "greet").GetDependsOn(); len(on) != 1 || on[0].GetName() != "log" {
+		t.Errorf("greet, in services, depends on %v, want log, in platform", on)
+	}
+}
+
+// Members of an independent system may be in two repositories, each a
+// unit released from its own: only a synced one is held to one.
+func TestMembersOfAnIndependentSystemMayBeInTwoRepositories(t *testing.T) {
+	history := on("release/1.0", nil, "fix: trim")
+	_, err := release.Plan(context.Background(), company(), &strategies{}, history, asking("system:storefront"))
+	mistaken(t, "synced", err, "a unit is released from one repository")
+	planned, err := release.Prepare(context.Background(), company(says("system:storefront", "grouping", "independent")), &strategies{}, history, asking("system:storefront"))
+	if err != nil {
+		t.Fatalf("independent: %v", err)
+	}
+	if units := plannedUnits(planned.Plan); units != "gateway hello" {
+		t.Errorf("the units are %s, want gateway hello", units)
+	}
+	if planned.Repositories[ref("gateway")] != "platform" || planned.Repositories[ref("hello")] != "services" {
+		t.Errorf("each is released from its own repository: %v", planned.Repositories)
+	}
+}
+
+// The plan says which strategies answered for a unit: those its
+// settings name, the defaults where nobody wrote one.
+func TestThePlanSaysWhichStrategiesAnsweredForAUnit(t *testing.T) {
+	greet := greetOf(t, "the defaults", &strategies{}, on("release/1.0", nil, "fix: trim"))
+	if greet == nil || greet.GetVersioningStrategy() != "release:conventional-commits" || greet.GetBranchingStrategy() != "release:release-flow" {
+		t.Errorf("greet was answered for by %q and %q, want the defaults", greet.GetVersioningStrategy(), greet.GetBranchingStrategy())
+	}
+}
