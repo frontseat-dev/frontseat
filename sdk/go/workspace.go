@@ -202,8 +202,9 @@ func (c *Client) Open(ctx context.Context, spec Spec) (Opened, error) {
 
 // Workspace is a workspace the control plane keeps, by its name. Nothing
 // is asked of the control plane until a call is made. A name is given:
-// with none, every call fails before anything is asked, and the
-// workspace a daemon's Client is in is Here, never an empty name.
+// with none, every call fails with ErrUnnamed before anything is asked,
+// and the workspace a daemon's Client is in is Here, never an empty
+// name.
 func (c *Client) Workspace(name string) *Workspace {
 	return &Workspace{client: c, name: name}
 }
@@ -225,7 +226,8 @@ func (c *Client) workspaces() workspacev1alpha1connect.WorkspaceServiceClient {
 // builds, runs and releases what it holds.
 type Workspace struct {
 	client *Client
-	// name is the workspace's name; empty for the one Here is.
+	// name is the workspace's name; empty for the one Here is, and for
+	// one given none.
 	name string
 	// here is whether it is the one Here is, asked by no name.
 	here bool
@@ -234,7 +236,8 @@ type Workspace struct {
 	daemon *connect.Client
 }
 
-// Name is the workspace's name; empty for the one Here is.
+// Name is the workspace's name; empty for the one Here is, and for one
+// given none.
 func (w *Workspace) Name() string { return w.name }
 
 // ErrHere is what the workspace Here is refuses to do: what changes or
@@ -242,19 +245,19 @@ func (w *Workspace) Name() string { return w.name }
 // from outside it, and inside a workspace's sandbox its source is fixed.
 var ErrHere = errors.New("inside a workspace's sandbox its source is fixed, and its daemon is asked to build, run and release alone: describe, fill, end and open a shell in a workspace from outside it, by its name")
 
-// errUnnamed is what a workspace given no name is refused with: nothing
+// ErrUnnamed is what a workspace given no name is refused with: nothing
 // is asked of a control plane for it.
-var errUnnamed = errors.New("a workspace is asked for by its name, and this one was given none")
+var ErrUnnamed = errors.New("a workspace is asked for by its name, and this one was given none")
 
 // named refuses what is asked of a workspace by its name where it has
 // none: the one Here is (ErrHere), and one the caller named with
-// nothing, which is no workspace and not the one Here is.
+// nothing (ErrUnnamed), which is no workspace and not the one Here is.
 func (w *Workspace) named() error {
 	switch {
 	case w.here:
 		return ErrHere
 	case w.name == "":
-		return errUnnamed
+		return ErrUnnamed
 	}
 	return nil
 }

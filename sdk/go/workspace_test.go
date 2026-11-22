@@ -27,14 +27,14 @@ func TestAWorkspaceGivenNoNameIsAskedNothing(t *testing.T) {
 	_, built := unnamed.Build(ctx, BuildRequest{})
 	_, shell := unnamed.Shell(ctx)
 	for what, err := range map[string]error{"describing": described, "building": built, "a shell": shell, "adding": unnamed.Add(ctx, Spec{}), "ending": unnamed.Delete(ctx)} {
-		if !errors.Is(err, errUnnamed) || errors.Is(err, ErrHere) {
+		if !errors.Is(err, ErrUnnamed) || errors.Is(err, ErrHere) {
 			t.Errorf("%s in a workspace given no name: %v, want it said that none was given", what, err)
 		}
 	}
 	if got := asked.Load(); got != 0 {
 		t.Errorf("a workspace given no name asked a server %d times", got)
 	}
-	if _, err := New(server.URL).Workspace("named").Describe(ctx); err == nil || errors.Is(err, errUnnamed) || asked.Load() != 1 {
+	if _, err := New(server.URL).Workspace("named").Describe(ctx); err == nil || errors.Is(err, ErrUnnamed) || asked.Load() != 1 {
 		t.Errorf("the control: a workspace that is named: %v, asking %d times, want the control plane asked once", err, asked.Load())
 	}
 	if _, err := New(server.URL).Here().Describe(ctx); !errors.Is(err, ErrHere) {
