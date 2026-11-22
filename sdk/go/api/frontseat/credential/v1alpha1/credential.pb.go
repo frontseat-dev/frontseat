@@ -1,10 +1,10 @@
 // frontseat.credential.v1alpha1: credentials. A credential is a secret
 // for a host, a password or a token, which a person gives the control
-// plane so that their workspaces fetch from the host, and push to it,
-// with it. It is that person's: a workspace is let through with its
-// owner's credential for a host, and with no one else's. It is kept
-// outside every sandbox: a sandbox presents a stand-in, which is traded
-// for the secret on its way out, and never holds the secret itself.
+// plane so that their workspaces can fetch from the host, and push to
+// it. It is that person's: a workspace uses its owner's credential for a
+// host, and no one else's. It is kept outside every sandbox: a
+// workspace's sandbox sends a stand-in, which is replaced by the secret
+// on the way out, and never holds the secret itself.
 //
 // Every call is a person's, known by the token they present as a bearer
 // token. A call that presents none, or one the control plane does not
@@ -41,17 +41,18 @@ const (
 type Credential struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Host is the host it is for: a name, or a name and a port as
-	// name:port; without a port, 443, and sent over https alone. Written
-	// with "http://" before it, and then port 80 where none is given, it is
-	// sent over http, unencrypted, by whatever runs in a workspace let
-	// through with it: give such a host one that reads no more than it
-	// must.
+	// name:port, never an address. Without a port it is port 443, and the
+	// credential is sent over https alone. Written with "http://" before
+	// it, and then port 80 where none is given, it is sent over http,
+	// unencrypted, by any program in a workspace that uses it: for such a
+	// host, give a credential that may do no more than it must.
 	Host string `protobuf:"bytes,1,opt,name=host,proto3" json:"host,omitempty"`
-	// Username is who it is of, as the host asks; it is no secret, and a
-	// workspace is told it.
+	// Username is the user it is for, as the host knows them: at most
+	// 128 letters, digits, dots, underscores, hyphens and at signs. It is
+	// not secret: a workspace that uses the credential is told it.
 	Username string `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`
-	// Secret is the password or token, on one line. It is kept outside
-	// every sandbox, and no call returns it.
+	// Secret is the password or token: one line, of at most 4096 bytes.
+	// It is kept outside every sandbox, and no call returns it.
 	Secret        string `protobuf:"bytes,3,opt,name=secret,proto3" json:"secret,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -203,10 +204,10 @@ func (x *SetCredentialResponse) GetCredential() *Credential {
 // ListCredentialsRequest asks for a page of the caller's credentials.
 type ListCredentialsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Page_size is the most credentials to return; zero is a hundred, and more
+	// `page_size` is the most credentials to return; zero is a hundred, and more
 	// than a thousand is a thousand.
 	PageSize int32 `protobuf:"varint,1,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
-	// Page_token is the next_page_token of the page before; empty for the
+	// `page_token` is the next_page_token of the page before; empty for the
 	// first page.
 	PageToken     string `protobuf:"bytes,2,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -262,7 +263,7 @@ type ListCredentialsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Credentials are the credentials, by host, without their secrets.
 	Credentials []*Credential `protobuf:"bytes,1,rep,name=credentials,proto3" json:"credentials,omitempty"`
-	// Next_page_token asks for the page after this one; empty on the last.
+	// `next_page_token` asks for the page after this one; empty on the last.
 	NextPageToken string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -312,7 +313,7 @@ func (x *ListCredentialsResponse) GetNextPageToken() string {
 	return ""
 }
 
-// DeleteCredentialRequest names the host whose credential is let go of.
+// DeleteCredentialRequest names the host whose credential is removed.
 type DeleteCredentialRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Host is the host, written as it was to SetCredential.
@@ -358,8 +359,8 @@ func (x *DeleteCredentialRequest) GetHost() string {
 	return ""
 }
 
-// DeleteCredentialResponse says nothing: the caller keeps none for the
-// host.
+// DeleteCredentialResponse is empty: the caller keeps no credential for
+// the host.
 type DeleteCredentialResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields

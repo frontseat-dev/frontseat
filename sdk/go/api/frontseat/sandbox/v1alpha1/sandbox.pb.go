@@ -1,24 +1,27 @@
 // frontseat.sandbox.v1alpha1: sandboxes. A sandbox is an isolated machine:
-// an image, a lifetime, a network policy, volumes, processes and files. A
-// build daemon runs in one, and so does a test's database and an agent. It
+// an image, what it may reach on the network, volumes, ports and further
+// containers. A build daemon runs in one, and so does a test's database
+// and an agent. It
 // knows nothing of repositories or builds: a workspace, which lives in a
 // sandbox, is frontseat.workspace.v1alpha1's. What a sandbox may reach is
 // said in the network's own terms: hosts, the programs that may ask them,
 // the requests let through, and a credential kept outside it.
 //
-// The service delegates to a driver for whichever provider makes the
-// sandboxes, such as a container runtime. A driver says what it can
-// enforce, and a request for anything else is refused, never run weaker.
+// The service makes its sandboxes through a driver: the part of the
+// server that talks to whatever provides them, such as a container
+// runtime. A driver says what it can enforce, and a request for anything
+// else is refused, never run weaker.
 //
-// It is served to what is built on it, in its process or beside it, and
-// to no one else: whoever may ask it may run anything in any of its
-// sandboxes. The control plane serves workspaces over it and serves none
-// of it on its own endpoint.
+// It is not a public API. It is served to the server programs built on
+// it, in its process or beside it, and to no one else: whoever may call
+// it may run anything in any of its sandboxes. The control plane serves
+// workspaces over it and serves none of it on its own endpoint.
 //
 // What it refuses by name carries ErrorInfo of the domain
-// sandbox.frontseat.dev, with the reason each call names. A call about a
-// sandbox that is being changed by another, and that gives up waiting
-// its turn, is refused CANCELED or DEADLINE_EXCEEDED with the reason
+// sandbox.frontseat.dev, with the reason each call names. One call at a
+// time changes a sandbox: a call that stops waiting for another's to
+// finish, because its caller went away or its deadline passed, is
+// refused CANCELED or DEADLINE_EXCEEDED with the reason
 // SANDBOX_BUSY. What a driver cannot enforce is refused UNIMPLEMENTED
 // with the reason CAPABILITY_NOT_SERVED, the message naming it; what a
 // driver finds not well formed, INVALID_ARGUMENT with SPEC_INVALID; and
@@ -66,9 +69,9 @@ const (
 	// STATE_FAILED: it could not start, or ended on its own; failure
 	// says why.
 	Sandbox_STATE_FAILED Sandbox_State = 4
-	// STATE_ENDING: it was asked to end, and what makes sandboxes still
-	// holds it. Nothing is asked of it but DeleteSandbox, again, until it
-	// is gone.
+	// STATE_ENDING: it was deleted, and its provider has not finished
+	// removing it. Until it is gone, the only call it takes is
+	// DeleteSandbox, again.
 	Sandbox_STATE_ENDING Sandbox_State = 6
 )
 
@@ -123,12 +126,12 @@ func (Sandbox_State) EnumDescriptor() ([]byte, []int) {
 type Egress_Mode int32
 
 const (
-	// MODE_UNSPECIFIED: whatever the driver gives by default: anything,
-	// or, under a driver that lets nothing be reached unnamed, what its
-	// rules name.
+	// MODE_UNSPECIFIED: the driver's default. Under a driver that lets a
+	// sandbox reach only hosts that are named, it is what the rules
+	// name; under any other, it is anything.
 	Egress_MODE_UNSPECIFIED Egress_Mode = 0
-	// MODE_ALLOW_ALL: anything. A driver that lets nothing be reached
-	// unnamed refuses it.
+	// MODE_ALLOW_ALL: anything. A driver that lets a sandbox reach only
+	// hosts that are named refuses it.
 	Egress_MODE_ALLOW_ALL Egress_Mode = 1
 	// MODE_ALLOW_LISTED: only what its rules name.
 	Egress_MODE_ALLOW_LISTED Egress_Mode = 2
@@ -183,7 +186,8 @@ func (Egress_Mode) EnumDescriptor() ([]byte, []int) {
 type Volume_Kind int32
 
 const (
-	// KIND_UNSPECIFIED: as KIND_EPHEMERAL.
+	// KIND_UNSPECIFIED: not said; the volume is treated as
+	// KIND_EPHEMERAL.
 	Volume_KIND_UNSPECIFIED Volume_Kind = 0
 	// KIND_EPHEMERAL: it goes with the sandbox.
 	Volume_KIND_EPHEMERAL Volume_Kind = 1
@@ -246,7 +250,7 @@ type Sandbox struct {
 	Driver string `protobuf:"bytes,5,opt,name=driver,proto3" json:"driver,omitempty"`
 	// Endpoints are how its ports are reached.
 	Endpoints []*Endpoint `protobuf:"bytes,6,rep,name=endpoints,proto3" json:"endpoints,omitempty"`
-	// Create_time is when it was made.
+	// `create_time` is when it was made.
 	CreateTime *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=create_time,json=createTime,proto3" json:"create_time,omitempty"`
 	// Failure says, for a sandbox that failed, what its driver said of
 	// why; empty where it said nothing.
@@ -351,8 +355,9 @@ type SandboxSpec struct {
 	User string `protobuf:"bytes,16,opt,name=user,proto3" json:"user,omitempty"`
 	// Writable are the directories of its image it may write, each an
 	// absolute path, beside its own temporary directory and what is
-	// mounted in it; a driver that cannot hold a sandbox to what it writes
-	// writes them as it would anything else.
+	// mounted in it. Under a driver that does not restrict what a sandbox
+	// writes, they change nothing: the sandbox may write them as it may
+	// write the rest of its image.
 	Writable []string `protobuf:"bytes,17,rep,name=writable,proto3" json:"writable,omitempty"`
 	// Environment is the environment its first process starts with.
 	Environment map[string]string `protobuf:"bytes,3,rep,name=environment,proto3" json:"environment,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
@@ -370,9 +375,11 @@ type SandboxSpec struct {
 	// Egress.MODE_BLOCK nothing more, which is how a test reaches its
 	// services and nothing else.
 	Containers []*Container `protobuf:"bytes,12,rep,name=containers,proto3" json:"containers,omitempty"`
-	// Before_containers runs a bounded command in the main container before
-	// any further container starts. Its failure fails creation. A driver
-	// lacking this capability refuses the request before making anything.
+	// `before_containers` is a command run in its first container before
+	// any further container starts, as when the first has something to
+	// set up that the others need. It is given only with further
+	// containers. Where the command fails, the sandbox fails. A driver
+	// that cannot run it refuses the sandbox, and makes nothing.
 	BeforeContainers *StartupGate `protobuf:"bytes,14,opt,name=before_containers,json=beforeContainers,proto3" json:"before_containers,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
@@ -492,12 +499,16 @@ func (x *SandboxSpec) GetBeforeContainers() *StartupGate {
 	return nil
 }
 
-// StartupGate establishes readiness of the main container's facilities.
+// StartupGate is a command a sandbox's first container runs before its
+// further containers start.
 type StartupGate struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Arguments are an executable and its arguments, never a shell string.
+	// Arguments are the program and its arguments, each its own string:
+	// no shell reads them. A gate with none is refused.
 	Arguments []string `protobuf:"bytes,1,rep,name=arguments,proto3" json:"arguments,omitempty"`
-	// Timeout is positive and at most two minutes. The command must exit zero.
+	// Timeout is how long the command is given: more than zero, and at
+	// most two minutes. A gate with none is refused. The command has
+	// failed where it does not exit 0 within it.
 	Timeout       *durationpb.Duration `protobuf:"bytes,2,opt,name=timeout,proto3" json:"timeout,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -635,14 +646,15 @@ type Egress struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Mode is the rule.
 	Mode Egress_Mode `protobuf:"varint,1,opt,name=mode,proto3,enum=frontseat.sandbox.v1alpha1.Egress_Mode" json:"mode,omitempty"`
-	// Rules are what it may reach where the mode allows only some, each a
-	// host and how far it is let: by which programs, for which requests,
-	// and with which credential kept for the host. A host is named by
-	// one rule. Under a driver that lets nothing be reached unnamed, they
-	// are also what a sandbox of an unspecified mode may reach. A sandbox
-	// whose mode allows all or nothing names none. A driver that cannot
-	// hold a rule to its programs or its requests, or keeps no credential,
-	// refuses such a rule by name.
+	// Rules are the hosts it may reach under MODE_ALLOW_LISTED, each with
+	// its limits: which programs may reach the host, which requests are
+	// let through, and which kept credential is added to them. At most one
+	// rule names a host. Under a driver that lets a sandbox reach only
+	// hosts that are named, they are also what a sandbox of
+	// MODE_UNSPECIFIED may reach. With MODE_ALLOW_ALL and MODE_BLOCK there
+	// are none. A driver that cannot limit a rule to its programs or its
+	// requests, or that keeps no credential, refuses a rule that asks for
+	// that (CAPABILITY_NOT_SERVED).
 	Rules         []*EgressRule `protobuf:"bytes,3,rep,name=rules,proto3" json:"rules,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -707,10 +719,12 @@ type EgressRule struct {
 	// anything asked of the host.
 	Requests []*EgressRequest `protobuf:"bytes,3,rep,name=requests,proto3" json:"requests,omitempty"`
 	// Credential names a credential the server keeps for the host
-	// (SetCredential), attached to what the rule lets through: the sandbox
-	// presents a stand-in, found under the variable DescribeCredential
-	// says, and never holds the secret. Empty for none. With none kept
-	// under the name, or one kept for another host, the sandbox is refused.
+	// (SetCredential), which is added to the requests the rule lets
+	// through. The sandbox never holds the secret: it sends a stand-in,
+	// which it finds in the environment variable DescribeCredential names,
+	// and the stand-in is replaced by the secret on the way out. Empty for
+	// none. Where nothing is kept under the name, or what is kept is for
+	// another host, the sandbox is refused.
 	Credential    string `protobuf:"bytes,4,opt,name=credential,proto3" json:"credential,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -779,13 +793,14 @@ type EgressRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Method is the HTTP method, in capitals.
 	Method string `protobuf:"bytes,1,opt,name=method,proto3" json:"method,omitempty"`
-	// Path is the path asked for, in full and written plainly. A part of
-	// it after its first that is "*" is any one part, and no more: what a
-	// server names as it makes it, as a forge numbers a release, is not
-	// known when a rule is written. Nothing else of a pattern is taken.
+	// Path is the request's whole path, written plainly. A segment of it
+	// other than the first may be "*", which stands for exactly one
+	// segment of any text: for an id the host assigns, such as a release's
+	// number, which is not known when the rule is written. No other
+	// pattern is taken.
 	Path string `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
-	// Query holds, for a parameter that must be there, the one value it
-	// has; a request with none is held to no parameter.
+	// Query are the query parameters a request must carry, each with the
+	// one value it must have. Empty, the request's query is not checked.
 	Query         map[string]string `protobuf:"bytes,3,rep,name=query,proto3" json:"query,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -851,9 +866,10 @@ type Volume struct {
 	Path string `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
 	// Kind is what becomes of it.
 	Kind Volume_Kind `protobuf:"varint,3,opt,name=kind,proto3,enum=frontseat.sandbox.v1alpha1.Volume_Kind" json:"kind,omitempty"`
-	// Source names what a host volume is: a path on the provider's host.
+	// Source is, for a volume of KIND_HOST, the directory it is: a path on
+	// the provider's host.
 	Source string `protobuf:"bytes,4,opt,name=source,proto3" json:"source,omitempty"`
-	// Read_only is whether the sandbox may only read it.
+	// `read_only` is whether the sandbox may only read it.
 	ReadOnly bool `protobuf:"varint,5,opt,name=read_only,json=readOnly,proto3" json:"read_only,omitempty"`
 	// Subpath is the one directory of a host volume that is
 	// mounted, relative to its root, never leaving it: what is beside it
@@ -996,7 +1012,11 @@ type CreateSandboxRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Spec is what to make.
 	Spec *SandboxSpec `protobuf:"bytes,1,opt,name=spec,proto3" json:"spec,omitempty"`
-	// Request_id makes a retry return the first answer.
+	// `request_id` makes a retry return the sandbox the first call made: a
+	// client that lost the answer sends the same request again with it.
+	// It is remembered for as long as that sandbox is there, and it is of
+	// any length. What is sent with it again is not compared with the
+	// first request. Empty, every call makes a sandbox.
 	RequestId     string `protobuf:"bytes,2,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1095,7 +1115,7 @@ func (x *CreateSandboxResponse) GetSandbox() *Sandbox {
 // DescribeSandboxRequest names a sandbox.
 type DescribeSandboxRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Sandbox_id is the sandbox's id.
+	// `sandbox_id` is the sandbox's id.
 	SandboxId     string `protobuf:"bytes,1,opt,name=sandbox_id,json=sandboxId,proto3" json:"sandbox_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1187,13 +1207,13 @@ func (x *DescribeSandboxResponse) GetSandbox() *Sandbox {
 // ListSandboxesRequest says which sandboxes to keep.
 type ListSandboxesRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Label_selector keeps the sandboxes that carry every label it names:
+	// `label_selector` keeps the sandboxes that carry every label it names:
 	// name=value, separated by commas. Empty keeps all.
 	LabelSelector string `protobuf:"bytes,1,opt,name=label_selector,json=labelSelector,proto3" json:"label_selector,omitempty"`
-	// Page_size is the most sandboxes to return; zero is a hundred, and more
+	// `page_size` is the most sandboxes to return; zero is a hundred, and more
 	// than a thousand is a thousand.
 	PageSize int32 `protobuf:"varint,2,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
-	// Page_token is the next_page_token of the page before; empty for the
+	// `page_token` is the next_page_token of the page before; empty for the
 	// first page.
 	PageToken     string `protobuf:"bytes,3,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -1256,7 +1276,7 @@ type ListSandboxesResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Sandboxes are the sandboxes, oldest first.
 	Sandboxes []*Sandbox `protobuf:"bytes,1,rep,name=sandboxes,proto3" json:"sandboxes,omitempty"`
-	// Next_page_token asks for the page after this one; empty on the last.
+	// `next_page_token` asks for the page after this one; empty on the last.
 	NextPageToken string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1309,7 +1329,7 @@ func (x *ListSandboxesResponse) GetNextPageToken() string {
 // DeleteSandboxRequest names a sandbox to end.
 type DeleteSandboxRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Sandbox_id is the sandbox's id.
+	// `sandbox_id` is the sandbox's id.
 	SandboxId     string `protobuf:"bytes,1,opt,name=sandbox_id,json=sandboxId,proto3" json:"sandbox_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1392,7 +1412,7 @@ func (*DeleteSandboxResponse) Descriptor() ([]byte, []int) {
 // PauseSandboxRequest names a sandbox to pause.
 type PauseSandboxRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Sandbox_id is the sandbox's id.
+	// `sandbox_id` is the sandbox's id.
 	SandboxId     string `protobuf:"bytes,1,opt,name=sandbox_id,json=sandboxId,proto3" json:"sandbox_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1484,7 +1504,7 @@ func (x *PauseSandboxResponse) GetSandbox() *Sandbox {
 // ResumeSandboxRequest names a sandbox to resume.
 type ResumeSandboxRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Sandbox_id is the sandbox's id.
+	// `sandbox_id` is the sandbox's id.
 	SandboxId     string `protobuf:"bytes,1,opt,name=sandbox_id,json=sandboxId,proto3" json:"sandbox_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1576,7 +1596,7 @@ func (x *ResumeSandboxResponse) GetSandbox() *Sandbox {
 // WaitSandboxRequest names a sandbox to wait for.
 type WaitSandboxRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Sandbox_id is the sandbox's id.
+	// `sandbox_id` is the sandbox's id.
 	SandboxId     string `protobuf:"bytes,1,opt,name=sandbox_id,json=sandboxId,proto3" json:"sandbox_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1668,14 +1688,16 @@ func (x *WaitSandboxResponse) GetSandbox() *Sandbox {
 // ExecSandboxRequest is a command to run in a sandbox's container.
 type ExecSandboxRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Sandbox_id is the sandbox's id.
+	// `sandbox_id` is the sandbox's id.
 	SandboxId string `protobuf:"bytes,1,opt,name=sandbox_id,json=sandboxId,proto3" json:"sandbox_id,omitempty"`
 	// Container is the container's name; "main" or empty for the
 	// sandbox's first.
 	Container string `protobuf:"bytes,2,opt,name=container,proto3" json:"container,omitempty"`
 	// Arguments are the program and its arguments.
 	Arguments []string `protobuf:"bytes,3,rep,name=arguments,proto3" json:"arguments,omitempty"`
-	// Timeout ends the command, and the call, past it; unset, a minute.
+	// Timeout is how long the command may run: past it, the command is
+	// ended and the call is refused. Unset, it is a minute. It has no
+	// upper limit.
 	Timeout       *durationpb.Duration `protobuf:"bytes,4,opt,name=timeout,proto3" json:"timeout,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1742,7 +1764,7 @@ func (x *ExecSandboxRequest) GetTimeout() *durationpb.Duration {
 // ExecSandboxResponse is how the command ended.
 type ExecSandboxResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Exit_code is its exit status.
+	// `exit_code` is its exit status.
 	ExitCode int32 `protobuf:"varint,1,opt,name=exit_code,json=exitCode,proto3" json:"exit_code,omitempty"`
 	// Output is what it printed, stdout and stderr as written: the first
 	// 1 MiB of it.
@@ -1804,23 +1826,25 @@ type Credential struct {
 	// letter or a digit.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Host is the host it is for: a name, or a name and a port as
-	// name:port; without a port, 443: a credential for what a sandbox asks
-	// of it over https. Written with "http://" before it, and then port 80
-	// where none is given, it is one for what is asked over http, and none
-	// for the same host over https. Neither is kept from being sent to its
-	// host unencrypted by what runs in a sandbox let through with it,
-	// where the driver's runtime cannot ask for TLS. As the server says
-	// it, it is name:port, with "http://" before it where it is sent over
-	// http.
+	// name:port. Without a port it is port 443, and the credential is for
+	// requests to the host over https. Written with "http://" before it,
+	// and then port 80 where none is given, it is for requests over http,
+	// and not for requests to the same host over https. The server returns
+	// it as name:port, with "http://" before it for http.
+	//
+	// A credential for http is sent unencrypted. One for https may be too:
+	// where the driver's runtime cannot require TLS, a program in a
+	// sandbox that uses the credential can have it sent to the host
+	// without TLS.
 	Host string `protobuf:"bytes,2,opt,name=host,proto3" json:"host,omitempty"`
-	// Username is who it is of, as the host asks; it is no secret, and a
-	// sandbox is told it.
+	// Username is the user it is for, as the host knows them. It is not
+	// secret: a sandbox that uses the credential is told it.
 	Username string `protobuf:"bytes,3,opt,name=username,proto3" json:"username,omitempty"`
 	// Secret is the password or token. It is kept outside every sandbox,
 	// and no call returns it.
 	Secret string `protobuf:"bytes,4,opt,name=secret,proto3" json:"secret,omitempty"`
-	// Variable is the variable of its environment a sandbox let through
-	// with the credential finds its stand-in under.
+	// Variable is the environment variable in which a sandbox that uses
+	// the credential finds its stand-in.
 	Variable      string `protobuf:"bytes,5,opt,name=variable,proto3" json:"variable,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1983,7 +2007,7 @@ func (x *SetCredentialResponse) GetCredential() *Credential {
 	return nil
 }
 
-// DeleteCredentialRequest names the credential let go of.
+// DeleteCredentialRequest names the credential to remove.
 type DeleteCredentialRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Name is the name it was kept under.
@@ -2029,8 +2053,8 @@ func (x *DeleteCredentialRequest) GetName() string {
 	return ""
 }
 
-// DeleteCredentialResponse says nothing: the server holds none under the
-// name.
+// DeleteCredentialResponse is empty: the server keeps no credential
+// under the name.
 type DeleteCredentialResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -2067,7 +2091,7 @@ func (*DeleteCredentialResponse) Descriptor() ([]byte, []int) {
 	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{29}
 }
 
-// DescribeCredentialRequest names the credential asked after.
+// DescribeCredentialRequest names a credential.
 type DescribeCredentialRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Name is the name it was kept under.

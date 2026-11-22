@@ -1,8 +1,15 @@
 // frontseat.build.v1alpha1: builds. A build builds targets, on the
 // daemon of a workspace. A release builds too: it makes a build of its
-// own (ReleaseService, release.proto). It is a
-// resource: it has an id, it outlives the call that made it, and anything
-// that may see it can watch it, read its results and cancel it.
+// own (ReleaseService, release.proto). A build is a resource: it has an
+// id, it outlives the call that made it, and anything that may see it
+// can watch it, read its results and cancel it.
+//
+// A daemon keeps every build that has not ended. Of those that have, it
+// keeps the twelve newest, and any other until five minutes after it
+// ended, and it keeps them when it is started again: a build that was
+// under way when its daemon stopped has ended in error. A build the
+// daemon no longer keeps is not listed, and a call that names it is
+// refused NOT_FOUND (BUILD_NOT_FOUND).
 //
 // What the build API's services refuse by name carries ErrorInfo of the
 // domain build.frontseat.dev, with the reason each call names.
@@ -22,7 +29,8 @@ service BuildService {
   // CreateBuild starts a build and returns at once. The build goes on if the
   // caller goes away: StreamBuildEvents follows it until it ends, and
   // CancelBuild stops it. Sent again with the same request_id, it returns
-  // the build the first call made, and starts none.
+  // the build the first call made, and starts none, for as long as the
+  // daemon remembers the request_id (CreateBuildRequest.request_id).
   //
   // A mistake in what the source says, a target that points at nothing
   // and a name no action has are not errors of this call: the build is
@@ -46,8 +54,10 @@ service BuildService {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
 
-  // ListBuilds returns the workspace's builds, newest first, a page at a
-  // time.
+  // ListBuilds returns the builds the daemon keeps of the workspace,
+  // newest first, a page at a time. A page token names a position in
+  // that list: where a build is made or let go of between two pages, the
+  // next page may repeat a build or leave one out.
   //
   // ### Errors
   // - INVALID_ARGUMENT: the page token is not one this call gave
@@ -91,7 +101,8 @@ service BuildService {
 
   // ListBuildActions returns what each of a build's actions did: its outcome,
   // where its result came from, how long it took, and the digests of what
-  // it printed. This is the build's checks: one entry per action.
+  // it printed. This is the build's checks: one entry per action. While
+  // the build runs, an action's entry changes as the action ends.
   //
   // ### Errors
   // - INVALID_ARGUMENT: the page token is not one this call gave
@@ -101,11 +112,14 @@ service BuildService {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
 
-  // StreamBuildLogs streams what one action printed, line by line, from
-  // its first: what it wrote to standard output, then what it wrote to
-  // standard error. It is sent in parts, each some whole lines, so an
-  // action may have printed any amount. An action the build has planned
-  // and that has not ended has printed nothing yet.
+  // StreamBuildLogs sends what one action printed, once the action has
+  // ended: everything it wrote to standard output, then everything it
+  // wrote to standard error, each from its first line. It does not
+  // follow an action that is still running: for one the build has
+  // planned and that has not ended, it sends nothing. It does not say
+  // how the two outputs were interleaved, and its lines carry no time.
+  // It is sent in parts, each some whole lines, so an action may have
+  // printed any amount.
   //
   // A line's text is UTF-8: bytes an action printed that are not are
   // given as U+FFFD.
@@ -113,7 +127,8 @@ service BuildService {
   // ### Errors
   // - NOT_FOUND: no build has that id (BUILD_NOT_FOUND), or the build
   //   has planned no such action (ACTION_NOT_FOUND).
-  // - INTERNAL: what the action printed is not there to be read.
+  // - INTERNAL: what the action printed could not be read from where the
+  //   daemon keeps it.
   rpc StreamBuildLogs(StreamBuildLogsRequest) returns (stream StreamBuildLogsResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
@@ -129,7 +144,7 @@ message Build {
   State state = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Stage is what a running build is doing now.
   Stage stage = 6 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // Exit_code is how the build ended, in Bazel's names and numbers; unset
+  // `exit_code` is how the build ended, in Bazel's names and numbers; unset
   // until it has.
   ExitCode exit_code = 7 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Failure says, for a build that ended in an error no action explains,
@@ -141,9 +156,9 @@ message Build {
   // do, as the plugin or the host that found it says them, so that a
   // client reads the file and the rule without parsing the failure.
   repeated frontseat.type.v1alpha1.Diagnostic diagnostics = 19 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // Create_time is when the build was made.
+  // `create_time` is when the build was made.
   google.protobuf.Timestamp create_time = 11 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // End_time is when it ended; unset until it has.
+  // `end_time` is when it ended; unset until it has.
   google.protobuf.Timestamp end_time = 12 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Counts are its actions by outcome, as they stand.
   Counts counts = 13 [(google.api.field_behavior) = OUTPUT_ONLY];
@@ -152,7 +167,7 @@ message Build {
   // Profile is the name of the profile the source was built with: never
   // empty.
   string profile = 17 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // Last_sequence is the sequence of the build's latest event.
+  // `last_sequence` is the sequence of the build's latest event.
   int64 last_sequence = 16 [(google.api.field_behavior) = OUTPUT_ONLY];
 
   // State is where a build is.
@@ -178,29 +193,33 @@ message Build {
   }
 }
 
-// Counts are a build's actions by outcome.
+// Counts are a build's actions by outcome. Once the build has ended,
+// passed, failed, skipped, errored and idle add up to total.
 message Counts {
   // Total is how many actions the build selected.
   int32 total = 1;
-  // Passed is how many passed.
+  // Passed is how many passed (OUTCOME_PASSED).
   int32 passed = 2;
-  // Failed is how many failed.
+  // Failed is how many ran and did not pass (OUTCOME_FAILED), and how
+  // many checks would rewrite the source (OUTCOME_REWRITE).
   int32 failed = 3;
-  // Skipped is how many did not run.
+  // Skipped is how many did not run because something they need did not
+  // pass (OUTCOME_SKIPPED), and, once the build has ended, how many it
+  // never reached, as when it was cancelled.
   int32 skipped = 4;
-  // Errored is how many could not be run.
+  // Errored is how many could not be run (OUTCOME_ERROR).
   int32 errored = 5;
-  // Idle is how many were not run, having nothing to do.
+  // Idle is how many were not run, having nothing to do (OUTCOME_IDLE).
   int32 idle = 6;
 }
 
 // Cost is what a build used: what a budget counts.
 message Cost {
-  // Actions_executed is how many actions a worker ran.
+  // `actions_executed` is how many actions a worker ran.
   int32 actions_executed = 1;
-  // Worker_time is the time workers spent running them, summed.
+  // `worker_time` is the time workers spent running them, summed.
   google.protobuf.Duration worker_time = 2;
-  // Wall_time is how long the build took.
+  // `wall_time` is how long the build took.
   google.protobuf.Duration wall_time = 3;
 }
 
@@ -218,19 +237,19 @@ message ActionResult {
   Outcome outcome = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Provenance is where its result came from.
   Provenance provenance = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // Exit_code is the command's exit code.
+  // `exit_code` is the command's exit code.
   int32 exit_code = 6 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Message says, for an outcome of error, what failed; for a skipped
   // action, what it needed that did not pass.
   string message = 7 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // Action_digest is the action's digest on the grid: what a portal links
+  // `action_digest` is the action's digest on the grid: what a portal links
   // to, and what two builds are compared by.
   Digest action_digest = 9 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // Start_time is when it started; unset for one answered from a cache.
+  // `start_time` is when it started; unset for one answered from a cache.
   google.protobuf.Timestamp start_time = 10 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Duration is how long it took, as the build saw it.
   google.protobuf.Duration duration = 11 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // Worker_time is how long a worker spent running it, as the worker
+  // `worker_time` is how long a worker spent running it, as the worker
   // says; unset for one no worker ran for this build. What a build cost its
   // workers is the sum of these.
   google.protobuf.Duration worker_time = 12 [(google.api.field_behavior) = OUTPUT_ONLY];
@@ -270,7 +289,7 @@ message Rewrite {
   Digest content = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Executable is whether the file may be run after the change.
   bool executable = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // Rule_id is the rule the change satisfies.
+  // `rule_id` is the rule the change satisfies.
   string rule_id = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Applied is whether the build wrote it to the daemon's checkout.
   bool applied = 6 [(google.api.field_behavior) = OUTPUT_ONLY];
@@ -287,12 +306,13 @@ message CreateBuildRequest {
   bool fix = 5;
   // Profile is the name of the profile the source is built with. Empty,
   // it is `development`. A build may ask for `production`, to see that
-  // what will be released builds: a release builds with it. Those two are the profiles frontseat defines; a name
-  // nobody defined is refused.
+  // what will be released builds: a release builds with it. Those two
+  // are the profiles frontseat defines; any other name is refused
+  // (PROFILE_UNKNOWN).
   string profile = 12;
   // Only keeps the actions that have one of these names, such as
   // "lint", of whatever the targets point at. Empty keeps every action.
-  // A name no action has is refused.
+  // A name no action has fails the build, which says so in its failure.
   repeated string only = 13;
   // Tests keeps the actions that run tests, as the plugin that declared
   // each says (its test flag), of whatever the targets point at, and
@@ -300,9 +320,14 @@ message CreateBuildRequest {
   // ends with the exit code NO_TESTS_FOUND, 4, saying so in its failure,
   // as Bazel ends `bazel test` with no test targets.
   bool tests = 15;
-  // Request_id makes a retry return the build the first call made: a
+  // `request_id` makes a retry return the build the first call made: a
   // client that lost the answer sends the same request again with it.
-  // Empty, every call starts a build.
+  // It is at most 128 bytes; a UUID serves. The daemon remembers the
+  // 4096 newest it was sent, while it runs and still keeps the build
+  // each made: one it has forgotten, or one sent to a daemon started
+  // again since, starts another build. What is sent with it again is
+  // not compared with the first request. Empty, every call starts a
+  // build.
   string request_id = 14;
 }
 
@@ -314,7 +339,7 @@ message CreateBuildResponse {
 
 // DescribeBuildRequest names a build.
 message DescribeBuildRequest {
-  // Build_id is the build's id.
+  // `build_id` is the build's id.
   string build_id = 1 [(google.api.field_behavior) = REQUIRED];
 }
 
@@ -326,10 +351,10 @@ message DescribeBuildResponse {
 
 // ListBuildsRequest asks for a page of the workspace's builds.
 message ListBuildsRequest {
-  // Page_size is the most builds to return; zero is a hundred, and more
+  // `page_size` is the most builds to return; zero is a hundred, and more
   // than a thousand is a thousand.
   int32 page_size = 1;
-  // Page_token is the next_page_token of the page before; empty for the
+  // `page_token` is the next_page_token of the page before; empty for the
   // first page.
   string page_token = 2;
 }
@@ -338,13 +363,13 @@ message ListBuildsRequest {
 message ListBuildsResponse {
   // Builds are the builds, newest first.
   repeated Build builds = 1;
-  // Next_page_token asks for the page after this one; empty on the last.
+  // `next_page_token` asks for the page after this one; empty on the last.
   string next_page_token = 2;
 }
 
 // CancelBuildRequest names a build to stop.
 message CancelBuildRequest {
-  // Build_id is the build's id.
+  // `build_id` is the build's id.
   string build_id = 1 [(google.api.field_behavior) = REQUIRED];
 }
 
@@ -356,7 +381,7 @@ message CancelBuildResponse {
 
 // WaitBuildRequest names the build to wait for.
 message WaitBuildRequest {
-  // Build_id is the build's id.
+  // `build_id` is the build's id.
   string build_id = 1 [(google.api.field_behavior) = REQUIRED];
 }
 
@@ -368,9 +393,9 @@ message WaitBuildResponse {
 
 // StreamBuildEventsRequest names a build and where to start.
 message StreamBuildEventsRequest {
-  // Build_id is the build's id.
+  // `build_id` is the build's id.
   string build_id = 1 [(google.api.field_behavior) = REQUIRED];
-  // From_sequence is the first event to send, from 1; zero is the first.
+  // `from_sequence` is the first event to send, from 1; zero is the first.
   int64 from_sequence = 2;
 }
 
@@ -382,12 +407,12 @@ message StreamBuildEventsResponse {
 
 // ListBuildActionsRequest names a build whose actions are listed.
 message ListBuildActionsRequest {
-  // Build_id is the build's id.
+  // `build_id` is the build's id.
   string build_id = 1 [(google.api.field_behavior) = REQUIRED];
-  // Page_size is the most actions to return; zero is a hundred, and more
+  // `page_size` is the most actions to return; zero is a hundred, and more
   // than a thousand is a thousand.
   int32 page_size = 3;
-  // Page_token is the next_page_token of the page before; empty for the
+  // `page_token` is the next_page_token of the page before; empty for the
   // first page.
   string page_token = 4;
 }
@@ -396,13 +421,13 @@ message ListBuildActionsRequest {
 message ListBuildActionsResponse {
   // Actions are the actions, in the order the build planned them.
   repeated ActionResult actions = 1;
-  // Next_page_token asks for the page after this one; empty on the last.
+  // `next_page_token` asks for the page after this one; empty on the last.
   string next_page_token = 2;
 }
 
 // StreamBuildLogsRequest names an action of a build.
 message StreamBuildLogsRequest {
-  // Build_id is the build's id.
+  // `build_id` is the build's id.
   string build_id = 1 [(google.api.field_behavior) = REQUIRED];
   // Label is the action's label.
   string label = 2 [(google.api.field_behavior) = REQUIRED];
@@ -414,8 +439,8 @@ message StreamBuildLogsResponse {
   repeated frontseat.type.v1alpha1.LogLine lines = 1;
 }
 
-// BuildEvent is one thing that happened in a build. Every renderer and every
-// diagnostic reads this stream and nothing else.
+// BuildEvent is one thing that happened in a build. A client that shows
+// a build's progress needs these events and nothing else.
 message BuildEvent {
   // Sequence numbers the build's events from 1, with no gaps.
   int64 sequence = 1;
@@ -423,19 +448,19 @@ message BuildEvent {
   google.protobuf.Timestamp time = 2;
   // Event is what happened.
   oneof event {
-    // Stage_changed: the build moved to another stage.
+    // `stage_changed`: the build moved to another stage.
     StageChanged stage_changed = 3;
     // Planned: the build knows its actions.
     Planned planned = 4;
-    // Action_started: an action began.
+    // `action_started`: an action began.
     ActionStarted action_started = 5;
-    // Action_finished: an action ended.
+    // `action_finished`: an action ended.
     ActionFinished action_finished = 6;
-    // Patched: the daemon applied a fix's patch to its own checkout.
+    // Patched: the daemon wrote what a fix changed to its own checkout.
     Patched patched = 7;
     // Finished: the build ended. It is the build's last event.
     Finished finished = 8;
-    // Started_over: the build began again from its plan.
+    // `started_over`: the build began again from its plan.
     StartedOver started_over = 9;
   }
 
@@ -445,8 +470,8 @@ message BuildEvent {
     Build.Stage stage = 1;
   }
 
-  // Planned announces every action the build will account for, so a reader
-  // knows at once what is outstanding.
+  // Planned lists every action the build will run or answer for, so
+  // that a reader knows from the start how many are still to end.
   message Planned {
     // Actions are the build's actions, in dependency order.
     repeated PlannedAction actions = 1;
@@ -454,7 +479,7 @@ message BuildEvent {
     repeated string roots = 2;
   }
 
-  // PlannedAction is an action the build will account for.
+  // PlannedAction is one action of a build's plan.
   message PlannedAction {
     // Label is the action's label.
     string label = 1;
@@ -487,14 +512,15 @@ message BuildEvent {
     repeated string paths = 2;
   }
 
-  // StartedOver is the build beginning again from its plan, once: the grid
-  // no longer held something one of its actions was handed, a tool or
-  // what another action left, and whatever made it must make it again.
-  // What its actions did before this event is no part of the build's
-  // result: every action is planned, started and finished again after
-  // it. A build that meets the same a second time ends in error.
+  // StartedOver is the build beginning again from its plan. It happens
+  // at most once in a build: the grid no longer held an input of one of
+  // its actions, a tool or another action's output, so the action that
+  // makes that input has to run again. What the build's actions did
+  // before this event is no part of its result: every action is
+  // planned, started and finished again after it. A build that loses an
+  // input a second time ends in error.
   message StartedOver {
-    // Label is the action that was handed what the grid no longer held.
+    // Label is the action whose input the grid no longer held.
     string label = 1;
     // Reason is what the grid said.
     string reason = 2;

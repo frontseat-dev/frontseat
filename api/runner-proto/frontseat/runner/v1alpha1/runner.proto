@@ -3,32 +3,38 @@
 // file the daemon writes and the runner reads, both of this server, and
 // its Go is theirs alone (server/internal/runnerapi).
 //
-// The test's service closure and its direct endpoint grants. The worker's
-// runner makes separate sandboxes for the test and each service, each with
-// a private loopback and no external network. The daemon says what to start,
-// already resolved from Resource dependencies and API relationships,
-// in the action's input root, at .frontseat/runtime/runner.binpb, so that
-// it is part of the action's digest and nothing outside the Remote
-// Execution API carries it; the runner reads it there.
+// It lists every service a test needs, those its services need
+// included, and which of their ports the test and each service may
+// reach. The worker's runner makes a sandbox for the test and one for
+// each service, each with a loopback of its own and no other network.
+// The daemon has already worked out what to start, from the Resources
+// the test's Component depends on and the APIs it consumes. It writes
+// the file into the action's input root, at
+// .frontseat/runtime/runner.binpb, so that it is part of the action's
+// digest and nothing outside the Remote Execution API carries it; the
+// runner reads it there.
 syntax = "proto3";
 
 package frontseat.runner.v1alpha1;
 
 import "frontseat/type/v1alpha1/service.proto";
 
-// RunnerSandbox describes isolated services and the action's direct routes.
-// Dependencies become ready before a dependent starts. Each process has its
-// own blocked network; only explicitly granted endpoints are forwarded.
+// RunnerSandbox is what a runner starts for one test: its services, and
+// the ports of them the test may reach. A service is started once what
+// it depends on is ready. Each runs with no network but its own
+// loopback, on which the ports it is given here are forwarded.
 message RunnerSandbox {
-  // Services are in dependency order, with each dependency appearing first.
+  // Services are the services, each after every service it depends on.
   repeated RunnerService services = 1;
-  // Routes are the only service endpoints granted to the action.
+  // Routes are the ports of the services the test may reach, and no
+  // others.
   repeated RunnerRoute routes = 2;
 }
 
 // RunnerService is one service of a runner sandbox.
 message RunnerService {
-  // Name is a unique plain runtime name, independent of its entity's spelling.
+  // Name names it within this file: no two services share one. It is a
+  // plain name the daemon makes, and is not the entity's reference.
   string name = 1;
   // Service is how it is started, with every address filled in and how
   // long it is given to be ready said. What it is ready by names its
@@ -36,38 +42,52 @@ message RunnerService {
   // nothing here, and says no endpoint: what the action is told is the
   // action's own.
   frontseat.type.v1alpha1.Service service = 2;
-  // Entity is the canonical identity owning this runtime.
+  // Entity is the reference, written in full, of the entity the service
+  // is of.
   string entity = 3;
-  // Program describes a prepared program; absent for an image entrypoint.
+  // Program is the program to start, for a service whose program was
+  // prepared for it; unset for one that runs its image's entrypoint.
   RunnerProgram program = 4;
-  // Routes are this service's direct dependencies, not the action's.
+  // Routes are the ports of other services this service may reach.
   repeated RunnerRoute routes = 5;
 }
 
-// RunnerRoute is one fixed endpoint, never a caller-selected destination.
+// RunnerRoute is one port of one service that a test or another service
+// may reach. Whoever is given the route reaches that port and nothing
+// else, and does not choose where the route leads.
 message RunnerRoute {
-  // Service is the name of the provider in this description.
+  // Service is the name of the service reached, as this file names it.
   string service = 1;
-  // Port names a listening port of that provider.
+  // Port names the port of that service that is reached.
   string port = 2;
-  // Local_port is the endpoint on the consumer's private loopback.
+  // `local_port` is the port on the loopback of whoever is given the
+  // route, at which the service's port is reached.
   int32 local_port = 3;
-  // Api is the canonical API whose mapped port this grants. Empty only
-  // for a Resource dependency; it grants no other port of a Component.
+  // Api is the reference, written in full, of the API the port serves,
+  // for a route to a Component's service: such a route reaches the port
+  // of that API and no other port of the Component. Empty for a route
+  // to a Resource.
   string api = 4;
 }
 
-// RunnerProgram starts only what preparation placed in the action's root.
+// RunnerProgram is a service's program, prepared before the action
+// runs: it and what it needs were placed in the action's input root.
+// The runner starts no program from anywhere else.
 message RunnerProgram {
-  // Root is the private runtime root beneath .frontseat/runtime/.
+  // Root is the directory that holds the program and what it needs,
+  // beneath .frontseat/runtime/ in the action's input root.
   string root = 1;
-  // Directory is the working directory beneath that runtime root.
+  // Directory is the directory the program is started in, beneath
+  // root.
   string directory = 2;
-  // Arguments start the trusted confiner, which sets the
-  // program's prepared environment inside confinement before executing it.
+  // Arguments are the command that starts it. The command is
+  // Frontseat's confiner, which confines itself, sets the environment
+  // the program was prepared with, and then runs the program.
   repeated string arguments = 3;
-  // Image is the immutable image used to prepare this program.
+  // Image is the image the program was prepared with, named so that
+  // what it names cannot change.
   string image = 4;
-  // Platform records the preparation platform, including OSFamily and ISA.
+  // Platform is the platform the program was prepared on, as
+  // properties by name; OSFamily and ISA are among them.
   map<string, string> platform = 5;
 }

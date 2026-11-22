@@ -5,14 +5,16 @@
 // holds; the daemon keeps no spec of its own. A daemon holds one source,
 // and so a source has no name.
 //
-// It is the daemon's internal API: served on a port of its own, beside
-// the build API's, which the control plane dials and to which it leads no
-// caller. No client, SDK or command line asks it, and its Go is the
-// server's alone (server/internal/sourceapi). The port is no security
-// boundary inside the daemon's sandbox, where anything may reach it:
-// what holds the workspace is that the control plane never reads what
-// is asked for back from the daemon, and tells a daemon that holds
-// another generation its own again.
+// It is the daemon's internal API, not a public one. It is served on a
+// port of its own, beside the build API's. The control plane calls it,
+// and forwards no caller's request to it. No client, SDK or command
+// line calls it, and its Go is the server's alone
+// (server/internal/sourceapi). The port is not a security boundary
+// inside the daemon's sandbox, where any program may reach it. What
+// protects a workspace is that the control plane never takes what a
+// workspace is asked for from the daemon: it keeps that itself, and
+// where a daemon holds another generation than the control plane's, it
+// tells the daemon its own again.
 //
 // What it refuses by name carries ErrorInfo of the domain
 // source.frontseat.dev, whose reason the control plane acts on.
@@ -70,30 +72,35 @@ var (
 // SourceServiceClient is a client for the frontseat.source.v1alpha1.SourceService service.
 type SourceServiceClient interface {
 	// SetSource gives the daemon the whole source to hold, at a
-	// generation, and returns once bringing it is under way: WaitSource
-	// says how it ended. What the daemon holds already stays; nothing is
-	// removed. A generation is any the control plane gives, the same one
-	// again among them: the daemon takes it as the generation it holds.
+	// generation, and returns once the daemon has begun cloning it:
+	// WaitSource says how that ended. What the daemon holds already stays;
+	// nothing is removed. The daemon accepts any generation the control
+	// plane gives, the one it holds included, and holds that generation
+	// from then on.
 	//
 	// ### Errors
-	// - INVALID_ARGUMENT: GENERATION_INVALID, it is told at no
-	//   generation, counted from one; SOURCE_MISSING, it names no
-	//   repository; SOURCE_UNFIT, a repository it names, or where an
-	//   entity is said to be, cannot be held where the daemon holds its
-	//   source.
-	// - FAILED_PRECONDITION: SOURCE_POPULATING, the daemon is bringing
-	//   what it was told before, and is told again once it is not;
-	//   SOURCE_MOUNTED, the daemon was given a checkout and brings
-	//   nothing.
+	// - INVALID_ARGUMENT: the generation is less than one
+	//   (GENERATION_INVALID); the spec names no repository
+	//   (SOURCE_MISSING); a repository it names, or the place it gives for
+	//   an entity, cannot be held in the directory where the daemon holds
+	//   its source (SOURCE_UNFIT).
+	// - FAILED_PRECONDITION: the daemon is still cloning what it was told
+	//   before, and is to be told again once it is done
+	//   (SOURCE_POPULATING); the daemon was started over a directory it
+	//   was given, and clones nothing (SOURCE_MOUNTED).
 	SetSource(context.Context, *v1alpha1.SetSourceRequest) (*v1alpha1.SetSourceResponse, error)
-	// WaitSource returns the source once the daemon is bringing nothing,
-	// or at once where the generation it holds is not the one asked
-	// after, as with a daemon started again since it was told: what it
-	// holds, the generation it took last, and how bringing that ended.
-	// Asked with the generation the caller last gave, it says whether the
-	// daemon holds it. A caller with a deadline is answered before it,
-	// still bringing where it is: a deadline reached is a daemon that does
-	// not answer.
+	// WaitSource returns the source once the daemon has finished cloning:
+	// what it holds, the generation it last accepted, and how cloning
+	// that ended. It returns at once where the generation the daemon
+	// holds is not the one the request names, as with a daemon that was
+	// started again after it was told: the caller, who names the
+	// generation it last gave, sees from the answer whether the daemon
+	// holds it. A caller with a deadline is answered before the deadline,
+	// with the source still STATE_POPULATING where it is, so that a
+	// deadline that does pass means the daemon is not answering.
+	//
+	// ### Errors
+	// It refuses nothing by name.
 	WaitSource(context.Context, *v1alpha1.WaitSourceRequest) (*v1alpha1.WaitSourceResponse, error)
 }
 
@@ -106,30 +113,35 @@ func NewSourceServiceClient(client *connect.Client) SourceServiceClient {
 // SourceServiceHandler is an implementation of the frontseat.source.v1alpha1.SourceService service.
 type SourceServiceHandler interface {
 	// SetSource gives the daemon the whole source to hold, at a
-	// generation, and returns once bringing it is under way: WaitSource
-	// says how it ended. What the daemon holds already stays; nothing is
-	// removed. A generation is any the control plane gives, the same one
-	// again among them: the daemon takes it as the generation it holds.
+	// generation, and returns once the daemon has begun cloning it:
+	// WaitSource says how that ended. What the daemon holds already stays;
+	// nothing is removed. The daemon accepts any generation the control
+	// plane gives, the one it holds included, and holds that generation
+	// from then on.
 	//
 	// ### Errors
-	// - INVALID_ARGUMENT: GENERATION_INVALID, it is told at no
-	//   generation, counted from one; SOURCE_MISSING, it names no
-	//   repository; SOURCE_UNFIT, a repository it names, or where an
-	//   entity is said to be, cannot be held where the daemon holds its
-	//   source.
-	// - FAILED_PRECONDITION: SOURCE_POPULATING, the daemon is bringing
-	//   what it was told before, and is told again once it is not;
-	//   SOURCE_MOUNTED, the daemon was given a checkout and brings
-	//   nothing.
+	// - INVALID_ARGUMENT: the generation is less than one
+	//   (GENERATION_INVALID); the spec names no repository
+	//   (SOURCE_MISSING); a repository it names, or the place it gives for
+	//   an entity, cannot be held in the directory where the daemon holds
+	//   its source (SOURCE_UNFIT).
+	// - FAILED_PRECONDITION: the daemon is still cloning what it was told
+	//   before, and is to be told again once it is done
+	//   (SOURCE_POPULATING); the daemon was started over a directory it
+	//   was given, and clones nothing (SOURCE_MOUNTED).
 	SetSource(context.Context, *v1alpha1.SetSourceRequest) (*v1alpha1.SetSourceResponse, error)
-	// WaitSource returns the source once the daemon is bringing nothing,
-	// or at once where the generation it holds is not the one asked
-	// after, as with a daemon started again since it was told: what it
-	// holds, the generation it took last, and how bringing that ended.
-	// Asked with the generation the caller last gave, it says whether the
-	// daemon holds it. A caller with a deadline is answered before it,
-	// still bringing where it is: a deadline reached is a daemon that does
-	// not answer.
+	// WaitSource returns the source once the daemon has finished cloning:
+	// what it holds, the generation it last accepted, and how cloning
+	// that ended. It returns at once where the generation the daemon
+	// holds is not the one the request names, as with a daemon that was
+	// started again after it was told: the caller, who names the
+	// generation it last gave, sees from the answer whether the daemon
+	// holds it. A caller with a deadline is answered before the deadline,
+	// with the source still STATE_POPULATING where it is, so that a
+	// deadline that does pass means the daemon is not answering.
+	//
+	// ### Errors
+	// It refuses nothing by name.
 	WaitSource(context.Context, *v1alpha1.WaitSourceRequest) (*v1alpha1.WaitSourceResponse, error)
 }
 

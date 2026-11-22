@@ -1,10 +1,10 @@
 // frontseat.credential.v1alpha1: credentials. A credential is a secret
 // for a host, a password or a token, which a person gives the control
-// plane so that their workspaces fetch from the host, and push to it,
-// with it. It is that person's: a workspace is let through with its
-// owner's credential for a host, and with no one else's. It is kept
-// outside every sandbox: a sandbox presents a stand-in, which is traded
-// for the secret on its way out, and never holds the secret itself.
+// plane so that their workspaces can fetch from the host, and push to
+// it. It is that person's: a workspace uses its owner's credential for a
+// host, and no one else's. It is kept outside every sandbox: a
+// workspace's sandbox sends a stand-in, which is replaced by the secret
+// on the way out, and never holds the secret itself.
 //
 // Every call is a person's, known by the token they present as a bearer
 // token. A call that presents none, or one the control plane does not
@@ -81,34 +81,39 @@ var (
 // service.
 type CredentialServiceClient interface {
 	// SetCredential keeps the caller's credential for a host, in place of
-	// the one they had for it. Their workspaces made after are let through
-	// to the host with it; a workspace already made is let through with
-	// the one it was made with, until that one is let go of.
+	// the one they had for it. Workspaces of theirs made afterwards use
+	// it for that host; a workspace made before goes on using the
+	// credential it was made with, until that one is deleted.
 	//
 	// ### Errors
-	// - INVALID_ARGUMENT: the host is no host's name (CREDENTIAL_HOST_INVALID),
-	//   the username is no username (CREDENTIAL_USERNAME_INVALID), or no
-	//   secret is given, or one of more than one line
-	//   (CREDENTIAL_SECRET_INVALID).
-	// - UNIMPLEMENTED: what makes sandboxes keeps no credential outside
-	//   them.
-	// - UNAVAILABLE: it could not be kept.
+	// - INVALID_ARGUMENT: the host is not a host name, as Credential.host
+	//   says (CREDENTIAL_HOST_INVALID); the username is not one, as
+	//   Credential.username says (CREDENTIAL_USERNAME_INVALID); or no
+	//   secret is given, or one longer than 4096 bytes or of more than one
+	//   line (CREDENTIAL_SECRET_INVALID).
+	// - UNIMPLEMENTED: this control plane's sandboxes keep no credential
+	//   outside them. No reason is given.
+	// - UNAVAILABLE: it could not be kept. No reason is given.
 	SetCredential(context.Context, *v1alpha1.SetCredentialRequest) (*v1alpha1.SetCredentialResponse, error)
 	// ListCredentials returns the caller's credentials, by host, a page at
-	// a time: never their secrets.
+	// a time: never their secrets. A page token names a position in that
+	// list: where a credential is set or deleted between two pages, the
+	// next page may repeat one or leave one out.
 	//
 	// ### Errors
 	// - INVALID_ARGUMENT: the page token is not one this call gave
 	//   (PAGE_TOKEN_INVALID).
 	ListCredentials(context.Context, *v1alpha1.ListCredentialsRequest) (*v1alpha1.ListCredentialsResponse, error)
-	// DeleteCredential lets go of the caller's credential for a host. A
-	// host they keep none for is no error.
+	// DeleteCredential removes the caller's credential for a host.
+	// Deleting one for a host they keep none for succeeds.
 	//
 	// ### Errors
-	// - INVALID_ARGUMENT: the host is no host's name (CREDENTIAL_HOST_INVALID).
-	// - FAILED_PRECONDITION: a workspace is still let through with it; it
-	//   is let go of once those workspaces have ended (CREDENTIAL_IN_USE).
-	// - UNAVAILABLE: it could not be let go of.
+	// - INVALID_ARGUMENT: the host is not a host name
+	//   (CREDENTIAL_HOST_INVALID).
+	// - FAILED_PRECONDITION: a workspace of the caller's still uses it; it
+	//   can be deleted once those workspaces have ended
+	//   (CREDENTIAL_IN_USE).
+	// - UNAVAILABLE: it could not be removed. No reason is given.
 	DeleteCredential(context.Context, *v1alpha1.DeleteCredentialRequest) (*v1alpha1.DeleteCredentialResponse, error)
 }
 
@@ -123,34 +128,39 @@ func NewCredentialServiceClient(client *connect.Client) CredentialServiceClient 
 // frontseat.credential.v1alpha1.CredentialService service.
 type CredentialServiceHandler interface {
 	// SetCredential keeps the caller's credential for a host, in place of
-	// the one they had for it. Their workspaces made after are let through
-	// to the host with it; a workspace already made is let through with
-	// the one it was made with, until that one is let go of.
+	// the one they had for it. Workspaces of theirs made afterwards use
+	// it for that host; a workspace made before goes on using the
+	// credential it was made with, until that one is deleted.
 	//
 	// ### Errors
-	// - INVALID_ARGUMENT: the host is no host's name (CREDENTIAL_HOST_INVALID),
-	//   the username is no username (CREDENTIAL_USERNAME_INVALID), or no
-	//   secret is given, or one of more than one line
-	//   (CREDENTIAL_SECRET_INVALID).
-	// - UNIMPLEMENTED: what makes sandboxes keeps no credential outside
-	//   them.
-	// - UNAVAILABLE: it could not be kept.
+	// - INVALID_ARGUMENT: the host is not a host name, as Credential.host
+	//   says (CREDENTIAL_HOST_INVALID); the username is not one, as
+	//   Credential.username says (CREDENTIAL_USERNAME_INVALID); or no
+	//   secret is given, or one longer than 4096 bytes or of more than one
+	//   line (CREDENTIAL_SECRET_INVALID).
+	// - UNIMPLEMENTED: this control plane's sandboxes keep no credential
+	//   outside them. No reason is given.
+	// - UNAVAILABLE: it could not be kept. No reason is given.
 	SetCredential(context.Context, *v1alpha1.SetCredentialRequest) (*v1alpha1.SetCredentialResponse, error)
 	// ListCredentials returns the caller's credentials, by host, a page at
-	// a time: never their secrets.
+	// a time: never their secrets. A page token names a position in that
+	// list: where a credential is set or deleted between two pages, the
+	// next page may repeat one or leave one out.
 	//
 	// ### Errors
 	// - INVALID_ARGUMENT: the page token is not one this call gave
 	//   (PAGE_TOKEN_INVALID).
 	ListCredentials(context.Context, *v1alpha1.ListCredentialsRequest) (*v1alpha1.ListCredentialsResponse, error)
-	// DeleteCredential lets go of the caller's credential for a host. A
-	// host they keep none for is no error.
+	// DeleteCredential removes the caller's credential for a host.
+	// Deleting one for a host they keep none for succeeds.
 	//
 	// ### Errors
-	// - INVALID_ARGUMENT: the host is no host's name (CREDENTIAL_HOST_INVALID).
-	// - FAILED_PRECONDITION: a workspace is still let through with it; it
-	//   is let go of once those workspaces have ended (CREDENTIAL_IN_USE).
-	// - UNAVAILABLE: it could not be let go of.
+	// - INVALID_ARGUMENT: the host is not a host name
+	//   (CREDENTIAL_HOST_INVALID).
+	// - FAILED_PRECONDITION: a workspace of the caller's still uses it; it
+	//   can be deleted once those workspaces have ended
+	//   (CREDENTIAL_IN_USE).
+	// - UNAVAILABLE: it could not be removed. No reason is given.
 	DeleteCredential(context.Context, *v1alpha1.DeleteCredentialRequest) (*v1alpha1.DeleteCredentialResponse, error)
 }
 

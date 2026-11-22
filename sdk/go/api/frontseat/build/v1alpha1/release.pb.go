@@ -3,6 +3,12 @@
 // resource: it has an id, it outlives the call that made it, and its
 // record says what each unit became.
 //
+// A daemon keeps every release that has not ended, and the twelve
+// newest of those that have, for as long as it runs: a daemon started
+// again has none, though the tags its releases wrote are in its
+// checkout. A release the daemon no longer keeps is refused NOT_FOUND
+// (RELEASE_NOT_FOUND).
+//
 // What is released is pointed at: an entity, alone, or a system or a
 // domain, as a group. Nobody writes a group: it is the catalog's own
 // containment (partOf). Nobody writes what a unit depends on: it is the
@@ -13,7 +19,7 @@
 // systems, a system's its members, and the nearest level that sets a key
 // wins, key by key.
 //
-// There are no phases. Planning reads and changes nothing; it is what a
+// A release has two calls. Planning reads and changes nothing; it is what a
 // person or an agent looks at before releasing. Releasing carries out a
 // plan that was seen, named by its etag, and is refused if the source has
 // moved since.
@@ -128,20 +134,20 @@ const (
 	// daemon's checkout.
 	Release_STATE_TAGGING Release_State = 2
 	// STATE_SUCCEEDED: it ended with nothing left to do: every tag of
-	// its units is where its repository was brought from, and every
+	// its units is where its repository was cloned from, and every
 	// publish of them passed; or no unit of
 	// its plan was tagged, since none moves, or since what moves is a
 	// prerelease its unit does not tag, which was built and no more.
 	Release_STATE_SUCCEEDED Release_State = 3
 	// STATE_PUSHING: its units are tagged, and each tag is being sent to
-	// where its repository was brought from.
+	// where its repository was cloned from.
 	Release_STATE_PUSHING Release_State = 6
-	// STATE_PUBLISHING: every tag is where its repository was brought
+	// STATE_PUBLISHING: every tag is where its repository was cloned
 	// from, and what was shipped is being published, each publish of
 	// each unit in turn.
 	Release_STATE_PUBLISHING Release_State = 7
 	// STATE_UNPUBLISHED: its units are tagged in the daemon's checkout,
-	// and not every tag is where its repository was brought from: a
+	// and not every tag is where its repository was cloned from: a
 	// workspace that may not push leaves them all there, and failure
 	// says which tag was not sent and why. Released again, at the same
 	// commit, it sends them.
@@ -443,9 +449,9 @@ type ReleaseUnit struct {
 	Group *v1alpha1.EntityRef `protobuf:"bytes,3,opt,name=group,proto3" json:"group,omitempty"`
 	// Grouping is how the unit's group versions its members.
 	Grouping Grouping `protobuf:"varint,4,opt,name=grouping,proto3,enum=frontseat.build.v1alpha1.Grouping" json:"grouping,omitempty"`
-	// Last_version is the unit's last release; empty if it has none.
+	// `last_version` is the unit's last release; empty if it has none.
 	LastVersion string `protobuf:"bytes,6,opt,name=last_version,json=lastVersion,proto3" json:"last_version,omitempty"`
-	// Next_version is what the release makes it; empty if it holds. A
+	// `next_version` is what the release makes it; empty if it holds. A
 	// prerelease's says so: "1.27.0-main-20261121101500".
 	NextVersion string `protobuf:"bytes,7,opt,name=next_version,json=nextVersion,proto3" json:"next_version,omitempty"`
 	// Bump is how far it moves.
@@ -455,7 +461,7 @@ type ReleaseUnit struct {
 	// Tag is the tag the release writes, spelled from the unit's tag
 	// setting; empty if it holds, and for a prerelease that is not tagged.
 	Tag string `protobuf:"bytes,10,opt,name=tag,proto3" json:"tag,omitempty"`
-	// Depends_on are the units of the plan it depends on, folded from what
+	// `depends_on` are the units of the plan it depends on, folded from what
 	// its members' projects require. A unit comes after them in the plan,
 	// and is refused where one has a change not released that the plan does
 	// not release; their release does not move it.
@@ -463,10 +469,10 @@ type ReleaseUnit struct {
 	// Notes are the release notes, as its versioning strategy wrote them,
 	// in Markdown.
 	Notes string `protobuf:"bytes,12,opt,name=notes,proto3" json:"notes,omitempty"`
-	// Versioning_strategy is the strategy that gave its version, as
+	// `versioning_strategy` is the strategy that gave its version, as
 	// "<plugin>:<name>".
 	VersioningStrategy string `protobuf:"bytes,13,opt,name=versioning_strategy,json=versioningStrategy,proto3" json:"versioning_strategy,omitempty"`
-	// Branching_strategy is the strategy that said what its branch
+	// `branching_strategy` is the strategy that said what its branch
 	// releases, as "<plugin>:<name>".
 	BranchingStrategy string `protobuf:"bytes,14,opt,name=branching_strategy,json=branchingStrategy,proto3" json:"branching_strategy,omitempty"`
 	// Branch is the branch it is planned from.
@@ -810,7 +816,7 @@ type Release struct {
 	Plan *ReleasePlan `protobuf:"bytes,2,opt,name=plan,proto3" json:"plan,omitempty"`
 	// State is where it is.
 	State Release_State `protobuf:"varint,3,opt,name=state,proto3,enum=frontseat.build.v1alpha1.Release_State" json:"state,omitempty"`
-	// Build_id is the production build of its units, a build of BuildService,
+	// `build_id` is the production build of its units, a build of BuildService,
 	// made with the release; empty for a plan that builds nothing.
 	BuildId string `protobuf:"bytes,4,opt,name=build_id,json=buildId,proto3" json:"build_id,omitempty"`
 	// Units say what became of each unit that moves.
@@ -818,9 +824,9 @@ type Release struct {
 	// Failure says why a release that failed did, where no unit says, and
 	// why one that is unpublished is.
 	Failure string `protobuf:"bytes,6,opt,name=failure,proto3" json:"failure,omitempty"`
-	// Create_time is when it was made.
+	// `create_time` is when it was made.
 	CreateTime *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=create_time,json=createTime,proto3" json:"create_time,omitempty"`
-	// End_time is when it ended; unset until it has.
+	// `end_time` is when it ended; unset until it has.
 	EndTime       *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=end_time,json=endTime,proto3" json:"end_time,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1208,7 +1214,7 @@ func (x *ReleaseTag) GetCommit() string {
 // DescribeReleaseRequest names a release.
 type DescribeReleaseRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Release_id is the release's id.
+	// `release_id` is the release's id.
 	ReleaseId     string `protobuf:"bytes,1,opt,name=release_id,json=releaseId,proto3" json:"release_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1300,7 +1306,7 @@ func (x *DescribeReleaseResponse) GetRelease() *Release {
 // WaitReleaseRequest names a release to wait for.
 type WaitReleaseRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Release_id is the release's id.
+	// `release_id` is the release's id.
 	ReleaseId     string `protobuf:"bytes,1,opt,name=release_id,json=releaseId,proto3" json:"release_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

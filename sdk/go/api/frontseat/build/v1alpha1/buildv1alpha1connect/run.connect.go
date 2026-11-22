@@ -5,6 +5,12 @@
 // resource: it has an id, it outlives the call that made it, and it is
 // there until the program ends or it is stopped.
 //
+// A daemon keeps every run that has not ended, and the twelve newest of
+// those that have, for as long as it runs: a daemon that stops cancels
+// its runs, and one started again has none. A run the daemon no longer
+// keeps is not listed, and a call that names it is refused NOT_FOUND
+// (RUN_NOT_FOUND).
+//
 // What can be run is said by a plugin, from its ecosystem's own
 // files: an action that says it is a program (Action.program of the
 // plugin contract). Nobody writes one. No build runs such an action, and a
@@ -112,7 +118,8 @@ type RunServiceClient interface {
 	// BuildService follows the build, StreamRunLogs the program, and
 	// WaitRun ends when the program has. Sent again with the same
 	// request_id, it returns the run the first call made, and starts
-	// none.
+	// none, for as long as the daemon remembers the request_id
+	// (CreateRunRequest.request_id).
 	//
 	// ### Errors
 	// - INVALID_ARGUMENT: no target is given (TARGET_MISSING), the profile
@@ -132,9 +139,11 @@ type RunServiceClient interface {
 	// ### Errors
 	// - NOT_FOUND: no run has that id (RUN_NOT_FOUND).
 	DescribeRun(context.Context, *v1alpha1.DescribeRunRequest) (*v1alpha1.DescribeRunResponse, error)
-	// ListRuns returns the workspace's runs, newest first, a page
-	// at a time: every one that has not ended, and the newest of those
-	// that have.
+	// ListRuns returns the runs the daemon keeps of the workspace, newest
+	// first, a page at a time: every one that has not ended, and the
+	// twelve newest of those that have. A page token names a position in
+	// that list: where a run is made or let go of between two pages, the
+	// next page may repeat a run or leave one out.
 	//
 	// ### Errors
 	// - INVALID_ARGUMENT: the page token is not one this call gave
@@ -203,7 +212,8 @@ type RunServiceHandler interface {
 	// BuildService follows the build, StreamRunLogs the program, and
 	// WaitRun ends when the program has. Sent again with the same
 	// request_id, it returns the run the first call made, and starts
-	// none.
+	// none, for as long as the daemon remembers the request_id
+	// (CreateRunRequest.request_id).
 	//
 	// ### Errors
 	// - INVALID_ARGUMENT: no target is given (TARGET_MISSING), the profile
@@ -223,9 +233,11 @@ type RunServiceHandler interface {
 	// ### Errors
 	// - NOT_FOUND: no run has that id (RUN_NOT_FOUND).
 	DescribeRun(context.Context, *v1alpha1.DescribeRunRequest) (*v1alpha1.DescribeRunResponse, error)
-	// ListRuns returns the workspace's runs, newest first, a page
-	// at a time: every one that has not ended, and the newest of those
-	// that have.
+	// ListRuns returns the runs the daemon keeps of the workspace, newest
+	// first, a page at a time: every one that has not ended, and the
+	// twelve newest of those that have. A page token names a position in
+	// that list: where a run is made or let go of between two pages, the
+	// next page may repeat a run or leave one out.
 	//
 	// ### Errors
 	// - INVALID_ARGUMENT: the page token is not one this call gave

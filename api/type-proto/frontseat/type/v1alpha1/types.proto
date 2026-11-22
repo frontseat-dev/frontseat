@@ -1,15 +1,16 @@
-// frontseat.type.v1alpha1: the types more than one product uses, after
-// Namespace's namespace.stdlib. A type moves here when a second product
-// needs it, not before.
+// frontseat.type.v1alpha1: the types more than one contract uses. A
+// type moves here when a second contract needs it, not before.
 syntax = "proto3";
 
 package frontseat.type.v1alpha1;
 
 import "google/protobuf/timestamp.proto";
 
-// LogLine is one line of a log, from whichever product produced it.
+// LogLine is one line of a log.
 message LogLine {
-  // Time is when the line was written.
+  // Time is when the line was written; unset where what kept the line
+  // kept no time for it, as with what an action of a build printed
+  // (StreamBuildLogs).
   google.protobuf.Timestamp time = 1;
   // Stream is where the line was written.
   LogStream stream = 2;
@@ -27,10 +28,10 @@ enum LogStream {
   LOG_STREAM_STDERR = 2;
 }
 
-// EntityRef names a Frontseat entity independently of its catalog provider.
-// Canonical parts are lower-case ASCII tokens of 1–255 bytes, with alphanumeric
-// endpoints and hyphens, dots or underscores inside. Provider adapters validate
-// their own schemas and map identities to this key; native IDs are not refs.
+// EntityRef names an entity of the catalog by its kind, its namespace
+// and its name. Each part is 1 to 255 bytes of lower-case ASCII letters,
+// digits, hyphens, dots and underscores, beginning and ending with a
+// letter or a digit.
 message EntityRef {
   // Kind is the entity's kind in lower case, e.g. "component"; a
   // request that leaves it empty names a component.

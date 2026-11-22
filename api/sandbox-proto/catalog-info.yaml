@@ -6,7 +6,7 @@ kind: API
 metadata:
   name: sandbox-api
   namespace: frontseat
-  description: "Sandboxes, for every sandbox there is, over a driver, over Connect"
+  description: "Sandboxes: isolated machines made, paused, resumed and ended through a driver. An internal API, served over Connect to the server programs built on it and to no one else"
 spec:
   type: grpc
   lifecycle: experimental

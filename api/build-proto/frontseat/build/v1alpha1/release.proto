@@ -3,6 +3,12 @@
 // resource: it has an id, it outlives the call that made it, and its
 // record says what each unit became.
 //
+// A daemon keeps every release that has not ended, and the twelve
+// newest of those that have, for as long as it runs: a daemon started
+// again has none, though the tags its releases wrote are in its
+// checkout. A release the daemon no longer keeps is refused NOT_FOUND
+// (RELEASE_NOT_FOUND).
+//
 // What is released is pointed at: an entity, alone, or a system or a
 // domain, as a group. Nobody writes a group: it is the catalog's own
 // containment (partOf). Nobody writes what a unit depends on: it is the
@@ -13,7 +19,7 @@
 // systems, a system's its members, and the nearest level that sets a key
 // wins, key by key.
 //
-// There are no phases. Planning reads and changes nothing; it is what a
+// A release has two calls. Planning reads and changes nothing; it is what a
 // person or an agent looks at before releasing. Releasing carries out a
 // plan that was seen, named by its etag, and is refused if the source has
 // moved since.
@@ -40,11 +46,11 @@ service ReleaseService {
   // - FAILED_PRECONDITION: what an entity says of how it is released is
   //   mistaken; a repository the request reaches lists no release plugin;
   //   a unit's members are in more than one repository; units depend on
-  //   each other in a cycle; a unit would be released against an
-  //   unreleased change of a unit it depends on that the request does not
-  //   release; a version is tagged on another commit already. The
-  //   message names what (SOURCE_MISTAKEN, or the catalog's own reason,
-  //   as GraphService.ListEntities gives it).
+  //   each other in a cycle; a unit depends on a unit that has a change
+  //   not yet released, and the request does not release that unit; a
+  //   version is tagged on another commit already. The message names
+  //   what (SOURCE_MISTAKEN, or the catalog's own reason, as
+  //   GraphService.ListEntities gives it).
   // - UNIMPLEMENTED: what is released is part of a domain within a
   //   domain, whose release is not served (RELEASE_NOT_SERVED).
   // - UNAVAILABLE: the daemon is ending (DAEMON_ENDING).
@@ -55,7 +61,7 @@ service ReleaseService {
   // CreateRelease carries out a plan: it builds the plan's units for
   // production and tags each unit that moves, at the commit it was
   // planned from, in the daemon's checkout, and pushes each tag to where
-  // its repository was brought from, the tag alone.
+  // its repository was cloned from, the tag alone.
   // It returns at once, with the production build's build_id where the
   // plan builds anything; WaitRelease ends when it does. Releasing what
   // is already released tags nothing, pushes its tags where they are not
@@ -67,8 +73,8 @@ service ReleaseService {
   // ### Errors
   // - INVALID_ARGUMENT: the plan's etag is missing (ETAG_MISSING); or as
   //   for PlanRelease.
-  // - ABORTED (ETAG_MISMATCH): the plan is no longer what releasing the
-  //   same request would do now; plan again.
+  // - ABORTED: the plan is no longer what releasing the same request
+  //   would do now; plan again (ETAG_MISMATCH).
   // - FAILED_PRECONDITION: another release is being made (RELEASE_BUSY);
   //   or as for PlanRelease.
   // - NOT_FOUND, UNIMPLEMENTED, UNAVAILABLE: as for PlanRelease.
@@ -149,9 +155,9 @@ message ReleaseUnit {
   frontseat.type.v1alpha1.EntityRef group = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Grouping is how the unit's group versions its members.
   Grouping grouping = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // Last_version is the unit's last release; empty if it has none.
+  // `last_version` is the unit's last release; empty if it has none.
   string last_version = 6 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // Next_version is what the release makes it; empty if it holds. A
+  // `next_version` is what the release makes it; empty if it holds. A
   // prerelease's says so: "1.27.0-main-20261121101500".
   string next_version = 7 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Bump is how far it moves.
@@ -161,7 +167,7 @@ message ReleaseUnit {
   // Tag is the tag the release writes, spelled from the unit's tag
   // setting; empty if it holds, and for a prerelease that is not tagged.
   string tag = 10 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // Depends_on are the units of the plan it depends on, folded from what
+  // `depends_on` are the units of the plan it depends on, folded from what
   // its members' projects require. A unit comes after them in the plan,
   // and is refused where one has a change not released that the plan does
   // not release; their release does not move it.
@@ -169,10 +175,10 @@ message ReleaseUnit {
   // Notes are the release notes, as its versioning strategy wrote them,
   // in Markdown.
   string notes = 12 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // Versioning_strategy is the strategy that gave its version, as
+  // `versioning_strategy` is the strategy that gave its version, as
   // "<plugin>:<name>".
   string versioning_strategy = 13 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // Branching_strategy is the strategy that said what its branch
+  // `branching_strategy` is the strategy that said what its branch
   // releases, as "<plugin>:<name>".
   string branching_strategy = 14 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Branch is the branch it is planned from.
@@ -245,7 +251,7 @@ message Release {
   ReleasePlan plan = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
   // State is where it is.
   State state = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // Build_id is the production build of its units, a build of BuildService,
+  // `build_id` is the production build of its units, a build of BuildService,
   // made with the release; empty for a plan that builds nothing.
   string build_id = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Units say what became of each unit that moves.
@@ -253,9 +259,9 @@ message Release {
   // Failure says why a release that failed did, where no unit says, and
   // why one that is unpublished is.
   string failure = 6 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // Create_time is when it was made.
+  // `create_time` is when it was made.
   google.protobuf.Timestamp create_time = 7 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // End_time is when it ended; unset until it has.
+  // `end_time` is when it ended; unset until it has.
   google.protobuf.Timestamp end_time = 8 [(google.api.field_behavior) = OUTPUT_ONLY];
 
   // State is where a release is.
@@ -269,20 +275,20 @@ message Release {
     // daemon's checkout.
     STATE_TAGGING = 2;
     // STATE_SUCCEEDED: it ended with nothing left to do: every tag of
-    // its units is where its repository was brought from, and every
+    // its units is where its repository was cloned from, and every
     // publish of them passed; or no unit of
     // its plan was tagged, since none moves, or since what moves is a
     // prerelease its unit does not tag, which was built and no more.
     STATE_SUCCEEDED = 3;
     // STATE_PUSHING: its units are tagged, and each tag is being sent to
-    // where its repository was brought from.
+    // where its repository was cloned from.
     STATE_PUSHING = 6;
-    // STATE_PUBLISHING: every tag is where its repository was brought
+    // STATE_PUBLISHING: every tag is where its repository was cloned
     // from, and what was shipped is being published, each publish of
     // each unit in turn.
     STATE_PUBLISHING = 7;
     // STATE_UNPUBLISHED: its units are tagged in the daemon's checkout,
-    // and not every tag is where its repository was brought from: a
+    // and not every tag is where its repository was cloned from: a
     // workspace that may not push leaves them all there, and failure
     // says which tag was not sent and why. Released again, at the same
     // commit, it sends them.
@@ -352,7 +358,7 @@ message ReleaseTag {
 
 // DescribeReleaseRequest names a release.
 message DescribeReleaseRequest {
-  // Release_id is the release's id.
+  // `release_id` is the release's id.
   string release_id = 1 [(google.api.field_behavior) = REQUIRED];
 }
 
@@ -364,7 +370,7 @@ message DescribeReleaseResponse {
 
 // WaitReleaseRequest names a release to wait for.
 message WaitReleaseRequest {
-  // Release_id is the release's id.
+  // `release_id` is the release's id.
   string release_id = 1 [(google.api.field_behavior) = REQUIRED];
 }
 

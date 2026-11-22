@@ -37,13 +37,17 @@ type Entity struct {
 	Repository string `protobuf:"bytes,3,opt,name=repository,proto3" json:"repository,omitempty"`
 	// Roots are the directories it governs, relative to the repository.
 	Roots []string `protobuf:"bytes,5,rep,name=roots,proto3" json:"roots,omitempty"`
-	// Depends_on are the entities it depends on, from what its projects
+	// `depends_on` are the entities it depends on, from what its projects
 	// require of what others provide.
 	DependsOn []*v1alpha1.EntityRef `protobuf:"bytes,6,rep,name=depends_on,json=dependsOn,proto3" json:"depends_on,omitempty"`
-	// Manifest is the repository-relative catalog descriptor, if discovered.
+	// Manifest is the catalog file that describes it, relative to the
+	// repository; empty for an entity no catalog file of the workspace
+	// describes.
 	Manifest string `protobuf:"bytes,7,opt,name=manifest,proto3" json:"manifest,omitempty"`
-	// Relations are catalog facts and their inverses. Component build
-	// dependencies come only from source inference. Sorted by type and target.
+	// Relations are what its catalog file says it is related to, and what
+	// other entities' catalog files say of it, sorted by type and target.
+	// What a Component needs to build is not read from them: depends_on
+	// says that, from what its projects require.
 	Relations []*EntityRelation `protobuf:"bytes,8,rep,name=relations,proto3" json:"relations,omitempty"`
 	// Release is how it is released, as its settings resolve: for an
 	// entity that owns projects, and for a system or a domain, whose
@@ -153,19 +157,19 @@ type EntityRelease struct {
 	Tag string `protobuf:"bytes,4,opt,name=tag,proto3" json:"tag,omitempty"`
 	// Initial is the version of its first release.
 	Initial string `protobuf:"bytes,5,opt,name=initial,proto3" json:"initial,omitempty"`
-	// Versioning_strategy is the versioning strategy its unit's next
+	// `versioning_strategy` is the versioning strategy its unit's next
 	// version is asked of, as "<plugin>:<name>": "release:conventional-commits".
 	VersioningStrategy string `protobuf:"bytes,8,opt,name=versioning_strategy,json=versioningStrategy,proto3" json:"versioning_strategy,omitempty"`
-	// Branching_strategy is the branching strategy that says what a branch
+	// `branching_strategy` is the branching strategy that says what a branch
 	// releases of it, as "<plugin>:<name>": "release:github-flow".
 	BranchingStrategy string `protobuf:"bytes,9,opt,name=branching_strategy,json=branchingStrategy,proto3" json:"branching_strategy,omitempty"`
 	// Prerelease is how a prerelease of its unit is spelled after its
 	// version's dash, where its branch releases one: "{branch}-{timestamp}"
 	// names it by the branch and by when its commit was made.
 	Prerelease string `protobuf:"bytes,10,opt,name=prerelease,proto3" json:"prerelease,omitempty"`
-	// Prerelease_tag is whether a prerelease of its unit is tagged.
+	// `prerelease_tag` is whether a prerelease of its unit is tagged.
 	PrereleaseTag bool `protobuf:"varint,11,opt,name=prerelease_tag,json=prereleaseTag,proto3" json:"prerelease_tag,omitempty"`
-	// Set_by says, for each setting, which entity set it; a setting no
+	// `set_by` says, for each setting, which entity set it; a setting no
 	// level sets is the default, and is not listed.
 	SetBy         []*ReleaseSettingOrigin `protobuf:"bytes,7,rep,name=set_by,json=setBy,proto3" json:"set_by,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -332,12 +336,15 @@ func (x *ReleaseSettingOrigin) GetEntity() *v1alpha1.EntityRef {
 // EntityRelation is one outgoing catalog relation.
 type EntityRelation struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Type is the provider-neutral relation name, such as ownedBy or partOf.
-	// Catalog adapters map their relationships to these names.
+	// Type is the relation's name, as Backstage names relations: ownedBy,
+	// partOf, dependsOn, providesApi, consumesApi, memberOf, childOf, and
+	// the inverse of each (ownerOf, hasPart, dependencyOf, apiProvidedBy,
+	// apiConsumedBy, hasMember, parentOf). A client must accept a name it
+	// does not know.
 	Type string `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
-	// Target is the fully qualified catalog identity.
+	// Target is the entity it is related to, named in full.
 	Target *v1alpha1.EntityRef `protobuf:"bytes,2,opt,name=target,proto3" json:"target,omitempty"`
-	// Target_present says the target is an entity held in this workspace.
+	// `target_present` is whether the workspace holds the target.
 	TargetPresent bool `protobuf:"varint,3,opt,name=target_present,json=targetPresent,proto3" json:"target_present,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -534,8 +541,8 @@ type ProjectRequirement struct {
 	// Origin is where it is said: a file relative to the workspace, and
 	// the line, "<file>:<line>".
 	Origin string `protobuf:"bytes,3,opt,name=origin,proto3" json:"origin,omitempty"`
-	// Provider_project identifies the workspace project that provides it,
-	// including its plugin. Absent for dependencies outside the workspace.
+	// `provider_project` is the project of the workspace that provides it;
+	// unset for what is provided from outside the workspace.
 	ProviderProject *ProjectRef `protobuf:"bytes,4,opt,name=provider_project,json=providerProject,proto3" json:"provider_project,omitempty"`
 	// Version is the version the project's own files resolve it to, as
 	// its ecosystem spells it ("v1.9.1" for Go, "1.0.228" for Cargo), as
@@ -605,16 +612,18 @@ func (x *ProjectRequirement) GetVersion() string {
 	return ""
 }
 
-// ProjectRef identifies one plugin's project in a repository. Different plugins
-// may discover projects in the same directory without sharing their identity.
+// ProjectRef names one project: a repository, a directory and the plugin
+// that found it. Two plugins may each find a project in one directory;
+// they are two projects.
 type ProjectRef struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Repository is the workspace's name for its repository; empty where the
-	// daemon was given one directory and brought nothing.
+	// daemon was given one directory and cloned nothing.
 	Repository string `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// Root is its canonical repository-relative directory; empty at the root.
+	// Root is its directory, relative to the repository; empty for the
+	// repository's root.
 	Root string `protobuf:"bytes,2,opt,name=root,proto3" json:"root,omitempty"`
-	// Plugin is the plugin that discovered the project.
+	// Plugin is the plugin that found the project.
 	Plugin        string `protobuf:"bytes,3,opt,name=plugin,proto3" json:"plugin,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -676,7 +685,7 @@ type ProjectOption struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Name is the option's name.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// Value is its exact typed value; presentation belongs to the client.
+	// Value is its value, of the kind the option has.
 	Value *v1alpha1.OptionValue `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
 	// Origin is the file that sets it, relative to the workspace; empty
 	// where nothing sets it and the value is the plugin's own.
@@ -739,10 +748,10 @@ func (x *ProjectOption) GetOrigin() string {
 // ListEntitiesRequest asks for a page of the workspace's entities.
 type ListEntitiesRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Page_size is the most entities to return; zero is a hundred, and more
+	// `page_size` is the most entities to return; zero is a hundred, and more
 	// than a thousand is a thousand.
 	PageSize int32 `protobuf:"varint,1,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
-	// Page_token is the next_page_token of the page before; empty for the
+	// `page_token` is the next_page_token of the page before; empty for the
 	// first page.
 	PageToken     string `protobuf:"bytes,2,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -798,7 +807,7 @@ type ListEntitiesResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Entities are the entities.
 	Entities []*Entity `protobuf:"bytes,1,rep,name=entities,proto3" json:"entities,omitempty"`
-	// Next_page_token asks for the page after this one; empty on the last.
+	// `next_page_token` asks for the page after this one; empty on the last.
 	NextPageToken string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -851,10 +860,10 @@ func (x *ListEntitiesResponse) GetNextPageToken() string {
 // ListProjectsRequest asks for a page of the workspace's projects.
 type ListProjectsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Page_size is the most projects to return; zero is a hundred, and more
+	// `page_size` is the most projects to return; zero is a hundred, and more
 	// than a thousand is a thousand.
 	PageSize int32 `protobuf:"varint,1,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
-	// Page_token is the next_page_token of the page before; empty for the
+	// `page_token` is the next_page_token of the page before; empty for the
 	// first page.
 	PageToken     string `protobuf:"bytes,2,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -910,7 +919,7 @@ type ListProjectsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Projects are the projects.
 	Projects []*Project `protobuf:"bytes,1,rep,name=projects,proto3" json:"projects,omitempty"`
-	// Next_page_token asks for the page after this one; empty on the last.
+	// `next_page_token` asks for the page after this one; empty on the last.
 	NextPageToken string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

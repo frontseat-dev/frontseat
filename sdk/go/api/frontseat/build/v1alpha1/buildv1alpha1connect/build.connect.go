@@ -1,8 +1,15 @@
 // frontseat.build.v1alpha1: builds. A build builds targets, on the
 // daemon of a workspace. A release builds too: it makes a build of its
-// own (ReleaseService, release.proto). It is a
-// resource: it has an id, it outlives the call that made it, and anything
-// that may see it can watch it, read its results and cancel it.
+// own (ReleaseService, release.proto). A build is a resource: it has an
+// id, it outlives the call that made it, and anything that may see it
+// can watch it, read its results and cancel it.
+//
+// A daemon keeps every build that has not ended. Of those that have, it
+// keeps the twelve newest, and any other until five minutes after it
+// ended, and it keeps them when it is started again: a build that was
+// under way when its daemon stopped has ended in error. A build the
+// daemon no longer keeps is not listed, and a call that names it is
+// refused NOT_FOUND (BUILD_NOT_FOUND).
 //
 // What the build API's services refuse by name carries ErrorInfo of the
 // domain build.frontseat.dev, with the reason each call names.
@@ -125,7 +132,8 @@ type BuildServiceClient interface {
 	// CreateBuild starts a build and returns at once. The build goes on if the
 	// caller goes away: StreamBuildEvents follows it until it ends, and
 	// CancelBuild stops it. Sent again with the same request_id, it returns
-	// the build the first call made, and starts none.
+	// the build the first call made, and starts none, for as long as the
+	// daemon remembers the request_id (CreateBuildRequest.request_id).
 	//
 	// A mistake in what the source says, a target that points at nothing
 	// and a name no action has are not errors of this call: the build is
@@ -145,8 +153,10 @@ type BuildServiceClient interface {
 	// ### Errors
 	// - NOT_FOUND: no build has that id (BUILD_NOT_FOUND).
 	DescribeBuild(context.Context, *v1alpha1.DescribeBuildRequest) (*v1alpha1.DescribeBuildResponse, error)
-	// ListBuilds returns the workspace's builds, newest first, a page at a
-	// time.
+	// ListBuilds returns the builds the daemon keeps of the workspace,
+	// newest first, a page at a time. A page token names a position in
+	// that list: where a build is made or let go of between two pages, the
+	// next page may repeat a build or leave one out.
 	//
 	// ### Errors
 	// - INVALID_ARGUMENT: the page token is not one this call gave
@@ -178,18 +188,22 @@ type BuildServiceClient interface {
 	StreamBuildEvents(context.Context, *v1alpha1.StreamBuildEventsRequest) (BuildServiceStreamBuildEventsClientStream, error)
 	// ListBuildActions returns what each of a build's actions did: its outcome,
 	// where its result came from, how long it took, and the digests of what
-	// it printed. This is the build's checks: one entry per action.
+	// it printed. This is the build's checks: one entry per action. While
+	// the build runs, an action's entry changes as the action ends.
 	//
 	// ### Errors
 	// - INVALID_ARGUMENT: the page token is not one this call gave
 	//   (PAGE_TOKEN_INVALID).
 	// - NOT_FOUND: no build has that id (BUILD_NOT_FOUND).
 	ListBuildActions(context.Context, *v1alpha1.ListBuildActionsRequest) (*v1alpha1.ListBuildActionsResponse, error)
-	// StreamBuildLogs streams what one action printed, line by line, from
-	// its first: what it wrote to standard output, then what it wrote to
-	// standard error. It is sent in parts, each some whole lines, so an
-	// action may have printed any amount. An action the build has planned
-	// and that has not ended has printed nothing yet.
+	// StreamBuildLogs sends what one action printed, once the action has
+	// ended: everything it wrote to standard output, then everything it
+	// wrote to standard error, each from its first line. It does not
+	// follow an action that is still running: for one the build has
+	// planned and that has not ended, it sends nothing. It does not say
+	// how the two outputs were interleaved, and its lines carry no time.
+	// It is sent in parts, each some whole lines, so an action may have
+	// printed any amount.
 	//
 	// A line's text is UTF-8: bytes an action printed that are not are
 	// given as U+FFFD.
@@ -197,7 +211,8 @@ type BuildServiceClient interface {
 	// ### Errors
 	// - NOT_FOUND: no build has that id (BUILD_NOT_FOUND), or the build
 	//   has planned no such action (ACTION_NOT_FOUND).
-	// - INTERNAL: what the action printed is not there to be read.
+	// - INTERNAL: what the action printed could not be read from where the
+	//   daemon keeps it.
 	StreamBuildLogs(context.Context, *v1alpha1.StreamBuildLogsRequest) (BuildServiceStreamBuildLogsClientStream, error)
 }
 
@@ -254,7 +269,8 @@ type BuildServiceHandler interface {
 	// CreateBuild starts a build and returns at once. The build goes on if the
 	// caller goes away: StreamBuildEvents follows it until it ends, and
 	// CancelBuild stops it. Sent again with the same request_id, it returns
-	// the build the first call made, and starts none.
+	// the build the first call made, and starts none, for as long as the
+	// daemon remembers the request_id (CreateBuildRequest.request_id).
 	//
 	// A mistake in what the source says, a target that points at nothing
 	// and a name no action has are not errors of this call: the build is
@@ -274,8 +290,10 @@ type BuildServiceHandler interface {
 	// ### Errors
 	// - NOT_FOUND: no build has that id (BUILD_NOT_FOUND).
 	DescribeBuild(context.Context, *v1alpha1.DescribeBuildRequest) (*v1alpha1.DescribeBuildResponse, error)
-	// ListBuilds returns the workspace's builds, newest first, a page at a
-	// time.
+	// ListBuilds returns the builds the daemon keeps of the workspace,
+	// newest first, a page at a time. A page token names a position in
+	// that list: where a build is made or let go of between two pages, the
+	// next page may repeat a build or leave one out.
 	//
 	// ### Errors
 	// - INVALID_ARGUMENT: the page token is not one this call gave
@@ -307,18 +325,22 @@ type BuildServiceHandler interface {
 	StreamBuildEvents(context.Context, *v1alpha1.StreamBuildEventsRequest, BuildServiceStreamBuildEventsServerStream) error
 	// ListBuildActions returns what each of a build's actions did: its outcome,
 	// where its result came from, how long it took, and the digests of what
-	// it printed. This is the build's checks: one entry per action.
+	// it printed. This is the build's checks: one entry per action. While
+	// the build runs, an action's entry changes as the action ends.
 	//
 	// ### Errors
 	// - INVALID_ARGUMENT: the page token is not one this call gave
 	//   (PAGE_TOKEN_INVALID).
 	// - NOT_FOUND: no build has that id (BUILD_NOT_FOUND).
 	ListBuildActions(context.Context, *v1alpha1.ListBuildActionsRequest) (*v1alpha1.ListBuildActionsResponse, error)
-	// StreamBuildLogs streams what one action printed, line by line, from
-	// its first: what it wrote to standard output, then what it wrote to
-	// standard error. It is sent in parts, each some whole lines, so an
-	// action may have printed any amount. An action the build has planned
-	// and that has not ended has printed nothing yet.
+	// StreamBuildLogs sends what one action printed, once the action has
+	// ended: everything it wrote to standard output, then everything it
+	// wrote to standard error, each from its first line. It does not
+	// follow an action that is still running: for one the build has
+	// planned and that has not ended, it sends nothing. It does not say
+	// how the two outputs were interleaved, and its lines carry no time.
+	// It is sent in parts, each some whole lines, so an action may have
+	// printed any amount.
 	//
 	// A line's text is UTF-8: bytes an action printed that are not are
 	// given as U+FFFD.
@@ -326,7 +348,8 @@ type BuildServiceHandler interface {
 	// ### Errors
 	// - NOT_FOUND: no build has that id (BUILD_NOT_FOUND), or the build
 	//   has planned no such action (ACTION_NOT_FOUND).
-	// - INTERNAL: what the action printed is not there to be read.
+	// - INTERNAL: what the action printed could not be read from where the
+	//   daemon keeps it.
 	StreamBuildLogs(context.Context, *v1alpha1.StreamBuildLogsRequest, BuildServiceStreamBuildLogsServerStream) error
 }
 

@@ -1,24 +1,27 @@
 // frontseat.sandbox.v1alpha1: sandboxes. A sandbox is an isolated machine:
-// an image, a lifetime, a network policy, volumes, processes and files. A
-// build daemon runs in one, and so does a test's database and an agent. It
+// an image, what it may reach on the network, volumes, ports and further
+// containers. A build daemon runs in one, and so does a test's database
+// and an agent. It
 // knows nothing of repositories or builds: a workspace, which lives in a
 // sandbox, is frontseat.workspace.v1alpha1's. What a sandbox may reach is
 // said in the network's own terms: hosts, the programs that may ask them,
 // the requests let through, and a credential kept outside it.
 //
-// The service delegates to a driver for whichever provider makes the
-// sandboxes, such as a container runtime. A driver says what it can
-// enforce, and a request for anything else is refused, never run weaker.
+// The service makes its sandboxes through a driver: the part of the
+// server that talks to whatever provides them, such as a container
+// runtime. A driver says what it can enforce, and a request for anything
+// else is refused, never run weaker.
 //
-// It is served to what is built on it, in its process or beside it, and
-// to no one else: whoever may ask it may run anything in any of its
-// sandboxes. The control plane serves workspaces over it and serves none
-// of it on its own endpoint.
+// It is not a public API. It is served to the server programs built on
+// it, in its process or beside it, and to no one else: whoever may call
+// it may run anything in any of its sandboxes. The control plane serves
+// workspaces over it and serves none of it on its own endpoint.
 //
 // What it refuses by name carries ErrorInfo of the domain
-// sandbox.frontseat.dev, with the reason each call names. A call about a
-// sandbox that is being changed by another, and that gives up waiting
-// its turn, is refused CANCELED or DEADLINE_EXCEEDED with the reason
+// sandbox.frontseat.dev, with the reason each call names. One call at a
+// time changes a sandbox: a call that stops waiting for another's to
+// finish, because its caller went away or its deadline passed, is
+// refused CANCELED or DEADLINE_EXCEEDED with the reason
 // SANDBOX_BUSY. What a driver cannot enforce is refused UNIMPLEMENTED
 // with the reason CAPABILITY_NOT_SERVED, the message naming it; what a
 // driver finds not well formed, INVALID_ARGUMENT with SPEC_INVALID; and
@@ -177,7 +180,8 @@ var (
 type SandboxServiceClient interface {
 	// CreateSandbox makes a sandbox from a spec and returns at once; it is
 	// running when WaitSandbox ends with STATE_RUNNING. Sent again with the
-	// same request_id, it returns the sandbox the first call made.
+	// same request_id, it returns the sandbox the first call made, while
+	// that sandbox is there (CreateSandboxRequest.request_id).
 	//
 	// ### Errors
 	// - INVALID_ARGUMENT: the spec names no image, or holds something this
@@ -193,6 +197,8 @@ type SandboxServiceClient interface {
 	// - NOT_FOUND: no sandbox has that id (SANDBOX_NOT_FOUND).
 	DescribeSandbox(context.Context, *v1alpha1.DescribeSandboxRequest) (*v1alpha1.DescribeSandboxResponse, error)
 	// ListSandboxes returns the sandboxes, oldest first, a page at a time.
+	// A page token names a position in that list: where a sandbox is
+	// deleted between two pages, the next page may leave one out.
 	//
 	// ### Errors
 	// - INVALID_ARGUMENT: the label selector is not name=value, separated
@@ -232,7 +238,7 @@ type SandboxServiceClient interface {
 	// - NOT_FOUND: no sandbox has that id (SANDBOX_NOT_FOUND), or it has
 	//   no container of that name (CONTAINER_NOT_FOUND).
 	// - INVALID_ARGUMENT: no command is given (COMMAND_MISSING), or the
-	//   timeout is not more than nothing (TIMEOUT_INVALID).
+	//   timeout is zero or negative (TIMEOUT_INVALID).
 	// - FAILED_PRECONDITION: the sandbox is not running
 	//   (SANDBOX_NOT_RUNNING).
 	// - UNIMPLEMENTED: the driver runs no command in a sandbox
@@ -241,47 +247,48 @@ type SandboxServiceClient interface {
 	//   (COMMAND_TIMED_OUT).
 	ExecSandbox(context.Context, *v1alpha1.ExecSandboxRequest) (*v1alpha1.ExecSandboxResponse, error)
 	// SetCredential gives the server a credential for a host, under a name
-	// the caller chooses, which it keeps outside every sandbox: a sandbox
-	// whose rule for that host names it is let through with it, for what
-	// the rule lets through, and never holds it. Whoever may ask for a
-	// sandbox may so have it ask the host anything the credential allows, a
-	// push among it. A credential under a name replaces the one before,
-	// for the same host alone. It is never read back.
+	// the caller chooses. The server keeps it outside every sandbox. A
+	// sandbox whose egress rule for that host names the credential has it
+	// added to the requests that rule lets through, and never holds it
+	// itself. Whoever may create a sandbox can therefore have it send the
+	// host anything the credential allows, a push included. Setting a
+	// credential under a name that is taken replaces the one kept, which
+	// must be for the same host. The secret is never returned.
 	//
 	// ### Errors
-	// - INVALID_ARGUMENT: the name is no credential's
-	//   (CREDENTIAL_NAME_INVALID); no host or no secret is given
-	//   (CREDENTIAL_INVALID); the host is no host's name, or the name is
-	//   kept for another host (SPEC_INVALID).
+	// - INVALID_ARGUMENT: the name is not a valid credential name, as
+	//   Credential.name says (CREDENTIAL_NAME_INVALID); no host or no
+	//   secret is given (CREDENTIAL_INVALID); the host is not a host name,
+	//   or the name is kept for another host (SPEC_INVALID).
 	// - UNIMPLEMENTED: the driver keeps no credential outside its
 	//   sandboxes (CAPABILITY_NOT_SERVED).
-	// - UNAVAILABLE: the driver could not keep it.
+	// - UNAVAILABLE: the driver could not keep it. No reason is given.
 	SetCredential(context.Context, *v1alpha1.SetCredentialRequest) (*v1alpha1.SetCredentialResponse, error)
-	// DescribeCredential says whether the server keeps a credential under
-	// a name, the host it is for, who it is of, and the variable a sandbox
-	// let through with it finds its stand-in under. It never returns the
+	// DescribeCredential returns the credential the server keeps under a
+	// name: its host, its username, and the environment variable in which
+	// a sandbox that uses it finds its stand-in. It never returns the
 	// secret.
 	//
 	// ### Errors
-	// - INVALID_ARGUMENT: the name is no credential's
+	// - INVALID_ARGUMENT: the name is not a valid credential name
 	//   (CREDENTIAL_NAME_INVALID).
 	// - NOT_FOUND: no credential is kept under the name
 	//   (CREDENTIAL_NOT_FOUND).
 	// - UNIMPLEMENTED: the driver keeps no credential outside its
 	//   sandboxes (CAPABILITY_NOT_SERVED).
 	DescribeCredential(context.Context, *v1alpha1.DescribeCredentialRequest) (*v1alpha1.DescribeCredentialResponse, error)
-	// DeleteCredential has the server let go of the credential under a
-	// name. A sandbox whose rule names it is refused after; a name the
-	// server holds none under is no error.
+	// DeleteCredential removes the credential kept under a name. A
+	// sandbox created afterwards with a rule that names it is refused.
+	// Deleting a name under which nothing is kept succeeds.
 	//
 	// ### Errors
-	// - INVALID_ARGUMENT: the name is no credential's
+	// - INVALID_ARGUMENT: the name is not a valid credential name
 	//   (CREDENTIAL_NAME_INVALID).
 	// - UNIMPLEMENTED: the driver keeps no credential outside its
 	//   sandboxes (CAPABILITY_NOT_SERVED).
-	// - FAILED_PRECONDITION: a sandbox is still let through with the
-	//   credential (CREDENTIAL_IN_USE).
-	// - UNAVAILABLE: the driver could not let go of it.
+	// - FAILED_PRECONDITION: a sandbox that is there has a rule that
+	//   names the credential (CREDENTIAL_IN_USE).
+	// - UNAVAILABLE: the driver could not remove it. No reason is given.
 	DeleteCredential(context.Context, *v1alpha1.DeleteCredentialRequest) (*v1alpha1.DeleteCredentialResponse, error)
 }
 
@@ -296,7 +303,8 @@ func NewSandboxServiceClient(client *connect.Client) SandboxServiceClient {
 type SandboxServiceHandler interface {
 	// CreateSandbox makes a sandbox from a spec and returns at once; it is
 	// running when WaitSandbox ends with STATE_RUNNING. Sent again with the
-	// same request_id, it returns the sandbox the first call made.
+	// same request_id, it returns the sandbox the first call made, while
+	// that sandbox is there (CreateSandboxRequest.request_id).
 	//
 	// ### Errors
 	// - INVALID_ARGUMENT: the spec names no image, or holds something this
@@ -312,6 +320,8 @@ type SandboxServiceHandler interface {
 	// - NOT_FOUND: no sandbox has that id (SANDBOX_NOT_FOUND).
 	DescribeSandbox(context.Context, *v1alpha1.DescribeSandboxRequest) (*v1alpha1.DescribeSandboxResponse, error)
 	// ListSandboxes returns the sandboxes, oldest first, a page at a time.
+	// A page token names a position in that list: where a sandbox is
+	// deleted between two pages, the next page may leave one out.
 	//
 	// ### Errors
 	// - INVALID_ARGUMENT: the label selector is not name=value, separated
@@ -351,7 +361,7 @@ type SandboxServiceHandler interface {
 	// - NOT_FOUND: no sandbox has that id (SANDBOX_NOT_FOUND), or it has
 	//   no container of that name (CONTAINER_NOT_FOUND).
 	// - INVALID_ARGUMENT: no command is given (COMMAND_MISSING), or the
-	//   timeout is not more than nothing (TIMEOUT_INVALID).
+	//   timeout is zero or negative (TIMEOUT_INVALID).
 	// - FAILED_PRECONDITION: the sandbox is not running
 	//   (SANDBOX_NOT_RUNNING).
 	// - UNIMPLEMENTED: the driver runs no command in a sandbox
@@ -360,47 +370,48 @@ type SandboxServiceHandler interface {
 	//   (COMMAND_TIMED_OUT).
 	ExecSandbox(context.Context, *v1alpha1.ExecSandboxRequest) (*v1alpha1.ExecSandboxResponse, error)
 	// SetCredential gives the server a credential for a host, under a name
-	// the caller chooses, which it keeps outside every sandbox: a sandbox
-	// whose rule for that host names it is let through with it, for what
-	// the rule lets through, and never holds it. Whoever may ask for a
-	// sandbox may so have it ask the host anything the credential allows, a
-	// push among it. A credential under a name replaces the one before,
-	// for the same host alone. It is never read back.
+	// the caller chooses. The server keeps it outside every sandbox. A
+	// sandbox whose egress rule for that host names the credential has it
+	// added to the requests that rule lets through, and never holds it
+	// itself. Whoever may create a sandbox can therefore have it send the
+	// host anything the credential allows, a push included. Setting a
+	// credential under a name that is taken replaces the one kept, which
+	// must be for the same host. The secret is never returned.
 	//
 	// ### Errors
-	// - INVALID_ARGUMENT: the name is no credential's
-	//   (CREDENTIAL_NAME_INVALID); no host or no secret is given
-	//   (CREDENTIAL_INVALID); the host is no host's name, or the name is
-	//   kept for another host (SPEC_INVALID).
+	// - INVALID_ARGUMENT: the name is not a valid credential name, as
+	//   Credential.name says (CREDENTIAL_NAME_INVALID); no host or no
+	//   secret is given (CREDENTIAL_INVALID); the host is not a host name,
+	//   or the name is kept for another host (SPEC_INVALID).
 	// - UNIMPLEMENTED: the driver keeps no credential outside its
 	//   sandboxes (CAPABILITY_NOT_SERVED).
-	// - UNAVAILABLE: the driver could not keep it.
+	// - UNAVAILABLE: the driver could not keep it. No reason is given.
 	SetCredential(context.Context, *v1alpha1.SetCredentialRequest) (*v1alpha1.SetCredentialResponse, error)
-	// DescribeCredential says whether the server keeps a credential under
-	// a name, the host it is for, who it is of, and the variable a sandbox
-	// let through with it finds its stand-in under. It never returns the
+	// DescribeCredential returns the credential the server keeps under a
+	// name: its host, its username, and the environment variable in which
+	// a sandbox that uses it finds its stand-in. It never returns the
 	// secret.
 	//
 	// ### Errors
-	// - INVALID_ARGUMENT: the name is no credential's
+	// - INVALID_ARGUMENT: the name is not a valid credential name
 	//   (CREDENTIAL_NAME_INVALID).
 	// - NOT_FOUND: no credential is kept under the name
 	//   (CREDENTIAL_NOT_FOUND).
 	// - UNIMPLEMENTED: the driver keeps no credential outside its
 	//   sandboxes (CAPABILITY_NOT_SERVED).
 	DescribeCredential(context.Context, *v1alpha1.DescribeCredentialRequest) (*v1alpha1.DescribeCredentialResponse, error)
-	// DeleteCredential has the server let go of the credential under a
-	// name. A sandbox whose rule names it is refused after; a name the
-	// server holds none under is no error.
+	// DeleteCredential removes the credential kept under a name. A
+	// sandbox created afterwards with a rule that names it is refused.
+	// Deleting a name under which nothing is kept succeeds.
 	//
 	// ### Errors
-	// - INVALID_ARGUMENT: the name is no credential's
+	// - INVALID_ARGUMENT: the name is not a valid credential name
 	//   (CREDENTIAL_NAME_INVALID).
 	// - UNIMPLEMENTED: the driver keeps no credential outside its
 	//   sandboxes (CAPABILITY_NOT_SERVED).
-	// - FAILED_PRECONDITION: a sandbox is still let through with the
-	//   credential (CREDENTIAL_IN_USE).
-	// - UNAVAILABLE: the driver could not let go of it.
+	// - FAILED_PRECONDITION: a sandbox that is there has a rule that
+	//   names the credential (CREDENTIAL_IN_USE).
+	// - UNAVAILABLE: the driver could not remove it. No reason is given.
 	DeleteCredential(context.Context, *v1alpha1.DeleteCredentialRequest) (*v1alpha1.DeleteCredentialResponse, error)
 }
 
