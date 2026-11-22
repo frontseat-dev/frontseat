@@ -18,7 +18,7 @@ import (
 // and its Component's test settings reach it.
 func TestATestThatIsACheckWithAFixIsGivenItsComponentsSettings(t *testing.T) {
 	action := &pluginv1.Action{Name: "test", Test: true, Check: true, Inputs: pluginhosttest.SourceInputs("*.txt"), Rewrites: []string{"*.txt"}, Command: &pluginv1.Command{Arguments: []string{"true"}}, Fix: &pluginv1.Command{Arguments: []string{"sh", "-c", "printf '%s' \"$TEST_REVIEW_VALUE\" > own.txt"}}}
-	response := &pluginv1.AnalyzeResponse{Analyses: []*pluginv1.Analysis{{Root: "", Projects: []*pluginv1.Project{{Root: "app", Manifest: "app/fixture.toml", Actions: []*pluginv1.Action{action}}}}}}
+	response := &pluginv1.AnalyzeResponse{Analyses: []*pluginv1.Analysis{{Root: "", Projects: []*pluginv1.Project{{Root: "app", Name: "app", Kind: "fixture", Manifest: "app/fixture.toml", Actions: []*pluginv1.Action{action}}}}}}
 	if err := pluginhost.CheckAnalysis("fixture", []string{""}, response); err != nil {
 		t.Fatalf("test/check fix is already a served declaration: %v", err)
 	}

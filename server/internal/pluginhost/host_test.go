@@ -212,7 +212,7 @@ func TestWhatAnActionReadsOfOthersIsOneThingOfItsProject(t *testing.T) {
 				translated = append(translated, pluginhost.SourceInput(input))
 			}
 		}
-		return &pluginv1.AnalyzeResponse{Analyses: []*pluginv1.Analysis{{Projects: []*pluginv1.Project{{Root: "a", Manifest: "a/go.mod",
+		return &pluginv1.AnalyzeResponse{Analyses: []*pluginv1.Analysis{{Projects: []*pluginv1.Project{{Root: "a", Name: "a", Kind: "go-module", Manifest: "a/go.mod",
 			InputSets: []*pluginv1.InputSet{{Name: "sources", Inputs: []*pluginv1.Input{pluginhost.SourceInput("**/*.go")}}},
 			Actions: []*pluginv1.Action{
 				{Name: "fetch", Command: &pluginv1.Command{Arguments: []string{"true"}}, Fetch: true, Outputs: []*pluginv1.Output{{Path: "~/go/pkg/mod/"}}},
