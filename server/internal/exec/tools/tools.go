@@ -238,19 +238,23 @@ type Provisioner struct {
 	// Platform is the platform of the workers the tools are for.
 	Platform map[string]string
 
-	mu   sync.Mutex
-	kept map[string]exec.Digest
+	// installs are the trees of the tools installed for the run, each
+	// installed once however many actions ask for it at once, and none
+	// holding up the install of another.
+	installs shared[exec.Digest]
+	// environs are the commands an action of some tools of a repository
+	// runs by, with what mise puts in their environment, asked of mise
+	// once for the run.
+	environs shared[commands]
+
+	// mu guards asked and given, and is held across nothing that waits.
+	mu sync.Mutex
 	// asked is what the run was answered for each tool of each
 	// repository: its pins are read once, as the run's files are.
 	asked map[string]asked
 	// given are the pins each repository gives an action of some tools,
 	// made once for the run: the run's files do not change under it.
 	given map[string][2][]byte
-	// environs are the commands an action of some tools of a repository
-	// runs by, with what mise puts in their environment, made once for
-	// the run; flights are each that is being asked of mise.
-	environs map[string]commands
-	flights  map[string]*flight
 }
 
 // asked is a tool as a run was answered for it: its tree, and the name
@@ -386,69 +390,12 @@ func (p *Provisioner) Use(ctx context.Context, action exec.Action, repository st
 // as a fix's are (fix.toolsEnvironment).
 func (p *Provisioner) environ(ctx context.Context, root string, files exec.Files, repository string, tools []string, held map[string]exec.Held, variables map[string]string) (commands, error) {
 	key := keyOf(root, repository, tools, variables)
-	// The answer is every asker's: one that gives up does not take it
-	// from the others, and the asking stops when none waits for it. It is
-	// kept before the askers are told: one that comes once the asking is
-	// over finds it kept, and does not ask again.
-	p.mu.Lock()
-	if known, there := p.environs[key]; there {
-		p.mu.Unlock()
-		return known, nil
+	if given, there := p.environs.known(key); there {
+		return given, nil
 	}
-	f := p.flights[key]
-	if f == nil {
-		asking, stop := context.WithCancel(context.WithoutCancel(ctx))
-		f = &flight{done: make(chan struct{}), stop: stop}
-		if p.flights == nil {
-			p.flights = map[string]*flight{}
-		}
-		p.flights[key] = f
-		go func() {
-			defer stop()
-			given, err := p.ask(asking, root, files, repository, tools, held, variables)
-			p.mu.Lock()
-			if err == nil {
-				if p.environs == nil {
-					p.environs = map[string]commands{}
-				}
-				p.environs[key] = given
-			}
-			if p.flights[key] == f {
-				delete(p.flights, key)
-			}
-			f.given, f.err = given, err
-			p.mu.Unlock()
-			close(f.done)
-		}()
-	}
-	f.waiting++
-	p.mu.Unlock()
-	select {
-	case <-f.done:
-		return f.given, f.err
-	case <-ctx.Done():
-		p.mu.Lock()
-		defer p.mu.Unlock()
-		if f.waiting--; f.waiting == 0 {
-			// None waits for it: it is stopped, and forgotten, so that one
-			// that asks later asks anew.
-			f.stop()
-			if p.flights[key] == f {
-				delete(p.flights, key)
-			}
-		}
-		return commands{}, ctx.Err()
-	}
-}
-
-// flight is an environment being asked of mise, and those that wait for
-// it.
-type flight struct {
-	done    chan struct{}
-	stop    context.CancelFunc
-	waiting int
-	given   commands
-	err     error
+	return p.environs.do(ctx, key, func(asking context.Context) (commands, error) {
+		return p.ask(asking, root, files, repository, tools, held, variables)
+	})
 }
 
 // keyOf is what environ knows an answer by: the root, the repository,
@@ -728,11 +675,16 @@ func (p *Provisioner) pinned(ctx context.Context, root string, files exec.Files,
 	installed = strings.NewReplacer(":", "-", "/", "-").Replace(named)
 	key := named + " " + hex.EncodeToString(sum.Sum(nil))
 
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	if tree, kept := p.kept[key]; kept {
-		return tree, installed, nil
-	}
+	tree, err = p.installs.do(ctx, key, func(fetching context.Context) (exec.Digest, error) {
+		return p.install(fetching, root, repository, tool, named, installed, config, lock)
+	})
+	return tree, installed, err
+}
+
+// install fetches a tool's installation on the grid and returns it as a
+// tree the grid holds. It holds no lock: it lasts as long as the fetch
+// does, and the other tools of the run are installed meanwhile.
+func (p *Provisioner) install(ctx context.Context, root, repository, tool, named, installed string, config, lock []byte) (tree exec.Digest, err error) {
 	// The action's root is the tool's pins and nothing else, at no path of
 	// the repository's: repositories that pin the tool alike share it.
 	ctx, span := telemetry.Start(ctx, "tool", attribute.String("tool", named))
@@ -749,20 +701,16 @@ func (p *Provisioner) pinned(ctx context.Context, root string, files exec.Files,
 	}
 	done, err := p.Executor.Execute(ctx, fetch)
 	if err != nil {
-		return exec.Digest{}, "", err
+		return exec.Digest{}, err
 	}
 	if done.ExitCode != 0 {
-		return exec.Digest{}, "", fmt.Errorf("the tool %s: mise install exited %d: %s", tool, done.ExitCode, strings.TrimSpace(string(done.Stderr)))
+		return exec.Digest{}, fmt.Errorf("the tool %s: mise install exited %d: %s", tool, done.ExitCode, strings.TrimSpace(string(done.Stderr)))
 	}
 	left, there := done.Outputs[output]
 	if !there || !left.Directory {
-		return exec.Digest{}, "", fmt.Errorf("the tool %s: mise install left nothing at %s", tool, output)
+		return exec.Digest{}, fmt.Errorf("the tool %s: mise install left nothing at %s", tool, output)
 	}
-	if p.kept == nil {
-		p.kept = map[string]exec.Digest{}
-	}
-	p.kept[key] = left.Digest
-	return left.Digest, installed, nil
+	return left.Digest, nil
 }
 
 // pinsOf returns the pins an action of a repository that runs with some
