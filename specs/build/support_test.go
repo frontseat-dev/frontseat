@@ -2298,7 +2298,7 @@ spec:
       ports: {http: 8080, admin: 9000}
       ready: [{http: {port: http, path: /, body: hello}}, {http: {port: admin, path: /, body: private}}]
       apis:
-        api:default/orders:
+        orders:
           port: http
           exports: {ORDERS_URL: "http://{host}:{port.http}"}
         api:default/orders-admin:
