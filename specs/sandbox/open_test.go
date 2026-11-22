@@ -2,12 +2,12 @@ package sandbox_test
 
 import (
 	"context"
-	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	connect "connectrpc.com/connect/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/frontseat-dev/frontseat/sdk/go"
@@ -142,7 +142,12 @@ func TestTwoRepositoriesOfOneNameAreNotOneWorkspaceTheSecondIsRefusedAndTakesANa
 	other := aCheckoutOf(spec.aRepositoryWithABranch("main"), "main")
 	first := spec.opening(one)
 
+	// The control plane refuses it, since the name the two share is the
+	// first's: the helper here adds no refusal of its own. What the
+	// command line says of a workspace it was given that holds other
+	// source is proven where it is written (cli/internal/machine).
 	_, err := spec.attempting(other)
+	spec.Expect(connect.CodeOf(err)).To(Equal(connect.CodeAlreadyExists))
 	spec.Expect(err).To(BeRefusedSaying("holds other source"))
 	// The first is as it was, and the second is opened under a name.
 	spec.Expect((&Workspace{spec, first.reached}).state()).To(Equal("running"))
@@ -263,15 +268,13 @@ func (spec *scenario) attemptingAs(name string, checkout said) (opened, error) {
 	if err != nil {
 		return out, err
 	}
-	// What it holds is read, and not taken on its name's word, as the
-	// command line reads it: one that holds other source is not this one.
+	// The directory its repository is in is read from what it holds.
 	for _, held := range got.Held.GetStatus().GetRepositories() {
 		if held.GetRemote() == checkout.remote {
 			out.Repository = held.GetName()
-			return out, nil
 		}
 	}
-	return out, errors.New("the workspace of this name holds other source than the repository asked for")
+	return out, nil
 }
 
 // sandboxesOf are the sandboxes that carry a workspace's name.

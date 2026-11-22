@@ -37,68 +37,6 @@ import (
 // unit that moves, at the commit it was planned from. A commit that
 // carries a unit's tag is that release: releasing it again completes it
 // and makes no new version.
-// Releases / What is released / A component in no system is released on its own.
-func TestAComponentInNoSystemIsReleasedOnItsOwn(t *testing.T) {
-	t.Skip("Pending requirement: Releases / What is released / A component in no system is released on its own")
-	spec := newScenario(t)
-
-	plan := spec.releasable().releaseWorkspace().plan(spec.releaseOf("greet"))
-
-	spec.Expect(plan.units()).To(Equal([]string{"greet"}))
-	spec.Expect(plan.unit("greet").members()).To(Equal([]string{"greet"}))
-	spec.Expect(plan.unit("greet").group()).To(Equal("greet"))
-}
-
-// Releases / What is released / A system is released as one, its members on one version.
-func TestASystemIsReleasedAsOneItsMembersOnOneVersion(t *testing.T) {
-	t.Skip("Pending requirement: Releases / What is released / A system is released as one, its members on one version")
-	spec := newScenario(t)
-
-	plan := spec.releasable().releaseWorkspace().plan(spec.releaseOf("system:kiosk"))
-
-	spec.Expect(plan.units()).To(Equal([]string{"kiosk"}))
-	spec.Expect(plan.unit("kiosk").members()).To(ConsistOf("banner", "ticker"))
-	spec.Expect(plan.unit("kiosk").grouping()).To(Equal("synced"))
-}
-
-// Releases / What is released / A member of a synced system is released with its system.
-func TestAMemberOfASyncedSystemIsReleasedWithItsSystem(t *testing.T) {
-	t.Skip("Pending requirement: Releases / What is released / A member of a synced system is released with its system")
-	spec := newScenario(t)
-
-	plan := spec.releasable().releaseWorkspace().plan(spec.releaseOf("banner"))
-
-	spec.Expect(plan.units()).To(Equal([]string{"kiosk"}))
-	spec.Expect(plan.unit("kiosk").members()).To(ConsistOf("banner", "ticker"))
-}
-
-// Releases / What is released / A system whose grouping is independent releases each member on its own.
-func TestASystemWhoseGroupingIsIndependentReleasesEachMemberOnItsOwn(t *testing.T) {
-	t.Skip("Pending requirement: Releases / What is released / A system whose grouping is independent releases each member on its own")
-	spec := newScenario(t)
-
-	workspace := spec.releasable().releases("system:kiosk", "grouping: independent").releaseWorkspace()
-
-	plan := workspace.plan(spec.releaseOf("system:kiosk"))
-
-	spec.Expect(plan.units()).To(ConsistOf("banner", "ticker"))
-	spec.Expect(plan.unit("banner").group()).To(Equal("kiosk"))
-	spec.Expect(plan.unit("banner").grouping()).To(Equal("independent"))
-}
-
-// Releases / What is released / A member that says independent leaves its synced system.
-func TestAMemberThatSaysIndependentLeavesItsSyncedSystem(t *testing.T) {
-	t.Skip("Pending requirement: Releases / What is released / A member that says independent leaves its synced system")
-	spec := newScenario(t)
-
-	workspace := spec.releasable().releases("banner", "grouping: independent").releaseWorkspace()
-
-	plan := workspace.plan(spec.releaseOf("system:kiosk"))
-
-	spec.Expect(plan.units()).To(ConsistOf("kiosk", "banner"))
-	spec.Expect(plan.unit("kiosk").members()).To(Equal([]string{"ticker"}))
-	spec.Expect(plan.unit("banner").members()).To(Equal([]string{"banner"}))
-}
 
 // Releases / What is released / A domain that says nothing leaves each of its systems a group of its own.
 func TestADomainThatSaysNothingLeavesEachOfItsSystemsAGroupOfItsOwn(t *testing.T) {
@@ -155,427 +93,6 @@ func TestANameADomainAndAComponentShareIsTheComponentsAndTheDomainIsNamedWithIts
 	spec.Expect(refusal).To(BeRefusedSaying("the workspace holds no entity component:kiosks"))
 }
 
-// Releases / What is released / A unit whose members are in two repositories is refused by name.
-func TestAUnitWhoseMembersAreInTwoRepositoriesIsRefusedByName(t *testing.T) {
-	t.Skip("Pending requirement: Releases / What is released / A unit whose members are in two repositories is refused by name")
-	spec := newScenario(t)
-
-	_, refusal := spec.releasable().releaseWorkspace().planning(spec.releaseOf("system:storefront"))
-
-	spec.Expect(refusal).To(BeRefusedSaying("storefront's members are in services and platform; a unit is released from one repository"))
-}
-
-// Releases / What is released / Members of an independent system may be in two repositories.
-func TestMembersOfAnIndependentSystemMayBeInTwoRepositories(t *testing.T) {
-	t.Skip("Pending requirement: Releases / What is released / Members of an independent system may be in two repositories")
-	spec := newScenario(t)
-
-	workspace := spec.releasable().releases("system:storefront", "grouping: independent").releaseWorkspace()
-
-	plan := workspace.plan(spec.releaseOf("system:storefront"))
-
-	spec.Expect(plan.units()).To(ConsistOf("hello", "gateway"))
-}
-
-// Releases / What is released / A system with no members is refused by name.
-func TestASystemWithNoMembersIsRefusedByName(t *testing.T) {
-	t.Skip("Pending requirement: Releases / What is released / A system with no members is refused by name")
-	spec := newScenario(t)
-
-	workspace := spec.releasable().releases("system:empty").releaseWorkspace()
-
-	_, refusal := workspace.planning(spec.releaseOf("system:empty"))
-
-	spec.Expect(refusal).To(BeRefusedSaying("system:default/empty has no members to release"))
-}
-
-// Releases / What is released / Asking to release nothing is refused.
-func TestAskingToReleaseNothingIsRefused(t *testing.T) {
-	t.Skip("Pending requirement: Releases / What is released / Asking to release nothing is refused")
-	spec := newScenario(t)
-
-	_, refusal := spec.releasable().releaseWorkspace().planning()
-
-	spec.Expect(refusal).To(BeRefusedSaying("name what to release"))
-}
-
-// Releases / What is released / An entity named twice is refused, and a unit named by two of its members is one unit.
-func TestAnEntityNamedTwiceIsRefusedAndAUnitNamedByTwoOfItsMembersIsOneUnit(t *testing.T) {
-	t.Skip("Pending requirement: Releases / What is released / An entity named twice is refused, and a unit named by two of its members is one unit")
-	spec := newScenario(t)
-
-	workspace := spec.releasable().releaseWorkspace()
-
-	_, refusal := workspace.planning(spec.releaseOf("greet", "greet"))
-	plan := workspace.plan(spec.releaseOf("banner", "ticker"))
-
-	spec.Expect(refusal).To(BeRefusedSaying("component:default/greet is named twice"))
-	spec.Expect(plan.units()).To(Equal([]string{"kiosk"}))
-}
-
-// Releases / What is released / What each entity is released as is in the graph.
-func TestWhatEachEntityIsReleasedAsIsInTheGraph(t *testing.T) {
-	t.Skip("Pending requirement: Releases / What is released / What each entity is released as is in the graph")
-	spec := newScenario(t)
-
-	workspace := spec.releasable().releaseWorkspace()
-
-	spec.Expect(workspace.releasedAs("banner")).To(Equal("kiosk"))
-	spec.Expect(workspace.releasedAs("ticker")).To(Equal("kiosk"))
-	spec.Expect(workspace.releasedAs("greet")).To(Equal("greet"))
-}
-
-// Releases / What is released / A repository that lists no release plugin releases nothing, and says so.
-func TestARepositoryThatListsNoReleasePluginReleasesNothingAndSaysSo(t *testing.T) {
-	t.Skip("Pending requirement: Releases / What is released / A repository that lists no release plugin releases nothing, and says so")
-	spec := newScenario(t)
-
-	source := spec.releasable()
-	source.plugins["services"] = map[string][]string{"go": nil, "backstage": nil}
-	source.listing("services")
-
-	_, refusal := source.releaseWorkspace().planning(spec.releaseOf("greet"))
-
-	spec.Expect(refusal).To(BeRefusedSaying("services lists no release plugin; list it to release greet"))
-}
-
-// Releases / How settings resolve / A setting nobody wrote is the default, and is shown as one.
-func TestASettingNobodyWroteIsTheDefaultAndIsShownAsOne(t *testing.T) {
-	t.Skip("Pending requirement: Releases / How settings resolve / A setting nobody wrote is the default, and is shown as one")
-	spec := newScenario(t)
-
-	workspace := spec.releasable().releaseWorkspace()
-
-	spec.Expect(workspace.releaseSetting("greet", "grouping")).To(Equal(Setting{"synced", "the default"}))
-	spec.Expect(workspace.releaseSetting("greet", "tag")).To(Equal(Setting{"{unit}/v{version}", "the default"}))
-	spec.Expect(workspace.releaseSetting("greet", "initial")).To(Equal(Setting{"0.1.0", "the default"}))
-	spec.Expect(workspace.releaseSetting("greet", "versioning")).To(Equal(Setting{"release:conventional-commits", "the default"}))
-	spec.Expect(workspace.releaseSetting("greet", "branching")).To(Equal(Setting{"release:release-flow", "the default"}))
-}
-
-// Releases / How settings resolve / A system's settings are in the graph, as its members inherit them.
-func TestASystemSSettingsAreInTheGraphAsItsMembersInheritThem(t *testing.T) {
-	t.Skip("Pending requirement: Releases / How settings resolve / A system's settings are in the graph, as its members inherit them")
-	spec := newScenario(t)
-
-	workspace := spec.releasable().releases("system:kiosk", "initial: 1.0.0").releaseWorkspace()
-
-	spec.Expect(workspace.releaseSetting("kiosk", "initial")).To(Equal(Setting{"1.0.0", "system:default/kiosk"}))
-}
-
-// Releases / How settings resolve / A member inherits its system's settings.
-func TestAMemberInheritsItsSystemSSettings(t *testing.T) {
-	t.Skip("Pending requirement: Releases / How settings resolve / A member inherits its system's settings")
-	spec := newScenario(t)
-
-	workspace := spec.releasable().releases("system:kiosk", "initial: 1.0.0").releaseWorkspace()
-
-	spec.Expect(workspace.releaseSetting("banner", "initial")).To(Equal(Setting{"1.0.0", "system:default/kiosk"}))
-}
-
-// Releases / How settings resolve / A domain's settings reach the members of its systems.
-func TestADomainSSettingsReachTheMembersOfItsSystems(t *testing.T) {
-	t.Skip("Pending requirement: Releases / How settings resolve / A domain's settings reach the members of its systems")
-	spec := newScenario(t)
-
-	workspace := spec.releasable().releases("domain:retail", "initial: 2.0.0").releaseWorkspace()
-
-	spec.Expect(workspace.releaseSetting("ticker", "initial")).To(Equal(Setting{"2.0.0", "domain:default/retail"}))
-}
-
-// Releases / How settings resolve / The nearest level wins, key by key.
-func TestTheNearestLevelWinsKeyByKey(t *testing.T) {
-	t.Skip("Pending requirement: Releases / How settings resolve / The nearest level wins, key by key")
-	spec := newScenario(t)
-
-	workspace := spec.releasable().
-		releases("domain:retail", "initial: 2.0.0", "tag: retail-{unit}-{version}").
-		releases("system:kiosk", "initial: 1.0.0").
-		releaseWorkspace()
-
-	spec.Expect(workspace.releaseSetting("banner", "initial")).To(Equal(Setting{"1.0.0", "system:default/kiosk"}))
-	spec.Expect(workspace.releaseSetting("banner", "tag")).To(Equal(Setting{"retail-{unit}-{version}", "domain:default/retail"}))
-}
-
-// Releases / How settings resolve / A member of an independent group sets its own settings.
-func TestAMemberOfAnIndependentGroupSetsItsOwnSettings(t *testing.T) {
-	t.Skip("Pending requirement: Releases / How settings resolve / A member of an independent group sets its own settings")
-	spec := newScenario(t)
-
-	workspace := spec.releasable().
-		releases("system:kiosk", "grouping: independent", "initial: 1.0.0").
-		releases("banner", "initial: 3.0.0").
-		releaseWorkspace()
-
-	spec.Expect(workspace.releaseSetting("banner", "initial")).To(Equal(Setting{"3.0.0", "component:default/banner"}))
-	spec.Expect(workspace.releaseSetting("ticker", "initial")).To(Equal(Setting{"1.0.0", "system:default/kiosk"}))
-}
-
-// Releases / How settings resolve / A member of a synced group sets none of its group's settings / its tag.
-func TestItsTag(t *testing.T) {
-	t.Skip("Pending requirement: Releases / How settings resolve / A member of a synced group sets none of its group's settings / its tag")
-	spec := newScenario(t)
-
-	spec.expectGroupSettingRefused("tag: b-{version}", "tag")
-}
-
-// Releases / How settings resolve / A member of a synced group sets none of its group's settings / its first version.
-func TestItsFirstVersion(t *testing.T) {
-	t.Skip("Pending requirement: Releases / How settings resolve / A member of a synced group sets none of its group's settings / its first version")
-	spec := newScenario(t)
-
-	spec.expectGroupSettingRefused("initial: 1.0.0", "initial")
-}
-
-// Releases / How settings resolve / A member of a synced group sets none of its group's settings / its versioning.
-func TestItsVersioning(t *testing.T) {
-	t.Skip("Pending requirement: Releases / How settings resolve / A member of a synced group sets none of its group's settings / its versioning")
-	spec := newScenario(t)
-
-	spec.expectGroupSettingRefused("versioning: release:manual", "versioning")
-}
-
-// Releases / How settings resolve / A member of a synced group sets none of its group's settings / its branching.
-func TestItsBranching(t *testing.T) {
-	t.Skip("Pending requirement: Releases / How settings resolve / A member of a synced group sets none of its group's settings / its branching")
-	spec := newScenario(t)
-
-	spec.expectGroupSettingRefused("branching: release:github-flow", "branching")
-}
-
-// Releases / How settings resolve / A setting frontseat does not know is refused, naming the file and the key.
-func TestASettingFrontseatDoesNotKnowIsRefusedNamingTheFileAndTheKey(t *testing.T) {
-	t.Skip("Pending requirement: Releases / How settings resolve / A setting frontseat does not know is refused, naming the file and the key")
-	spec := newScenario(t)
-
-	workspace := spec.releasable().releases("greet", "channels: beta").releaseWorkspace()
-
-	_, refusal := workspace.planning(spec.releaseOf("greet"))
-
-	spec.Expect(refusal).To(BeRefusedSaying("greet/catalog-info.yaml: spec.frontseat.release.channels"))
-}
-
-// Releases / How settings resolve / A grouping is synced or independent.
-func TestAGroupingIsSyncedOrIndependent(t *testing.T) {
-	t.Skip("Pending requirement: Releases / How settings resolve / A grouping is synced or independent")
-	spec := newScenario(t)
-
-	workspace := spec.releasable().releases("greet", "grouping: locked").releaseWorkspace()
-
-	_, refusal := workspace.planning(spec.releaseOf("greet"))
-
-	spec.Expect(refusal).To(BeRefusedSaying("spec.frontseat.release.grouping must be synced or independent"))
-}
-
-// Releases / How settings resolve / A tag holds the version exactly once.
-func TestATagHoldsTheVersionExactlyOnce(t *testing.T) {
-	t.Skip("Pending requirement: Releases / How settings resolve / A tag holds the version exactly once")
-	spec := newScenario(t)
-
-	workspace := spec.releasable().releases("greet", "tag: '{unit}'").releaseWorkspace()
-
-	_, refusal := workspace.planning(spec.releaseOf("greet"))
-
-	spec.Expect(refusal).To(BeRefusedSaying("spec.frontseat.release.tag must hold {version} once"))
-}
-
-// Releases / How settings resolve / Two units of one repository whose tags are spelled alike are refused by name.
-func TestTwoUnitsOfOneRepositoryWhoseTagsAreSpelledAlikeAreRefusedByName(t *testing.T) {
-	t.Skip("Pending requirement: Releases / How settings resolve / Two units of one repository whose tags are spelled alike are refused by name")
-	spec := newScenario(t)
-
-	workspace := spec.releasable().releases("greet", "tag: v{version}").releases("system:kiosk", "tag: v{version}").releaseWorkspace()
-
-	_, refusal := workspace.planning(spec.releaseOf("greet"))
-
-	spec.Expect(refusal).To(BeRefusedSaying("greet and kiosk spell their tags alike in services: v{version}"))
-}
-
-// Releases / How settings resolve / A first version is a semantic version.
-func TestAFirstVersionIsASemanticVersion(t *testing.T) {
-	t.Skip("Pending requirement: Releases / How settings resolve / A first version is a semantic version")
-	spec := newScenario(t)
-
-	workspace := spec.releasable().releases("greet", "initial: '1.0'").releaseWorkspace()
-
-	_, refusal := workspace.planning(spec.releaseOf("greet"))
-
-	spec.Expect(refusal).To(BeRefusedSaying("spec.frontseat.release.initial is no semantic version"))
-}
-
-// Releases / Releasing / A release tags each unit that moves, at the commit it was planned from.
-func TestAReleaseTagsEachUnitThatMovesAtTheCommitItWasPlannedFrom(t *testing.T) {
-	t.Skip("Pending requirement: Releases / Releasing / A release tags each unit that moves, at the commit it was planned from")
-	spec := newScenario(t)
-
-	workspace := spec.fromMain().releaseWorkspace()
-
-	shipped := workspace.release(spec.releaseOf("greet"))
-
-	spec.Expect(shipped.state()).To(Equal("succeeded"))
-	spec.Expect(shipped.tagsOf("greet")).To(Equal([]string{"services:greet/v0.1.0"}))
-	spec.Expect(workspace.tagsAtHead("services")).To(ContainElement("greet/v0.1.0"))
-}
-
-// Releases / Releasing / A synced group is tagged once, with its unit's name.
-func TestASyncedGroupIsTaggedOnceWithItsUnitSName(t *testing.T) {
-	t.Skip("Pending requirement: Releases / Releasing / A synced group is tagged once, with its unit's name")
-	spec := newScenario(t)
-
-	workspace := spec.fromMain().releaseWorkspace()
-
-	shipped := workspace.release(spec.releaseOf("system:kiosk"))
-
-	spec.Expect(shipped.tagsOf("kiosk")).To(Equal([]string{"services:kiosk/v0.1.0"}))
-}
-
-// Releases / Releasing / An independent group's members are each tagged.
-func TestAnIndependentGroupSMembersAreEachTagged(t *testing.T) {
-	t.Skip("Pending requirement: Releases / Releasing / An independent group's members are each tagged")
-	spec := newScenario(t)
-
-	workspace := spec.fromMain().releases("system:kiosk", "grouping: independent").releaseWorkspace()
-
-	shipped := workspace.release(spec.releaseOf("system:kiosk"))
-
-	spec.Expect(shipped.tagsOf("banner")).To(Equal([]string{"services:banner/v0.1.0"}))
-	spec.Expect(shipped.tagsOf("ticker")).To(Equal([]string{"services:ticker/v0.1.0"}))
-}
-
-// Releases / Releasing / What a release builds is what a production build builds, and not a development one.
-func TestWhatAReleaseBuildsIsWhatAProductionBuildBuildsAndNotADevelopmentOne(t *testing.T) {
-	t.Skip("Pending requirement: Releases / Releasing / What a release builds is what a production build builds, and not a development one")
-	spec := newScenario(t)
-
-	workspace := spec.fromMain().releaseWorkspace()
-
-	shipped := workspace.release(spec.releaseOf("system:kiosk"))
-	production := workspace.build(production(), of("ticker"))
-	development := workspace.build(of("ticker"))
-
-	spec.Expect(shipped.built().action("//services/ticker:go.compile")).To(Equal(production.action("//services/ticker:go.compile")))
-	spec.Expect(shipped.built().action("//services/ticker:go.compile")).NotTo(Equal(development.action("//services/ticker:go.compile")))
-}
-
-// Releases / Releasing / A commit that carries a unit's tag is released: releasing it again completes it.
-func TestACommitThatCarriesAUnitSTagIsReleasedReleasingItAgainCompletesIt(t *testing.T) {
-	t.Skip("Pending requirement: Releases / Releasing / A commit that carries a unit's tag is released: releasing it again completes it")
-	spec := newScenario(t)
-
-	workspace := spec.fromMain().releaseWorkspace()
-	workspace.release(spec.releaseOf("greet"))
-
-	plan := workspace.plan(spec.releaseOf("greet"))
-	again := plan.release()
-
-	spec.Expect(plan.unit("greet").why()).To(Equal([]string{"released"}))
-	spec.Expect(plan.unit("greet").next()).To(Equal("0.1.0"))
-	spec.Expect(again.already("greet")).To(BeTrue())
-	spec.Expect(workspace.tagsAtHead("services")).To(Equal([]string{"greet/v0.1.0"}))
-}
-
-// Releases / Releasing / A unit whose tag is on an earlier commit, and that has not changed since, holds.
-func TestAUnitWhoseTagIsOnAnEarlierCommitAndThatHasNotChangedSinceHolds(t *testing.T) {
-	t.Skip("Pending requirement: Releases / Releasing / A unit whose tag is on an earlier commit, and that has not changed since, holds")
-	spec := newScenario(t)
-
-	workspace := spec.fromMain().releaseWorkspace().tagged("services", "greet/v1.0.0")
-	workspace.commits("fix: say more", "services/banner/banner.go")
-
-	spec.expectGreetUnchanged(workspace)
-}
-
-// Releases / Releasing / A unit that holds is neither built nor tagged, and one that moves beside it is both.
-func TestAUnitThatHoldsIsNeitherBuiltNorTaggedAndOneThatMovesBesideItIsBoth(t *testing.T) {
-	t.Skip("Pending requirement: Releases / Releasing / A unit that holds is neither built nor tagged, and one that moves beside it is both")
-	spec := newScenario(t)
-
-	workspace := spec.fromMain().releaseWorkspace().tagged("platform", "log/v1.0.0")
-	workspace.commits("chore: note it", "platform/gateway/main.go")
-
-	shipped := workspace.release(spec.releaseOf("greet", "log"))
-
-	spec.Expect(shipped.built().actions()).NotTo(ContainElement(HavePrefix("//platform/log:")))
-	spec.Expect(shipped.built().actions()).To(ContainElement(HavePrefix("//services/greet:")))
-	spec.Expect(workspace.tagsAtHead("platform")).To(BeEmpty())
-	spec.Expect(workspace.tagsAtHead("services")).To(ContainElement("greet/v0.1.0"))
-}
-
-// Releases / Releasing / A plan whose source moved since is refused, and planned again it is released.
-func TestAPlanWhoseSourceMovedSinceIsRefusedAndPlannedAgainItIsReleased(t *testing.T) {
-	t.Skip("Pending requirement: Releases / Releasing / A plan whose source moved since is refused, and planned again it is released")
-	spec := newScenario(t)
-
-	workspace := spec.fromMain().releaseWorkspace()
-	fresh, refusal := workspace.releasingAPlanOfGreetThatMoved()
-
-	spec.Expect(refusal).To(BeRefusedSaying("the plan is no longer what releasing would do; plan again"))
-	spec.Expect(fresh.state()).To(Equal("succeeded"))
-}
-
-// Releases / Releasing / Two daemons that plan one request at one commit come to one etag.
-func TestTwoDaemonsThatPlanOneRequestAtOneCommitComeToOneEtag(t *testing.T) {
-	t.Skip("Pending requirement: Releases / Releasing / Two daemons that plan one request at one commit come to one etag")
-	spec := newScenario(t)
-
-	source := spec.fromMain()
-
-	one := source.releaseWorkspace().plan(spec.releaseOf("greet"))
-	other := source.releaseWorkspace().plan(spec.releaseOf("greet"))
-
-	spec.Expect(other.etag()).To(Equal(one.etag()))
-}
-
-// Releases / Releasing / A plan of another commit, or of another request, has another etag.
-func TestAPlanOfAnotherCommitOrOfAnotherRequestHasAnotherEtag(t *testing.T) {
-	t.Skip("Pending requirement: Releases / Releasing / A plan of another commit, or of another request, has another etag")
-	spec := newScenario(t)
-
-	workspace := spec.fromMain().releaseWorkspace()
-	one := workspace.plan(spec.releaseOf("greet"))
-	asked := workspace.plan(spec.releaseOf("log"))
-
-	later := workspace.planAfterGreetChanges()
-
-	spec.Expect(asked.etag()).NotTo(Equal(one.etag()))
-	spec.Expect(later.etag()).NotTo(Equal(one.etag()))
-}
-
-// Releases / Releasing / A version already tagged on another commit is refused when planned.
-func TestAVersionAlreadyTaggedOnAnotherCommitIsRefusedWhenPlanned(t *testing.T) {
-	t.Skip("Pending requirement: Releases / Releasing / A version already tagged on another commit is refused when planned")
-	spec := newScenario(t)
-
-	workspace := spec.fromMain().releaseWorkspace()
-	workspace.onBranch("services", "elsewhere").
-		changesGreet("fix: somewhere else").
-		tagged("services", "greet/v0.1.0").
-		backFromBranch("services")
-
-	_, refusal := workspace.planning(spec.releaseOf("greet"))
-
-	spec.Expect(refusal).To(BeRefusedSaying("greet 0.1.0 is not new: greet/v0.1.0 names another commit"))
-}
-
-// Releases / Releasing / A unit whose build fails is not tagged, and one beside it that built is.
-func TestAUnitWhoseBuildFailsIsNotTaggedAndOneBesideItThatBuiltIs(t *testing.T) {
-	t.Skip("Pending requirement: Releases / Releasing / A unit whose build fails is not tagged, and one beside it that built is")
-	spec := newScenario(t)
-
-	workspace := spec.fromMain().releaseWorkspace()
-	workspace.write("services/greet/greet.go", "package greet\n\nfunc broken( {")
-	workspace.changesGreet("fix: break the greeting")
-
-	shipped := workspace.release(spec.releaseOf("greet", "log"))
-
-	spec.Expect(shipped.state()).To(Equal("failed"))
-	spec.Expect(workspace.tagsAtHead("services")).To(BeEmpty())
-	spec.Expect(workspace.tagsAtHead("platform")).To(ContainElement("log/v0.1.0"))
-}
-
-// What is served of releasing so far is planning, under Release Flow:
-// these are its use cases through the API, each from a release branch.
-// The specs above are the whole design, and wait for the rest.
 // Planning a release / A system is planned as one unit, of all its members, on one version and one tag.
 func TestASystemIsPlannedAsOneUnitOfAllItsMembersOnOneVersionAndOneTag(t *testing.T) {
 	t.Parallel()
@@ -714,6 +231,67 @@ func TestARepositoryThatListsNoReleasePluginIsRefusedSayingToListIt(t *testing.T
 	_, refusal := workspace.planning(spec.releaseOf("greet"))
 
 	spec.Expect(refusal).To(BeRefusedSaying("services lists no release plugin; list it to release greet"))
+}
+
+// Releases / How settings resolve / A setting nobody wrote is the default, and is shown as one.
+func TestASettingNobodyWroteIsTheDefaultAndIsShownAsOne(t *testing.T) {
+	t.Parallel()
+	spec := newScenario(t)
+
+	workspace := spec.releasable().releaseWorkspace()
+
+	spec.Expect(workspace.releaseSetting("greet", "tag")).To(Equal(Setting{"{unit}/v{version}", "the default"}))
+	spec.Expect(workspace.releaseSetting("greet", "initial")).To(Equal(Setting{"0.1.0", "the default"}))
+	spec.Expect(workspace.releaseSetting("greet", "versioning")).To(Equal(Setting{"release:conventional-commits", "the default"}))
+}
+
+// Releases / How settings resolve / A system's settings are in the graph, and its members inherit them.
+func TestASystemsSettingsAreInTheGraphAndItsMembersInheritThem(t *testing.T) {
+	t.Parallel()
+	spec := newScenario(t)
+
+	workspace := spec.releasable().releases("system:kiosk", "initial: 1.0.0").releaseWorkspace()
+
+	spec.Expect(workspace.releaseSetting("kiosk", "initial")).To(Equal(Setting{"1.0.0", "system:default/kiosk"}))
+	spec.Expect(workspace.releaseSetting("banner", "initial")).To(Equal(Setting{"1.0.0", "system:default/kiosk"}))
+}
+
+// Releases / How settings resolve / A domain's settings reach the members of its systems.
+func TestADomainsSettingsReachTheMembersOfItsSystems(t *testing.T) {
+	t.Parallel()
+	spec := newScenario(t)
+
+	workspace := spec.releasable().releases("domain:retail", "initial: 2.0.0").releaseWorkspace()
+
+	spec.Expect(workspace.releaseSetting("ticker", "initial")).To(Equal(Setting{"2.0.0", "domain:default/retail"}))
+}
+
+// Releases / How settings resolve / The nearest level wins, key by key.
+func TestTheNearestLevelWinsKeyByKey(t *testing.T) {
+	t.Parallel()
+	spec := newScenario(t)
+
+	workspace := spec.releasable().
+		releases("domain:retail", "initial: 2.0.0", "tag: retail-{unit}-{version}").
+		releases("system:kiosk", "initial: 1.0.0").
+		releaseWorkspace()
+
+	spec.Expect(workspace.releaseSetting("banner", "initial")).To(Equal(Setting{"1.0.0", "system:default/kiosk"}))
+	spec.Expect(workspace.releaseSetting("banner", "tag")).To(Equal(Setting{"retail-{unit}-{version}", "domain:default/retail"}))
+}
+
+// Releases / How settings resolve / A member of an independent group sets its own settings.
+func TestAMemberOfAnIndependentGroupSetsItsOwnSettings(t *testing.T) {
+	t.Parallel()
+	spec := newScenario(t)
+
+	workspace := spec.releasable().
+		releases("system:kiosk", "grouping: independent", "initial: 1.0.0").
+		releases("banner", "initial: 3.0.0").
+		releaseWorkspace()
+
+	spec.Expect(workspace.releaseSetting("banner", "initial")).To(Equal(Setting{"3.0.0", "component:default/banner"}))
+	spec.Expect(workspace.releaseSetting("ticker", "initial")).To(Equal(Setting{"1.0.0", "system:default/kiosk"}))
 }
 
 // Planning a release / A member of a synced group that says how it is released is refused, naming the setting.

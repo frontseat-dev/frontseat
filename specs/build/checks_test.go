@@ -1,8 +1,6 @@
 package build_test
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"go/format"
 	"os"
 	"path/filepath"
@@ -213,12 +211,6 @@ func TestARewritePatternThatReachesOutsideWhatTheCheckIsGivenIsRefusedByName(t *
 	workspace := spec.checkingEntity("escape", []string{"true"}, []string{"true"})
 	workspace.write("catalog-info.yaml", "apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata: {name: lab}\nspec:\n  type: service\n  lifecycle: production\n  owner: team\n  frontseat:\n    actions:\n      escape:\n        check: true\n        command: [\"true\"]\n        fix: [\"true\"]\n        inputs: [f.txt]\n        rewrites: [../other.txt]\n")
 	spec.Expect(workspace.build().says()).To(ContainSubstring("../other.txt"))
-}
-
-// digestOf is the SHA-256 of content, in hex, as a run names it.
-func digestOf(content string) string {
-	sum := sha256.Sum256([]byte(content))
-	return hex.EncodeToString(sum[:])
 }
 
 // ownCheck is an entity's own check: its command, and its fix.

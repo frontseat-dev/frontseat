@@ -295,7 +295,12 @@ the change that fixes it.
   says `grouping: synced` as one group. A System is synced unless it says
   independent; a Domain only where it says synced. Groups are the
   catalog's own containment (`spec.system`, `spec.domain`), never a list
-  a person writes. Held by: `specs/build/releases_test.go`.
+  a person writes. Held by the release specs that run
+  (`specs/build/releases_test.go`):
+  `TestASystemIsPlannedAsOneUnitOfAllItsMembersOnOneVersionAndOneTag`,
+  `TestADomainThatSaysNothingLeavesEachOfItsSystemsAGroupOfItsOwn`,
+  `TestADomainThatSaysSyncedIsOneGroupAcrossItsSystems` and
+  `TestAComponentOrASystemOfASyncedDomainIsReleasedWithItsDomainUnlessItSaysIndependent`.
 - A branch that releases nothing stable releases a prerelease, where
   its branching strategy says so (Release Flow: every branch that is no
   release branch): of the version its commits give since the unit's

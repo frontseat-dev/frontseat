@@ -23,8 +23,8 @@ import (
 //
 // What an editor does first is what the specs do: log in, look around,
 // copy something in, and reach a port inside.
-// Opening a workspace in an editor / You get a shell in the workspace.
-func TestYouGetAShellInTheWorkspace(t *testing.T) {
+// Opening a workspace in an editor / A command run over SSH starts in the workspace's directory.
+func TestACommandRunOverSSHStartsInTheWorkspacesDirectory(t *testing.T) {
 	spec := newScenario(t)
 
 	workspace := spec.theWorkspace()
