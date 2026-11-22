@@ -122,10 +122,12 @@ run = "if [ -x dist/bin/frontseat-local ]; then dist/bin/frontseat-local down; e
 # Plain `go test` is told of no modules, nor where the repository is
 # (FRONTSEAT_TEST_SRCDIR, which the gate tells every test it runs), and a
 # test that needs either says so.
-# go test by hand, over modules built a moment before: what follows
-# `--` is go test's own (`mise run go:test -- -race -run TestName ./server/internal/build/`).
+# go test by hand, over modules built a moment before, against the local
+# stack: what follows `--` is go test's own (`mise run go:test -- -race
+# -run TestName ./server/internal/build/`). With no stack, `go run
+# ./specs/cmd/gate test -no-stack -only DIR -- ARGS` (CONTRIBUTING.md).
 [tasks."go:test"]
-description = "Run go test with what follows --, over the wasm modules of this checkout"
+description = "Run go test with what follows --, over the wasm modules of this checkout, against the local stack"
 run = "go run ./specs/cmd/gate go-test"
 
 # What "done" is checked with. `check` needs no containers; `test` needs

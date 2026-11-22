@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/frontseat-dev/frontseat/server/testsupport/testgrid"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testrequired"
 )
 
@@ -18,7 +19,7 @@ func TestSharedCompanyOutlivesItsFirstTest(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer listener.Close()
-	t.Setenv("FRONTSEAT_TEST_GRID", listener.Addr().String())
+	t.Setenv(testgrid.Variable, listener.Addr().String())
 	// The grid is this test's own stand-in, so it needs no stack, and runs
 	// in the gate that runs with none.
 	t.Setenv(testrequired.Variable, "")
