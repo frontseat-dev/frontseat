@@ -6,8 +6,8 @@ mod fixture;
 
 use frontseat_plugin::Input;
 use frontseat_plugin::{
-    Action, Analysis, Code, Command, Coordinate, Description, Error, File, Handed, InputSet,
-    Origin, Plugin, Project, Provide, Repository, Requirement,
+    Action, ActionKind, Analysis, Build, Code, Command, Coordinate, Description, Error, File,
+    Handed, InputSet, Origin, Plugin, Project, Provide, Repository, Requirement,
 };
 
 struct Cohabiting;
@@ -81,6 +81,7 @@ impl Plugin for Cohabiting {
                         ..Default::default()
                     }),
                     inputs: vec![Input::source("go.mod"), Input::dependencies(directory)],
+                    kind: Some(ActionKind::Build(Build {})),
                     ..Default::default()
                 }],
                 ..Default::default()

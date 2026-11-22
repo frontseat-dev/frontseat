@@ -21,7 +21,7 @@ or host imports of its own.
 
 | Export | Signature | What it does |
 |---|---|---|
-| `frontseat_abi` | `() -> i32` | The ABI the module speaks. The host loads no module outside the range it supports. This document is ABI 24. |
+| `frontseat_abi` | `() -> i32` | The ABI the module speaks, and the one place it is said: `Describe` neither asks nor answers it. The host loads no module outside the range it supports, before it asks anything. This document is ABI 25. |
 | `frontseat_alloc` | `(size: i32) -> i32` | Returns the address of `size` bytes the host may write to. |
 | `frontseat_free` | `(ptr: i32, size: i32)` | Gives back what `frontseat_alloc` returned. |
 | `frontseat_call` | `(ptr: i32, size: i32) -> i64` | Takes a serialized `Call`, returns a serialized `Reply`. |
@@ -342,10 +342,21 @@ above the unit's highest release it is at least (`at_least`), where it
 is heading for more than its commits say. It never spells a prerelease:
 the host does, from the unit's own setting, the branch and the commit.
 
+## What an action is
+
+Every action is of one kind (`Action.kind`), and the host refuses one
+that says none: a step of a build (`Build`), a test (`Test`), a check
+(`Check`), a fetch of its project's lock (`Fetch`), a shared fetch
+(`SharedFetch`), a program to run (`Program`), a package (`Package`) or
+what publishes (`Publish`). What only one kind says is said in that
+kind: a test whether it may be idle, a check its fix and what the fix
+may change, a shared fetch its files and downloads, what publishes the
+variables it is given. So no action is two kinds at once, and nothing
+of one kind is said of another.
+
 ## What a project ships
 
-An action that makes what its project ships says it is a package
-(`Action.package`): a program for a platform, a packed module, an
+An action that makes what its project ships is of the kind `Package`: a program for a platform, a packed module, an
 archive, as its tool makes one. Each file it leaves is an artifact of
 the release that builds it, known by the file's own name. A plugin
 names nothing for a release and decides no layout of one: it lets its
@@ -367,13 +378,12 @@ packages named so, and those alone, are asked for and pointed at
 together, by `package`.
 
 Refused: a package that leaves nothing, a directory, or what it may not
-leave; one that is a test, a check, a fetch, a shared action or a
-program to run; and an action named as a package that is none.
+leave; and an action named as a package that is none.
 
 ## What publishes a release
 
-An action that sends what a release shipped somewhere says it publishes
-(`Action.publish`), and runs its tool's own way of doing so: a forge's
+An action that sends what a release shipped somewhere is of the kind
+`Publish`, and runs its tool's own way of doing so: a forge's
 command line, a registry's client. Nothing of frontseat's speaks to a
 forge or a registry for it.
 
@@ -410,7 +420,7 @@ pushed.
 
 Refused: one that runs nothing or names its program by something to be
 filled, leaves or reads something, or says
-where it runs; one that is anything else as well; a variable that is no
+where it runs; one said to be versioned; a variable that is no
 name a tool reads one by, or one the host sets; and
 `{frontseat.artifacts}` anywhere but as an argument by itself.
 
@@ -438,7 +448,7 @@ these in an action that is not versioned; one the host does not fill,
 or that does not close; one anywhere but an argument or a value of the
 environment, as in a fix, a directory, a name of the environment, an
 output, an input, a tool or a file; a versioned action that names none;
-and a versioned fetch, shared action or program to run.
+and a versioned fetch, shared fetch or program to run.
 
 What is filled in is data, and a tag is whatever the repository's
 catalog says a tag is, within what git allows a tag to be named: give
@@ -463,7 +473,7 @@ forms, never both:
 
 ## Programs
 
-An action may be a program to run: `Action.program`. Such
+An action may be a program to run, of the kind `Program`. Such
 an action is no step of a build: no build runs it, and a run
 (`RunService` of the build API) builds what it reads and then starts its
 command where the daemon is, in the daemon's sandbox, with the caller's
@@ -478,8 +488,7 @@ say is a program, as the Go plugin does for each directory that says
   only within prepared mise tools. Its inputs and tools are brought from the
   grid before a test service starts. Daemon `RunService` serves programs
   reading built artifacts alone and refuses source/tool preparation by name.
-- **It is nothing a build's action is**: no test, check, fetch or shared
-  action; it leaves nothing and has no fix.
+- **It leaves nothing.**
 - **Refused by name**: dependency inputs. What runs is the command, and
   its environment is the command's; ports, readiness, endpoints and
   exports are a service's, said in the catalog
@@ -507,13 +516,13 @@ runs.
   project, relative to it; empty is the project's own. One that is not a
   plain path beneath the project is refused. A Go package's test program
   runs in its package's directory, as the go command runs it.
-- **An action may have nothing to do** (`Action.idle_without_inputs`):
+- **A test may have nothing to do** (`Test.idle_without_inputs`):
   where an output of another action that it reads was not left, and that
   action may pass without leaving it (`Output.optional`), it is not run and
   ends idle, which fails nothing. A plugin whose tool decides on the worker
   what there is to do does not foretell it: the Go plugin's test of a
-  package is idle where the go command built no test program for it. An
-  action that says so and reads, by itself, no output another action may
+  package is idle where the go command built no test program for it. A
+  test that says so and reads, by itself, no output another action may
   pass without leaving is refused, as is one that says it leaves something.
 - **Not served yet, and refused by name**: a `directory` said by a fix or
   by a program to run.

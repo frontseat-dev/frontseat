@@ -22,7 +22,7 @@ func TestWhatIsReadAsCommittedIsGivenAsCommittedGeneratedSourceIncluded(t *testi
 		action := plan.Action{
 			Sources:          []pattern.Group{{Patterns: []string{"**"}, Committed: committed}},
 			GeneratedSources: []plan.GeneratedSource{{Directory: "gen", Patterns: []string{"**"}}},
-			Declared:         &pluginv1.Action{Test: true, Command: &pluginv1.Command{Arguments: []string{"true"}}},
+			Declared:         &pluginv1.Action{Kind: &pluginv1.Action_Test{Test: &pluginv1.Test{}}, Command: &pluginv1.Command{Arguments: []string{"true"}}},
 		}
 		staged, err := Of(t.Context(), snapshot, action, installed(), nil, nil)
 		if err != nil {

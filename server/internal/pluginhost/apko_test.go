@@ -40,12 +40,10 @@ func expectedApkoActions() []*pluginv1.Action {
 	fetch := func(architecture, name string, control, data uint64, sha1, sha256 string) *pluginv1.Action {
 		directory := cache + "https%3A%2F%2Fpackages.wolfi.dev%2Fos/" + architecture + "/" + name + "/"
 		return &pluginv1.Action{
-			Name: "fetch/packages.wolfi.dev/os/" + architecture + "/" + name + ".apk", Shared: true, Fetch: true,
-			Downloads: []*pluginv1.Download{{Url: "https://packages.wolfi.dev/os/" + architecture + "/" + name + ".apk", Parts: []*pluginv1.Part{
+			Name: "fetch/packages.wolfi.dev/os/" + architecture + "/" + name + ".apk", Kind: &pluginv1.Action_SharedFetch{SharedFetch: &pluginv1.SharedFetch{Downloads: []*pluginv1.Download{{Url: "https://packages.wolfi.dev/os/" + architecture + "/" + name + ".apk", Parts: []*pluginv1.Part{
 				{Offset: 0, Length: control, Sha1: sha1, Path: directory + sha1 + ".ctl.tar.gz"},
 				{Offset: control, Length: data, Sha256: sha256, Path: directory + sha256 + ".dat.tar.gz"},
-			}}},
-			Outputs: []*pluginv1.Output{{Path: directory}},
+			}}}}}, Outputs: []*pluginv1.Output{{Path: directory}},
 		}
 	}
 	image := func(name, architecture string) *pluginv1.Action {
@@ -54,14 +52,12 @@ func expectedApkoActions() []*pluginv1.Action {
 			Command: &pluginv1.Command{Arguments: []string{"apko", "build", "--offline", "--lockfile", "apko.lock.json", "--vcs=false", "--sbom=false", "--arch", architecture, "--", "apko.yaml", "image:latest", "oci/" + architecture}},
 			Inputs:  []*pluginv1.Input{pluginhost.SourceInput("apko.yaml"), pluginhost.SourceInput("apko.lock.json"), pluginhosttest.OutputInput(key), pluginhosttest.OutputInput("fetch/packages.wolfi.dev/os/" + architecture + "/wolfi-baselayout-20230201-r31.apk"), pluginhosttest.OutputInput("fetch/packages.wolfi.dev/os/" + architecture + "/ca-certificates-bundle-20261020-r0.apk")},
 			Outputs: []*pluginv1.Output{{Path: "oci/" + architecture + "/index.json"}, {Path: "oci/" + architecture + "/oci-layout"}, {Path: "oci/" + architecture + "/blobs/"}},
-			Tools:   []string{"apko"},
+			Tools:   []string{"apko"}, Kind: &pluginv1.Action_Build{Build: &pluginv1.Build{}},
 		}
 	}
 	return []*pluginv1.Action{
 		{
-			Name: key, Shared: true, Fetch: true,
-			Files:   []*pluginv1.File{{Path: cache + "https%3A%2F%2Fpackages.wolfi.dev%2F/os/wolfi-signing.rsa.pub/locked.etag", Content: []byte(wolfiKey)}},
-			Outputs: []*pluginv1.Output{{Path: cache + "https%3A%2F%2Fpackages.wolfi.dev%2F/os/wolfi-signing.rsa.pub/"}},
+			Name: key, Kind: &pluginv1.Action_SharedFetch{SharedFetch: &pluginv1.SharedFetch{Files: []*pluginv1.File{{Path: cache + "https%3A%2F%2Fpackages.wolfi.dev%2F/os/wolfi-signing.rsa.pub/locked.etag", Content: []byte(wolfiKey)}}}}, Outputs: []*pluginv1.Output{{Path: cache + "https%3A%2F%2Fpackages.wolfi.dev%2F/os/wolfi-signing.rsa.pub/"}},
 		},
 		fetch("aarch64", "wolfi-baselayout-20230201-r31", 2672, 11950, "ad14ff96b6c1571119761cabdaaaaddd2f208637", "e513ffdcd2b8b94d904e048e8fd27c4316471640535fa4676bacb6b82af0dfaa"),
 		fetch("aarch64", "ca-certificates-bundle-20261020-r0", 10741, 107832, "5317ede8161f00cabc1781a2f4ced0d97ae8994b", "a49fd4ea44bc2c8ce9e321ef0f17ee548f1176f0b274416514dfd0acfbb61576"),
@@ -75,7 +71,7 @@ func expectedApkoActions() []*pluginv1.Action {
 func apkoFixture(t *testing.T) conformance.Fixture {
 	context := &pluginv1.Context{Profile: pluginv1.Profile_PROFILE_DEVELOPMENT}
 	return arrangingNothing(context, conformance.Fixture{
-		Name: "apko", Description: &pluginv1.DescribeResponse{Name: "apko", Abi: 24, Interests: []string{"**/apko.lock.json", "!**/testdata/**"}},
+		Name: "apko", ABI: 25, Description: &pluginv1.DescribeResponse{Name: "apko", Interests: []string{"**/apko.lock.json", "!**/testdata/**"}},
 		Source: fixtureSource(t, "apko", "valid"), Absent: files{}, Malformed: fixtureSource(t, "apko", "malformed"), ErrorCode: "INVALID_LOCK",
 		Analyze:  &pluginv1.AnalyzeRequest{Context: context, Roots: []string{"app"}},
 		Projects: []*pluginv1.Project{{Root: "app", Name: "app", Kind: "apko-image", Manifest: "app/apko.lock.json", Actions: expectedApkoActions()}},

@@ -10,7 +10,7 @@ import (
 	"github.com/frontseat-dev/frontseat/server/internal/engine/graph"
 	"github.com/frontseat-dev/frontseat/server/internal/model"
 	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
-	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 type testOwner struct {
@@ -80,23 +80,17 @@ func testRuntimes(out *Evaluation, configured map[string][]config.TestRuntime, p
 		if len(setting.Tools) > 0 {
 			// Cached plugin replies are immutable. Only the plan's copy is
 			// extended; the next build must not inherit this configuration.
-			action.Declared = proto.Clone(action.Declared).(*pluginv1.Action)
-			for _, tool := range setting.Tools {
-				if !slices.Contains(action.Declared.Tools, tool) {
-					action.Declared.Tools = append(action.Declared.Tools, tool)
-				}
-			}
+			action.Declared = withTools(action.Declared, setting.Tools)
 		}
-		// A name the action's own command sets, or its fix's, cannot be
-		// given as written as well: said here, whether or not the build
-		// fixes, and of the file that wrote it.
+		// A name the action's own command sets cannot be given as written
+		// as well: said here, and of the file that wrote it. A test has no
+		// fix: only a check has one.
 		// Asked without sorting, since most are given none of them: the
 		// first by name is the one said.
 		twice := ""
 		for name := range setting.Environment {
 			_, command := action.Declared.GetCommand().GetEnvironment()[name]
-			_, fix := action.Declared.GetFix().GetEnvironment()[name]
-			if (command || fix) && (twice == "" || name < twice) {
+			if command && (twice == "" || name < twice) {
 				twice = name
 			}
 		}
@@ -106,4 +100,26 @@ func testRuntimes(out *Evaluation, configured map[string][]config.TestRuntime, p
 		action.Environment = setting.Environment
 	}
 	return nil
+}
+
+// withTools is a copy of a declared action that runs with the tools
+// named as well. Only its list of tools is its own: every other field is
+// the declared action's, which a plugin's cached reply holds and nothing
+// changes, so a copy as deep as proto.Clone's is not made for each test.
+func withTools(declared *pluginv1.Action, tools []string) *pluginv1.Action {
+	copied := &pluginv1.Action{}
+	into := copied.ProtoReflect()
+	declared.ProtoReflect().Range(func(field protoreflect.FieldDescriptor, value protoreflect.Value) bool {
+		into.Set(field, value)
+		return true
+	})
+	// Clipped, so that what is added is never written into the declared
+	// action's own list.
+	copied.Tools = slices.Clip(declared.Tools)
+	for _, tool := range tools {
+		if !slices.Contains(copied.Tools, tool) {
+			copied.Tools = append(copied.Tools, tool)
+		}
+	}
+	return copied
 }

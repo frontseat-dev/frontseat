@@ -38,7 +38,7 @@ func BenchmarkConflicting(b *testing.B) {
 			Label:       model.Label{Path: module, Plugin: "go", Name: "format"},
 			ProjectRoot: module,
 			Sources:     []pattern.Group{{Directory: module, Patterns: []string{"**/*.go"}}},
-			Declared:    &pluginv1.Action{Name: "format", Check: true, Rewrites: []string{"**/*.go"}, Fix: &pluginv1.Command{Arguments: []string{"gofmt", "-w", "."}}},
+			Declared:    &pluginv1.Action{Name: "format", Kind: &pluginv1.Action_Check{Check: &pluginv1.Check{Fix: &pluginv1.Command{Arguments: []string{"gofmt", "-w", "."}}, Rewrites: []string{"**/*.go"}}}},
 		})
 	}
 	snapshot, err := new(source.Keeper).Take(context.Background(), source.Tree{Root: root, Paths: map[string]string{"": "."}})

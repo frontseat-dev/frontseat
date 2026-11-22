@@ -12,8 +12,8 @@
 
 pub use crate::diagnostics::{Finding, Located, Unformatted};
 pub use crate::{
-    service_ready, Action, Analysis, BranchRequest, BranchResponse, Bump, Code, Command,
-    Coordinate, Description, Diagnostic, Download, Duration, Edit, Entity, EntityRef,
+    service_ready, Action, ActionKind, Analysis, BranchRequest, BranchResponse, Bump, Code,
+    Command, Coordinate, Description, Diagnostic, Download, Duration, Edit, Entity, EntityRef,
     EntityRelation, Error, File, GeneratedSource, Handed, Host, Input, InputSet, Origin, Output,
     Part, Plugin, PluginOption, Printed, Produced, Profile, Project, Provide, ReleaseCommit,
     Repository, Requirement, Resolved, Service, ServiceApi, ServiceCommandReady, ServiceHttpReady,

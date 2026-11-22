@@ -121,7 +121,7 @@ mod check_tests {
         let checks: Vec<(&str, bool)> = analysis.analyses[0].projects[0]
             .actions
             .iter()
-            .map(|action| (action.name.as_str(), action.check))
+            .map(|action| (action.name.as_str(), action.as_check().is_some()))
             .collect();
         assert_eq!(
             checks,

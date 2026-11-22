@@ -18,7 +18,7 @@ import (
 // with a test.
 func TestTestsAreWhatPluginsSayRunTestsAndWhatTheyNeed(t *testing.T) {
 	compile := Action{Label: model.Label{Path: "app", Plugin: "go", Name: "compile"}, Declared: &pluginv1.Action{Name: "compile"}}
-	tested := Action{Label: model.Label{Path: "app", Plugin: "go", Name: "check"}, Declared: &pluginv1.Action{Name: "check", Test: true}, Needs: []model.Label{compile.Label}}
+	tested := Action{Label: model.Label{Path: "app", Plugin: "go", Name: "check"}, Declared: &pluginv1.Action{Name: "check", Kind: &pluginv1.Action_Test{Test: &pluginv1.Test{}}}, Needs: []model.Label{compile.Label}}
 	lint := Action{Label: model.Label{Path: "app", Plugin: "go", Name: "lint"}, Declared: &pluginv1.Action{Name: "lint"}}
 	named := Action{Label: model.Label{Path: "docs", Plugin: "mk", Name: "test"}, Declared: &pluginv1.Action{Name: "test"}}
 	needed := []Action{compile, tested, lint, named}

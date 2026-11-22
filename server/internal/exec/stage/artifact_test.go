@@ -14,7 +14,7 @@ import (
 func TestArtifactOnlyHandoffCopiesNoSourceAndCannotReplaceReadSource(t *testing.T) {
 	snapshot := sourcetest.Taken(t, map[string]string{"app/package.json": "source", "app/modules/committed.js": "source"})
 	for _, readsModules := range []bool{false, true} {
-		action := plan.Action{ProjectRoot: "app", Sources: []pattern.Group{{Directory: "app", Patterns: []string{"package.json"}}}, Handed: []plan.Handed{{Root: "app", Into: ".", Artifacts: []plan.Read{{ProjectRoot: "app", Output: "modules/"}}}}, Declared: &pluginv1.Action{Command: &pluginv1.Command{Arguments: []string{"true"}}}}
+		action := plan.Action{ProjectRoot: "app", Sources: []pattern.Group{{Directory: "app", Patterns: []string{"package.json"}}}, Handed: []plan.Handed{{Root: "app", Into: ".", Artifacts: []plan.Read{{ProjectRoot: "app", Output: "modules/"}}}}, Declared: &pluginv1.Action{Command: &pluginv1.Command{Arguments: []string{"true"}}, Kind: &pluginv1.Action_Build{Build: &pluginv1.Build{}}}}
 		if readsModules {
 			action.Sources[0].Patterns = append(action.Sources[0].Patterns, "modules/**")
 		}

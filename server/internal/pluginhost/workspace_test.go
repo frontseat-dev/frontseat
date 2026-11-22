@@ -15,7 +15,7 @@ func packageAt(root, into string, workspaceFiles ...string) *pluginv1.AnalyzeRes
 	return &pluginv1.AnalyzeResponse{Analyses: []*pluginv1.Analysis{{Root: root, Projects: []*pluginv1.Project{{
 		Root: root, Kind: "cargo-package", Name: "hello", Manifest: root + "/Cargo.toml",
 		WorkspaceFiles: workspaceFiles,
-		Actions:        []*pluginv1.Action{{Name: "compile", Command: &pluginv1.Command{Arguments: []string{"cargo", "build"}}, Inputs: append([]*pluginv1.Input{pluginhost.SourceInput("**")}, pluginhosttest.AllDependencies(into)), Tools: []string{"rust"}}},
+		Actions:        []*pluginv1.Action{{Name: "compile", Command: &pluginv1.Command{Arguments: []string{"cargo", "build"}}, Inputs: append([]*pluginv1.Input{pluginhost.SourceInput("**")}, pluginhosttest.AllDependencies(into)), Tools: []string{"rust"}, Kind: &pluginv1.Action_Build{Build: &pluginv1.Build{}}}},
 	}}}}}
 }
 

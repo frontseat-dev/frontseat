@@ -32,8 +32,8 @@ func answered(service *typev1.Service) *pluginv1.ServiceResponse {
 
 func containerFixture(t testing.TB) conformance.Fixture {
 	return conformance.Fixture{
-		Name:        "container",
-		Description: &pluginv1.DescribeResponse{Name: "container", Abi: 24, Services: []string{"container"}},
+		Name: "container",
+		ABI:  25, Description: &pluginv1.DescribeResponse{Name: "container", Services: []string{"container"}},
 		Services: []conformance.ServiceCase{
 			// It adds nothing: what is written is what is started, and
 			// nothing written is nothing started, which the host refuses.
@@ -82,8 +82,8 @@ func postgresFixture(t testing.TB) conformance.Fixture {
 		}
 	}
 	return conformance.Fixture{
-		Name:        "postgres",
-		Description: &pluginv1.DescribeResponse{Name: "postgres", Abi: 24, Services: []string{"postgres"}},
+		Name: "postgres",
+		ABI:  25, Description: &pluginv1.DescribeResponse{Name: "postgres", Services: []string{"postgres"}},
 		Services: []conformance.ServiceCase{
 			{Request: asked(nil), Want: answered(defaults(nil))},
 			// What is written is kept, and the rest fits it: the server is

@@ -129,8 +129,7 @@ mod tests {
         assert_eq!(action.tools, ["gh"]);
         assert_eq!(
             action
-                .publish
-                .as_ref()
+                .as_publish()
                 .map(|publish| publish.environment.clone()),
             Some(vec!["GH_TOKEN".to_string()])
         );

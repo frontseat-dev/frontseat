@@ -10,7 +10,7 @@ import (
 )
 
 func versionedAction(versioned bool, arguments []string, environment map[string]string) *pluginv1.Action {
-	return &pluginv1.Action{Name: "compile", Versioned: versioned, Command: &pluginv1.Command{Arguments: arguments, Environment: environment}}
+	return &pluginv1.Action{Name: "compile", Versioned: versioned, Command: &pluginv1.Command{Arguments: arguments, Environment: environment}, Kind: &pluginv1.Action_Build{Build: &pluginv1.Build{}}}
 }
 
 // elsewhereIn is a versioned action that names the version in its
@@ -56,13 +56,13 @@ func TestAVersionedActionIsGivenTheVersionWhereItNamesIt(t *testing.T) {
 // something, and is a step of a build.
 func TestOnlyAVersionedActionNamesTheVersion(t *testing.T) {
 	fix := versionedAction(true, []string{"tool", "{frontseat.version}"}, nil)
-	fix.Check, fix.Fix, fix.Rewrites = true, &pluginv1.Command{Arguments: []string{"tool", "-w", "{frontseat.version}"}}, []string{"*.go"}
+	fix.Kind = &pluginv1.Action_Check{Check: &pluginv1.Check{Fix: &pluginv1.Command{Arguments: []string{"tool", "-w", "{frontseat.version}"}}, Rewrites: []string{"*.go"}}}
 	directory := versionedAction(true, []string{"tool", "{frontseat.version}"}, nil)
 	directory.Command.Directory = "{frontseat.unit}"
 	kinds := map[string]func(*pluginv1.Action){
-		"a fetch":          func(a *pluginv1.Action) { a.Fetch = true },
-		"a shared action":  func(a *pluginv1.Action) { a.Shared = true },
-		"a program to run": func(a *pluginv1.Action) { a.Program = true },
+		"a fetch":          func(a *pluginv1.Action) { a.Kind = &pluginv1.Action_Fetch{Fetch: &pluginv1.Fetch{}} },
+		"a shared fetch":   func(a *pluginv1.Action) { a.Kind = &pluginv1.Action_SharedFetch{SharedFetch: &pluginv1.SharedFetch{}} },
+		"a program to run": func(a *pluginv1.Action) { a.Kind = &pluginv1.Action_Program{Program: &pluginv1.Program{}} },
 	}
 	refused := map[string]struct {
 		action *pluginv1.Action

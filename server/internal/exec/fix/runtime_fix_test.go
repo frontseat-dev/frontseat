@@ -22,7 +22,7 @@ func TestAFixKeepsItsAuthorityUnderEverySpellingOfItsProject(t *testing.T) {
 			snapshot := sourcetest.Taken(t, map[string]string{"app/own.txt": "original"})
 			action := plan.Action{Label: model.Label{Path: "app", Plugin: "custom", Name: "format"}, ProjectRoot: project,
 				Sources:  []pattern.Group{{Directory: project, Patterns: []string{"*.txt"}}},
-				Declared: &pluginv1.Action{Name: "format", Check: true, Rewrites: []string{"*.txt"}, Fix: &pluginv1.Command{Arguments: []string{"sh", "-c", "printf changed > own.txt; printf new > new.txt"}}},
+				Declared: &pluginv1.Action{Name: "format", Kind: &pluginv1.Action_Check{Check: &pluginv1.Check{Fix: &pluginv1.Command{Arguments: []string{"sh", "-c", "printf changed > own.txt; printf new > new.txt"}}, Rewrites: []string{"*.txt"}}}},
 			}
 			changeable, err := fix.Changeable(t.Context(), snapshot, action)
 			if err != nil || !slices.Equal(changeable, []string{"app/own.txt"}) {
@@ -41,7 +41,7 @@ func TestAFixKeepsItsAuthorityUnderEverySpellingOfItsProject(t *testing.T) {
 func TestAFixIsGivenWhatItsTestIsGivenAsWritten(t *testing.T) {
 	snapshot := sourcetest.Taken(t, map[string]string{"own.txt": "original"})
 	action := plan.Action{Label: model.Label{Plugin: "fixture", Name: "test"}, Sources: []pattern.Group{{Patterns: []string{"*.txt"}}}, Environment: map[string]string{"TEST_REVIEW_VALUE": "configured"},
-		Declared: &pluginv1.Action{Name: "test", Test: true, Check: true, Rewrites: []string{"*.txt"}, Command: &pluginv1.Command{Arguments: []string{"true"}}, Fix: &pluginv1.Command{Arguments: []string{"sh", "-c", "printf '%s' \"$TEST_REVIEW_VALUE\" > own.txt"}}},
+		Declared: &pluginv1.Action{Name: "test", Kind: &pluginv1.Action_Check{Check: &pluginv1.Check{Fix: &pluginv1.Command{Arguments: []string{"sh", "-c", "printf '%s' \"$TEST_REVIEW_VALUE\" > own.txt"}}, Rewrites: []string{"*.txt"}}}, Command: &pluginv1.Command{Arguments: []string{"true"}}},
 	}
 	changes, err := (fix.Runner{Tools: &tools.Provisioner{}, Kept: t.TempDir()}).Run(t.Context(), snapshot, action)
 	if err != nil || len(changes) != 1 || string(changes[0].Content) != "configured" {
@@ -69,9 +69,7 @@ func TestAFixRefusesWhatItIsGivenTwice(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			action := plan.Action{Label: model.Label{Plugin: "fixture", Name: "test"}, Sources: []pattern.Group{{Patterns: []string{"*.txt"}}}, Environment: tc.given,
-				Declared: &pluginv1.Action{Name: "test", Test: true, Check: true, Rewrites: []string{"*.txt"},
-					Command: &pluginv1.Command{Arguments: []string{"true"}, Environment: map[string]string{"FROM_CHECK": "check"}},
-					Fix:     &pluginv1.Command{Arguments: []string{"sh", "-c", "printf '%s' \"$TEST_VALUE\" > own.txt"}, Environment: map[string]string{"FROM_FIX": "fix"}}},
+				Declared: &pluginv1.Action{Name: "test", Kind: &pluginv1.Action_Check{Check: &pluginv1.Check{Fix: &pluginv1.Command{Arguments: []string{"sh", "-c", "printf '%s' \"$TEST_VALUE\" > own.txt"}, Environment: map[string]string{"FROM_FIX": "fix"}}, Rewrites: []string{"*.txt"}}}, Command: &pluginv1.Command{Arguments: []string{"true"}, Environment: map[string]string{"FROM_CHECK": "check"}}},
 			}
 			changes, err := (fix.Runner{Tools: &tools.Provisioner{}, Kept: t.TempDir()}).Run(t.Context(), snapshot, action)
 			if tc.refused == "" {

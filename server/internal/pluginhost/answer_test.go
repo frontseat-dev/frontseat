@@ -27,8 +27,8 @@ func sound() *pluginv1.AnalyzeResponse {
 			{Name: "sources", Inputs: []*pluginv1.Input{pluginhost.SourceInput("go.mod"), pluginhost.SourceInput("**/*.go"), pluginhost.SourceInput("!**/testdata/**")}},
 		},
 		Actions: []*pluginv1.Action{
-			{Name: "fetch", Command: &pluginv1.Command{Arguments: []string{"go", "mod", "download"}}, Inputs: []*pluginv1.Input{pluginhost.SourceInput("go.mod")}, Outputs: []*pluginv1.Output{{Path: "~/go/pkg/mod/"}}, Tools: []string{"go"}, Fetch: true},
-			{Name: "compile", Command: &pluginv1.Command{Arguments: []string{"go", "build"}}, Inputs: append([]*pluginv1.Input{pluginhost.SetInput("sources"), pluginhosttest.OutputInput("fetch")}, pluginhosttest.AllDependencies(".frontseat/go/{name}")), Outputs: []*pluginv1.Output{{Path: "bin/"}}, Tools: []string{"go"}},
+			{Name: "fetch", Command: &pluginv1.Command{Arguments: []string{"go", "mod", "download"}}, Inputs: []*pluginv1.Input{pluginhost.SourceInput("go.mod")}, Outputs: []*pluginv1.Output{{Path: "~/go/pkg/mod/"}}, Tools: []string{"go"}, Kind: &pluginv1.Action_Fetch{Fetch: &pluginv1.Fetch{}}},
+			{Name: "compile", Command: &pluginv1.Command{Arguments: []string{"go", "build"}}, Inputs: append([]*pluginv1.Input{pluginhost.SetInput("sources"), pluginhosttest.OutputInput("fetch")}, pluginhosttest.AllDependencies(".frontseat/go/{name}")), Outputs: []*pluginv1.Output{{Path: "bin/"}}, Tools: []string{"go"}, Kind: &pluginv1.Action_Build{Build: &pluginv1.Build{}}},
 		},
 	}}}}}
 }
@@ -147,9 +147,8 @@ func shared() *pluginv1.AnalyzeResponse {
 	a := sound()
 	p := a.GetAnalyses()[0].GetProjects()[0]
 	p.Actions = append(p.Actions, &pluginv1.Action{
-		Name: "fetch/github.com/spf13/cobra@v1.8.1", Shared: true, Fetch: true, Tools: []string{"go"},
+		Name: "fetch/github.com/spf13/cobra@v1.8.1", Kind: &pluginv1.Action_SharedFetch{SharedFetch: &pluginv1.SharedFetch{Files: []*pluginv1.File{{Path: "go.mod", Content: []byte("module fetch.invalid\n")}, {Path: "go.sum", Content: []byte("github.com/spf13/cobra v1.8.1 h1:x=\n")}}}}, Tools: []string{"go"},
 		Command: &pluginv1.Command{Arguments: []string{"go", "mod", "download", "github.com/spf13/cobra@v1.8.1"}},
-		Files:   []*pluginv1.File{{Path: "go.mod", Content: []byte("module fetch.invalid\n")}, {Path: "go.sum", Content: []byte("github.com/spf13/cobra v1.8.1 h1:x=\n")}},
 		Outputs: []*pluginv1.Output{{Path: "~/go/pkg/mod/"}},
 	})
 	p.Actions[1].Inputs = append(p.Actions[1].Inputs, pluginhosttest.OutputInput("fetch/github.com/spf13/cobra@v1.8.1"))
@@ -195,7 +194,6 @@ func TestASharedActionIsHeldToWhatNoProjectGivesIt(t *testing.T) {
 		a.GetAnalyses()[0].GetProjects()[0].GetActions()[1].Inputs = []*pluginv1.Input{pluginhost.SetInput("sources"), pluginhosttest.OutputInput("fetch"), pluginhosttest.OutputInput(name)}
 	}
 	for name, change := range map[string]func(*pluginv1.AnalyzeResponse){
-		"a shared action that is no fetch": func(a *pluginv1.AnalyzeResponse) { fetch(a).Fetch = false },
 		"a shared action that reads source": func(a *pluginv1.AnalyzeResponse) {
 			fetch(a).Inputs = []*pluginv1.Input{pluginhost.SourceInput("go.mod")}
 		},
@@ -206,7 +204,6 @@ func TestASharedActionIsHeldToWhatNoProjectGivesIt(t *testing.T) {
 			fetch(a).Inputs = []*pluginv1.Input{pluginhosttest.OutputInput("fetch")}
 		},
 		"a shared action that leaves in project": func(a *pluginv1.AnalyzeResponse) { fetch(a).Outputs[0].Path = "bin/" },
-		"a shared action that is a check":        func(a *pluginv1.AnalyzeResponse) { fetch(a).Check = true },
 		"a shared action named as a project's":   func(a *pluginv1.AnalyzeResponse) { rename(a, "download") },
 		"a shared name of nothing":               func(a *pluginv1.AnalyzeResponse) { rename(a, "fetch/") },
 		"a shared name with an empty part":       func(a *pluginv1.AnalyzeResponse) { rename(a, "fetch/a//b") },
@@ -215,23 +212,19 @@ func TestASharedActionIsHeldToWhatNoProjectGivesIt(t *testing.T) {
 		"a shared name with a space":             func(a *pluginv1.AnalyzeResponse) { rename(a, "fetch/a b") },
 		"a shared name with a colon":             func(a *pluginv1.AnalyzeResponse) { rename(a, "fetch/a:b") },
 		"a shared name of an upper-case kind":    func(a *pluginv1.AnalyzeResponse) { rename(a, "Fetch/a") },
-		"a project's action with a slash":        func(a *pluginv1.AnalyzeResponse) { fetch(a).Shared = false; fetch(a).Files = nil },
-		"files on a project's action": func(a *pluginv1.AnalyzeResponse) {
-			p := a.GetAnalyses()[0].GetProjects()[0]
-			p.Actions[0].Files = []*pluginv1.File{{Path: "go.sum"}}
-		},
-		"a file out of its directory": func(a *pluginv1.AnalyzeResponse) { fetch(a).Files[0].Path = "../go.mod" },
-		"a file by its full path":     func(a *pluginv1.AnalyzeResponse) { fetch(a).Files[0].Path = "/go.mod" },
-		"a file with no name":         func(a *pluginv1.AnalyzeResponse) { fetch(a).Files[0].Path = "" },
-		"one file twice":              func(a *pluginv1.AnalyzeResponse) { fetch(a).Files[1].Path = "./go.mod" },
-		"a file in its home":          func(a *pluginv1.AnalyzeResponse) { fetch(a).Files[0].Path = ".frontseat/home/x" },
-		"a file that is a directory":  func(a *pluginv1.AnalyzeResponse) { fetch(a).Files[1].Path = "go.mod/x" },
-		"an output of its whole home": func(a *pluginv1.AnalyzeResponse) { fetch(a).Outputs[0].Path = "~/." },
+		"a project's action with a slash":        func(a *pluginv1.AnalyzeResponse) { fetch(a).Kind = &pluginv1.Action_Fetch{Fetch: &pluginv1.Fetch{}} },
+		"a file out of its directory":            func(a *pluginv1.AnalyzeResponse) { fetch(a).GetSharedFetch().Files[0].Path = "../go.mod" },
+		"a file by its full path":                func(a *pluginv1.AnalyzeResponse) { fetch(a).GetSharedFetch().Files[0].Path = "/go.mod" },
+		"a file with no name":                    func(a *pluginv1.AnalyzeResponse) { fetch(a).GetSharedFetch().Files[0].Path = "" },
+		"one file twice":                         func(a *pluginv1.AnalyzeResponse) { fetch(a).GetSharedFetch().Files[1].Path = "./go.mod" },
+		"a file in its home":                     func(a *pluginv1.AnalyzeResponse) { fetch(a).GetSharedFetch().Files[0].Path = ".frontseat/home/x" },
+		"a file that is a directory":             func(a *pluginv1.AnalyzeResponse) { fetch(a).GetSharedFetch().Files[1].Path = "go.mod/x" },
+		"an output of its whole home":            func(a *pluginv1.AnalyzeResponse) { fetch(a).Outputs[0].Path = "~/." },
 		"a name longer than the contract": func(a *pluginv1.AnalyzeResponse) {
 			rename(a, "fetch/"+strings.Repeat("a", pluginhost.SharedNameAtMost))
 		},
 		"files larger than the contract": func(a *pluginv1.AnalyzeResponse) {
-			fetch(a).Files[0].Content = make([]byte, pluginhost.SharedFilesAtMost+1)
+			fetch(a).GetSharedFetch().Files[0].Content = make([]byte, pluginhost.SharedFilesAtMost+1)
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -244,13 +237,13 @@ func TestASharedActionIsHeldToWhatNoProjectGivesIt(t *testing.T) {
 	}
 	// The control for the size: exactly as much as the contract allows.
 	a := shared()
-	fetch(a).Files = []*pluginv1.File{{Path: "go.sum", Content: make([]byte, pluginhost.SharedFilesAtMost)}}
+	fetch(a).GetSharedFetch().Files = []*pluginv1.File{{Path: "go.sum", Content: make([]byte, pluginhost.SharedFilesAtMost)}}
 	if err := pluginhost.CheckAnalysis("go", roots, a); err != nil {
 		t.Errorf("files exactly as large as allowed were refused: %v", err)
 	}
 	// The control for a directory: files in a directory of their own.
 	a = shared()
-	fetch(a).Files = []*pluginv1.File{{Path: "sub/go.sum"}, {Path: "sub/go.mod"}}
+	fetch(a).GetSharedFetch().Files = []*pluginv1.File{{Path: "sub/go.sum"}, {Path: "sub/go.mod"}}
 	if err := pluginhost.CheckAnalysis("go", roots, a); err != nil {
 		t.Errorf("files in a directory were refused: %v", err)
 	}
@@ -277,10 +270,7 @@ func downloading() *pluginv1.AnalyzeResponse {
 	a := sound()
 	p := a.GetAnalyses()[0].GetProjects()[0]
 	p.Actions = append(p.Actions, &pluginv1.Action{
-		Name: "fetch/itoa@1.0.18", Shared: true, Fetch: true,
-		Downloads: []*pluginv1.Download{{Url: "https://static.crates.io/crates/itoa/1.0.18/download", Sha256: strings.Repeat("8f", 32), Into: "~/.cargo/vendor/"}},
-		Files:     []*pluginv1.File{{Path: "~/.cargo/vendor/itoa-1.0.18/.cargo-checksum.json", Content: []byte(`{"files":{}}`)}},
-		Outputs:   []*pluginv1.Output{{Path: "~/.cargo/vendor/itoa-1.0.18/"}},
+		Name: "fetch/itoa@1.0.18", Kind: &pluginv1.Action_SharedFetch{SharedFetch: &pluginv1.SharedFetch{Files: []*pluginv1.File{{Path: "~/.cargo/vendor/itoa-1.0.18/.cargo-checksum.json", Content: []byte(`{"files":{}}`)}}, Downloads: []*pluginv1.Download{{Url: "https://static.crates.io/crates/itoa/1.0.18/download", Sha256: strings.Repeat("8f", 32), Into: "~/.cargo/vendor/"}}}}, Outputs: []*pluginv1.Output{{Path: "~/.cargo/vendor/itoa-1.0.18/"}},
 	})
 	p.Actions[1].Inputs = append(p.Actions[1].Inputs, pluginhosttest.OutputInput("fetch/itoa@1.0.18"))
 	return a
@@ -297,59 +287,58 @@ func TestASharedDownloadIsHeldToTheContract(t *testing.T) {
 	}
 	fetch := lastAction
 	for name, change := range map[string]func(*pluginv1.AnalyzeResponse){
-		"a project's action that downloads": func(a *pluginv1.AnalyzeResponse) {
-			p := a.GetAnalyses()[0].GetProjects()[0]
-			p.Actions[0].Downloads = fetch(a).Downloads
-		},
 		"a download with a command of its own": func(a *pluginv1.AnalyzeResponse) {
 			fetch(a).Command = &pluginv1.Command{Arguments: []string{"tar", "xzf", "x"}}
 		},
 		"a download that names a tool": func(a *pluginv1.AnalyzeResponse) { fetch(a).Tools = []string{"rust"} },
 		"a download over http": func(a *pluginv1.AnalyzeResponse) {
-			fetch(a).Downloads[0].Url = "http://static.crates.io/crates/itoa/1.0.18/download"
+			fetch(a).GetSharedFetch().Downloads[0].Url = "http://static.crates.io/crates/itoa/1.0.18/download"
 		},
-		"a download of a file":    func(a *pluginv1.AnalyzeResponse) { fetch(a).Downloads[0].Url = "file:///etc/passwd" },
-		"a download with no host": func(a *pluginv1.AnalyzeResponse) { fetch(a).Downloads[0].Url = "https:///crates/itoa" },
+		"a download of a file":    func(a *pluginv1.AnalyzeResponse) { fetch(a).GetSharedFetch().Downloads[0].Url = "file:///etc/passwd" },
+		"a download with no host": func(a *pluginv1.AnalyzeResponse) { fetch(a).GetSharedFetch().Downloads[0].Url = "https:///crates/itoa" },
 		"a download with a user": func(a *pluginv1.AnalyzeResponse) {
-			fetch(a).Downloads[0].Url = "https://me:secret@static.crates.io/crates/itoa/1.0.18/download"
+			fetch(a).GetSharedFetch().Downloads[0].Url = "https://me:secret@static.crates.io/crates/itoa/1.0.18/download"
 		},
-		"a download that is no address": func(a *pluginv1.AnalyzeResponse) { fetch(a).Downloads[0].Url = "::not a url" },
+		"a download that is no address": func(a *pluginv1.AnalyzeResponse) { fetch(a).GetSharedFetch().Downloads[0].Url = "::not a url" },
 		"a download with a query": func(a *pluginv1.AnalyzeResponse) {
-			fetch(a).Downloads[0].Url = "https://static.crates.io/crates/a?x=/1.0.0/download"
+			fetch(a).GetSharedFetch().Downloads[0].Url = "https://static.crates.io/crates/a?x=/1.0.0/download"
 		},
 		"a download with an escape": func(a *pluginv1.AnalyzeResponse) {
-			fetch(a).Downloads[0].Url = "https://static.crates.io/crates/%2e%2e/1.0.0/download"
+			fetch(a).GetSharedFetch().Downloads[0].Url = "https://static.crates.io/crates/%2e%2e/1.0.0/download"
 		},
 		"a download with an escaped letter": func(a *pluginv1.AnalyzeResponse) {
-			fetch(a).Downloads[0].Url = "https://static.crates.io/crates/it%6fa/1.0.18/download"
+			fetch(a).GetSharedFetch().Downloads[0].Url = "https://static.crates.io/crates/it%6fa/1.0.18/download"
 		},
 		"a download that climbs": func(a *pluginv1.AnalyzeResponse) {
-			fetch(a).Downloads[0].Url = "https://static.crates.io/crates/../../download"
+			fetch(a).GetSharedFetch().Downloads[0].Url = "https://static.crates.io/crates/../../download"
 		},
 		"a download with a dot step": func(a *pluginv1.AnalyzeResponse) {
-			fetch(a).Downloads[0].Url = "https://static.crates.io/crates/./itoa/1.0.18/download"
+			fetch(a).GetSharedFetch().Downloads[0].Url = "https://static.crates.io/crates/./itoa/1.0.18/download"
 		},
 		"a download with a slash twice": func(a *pluginv1.AnalyzeResponse) {
-			fetch(a).Downloads[0].Url = "https://static.crates.io/crates//itoa/1.0.18/download"
+			fetch(a).GetSharedFetch().Downloads[0].Url = "https://static.crates.io/crates//itoa/1.0.18/download"
 		},
-		"a download with no path":      func(a *pluginv1.AnalyzeResponse) { fetch(a).Downloads[0].Url = "https://static.crates.io" },
-		"a checksum that is too short": func(a *pluginv1.AnalyzeResponse) { fetch(a).Downloads[0].Sha256 = "8f42" },
-		"a checksum in upper case":     func(a *pluginv1.AnalyzeResponse) { fetch(a).Downloads[0].Sha256 = strings.Repeat("8F", 32) },
+		"a download with no path": func(a *pluginv1.AnalyzeResponse) {
+			fetch(a).GetSharedFetch().Downloads[0].Url = "https://static.crates.io"
+		},
+		"a checksum that is too short": func(a *pluginv1.AnalyzeResponse) { fetch(a).GetSharedFetch().Downloads[0].Sha256 = "8f42" },
+		"a checksum in upper case": func(a *pluginv1.AnalyzeResponse) {
+			fetch(a).GetSharedFetch().Downloads[0].Sha256 = strings.Repeat("8F", 32)
+		},
 		"a checksum with a prefix": func(a *pluginv1.AnalyzeResponse) {
-			fetch(a).Downloads[0].Sha256 = "sha256:" + strings.Repeat("8f", 32)[7:]
+			fetch(a).GetSharedFetch().Downloads[0].Sha256 = "sha256:" + strings.Repeat("8f", 32)[7:]
 		},
-		"unpacked into the project": func(a *pluginv1.AnalyzeResponse) { fetch(a).Downloads[0].Into = "vendor/" },
-		"unpacked above its home":   func(a *pluginv1.AnalyzeResponse) { fetch(a).Downloads[0].Into = "~/../tools/" },
-		"unpacked by a full path":   func(a *pluginv1.AnalyzeResponse) { fetch(a).Downloads[0].Into = "/tmp/" },
+		"unpacked into the project": func(a *pluginv1.AnalyzeResponse) { fetch(a).GetSharedFetch().Downloads[0].Into = "vendor/" },
+		"unpacked above its home":   func(a *pluginv1.AnalyzeResponse) { fetch(a).GetSharedFetch().Downloads[0].Into = "~/../tools/" },
+		"unpacked by a full path":   func(a *pluginv1.AnalyzeResponse) { fetch(a).GetSharedFetch().Downloads[0].Into = "/tmp/" },
 		"the same address twice": func(a *pluginv1.AnalyzeResponse) {
-			fetch(a).Downloads = append(fetch(a).Downloads, fetch(a).Downloads[0])
+			fetch(a).GetSharedFetch().Downloads = append(fetch(a).GetSharedFetch().Downloads, fetch(a).GetSharedFetch().Downloads[0])
 		},
-		"a file of its home that leaves it": func(a *pluginv1.AnalyzeResponse) { fetch(a).Files[0].Path = "~/../.cargo/config.toml" },
-		"a file that is its home":           func(a *pluginv1.AnalyzeResponse) { fetch(a).Files[0].Path = "~/" },
+		"a file of its home that leaves it": func(a *pluginv1.AnalyzeResponse) { fetch(a).GetSharedFetch().Files[0].Path = "~/../.cargo/config.toml" },
+		"a file that is its home":           func(a *pluginv1.AnalyzeResponse) { fetch(a).GetSharedFetch().Files[0].Path = "~/" },
 		"a file of its home given twice": func(a *pluginv1.AnalyzeResponse) {
-			fetch(a).Files = append(fetch(a).Files, &pluginv1.File{Path: "~/.cargo/vendor/itoa-1.0.18/./.cargo-checksum.json"})
+			fetch(a).GetSharedFetch().Files = append(fetch(a).GetSharedFetch().Files, &pluginv1.File{Path: "~/.cargo/vendor/itoa-1.0.18/./.cargo-checksum.json"})
 		},
-		"a download that is no fetch": func(a *pluginv1.AnalyzeResponse) { fetch(a).Fetch = false },
 		"a download that reads source": func(a *pluginv1.AnalyzeResponse) {
 			fetch(a).Inputs = []*pluginv1.Input{pluginhost.SourceInput("Cargo.lock")}
 		},
@@ -365,7 +354,7 @@ func TestASharedDownloadIsHeldToTheContract(t *testing.T) {
 	// The controls: two downloads of one fetch into one directory, and a
 	// shared fetch that runs a tool and downloads nothing, as before.
 	a := downloading()
-	fetch(a).Downloads = append(fetch(a).Downloads, &pluginv1.Download{Url: "https://static.crates.io/crates/cfg-if/1.0.0/download", Sha256: strings.Repeat("ba", 32), Into: "~/.cargo/vendor/"})
+	fetch(a).GetSharedFetch().Downloads = append(fetch(a).GetSharedFetch().Downloads, &pluginv1.Download{Url: "https://static.crates.io/crates/cfg-if/1.0.0/download", Sha256: strings.Repeat("ba", 32), Into: "~/.cargo/vendor/"})
 	if err := pluginhost.CheckAnalysis("cargo", roots, a); err != nil {
 		t.Errorf("two downloads into one directory were refused: %v", err)
 	}
@@ -398,7 +387,7 @@ func TestAnOutputIsWrittenPlainly(t *testing.T) {
 func TestNoProjectIsWhereAnActionsHomeIs(t *testing.T) {
 	answer := func(root string) *pluginv1.AnalyzeResponse {
 		return &pluginv1.AnalyzeResponse{Analyses: []*pluginv1.Analysis{{Projects: []*pluginv1.Project{{Root: root, Name: "a", Kind: "go-module", Manifest: root + "/go.mod",
-			Actions: []*pluginv1.Action{{Name: "compile", Command: &pluginv1.Command{Arguments: []string{"true"}}, Outputs: []*pluginv1.Output{{Path: "home/x"}}}}}}}}}
+			Actions: []*pluginv1.Action{{Name: "compile", Command: &pluginv1.Command{Arguments: []string{"true"}}, Outputs: []*pluginv1.Output{{Path: "home/x"}}, Kind: &pluginv1.Action_Build{Build: &pluginv1.Build{}}}}}}}}}
 	}
 	for _, allowed := range []string{"a", ".frontseatx", "x/.frontseat", ".hidden"} {
 		if err := pluginhost.CheckAnalysis("go", nil, answer(allowed)); err != nil {
@@ -421,13 +410,10 @@ func cutting() *pluginv1.AnalyzeResponse {
 	a := sound()
 	p := a.GetAnalyses()[0].GetProjects()[0]
 	p.Actions = append(p.Actions, &pluginv1.Action{
-		Name: "fetch/packages.wolfi.dev/os/aarch64/busybox-1.37.0-r50", Shared: true, Fetch: true,
-		Downloads: []*pluginv1.Download{{Url: "https://packages.wolfi.dev/os/aarch64/busybox-1.37.0-r50.apk", Parts: []*pluginv1.Part{
+		Name: "fetch/packages.wolfi.dev/os/aarch64/busybox-1.37.0-r50", Kind: &pluginv1.Action_SharedFetch{SharedFetch: &pluginv1.SharedFetch{Files: []*pluginv1.File{{Path: "~/.cache/apk/keys/wolfi.rsa.pub", Content: []byte("key")}}, Downloads: []*pluginv1.Download{{Url: "https://packages.wolfi.dev/os/aarch64/busybox-1.37.0-r50.apk", Parts: []*pluginv1.Part{
 			{Offset: 0, Length: 982, Sha1: strings.Repeat("1a", 20), Path: "~/.cache/apk/busybox/control.tar.gz"},
 			{Offset: 982, Length: 1301, Sha256: strings.Repeat("2b", 32), Path: "~/.cache/apk/busybox/data.tar.gz"},
-		}}},
-		Files:   []*pluginv1.File{{Path: "~/.cache/apk/keys/wolfi.rsa.pub", Content: []byte("key")}},
-		Outputs: []*pluginv1.Output{{Path: "~/.cache/apk/"}},
+		}}}}}, Outputs: []*pluginv1.Output{{Path: "~/.cache/apk/"}},
 	})
 	p.Actions[1].Inputs = append(p.Actions[1].Inputs, pluginhosttest.OutputInput("fetch/packages.wolfi.dev/os/aarch64/busybox-1.37.0-r50"))
 	return a
@@ -441,7 +427,9 @@ func TestADownloadCutIntoPartsIsHeldToTheContract(t *testing.T) {
 	if err := pluginhost.CheckAnalysis("cargo", roots, cutting()); err != nil {
 		t.Fatalf("a sound download in parts was refused, so this test proves nothing: %v", err)
 	}
-	download := func(a *pluginv1.AnalyzeResponse) *pluginv1.Download { return lastAction(a).Downloads[0] }
+	download := func(a *pluginv1.AnalyzeResponse) *pluginv1.Download {
+		return lastAction(a).GetSharedFetch().Downloads[0]
+	}
 	fetch := lastAction
 	for name, change := range map[string]func(*pluginv1.AnalyzeResponse){
 		"a checksum of the whole beside parts":    func(a *pluginv1.AnalyzeResponse) { download(a).Sha256 = strings.Repeat("8f", 32) },
@@ -480,7 +468,7 @@ func TestADownloadCutIntoPartsIsHeldToTheContract(t *testing.T) {
 			}
 		},
 		"one download unpacked and another cut": func(a *pluginv1.AnalyzeResponse) {
-			fetch(a).Downloads = append(fetch(a).Downloads, &pluginv1.Download{Url: "https://static.crates.io/crates/itoa/1.0.18/download", Sha256: strings.Repeat("8f", 32), Into: "~/.cargo/vendor/"})
+			fetch(a).GetSharedFetch().Downloads = append(fetch(a).GetSharedFetch().Downloads, &pluginv1.Download{Url: "https://static.crates.io/crates/itoa/1.0.18/download", Sha256: strings.Repeat("8f", 32), Into: "~/.cargo/vendor/"})
 		},
 		"a command beside parts": func(a *pluginv1.AnalyzeResponse) {
 			fetch(a).Command = &pluginv1.Command{Arguments: []string{"apk", "fetch"}}
@@ -525,14 +513,14 @@ func TestARefusedDownloadOrNameIsNotRepeated(t *testing.T) {
 		change func(*pluginv1.Action)
 	}{
 		"a download with a user and a password": {downloading, func(a *pluginv1.Action) {
-			a.Downloads[0].Url = "https://me:v4lue@static.crates.io/crates/itoa/1.0.18/download"
+			a.GetSharedFetch().Downloads[0].Url = "https://me:v4lue@static.crates.io/crates/itoa/1.0.18/download"
 		}},
 		"a download with a value as its user": {downloading, func(a *pluginv1.Action) {
-			a.Downloads[0].Url = "https://v4lue@static.crates.io/crates/itoa/1.0.18/download"
+			a.GetSharedFetch().Downloads[0].Url = "https://v4lue@static.crates.io/crates/itoa/1.0.18/download"
 		}},
-		"a download that is no address": {downloading, func(a *pluginv1.Action) { a.Downloads[0].Url = "::v4lue" }},
+		"a download that is no address": {downloading, func(a *pluginv1.Action) { a.GetSharedFetch().Downloads[0].Url = "::v4lue" }},
 		"a download with a value as its query": {downloading, func(a *pluginv1.Action) {
-			a.Downloads[0].Url = "https://static.crates.io/crates/itoa/1.0.18/download?sig=v4lue"
+			a.GetSharedFetch().Downloads[0].Url = "https://static.crates.io/crates/itoa/1.0.18/download?sig=v4lue"
 		}},
 		"a program given a name with a value": {running, func(a *pluginv1.Action) {
 			a.Command.Environment["NAME=v4lue"] = "y"
@@ -556,7 +544,7 @@ func running() *pluginv1.AnalyzeResponse {
 		Name:    "run/hello",
 		Command: &pluginv1.Command{Arguments: []string{"bin/hello", "--serve"}, Environment: map[string]string{"GREETING": "hello"}},
 		Inputs:  []*pluginv1.Input{pluginhosttest.OutputInput("compile")},
-		Program: true,
+		Kind:    &pluginv1.Action_Program{Program: &pluginv1.Program{}},
 	})
 	return a
 }
@@ -584,13 +572,7 @@ func TestAnActionThatIsAProgramIsHeldToWhatOneIs(t *testing.T) {
 		"a name with a directory":          {func(a *pluginv1.Action) { a.Name = "run/cmd/hello" }, "not named run"},
 		"a name that is a parent":          {func(a *pluginv1.Action) { a.Name = "run/.." }, "not named run"},
 		"a name with a space":              {func(a *pluginv1.Action) { a.Name = "run/a b" }, "not named run"},
-		"a test":                           {func(a *pluginv1.Action) { a.Test = true }, "step of a build too"},
-		"a check":                          {func(a *pluginv1.Action) { a.Check = true }, "step of a build too"},
-		"a fetch":                          {func(a *pluginv1.Action) { a.Fetch = true }, "step of a build too"},
-		"a shared action":                  {func(a *pluginv1.Action) { a.Shared = true }, "step of a build too"},
-		"a fix":                            {func(a *pluginv1.Action) { a.Fix = &pluginv1.Command{Arguments: []string{"x"}} }, "has a fix"},
 		"an output":                        {func(a *pluginv1.Action) { a.Outputs = []*pluginv1.Output{{Path: "out/"}} }, "leaves something"},
-		"files":                            {func(a *pluginv1.Action) { a.Files = []*pluginv1.File{{Path: "x"}} }, "files or downloads"},
 		"what its project requires":        {func(a *pluginv1.Action) { a.Inputs = append(a.Inputs, pluginhosttest.AllDependencies("deps/{name}")) }, "not served yet"},
 		"no program":                       {func(a *pluginv1.Action) { a.Command = nil }, "names no program"},
 		"nothing read":                     {func(a *pluginv1.Action) { a.Inputs = nil }, "reads nothing"},
@@ -605,8 +587,6 @@ func TestAnActionThatIsAProgramIsHeldToWhatOneIs(t *testing.T) {
 		"a name that sets another":         {func(a *pluginv1.Action) { a.Command.Environment["HOME=/x"] = "y" }, "no name of a variable"},
 		"an empty name":                    {func(a *pluginv1.Action) { a.Command.Environment[""] = "y" }, "no name of a variable"},
 		"a name with a nul":                {func(a *pluginv1.Action) { a.Command.Environment["A\x00B"] = "y" }, "no name of a variable"},
-		"downloads":                        {func(a *pluginv1.Action) { a.Downloads = []*pluginv1.Download{{Url: "https://example.com/x"}} }, "files or downloads"},
-		"what it may change":               {func(a *pluginv1.Action) { a.Rewrites = []string{"**/*.go"} }, "has a fix"},
 		"a name past the longest":          {func(a *pluginv1.Action) { a.Name = "run/" + strings.Repeat("a", pluginhost.SharedNameAtMost) }, "more than the"},
 	} {
 		a := running()
@@ -643,9 +623,9 @@ func pieced() *pluginv1.AnalyzeResponse {
 	a := sound()
 	p := a.GetAnalyses()[0].GetProjects()[0]
 	p.Actions = append(p.Actions,
-		&pluginv1.Action{Name: "test-build", Command: &pluginv1.Command{Arguments: []string{"go", "test", "-c"}}, Inputs: []*pluginv1.Input{pluginhost.SetInput("sources")}, Outputs: []*pluginv1.Output{{Path: "_tests/0/hello.test"}, {Path: "_tests/0/ledger.test"}}, Tools: []string{"go"}},
-		&pluginv1.Action{Name: "test/.", Command: &pluginv1.Command{Arguments: []string{"./_tests/0/hello.test"}}, Inputs: []*pluginv1.Input{pluginhosttest.OutputInput("_tests/0/hello.test"), pluginhost.SourceInput("testdata/**")}, Test: true},
-		&pluginv1.Action{Name: "test/internal/ledger", Command: &pluginv1.Command{Arguments: []string{"../../_tests/0/ledger.test"}, Directory: "internal/ledger"}, Inputs: []*pluginv1.Input{pluginhosttest.OutputInput("_tests/0/ledger.test"), pluginhost.SourceInput("internal/ledger/testdata/**")}, Test: true},
+		&pluginv1.Action{Name: "test-build", Command: &pluginv1.Command{Arguments: []string{"go", "test", "-c"}}, Inputs: []*pluginv1.Input{pluginhost.SetInput("sources")}, Outputs: []*pluginv1.Output{{Path: "_tests/0/hello.test"}, {Path: "_tests/0/ledger.test"}}, Tools: []string{"go"}, Kind: &pluginv1.Action_Build{Build: &pluginv1.Build{}}},
+		&pluginv1.Action{Name: "test/.", Command: &pluginv1.Command{Arguments: []string{"./_tests/0/hello.test"}}, Inputs: []*pluginv1.Input{pluginhosttest.OutputInput("_tests/0/hello.test"), pluginhost.SourceInput("testdata/**")}, Kind: &pluginv1.Action_Test{Test: &pluginv1.Test{}}},
+		&pluginv1.Action{Name: "test/internal/ledger", Command: &pluginv1.Command{Arguments: []string{"../../_tests/0/ledger.test"}, Directory: "internal/ledger"}, Inputs: []*pluginv1.Input{pluginhosttest.OutputInput("_tests/0/ledger.test"), pluginhost.SourceInput("internal/ledger/testdata/**")}, Kind: &pluginv1.Action_Test{Test: &pluginv1.Test{}}},
 	)
 	return a
 }
@@ -667,7 +647,8 @@ func TestTestsInPiecesAndWhereACommandRunsAreHeldToTheContract(t *testing.T) {
 		change func(*pluginv1.AnalyzeResponse)
 		says   string
 	}{
-		"a piece that is no test":    {func(a *pluginv1.AnalyzeResponse) { piece(a).Test = false }, "is no test"},
+		"a piece that is no test":    {func(a *pluginv1.AnalyzeResponse) { piece(a).Kind = &pluginv1.Action_Build{Build: &pluginv1.Build{}} }, "is no test"},
+		"an action of no kind":       {func(a *pluginv1.AnalyzeResponse) { piece(a).Kind = nil }, "says no kind"},
 		"a piece of nothing":         {func(a *pluginv1.AnalyzeResponse) { piece(a).Name = "test/" }, "nor test, a slash"},
 		"a piece that climbs":        {func(a *pluginv1.AnalyzeResponse) { piece(a).Name = "test/.." }, "nor test, a slash"},
 		"a piece written two ways":   {func(a *pluginv1.AnalyzeResponse) { piece(a).Name = "test/internal/../internal/ledger" }, "nor test, a slash"},
@@ -686,35 +667,35 @@ func TestTestsInPiecesAndWhereACommandRunsAreHeldToTheContract(t *testing.T) {
 		"a shard of a shard":                  {func(a *pluginv1.AnalyzeResponse) { piece(a).Name = "test/internal/ledger@1of2@1of2" }, "is no shard's"},
 		"a shard of no piece":                 {func(a *pluginv1.AnalyzeResponse) { piece(a).Name = "test/@1of2" }, "is no shard's"},
 		"an action idle without what it reads, that reads nothing of another": {func(a *pluginv1.AnalyzeResponse) {
-			piece(a).IdleWithoutInputs, piece(a).Inputs = true, []*pluginv1.Input{pluginhost.SourceInput("internal/ledger/testdata/**")}
+			piece(a).GetTest().IdleWithoutInputs, piece(a).Inputs = true, []*pluginv1.Input{pluginhost.SourceInput("internal/ledger/testdata/**")}
 		}, "reads no output another action may pass without leaving"},
-		"an action idle without an output its action always leaves": {func(a *pluginv1.AnalyzeResponse) { piece(a).IdleWithoutInputs = true }, "reads no output another action may pass without leaving"},
+		"an action idle without an output its action always leaves": {func(a *pluginv1.AnalyzeResponse) { piece(a).GetTest().IdleWithoutInputs = true }, "reads no output another action may pass without leaving"},
 		"an action idle without all an action leaves": {func(a *pluginv1.AnalyzeResponse) {
-			piece(a).IdleWithoutInputs, piece(a).Inputs = true, []*pluginv1.Input{pluginhosttest.OutputInput("test-build")}
+			piece(a).GetTest().IdleWithoutInputs, piece(a).Inputs = true, []*pluginv1.Input{pluginhosttest.OutputInput("test-build")}
 		}, "reads no output another action may pass without leaving"},
 		// With an output that may not be left in the project, beside it.
 		"an action idle without all an action leaves, one of them optional": {func(a *pluginv1.AnalyzeResponse) {
 			actions(a)[2].Outputs[0].Optional = true
-			piece(a).IdleWithoutInputs, piece(a).Inputs = true, []*pluginv1.Input{pluginhosttest.OutputInput("test-build")}
+			piece(a).GetTest().IdleWithoutInputs, piece(a).Inputs = true, []*pluginv1.Input{pluginhosttest.OutputInput("test-build")}
 		}, "reads no output another action may pass without leaving"},
 		"an action idle without an output always left, beside one that may not be": {func(a *pluginv1.AnalyzeResponse) {
 			actions(a)[2].Outputs[0].Optional = true
-			piece(a).IdleWithoutInputs = true
+			piece(a).GetTest().IdleWithoutInputs = true
 		}, "reads no output another action may pass without leaving"},
 		"an action that may be idle and says it leaves something": {func(a *pluginv1.AnalyzeResponse) {
 			for _, output := range actions(a)[2].Outputs {
 				output.Optional = true
 			}
-			piece(a).IdleWithoutInputs, piece(a).Outputs = true, []*pluginv1.Output{{Path: "internal/ledger/report.txt"}}
+			piece(a).GetTest().IdleWithoutInputs, piece(a).Outputs = true, []*pluginv1.Output{{Path: "internal/ledger/report.txt"}}
 		}, "an action that may not run leaves nothing"},
 		"one piece twice": {func(a *pluginv1.AnalyzeResponse) { piece(a).Name = "test/." }, "twice"},
 		"the whole of the tests beside pieces of them": {func(a *pluginv1.AnalyzeResponse) {
 			p := a.GetAnalyses()[0].GetProjects()[0]
-			p.Actions = append(p.Actions, &pluginv1.Action{Name: "test", Command: &pluginv1.Command{Arguments: []string{"go", "test"}}, Test: true})
+			p.Actions = append(p.Actions, &pluginv1.Action{Name: "test", Command: &pluginv1.Command{Arguments: []string{"go", "test"}}, Kind: &pluginv1.Action_Test{Test: &pluginv1.Test{}}})
 		}, "never both"},
 		"pieces after the whole of the tests": {func(a *pluginv1.AnalyzeResponse) {
 			p := a.GetAnalyses()[0].GetProjects()[0]
-			p.Actions = append([]*pluginv1.Action{{Name: "test", Command: &pluginv1.Command{Arguments: []string{"go", "test"}}, Test: true}}, p.Actions...)
+			p.Actions = append([]*pluginv1.Action{{Name: "test", Command: &pluginv1.Command{Arguments: []string{"go", "test"}}, Kind: &pluginv1.Action_Test{Test: &pluginv1.Test{}}}}, p.Actions...)
 		}, "never both"},
 		"a directory above the project":         {func(a *pluginv1.AnalyzeResponse) { piece(a).Command.Directory = ".." }, "not a plain path beneath the project"},
 		"a directory that climbs out":           {func(a *pluginv1.AnalyzeResponse) { piece(a).Command.Directory = "internal/../../other" }, "not a plain path beneath the project"},
@@ -729,9 +710,8 @@ func TestTestsInPiecesAndWhereACommandRunsAreHeldToTheContract(t *testing.T) {
 		"a directory written from the home":     {func(a *pluginv1.AnalyzeResponse) { piece(a).Command.Directory = "~/x" }, "not a plain path beneath the project"},
 		"the project's directory, said":         {func(a *pluginv1.AnalyzeResponse) { piece(a).Command.Directory = "." }, "not a plain path beneath the project"},
 		"a fix that says where it runs": {func(a *pluginv1.AnalyzeResponse) {
-			actions(a)[1].Check, actions(a)[1].Outputs = true, nil
-			actions(a)[1].Fix = &pluginv1.Command{Arguments: []string{"gofmt", "-w", "."}, Directory: "internal"}
-			actions(a)[1].Rewrites = []string{"**/*.go"}
+			actions(a)[1].Outputs = nil
+			actions(a)[1].Kind = &pluginv1.Action_Check{Check: &pluginv1.Check{Fix: &pluginv1.Command{Arguments: []string{"gofmt", "-w", "."}, Directory: "internal"}, Rewrites: []string{"**/*.go"}}}
 		}, "which is not served yet"},
 	} {
 		answer := pieced()
@@ -744,7 +724,7 @@ func TestTestsInPiecesAndWhereACommandRunsAreHeldToTheContract(t *testing.T) {
 	// The control for an action that may be idle: one that reads an
 	// output of another.
 	idle := pieced()
-	piece(idle).IdleWithoutInputs = true
+	piece(idle).GetTest().IdleWithoutInputs = true
 	for _, output := range actions(idle)[2].Outputs {
 		output.Optional = true
 	}
@@ -790,7 +770,7 @@ func TestTestsInPiecesAndWhereACommandRunsAreHeldToTheContract(t *testing.T) {
 	// A program to run says nowhere to run.
 	running := sound()
 	project := running.GetAnalyses()[0].GetProjects()[0]
-	project.Actions = append(project.Actions, &pluginv1.Action{Name: "run/hello", Command: &pluginv1.Command{Arguments: []string{"bin/hello"}}, Inputs: []*pluginv1.Input{pluginhosttest.OutputInput("compile")}, Program: true})
+	project.Actions = append(project.Actions, &pluginv1.Action{Name: "run/hello", Command: &pluginv1.Command{Arguments: []string{"bin/hello"}}, Inputs: []*pluginv1.Input{pluginhosttest.OutputInput("compile")}, Kind: &pluginv1.Action_Program{Program: &pluginv1.Program{}}})
 	if err := pluginhost.CheckAnalysis("go", roots, running); err != nil {
 		t.Fatalf("a sound program to run was refused, so what follows proves nothing: %v", err)
 	}

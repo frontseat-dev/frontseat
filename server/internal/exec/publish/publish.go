@@ -1,4 +1,4 @@
-// Package publish runs what publishes a release (Action.publish) where
+// Package publish runs what publishes a release (the action kind Publish) where
 // the daemon is: its tool's own way of sending a release somewhere, a
 // forge's command line or a registry's client, with the tools the
 // repository pins, brought from the grid. It is given its unit's

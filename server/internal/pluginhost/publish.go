@@ -15,9 +15,9 @@ import (
 // as a tool reads one, in capitals, digits and underscores.
 var variable = regexp.MustCompile(`^[A-Z_][A-Z0-9_]*$`)
 
-// CheckPublish holds an action that says it publishes (Action.publish)
-// to what the contract says of one: it runs something, leaves nothing,
-// and is nothing else, since no build runs it and nothing reads it; the
+// CheckPublish holds an action of the kind Publish to what the contract
+// says of one: it runs something, leaves nothing, and is not said to be
+// versioned, since it is filled whether or not it says so; the
 // variables it is given are each named as a tool reads one, once, and
 // none is one the host sets; and the artifacts it is given are an
 // argument by themselves, since they are many. What is the action, as a
@@ -27,18 +27,9 @@ func CheckPublish(what string, action *pluginv1.Action) error {
 	if publish == nil {
 		return nil
 	}
-	kind := otherKind(action)
 	switch {
-	case kind != "":
-	case action.GetPackage():
-		kind = "a package"
 	case action.GetVersioned():
-		kind = "said to be versioned, which one that publishes is"
-	}
-	if kind != "" {
-		return fmt.Errorf("%s publishes, and is %s: one that publishes is that alone", what, kind)
-	}
-	switch {
+		return fmt.Errorf("%s publishes, and is said to be versioned, which one that publishes is", what)
 	case len(action.GetCommand().GetArguments()) == 0:
 		return fmt.Errorf("%s publishes and runs nothing", what)
 	case strings.Contains(action.GetCommand().GetArguments()[0], begins):

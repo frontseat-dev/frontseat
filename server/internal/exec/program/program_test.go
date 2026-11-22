@@ -78,7 +78,7 @@ func action(arguments ...string) plan.Action {
 			Name:    "run/hello",
 			Command: &pluginv1.Command{Arguments: arguments, Environment: map[string]string{"GREETING": "hello"}},
 			Inputs:  []*pluginv1.Input{{Kind: &pluginv1.Input_Output{Output: "compile"}}},
-			Program: true,
+			Kind:    &pluginv1.Action_Program{Program: &pluginv1.Program{}},
 		},
 	}
 }
@@ -271,7 +271,7 @@ func TestWhatIsNotAProgramThatWasBroughtIsNotRun(t *testing.T) {
 		"one file alone":                 {action("~/go/bin/hello"), map[string]execport.Held{home: {Digest: execport.Digest{Hash: "bin"}}}, "one file alone is not served yet"},
 		"an action that is no program": {func() plan.Action {
 			a := action("~/go/bin/hello")
-			a.Declared.Program = false
+			a.Declared.Kind = &pluginv1.Action_Build{Build: &pluginv1.Build{}}
 			return a
 		}(), map[string]execport.Held{home: held("bin")}, "is no program"},
 	} {

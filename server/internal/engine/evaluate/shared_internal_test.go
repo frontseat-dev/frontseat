@@ -23,7 +23,10 @@ func TestNeedingASharedFetchDependsOnNoEntity(t *testing.T) {
 	for _, shared := range []bool{false, true} {
 		fetch := plan.Action{
 			Label:    model.Label{Path: "lab", Plugin: "go", Name: "fetch/example.com/dep@v1.0.0"},
-			Declared: &pluginv1.Action{Name: "fetch/example.com/dep@v1.0.0", Shared: shared, Fetch: true},
+			Declared: &pluginv1.Action{Name: "fetch/example.com/dep@v1.0.0", Kind: &pluginv1.Action_Fetch{Fetch: &pluginv1.Fetch{}}},
+		}
+		if shared {
+			fetch.Declared.Kind = &pluginv1.Action_SharedFetch{SharedFetch: &pluginv1.SharedFetch{}}
 		}
 		compile := plan.Action{
 			Label:    model.Label{Path: "lab/tool", Plugin: "go", Name: "compile"},
@@ -41,7 +44,7 @@ func TestNeedingASharedFetchDependsOnNoEntity(t *testing.T) {
 // it; two that declare it differently are refused, and both are named.
 func TestASharedFetchIsTakenOnceAndOnlyAlike(t *testing.T) {
 	declared := func(sum string) *pluginv1.Action {
-		return &pluginv1.Action{Name: "fetch/example.com/dep@v1.0.0", Shared: true, Fetch: true, Files: []*pluginv1.File{{Path: "go.sum", Content: []byte(sum)}}}
+		return &pluginv1.Action{Name: "fetch/example.com/dep@v1.0.0", Kind: &pluginv1.Action_SharedFetch{SharedFetch: &pluginv1.SharedFetch{Files: []*pluginv1.File{{Path: "go.sum", Content: []byte(sum)}}}}}
 	}
 	var out Evaluation
 	for _, root := range []string{"tool", "tool/kit"} {
@@ -63,7 +66,7 @@ func TestASharedFetchIsTakenOnceAndOnlyAlike(t *testing.T) {
 func TestASharedFetchIsGivenNoFileWhereThePinsAre(t *testing.T) {
 	for _, at := range []string{"mise.toml", "./mise.lock", "mise.toml.d/go.sum"} {
 		var out Evaluation
-		err := out.share("lab", "go", "tool", &pluginv1.Action{Name: "fetch/a.com/x@v1.0.0", Shared: true, Fetch: true, Files: []*pluginv1.File{{Path: at}}})
+		err := out.share("lab", "go", "tool", &pluginv1.Action{Name: "fetch/a.com/x@v1.0.0", Kind: &pluginv1.Action_SharedFetch{SharedFetch: &pluginv1.SharedFetch{Files: []*pluginv1.File{{Path: at}}}}})
 		if beside := at == "mise.toml.d/go.sum"; beside != (err == nil) {
 			t.Errorf("a file at %s: %v", at, err)
 		}

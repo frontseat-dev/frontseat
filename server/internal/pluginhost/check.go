@@ -30,9 +30,6 @@ func checkDescription(d *pluginv1.DescribeResponse) error {
 	if !name.MatchString(d.GetName()) {
 		return fmt.Errorf("the plugin's name %q is not lower-case [a-z0-9-]", d.GetName())
 	}
-	if d.GetAbi() < MinABI || d.GetAbi() > MaxABI {
-		return fmt.Errorf("plugin %s says it speaks ABI %d, and this host loads %d to %d", d.GetName(), d.GetAbi(), MinABI, MaxABI)
-	}
 	// What it reads is said in the contract's pattern language, of files
 	// beneath the repository's root, as an action's source inputs are.
 	for _, interest := range d.GetInterests() {
@@ -467,20 +464,21 @@ func checkProject(plugin, root string, project *pluginv1.Project, found map[stri
 	var required map[[2]string]bool
 	tested := map[bool]string{}
 	for _, action := range project.GetActions() {
-		if action.GetProgram() {
+		switch action.GetKind().(type) {
+		case nil:
+			return wrong("the action %q says no kind: an action is a step of a build, a test, a check, a fetch, a shared fetch, a program, a package or what publishes", action.GetName())
+		case *pluginv1.Action_Program:
 			if err := checkProgram(action); err != nil {
 				return wrong("%v", err)
 			}
-		} else if action.GetShared() {
+		case *pluginv1.Action_SharedFetch:
 			if err := checkShared(action); err != nil {
 				return wrong("%v", err)
 			}
-		} else if err := checkNamed(action); err != nil {
-			return wrong("%v", err)
-		} else if len(action.GetFiles()) > 0 {
-			return wrong("the action %q is given files, which only a shared action is", action.GetName())
-		} else if len(action.GetDownloads()) > 0 {
-			return wrong("the action %q downloads, which only a shared action does", action.GetName())
+		default:
+			if err := checkNamed(action); err != nil {
+				return wrong("%v", err)
+			}
 		}
 		if seen[action.GetName()] {
 			return wrong("it declares the action %q twice", action.GetName())
@@ -488,7 +486,7 @@ func checkProject(plugin, root string, project *pluginv1.Project, found map[stri
 		seen[action.GetName()] = true
 		// A project's tests are one action or pieces, never both: asked
 		// for its tests, a run would test what a piece tests twice.
-		if kind, _, pieced := strings.Cut(action.GetName(), "/"); kind == "test" && !action.GetShared() {
+		if kind, _, pieced := strings.Cut(action.GetName(), "/"); kind == "test" && action.GetSharedFetch() == nil {
 			if other, had := tested[!pieced]; had {
 				return wrong("it declares the tests %q and %q: a project's tests are one action named test, or pieces of it, never both", other, action.GetName())
 			}
@@ -504,8 +502,9 @@ func checkProject(plugin, root string, project *pluginv1.Project, found map[stri
 		// host unpacks what it downloaded. One whose lock holds the
 		// whole of what it fetches, as an apk lock holds a signing key,
 		// downloads nothing either: its files are what it leaves.
-		whole := action.GetShared() && len(action.GetFiles()) > 0 && len(action.GetOutputs()) > 0
-		if len(action.GetCommand().GetArguments()) == 0 && len(action.GetDownloads()) == 0 && !whole {
+		shared := action.GetSharedFetch()
+		whole := shared != nil && len(shared.GetFiles()) > 0 && len(action.GetOutputs()) > 0
+		if len(action.GetCommand().GetArguments()) == 0 && len(shared.GetDownloads()) == 0 && !whole {
 			return wrong("the action %q runs nothing", action.GetName())
 		}
 		what := "the action " + action.GetName()
@@ -514,7 +513,7 @@ func checkProject(plugin, root string, project *pluginv1.Project, found map[stri
 				return wrong("%v", err)
 			}
 		}
-		if err := CheckRewrites(what, action.GetRewrites()); err != nil {
+		if err := CheckRewrites(what, action.GetCheck().GetRewrites()); err != nil {
 			return wrong("%v", err)
 		}
 		if err := CheckFix(what, action); err != nil {
@@ -530,7 +529,7 @@ func checkProject(plugin, root string, project *pluginv1.Project, found map[stri
 		}
 		// Few actions are packages: one that is none is not named to
 		// be looked at.
-		if action.GetPackage() {
+		if action.GetPackage() != nil {
 			if err := CheckPackage(what, action); err != nil {
 				return wrong("%v", err)
 			}
@@ -609,7 +608,7 @@ func checkProvidedArtifacts(project *pluginv1.Project) error {
 		var paths []string
 		for _, artifact := range provide.GetArtifacts() {
 			action := actions[artifact.GetAction()]
-			if action == nil || action.GetShared() || action.GetProgram() {
+			if action == nil || action.GetSharedFetch() != nil || action.GetProgram() != nil || action.GetPublish() != nil {
 				return fmt.Errorf("provided artifact %q names no finite action of its project", artifact.GetAction())
 			}
 			output := artifact.GetOutput()
@@ -661,7 +660,7 @@ func checkNamed(action *pluginv1.Action) error {
 		switch {
 		case !packageName.MatchString(n) || !pattern.Local(piece) || path.Clean(piece) != piece:
 			return fmt.Errorf("the action name %q is not package, a slash and what it is a package of", n)
-		case !action.GetPackage():
+		case action.GetPackage() == nil:
 			return fmt.Errorf("the action %q is named as a package of the project, and is no package", n)
 		}
 		return nil
@@ -677,7 +676,7 @@ func checkNamed(action *pluginv1.Action) error {
 		return nil
 	case !pieceName.MatchString(n) || !pattern.Local(piece) || path.Clean(piece) != piece:
 		return fmt.Errorf("the action name %q is not lower-case [a-z0-9-], nor test, a slash and the piece of the tests it is", n)
-	case !action.GetTest():
+	case action.GetTest() == nil:
 		return fmt.Errorf("the action %q is named as a piece of the project's tests, and is no test", n)
 	case strings.Contains(piece, "@") && !shardOf(piece):
 		return fmt.Errorf("the action name %q holds an @ and is no shard's: a shard is named its piece, @, which it is and of how many, as test/internal/ledger@2of4", n)
@@ -713,7 +712,7 @@ func checkShards(project *pluginv1.Project) error {
 	whole := map[string]bool{}
 	for _, action := range project.GetActions() {
 		kind, piece, pieced := strings.Cut(action.GetName(), "/")
-		if kind != "test" || !pieced || action.GetShared() {
+		if kind != "test" || !pieced || action.GetSharedFetch() != nil {
 			continue
 		}
 		parts := shardName.FindStringSubmatch(piece)
@@ -749,11 +748,8 @@ func checkShards(project *pluginv1.Project) error {
 // action may pass without leaving, since nothing else can be lacking;
 // and to being a step of a build, which a program to run is not.
 func checkIdle(project *pluginv1.Project, action *pluginv1.Action) error {
-	if !action.GetIdleWithoutInputs() {
+	if !action.GetTest().GetIdleWithoutInputs() {
 		return nil
-	}
-	if action.GetProgram() {
-		return fmt.Errorf("the action %q is a program to run, and says it has nothing to do without what it reads, which is said of a step of a build", action.GetName())
 	}
 	// An action that may not run leaves nothing another can count on:
 	// what read its output would find nothing there, and run.
@@ -783,16 +779,16 @@ func checkIdle(project *pluginv1.Project, action *pluginv1.Action) error {
 // one is refused by name, since nothing serves it.
 func checkDirectory(action *pluginv1.Action) error {
 	n := action.GetName()
-	if action.GetFix().GetDirectory() != "" {
+	if action.GetCheck().GetFix().GetDirectory() != "" {
 		return fmt.Errorf("the fix of the action %q says where it runs, which is not served yet", n)
 	}
 	directory := action.GetCommand().GetDirectory()
 	switch {
 	case directory == "":
 		return nil
-	case action.GetProgram():
+	case action.GetProgram() != nil:
 		return fmt.Errorf("the action %q is a program to run, and says where it runs, which is not served yet", n)
-	case action.GetShared():
+	case action.GetSharedFetch() != nil:
 		return fmt.Errorf("the shared action %q says where it runs: it runs in a directory of its own", n)
 	case !plainDirectory(directory):
 		return fmt.Errorf("the action %q runs in %q, which is not a plain path beneath the project", n, directory)
@@ -828,11 +824,12 @@ const VersionAtMost = 256
 // named, a slash, and what it is of.
 var sharedName = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*/[A-Za-z0-9._~+@/-]+$`)
 
-// checkShared holds a shared action to what no project gives it: it is a
-// fetch, reads no source, is handed nothing, needs nothing, leaves only
-// what its home holds, and is given files of its own directory alone.
+// checkShared holds a shared fetch to what no project gives it: it reads
+// no source, is handed nothing, needs nothing, leaves only what its home
+// holds, and is given files of its own directory alone.
 func checkShared(action *pluginv1.Action) error {
 	n := action.GetName()
+	shared := action.GetSharedFetch()
 	kind, of, _ := strings.Cut(n, "/")
 	switch {
 	case len(n) > SharedNameAtMost:
@@ -841,15 +838,11 @@ func checkShared(action *pluginv1.Action) error {
 		return fmt.Errorf("the shared action name %q is not a kind, a slash and what it is of", n)
 	case kind == "test":
 		return fmt.Errorf("the shared action %q is named as a piece of a project's tests, which only a test is", n)
-	case !action.GetFetch():
-		return fmt.Errorf("the shared action %q is no fetch: only a fetch is shared", n)
 	case len(action.GetInputs()) > 0:
 		return fmt.Errorf("the shared action %q reads source, which no project gives it", n)
-	case action.GetCheck() || action.GetTest() || action.GetFix() != nil || len(action.GetRewrites()) > 0:
-		return fmt.Errorf("the shared action %q checks, tests or fixes; it only fetches", n)
-	case len(action.GetDownloads()) > 0 && len(action.GetCommand().GetArguments()) > 0:
+	case len(shared.GetDownloads()) > 0 && len(action.GetCommand().GetArguments()) > 0:
 		return fmt.Errorf("the shared action %q downloads and runs a command; one that downloads runs nothing of its own", n)
-	case len(action.GetDownloads()) > 0 && len(action.GetTools()) > 0:
+	case len(shared.GetDownloads()) > 0 && len(action.GetTools()) > 0:
 		return fmt.Errorf("the shared action %q downloads and names tools; one that downloads runs nothing of its own", n)
 	}
 	for _, output := range action.GetOutputs() {
@@ -858,25 +851,25 @@ func checkShared(action *pluginv1.Action) error {
 			return fmt.Errorf("the shared action %q writes %q, which is not beneath its home", n, output.GetPath())
 		}
 	}
-	if err := checkDownloads(n, action.GetDownloads(), action.GetOutputs()); err != nil {
+	if err := checkDownloads(n, shared.GetDownloads(), action.GetOutputs()); err != nil {
 		return err
 	}
 	// A shared fetch with neither a command nor downloads is of what its
 	// lock holds whole: its files, of its home, are all it leaves, so
 	// each output is one of them or holds one, and it names no tool,
 	// having nothing to run one with.
-	if len(action.GetCommand().GetArguments()) == 0 && len(action.GetDownloads()) == 0 {
+	if len(action.GetCommand().GetArguments()) == 0 && len(shared.GetDownloads()) == 0 {
 		if len(action.GetTools()) > 0 {
 			return fmt.Errorf("the shared action %q names tools and runs nothing", n)
 		}
-		for _, file := range action.GetFiles() {
+		for _, file := range shared.GetFiles() {
 			if !strings.HasPrefix(file.GetPath(), "~/") {
 				return fmt.Errorf("the shared action %q runs nothing, and is given %s in its own directory, which it cannot leave", n, file.GetPath())
 			}
 		}
 		for _, output := range action.GetOutputs() {
 			left := false
-			for _, file := range action.GetFiles() {
+			for _, file := range shared.GetFiles() {
 				left = left || leaves(output.GetPath(), file.GetPath())
 			}
 			if !left {
@@ -886,7 +879,7 @@ func checkShared(action *pluginv1.Action) error {
 	}
 	seen := map[string]bool{}
 	size := 0
-	for _, file := range action.GetFiles() {
+	for _, file := range shared.GetFiles() {
 		at := path.Clean(file.GetPath())
 		// A file of its own directory, or of its home.
 		if rest, home := strings.CutPrefix(file.GetPath(), "~/"); home {
@@ -904,7 +897,7 @@ func checkShared(action *pluginv1.Action) error {
 		size += len(file.GetContent())
 	}
 	// A part of a download is kept where nothing the action is given is.
-	for _, download := range action.GetDownloads() {
+	for _, download := range shared.GetDownloads() {
 		for _, part := range download.GetParts() {
 			if rest, _ := strings.CutPrefix(part.GetPath(), "~/"); !seen["~/"+path.Clean(rest)] {
 				seen["~/"+path.Clean(rest)] = true
@@ -1153,14 +1146,8 @@ func checkProgram(action *pluginv1.Action) error {
 		return fmt.Errorf("the program name %.40q... is %d bytes, more than the %d allowed", n, len(n), SharedNameAtMost)
 	case !programName.MatchString(n) || strings.HasSuffix(n, "/.") || strings.HasSuffix(n, "/.."):
 		return fmt.Errorf("the action %q is a program to run, and is not named run, a slash and what it runs", n)
-	case action.GetShared() || action.GetFetch() || action.GetTest() || action.GetCheck():
-		return fmt.Errorf("the action %q is a program to run, and says it is a step of a build too", n)
-	case action.GetFix() != nil || len(action.GetRewrites()) > 0:
-		return fmt.Errorf("the action %q is a program to run, and has a fix", n)
 	case len(action.GetOutputs()) > 0:
 		return fmt.Errorf("the action %q is a program to run, and says it leaves something: nothing reads what a program leaves", n)
-	case len(action.GetFiles()) > 0 || len(action.GetDownloads()) > 0:
-		return fmt.Errorf("the action %q is a program to run, and is given files or downloads, which only a shared action is", n)
 	case len(Dependencies(action.GetInputs())) > 0:
 		return fmt.Errorf("the action %q is a program to run, and is handed what its project requires, which is not served yet", n)
 	case len(arguments) == 0:
@@ -1199,23 +1186,21 @@ func hostSets(name string) bool { return name == "PATH" || name == "HOME" || nam
 // programs too, after their ordinary input and output validation.
 func CheckProgram(action *pluginv1.Action) error { return checkProgram(action) }
 
-// CheckFix holds an action's fix to its check: a fix runs something, is
-// of a check, and says what it may change; what may be changed is of a
-// fix.
+// CheckFix holds a check's fix to it: a fix runs something and says
+// what it may change; what may be changed is of a fix.
 func CheckFix(what string, action *pluginv1.Action) error {
+	check := action.GetCheck()
 	switch {
-	case action.GetFix() != nil && len(action.GetFix().GetArguments()) == 0:
+	case check.GetFix() != nil && len(check.GetFix().GetArguments()) == 0:
 		return fmt.Errorf("%s has a fix that runs nothing", what)
-	case action.GetFix() != nil && !action.GetCheck():
-		return fmt.Errorf("%s has a fix, and is not a check", what)
-	case action.GetFix() != nil && len(action.GetRewrites()) == 0:
+	case check.GetFix() != nil && len(check.GetRewrites()) == 0:
 		return fmt.Errorf("%s has a fix, and says nothing it may change", what)
-	case action.GetFix() == nil && len(action.GetRewrites()) > 0:
+	case check.GetFix() == nil && len(check.GetRewrites()) > 0:
 		return fmt.Errorf("%s says what it may change, and has no fix", what)
 	}
 	// The host sets where a fix's programs are found and what mise reads:
 	// a fix that set them would find a program the host did not give it.
-	for name := range action.GetFix().GetEnvironment() {
+	for name := range check.GetFix().GetEnvironment() {
 		if hostSets(name) || strings.HasPrefix(name, "MISE_") {
 			return fmt.Errorf("%s has a fix that sets %s, which the host sets", what, name)
 		}

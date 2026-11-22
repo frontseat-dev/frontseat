@@ -19,12 +19,12 @@ func jestContext() *pluginv1.Context {
 func jestFixture() conformance.Fixture {
 	coordinate := &pluginv1.Coordinate{Ecosystem: "javascript-install", Name: "web"}
 	return conformance.Fixture{
-		Name: "jest", Description: &pluginv1.DescribeResponse{Name: "jest", Abi: 24, Interests: []string{"**/package.json", "!**/node_modules/**", "!**/testdata/**"}},
+		Name: "jest", ABI: 25, Description: &pluginv1.DescribeResponse{Name: "jest", Interests: []string{"**/package.json", "!**/node_modules/**", "!**/testdata/**"}},
 		Source: files{"app/package.json": npmPackage}, Absent: files{"app/package.json": `{"name":"library"}`}, Malformed: files{"app/package.json": strings.Replace(npmPackage, `"test":"jest"`, `"test":"jest --passWithNoTests"`, 1)}, ErrorCode: "INVALID_MANIFEST",
 		Analyze: &pluginv1.AnalyzeRequest{Context: jestContext(), Roots: []string{"app"}},
 		Projects: []*pluginv1.Project{{Root: "app", Name: "web", Kind: "jest-suite", Manifest: "app/package.json", AlwaysArranged: true,
 			Requires: []*pluginv1.Requirement{{Coordinate: coordinate, Origin: &pluginv1.Origin{Path: "app/package.json", Line: 1}}},
-			Actions:  []*pluginv1.Action{{Name: "test", Command: &pluginv1.Command{Arguments: []string{"npm", "run", "test", "--", "--ci"}}, Inputs: append([]*pluginv1.Input{pluginhost.SourceInput("**"), pluginhost.SourceInput("!node_modules/**")}, pluginhost.DependencyInput(coordinate, "{root}")), Tools: []string{"node"}, Test: true}},
+			Actions:  []*pluginv1.Action{{Name: "test", Command: &pluginv1.Command{Arguments: []string{"npm", "run", "test", "--", "--ci"}}, Inputs: append([]*pluginv1.Input{pluginhost.SourceInput("**"), pluginhost.SourceInput("!node_modules/**")}, pluginhost.DependencyInput(coordinate, "{root}")), Tools: []string{"node"}, Kind: &pluginv1.Action_Test{Test: &pluginv1.Test{}}}},
 		}},
 		Reads:   []conformance.Observation{{Import: "read", Argument: "app/package.json", Found: true}},
 		Arrange: &pluginv1.ArrangeRequest{Context: jestContext(), Root: "app", Actions: []string{"test"}, Handed: []*pluginv1.Handed{{Coordinate: coordinate, Into: "."}}}, Files: []*pluginv1.File{},
@@ -80,7 +80,7 @@ func TestNpmPreparesDependenciesWithoutATestRunner(t *testing.T) {
 		t.Fatalf("unexpected preparation: %v", project)
 	}
 	for _, a := range project.Actions {
-		if a.GetTest() {
+		if a.GetTest() != nil {
 			t.Fatal("npm declares a test")
 		}
 	}

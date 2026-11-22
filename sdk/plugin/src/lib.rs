@@ -52,6 +52,7 @@ pub use frontseat::r#type::v1alpha1::{
 /// A length of time as the contract says one: how long a service is
 /// given to be ready (`Service::timeout`).
 pub use prost_types::Duration;
+pub use wire::action::Kind as ActionKind;
 pub use wire::{
     Action, Analysis, BranchRequest, BranchResponse, Command, Coordinate, DependencyInput,
     Download, Edit, Entity, EntityRelation, File, GeneratedSource, Handed, Input, InputSet, Origin,
@@ -62,12 +63,16 @@ pub use wire::{
 /// the host reads them: what a test of a plugin is answered
 /// (`frontseat-plugin-test`).
 pub use wire::{
-    AnalyzeResponse, ArrangeResponse, Context, DescribeResponse, Publish, ReconcileResponse,
-    ReportResponse, ServiceResponse,
+    AnalyzeResponse, ArrangeResponse, Context, DescribeResponse, ReconcileResponse, ReportResponse,
+    ServiceResponse,
 };
+/// The kinds of an action ([`ActionKind`]), each with what only an
+/// action of that kind says: what an action's builder sets, and what a
+/// test of a plugin reads back.
+pub use wire::{Build, Check, Fetch, Package, Program, Publish, SharedFetch, Test};
 
 /// The plugin ABI this SDK speaks.
-pub const ABI: u32 = 24;
+pub const ABI: u32 = 25;
 
 mod actions;
 mod contract;

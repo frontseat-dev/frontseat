@@ -36,8 +36,11 @@ type Fixture struct {
 	Projects                  []*pluginv1.Project
 	Entities                  []*pluginv1.Entity
 	Description               *pluginv1.DescribeResponse
-	Files                     []*pluginv1.File
-	Reads                     []Observation
+	// ABI is the plugin ABI the fixture is of: what the module's export
+	// frontseat_abi must say.
+	ABI   uint32
+	Files []*pluginv1.File
+	Reads []Observation
 	// Report is what a check of the plugin printed, and Findings what the
 	// plugin says it found there; nil for a plugin that reads no findings,
 	// which must say so.
@@ -443,21 +446,19 @@ func Run(t *testing.T, f Fixture) {
 }
 
 // describes holds Describe to the fixture: the same answer as when the
-// module was loaded, with nothing read, and an ABI the plugin does not
-// speak refused.
+// module was loaded, with nothing read.
 func describes(t *testing.T, plugin *pluginhost.Plugin, f Fixture, source pluginhost.Source) {
 	t.Run("Describe", func(t *testing.T) {
 		answer := new(pluginv1.DescribeResponse)
-		reads, err := plugin.Call(t.Context(), source, "Describe", &pluginv1.DescribeRequest{HostAbiMin: pluginhost.MinABI, HostAbiMax: pluginhost.MaxABI}, answer)
+		reads, err := plugin.Call(t.Context(), source, "Describe", &pluginv1.DescribeRequest{}, answer)
 		if err != nil {
 			t.Fatal(err)
 		}
 		if !proto.Equal(answer, plugin.Description) || !proto.Equal(answer, f.Description) || len(reads) != 0 {
 			t.Fatal("Describe changed or read source")
 		}
-		_, err = plugin.Call(t.Context(), source, "Describe", &pluginv1.DescribeRequest{HostAbiMin: pluginhost.MaxABI + 1, HostAbiMax: pluginhost.MaxABI + 1}, new(pluginv1.DescribeResponse))
-		if err == nil {
-			t.Fatal("an incompatible ABI was accepted")
+		if plugin.ABI != f.ABI {
+			t.Fatalf("the module speaks ABI %d, and the fixture is of ABI %d", plugin.ABI, f.ABI)
 		}
 	})
 }

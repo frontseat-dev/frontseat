@@ -655,7 +655,7 @@ pub(super) fn programs(module: &str, directories: &[String]) -> Vec<Action> {
             }),
             // All the compile left: the programs, and nothing else.
             inputs: vec![Input::output(COMPILE)],
-            program: true,
+            kind: Some(ActionKind::Program(Default::default())),
             ..Default::default()
         })
         .collect()
@@ -886,7 +886,7 @@ mod tests {
             ["~/go/bin/greet"]
         );
         assert_eq!(greet.inputs, [Input::output("compile")]);
-        assert!(greet.program);
+        assert!(greet.is_program());
         assert!(greet.outputs.is_empty() && greet.tools.is_empty());
     }
 

@@ -12,7 +12,7 @@ import (
 func backstageFixture(t *testing.T) conformance.Fixture {
 	context := &pluginv1.Context{Profile: pluginv1.Profile_PROFILE_DEVELOPMENT}
 	return arrangingNothing(context, conformance.Fixture{
-		Name: "backstage", Description: &pluginv1.DescribeResponse{Name: "backstage", Abi: 24, Interests: []string{"**/catalog-info.yaml", "!**/testdata/**"}},
+		Name: "backstage", ABI: 25, Description: &pluginv1.DescribeResponse{Name: "backstage", Interests: []string{"**/catalog-info.yaml", "!**/testdata/**"}},
 		Source: fixtureSource(t, "backstage", "valid"), Absent: files{}, Malformed: fixtureSource(t, "backstage", "malformed"), ErrorCode: "INVALID_CATALOG",
 		Analyze: &pluginv1.AnalyzeRequest{Context: context, Roots: []string{"app"}},
 		Entities: []*pluginv1.Entity{

@@ -32,8 +32,8 @@ func pluginFixtures(t *testing.T) map[string]conformance.Fixture {
 		"release":   releaseFixture(),
 		"github":    githubFixture(),
 		"go": {
-			Description: &pluginv1.DescribeResponse{Name: "go", Abi: 24, Interests: []string{"**/go.mod", "**/go.sum", "**/*.go", "!**/testdata/**"}, Options: []*pluginv1.Option{{Name: "test-timeout", Kind: pluginv1.Option_KIND_STRING, Default: &typev1.OptionValue{Value: &typev1.OptionValue_StringValue{StringValue: "10m"}}, EntitySettable: true}, {Name: "test-shards", Kind: pluginv1.Option_KIND_INT, Default: &typev1.OptionValue{Value: &typev1.OptionValue_IntValue{IntValue: 1}}, EntitySettable: true}, {Name: "tags", Kind: pluginv1.Option_KIND_STRING_LIST, Default: &typev1.OptionValue{Value: &typev1.OptionValue_StringListValue{StringListValue: &typev1.OptionValue_StringList{}}}, EntitySettable: true}, {Name: "version", Kind: pluginv1.Option_KIND_STRING_LIST, Default: &typev1.OptionValue{Value: &typev1.OptionValue_StringListValue{StringListValue: &typev1.OptionValue_StringList{}}}, EntitySettable: true}}},
-			Name:        "go", Source: fixtureSource(t, "go", "valid"),
+			ABI: 25, Description: &pluginv1.DescribeResponse{Name: "go", Interests: []string{"**/go.mod", "**/go.sum", "**/*.go", "!**/testdata/**"}, Options: []*pluginv1.Option{{Name: "test-timeout", Kind: pluginv1.Option_KIND_STRING, Default: &typev1.OptionValue{Value: &typev1.OptionValue_StringValue{StringValue: "10m"}}, EntitySettable: true}, {Name: "test-shards", Kind: pluginv1.Option_KIND_INT, Default: &typev1.OptionValue{Value: &typev1.OptionValue_IntValue{IntValue: 1}}, EntitySettable: true}, {Name: "tags", Kind: pluginv1.Option_KIND_STRING_LIST, Default: &typev1.OptionValue{Value: &typev1.OptionValue_StringListValue{StringListValue: &typev1.OptionValue_StringList{}}}, EntitySettable: true}, {Name: "version", Kind: pluginv1.Option_KIND_STRING_LIST, Default: &typev1.OptionValue{Value: &typev1.OptionValue_StringListValue{StringListValue: &typev1.OptionValue_StringList{}}}, EntitySettable: true}}},
+			Name: "go", Source: fixtureSource(t, "go", "valid"),
 			Absent: files{}, Malformed: fixtureSource(t, "go", "malformed"), ErrorCode: "INVALID_MANIFEST",
 			Projects:       []*pluginv1.Project{{Root: "app", Name: "example.com/hello", Kind: "go-module", Manifest: "app/go.mod", Actions: expectedGoActions(), InputSets: []*pluginv1.InputSet{{Name: "sources", AcceptsGenerated: true, Inputs: []*pluginv1.Input{pluginhost.SourceInput("go.mod"), pluginhost.SourceInput("go.sum"), pluginhost.SourceInput("**/*.go"), pluginhost.SourceInput("**/*.s"), pluginhost.SourceInput("**/*.h"), pluginhost.SourceInput("**/*.syso"), pluginhost.SourceInput("!**/testdata/**")}}, {Name: "module", AcceptsGenerated: true, Inputs: []*pluginv1.Input{pluginhost.SourceInput("go.mod"), pluginhost.SourceInput("go.sum"), pluginhost.SourceInput("**/*.go"), pluginhost.SourceInput("**/*.s"), pluginhost.SourceInput("**/*.h"), pluginhost.SourceInput("**/*.syso"), pluginhost.SourceInput("!**/testdata/**"), pluginhost.SourceInput("!**/*_test.go")}}}, Provides: []*pluginv1.Provide{{Coordinate: &pluginv1.Coordinate{Ecosystem: "go", Name: "example.com/hello"}, Sources: "module"}}, Requires: []*pluginv1.Requirement{{Coordinate: &pluginv1.Coordinate{Ecosystem: "go", Name: "example.com/dep"}, Origin: &pluginv1.Origin{Path: "app/go.mod", Line: 5}, Version: "v0.0.0"}}}},
 			Reads:          []conformance.Observation{{Import: "read", Argument: "app/go.mod", Found: true}, {Import: "read", Argument: "app/go.sum", Found: false}, {Import: "glob", Argument: "**/go.mod\x00!**/testdata/**", Directory: "app", Found: true}, {Import: "glob", Argument: "**/*.go\x00!**/testdata/**", Directory: "app", Found: true}, {Import: "read", Argument: "app/internal/ledger/ledger.go", Found: true}, {Import: "read", Argument: "app/internal/ledger/ledger_test.go", Found: true}, {Import: "read", Argument: "app/main.go", Found: true}, {Import: "read", Argument: "app/main_test.go", Found: true}},
@@ -84,15 +84,13 @@ func TestEveryPluginConforms(t *testing.T) {
 func expectedGoActions() []*pluginv1.Action {
 	action := func(name string, args []string) *pluginv1.Action {
 		return &pluginv1.Action{
-			Name: name, Command: &pluginv1.Command{Arguments: args, Environment: map[string]string{"CGO_ENABLED": "0", "GOPROXY": "off", "GOSUMDB": "off", "MISE_GO_SET_GOBIN": "false"}}, Inputs: append([]*pluginv1.Input{pluginhost.SetInput("sources")}, pluginhosttest.AllDependencies(".frontseat/go/{name}")), Tools: []string{"go"},
+			Name: name, Command: &pluginv1.Command{Arguments: args, Environment: map[string]string{"CGO_ENABLED": "0", "GOPROXY": "off", "GOSUMDB": "off", "MISE_GO_SET_GOBIN": "false"}}, Inputs: append([]*pluginv1.Input{pluginhost.SetInput("sources")}, pluginhosttest.AllDependencies(".frontseat/go/{name}")), Tools: []string{"go"}, Kind: &pluginv1.Action_Build{Build: &pluginv1.Build{}},
 		}
 	}
 	lint := action("lint", []string{"go", "vet", "./..."})
-	lint.Check = true
+	lint.Kind = &pluginv1.Action_Check{Check: &pluginv1.Check{}}
 	format := action("format", []string{"gofmt", "-l", "."})
-	format.Check = true
-	format.Fix = &pluginv1.Command{Arguments: []string{"gofmt", "-w", "."}}
-	format.Rewrites = []string{"**/*.go"}
+	format.Kind = &pluginv1.Action_Check{Check: &pluginv1.Check{Fix: &pluginv1.Command{Arguments: []string{"gofmt", "-w", "."}}, Rewrites: []string{"**/*.go"}}}
 	compile := action("compile", []string{"go", "install", "-trimpath", "-gcflags=all=-N -l", "./..."})
 	compile.Outputs = []*pluginv1.Output{{Path: "~/go/bin/", Optional: true}}
 	// The programs of the tests of whichever packages the go command
@@ -103,10 +101,10 @@ func expectedGoActions() []*pluginv1.Action {
 	build := action("test-build", []string{"go", "test", "-c", "-trimpath", "-o", "_tests/0/", ".", "./internal/ledger/..."})
 	build.Outputs = []*pluginv1.Output{{Path: "_tests/0/hello.test", Optional: true}, {Path: "_tests/0/ledger.test", Optional: true}}
 	own := action("test/.", []string{"./_tests/0/hello.test", "-test.paniconexit0", "-test.timeout=10m"})
-	own.Test, own.IdleWithoutInputs = true, true
+	own.Kind = &pluginv1.Action_Test{Test: &pluginv1.Test{IdleWithoutInputs: true}}
 	own.Inputs = []*pluginv1.Input{pluginhosttest.OutputInput("_tests/0/hello.test"), pluginhost.SourceInput("**"), pluginhost.SourceInput("!**/vendor/**"), pluginhost.SourceInput("!**/node_modules/**"), pluginhost.SourceInput("!internal/ledger/**"), pluginhost.SourceInput("testdata/**")}
 	ledger := action("test/internal/ledger", []string{"../../_tests/0/ledger.test", "-test.paniconexit0", "-test.timeout=10m"})
-	ledger.Test, ledger.IdleWithoutInputs = true, true
+	ledger.Kind = &pluginv1.Action_Test{Test: &pluginv1.Test{IdleWithoutInputs: true}}
 	ledger.Command.Directory = "internal/ledger"
 	ledger.Inputs = []*pluginv1.Input{pluginhosttest.OutputInput("_tests/0/ledger.test"), pluginhost.SourceInput("internal/ledger/**"), pluginhost.SourceInput("!internal/ledger/**/vendor/**"), pluginhost.SourceInput("!internal/ledger/**/node_modules/**"), pluginhost.SourceInput("internal/ledger/testdata/**")}
 
@@ -116,7 +114,7 @@ func expectedGoActions() []*pluginv1.Action {
 		Name:    "run/hello",
 		Command: &pluginv1.Command{Arguments: []string{"~/go/bin/hello"}},
 		Inputs:  []*pluginv1.Input{pluginhosttest.OutputInput("compile")},
-		Program: true,
+		Kind:    &pluginv1.Action_Program{Program: &pluginv1.Program{}},
 	}
 	return []*pluginv1.Action{lint, format, compile, build, own, ledger, run}
 }
@@ -292,7 +290,7 @@ func TestAStrategyFixtureThatProvesTooLittleIsRefused(t *testing.T) {
 			f.Versions = append(f.Versions, conformance.VersionCase{Request: &pluginv1.VersionRequest{Strategy: "conventional-commits"}})
 		},
 		"no release roles": func(f *conformance.Fixture) {
-			f.Description = &pluginv1.DescribeResponse{Name: "release", Abi: 24}
+			f.Description = &pluginv1.DescribeResponse{Name: "release"}
 		},
 		"interests": func(f *conformance.Fixture) {
 			f.Description = proto.Clone(f.Description).(*pluginv1.DescribeResponse)
@@ -316,11 +314,11 @@ func TestAStrategyFixtureThatProvesTooLittleIsRefused(t *testing.T) {
 func githubFixture() conformance.Fixture {
 	context := &pluginv1.Context{Profile: pluginv1.Profile_PROFILE_PRODUCTION, Tools: map[string]string{"gh": "2.105.0"}}
 	fixture := arrangingNothing(context, conformance.Fixture{
-		Name: "github", Description: &pluginv1.DescribeResponse{Name: "github", Abi: 24, Interests: []string{"frontseat.yaml", "!**/testdata/**"}},
+		Name: "github", ABI: 25, Description: &pluginv1.DescribeResponse{Name: "github", Interests: []string{"frontseat.yaml", "!**/testdata/**"}},
 		Source: files{"frontseat.yaml": "plugins:\n  github: {}\n"}, Absent: files{},
 		Analyze: &pluginv1.AnalyzeRequest{Context: context, Roots: []string{""}},
 		Projects: []*pluginv1.Project{{Kind: "github-repository", Name: "github", Manifest: "frontseat.yaml", Actions: []*pluginv1.Action{{
-			Name: "publish/release", Tools: []string{"gh"}, Publish: &pluginv1.Publish{Environment: []string{"GH_TOKEN"}},
+			Name: "publish/release", Tools: []string{"gh"}, Kind: &pluginv1.Action_Publish{Publish: &pluginv1.Publish{Environment: []string{"GH_TOKEN"}}},
 			Command: &pluginv1.Command{Arguments: []string{"gh", "release", "create", "{frontseat.tag}", "{frontseat.artifacts}", "--repo", "{frontseat.remote}", "--verify-tag", "--title", "{frontseat.tag}", "--notes-file", "{frontseat.notes}", "--prerelease={frontseat.prerelease}"}},
 		}}}},
 		Reads: []conformance.Observation{{Import: "glob", Argument: "frontseat.yaml", Found: true}},

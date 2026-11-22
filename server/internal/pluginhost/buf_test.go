@@ -14,18 +14,18 @@ import (
 func bufFixture(t *testing.T) conformance.Fixture {
 	context := &pluginv1.Context{Profile: pluginv1.Profile_PROFILE_DEVELOPMENT}
 	return arrangingNothing(context, conformance.Fixture{
-		Name: "buf", Description: &pluginv1.DescribeResponse{Name: "buf", Abi: 24, Interests: []string{"**/buf.yaml", "!**/testdata/**"}, GeneratesSources: true},
+		Name: "buf", ABI: 25, Description: &pluginv1.DescribeResponse{Name: "buf", Interests: []string{"**/buf.yaml", "!**/testdata/**"}, GeneratesSources: true},
 		Source: fixtureSource(t, "buf", "valid"), Absent: files{}, Malformed: fixtureSource(t, "buf", "malformed"), ErrorCode: "INVALID_MANIFEST",
 		Analyze: &pluginv1.AnalyzeRequest{Context: context, Roots: []string{"app"}},
 		Projects: []*pluginv1.Project{{Root: "app", Name: "app", Kind: "buf-workspace", Manifest: "app/buf.yaml",
 			Actions: []*pluginv1.Action{
-				{Name: "lint", Command: &pluginv1.Command{Arguments: []string{"buf", "lint"}}, Inputs: []*pluginv1.Input{pluginhost.SourceInput("buf.yaml"), pluginhost.SourceInput("buf.lock"), pluginhost.SourceInput("**/*.proto")}, Tools: []string{"buf"}, Check: true},
-				{Name: "format", Command: &pluginv1.Command{Arguments: []string{"buf", "format", "-d", "--exit-code"}}, Inputs: []*pluginv1.Input{pluginhost.SourceInput("buf.yaml"), pluginhost.SourceInput("**/*.proto")}, Tools: []string{"buf"}, Check: true, Fix: &pluginv1.Command{Arguments: []string{"buf", "format", "-w"}}, Rewrites: []string{"**/*.proto"}},
+				{Name: "lint", Command: &pluginv1.Command{Arguments: []string{"buf", "lint"}}, Inputs: []*pluginv1.Input{pluginhost.SourceInput("buf.yaml"), pluginhost.SourceInput("buf.lock"), pluginhost.SourceInput("**/*.proto")}, Tools: []string{"buf"}, Kind: &pluginv1.Action_Check{Check: &pluginv1.Check{}}},
+				{Name: "format", Command: &pluginv1.Command{Arguments: []string{"buf", "format", "-d", "--exit-code"}}, Inputs: []*pluginv1.Input{pluginhost.SourceInput("buf.yaml"), pluginhost.SourceInput("**/*.proto")}, Tools: []string{"buf"}, Kind: &pluginv1.Action_Check{Check: &pluginv1.Check{Fix: &pluginv1.Command{Arguments: []string{"buf", "format", "-w"}}, Rewrites: []string{"**/*.proto"}}}},
 				// A template whose output is outside the workspace is
 				// generated beneath the project, at where the repository
 				// has it, and placed by the host at its destination.
-				{Name: "generate-lib", Command: &pluginv1.Command{Arguments: []string{"buf", "generate", "--template", "buf.gen.lib.yaml", "-o", ".gen-lib/app"}}, Inputs: []*pluginv1.Input{pluginhost.SourceInput("buf.yaml"), pluginhost.SourceInput("buf.lock"), pluginhost.SourceInput("**/*.proto"), pluginhost.SourceInput("buf.gen.lib.yaml")}, Tools: []string{"buf", "protoc-gen-go"}, Outputs: []*pluginv1.Output{{Path: ".gen-lib/lib/gen/"}}},
-				{Name: "generate", Command: &pluginv1.Command{Arguments: []string{"buf", "generate"}}, Inputs: []*pluginv1.Input{pluginhost.SourceInput("buf.yaml"), pluginhost.SourceInput("buf.lock"), pluginhost.SourceInput("**/*.proto"), pluginhost.SourceInput("buf.gen.yaml")}, Tools: []string{"buf", "protoc-gen-go", "protoc-gen-connect-go"}, Outputs: []*pluginv1.Output{{Path: "gen/go/"}}},
+				{Name: "generate-lib", Command: &pluginv1.Command{Arguments: []string{"buf", "generate", "--template", "buf.gen.lib.yaml", "-o", ".gen-lib/app"}}, Inputs: []*pluginv1.Input{pluginhost.SourceInput("buf.yaml"), pluginhost.SourceInput("buf.lock"), pluginhost.SourceInput("**/*.proto"), pluginhost.SourceInput("buf.gen.lib.yaml")}, Tools: []string{"buf", "protoc-gen-go"}, Outputs: []*pluginv1.Output{{Path: ".gen-lib/lib/gen/"}}, Kind: &pluginv1.Action_Build{Build: &pluginv1.Build{}}},
+				{Name: "generate", Command: &pluginv1.Command{Arguments: []string{"buf", "generate"}}, Inputs: []*pluginv1.Input{pluginhost.SourceInput("buf.yaml"), pluginhost.SourceInput("buf.lock"), pluginhost.SourceInput("**/*.proto"), pluginhost.SourceInput("buf.gen.yaml")}, Tools: []string{"buf", "protoc-gen-go", "protoc-gen-connect-go"}, Outputs: []*pluginv1.Output{{Path: "gen/go/"}}, Kind: &pluginv1.Action_Build{Build: &pluginv1.Build{}}},
 			},
 			GeneratedSources: []*pluginv1.GeneratedSource{
 				{Action: "generate-lib", Output: ".gen-lib/lib/gen/", Destination: "lib/gen", Patterns: []string{"**/*.pb.go", "**/*.pb.go.meta"}},
