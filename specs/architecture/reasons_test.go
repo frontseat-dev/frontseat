@@ -12,12 +12,17 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 // What a server refuses by name it says in its contract: every reason a
 // server gives in ErrorInfo is named in the contract of the domain it is
-// given in (AGENTS.md, "APIs"), so that a client reads the reason from
-// the contract and never from the server's code.
+// given in, and, where the source says which call gives it, in what the
+// contract says of that call (AGENTS.md, "APIs"), so that a client reads
+// the reason from the contract and never from the server's code. A
+// reason lost on the way from one service to another is not seen here:
+// only what is given is read.
 
 // refusing are the server's packages that refuse by name, each with the
 // proto packages whose contracts name its reasons. What the daemon's
@@ -52,6 +57,9 @@ var aReason = regexp.MustCompile(`^[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$`)
 type givenReason struct {
 	reason, at string
 	contracts  []string
+	// file and line are where it is given, as at says them.
+	file string
+	line int
 }
 
 // reasonsGiven reads every reason the sources give: a value passed where
@@ -131,7 +139,8 @@ func reasonsGiven(sources map[string][]byte) ([]givenReason, []string) {
 		// read is what an expression at a reason's place says, in a
 		// domain where the place names one.
 		read := func(e ast.Expr, domain string) {
-			at := set.Position(e.Pos()).String()
+			where := set.Position(e.Pos())
+			at := where.String()
 			var value string
 			switch e := e.(type) {
 			case *ast.BasicLit:
@@ -168,7 +177,7 @@ func reasonsGiven(sources map[string][]byte) ([]givenReason, []string) {
 			if domain != "" {
 				in = []string{domainOf[domain]}
 			}
-			given = append(given, givenReason{value, at, in})
+			given = append(given, givenReason{value, at, in, where.Filename, where.Line})
 		}
 		// domainNamed is the domain an expression names as refusal's.
 		domainNamed := func(e ast.Expr) string {
@@ -274,6 +283,215 @@ func unnamed(given []givenReason, contracts map[string]string) []string {
 	return out
 }
 
+// stretch is some lines of a file of the server's.
+type stretch struct {
+	file     string
+	from, to int
+}
+
+// handlerStretches are, for each call a method of the sources handles
+// (handles), the lines its handler runs: the handler's own, and those
+// of what it calls in its own package, and of what those call. What is
+// called is read from the source alone, without types: a function of
+// the package by its name, a method of the caller's own receiver by its
+// name, and any other method only where one type of the package has a
+// method of that name. A call through a value, or of a method several
+// types have, is not followed: what is given there is held to its
+// domain's contract and to no call's.
+func handlerStretches(sources map[string][]byte) (map[string][]stretch, error) {
+	type declared struct {
+		dir, receiver, name string
+		fn                  *ast.FuncDecl
+		at                  stretch
+		handles             string
+	}
+	set := token.NewFileSet()
+	var all []*declared
+	functions := map[string]*declared{} // dir.name
+	methods := map[string]*declared{}   // dir.type.name
+	named := map[string][]*declared{}   // dir.name, of any type
+	for path, source := range sources {
+		f, err := parser.ParseFile(set, path, source, parser.SkipObjectResolution)
+		if err != nil {
+			return nil, err
+		}
+		dir := filepath.ToSlash(filepath.Dir(path))
+		imported := importsOf(f)
+		for _, decl := range f.Decls {
+			fn, ok := decl.(*ast.FuncDecl)
+			if !ok || fn.Body == nil {
+				continue
+			}
+			d := &declared{dir: dir, name: fn.Name.Name, fn: fn, handles: handles(fn, imported),
+				at: stretch{path, set.Position(fn.Pos()).Line, set.Position(fn.End()).Line}}
+			all = append(all, d)
+			if fn.Recv == nil {
+				functions[dir+"."+d.name] = d
+				continue
+			}
+			receiver := fn.Recv.List[0].Type
+			if star, ok := receiver.(*ast.StarExpr); ok {
+				receiver = star.X
+			}
+			if generic, ok := receiver.(*ast.IndexExpr); ok {
+				receiver = generic.X
+			}
+			if of, ok := receiver.(*ast.Ident); ok {
+				d.receiver = of.Name
+				methods[dir+"."+of.Name+"."+d.name] = d
+			}
+			named[dir+"."+d.name] = append(named[dir+"."+d.name], d)
+		}
+	}
+	// calls are what a declaration calls in its package, as far as read.
+	calls := func(d *declared) []*declared {
+		own := ""
+		if d.fn.Recv != nil && len(d.fn.Recv.List[0].Names) == 1 {
+			own = d.fn.Recv.List[0].Names[0].Name
+		}
+		var out []*declared
+		ast.Inspect(d.fn.Body, func(n ast.Node) bool {
+			call, ok := n.(*ast.CallExpr)
+			if !ok {
+				return true
+			}
+			switch fn := call.Fun.(type) {
+			case *ast.Ident:
+				if called := functions[d.dir+"."+fn.Name]; called != nil {
+					out = append(out, called)
+				}
+			case *ast.SelectorExpr:
+				if on, ok := fn.X.(*ast.Ident); ok && own != "" && on.Name == own {
+					if called := methods[d.dir+"."+d.receiver+"."+fn.Sel.Name]; called != nil {
+						out = append(out, called)
+					}
+					return true
+				}
+				if of := named[d.dir+"."+fn.Sel.Name]; len(of) == 1 {
+					out = append(out, of[0])
+				}
+			}
+			return true
+		})
+		return out
+	}
+	out := map[string][]stretch{}
+	for _, handler := range all {
+		if handler.handles == "" {
+			continue
+		}
+		seen := map[*declared]bool{}
+		var run func(*declared)
+		run = func(d *declared) {
+			if seen[d] {
+				return
+			}
+			seen[d] = true
+			out[handler.handles] = append(out[handler.handles], d.at)
+			for _, called := range calls(d) {
+				run(called)
+			}
+		}
+		run(handler)
+	}
+	return out, nil
+}
+
+// aCall is how a call is named in a comment: one of the verbs, and what
+// it is of.
+var aCall = regexp.MustCompile(`\b(?:` + strings.Join(verbs, "|") + `)[A-Z][A-Za-z]*\b`)
+
+// namedBy is what the contract says of a call's refusals: the comment of
+// the call, that of its service, the header of its file, which names
+// what every call of the file refuses by, and the comments of the calls
+// of its package that those name, as "as for PlanRelease" does.
+func namedBy(c contract, m protoreflect.MethodDescriptor) string {
+	comment := func(d protoreflect.Descriptor) string {
+		return d.ParentFile().SourceLocations().ByDescriptor(d).LeadingComments
+	}
+	// The header is the comment above a file's syntax statement.
+	header := func(f protoreflect.FileDescriptor) string {
+		return f.SourceLocations().ByPath(protoreflect.SourcePath{12}).LeadingComments
+	}
+	seen := map[protoreflect.FullName]bool{}
+	var said strings.Builder
+	var read func(protoreflect.MethodDescriptor)
+	read = func(m protoreflect.MethodDescriptor) {
+		if seen[m.FullName()] {
+			return
+		}
+		seen[m.FullName()] = true
+		own := comment(m)
+		said.WriteString(own + comment(m.Parent()) + header(m.ParentFile()))
+		for _, name := range aCall.FindAllString(own, -1) {
+			for _, other := range c.methods() {
+				if string(other.Name()) == name && other.ParentFile().Package() == m.ParentFile().Package() {
+					read(other)
+				}
+			}
+		}
+	}
+	read(m)
+	return said.String()
+}
+
+// neverGiven are the reasons a call's handler reaches in the source and
+// never gives, each with why. The source says what a handler calls, and
+// not what it calls it with: what is called refuses for some of its
+// callers alone.
+var neverGiven = map[protoreflect.FullName]map[string]string{
+	"frontseat.build.v1alpha1.GraphService.ListEntities": {
+		"ENTITY_NOT_FOUND":   "releaseFailure, which says how planning a release failed, says here how reading the entities' release settings did: that names no entity",
+		"RELEASE_INVALID":    "as ENTITY_NOT_FOUND: reading the settings takes no request to refuse",
+		"RELEASE_NOT_SERVED": "as ENTITY_NOT_FOUND: what is not served is refused when it is released, not when it is listed",
+	},
+	"frontseat.credential.v1alpha1.CredentialService.ListCredentials": {
+		"CREDENTIAL_HOST_INVALID": "holding checks the host a call names, and a list names none",
+	},
+	"frontseat.sandbox.v1alpha1.SandboxService.ListSandboxes": {
+		"SANDBOX_NOT_FOUND": "a sandbox that is gone when it is observed is left out of the list, and the list is not refused",
+	},
+}
+
+// unnamedByCall holds each reason a call's handler gives, as far as the
+// source says which call gives it (handlerStretches), to the contract of
+// that call: what the contract says of the call's refusals names it, as
+// a whole word (namedBy), unless the call never gives it (never). What
+// is said never to be given and is not reached, or is named after all,
+// is said too: the list holds only what it must.
+func unnamedByCall(c contract, sources map[string][]byte, given []givenReason, never map[protoreflect.FullName]map[string]string) []string {
+	stretches, err := handlerStretches(sources)
+	if err != nil {
+		return []string{err.Error()}
+	}
+	var out []string
+	for _, m := range c.methods() {
+		said := namedBy(c, m)
+		unnamed := map[string]bool{}
+		for _, at := range stretches[generatedPackage(m.ParentFile().Package())+"."+string(m.Name())] {
+			for _, g := range given {
+				if g.file != at.file || g.line < at.from || g.line > at.to || unnamed[g.reason] {
+					continue
+				}
+				if regexp.MustCompile(`\b` + regexp.QuoteMeta(g.reason) + `\b`).MatchString(said) {
+					continue
+				}
+				unnamed[g.reason] = true
+				if _, excused := never[m.FullName()][g.reason]; !excused {
+					out = append(out, fmt.Sprintf("%s: %s is given by %s, and what the contract says of that call does not name it", g.at, g.reason, m.FullName()))
+				}
+			}
+		}
+		for reason := range never[m.FullName()] {
+			if !unnamed[reason] {
+				out = append(out, fmt.Sprintf("%s is said never to give %s, and its handler does not reach it, or its contract names it: take it off the list", m.FullName(), reason))
+			}
+		}
+	}
+	slices.Sort(out)
+	return out
+}
+
 // contractsOf is the text of each proto package's files beneath a
 // directory, by the package each says.
 func contractsOf(t *testing.T, dir string) map[string]string {
@@ -330,6 +548,79 @@ func TestEveryReasonAServerGivesIsNamedInItsContract(t *testing.T) {
 	}
 	for _, broken := range append(unread, unnamed(given, contractsOf(t, filepath.Join(root, "api")))...) {
 		t.Error(broken)
+	}
+}
+
+func TestEveryReasonACallGivesIsNamedInThatCallsContract(t *testing.T) {
+	root := repositoryRoot(t)
+	sources := serverSources(t, root)
+	given, _ := reasonsGiven(sources)
+	c := contract{files: built(t, filepath.Join(root, "api")), served: served}
+	for _, broken := range unnamedByCall(c, sources, given, neverGiven) {
+		t.Error(broken)
+	}
+}
+
+// TestAReasonItsCallsContractDoesNotNameIsFound is the control: a reason
+// a handler gives, itself or through what it calls, is allowed where the
+// call's own comment names it, where the comment of a call it says it is
+// as names it, and where the file's header does; it is refused where
+// only another call's comment names it. A method of the same name on
+// another type is not the handler's, and what it gives is not held to
+// the call. A reason on the list of those a call never gives is allowed,
+// and one listed that the call does not reach is said.
+func TestAReasonItsCallsContractDoesNotNameIsFound(t *testing.T) {
+	for name, c := range map[string]struct {
+		header, describe, wait string
+		never                  map[string]string
+		want                   int
+	}{
+		"each in its own call's comment": {"", "// - NOT_FOUND: no thing (THING_NOT_FOUND).", "// - ABORTED: ending (THING_ENDING).", nil, 0},
+		"one in another call's alone":    {"", "// DescribeThing returns a thing.", "// - ABORTED: ending (THING_ENDING), or no thing (THING_NOT_FOUND).", nil, 1},
+		"one in the call it is said as":  {"", "// - NOT_FOUND: as for WaitThing.", "// - ABORTED: ending (THING_ENDING), or no thing (THING_NOT_FOUND).", nil, 0},
+		"one in the file's header":       {"// Every call refuses a thing that is gone by THING_NOT_FOUND.\n", "// DescribeThing returns a thing.", "// - ABORTED: ending (THING_ENDING).", nil, 0},
+		"one the call never gives":       {"", "// DescribeThing returns a thing.", "// - ABORTED: ending (THING_ENDING).", map[string]string{"THING_NOT_FOUND": "the fixture says so"}, 0},
+		"one listed and not reached":     {"", "// - NOT_FOUND: no thing (THING_NOT_FOUND).", "// - ABORTED: ending (THING_ENDING).", map[string]string{"THING_BUSY": "the fixture says so"}, 1},
+		"one listed and named after all": {"", "// - NOT_FOUND: no thing (THING_NOT_FOUND).", "// - ABORTED: ending (THING_ENDING).", map[string]string{"THING_NOT_FOUND": "the fixture says so"}, 1},
+	} {
+		c2 := protoFixture(t, map[string]string{"fixture/called/v1/x.proto": c.header + `syntax = "proto3";
+package fixture.called.v1;
+message DescribeThingRequest { string thing_id = 1; }
+message DescribeThingResponse {}
+message WaitThingRequest { string thing_id = 1; }
+message WaitThingResponse {}
+service ThingService {
+  ` + c.describe + `
+  rpc DescribeThing(DescribeThingRequest) returns (DescribeThingResponse);
+  ` + c.wait + `
+  rpc WaitThing(WaitThingRequest) returns (WaitThingResponse);
+}
+`})
+		sources := map[string][]byte{"server/internal/build/things.go": []byte(`package build
+import (
+	"context"
+	thingv1 "` + sdkPackage("fixture.called.v1") + `"
+)
+func refuse(code int, reason, message string) error { return nil }
+type things struct{}
+func (s *things) DescribeThing(ctx context.Context, req *thingv1.DescribeThingRequest) (*thingv1.DescribeThingResponse, error) {
+	return nil, s.find()
+}
+func (s *things) WaitThing(ctx context.Context, req *thingv1.WaitThingRequest) (*thingv1.WaitThingResponse, error) {
+	return nil, refuse(10, "THING_ENDING", "it is ending")
+}
+func (s *things) find() error { return refuse(5, "THING_NOT_FOUND", "no thing") }
+type others struct{}
+func (o *others) find() error { return refuse(5, "OTHER_NOT_FOUND", "no other") }
+`)}
+		given, unread := reasonsGiven(sources)
+		if len(unread) != 0 || len(given) != 3 {
+			t.Fatalf("%s: read %v, and could not read %v; want three reasons read", name, given, unread)
+		}
+		found := unnamedByCall(c2, sources, given, map[protoreflect.FullName]map[string]string{"fixture.called.v1.ThingService.DescribeThing": c.never})
+		if len(found) != c.want {
+			t.Errorf("%s: found %v; want %d", name, found, c.want)
+		}
 	}
 }
 
