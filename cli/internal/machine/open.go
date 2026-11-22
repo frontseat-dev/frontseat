@@ -30,12 +30,12 @@ type Open struct {
 }
 
 // Opened is the workspace of a checkout that was opened, or as much of
-// one as there is (frontseat.Opened), where the checkout stands, which
+// one as there is (frontseat.OpenResult), where the checkout stands, which
 // says what the workspace is of and what of the checkout it does not
 // hold, and the workspace's name for the checkout's repository, which
 // is the directory it is in.
 type Opened struct {
-	frontseat.Opened
+	frontseat.OpenResult
 	Standing   vcs.Standing
 	Repository string
 }
@@ -55,7 +55,7 @@ func OpenCheckout(ctx context.Context, fs *frontseat.Client, o Open, checkout vc
 	if err != nil {
 		return Opened{Standing: standing}, err
 	}
-	opened, err := fs.Open(ctx, frontseat.Spec{
+	opened, err := fs.Open(ctx, frontseat.WorkspaceSpec{
 		Name:          o.Name,
 		Image:         o.Image,
 		Repositories:  []frontseat.Repository{{Remote: standing.Remote, Ref: standing.Branch}},
@@ -63,11 +63,11 @@ func OpenCheckout(ctx context.Context, fs *frontseat.Client, o Open, checkout vc
 		Push:          o.Push,
 		AuthorizedKey: key,
 	})
-	out := Opened{Opened: opened, Standing: standing}
+	out := Opened{OpenResult: opened, Standing: standing}
 	if err != nil {
 		return out, err
 	}
-	for _, held := range opened.Held.GetStatus().GetRepositories() {
+	for _, held := range opened.Status.GetStatus().GetRepositories() {
 		if checkout.Same(held.GetRemote(), standing.Remote) {
 			out.Repository = held.GetName()
 			return out, nil

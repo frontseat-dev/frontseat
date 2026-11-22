@@ -59,7 +59,7 @@ func TestAWorkspaceClonesARepositoryThatAsksAPasswordWhichItsSandboxNeverHolds(t
 	spec.Cleanup(func() {
 		_ = credentials.Delete(context.Background(), host)
 	})
-	private := making{Spec: frontseat.Spec{Repositories: []frontseat.Repository{{Remote: forge + "/code"}}, AuthorizedKey: testidentity.Authorized()}}
+	private := making{WorkspaceSpec: frontseat.WorkspaceSpec{Repositories: []frontseat.Repository{{Remote: forge + "/code"}}, AuthorizedKey: testidentity.Authorized()}}
 
 	isolated := spec.inASandboxOfItsOwn(private)
 
@@ -128,7 +128,7 @@ func TestAWorkspaceMadeToPushPushesToItsRepositoryAndToNoOtherWithACredentialIts
 		_ = credentials.Delete(context.Background(), forge)
 	})
 
-	workspace := spec.inASandboxOfItsOwn(making{Spec: frontseat.Spec{
+	workspace := spec.inASandboxOfItsOwn(making{WorkspaceSpec: frontseat.WorkspaceSpec{
 		Repositories: []frontseat.Repository{{Remote: forge + "/code"}},
 		Push:         true,
 	}})

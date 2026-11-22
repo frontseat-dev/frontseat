@@ -346,7 +346,7 @@ func frontseatInASandbox(t *testing.T, shape testworkload.Shape) tool {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
-	opened, err := frontseat.New(srv.URL, served.Owner).Open(ctx, frontseat.Spec{
+	opened, err := frontseat.New(srv.URL, served.Owner).Open(ctx, frontseat.WorkspaceSpec{
 		Image:         testbox.Image(t),
 		Repositories:  []frontseat.Repository{{Remote: testforge.Serve(t, remotes) + "/" + repository, Ref: "main"}},
 		AuthorizedKey: testidentity.Authorized(),
@@ -354,7 +354,7 @@ func frontseatInASandbox(t *testing.T, shape testworkload.Shape) tool {
 	if err != nil {
 		t.Fatal(err)
 	}
-	made, daemon := opened.Workspace, opened.Held.GetStatus().GetBuildUri()
+	made, daemon := opened.Workspace, opened.Status.GetStatus().GetBuildUri()
 	lives, err := workspaceSandbox(ctx, made.Name())
 	if err != nil {
 		t.Fatal(err)
