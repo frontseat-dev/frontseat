@@ -9,6 +9,7 @@ import (
 	"go.opentelemetry.io/otel/codes"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/frontseat-dev/frontseat/server/telemetry"
 )
@@ -34,12 +35,19 @@ func TestWhereNothingIsRecordedASpanCostsNothing(t *testing.T) {
 	}
 }
 
-func TestASpanIsBeneathTheOneItsContextCarriesAndSaysWhatWentWrong(t *testing.T) {
+// recordedRun is a run that is traced: what records the spans that end,
+// and the run's span with the context that carries it.
+func recordedRun(t *testing.T) (*tracetest.SpanRecorder, context.Context, trace.Span) {
+	t.Helper()
 	recorder := tracetest.NewSpanRecorder()
 	provider := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder))
-	defer func() { _ = provider.Shutdown(context.Background()) }()
-
 	ctx, run := telemetry.Root(context.Background(), provider, "run")
+	t.Cleanup(func() { _ = provider.Shutdown(ctx) })
+	return recorder, ctx, run
+}
+
+func TestASpanIsBeneathTheOneItsContextCarriesAndSaysWhatWentWrong(t *testing.T) {
+	recorder, ctx, run := recordedRun(t)
 	_, work := telemetry.Start(ctx, "work")
 	telemetry.End(work, errors.New("it broke"))
 	telemetry.End(run, nil)
@@ -63,10 +71,7 @@ func TestASpanIsBeneathTheOneItsContextCarriesAndSaysWhatWentWrong(t *testing.T)
 // type the error is of: a span's error.type is a dimension, and a type's
 // name, which is nearly always that of a wrapped error, says nothing.
 func TestWhatWentWrongInASpanIsOneOfAFewKinds(t *testing.T) {
-	recorder := tracetest.NewSpanRecorder()
-	provider := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder))
-	defer func() { _ = provider.Shutdown(context.Background()) }()
-	ctx, run := telemetry.Root(context.Background(), provider, "run")
+	recorder, ctx, run := recordedRun(t)
 	wrong := []struct {
 		err  error
 		kind string
