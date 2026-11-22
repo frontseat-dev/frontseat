@@ -43,7 +43,11 @@ impl Plugin for Make {
         Ok(Analysis {
             projects: vec![Project {
                 root: root.into(),
-                name: root.into(),
+                name: if root.is_empty() {
+                    "root".into()
+                } else {
+                    root.into()
+                },
                 kind: "make-project".into(),
                 manifest,
                 actions: vec![action("test").test(), action("lint").check()],
