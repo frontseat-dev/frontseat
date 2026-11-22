@@ -148,7 +148,8 @@ func TestTwoRepositoriesOfOneNameAreNotOneWorkspaceTheSecondIsRefusedAndTakesANa
 	// source is proven where it is written (cli/internal/machine).
 	_, err := spec.attempting(other)
 	spec.Expect(connect.CodeOf(err)).To(Equal(connect.CodeAlreadyExists))
-	spec.Expect(err).To(BeRefusedSaying("holds other source"))
+	reason, _ := frontseat.Reason(err)
+	spec.Expect(reason).To(Equal("WORKSPACE_DIFFERS"))
 	// The first is as it was, and the second is opened under a name.
 	spec.Expect((&Workspace{spec, first.reached}).state()).To(Equal("running"))
 	second := spec.openingAs(aName(), other)
