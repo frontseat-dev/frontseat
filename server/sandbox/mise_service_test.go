@@ -131,7 +131,7 @@ func buildCaddy(t *testing.T) string {
 func caddySource(t *testing.T) string {
 	t.Helper()
 	testgrid.Address(t)
-	root := t.TempDir()
+	root := fixtureRoot(t)
 	testpins.Caddy(t, root)
 	wrote(t, root, "frontseat.yaml", "plugins:\n  backstage: {}\n")
 	wrote(t, root, "proxy/stamp", unique())
