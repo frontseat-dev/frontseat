@@ -25,7 +25,11 @@ import (
 // made. A control plane on another machine is named with https; the
 // local stack's is http://127.0.0.1:7700.
 func ExampleNew() {
-	fs := frontseat.New("https://frontseat.example", frontseat.WithToken("the-token-the-control-plane-gave"))
+	fs, err := frontseat.New("https://frontseat.example/", frontseat.WithToken("the-token-the-control-plane-gave"))
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 	fmt.Println(fs.Server())
 	// Output: https://frontseat.example
 }
@@ -34,11 +38,10 @@ func ExampleNew() {
 // the one there is, as it was left. It returns once the workspace can be
 // worked in.
 func ExampleClient_Open() {
-	server := standIn()
+	fs, server := standIn()
 	defer server.Close()
 	ctx := context.Background()
 
-	fs := frontseat.New(server.URL)
 	opened, err := fs.Open(ctx, frontseat.WorkspaceSpec{
 		Repositories: []frontseat.Repository{{Remote: "https://forge.example/acme/services.git", Ref: "main"}},
 	})
@@ -58,11 +61,11 @@ func ExampleClient_Open() {
 // A build is started, followed by its events to the one that says how it
 // ended, and waited for. It goes on whether or not it is followed.
 func ExampleWorkspace_Build() {
-	server := standIn()
+	fs, server := standIn()
 	defer server.Close()
 	ctx := context.Background()
 
-	ws := frontseat.New(server.URL).Workspace("services-main")
+	ws := fs.Workspace("services-main")
 	build, err := ws.Build(ctx, frontseat.BuildRequest{Targets: []string{"greeter"}})
 	if err != nil {
 		fmt.Println(err)
@@ -93,11 +96,11 @@ func ExampleWorkspace_Build() {
 // then releases that plan and no other, and is refused where the
 // workspace has moved since.
 func ExampleWorkspace_Release() {
-	server := standIn()
+	fs, server := standIn()
 	defer server.Close()
 	ctx := context.Background()
 
-	ws := frontseat.New(server.URL).Workspace("services-main")
+	ws := fs.Workspace("services-main")
 	plan, err := ws.PlanRelease(ctx, frontseat.ReleaseRequest{Entities: []string{"greeter"}})
 	if err != nil {
 		fmt.Println(err)
@@ -125,10 +128,10 @@ func ExampleWorkspace_Release() {
 // What a server refuses by name is read by its reason, which each call's
 // contract lists, and never by its message, which is for a person.
 func ExampleError() {
-	server := standIn()
+	fs, server := standIn()
 	defer server.Close()
 
-	ws := frontseat.New(server.URL).Workspace("services-main")
+	ws := fs.Workspace("services-main")
 	_, err := ws.Build(context.Background(), frontseat.BuildRequest{Profile: "nightly"})
 	var refused *frontseat.Error
 	if errors.As(err, &refused) && refused.Reason == frontseat.ReasonProfileUnknown {
@@ -140,8 +143,8 @@ func ExampleError() {
 // standIn serves, on this machine, what the examples ask a control plane
 // and a workspace's daemon: one workspace, services-main, whose daemon
 // is at the same address, one build of two actions that pass, and one
-// release of one unit.
-func standIn() *httptest.Server {
+// release of one unit; and a Client of it.
+func standIn() (*frontseat.Client, *httptest.Server) {
 	mux := http.NewServeMux()
 	server := httptest.NewServer(mux)
 	api := connect.NewServer()
@@ -149,7 +152,11 @@ func standIn() *httptest.Server {
 	buildv1alpha1connect.RegisterBuildServiceHandler(api, builder{})
 	buildv1alpha1connect.RegisterReleaseServiceHandler(api, releaser{})
 	connecthttp.Mount(mux, api)
-	return server
+	fs, err := frontseat.New(server.URL)
+	if err != nil {
+		panic(err)
+	}
+	return fs, server
 }
 
 // plane is the examples' control plane.

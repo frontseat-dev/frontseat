@@ -54,7 +54,7 @@ func servedDaemon(t *testing.T, d interface {
 	connecthttp.Mount(mux, api)
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
-	return New(srv.URL).Here()
+	return client(t, srv.URL).Here()
 }
 
 // A build and a run are asked for with the request id the caller gives,

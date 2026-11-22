@@ -94,7 +94,7 @@ type limits struct {
 // Catalog is a Backstage catalog, asked over its API.
 type Catalog struct {
 	api      *url.URL
-	origin   string
+	origin   *url.URL
 	token    string
 	loopback bool
 	limits   limits
@@ -126,7 +126,7 @@ func New(c Config) (*Catalog, error) {
 	api.Path = strings.TrimSuffix(at.Path, "/") + "/api/catalog"
 	api.RawPath = ""
 	out := &Catalog{
-		api: &api, origin: at.Scheme + "://" + at.Host, token: c.Token, loopback: c.Loopback,
+		api: &api, origin: &url.URL{Scheme: at.Scheme, Host: at.Host}, token: c.Token, loopback: c.Loopback,
 		limits: limits{dial: 5 * time.Second, handshake: 5 * time.Second, request: 20 * time.Second, resolution: 60 * time.Second, entities: 2000, page: 100},
 	}
 	out.client = out.made()
@@ -150,7 +150,7 @@ func (c *Catalog) made() *http.Client {
 		ResponseHeaderTimeout: c.limits.request,
 	}
 	over := &http.Client{Transport: transport, Timeout: c.limits.request, CheckRedirect: bearer.Unfollowed}
-	return bearer.Client(over, c.token, c.origin)
+	return bearer.NewClient(over, c.token, c.origin)
 }
 
 // errUndialled is an address the catalog is not dialled at.

@@ -40,7 +40,7 @@ var policies = []policy{
 	// (TestTheGoSDKRequiresNothingOfThisRepository).
 	{"sdk/go/api/**", []string{"sdk/go/api/**"}},
 	{"sdk/go/entity", []string{"sdk/go/api/**"}},
-	{"sdk/go", []string{"sdk/go/api/**", "sdk/go/entity", "sdk/go/internal/transport"}},
+	{"sdk/go", []string{"sdk/go/api/**", "sdk/go/entity", "sdk/go/internal/transport", "sdk/go/bearer"}},
 	// A token presented to its origin alone, with no redirect followed:
 	// the SDK's transport, and the server's Backstage client, present one
 	// so.

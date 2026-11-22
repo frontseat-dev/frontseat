@@ -15,6 +15,7 @@ import (
 
 	"github.com/frontseat-dev/frontseat/local"
 	"github.com/frontseat-dev/frontseat/local/ports"
+	"github.com/frontseat-dev/frontseat/sdk/go"
 	"github.com/frontseat-dev/frontseat/sdk/go/bearer"
 )
 
@@ -95,12 +96,14 @@ func Server() (string, error) {
 		return "", err
 	}
 	named := strings.TrimSuffix(string(raw), "\n")
-	at, err := url.Parse(named)
-	if err != nil || (at.Scheme != "http" && at.Scheme != "https") || at.Host == "" || at.User != nil || (at.Path != "" && at.Path != "/") || at.RawQuery != "" || at.Fragment != "" || strings.ContainsAny(named, "\r\n") {
+	// What the SDK makes a client for is the one rule of what names a
+	// server.
+	plane, err := frontseat.New(named)
+	if err != nil || strings.ContainsAny(named, "\r\n") {
 		return "", fmt.Errorf("%s names no control plane: it holds one address, written as https://HOST[:PORT], or http://HOST[:PORT] where it is on this machine", path)
 	}
-	if !bearer.Private(at) {
+	if at, err := url.Parse(plane.Server()); err != nil || !bearer.Private(at) {
 		return "", fmt.Errorf("%s names a control plane on another machine without TLS: your token would be sent to it in clear, so it is written https://HOST[:PORT]; http is for one on this machine (localhost, a loopback address)", path)
 	}
-	return strings.TrimSuffix(named, "/"), nil
+	return plane.Server(), nil
 }

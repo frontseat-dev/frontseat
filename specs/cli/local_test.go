@@ -32,6 +32,16 @@ import (
 	"github.com/frontseat-dev/frontseat/server/testsupport/testpins"
 )
 
+// sdkClient is the SDK's client of a server a test is given.
+func sdkClient(t testing.TB, server string, options ...frontseat.Option) *frontseat.Client {
+	t.Helper()
+	fs, err := frontseat.New(server, options...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return fs
+}
+
 // madeWorkspace makes a workspace of a control plane, as the client
 // given asks for it, and ends its sandbox with the test. It returns the
 // workspace as it was once it could be worked in.
@@ -120,7 +130,7 @@ func TestAWorkspaceClonesARepositoryAndBuildsIt(t *testing.T) {
 	checkout := helloModule(t)
 
 	at := local(t)
-	made, held := madeWorkspace(t, frontseat.New(at.URL, at.Owner), frontseat.WorkspaceSpec{Image: image, Repositories: cloned(t, checkout)})
+	made, held := madeWorkspace(t, sdkClient(t, at.URL, at.Owner), frontseat.WorkspaceSpec{Image: image, Repositories: cloned(t, checkout)})
 
 	// Its daemon is reached through the control plane by the workspace's
 	// name, and by no sandbox's id.
@@ -143,7 +153,7 @@ func TestAnEditorOpensTheWorkspaceOverSSHThroughTheSandboxAPI(t *testing.T) {
 		t.Fatal(err)
 	}
 	at := local(t)
-	made, _ := madeWorkspace(t, frontseat.New(at.URL, at.Owner), frontseat.WorkspaceSpec{Image: image, Repositories: cloned(t, checkout)})
+	made, _ := madeWorkspace(t, sdkClient(t, at.URL, at.Owner), frontseat.WorkspaceSpec{Image: image, Repositories: cloned(t, checkout)})
 
 	// What an editor does first: log in, look at the machine, and reach
 	// it through a forwarded connection.
@@ -270,7 +280,7 @@ func TestAWorkspaceOpenedByEntityClonesWhatItsBackstageSays(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	refusing := frontseat.New(unserved, frontseat.WithToken(strings.TrimSpace(string(raw))))
+	refusing := sdkClient(t, unserved, frontseat.WithToken(strings.TrimSpace(string(raw))))
 	_, err = refusing.Open(ctx, frontseat.WorkspaceSpec{Name: fmt.Sprintf("test-%d", time.Now().UnixNano()), Image: image, Entities: []string{"component:gateway"}})
 	if reason, _ := frontseat.Reason(err); connect.CodeOf(err) != connect.CodeUnimplemented || reason != "ENTITIES_NOT_SERVED" {
 		t.Errorf("opened by entity without a Backstage: %v (%s), want it refused UNIMPLEMENTED, ENTITIES_NOT_SERVED", err, reason)
@@ -287,7 +297,7 @@ func TestAWorkspaceOpenedByEntityClonesWhatItsBackstageSays(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	owner := frontseat.New(at, frontseat.WithToken(strings.TrimSpace(string(raw))))
+	owner := sdkClient(t, at, frontseat.WithToken(strings.TrimSpace(string(raw))))
 	t.Cleanup(func() { ended(owner.Workspace(name)) })
 	open := exec.Command(command, "workspace", "open", "--name", name, "--image", image, "component:gateway")
 	open.Env = append(os.Environ(), "XDG_CONFIG_HOME="+config)
