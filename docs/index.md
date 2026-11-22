@@ -1,5 +1,69 @@
 # Frontseat
 
-- [Configuration reference](configuration.md): everything a repository
-  writes for Frontseat, in `frontseat.yaml` and under `spec.frontseat`
-  of its catalog files.
+Frontseat is a build orchestrator: it builds only what changed, on a
+build grid that speaks Bazel's Remote Execution API, with the compilers,
+linters and test runners a repository already uses, and it gives each
+person and each agent an isolated workspace to build and test in. It is
+in preview.
+
+This site is the documentation Backstage shows for the repository that
+builds Frontseat. It is for people who change Frontseat.
+
+## How to start
+
+[CONTRIBUTING.md](https://github.com/frontseat-dev/frontseat/blob/main/CONTRIBUTING.md)
+has the quick start. In short, with [mise](https://mise.jdx.dev/) and a
+container runtime installed:
+
+```sh
+mise trust && mise install   # the pinned tools
+mise run check               # every check that needs no containers
+mise start                   # build Frontseat and start the local stack
+frontseat workspace open     # a workspace of the branch you pushed
+frontseat test               # run its tests on the grid
+```
+
+## Where the reference is
+
+- **Configuration**: everything a repository writes for Frontseat, in
+  `frontseat.yaml` and under `spec.frontseat` of its catalog files, is
+  in the [configuration reference](configuration.md).
+- **The rules every change keeps** are in
+  [AGENTS.md](https://github.com/frontseat-dev/frontseat/blob/main/AGENTS.md),
+  each with the test that holds it. `server/`, `local/`, `specs/` and
+  `plugins/` each have an `AGENTS.md` of the mistakes made there and the
+  check that stops each.
+- **The APIs** are the proto packages in `api/`: the build, workspace,
+  sandbox, credential and plugin contracts, each beside its catalog
+  file. Their comments are the reference.
+- **The command line** documents itself: `frontseat --help`, and
+  `--help` on each command.
+- **Each package** says what it is for in its doc comment.
+- **Security**: what Frontseat confines, what is not held yet, and how
+  to report a vulnerability are in
+  [SECURITY.md](https://github.com/frontseat-dev/frontseat/blob/main/SECURITY.md).
+
+## What the repository holds
+
+| Where | What |
+|---|---|
+| `api/` | The contracts, and nothing else |
+| `sdk/go`, `sdk/plugin`, `sdk/plugin-test` | The Go SDK, the Rust plugin SDK and its testkit |
+| `server/` | Every server program: the daemon, the control plane, the sandbox service and the runner |
+| `cli/` | The command line, `frontseat` |
+| `local/` | The local stack, one container, and the box image a workspace runs |
+| `plugins/` | The plugins, each built to Wasm |
+| `specs/` | The acceptance specs, the architecture test and the gate programs |
+
+## Commands
+
+`mise tasks` lists every task with what it does. The ones used most:
+
+| Command | What it does |
+|---|---|
+| `mise run build` | Builds Frontseat into `dist/`, and the box image |
+| `mise start`, `mise stop` | Starts the local stack from this checkout, and stops it |
+| `mise run check` | Everything that must pass and needs no containers |
+| `mise run test` | Every test, against the local stack |
+| `mise run go:test -- ARGS` | Chosen Go tests, with the plugins they load built first |
+| `mise run docs` | Builds this site into `site/` |

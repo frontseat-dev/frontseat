@@ -50,25 +50,25 @@ version = "1.99.1"
 url = 'https://static.rust-lang.org/dist/rust-std-{{ version }}-wasm32-wasip1.tar.xz'
 checksum_url = 'https://static.rust-lang.org/dist/rust-std-{{ version }}-wasm32-wasip1.tar.xz.sha256'
 
-# Cargo is told where the wasm standard library is, in whatever has it:
-# an action that does not name it is told nothing.
+[env]
 # What `mise run build` makes of this checkout is on the PATH here, so
 # that frontseat, frontseatd and frontseat-local are the ones just built.
-[env]
 _.path = ["./dist/bin"]
+# Cargo is told where the wasm standard library is, in whatever has it:
+# an action that does not name it is told nothing.
 CARGO_TARGET_WASM32_WASIP1_RUSTFLAGS = { value = "{% if tools['http:rust-std-wasm32-wasip1'] %}-L {{ tools['http:rust-std-wasm32-wasip1'].path }}/rust-std-wasm32-wasip1/lib/rustlib/wasm32-wasip1/lib -L {{ tools['http:rust-std-wasm32-wasip1'].path }}/rust-std-wasm32-wasip1/lib/rustlib/wasm32-wasip1/lib/self-contained{% endif %}", tools = true }
 
 # frontseat built from this checkout, into dist/: the command, the daemon
 # and the local control plane for this machine, the plugins as wasm, and
 # the box image a workspace sandbox runs, tagged by what it holds and
 # frontseat-box:local beside, for a person to ask for it by. It is what a
-# person tries frontseat with (README, "Getting Started"), and what
-# specs/cli proves. A run with nothing changed does nothing. The plugins
+# contributor tries frontseat with (CONTRIBUTING.md, "Quick start"), and
+# what specs/cli proves. A run with nothing changed does nothing. The plugins
 # are built by the program that builds them for the tests
 # (specs/cmd/prepare-modules), which reads which there are from the Cargo
 # workspace; the box by its one build (local/box, frontseat-local box).
 [tasks.build]
-description = "Build frontseat from this checkout into dist/ (on the PATH here) and the box image, tagged frontseat-box:local too"
+description = "Build Frontseat from this checkout into dist/ (dist/bin is on the PATH here), and the image each workspace runs (the box), tagged frontseat-box:local too"
 sources = ["api/**", "cli/**", "server/**", "local/**", "sdk/**", "specs/cmd/**", "specs/internal/**", "plugins/**", "Cargo.toml", "Cargo.lock", "go.work", "go.work.sum", "mise.lock"]
 outputs = ["dist/bin/frontseat", "dist/bin/frontseatd", "dist/bin/frontseat-local", "dist/plugins"]
 run = [
@@ -99,13 +99,20 @@ run = [
 # is mise's own and upgrades the tools; `mise run start` says the same
 # should mise ever take one of the names.
 [tasks.start]
-description = "Build frontseat and bring the local stack up from this checkout, running the box built from it"
+description = "Build Frontseat and start the local stack from this checkout: one container holding the build grid and the control plane the command line asks"
 # Whether this checkout may start the stack is asked before anything is
 # built.
-run = ["go run ./server/cmd/frontseat-local ready", { task = "build" }, "dist/bin/frontseat-local up --plugins dist/plugins"]
+run = [{ task = "ready" }, { task = "build" }, "dist/bin/frontseat-local up --plugins dist/plugins"]
+
+# Whether this checkout may bring the stack up: the container runtime
+# answers, and no stack another checkout started is up. `start` asks it
+# first; it is a task of its own for a person to ask alone.
+[tasks.ready]
+description = "Say whether the local stack can be started from this checkout: the container runtime answers, and no other checkout's stack is up"
+run = "go run ./server/cmd/frontseat-local ready"
 
 [tasks.stop]
-description = "Bring the local stack down, whichever checkout started it; its named volumes are kept"
+description = "Stop the local stack, whichever checkout started it; its volume, and what it kept there, stays"
 # The program built last stops it, where there is one, so that a tree
 # that does not compile does not keep the stack up.
 run = "if [ -x dist/bin/frontseat-local ]; then dist/bin/frontseat-local down; else go run ./server/cmd/frontseat-local down; fi"
@@ -127,13 +134,13 @@ run = "if [ -x dist/bin/frontseat-local ]; then dist/bin/frontseat-local down; e
 # -run TestName ./server/internal/build/`). With no stack, `go run
 # ./specs/cmd/gate test -no-stack -only DIR -- ARGS` (CONTRIBUTING.md).
 [tasks."go:test"]
-description = "Run go test with what follows --, over the wasm modules of this checkout, against the local stack"
+description = "Run chosen Go tests against the local stack, with the plugins they load built from this checkout first: mise run go:test -- -race -run TestName ./server/internal/build/"
 run = "go run ./specs/cmd/gate go-test"
 
 # What "done" is checked with. `check` needs no containers; `test` needs
 # the local stack (mise start).
 [tasks.check]
-description = "What must always pass: contracts lint, code is formatted, everything compiles, the layers hold, and every test that needs no stack"
+description = "Everything that must pass and needs no containers: lint, formatting, compiling, the architecture rules, and every test that needs no local stack"
 run = [
   "cd api && buf lint",
   # What is generated from the contracts and committed is what the
@@ -176,41 +183,42 @@ run = [
 ]
 
 [tasks.bench]
-description = "Measure what is budgeted, ten samples each, in the form benchstat compares"
+description = "Run the benchmarks of the code that has a time and allocation budget, ten samples each, in the form benchstat compares"
 run = "go run ./specs/cmd/gate bench"
 
+# COMPARE_BAZEL and COMPARE_BUCK2 name a Bazel and a Buck2 that are not
+# on the PATH.
 [tasks.compare]
-description = "Build the same workspace with frontseat and with the other build tools on this machine, and say how long each took (needs the local stack; COMPARE_BAZEL and COMPARE_BUCK2 name programs that are not on the path)"
+description = "Build one generated workspace with Frontseat, Bazel and Buck2 and print how long each took (needs the local stack)"
 run = "go run ./specs/cmd/gate go-test -count=1 -timeout 60m -run TestCompare -v ./specs/compare/ -args -compare"
 
+# Each case is built with both tools, in rounds, each tool's actions run
+# in the grid's runner sandboxes; a case fails where Frontseat is clearly
+# over its allowance.
 [tasks.perf]
-description = "Hold frontseat to Bazel on the local grid, each tool's actions run in the grid's runner sandboxes: build each case with both, in rounds, and fail where frontseat is clearly over its allowance (needs the local stack, and nothing else using it)"
+description = "Fail where Frontseat is clearly slower than Bazel on the local grid (needs the local stack, with nothing else using it)"
 run = "go run ./specs/cmd/gate go-test -count=1 -timeout 120m -run TestPerf -v ./specs/compare/ -args -perf"
 
 [tasks.test]
-description = "Everything, against the local grid and a container runtime"
+description = "Every test, against the local stack: start it first (mise start)"
 # The build specs take tens of minutes, the self-build among them the
 # most; their deadline leaves room for all of it.
 #
-# The build specs run last, on their own: their self-build, most likely,
-# holds the grid's slots with actions of a minute or more, and a test run
-# beside it waits past its five-minute deadline for one. On 2026-11-09 all
-# eight slots were held from 19:58 to 20:03 UTC by actions of 1 to 2.5
-# minutes while the self-build ran; which actions they were is not known,
-# the worker's log having turned over before it was read. A test of the
-# server package and the sandbox catalog spec timed out then, and each
-# passed run alone, in 10 s and 18 s. go test runs packages at once, and
-# the specs of one suite one after another; Bazel runs a test tagged
-# "exclusive" with nothing beside it (TargetUtils.isExclusiveTestRule,
-# bazel 94776af184). TestValidationTasksCoverEveryModule holds that what
-# the first leaves out a later command runs.
+# The build specs run last, on their own: their self-build holds the
+# grid's slots with actions of a minute or more, and a test run beside it
+# waits past its deadline for one (specs/AGENTS.md). go test runs
+# packages at once, and the specs of one suite one after another; Bazel
+# runs a test tagged "exclusive" with nothing beside it
+# (TargetUtils.isExclusiveTestRule, bazel 94776af184).
+# TestValidationTasksCoverEveryModule holds that what the first leaves
+# out a later command runs.
 #
 # The sandbox specs run over the local stack's OpenShell gateway, which
 # makes every workspace's sandbox.
 #
 # Independent build acceptance tests use t.Parallel with six tests admitted
-# at once. The self-build, proxy-count check and process-environment tests
-# stay sequential. Go waits for the sequential tests before starting their
+# at once. The self-build and the process-environment tests stay
+# sequential. Go waits for the sequential tests before starting their
 # parallel siblings. This admission bound belongs to one test process;
 # independent grid shards still require isolated infrastructure.
 run = [
@@ -229,19 +237,20 @@ run = [
 # the caller, so what it writes is the caller's. Its tools are not mise
 # pins: they are the image's.
 [tasks.docs]
-description = "Build the TechDocs site of the checkout as it is into site/, failing on any warning"
+description = "Build the documentation site (docs/, as Backstage TechDocs shows it) into site/, failing on any warning; needs a container runtime"
 run = "docker run --rm --user \"$(id -u):$(id -g)\" -v \"$PWD:/docs\" -w /docs spotify/techdocs@sha256:f9ed0de81496694c1de78bf18f1d9c5148cb1e6237ee3305685d08cfb5fb4301 build --strict --site-dir site"
 
 [tasks."docs:serve"]
-description = "Serve the TechDocs site of the checkout on http://localhost:8000, rebuilt on change"
+description = "Serve the documentation site on http://localhost:8000, rebuilt on change; needs a container runtime"
 run = "docker run --rm --init --user \"$(id -u):$(id -g)\" -p 8000:8000 -v \"$PWD:/docs\" -w /docs spotify/techdocs@sha256:f9ed0de81496694c1de78bf18f1d9c5148cb1e6237ee3305685d08cfb5fb4301 serve --dev-addr 0.0.0.0:8000"
 
-# What is generated from the contracts: the Go SDK's Go and the daemon's
-# Go of the plugin contract, each by a template of its own, and the
+# What is generated from the contracts: the Go SDK's Go, and the
+# server's of the plugin contract, of what a runner is told and of the
+# daemon's source API, each by a template of its own (four), and the
 # plugin SDK's Rust, by its generator. `check` holds each to what this
 # writes.
 [tasks.protos]
-description = "Lint the contracts and regenerate their Go and Rust"
+description = "Lint the API contracts (api/) and regenerate the Go and Rust code committed from them"
 dir = "api"
 run = [
   "buf lint",
