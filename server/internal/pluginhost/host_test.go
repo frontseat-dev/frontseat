@@ -585,3 +585,20 @@ func TestADirectoryNamedAsAShardIsRefusedByThePlugin(t *testing.T) {
 		t.Errorf("a directory named as a shard: %v; want the plugin to refuse it, by where it is", err)
 	}
 }
+
+// Of two plugins loaded under one name, the one asked is the last
+// loaded, whoever asks; a name none has is no plugin.
+func TestThePluginOfANameIsTheLastLoadedOfIt(t *testing.T) {
+	first := &pluginhost.Plugin{Description: &pluginv1.DescribeResponse{Name: "go"}, Digest: "first"}
+	last := &pluginhost.Plugin{Description: &pluginv1.DescribeResponse{Name: "go"}, Digest: "last"}
+	other := &pluginhost.Plugin{Description: &pluginv1.DescribeResponse{Name: "rust"}}
+	if got := pluginhost.Named([]*pluginhost.Plugin{first, other, last}, "go"); got != last {
+		t.Errorf("the go plugin is %v, want the last loaded", got)
+	}
+	if got := pluginhost.Named([]*pluginhost.Plugin{first, other}, "rust"); got != other {
+		t.Errorf("the rust plugin is %v, want the one loaded", got)
+	}
+	if got := pluginhost.Named([]*pluginhost.Plugin{first}, "rust"); got != nil {
+		t.Errorf("a name none has: %v, want none", got)
+	}
+}

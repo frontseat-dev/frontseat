@@ -137,17 +137,8 @@ func releasing(evaluated evaluate.Evaluation) release.Workspace {
 // strategy reads no file: it is given a source that has none.
 type strategies []*pluginhost.Plugin
 
-func (s strategies) named(name string) *pluginhost.Plugin {
-	for _, plugin := range s {
-		if plugin.Description.GetName() == name {
-			return plugin
-		}
-	}
-	return nil
-}
-
 func (s strategies) Serves(plugin string, branching bool, name string) bool {
-	found := s.named(plugin)
+	found := pluginhost.Named(s, plugin)
 	if found == nil {
 		return false
 	}
@@ -164,7 +155,7 @@ func (s strategies) Serves(plugin string, branching bool, name string) bool {
 }
 
 func (s strategies) Branch(ctx context.Context, plugin string, request *pluginv1.BranchRequest) (*pluginv1.BranchResponse, error) {
-	found := s.named(plugin)
+	found := pluginhost.Named(s, plugin)
 	if found == nil {
 		return nil, fmt.Errorf("there is no plugin %s", plugin)
 	}
@@ -176,7 +167,7 @@ func (s strategies) Branch(ctx context.Context, plugin string, request *pluginv1
 }
 
 func (s strategies) Version(ctx context.Context, plugin string, request *pluginv1.VersionRequest) (*pluginv1.VersionResponse, error) {
-	found := s.named(plugin)
+	found := pluginhost.Named(s, plugin)
 	if found == nil {
 		return nil, fmt.Errorf("there is no plugin %s", plugin)
 	}

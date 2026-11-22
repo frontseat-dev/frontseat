@@ -250,8 +250,9 @@ func TestAnEventCutShortIsNotPartOfARun(t *testing.T) {
 // never let go.
 func TestOnlyTheNewestRunsAreKept(t *testing.T) {
 	// A run that has only just ended is kept whatever has ended since:
-	// the daemon's clock is put on an hour once fourteen runs have ended,
-	// and the run that ends after them lets go of the oldest.
+	// fourteen runs that have just ended are all kept, then the daemon's
+	// clock is put on an hour and the run that ends after them lets go of
+	// the oldest.
 	var ahead atomic.Int64
 	clock := func() time.Time { return time.Now().Add(time.Duration(ahead.Load())) }
 	config := configuration{Workspace: oneModule(t), Mounted: true, Executor: scripted{}, Builds: t.TempDir(), Now: clock}
@@ -259,6 +260,11 @@ func TestOnlyTheNewestRunsAreKept(t *testing.T) {
 	var ids []string
 	for range 14 {
 		ids = append(ids, wait(t, c.runs, create(t, c.runs).GetId()).GetId())
+	}
+	// Ended within the moment a run lingers, all fourteen are kept,
+	// though they are more than the twelve the daemon keeps.
+	if listed, on := listedRuns(t, c), runsIn(t, config.Builds); len(listed) != 14 || on != 14 {
+		t.Fatalf("of fourteen runs just ended the daemon lists %d and holds %d, want every one", len(listed), on)
 	}
 	ahead.Store(int64(time.Hour))
 	ids = append(ids, wait(t, c.runs, create(t, c.runs).GetId()).GetId())
