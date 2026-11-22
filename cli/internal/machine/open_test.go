@@ -67,7 +67,6 @@ func (s standing) Same(one, other string) bool {
 	}
 	return strings.TrimSuffix(one, ".git") == strings.TrimSuffix(other, ".git")
 }
-func (standing) Authoring(vcs.Author) map[string]string { return nil }
 
 // The workspace of a checkout is asked for by what the checkout is of,
 // by who commits there, and with this machine's key, on one line: the

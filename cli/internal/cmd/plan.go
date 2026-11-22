@@ -4,7 +4,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// planCmd represents the plan command
+// planCmd says what a release would do.
 var planCmd = &cobra.Command{
 	Use:   "plan ENTITY...",
 	Short: "Say what releasing entities would do, and change nothing",

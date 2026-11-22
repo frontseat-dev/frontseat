@@ -13,7 +13,7 @@ import (
 
 var runProfile string
 
-// runCmd represents the run command
+// runCmd builds a program and runs it.
 var runCmd = &cobra.Command{
 	Use:   "run PROGRAM [-- ARGUMENT...]",
 	Short: "Build a program of the workspace and run it",
@@ -76,12 +76,12 @@ longer, it stops the program.`,
 		}
 		switch ended.GetState() {
 		case buildv1.Run_STATE_FAILED:
-			said("not run: %s", ended.GetFailure())
+			complained("not run: %s", plain.Shown(ended.GetFailure()))
 			exitCode = 1
 		case buildv1.Run_STATE_CANCELLED:
 			// Cancelled by someone else: it did not run to its end, and a
 			// program that was never started exited with nothing.
-			said("cancelled%s", after(ended.GetFailure()))
+			complained("cancelled%s", after(plain.Shown(ended.GetFailure())))
 			if exitCode = int(ended.GetExitCode()); exitCode == 0 {
 				exitCode = 1
 			}

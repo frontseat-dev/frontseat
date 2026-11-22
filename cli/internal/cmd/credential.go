@@ -26,7 +26,7 @@ const longest = 4096
 // standard input.
 var secretFrom io.Reader
 
-// credentialCmd represents the credential command
+// credentialCmd gives the control plane a host's credential, or has it let go of one.
 var credentialCmd = &cobra.Command{
 	Use:   "credential HOST",
 	Short: "Give the control plane your credential for a host, which no sandbox holds",
@@ -104,4 +104,6 @@ func init() {
 	workspaceCmd.AddCommand(credentialCmd)
 	credentialCmd.Flags().StringVar(&credentialUsername, "username", "", "who the credential is of, as the host asks")
 	credentialCmd.Flags().BoolVar(&credentialForget, "forget", false, "let go of the host's credential")
+	// What lets go of a credential says nothing of whose it is.
+	credentialCmd.MarkFlagsMutuallyExclusive("forget", "username")
 }

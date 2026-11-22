@@ -147,12 +147,17 @@ func TestRunGivesTheProgramWhatFollowsAndExitsAsItDid(t *testing.T) {
 	}
 }
 
-// What was not run says why, and the command fails.
+// What was not run says why, and the command fails. It says so apart
+// from what it prints, where the program's own output goes: whatever
+// reads that is not told the command's words as the program's.
 func TestARunThatFailedExitsOneAndSaysWhy(t *testing.T) {
 	l := &programs{ends: &buildv1.Run{Id: "run_1", State: buildv1.Run_STATE_FAILED, Failure: "//x:go.compile is a step of a build, and no program"}}
 	printed, code, err := running(t, context.Background(), l, "run", "//x:go.compile")
-	if err != nil || code != 1 || !strings.Contains(printed, "not run: //x:go.compile is a step of a build, and no program") {
-		t.Errorf("exit %d, %v\n%s", code, err, printed)
+	if err != nil || code != 1 || !strings.Contains(complaints.String(), "not run: //x:go.compile is a step of a build, and no program") {
+		t.Errorf("exit %d, %v, saying %q\n%s", code, err, complaints.String(), printed)
+	}
+	if strings.Contains(printed, "not run") {
+		t.Errorf("why it was not run is printed where the program's output is:\n%s", printed)
 	}
 	// A program is named: nothing is asked of a daemon without one.
 	none := &programs{}
@@ -261,8 +266,8 @@ func TestARunStoppedByAnotherFails(t *testing.T) {
 		143: {Id: "run_1", State: buildv1.Run_STATE_CANCELLED, ExitCode: 143, Failure: "a process could not be signalled"},
 	} {
 		printed, code, err := running(t, context.Background(), &programs{ends: ended}, "run", "//x:go.run/x")
-		if err != nil || code != want || !strings.Contains(printed, "cancelled") || !strings.Contains(printed, ended.GetFailure()) {
-			t.Errorf("exit %d, want %d, %v\n%s", code, want, err, printed)
+		if said := complaints.String(); err != nil || code != want || !strings.Contains(said, "cancelled") || !strings.Contains(said, ended.GetFailure()) || strings.Contains(printed, "cancelled") {
+			t.Errorf("exit %d, want %d, %v, saying %q\n%s", code, want, err, said, printed)
 		}
 	}
 }

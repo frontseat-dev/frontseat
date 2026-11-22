@@ -19,8 +19,8 @@ var Daemon = "http://" + net.JoinHostPort("127.0.0.1", strconv.Itoa(ports.Daemon
 // workspace writes it. Nothing it is told decides it, and no variable: a
 // box is where its daemon is. A lock that is not there, cannot be read
 // by this user, or names no workspace is outside.
-func Inside() (bool, error) {
-	return named(ports.Lock), nil
+func Inside() bool {
+	return named(ports.Lock)
 }
 
 // named is whether a lock names a workspace.

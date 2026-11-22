@@ -53,6 +53,11 @@ func TestTheContextFileIsWrittenInItsFormat(t *testing.T) {
 	if err := WriteContext(Context{Server: "http://s", Workspace: "w"}); err != nil {
 		t.Fatal(err)
 	}
+	// The directory it made holds a key and a token besides: it is the
+	// person's alone.
+	if kept, err := os.Stat(filepath.Dir(at)); err != nil || kept.Mode().Perm() != 0o700 {
+		t.Errorf("the directory the context is kept in is %v (%v), want it its owner's alone", kept.Mode().Perm(), err)
+	}
 	raw, err := os.ReadFile(at)
 	if want := "{\n  \"server\": \"http://s\",\n  \"workspace\": \"w\"\n}\n"; err != nil || string(raw) != want {
 		t.Fatalf("wrote %q (%v), want %q", raw, err, want)

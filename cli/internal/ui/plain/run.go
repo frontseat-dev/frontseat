@@ -27,10 +27,8 @@ func (p Printer) Run(run *buildv1.Run) {
 // RunState says where a run is, in a few words.
 func RunState(run *buildv1.Run) string {
 	switch run.GetState() {
-	case buildv1.Run_STATE_BUILDING:
-		return "building"
-	case buildv1.Run_STATE_RUNNING:
-		return "running"
+	case buildv1.Run_STATE_BUILDING, buildv1.Run_STATE_RUNNING:
+		return Word(run.GetState())
 	case buildv1.Run_STATE_EXITED:
 		return fmt.Sprintf("exited %d", run.GetExitCode())
 	case buildv1.Run_STATE_CANCELLED:

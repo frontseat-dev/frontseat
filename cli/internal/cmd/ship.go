@@ -1,9 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-	"os"
-
 	"github.com/spf13/cobra"
 
 	"github.com/frontseat-dev/frontseat/cli/internal/ui/plain"
@@ -16,7 +13,7 @@ import (
 // be of that plan and no other.
 var shipPlanned string
 
-// shipCmd represents the ship command
+// shipCmd releases entities.
 var shipCmd = &cobra.Command{
 	Use:   "ship ENTITY...",
 	Short: "Release entities: build what moves for production, and tag it",
@@ -73,7 +70,7 @@ An entity named plan is written in full, component:plan.`,
 				if ctx.Err() != nil {
 					return ctx.Err()
 				}
-				fmt.Fprintf(os.Stderr, "frontseat: the build %s could not be followed: %v\n", release.Build.ID, err)
+				complained("frontseat: the build %s could not be followed: %v", release.Build.ID, err)
 			}
 		}
 		ended, err := release.Wait(ctx)

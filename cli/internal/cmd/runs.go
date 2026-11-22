@@ -6,7 +6,7 @@ import (
 	"github.com/frontseat-dev/frontseat/cli/internal/ui/plain"
 )
 
-// runsCmd represents the runs command
+// runsCmd lists the programs the workspace has run.
 var runsCmd = &cobra.Command{
 	Use:   "runs",
 	Short: "List the programs the workspace has run",
