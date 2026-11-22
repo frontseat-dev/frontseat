@@ -36,8 +36,8 @@ type Driver interface {
 	// Logs returns the sandbox's own output from a line.
 	Logs(ctx context.Context, id string, fromLine int64) (io.ReadCloser, error)
 	// Dial connects to a port inside the sandbox. It is the one transport
-	// a driver must supply: the box agent and the build API are both
-	// reached through it.
+	// a driver must supply: the daemon's build API, its source API and
+	// the shell are each reached through it.
 	Dial(ctx context.Context, id string, port int) (net.Conn, error)
 }
 
