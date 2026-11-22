@@ -61,12 +61,12 @@ type Daemon struct {
 	// held is the workspace the daemon holds: the source API fills it
 	// and every run reads it.
 	held  *source.Workspace
-	runs  *runs
+	runs  *builds
 	graph *graphService
 	// releases are stopped before the runs they wait on, and the
 	// programs run too, which end with the daemon.
 	releases *releases
-	programs *programRuns
+	programs *runs
 	once     sync.Once
 	release  func()
 	// Plugins lists the loaded plugin names in configuration order.
@@ -100,7 +100,7 @@ func newDaemon(config configuration) (*Daemon, error) {
 		return nil, err
 	}
 	api := connect.NewServer()
-	runs, err := newRuns(held, config.Plugins, config.Executor, config.Downloads, config.Platform, config.Telemetry, config.Builds, config.Now)
+	runs, err := newBuilds(held, config.Plugins, config.Executor, config.Downloads, config.Platform, config.Telemetry, config.Builds, config.Now)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +118,7 @@ func newDaemon(config configuration) (*Daemon, error) {
 	buildv1alpha1connect.RegisterGraphServiceHandler(api, graph)
 	made := newReleases(graph)
 	buildv1alpha1connect.RegisterReleaseServiceHandler(api, &releaseService{graph: graph, releases: made})
-	programs := newProgramRuns(runs)
+	programs := newRuns(runs)
 	buildv1alpha1connect.RegisterRunServiceHandler(api, &runService{programs: programs})
 	mux := http.NewServeMux()
 	connecthttp.Mount(mux, api)

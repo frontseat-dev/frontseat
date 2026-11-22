@@ -14,7 +14,7 @@ import (
 // daemon runs.
 type runService struct {
 	buildv1alpha1connect.UnimplementedRunServiceHandler
-	programs *programRuns
+	programs *runs
 	// asked are the runs each request id made.
 	asked requests
 }
@@ -26,7 +26,7 @@ func (s *runService) CreateRun(ctx context.Context, request *buildv1.CreateRunRe
 	if request.GetTarget() == "" {
 		return nil, refuse(connect.CodeInvalidArgument, "TARGET_MISSING", "name the program to run, as it is printed")
 	}
-	if _, err := sourceOf(s.programs.runs.workspace); err != nil {
+	if _, err := sourceOf(s.programs.builds.workspace); err != nil {
 		return nil, refuse(connect.CodeFailedPrecondition, "WORKSPACE_NOT_READY", err.Error())
 	}
 	profile, err := profileOf(request.GetProfile())

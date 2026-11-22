@@ -20,7 +20,7 @@ import (
 // of it.
 type graphService struct {
 	buildv1alpha1connect.UnimplementedGraphServiceHandler
-	runs    *runs
+	runs    *builds
 	session *evaluate.Session
 }
 

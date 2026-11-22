@@ -62,13 +62,13 @@ func (d *delivery) take() *program.Brought {
 	return brought
 }
 
-// programRuns are the runs a daemon has made, of the run service. A run
+// runs are the runs a daemon has made, of the run service. A run
 // builds what a program is made of, by a build, and starts the program
 // where the daemon is. What a daemon remembers of them it remembers
 // while it runs: a program ends with the daemon that started it.
-type programRuns struct {
+type runs struct {
 	// runs are the daemon's builds, one of which each run is made with.
-	runs *runs
+	builds *builds
 
 	mu       sync.Mutex
 	made     []*programRun
@@ -134,12 +134,12 @@ func (r *programRun) since(line int64) (lines []*typev1.LogLine, next int64, end
 	return lines, line + int64(len(lines)), r.over(), r.changed
 }
 
-func newProgramRuns(runs *runs) *programRuns { return &programRuns{runs: runs} }
+func newRuns(builds *builds) *runs { return &runs{builds: builds} }
 
 // stop ends every run, and waits for each to have ended: a program
 // ends with its daemon. It is called before the builds are stopped: a
 // run waits on its build, and its program is in the builds' directory.
-func (rs *programRuns) stop() {
+func (rs *runs) stop() {
 	rs.mu.Lock()
 	rs.stopping = true
 	made := append([]*programRun(nil), rs.made...)
@@ -150,7 +150,7 @@ func (rs *programRuns) stop() {
 	rs.joined.Wait()
 }
 
-func (rs *programRuns) get(id string) (*programRun, error) {
+func (rs *runs) get(id string) (*programRun, error) {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 	for _, each := range rs.made {
@@ -162,7 +162,7 @@ func (rs *programRuns) get(id string) (*programRun, error) {
 }
 
 // list returns the runs, newest first.
-func (rs *programRuns) list() []*programRun {
+func (rs *runs) list() []*programRun {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 	out := make([]*programRun, 0, len(rs.made))
@@ -174,7 +174,7 @@ func (rs *programRuns) list() []*programRun {
 
 // create makes a run, and returns at once. What it does is of the
 // trace of whoever asked, and goes on after they have been answered.
-func (rs *programRuns) create(ctx context.Context, profile typev1.Profile, request *buildv1.CreateRunRequest) (*programRun, error) {
+func (rs *runs) create(ctx context.Context, profile typev1.Profile, request *buildv1.CreateRunRequest) (*programRun, error) {
 	id, err := newID("run_", 8)
 	if err != nil {
 		return nil, err
@@ -196,7 +196,7 @@ func (rs *programRuns) create(ctx context.Context, profile typev1.Profile, reque
 	// Its build is made with it, so that whoever made it follows the
 	// build by the run it is answered with.
 	bringing := &delivery{}
-	built, err := rs.runs.create(context.WithoutCancel(ctx), profile, []string{request.GetTarget()}, nil, false, false, bringing, nil)
+	built, err := rs.builds.create(context.WithoutCancel(ctx), profile, []string{request.GetTarget()}, nil, false, false, bringing, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +204,7 @@ func (rs *programRuns) create(ctx context.Context, profile typev1.Profile, reque
 		changed: make(chan struct{}), stop: make(chan struct{}),
 		lasting: lasting[*buildv1.Run]{ended: make(chan struct{}), state: &buildv1.Run{
 			Id: id, Target: request.GetTarget(), Arguments: request.GetArguments(), Profile: profile,
-			State: buildv1.Run_STATE_BUILDING, CreateTime: timestamppb.New(rs.runs.clock()),
+			State: buildv1.Run_STATE_BUILDING, CreateTime: timestamppb.New(rs.builds.clock()),
 			BuildId: built.snapshot().GetId(),
 		}},
 	}
@@ -219,9 +219,9 @@ func (rs *programRuns) create(ctx context.Context, profile typev1.Profile, reque
 
 // carryOut builds what a run's program is made of, starts it, and
 // stays with it until it ends or the run is stopped.
-func (rs *programRuns) carryOut(ctx context.Context, r *programRun, built *run, bringing *delivery) {
+func (rs *runs) carryOut(ctx context.Context, r *programRun, built *run, bringing *delivery) {
 	end := func(state buildv1.Run_State, failure string) {
-		now := timestamppb.New(rs.runs.clock())
+		now := timestamppb.New(rs.builds.clock())
 		r.mu.Lock()
 		r.state.State, r.state.Failure, r.state.EndTime = state, failure, now
 		close(r.ended)
@@ -270,13 +270,13 @@ func (rs *programRuns) carryOut(ctx context.Context, r *programRun, built *run, 
 	}
 	r.change(func(s *buildv1.Run) { s.Label = brought.Label })
 	running, err := brought.Start(r.snapshot().GetArguments(), func(stderr bool, line []byte) {
-		r.printed(stderr, line, timestamppb.New(rs.runs.clock()))
+		r.printed(stderr, line, timestamppb.New(rs.builds.clock()))
 	})
 	if err != nil {
 		fail("%v", err)
 		return
 	}
-	started := timestamppb.New(rs.runs.clock())
+	started := timestamppb.New(rs.builds.clock())
 	r.change(func(s *buildv1.Run) {
 		s.State, s.StartTime = buildv1.Run_STATE_RUNNING, started
 	})

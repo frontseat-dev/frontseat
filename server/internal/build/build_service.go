@@ -20,7 +20,7 @@ import (
 // builds.
 type buildService struct {
 	buildv1alpha1connect.UnimplementedBuildServiceHandler
-	runs *runs
+	runs *builds
 	// asked are the runs each request id made.
 	asked requests
 }
@@ -113,7 +113,7 @@ func (s *buildService) StreamBuildEvents(ctx context.Context, req *buildv1.Strea
 		next = 1
 	}
 	if last := r.snapshot().GetLastSequence(); r.ended() && next > last+1 {
-		return refuse(connect.CodeOutOfRange, "SEQUENCE_OUT_OF_RANGE", fmt.Sprintf("the run's last event is %d", last))
+		return refuse(connect.CodeOutOfRange, "SEQUENCE_OUT_OF_RANGE", fmt.Sprintf("the build's last event is %d", last))
 	}
 	for {
 		events, ended, changed := r.since(next)
@@ -197,7 +197,7 @@ func (s *buildService) logs(ctx context.Context, req *buildv1.StreamBuildLogsReq
 		}
 		return sending.flush()
 	}
-	return refuse(connect.CodeNotFound, "ACTION_NOT_FOUND", "the run has no action of the label asked for")
+	return refuse(connect.CodeNotFound, "ACTION_NOT_FOUND", "the build has no action of that label")
 }
 
 // parts gathers lines into parts and sends each as it fills.

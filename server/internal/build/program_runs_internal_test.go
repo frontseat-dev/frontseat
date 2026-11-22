@@ -80,7 +80,7 @@ func TestARunSaysWhichActionStoppedItsBuild(t *testing.T) {
 // Runs that ended are let go beyond the newest; one that has not
 // ended never is.
 func TestRunsThatEndedAreLetGoBeyondTheNewest(t *testing.T) {
-	rs := &programRuns{}
+	rs := &runs{}
 	going := aRun()
 	going.state.Id = "going"
 	rs.made = append(rs.made, going)
@@ -98,7 +98,7 @@ func TestRunsThatEndedAreLetGoBeyondTheNewest(t *testing.T) {
 // A daemon has only so many runs that have not ended: one more is
 // refused before anything is built, and one that ended makes room.
 func TestADaemonHasOnlySoManyRunsAtOnce(t *testing.T) {
-	rs := &programRuns{}
+	rs := &runs{}
 	for range runsAtOnce {
 		rs.made = append(rs.made, aRun())
 	}
@@ -128,7 +128,7 @@ func TestARunIsMadeWithItsBuild(t *testing.T) {
 	if run == "" {
 		t.Fatal("the run was made with no run")
 	}
-	built, err := rs.runs.get(run)
+	built, err := rs.builds.get(run)
 	if err != nil || built.snapshot().GetTargets()[0] != "//hello:go.run/none" {
 		t.Errorf("the run names the run %s, which is %v (%v); want the build of its program", run, built, err)
 	}
@@ -141,7 +141,7 @@ func TestARunIsMadeWithItsBuild(t *testing.T) {
 func TestCancellingARunReturnsAtOnceAndWaitFollows(t *testing.T) {
 	going := aRun()
 	going.state.Id, going.state.State = "run_0123456789ab", buildv1.Run_STATE_RUNNING
-	s := &runService{programs: &programRuns{made: []*programRun{going}}}
+	s := &runService{programs: &runs{made: []*programRun{going}}}
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 

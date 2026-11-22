@@ -45,9 +45,9 @@ func opened(t *testing.T, dir string) *history.Store {
 
 // readRuns is what a daemon that starts over a directory of runs, and
 // is given nothing else, makes of them.
-func readRuns(t *testing.T, dir string) *runs {
+func readRuns(t *testing.T, dir string) *builds {
 	t.Helper()
-	rs, err := newRuns(nil, nil, nil, nil, nil, nil, dir, nil)
+	rs, err := newBuilds(nil, nil, nil, nil, nil, nil, dir, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -264,7 +264,7 @@ func TestARecordThatSaysLittleDoesNotStopTheDaemon(t *testing.T) {
 					t.Errorf("the daemon panicked reading its runs: %v", r)
 				}
 			}()
-			if _, err := newRuns(nil, nil, nil, nil, nil, nil, dir, nil); err != nil {
+			if _, err := newBuilds(nil, nil, nil, nil, nil, nil, dir, nil); err != nil {
 				t.Logf("the daemon refused, which is an answer: %v", err)
 			}
 		})
@@ -295,7 +295,7 @@ func TestARecordCutAnywhereIsARunOrNone(t *testing.T) {
 			t.Fatal(err)
 		}
 		for range 2 {
-			rs, err := newRuns(nil, nil, nil, nil, nil, nil, dir, nil)
+			rs, err := newBuilds(nil, nil, nil, nil, nil, nil, dir, nil)
 			if err != nil {
 				t.Fatalf("cut at %d: %v", cut, err)
 			}
@@ -467,7 +467,7 @@ func TestARunsEventsAreStampedByTheDaemonsClock(t *testing.T) {
 	}
 	again := t.TempDir()
 	write(t, again, filepath.Join("build_0123456789ab", recordFile), string(bytes))
-	rs, err := newRuns(nil, nil, nil, nil, nil, nil, again, func() time.Time { return at })
+	rs, err := newBuilds(nil, nil, nil, nil, nil, nil, again, func() time.Time { return at })
 	if err != nil {
 		t.Fatal(err)
 	}
