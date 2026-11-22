@@ -8,7 +8,6 @@ import (
 
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/source"
-	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -51,7 +50,7 @@ func TestRetainedOwnedCallerCannotChangeALaterResult(t *testing.T) {
 			t.Run(name+"/"+stage, func(t *testing.T) {
 				root := retainedFixture(t, 2)
 				p, files := newRetainedEngine(), &source.Keeper{}
-				profile := pluginv1.Profile_PROFILE_DEVELOPMENT
+				profile := typev1.Profile_PROFILE_DEVELOPMENT
 				var targets []string
 				if stage != "cold" {
 					retainedOracle(t, p, files, root, profile, nil)
@@ -93,7 +92,7 @@ func TestRetainedOwnedCallerCannotChangeALaterResult(t *testing.T) {
 // the later project first, but the ordinary evaluator owns which error wins.
 func TestRetainedOwnedDiagnosticsUseOrdinaryEvaluationOrder(t *testing.T) {
 	root, p, files := warmRetained(t, 2)
-	profile := pluginv1.Profile_PROFILE_DEVELOPMENT
+	profile := typev1.Profile_PROFILE_DEVELOPMENT
 	ordinary := &Answers{}
 	if _, err := retainedFresh(t.Context(), retainedTake(t, files, root), profile, nil, ordinary); err != nil {
 		t.Fatal(err)

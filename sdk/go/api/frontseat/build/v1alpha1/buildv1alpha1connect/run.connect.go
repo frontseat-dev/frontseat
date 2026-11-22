@@ -116,7 +116,7 @@ type RunServiceClient interface {
 	//
 	// ### Errors
 	// - INVALID_ARGUMENT: no target is given (TARGET_MISSING), the profile
-	//   is one nobody defined (PROFILE_UNKNOWN), or the request_id is
+	//   is a number that is no profile (PROFILE_UNKNOWN), or the request_id is
 	//   longer than 128 bytes (REQUEST_ID_INVALID).
 	// - FAILED_PRECONDITION: the daemon holds no workspace to build
 	//   (WORKSPACE_NOT_READY).
@@ -207,7 +207,7 @@ type RunServiceHandler interface {
 	//
 	// ### Errors
 	// - INVALID_ARGUMENT: no target is given (TARGET_MISSING), the profile
-	//   is one nobody defined (PROFILE_UNKNOWN), or the request_id is
+	//   is a number that is no profile (PROFILE_UNKNOWN), or the request_id is
 	//   longer than 128 bytes (REQUEST_ID_INVALID).
 	// - FAILED_PRECONDITION: the daemon holds no workspace to build
 	//   (WORKSPACE_NOT_READY).

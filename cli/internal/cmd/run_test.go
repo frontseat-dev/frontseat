@@ -136,7 +136,7 @@ func TestRunGivesTheProgramWhatFollowsAndExitsAsItDid(t *testing.T) {
 		t.Fatalf("it asked for %d runs", len(l.created))
 	}
 	asked := l.created[0]
-	if asked.GetTarget() != "//x:go.run/x" || asked.GetProfile() != "production" || strings.Join(asked.GetArguments(), "|") != "--name|two words|--endpoint|its own" {
+	if asked.GetTarget() != "//x:go.run/x" || asked.GetProfile() != typev1.Profile_PROFILE_PRODUCTION || strings.Join(asked.GetArguments(), "|") != "--name|two words|--endpoint|its own" {
 		t.Errorf("it asked for %v", asked)
 	}
 	if !strings.Contains(printed, "hello\n") || !strings.Contains(printed, `moves \x1b[2J the screen`) || strings.Contains(printed, "\x1b") {
@@ -235,7 +235,7 @@ func TestWhatFollowsAProgramIsItsOwn(t *testing.T) {
 		if want[0] == "--" {
 			want = want[1:]
 		}
-		if got := l.created[0]; strings.Join(got.GetArguments(), "|") != strings.Join(want, "|") || got.GetProfile() != "" {
+		if got := l.created[0]; strings.Join(got.GetArguments(), "|") != strings.Join(want, "|") || got.GetProfile() != typev1.Profile_PROFILE_UNSPECIFIED {
 			t.Errorf("%v: the program was given %q, built with %q", after, got.GetArguments(), got.GetProfile())
 		}
 	}

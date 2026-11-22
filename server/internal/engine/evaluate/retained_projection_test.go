@@ -6,14 +6,14 @@ import (
 	"fmt"
 	"testing"
 
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/catalog/catalogtest"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/plan"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/source"
-	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
 	"google.golang.org/protobuf/proto"
 )
 
-func projectionFresh(t testing.TB, src Source, profile pluginv1.Profile) Evaluation {
+func projectionFresh(t testing.TB, src Source, profile typev1.Profile) Evaluation {
 	t.Helper()
 	plugins := retainedPlugins(t)
 	e, err := Evaluate(t.Context(), src, plugins, &Answers{}, profile, nil)
@@ -46,7 +46,7 @@ func freshPlan(t testing.TB, fresh Evaluation, targets []string) selectedPlan {
 // planMatches is the retained engine's plan of targets in root, over a
 // snapshot taken through files; the test fails, with message, unless it is
 // the plan a fresh evaluation makes.
-func planMatches(t testing.TB, p *retainedEngine, files *source.Keeper, root string, profile pluginv1.Profile, targets []string, message string) selectedPlan {
+func planMatches(t testing.TB, p *retainedEngine, files *source.Keeper, root string, profile typev1.Profile, targets []string, message string) selectedPlan {
 	t.Helper()
 	got, err := p.selectedPlan(t.Context(), retainedTake(t, files, root), profile, targets)
 	if err != nil {
@@ -72,7 +72,7 @@ func TestRetainedProjectionCopiesOnlyTheRequestedResult(t *testing.T) {
 		t.Run(op, func(t *testing.T) {
 			root := retainedFixture(t, 20)
 			p, files := newRetainedEngine(), &source.Keeper{}
-			profile := pluginv1.Profile_PROFILE_DEVELOPMENT
+			profile := typev1.Profile_PROFILE_DEVELOPMENT
 			// The legacy full-result control proves the materialization counter.
 			retainedOracle(t, p, files, root, profile, nil)
 			if *fullCopies(p) != 1 {
@@ -112,7 +112,7 @@ func TestRetainedProjectionCopiesOnlyTheRequestedResult(t *testing.T) {
 func TestRetainedProjectionProjectQueryDoesNotPlanABuild(t *testing.T) {
 	root := retainedFixture(t, 2)
 	writeCycle(t, root, "alpha")
-	profile := pluginv1.Profile_PROFILE_DEVELOPMENT
+	profile := typev1.Profile_PROFILE_DEVELOPMENT
 	fresh := projectionFresh(t, retainedTake(t, &source.Keeper{}, root), profile)
 	_, _, wantErr := plan.Of(fresh.Actions, fresh.Entities, []string{"m0001/"}, nil)
 	if wantErr == nil {
@@ -136,7 +136,7 @@ func TestRetainedProjectionSwitchesOperationsWithoutStalePlans(t *testing.T) {
 	root := retainedFixture(t, 20)
 	retainedWrite(t, root, "frontseat.yaml", "plugins:\n  go: {test-shards: 2}\n  backstage: {}\n")
 	p, files := newRetainedEngine(), &source.Keeper{}
-	profile := pluginv1.Profile_PROFILE_DEVELOPMENT
+	profile := typev1.Profile_PROFILE_DEVELOPMENT
 	query := func() {
 		t.Helper()
 		got, err := p.projectList(t.Context(), retainedTake(t, files, root), profile)
@@ -177,7 +177,7 @@ func TestRetainedProjectionSwitchesOperationsWithoutStalePlans(t *testing.T) {
 	if p.plans != 5 {
 		t.Fatal("plan did not refresh after query")
 	}
-	profile = pluginv1.Profile_PROFILE_PRODUCTION
+	profile = typev1.Profile_PROFILE_PRODUCTION
 	query()
 	build("m0001/")
 	if p.evaluations != 3 || p.plans != 6 || *fullCopies(p) != 0 {

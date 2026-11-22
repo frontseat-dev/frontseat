@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"slices"
 	"sync"
 
@@ -108,7 +108,7 @@ func (s *Session) operation(ctx context.Context, kind projectionKind) (projectio
 	if err != nil {
 		return projectionResult{}, err
 	}
-	return s.core.operationSelected(ctx, src, pluginv1.Profile_PROFILE_DEVELOPMENT, nil, nil, kind, entities)
+	return s.core.operationSelected(ctx, src, typev1.Profile_PROFILE_DEVELOPMENT, nil, nil, kind, entities)
 }
 
 // Projects returns an owned projection without materializing a full graph copy.
@@ -126,7 +126,7 @@ func (s *Session) Facts(ctx context.Context) (Evaluation, error) {
 // Build plans from the caller's run-owned snapshot, which execution continues
 // to use after this method returns. Source acquisition belongs to run lifetime.
 // No mutable retained value or snapshot escapes from the engine.
-func (s *Session) Build(ctx context.Context, src Source, profile pluginv1.Profile, entities []record.Located, targets, only []string) (BuildPlan, error) {
+func (s *Session) Build(ctx context.Context, src Source, profile typev1.Profile, entities []record.Located, targets, only []string) (BuildPlan, error) {
 	ctx, finish, err := s.start(ctx)
 	if err != nil {
 		return BuildPlan{}, err

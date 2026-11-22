@@ -3,6 +3,21 @@ use crate::{wire, Error, Profile};
 mod document;
 pub use document::{line_of, TomlTable, Typed};
 
+/// The most bytes of a file a plugin takes from a read: the host answers
+/// a larger file as too large, and copies none of it into the module.
+pub const READ_AT_MOST: u32 = 4 * 1024 * 1024;
+
+/// The failure of a read of a file larger than a plugin takes
+/// ([`READ_AT_MOST`]), as a host answers it.
+pub fn too_large(path: &str) -> Error {
+    Error::invalid(
+        "file-too-large",
+        path,
+        "the file holds more than the 4 MiB a plugin reads",
+        "Keep a file a plugin reads, such as a manifest or a lock, below 4 MiB.",
+    )
+}
+
 /// What the host serves a plugin while it answers a call.
 pub trait Host {
     /// Returns a file of the repository, if it is there.

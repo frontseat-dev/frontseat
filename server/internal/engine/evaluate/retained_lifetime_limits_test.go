@@ -5,8 +5,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/source"
-	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
 	"math"
 	"sync"
 	"testing"
@@ -66,7 +66,7 @@ func TestRetainedLifetimeLimitsCoverEveryProjection(t *testing.T) {
 		t.Fatal("policy borrows caller's mutable value")
 	}
 	root := retainedFixture(t, 2)
-	profile, targets := pluginv1.Profile_PROFILE_DEVELOPMENT, []string{"m0001/"}
+	profile, targets := typev1.Profile_PROFILE_DEVELOPMENT, []string{"m0001/"}
 	fresh := projectionFresh(t, retainedTake(t, &source.Keeper{}, root), profile)
 	for _, kind := range []projectionKind{projectFull, projectProjects, projectPlan} {
 		control := newRetainedEngine()
@@ -128,7 +128,7 @@ func (s *lifetimeReadGate) Read(ctx context.Context, repository, path string) ([
 
 func TestRetainedLifetimeRefusalAndCancellationEnforceLimits(t *testing.T) {
 	root := retainedFixture(t, 2)
-	profile := pluginv1.Profile_PROFILE_DEVELOPMENT
+	profile := typev1.Profile_PROFILE_DEVELOPMENT
 	p, err := retainedLimited(RetentionLimits{Records: 1, WireBytes: 1})
 	if err != nil {
 		t.Fatal(err)
@@ -178,7 +178,7 @@ func TestRetainedLifetimeRefusalAndCancellationEnforceLimits(t *testing.T) {
 func TestRetainedLifetimeForgetWaitsForColdPublication(t *testing.T) {
 	root := retainedFixture(t, 2)
 	p, files := newRetainedEngine(), &source.Keeper{}
-	profile := pluginv1.Profile_PROFILE_DEVELOPMENT
+	profile := typev1.Profile_PROFILE_DEVELOPMENT
 	gate := &lifetimeReadGate{Source: retainedTake(t, files, root), started: make(chan struct{}), release: make(chan struct{})}
 	ctx, cancel := context.WithCancel(t.Context())
 	var wait sync.WaitGroup
@@ -315,7 +315,7 @@ func TestRetainedLifetimeConcurrentForgetAndOperations(t *testing.T) {
 		t.Fatal(err)
 	}
 	files := &source.Keeper{}
-	profile := pluginv1.Profile_PROFILE_DEVELOPMENT
+	profile := typev1.Profile_PROFILE_DEVELOPMENT
 	fresh := projectionFresh(t, retainedTake(t, &source.Keeper{}, root), profile)
 	type returned struct {
 		result, want testProjection

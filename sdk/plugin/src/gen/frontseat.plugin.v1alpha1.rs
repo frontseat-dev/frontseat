@@ -43,6 +43,11 @@ pub struct ReadRequest {
     /// Path is the file, relative to the repository.
     #[prost(string, tag = "1")]
     pub path: ::prost::alloc::string::String,
+    /// Most_bytes is the most of the file the plugin takes, more than none
+    /// and at most 4 MiB (4194304): a file larger is answered too_large,
+    /// with no content, and is never copied into the module. Zero is 4 MiB.
+    #[prost(uint32, tag = "2")]
+    pub most_bytes: u32,
 }
 /// ReadResponse is a file of the repository.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -51,9 +56,13 @@ pub struct ReadResponse {
     /// error.
     #[prost(bool, tag = "1")]
     pub found: bool,
-    /// Content is its bytes.
+    /// Content is its bytes; none where the file is too large.
     #[prost(bytes = "vec", tag = "2")]
     pub content: ::prost::alloc::vec::Vec<u8>,
+    /// Too_large says the file is there and holds more than most_bytes:
+    /// its content is not sent.
+    #[prost(bool, tag = "3")]
+    pub too_large: bool,
 }
 /// GlobRequest selects files beneath a literal repository directory.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -197,9 +206,9 @@ pub struct ReleaseCommit {
     /// Members are the unit's members whose files it changed.
     #[prost(message, repeated, tag = "4")]
     pub members: ::prost::alloc::vec::Vec<super::super::r#type::v1alpha1::EntityRef>,
-    /// Time is when it was committed, in seconds since the epoch.
-    #[prost(int64, tag = "5")]
-    pub time: i64,
+    /// Commit_time is when it was committed.
+    #[prost(message, optional, tag = "5")]
+    pub commit_time: ::core::option::Option<::prost_types::Timestamp>,
 }
 /// VersionResponse is a unit's next version.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -252,7 +261,7 @@ pub struct Context {
     /// Profile is the way the source is to be built. A plugin declares the
     /// commands of that way: its compiler flags and its tools' own switches.
     /// It is never unspecified.
-    #[prost(enumeration = "Profile", tag = "7")]
+    #[prost(enumeration = "super::super::r#type::v1alpha1::Profile", tag = "7")]
     pub profile: i32,
     /// Platforms are the platforms what the plugin is asked about is
     /// shipped for, as its entity says (spec.frontseat.platforms), each an
@@ -1050,15 +1059,19 @@ pub mod dependency_input {
     /// Selection names all requirements or exactly one declared requirement.
     #[derive(Clone, PartialEq, Eq, Hash, ::prost::Oneof)]
     pub enum Selection {
-        /// All must be true and selects every requirement of this project.
-        #[prost(bool, tag = "1")]
-        All(bool),
+        /// All selects every requirement of this project.
+        #[prost(message, tag = "1")]
+        All(super::AllRequirements),
         /// Coordinate selects a requirement already declared by this project.
         /// It selects the provider, never a producer action of another plugin.
         #[prost(message, tag = "2")]
         Coordinate(super::Coordinate),
     }
 }
+/// AllRequirements selects every requirement of a project: see
+/// DependencyInput.all. It says nothing more.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AllRequirements {}
 /// Download is one thing a shared fetch brings from outside: see
 /// Action.downloads. It is unpacked whole (sha256 and into) or cut into
 /// parts (parts), never both.
@@ -1285,45 +1298,4 @@ pub struct Edit {
     /// the key out.
     #[prost(string, repeated, tag = "4")]
     pub values: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
-}
-/// Profile is one of the two ways source is built, which every profile is
-/// at its base. A plugin knows what each means for its own tools: the
-/// compiler flags and the tools' own switches. A profile is part of what
-/// an action is, so the two never share an answer.
-///
-/// A run names its profile, and the two here are the ones frontseat
-/// defines.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
-#[repr(i32)]
-pub enum Profile {
-    /// PROFILE_UNSPECIFIED: not said.
-    Unspecified = 0,
-    /// PROFILE_DEVELOPMENT: for whoever is working on the source: quick to
-    /// build and easy to debug.
-    Development = 1,
-    /// PROFILE_PRODUCTION: for what is shipped: compiled for speed and for
-    /// safety.
-    Production = 2,
-}
-impl Profile {
-    /// String value of the enum field names used in the ProtoBuf definition.
-    ///
-    /// The values are not transformed in any way and thus are considered stable
-    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
-    pub fn as_str_name(&self) -> &'static str {
-        match self {
-            Self::Unspecified => "PROFILE_UNSPECIFIED",
-            Self::Development => "PROFILE_DEVELOPMENT",
-            Self::Production => "PROFILE_PRODUCTION",
-        }
-    }
-    /// Creates an enum from field names used in the ProtoBuf definition.
-    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
-        match value {
-            "PROFILE_UNSPECIFIED" => Some(Self::Unspecified),
-            "PROFILE_DEVELOPMENT" => Some(Self::Development),
-            "PROFILE_PRODUCTION" => Some(Self::Production),
-            _ => None,
-        }
-    }
 }

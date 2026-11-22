@@ -13,6 +13,7 @@ import (
 
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1/buildv1alpha1connect"
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 )
 
 // daemon is a daemon's build and run services that keep what they were
@@ -25,7 +26,7 @@ type daemon struct {
 }
 
 func (d *daemon) CreateBuild(_ context.Context, r *buildv1.CreateBuildRequest) (*buildv1.CreateBuildResponse, error) {
-	if r.GetProfile() == "nobodys" {
+	if r.GetProfile() == typev1.Profile(7) {
 		refused := connect.NewError(connect.CodeInvalidArgument, "no one defined the profile")
 		info, err := connectproto.NewErrorDetail(&errdetails.ErrorInfo{Reason: "PROFILE_UNKNOWN", Domain: "build.frontseat.dev"})
 		if err != nil {
@@ -85,7 +86,7 @@ func TestABuildAndARunAreAskedForWithTheCallersRequestID(t *testing.T) {
 // an error that carries none reads as none.
 func TestARefusalIsReadByItsReason(t *testing.T) {
 	here := servedDaemon(t, &daemon{})
-	_, err := here.Build(context.Background(), BuildRequest{Profile: "nobodys"})
+	_, err := here.Build(context.Background(), BuildRequest{Profile: typev1.Profile(7)})
 	if reason, domain := Reason(err); reason != "PROFILE_UNKNOWN" || domain != "build.frontseat.dev" {
 		t.Errorf("the refusal %v is read as %q in %q, want PROFILE_UNKNOWN in build.frontseat.dev", err, reason, domain)
 	}

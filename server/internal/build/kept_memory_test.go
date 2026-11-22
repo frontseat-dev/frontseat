@@ -16,6 +16,7 @@ import (
 
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1/buildv1alpha1connect"
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/exec"
 	"github.com/frontseat-dev/frontseat/server/internal/exec/reapi/reapitest"
 	"github.com/frontseat-dev/frontseat/server/internal/exec/tools/toolstest"
@@ -29,7 +30,7 @@ func serveWithGraph(t testing.TB, config configuration) (clients, buildv1alpha1c
 	return c, c.graph
 }
 
-func createAs(t testing.TB, client buildv1alpha1connect.BuildServiceClient, profile string) *buildv1.Build {
+func createAs(t testing.TB, client buildv1alpha1connect.BuildServiceClient, profile typev1.Profile) *buildv1.Build {
 	t.Helper()
 	created, err := client.CreateBuild(context.Background(), &buildv1.CreateBuildRequest{Profile: profile})
 	if err != nil {
@@ -68,9 +69,9 @@ func TestRunsAndGraphQueriesAtOnce(t *testing.T) {
 		var all sync.WaitGroup
 		for i := range 6 {
 			all.Go(func() {
-				profile := "development"
+				profile := typev1.Profile_PROFILE_DEVELOPMENT
 				if i%2 == 1 {
-					profile = "production"
+					profile = typev1.Profile_PROFILE_PRODUCTION
 				}
 				run := wait(t, c.runs, createAs(t, c.runs, profile).GetId())
 				if run.GetExitCode().GetName() != "SUCCESS" {
@@ -355,7 +356,7 @@ func TestAskingTheGraphDoesNotLetGoOfWhatABuildOfAnotherProfileLearned(t *testin
 	c, graph := serveWithGraph(t, configuration{Workspace: workspace, Mounted: true, Executor: asking{edited: &sync.Once{}}, Telemetry: signals})
 	shipped := func() cost {
 		t.Helper()
-		succeeded(t, c, createAs(t, c.runs, "production"))
+		succeeded(t, c, createAs(t, c.runs, typev1.Profile_PROFILE_PRODUCTION))
 		return costOf(t, recorder)
 	}
 	first := shipped()

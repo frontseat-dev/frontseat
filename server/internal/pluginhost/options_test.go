@@ -18,7 +18,7 @@ import (
 func TestSDKOptionsThroughWasm(t *testing.T) {
 	plugin := conformance.SDKExample(t, "options")
 	values := func(integer int64, boolean bool, text string, list []string) *pluginv1.Context {
-		return &pluginv1.Context{Profile: pluginv1.Profile_PROFILE_DEVELOPMENT, Options: map[string]*typev1.OptionValue{
+		return &pluginv1.Context{Profile: typev1.Profile_PROFILE_DEVELOPMENT, Options: map[string]*typev1.OptionValue{
 			"int":    {Value: &typev1.OptionValue_IntValue{IntValue: integer}},
 			"bool":   {Value: &typev1.OptionValue_BoolValue{BoolValue: boolean}},
 			"string": {Value: &typev1.OptionValue_StringValue{StringValue: text}},

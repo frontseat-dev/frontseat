@@ -1,7 +1,7 @@
 package build
 
 import (
-	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"strings"
 	"testing"
 
@@ -100,7 +100,7 @@ func TestADaemonHasOnlySoManyRunsAtOnce(t *testing.T) {
 	for range runsAtOnce {
 		ls.made = append(ls.made, aRun())
 	}
-	if _, err := ls.create(t.Context(), "development", pluginv1.Profile_PROFILE_DEVELOPMENT, &buildv1.CreateRunRequest{Target: "//m:go.run/x"}); err != errTooManyRuns {
+	if _, err := ls.create(t.Context(), typev1.Profile_PROFILE_DEVELOPMENT, &buildv1.CreateRunRequest{Target: "//m:go.run/x"}); err != errTooManyRuns {
 		t.Fatalf("one run more: %v", err)
 	}
 	if len(ls.made) != runsAtOnce {
@@ -108,7 +108,7 @@ func TestADaemonHasOnlySoManyRunsAtOnce(t *testing.T) {
 	}
 	// The daemon ending refuses too, and says that.
 	ls.stopping = true
-	if _, err := ls.create(t.Context(), "development", pluginv1.Profile_PROFILE_DEVELOPMENT, &buildv1.CreateRunRequest{Target: "//m:go.run/x"}); err != errStopped {
+	if _, err := ls.create(t.Context(), typev1.Profile_PROFILE_DEVELOPMENT, &buildv1.CreateRunRequest{Target: "//m:go.run/x"}); err != errStopped {
 		t.Errorf("a run of a daemon that is ending: %v", err)
 	}
 }
@@ -118,7 +118,7 @@ func TestADaemonHasOnlySoManyRunsAtOnce(t *testing.T) {
 func TestARunIsMadeWithItsBuild(t *testing.T) {
 	c := serve(t, printing(), oneModule(t), true)
 	ls := c.daemon.programs
-	made, err := ls.create(t.Context(), "development", pluginv1.Profile_PROFILE_DEVELOPMENT, &buildv1.CreateRunRequest{Target: "//hello:go.run/none"})
+	made, err := ls.create(t.Context(), typev1.Profile_PROFILE_DEVELOPMENT, &buildv1.CreateRunRequest{Target: "//hello:go.run/none"})
 	if err != nil {
 		t.Fatal(err)
 	}

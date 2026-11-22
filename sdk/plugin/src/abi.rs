@@ -343,8 +343,16 @@ mod guest {
 
     impl Host for WasmHost {
         fn read(&self, path: &str) -> Result<Option<Vec<u8>>, Error> {
-            let response: wire::ReadResponse =
-                ask(host_read, &wire::ReadRequest { path: path.into() })?;
+            let response: wire::ReadResponse = ask(
+                host_read,
+                &wire::ReadRequest {
+                    path: path.into(),
+                    most_bytes: crate::repository::READ_AT_MOST,
+                },
+            )?;
+            if response.too_large {
+                return Err(crate::repository::too_large(path));
+            }
             Ok(response.found.then_some(response.content))
         }
 

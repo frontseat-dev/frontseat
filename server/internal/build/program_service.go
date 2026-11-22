@@ -30,7 +30,7 @@ func (s *programService) CreateRun(ctx context.Context, request *buildv1.CreateR
 	if _, err := sourceOf(s.programs.runs.workspace); err != nil {
 		return nil, refuse(connect.CodeFailedPrecondition, "WORKSPACE_NOT_READY", err.Error())
 	}
-	profile, base, err := profileOf(request.GetProfile())
+	profile, err := profileOf(request.GetProfile())
 	if err != nil {
 		return nil, refuse(connect.CodeInvalidArgument, "PROFILE_UNKNOWN", err.Error())
 	}
@@ -39,7 +39,7 @@ func (s *programService) CreateRun(ctx context.Context, request *buildv1.CreateR
 		return l, err == nil
 	}
 	made, err := once(&s.asked, request.GetRequestId(), find, func() (*programRun, string, error) {
-		made, err := s.programs.create(ctx, profile, base, request)
+		made, err := s.programs.create(ctx, profile, request)
 		switch {
 		case errors.Is(err, errStopped):
 			return nil, "", refuse(connect.CodeUnavailable, "DAEMON_ENDING", "the daemon is ending, and runs nothing")

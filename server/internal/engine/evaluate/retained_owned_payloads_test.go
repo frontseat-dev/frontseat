@@ -249,7 +249,7 @@ func TestRetainedOwnedMutableFieldInventory(t *testing.T) {
 func TestRetainedOwnedConcurrentMutationOfEarlierReturn(t *testing.T) {
 	root := retainedFixture(t, 3)
 	p, files := newRetainedEngine(), &source.Keeper{}
-	profile := pluginv1.Profile_PROFILE_DEVELOPMENT
+	profile := typev1.Profile_PROFILE_DEVELOPMENT
 	first := retainedOracle(t, p, files, root, profile, nil)
 	want, err := retainedSemantic(first.evaluation)
 	if err != nil {
@@ -310,7 +310,7 @@ func TestRetainedOwnedTransientPreflightErrorsAreNotCached(t *testing.T) {
 	for _, path := range []string{"frontseat.yaml", "m0000/main.go"} {
 		for _, failure := range []error{errors.New("transient source refusal"), context.Canceled, context.DeadlineExceeded} {
 			root, p, files := warmRetained(t, 1)
-			profile := pluginv1.Profile_PROFILE_DEVELOPMENT
+			profile := typev1.Profile_PROFILE_DEVELOPMENT
 			input := &ownedTransient{Source: retainedTake(t, files, root), path: path, failure: failure}
 			if _, err := p.run(t.Context(), input, profile, nil); err != nil {
 				t.Fatalf("live context retained speculative error for %s: %v", path, err)
@@ -337,7 +337,7 @@ func TestRetainedOwnedTransientPreflightErrorsAreNotCached(t *testing.T) {
 func TestRetainedOwnedPluginAndStructuralDiagnosticsUseFreshControl(t *testing.T) {
 	for _, structural := range []bool{false, true} {
 		root, p, files := warmRetained(t, 2)
-		profile := pluginv1.Profile_PROFILE_DEVELOPMENT
+		profile := typev1.Profile_PROFILE_DEVELOPMENT
 		retainedWrite(t, root, "m0000/go.mod", "not a valid module\n")
 		retainedWrite(t, root, "m0001/go.mod", "also not a valid module\n")
 		if structural {

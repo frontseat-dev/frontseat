@@ -1,6 +1,7 @@
 package pluginhost_test
 
 import (
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"testing"
 
 	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
@@ -15,7 +16,7 @@ import (
 // else.
 func TestTheSDKsExamplePluginIsServedByTheHost(t *testing.T) {
 	plugin := conformance.SDKExample(t, "make")
-	context := &pluginv1.Context{Profile: pluginv1.Profile_PROFILE_DEVELOPMENT}
+	context := &pluginv1.Context{Profile: typev1.Profile_PROFILE_DEVELOPMENT}
 	analyzed := new(pluginv1.AnalyzeResponse)
 	if _, err := plugin.Call(t.Context(), files{"app/Makefile": "test:\n"}, "Analyze", &pluginv1.AnalyzeRequest{Context: context, Roots: []string{"app"}}, analyzed); err != nil {
 		t.Fatal(err)

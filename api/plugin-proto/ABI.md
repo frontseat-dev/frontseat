@@ -49,6 +49,13 @@ from `frontseat_alloc`. The module frees it, with the size it was given.
 A result of zero is an empty response: the host wrote nothing, and every
 field has its default. A read the host cannot serve is not reported to the
 module; the host fails the call it was made in.
+
+A read says the most of a file the plugin takes (`ReadRequest.most_bytes`,
+at most 4 MiB, zero for 4 MiB), and a file larger is answered `too_large`
+with none of its content, so that no file fills the module's memory. The
+Rust SDK asks for 4 MiB and fails such a read with the reason
+`file-too-large`, naming the file; a read that asks for more than 4 MiB
+fails the call.
 The SDK refuses malformed response bytes rather than decoding them as defaults.
 Its Rust `read` and `glob` interfaces return `Result`, preserving source failures
 in native hosts as well; absence remains a successful `None`.
@@ -166,7 +173,8 @@ as that, whatever the module did after.
   file and line that set it, naming the option and the rule and never the
   value. A plugin need not check these again.
 - **Profiles are explicit.** Analyze, Arrange, Report and Reconcile
-  require development or production. The SDK rejects unspecified and unknown values before source
+  require development or production (`frontseat.type.v1alpha1.Profile`,
+  the enum a build and a run of the build API say too). The SDK rejects unspecified and unknown values before source
   access, just as it validates options before ecosystem code.
 - **Each call is made on an instance of its own.** Nothing a call
   leaves in memory is there for the next, and calls do not wait for

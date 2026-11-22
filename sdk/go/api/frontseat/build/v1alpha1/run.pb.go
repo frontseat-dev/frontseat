@@ -117,8 +117,9 @@ type Run struct {
 	Target string `protobuf:"bytes,2,opt,name=target,proto3" json:"target,omitempty"`
 	// Arguments are what the program was given after its own.
 	Arguments []string `protobuf:"bytes,3,rep,name=arguments,proto3" json:"arguments,omitempty"`
-	// Profile is the name of the profile the program was built with.
-	Profile string `protobuf:"bytes,4,opt,name=profile,proto3" json:"profile,omitempty"`
+	// Profile is the profile the program was built with: never
+	// unspecified.
+	Profile v1alpha1.Profile `protobuf:"varint,4,opt,name=profile,proto3,enum=frontseat.type.v1alpha1.Profile" json:"profile,omitempty"`
 	// State is where it is.
 	State Run_State `protobuf:"varint,5,opt,name=state,proto3,enum=frontseat.build.v1alpha1.Run_State" json:"state,omitempty"`
 	// Build_id is the build of what the program is made of, a build of
@@ -196,11 +197,11 @@ func (x *Run) GetArguments() []string {
 	return nil
 }
 
-func (x *Run) GetProfile() string {
+func (x *Run) GetProfile() v1alpha1.Profile {
 	if x != nil {
 		return x.Profile
 	}
-	return ""
+	return v1alpha1.Profile(0)
 }
 
 func (x *Run) GetState() Run_State {
@@ -267,9 +268,9 @@ type CreateRunRequest struct {
 	Target string `protobuf:"bytes,1,opt,name=target,proto3" json:"target,omitempty"`
 	// Arguments are given to the program after what its plugin gives it.
 	Arguments []string `protobuf:"bytes,2,rep,name=arguments,proto3" json:"arguments,omitempty"`
-	// Profile is the name of the profile the program is built with. Empty,
-	// it is `development`.
-	Profile string `protobuf:"bytes,3,opt,name=profile,proto3" json:"profile,omitempty"`
+	// Profile is the profile the program is built with. Unspecified, it is
+	// PROFILE_DEVELOPMENT.
+	Profile v1alpha1.Profile `protobuf:"varint,3,opt,name=profile,proto3,enum=frontseat.type.v1alpha1.Profile" json:"profile,omitempty"`
 	// Request_id makes a retry return the run the first call made: a
 	// client that lost the answer sends the same request again with it.
 	// Empty, every call runs.
@@ -322,11 +323,11 @@ func (x *CreateRunRequest) GetArguments() []string {
 	return nil
 }
 
-func (x *CreateRunRequest) GetProfile() string {
+func (x *CreateRunRequest) GetProfile() v1alpha1.Profile {
 	if x != nil {
 		return x.Profile
 	}
-	return ""
+	return v1alpha1.Profile(0)
 }
 
 func (x *CreateRunRequest) GetRequestId() string {
@@ -866,12 +867,12 @@ var File_frontseat_build_v1alpha1_run_proto protoreflect.FileDescriptor
 
 const file_frontseat_build_v1alpha1_run_proto_rawDesc = "" +
 	"\n" +
-	"\"frontseat/build/v1alpha1/run.proto\x12\x18frontseat.build.v1alpha1\x1a#frontseat/type/v1alpha1/types.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xff\x04\n" +
+	"\"frontseat/build/v1alpha1/run.proto\x12\x18frontseat.build.v1alpha1\x1a#frontseat/type/v1alpha1/types.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa1\x05\n" +
 	"\x03Run\x12\x14\n" +
 	"\x02id\x18\x01 \x01(\tB\x04\xe2A\x01\x03R\x02id\x12\x1c\n" +
 	"\x06target\x18\x02 \x01(\tB\x04\xe2A\x01\x03R\x06target\x12\"\n" +
-	"\targuments\x18\x03 \x03(\tB\x04\xe2A\x01\x03R\targuments\x12\x1e\n" +
-	"\aprofile\x18\x04 \x01(\tB\x04\xe2A\x01\x03R\aprofile\x12?\n" +
+	"\targuments\x18\x03 \x03(\tB\x04\xe2A\x01\x03R\targuments\x12@\n" +
+	"\aprofile\x18\x04 \x01(\x0e2 .frontseat.type.v1alpha1.ProfileB\x04\xe2A\x01\x03R\aprofile\x12?\n" +
 	"\x05state\x18\x05 \x01(\x0e2#.frontseat.build.v1alpha1.Run.StateB\x04\xe2A\x01\x03R\x05state\x12\x1f\n" +
 	"\bbuild_id\x18\x06 \x01(\tB\x04\xe2A\x01\x03R\abuildId\x12\x1a\n" +
 	"\x05label\x18\a \x01(\tB\x04\xe2A\x01\x03R\x05label\x12!\n" +
@@ -889,11 +890,11 @@ const file_frontseat_build_v1alpha1_run_proto_rawDesc = "" +
 	"\rSTATE_RUNNING\x10\x02\x12\x10\n" +
 	"\fSTATE_EXITED\x10\x03\x12\x13\n" +
 	"\x0fSTATE_CANCELLED\x10\x04\x12\x10\n" +
-	"\fSTATE_FAILED\x10\x05\"\x87\x01\n" +
+	"\fSTATE_FAILED\x10\x05\"\xa9\x01\n" +
 	"\x10CreateRunRequest\x12\x1c\n" +
 	"\x06target\x18\x01 \x01(\tB\x04\xe2A\x01\x02R\x06target\x12\x1c\n" +
-	"\targuments\x18\x02 \x03(\tR\targuments\x12\x18\n" +
-	"\aprofile\x18\x03 \x01(\tR\aprofile\x12\x1d\n" +
+	"\targuments\x18\x02 \x03(\tR\targuments\x12:\n" +
+	"\aprofile\x18\x03 \x01(\x0e2 .frontseat.type.v1alpha1.ProfileR\aprofile\x12\x1d\n" +
 	"\n" +
 	"request_id\x18\x04 \x01(\tR\trequestId\"D\n" +
 	"\x11CreateRunResponse\x12/\n" +
@@ -960,37 +961,40 @@ var file_frontseat_build_v1alpha1_run_proto_goTypes = []any{
 	(*WaitRunResponse)(nil),       // 11: frontseat.build.v1alpha1.WaitRunResponse
 	(*StreamRunLogsRequest)(nil),  // 12: frontseat.build.v1alpha1.StreamRunLogsRequest
 	(*StreamRunLogsResponse)(nil), // 13: frontseat.build.v1alpha1.StreamRunLogsResponse
-	(*timestamppb.Timestamp)(nil), // 14: google.protobuf.Timestamp
-	(*v1alpha1.LogLine)(nil),      // 15: frontseat.type.v1alpha1.LogLine
+	(v1alpha1.Profile)(0),         // 14: frontseat.type.v1alpha1.Profile
+	(*timestamppb.Timestamp)(nil), // 15: google.protobuf.Timestamp
+	(*v1alpha1.LogLine)(nil),      // 16: frontseat.type.v1alpha1.LogLine
 }
 var file_frontseat_build_v1alpha1_run_proto_depIdxs = []int32{
-	0,  // 0: frontseat.build.v1alpha1.Run.state:type_name -> frontseat.build.v1alpha1.Run.State
-	14, // 1: frontseat.build.v1alpha1.Run.create_time:type_name -> google.protobuf.Timestamp
-	14, // 2: frontseat.build.v1alpha1.Run.start_time:type_name -> google.protobuf.Timestamp
-	14, // 3: frontseat.build.v1alpha1.Run.end_time:type_name -> google.protobuf.Timestamp
-	1,  // 4: frontseat.build.v1alpha1.CreateRunResponse.run:type_name -> frontseat.build.v1alpha1.Run
-	1,  // 5: frontseat.build.v1alpha1.DescribeRunResponse.run:type_name -> frontseat.build.v1alpha1.Run
-	1,  // 6: frontseat.build.v1alpha1.ListRunsResponse.runs:type_name -> frontseat.build.v1alpha1.Run
-	1,  // 7: frontseat.build.v1alpha1.CancelRunResponse.run:type_name -> frontseat.build.v1alpha1.Run
-	1,  // 8: frontseat.build.v1alpha1.WaitRunResponse.run:type_name -> frontseat.build.v1alpha1.Run
-	15, // 9: frontseat.build.v1alpha1.StreamRunLogsResponse.lines:type_name -> frontseat.type.v1alpha1.LogLine
-	2,  // 10: frontseat.build.v1alpha1.RunService.CreateRun:input_type -> frontseat.build.v1alpha1.CreateRunRequest
-	4,  // 11: frontseat.build.v1alpha1.RunService.DescribeRun:input_type -> frontseat.build.v1alpha1.DescribeRunRequest
-	6,  // 12: frontseat.build.v1alpha1.RunService.ListRuns:input_type -> frontseat.build.v1alpha1.ListRunsRequest
-	8,  // 13: frontseat.build.v1alpha1.RunService.CancelRun:input_type -> frontseat.build.v1alpha1.CancelRunRequest
-	10, // 14: frontseat.build.v1alpha1.RunService.WaitRun:input_type -> frontseat.build.v1alpha1.WaitRunRequest
-	12, // 15: frontseat.build.v1alpha1.RunService.StreamRunLogs:input_type -> frontseat.build.v1alpha1.StreamRunLogsRequest
-	3,  // 16: frontseat.build.v1alpha1.RunService.CreateRun:output_type -> frontseat.build.v1alpha1.CreateRunResponse
-	5,  // 17: frontseat.build.v1alpha1.RunService.DescribeRun:output_type -> frontseat.build.v1alpha1.DescribeRunResponse
-	7,  // 18: frontseat.build.v1alpha1.RunService.ListRuns:output_type -> frontseat.build.v1alpha1.ListRunsResponse
-	9,  // 19: frontseat.build.v1alpha1.RunService.CancelRun:output_type -> frontseat.build.v1alpha1.CancelRunResponse
-	11, // 20: frontseat.build.v1alpha1.RunService.WaitRun:output_type -> frontseat.build.v1alpha1.WaitRunResponse
-	13, // 21: frontseat.build.v1alpha1.RunService.StreamRunLogs:output_type -> frontseat.build.v1alpha1.StreamRunLogsResponse
-	16, // [16:22] is the sub-list for method output_type
-	10, // [10:16] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	14, // 0: frontseat.build.v1alpha1.Run.profile:type_name -> frontseat.type.v1alpha1.Profile
+	0,  // 1: frontseat.build.v1alpha1.Run.state:type_name -> frontseat.build.v1alpha1.Run.State
+	15, // 2: frontseat.build.v1alpha1.Run.create_time:type_name -> google.protobuf.Timestamp
+	15, // 3: frontseat.build.v1alpha1.Run.start_time:type_name -> google.protobuf.Timestamp
+	15, // 4: frontseat.build.v1alpha1.Run.end_time:type_name -> google.protobuf.Timestamp
+	14, // 5: frontseat.build.v1alpha1.CreateRunRequest.profile:type_name -> frontseat.type.v1alpha1.Profile
+	1,  // 6: frontseat.build.v1alpha1.CreateRunResponse.run:type_name -> frontseat.build.v1alpha1.Run
+	1,  // 7: frontseat.build.v1alpha1.DescribeRunResponse.run:type_name -> frontseat.build.v1alpha1.Run
+	1,  // 8: frontseat.build.v1alpha1.ListRunsResponse.runs:type_name -> frontseat.build.v1alpha1.Run
+	1,  // 9: frontseat.build.v1alpha1.CancelRunResponse.run:type_name -> frontseat.build.v1alpha1.Run
+	1,  // 10: frontseat.build.v1alpha1.WaitRunResponse.run:type_name -> frontseat.build.v1alpha1.Run
+	16, // 11: frontseat.build.v1alpha1.StreamRunLogsResponse.lines:type_name -> frontseat.type.v1alpha1.LogLine
+	2,  // 12: frontseat.build.v1alpha1.RunService.CreateRun:input_type -> frontseat.build.v1alpha1.CreateRunRequest
+	4,  // 13: frontseat.build.v1alpha1.RunService.DescribeRun:input_type -> frontseat.build.v1alpha1.DescribeRunRequest
+	6,  // 14: frontseat.build.v1alpha1.RunService.ListRuns:input_type -> frontseat.build.v1alpha1.ListRunsRequest
+	8,  // 15: frontseat.build.v1alpha1.RunService.CancelRun:input_type -> frontseat.build.v1alpha1.CancelRunRequest
+	10, // 16: frontseat.build.v1alpha1.RunService.WaitRun:input_type -> frontseat.build.v1alpha1.WaitRunRequest
+	12, // 17: frontseat.build.v1alpha1.RunService.StreamRunLogs:input_type -> frontseat.build.v1alpha1.StreamRunLogsRequest
+	3,  // 18: frontseat.build.v1alpha1.RunService.CreateRun:output_type -> frontseat.build.v1alpha1.CreateRunResponse
+	5,  // 19: frontseat.build.v1alpha1.RunService.DescribeRun:output_type -> frontseat.build.v1alpha1.DescribeRunResponse
+	7,  // 20: frontseat.build.v1alpha1.RunService.ListRuns:output_type -> frontseat.build.v1alpha1.ListRunsResponse
+	9,  // 21: frontseat.build.v1alpha1.RunService.CancelRun:output_type -> frontseat.build.v1alpha1.CancelRunResponse
+	11, // 22: frontseat.build.v1alpha1.RunService.WaitRun:output_type -> frontseat.build.v1alpha1.WaitRunResponse
+	13, // 23: frontseat.build.v1alpha1.RunService.StreamRunLogs:output_type -> frontseat.build.v1alpha1.StreamRunLogsResponse
+	18, // [18:24] is the sub-list for method output_type
+	12, // [12:18] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_frontseat_build_v1alpha1_run_proto_init() }

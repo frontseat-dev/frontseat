@@ -5,7 +5,7 @@ import "github.com/frontseat-dev/frontseat/sdk/go/entity"
 import (
 	"context"
 	"errors"
-	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1/buildv1alpha1connect"
@@ -34,7 +34,7 @@ func (s *graphService) evaluated(ctx context.Context) (evaluate.Evaluation, erro
 	if err != nil {
 		return evaluate.Evaluation{}, graphFailure(err)
 	}
-	evaluated, err := evaluate.Evaluate(ctx, src, s.runs.plugins, s.runs.answers, pluginv1.Profile_PROFILE_DEVELOPMENT, entities)
+	evaluated, err := evaluate.Evaluate(ctx, src, s.runs.plugins, s.runs.answers, typev1.Profile_PROFILE_DEVELOPMENT, entities)
 	return evaluated, graphFailure(err)
 }
 

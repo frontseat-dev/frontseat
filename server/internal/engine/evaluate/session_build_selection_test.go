@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/plan"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/source"
-	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/pluginhost"
 	"github.com/frontseat-dev/frontseat/server/telemetry"
 	"go.opentelemetry.io/otel/attribute"
@@ -50,7 +50,7 @@ func sessionFixture(t *testing.T, modules int) (string, []*pluginhost.Plugin, *s
 // over a snapshot taken through files; a refusal fails the test.
 func wholeBuild(t *testing.T, s *Session, files *source.Keeper, root string) BuildPlan {
 	t.Helper()
-	got, err := s.Build(t.Context(), retainedTake(t, files, root), pluginv1.Profile_PROFILE_DEVELOPMENT, nil, nil, nil)
+	got, err := s.Build(t.Context(), retainedTake(t, files, root), typev1.Profile_PROFILE_DEVELOPMENT, nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +59,7 @@ func wholeBuild(t *testing.T, s *Session, files *source.Keeper, root string) Bui
 
 // projectsMatch fails the test, with message, unless the session's
 // projects are those a fresh evaluation of root for profile lists.
-func projectsMatch(t *testing.T, s *Session, root string, profile pluginv1.Profile, message string) {
+func projectsMatch(t *testing.T, s *Session, root string, profile typev1.Profile, message string) {
 	t.Helper()
 	projects, err := s.Projects(t.Context())
 	if err != nil {
@@ -70,7 +70,7 @@ func projectsMatch(t *testing.T, s *Session, root string, profile pluginv1.Profi
 	}
 }
 
-func buildMatches(t *testing.T, s *Session, files *source.Keeper, root string, profile pluginv1.Profile, targets, only []string) BuildPlan {
+func buildMatches(t *testing.T, s *Session, files *source.Keeper, root string, profile typev1.Profile, targets, only []string) BuildPlan {
 	t.Helper()
 	got, gotErr := s.Build(t.Context(), retainedTake(t, files, root), profile, nil, targets, only)
 	fresh := projectionFresh(t, retainedTake(t, &source.Keeper{}, root), profile)
@@ -90,7 +90,7 @@ func buildMatches(t *testing.T, s *Session, files *source.Keeper, root string, p
 func TestRetainedBuildFilterKeysAndOwnedPlansAcrossGraphQueries(t *testing.T) {
 	root := retainedFixture(t, 3)
 	s, files := buildSession(t, root)
-	profile := pluginv1.Profile_PROFILE_DEVELOPMENT
+	profile := typev1.Profile_PROFILE_DEVELOPMENT
 	if _, err := s.Projects(t.Context()); err != nil {
 		t.Fatal(err)
 	}
@@ -119,7 +119,7 @@ func TestRetainedBuildFilterKeysAndOwnedPlansAcrossGraphQueries(t *testing.T) {
 	} {
 		buildMatches(t, s, files, root, profile, selection.targets, selection.only)
 	}
-	buildMatches(t, s, files, root, pluginv1.Profile_PROFILE_PRODUCTION, nil, []string{"compile"})
+	buildMatches(t, s, files, root, typev1.Profile_PROFILE_PRODUCTION, nil, []string{"compile"})
 	if _, err := s.Projects(t.Context()); err != nil {
 		t.Fatal(err)
 	}
@@ -133,7 +133,7 @@ func TestRetainedBuildGlobalCycleIsNotHiddenByTargetsOrFilters(t *testing.T) {
 	if _, err := s.Facts(t.Context()); err != nil {
 		t.Fatalf("graph query must allow plan-only cycle: %v", err)
 	}
-	got := buildMatches(t, s, files, root, pluginv1.Profile_PROFILE_DEVELOPMENT, []string{"m0001/"}, []string{"compile"})
+	got := buildMatches(t, s, files, root, typev1.Profile_PROFILE_DEVELOPMENT, []string{"m0001/"}, []string{"compile"})
 	// The evaluation is kept, as the graph query above was answered from
 	// it; no plan of it is, since none could be made.
 	if got.Needed != nil || s.core.planValid {
@@ -148,7 +148,7 @@ spec:
   lifecycle: experimental
   owner: team
 `)
-	if repaired := buildMatches(t, s, files, root, pluginv1.Profile_PROFILE_DEVELOPMENT, []string{"m0001/"}, []string{"compile"}); len(repaired.Needed) == 0 {
+	if repaired := buildMatches(t, s, files, root, typev1.Profile_PROFILE_DEVELOPMENT, []string{"m0001/"}, []string{"compile"}); len(repaired.Needed) == 0 {
 		t.Fatal("repair control did not execute selection")
 	}
 }
@@ -163,7 +163,7 @@ func TestRetainedBuildWorkMatchesSuccessfulPluginSpansOnSuccessAndFailure(t *tes
 	call := func(name string, only []string, wantError, wantPlan bool) BuildPlan {
 		t.Helper()
 		ctx, parent := telemetry.Root(t.Context(), provider, name)
-		got, err := s.Build(ctx, retainedTake(t, files, root), pluginv1.Profile_PROFILE_DEVELOPMENT, nil, nil, only)
+		got, err := s.Build(ctx, retainedTake(t, files, root), typev1.Profile_PROFILE_DEVELOPMENT, nil, nil, only)
 		parent.End()
 		if (err != nil) != wantError {
 			t.Fatalf("%s: %v", name, err)
@@ -277,7 +277,7 @@ func TestRetainedBuildCancellationAndCloseJoinRunOwnedSource(t *testing.T) {
 	}
 	active := make(chan reply, 1)
 	go func() {
-		out, err := s.Build(ctx, gate, pluginv1.Profile_PROFILE_DEVELOPMENT, nil, nil, []string{"compile"})
+		out, err := s.Build(ctx, gate, typev1.Profile_PROFILE_DEVELOPMENT, nil, nil, []string{"compile"})
 		active <- reply{out, err}
 	}()
 	sessionSignal(t, gate.entered, "Build did not use supplied source")
@@ -302,7 +302,7 @@ func TestRetainedBuildCancellationAndCloseJoinRunOwnedSource(t *testing.T) {
 	var releaseWarm sync.Once
 	defer releaseWarm.Do(func() { close(warm.cleanup) })
 	go func() {
-		out, err := s.Build(t.Context(), warm, pluginv1.Profile_PROFILE_DEVELOPMENT, nil, nil, nil)
+		out, err := s.Build(t.Context(), warm, typev1.Profile_PROFILE_DEVELOPMENT, nil, nil, nil)
 		active <- reply{out, err}
 	}()
 	sessionSignal(t, warm.entered, "warm Build did not validate source")
@@ -321,7 +321,7 @@ func TestRetainedBuildCancellationAndCloseJoinRunOwnedSource(t *testing.T) {
 		t.Fatal("closed Build returned a selection")
 	}
 	assertForgotten(t, &s.core)
-	if _, err := s.Build(t.Context(), retainedTake(t, files, root), pluginv1.Profile_PROFILE_DEVELOPMENT, nil, nil, nil); !errors.Is(err, ErrSessionClosed) {
+	if _, err := s.Build(t.Context(), retainedTake(t, files, root), typev1.Profile_PROFILE_DEVELOPMENT, nil, nil, nil); !errors.Is(err, ErrSessionClosed) {
 		t.Fatalf("Build after Close: %v", err)
 	}
 }

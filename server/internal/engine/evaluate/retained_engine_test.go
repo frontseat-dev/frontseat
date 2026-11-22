@@ -2,7 +2,7 @@ package evaluate
 
 import (
 	"context"
-	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"math"
 	"slices"
 	"sync"
@@ -61,7 +61,7 @@ func fullCopies(p *retainedEngine) *int {
 // operation is one request for a projection, as a session makes it, with
 // no entities supplied and nothing left out of the plan. Plugins that did
 // not load fail it.
-func (p *retainedEngine) operation(ctx context.Context, src Source, profile pluginv1.Profile, targets []string, kind projectionKind) (testProjection, error) {
+func (p *retainedEngine) operation(ctx context.Context, src Source, profile typev1.Profile, targets []string, kind projectionKind) (testProjection, error) {
 	if _, err := retainedLoaded(); err != nil {
 		return testProjection{}, err
 	}
@@ -86,17 +86,17 @@ func (p *retainedEngine) operation(ctx context.Context, src Source, profile plug
 	return testProjectionOf(out, full), err
 }
 
-func (p *retainedEngine) run(ctx context.Context, src Source, profile pluginv1.Profile, targets []string) (retainedResult, error) {
+func (p *retainedEngine) run(ctx context.Context, src Source, profile typev1.Profile, targets []string) (retainedResult, error) {
 	out, err := p.operation(ctx, src, profile, targets, projectFull)
 	return out.full, err
 }
 
-func (p *retainedEngine) projectList(ctx context.Context, src Source, profile pluginv1.Profile) (*buildv1.ListProjectsResponse, error) {
+func (p *retainedEngine) projectList(ctx context.Context, src Source, profile typev1.Profile) (*buildv1.ListProjectsResponse, error) {
 	out, err := p.operation(ctx, src, profile, nil, projectProjects)
 	return out.projects, err
 }
 
-func (p *retainedEngine) selectedPlan(ctx context.Context, src Source, profile pluginv1.Profile, targets []string) (selectedPlan, error) {
+func (p *retainedEngine) selectedPlan(ctx context.Context, src Source, profile typev1.Profile, targets []string) (selectedPlan, error) {
 	out, err := p.operation(ctx, src, profile, targets, projectPlan)
 	return out.plan, err
 }

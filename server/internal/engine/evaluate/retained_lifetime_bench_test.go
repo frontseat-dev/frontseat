@@ -2,8 +2,8 @@ package evaluate
 
 import (
 	"fmt"
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/source"
-	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
 	"os"
 	"runtime"
 	"testing"
@@ -53,7 +53,7 @@ func BenchmarkRetainedLifetime(b *testing.B) {
 							}
 						}
 						var err error
-						result, err = p.selectedPlan(b.Context(), retainedTake(b, files, root), pluginv1.Profile_PROFILE_DEVELOPMENT, []string{"m0501/"})
+						result, err = p.selectedPlan(b.Context(), retainedTake(b, files, root), typev1.Profile_PROFILE_DEVELOPMENT, []string{"m0501/"})
 						if err != nil {
 							b.Fatal(err)
 						}
@@ -132,7 +132,7 @@ func TestRetainedLifetimeHeap(t *testing.T) {
 	for i := range 101 {
 		lifetimeEdit(t, root, i)
 		var err error
-		result, err = p.selectedPlan(t.Context(), retainedTake(t, files, root), pluginv1.Profile_PROFILE_DEVELOPMENT, []string{"m0001/"})
+		result, err = p.selectedPlan(t.Context(), retainedTake(t, files, root), typev1.Profile_PROFILE_DEVELOPMENT, []string{"m0001/"})
 		if err != nil {
 			t.Fatal(err)
 		}

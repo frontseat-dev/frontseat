@@ -11,7 +11,7 @@ import (
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 )
 
-var runProfile string
+var runProfile profile
 
 // runCmd represents the run command
 var runCmd = &cobra.Command{
@@ -46,7 +46,7 @@ longer, it stops the program.`,
 		if len(given) > 0 && given[0] == "--" {
 			given = given[1:]
 		}
-		run, err := w.Run(ctx, frontseat.RunRequest{Target: args[0], Arguments: given, Profile: runProfile})
+		run, err := w.Run(ctx, frontseat.RunRequest{Target: args[0], Arguments: given, Profile: runProfile.Profile})
 		if err != nil {
 			return err
 		}

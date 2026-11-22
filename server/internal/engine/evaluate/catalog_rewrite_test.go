@@ -1,6 +1,7 @@
 package evaluate
 
 import (
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/internal/yamlnode"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/source"
 	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
@@ -89,7 +90,7 @@ func catalogReader(t *testing.T) func(*testing.T, string) string {
 	return func(t *testing.T, raw string) string {
 		t.Helper()
 		out := new(pluginv1.ArrangeResponse)
-		_, err := plugin.Call(t.Context(), catalogDocument(t, raw), "Arrange", &pluginv1.ArrangeRequest{Context: &pluginv1.Context{Profile: pluginv1.Profile_PROFILE_DEVELOPMENT}, Root: "catalog-info.yaml"}, out)
+		_, err := plugin.Call(t.Context(), catalogDocument(t, raw), "Arrange", &pluginv1.ArrangeRequest{Context: &pluginv1.Context{Profile: typev1.Profile_PROFILE_DEVELOPMENT}, Root: "catalog-info.yaml"}, out)
 		if err != nil {
 			t.Fatal(err)
 		}

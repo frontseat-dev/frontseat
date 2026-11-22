@@ -48,67 +48,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Profile is one of the two ways source is built, which every profile is
-// at its base. A plugin knows what each means for its own tools: the
-// compiler flags and the tools' own switches. A profile is part of what
-// an action is, so the two never share an answer.
-//
-// A run names its profile, and the two here are the ones frontseat
-// defines.
-type Profile int32
-
-const (
-	// PROFILE_UNSPECIFIED: not said.
-	Profile_PROFILE_UNSPECIFIED Profile = 0
-	// PROFILE_DEVELOPMENT: for whoever is working on the source: quick to
-	// build and easy to debug.
-	Profile_PROFILE_DEVELOPMENT Profile = 1
-	// PROFILE_PRODUCTION: for what is shipped: compiled for speed and for
-	// safety.
-	Profile_PROFILE_PRODUCTION Profile = 2
-)
-
-// Enum value maps for Profile.
-var (
-	Profile_name = map[int32]string{
-		0: "PROFILE_UNSPECIFIED",
-		1: "PROFILE_DEVELOPMENT",
-		2: "PROFILE_PRODUCTION",
-	}
-	Profile_value = map[string]int32{
-		"PROFILE_UNSPECIFIED": 0,
-		"PROFILE_DEVELOPMENT": 1,
-		"PROFILE_PRODUCTION":  2,
-	}
-)
-
-func (x Profile) Enum() *Profile {
-	p := new(Profile)
-	*p = x
-	return p
-}
-
-func (x Profile) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (Profile) Descriptor() protoreflect.EnumDescriptor {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_enumTypes[0].Descriptor()
-}
-
-func (Profile) Type() protoreflect.EnumType {
-	return &file_frontseat_plugin_v1alpha1_plugin_proto_enumTypes[0]
-}
-
-func (x Profile) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use Profile.Descriptor instead.
-func (Profile) EnumDescriptor() ([]byte, []int) {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{0}
-}
-
 // Kind is a kind of value an option takes.
 type Option_Kind int32
 
@@ -164,11 +103,11 @@ func (x Option_Kind) String() string {
 }
 
 func (Option_Kind) Descriptor() protoreflect.EnumDescriptor {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_enumTypes[1].Descriptor()
+	return file_frontseat_plugin_v1alpha1_plugin_proto_enumTypes[0].Descriptor()
 }
 
 func (Option_Kind) Type() protoreflect.EnumType {
-	return &file_frontseat_plugin_v1alpha1_plugin_proto_enumTypes[1]
+	return &file_frontseat_plugin_v1alpha1_plugin_proto_enumTypes[0]
 }
 
 func (x Option_Kind) Number() protoreflect.EnumNumber {
@@ -193,7 +132,7 @@ type Context struct {
 	// Profile is the way the source is to be built. A plugin declares the
 	// commands of that way: its compiler flags and its tools' own switches.
 	// It is never unspecified.
-	Profile Profile `protobuf:"varint,7,opt,name=profile,proto3,enum=frontseat.plugin.v1alpha1.Profile" json:"profile,omitempty"`
+	Profile v1alpha1.Profile `protobuf:"varint,7,opt,name=profile,proto3,enum=frontseat.type.v1alpha1.Profile" json:"profile,omitempty"`
 	// Platforms are the platforms what the plugin is asked about is
 	// shipped for, as its entity says (spec.frontseat.platforms), each an
 	// operating system and an architecture as "linux/amd64": what a
@@ -249,11 +188,11 @@ func (x *Context) GetTools() map[string]string {
 	return nil
 }
 
-func (x *Context) GetProfile() Profile {
+func (x *Context) GetProfile() v1alpha1.Profile {
 	if x != nil {
 		return x.Profile
 	}
-	return Profile_PROFILE_UNSPECIFIED
+	return v1alpha1.Profile(0)
 }
 
 func (x *Context) GetPlatforms() []string {
@@ -2659,13 +2598,13 @@ func (x *DependencyInput) GetSelection() isDependencyInput_Selection {
 	return nil
 }
 
-func (x *DependencyInput) GetAll() bool {
+func (x *DependencyInput) GetAll() *AllRequirements {
 	if x != nil {
 		if x, ok := x.Selection.(*DependencyInput_All); ok {
 			return x.All
 		}
 	}
-	return false
+	return nil
 }
 
 func (x *DependencyInput) GetCoordinate() *Coordinate {
@@ -2689,8 +2628,8 @@ type isDependencyInput_Selection interface {
 }
 
 type DependencyInput_All struct {
-	// All must be true and selects every requirement of this project.
-	All bool `protobuf:"varint,1,opt,name=all,proto3,oneof"`
+	// All selects every requirement of this project.
+	All *AllRequirements `protobuf:"bytes,1,opt,name=all,proto3,oneof"`
 }
 
 type DependencyInput_Coordinate struct {
@@ -2702,6 +2641,44 @@ type DependencyInput_Coordinate struct {
 func (*DependencyInput_All) isDependencyInput_Selection() {}
 
 func (*DependencyInput_Coordinate) isDependencyInput_Selection() {}
+
+// AllRequirements selects every requirement of a project: see
+// DependencyInput.all. It says nothing more.
+type AllRequirements struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AllRequirements) Reset() {
+	*x = AllRequirements{}
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AllRequirements) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AllRequirements) ProtoMessage() {}
+
+func (x *AllRequirements) ProtoReflect() protoreflect.Message {
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AllRequirements.ProtoReflect.Descriptor instead.
+func (*AllRequirements) Descriptor() ([]byte, []int) {
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{32}
+}
 
 // Download is one thing a shared fetch brings from outside: see
 // Action.downloads. It is unpacked whole (sha256 and into) or cut into
@@ -2729,7 +2706,7 @@ type Download struct {
 
 func (x *Download) Reset() {
 	*x = Download{}
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[32]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2741,7 +2718,7 @@ func (x *Download) String() string {
 func (*Download) ProtoMessage() {}
 
 func (x *Download) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[32]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2754,7 +2731,7 @@ func (x *Download) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Download.ProtoReflect.Descriptor instead.
 func (*Download) Descriptor() ([]byte, []int) {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{32}
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *Download) GetUrl() string {
@@ -2808,7 +2785,7 @@ type Part struct {
 
 func (x *Part) Reset() {
 	*x = Part{}
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[33]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2820,7 +2797,7 @@ func (x *Part) String() string {
 func (*Part) ProtoMessage() {}
 
 func (x *Part) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[33]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2833,7 +2810,7 @@ func (x *Part) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Part.ProtoReflect.Descriptor instead.
 func (*Part) Descriptor() ([]byte, []int) {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{33}
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *Part) GetOffset() uint64 {
@@ -2893,7 +2870,7 @@ type ReportRequest struct {
 
 func (x *ReportRequest) Reset() {
 	*x = ReportRequest{}
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[34]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2905,7 +2882,7 @@ func (x *ReportRequest) String() string {
 func (*ReportRequest) ProtoMessage() {}
 
 func (x *ReportRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[34]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2918,7 +2895,7 @@ func (x *ReportRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReportRequest.ProtoReflect.Descriptor instead.
 func (*ReportRequest) Descriptor() ([]byte, []int) {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{34}
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *ReportRequest) GetContext() *Context {
@@ -2977,7 +2954,7 @@ type ReportResponse struct {
 
 func (x *ReportResponse) Reset() {
 	*x = ReportResponse{}
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[35]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2989,7 +2966,7 @@ func (x *ReportResponse) String() string {
 func (*ReportResponse) ProtoMessage() {}
 
 func (x *ReportResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[35]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3002,7 +2979,7 @@ func (x *ReportResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReportResponse.ProtoReflect.Descriptor instead.
 func (*ReportResponse) Descriptor() ([]byte, []int) {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{35}
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *ReportResponse) GetDiagnostics() []*v1alpha1.Diagnostic {
@@ -3033,7 +3010,7 @@ type Command struct {
 
 func (x *Command) Reset() {
 	*x = Command{}
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[36]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3045,7 +3022,7 @@ func (x *Command) String() string {
 func (*Command) ProtoMessage() {}
 
 func (x *Command) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[36]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3058,7 +3035,7 @@ func (x *Command) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Command.ProtoReflect.Descriptor instead.
 func (*Command) Descriptor() ([]byte, []int) {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{36}
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *Command) GetArguments() []string {
@@ -3103,7 +3080,7 @@ type Output struct {
 
 func (x *Output) Reset() {
 	*x = Output{}
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[37]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3115,7 +3092,7 @@ func (x *Output) String() string {
 func (*Output) ProtoMessage() {}
 
 func (x *Output) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[37]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3128,7 +3105,7 @@ func (x *Output) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Output.ProtoReflect.Descriptor instead.
 func (*Output) Descriptor() ([]byte, []int) {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{37}
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *Output) GetPath() string {
@@ -3165,7 +3142,7 @@ type InputSet struct {
 
 func (x *InputSet) Reset() {
 	*x = InputSet{}
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[38]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3177,7 +3154,7 @@ func (x *InputSet) String() string {
 func (*InputSet) ProtoMessage() {}
 
 func (x *InputSet) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[38]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3190,7 +3167,7 @@ func (x *InputSet) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InputSet.ProtoReflect.Descriptor instead.
 func (*InputSet) Descriptor() ([]byte, []int) {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{38}
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *InputSet) GetName() string {
@@ -3237,7 +3214,7 @@ type File struct {
 
 func (x *File) Reset() {
 	*x = File{}
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[39]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3249,7 +3226,7 @@ func (x *File) String() string {
 func (*File) ProtoMessage() {}
 
 func (x *File) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[39]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3262,7 +3239,7 @@ func (x *File) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use File.ProtoReflect.Descriptor instead.
 func (*File) Descriptor() ([]byte, []int) {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{39}
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *File) GetPath() string {
@@ -3303,7 +3280,7 @@ type ReconcileRequest struct {
 
 func (x *ReconcileRequest) Reset() {
 	*x = ReconcileRequest{}
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[40]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3315,7 +3292,7 @@ func (x *ReconcileRequest) String() string {
 func (*ReconcileRequest) ProtoMessage() {}
 
 func (x *ReconcileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[40]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3328,7 +3305,7 @@ func (x *ReconcileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReconcileRequest.ProtoReflect.Descriptor instead.
 func (*ReconcileRequest) Descriptor() ([]byte, []int) {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{40}
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *ReconcileRequest) GetContext() *Context {
@@ -3371,7 +3348,7 @@ type Resolved struct {
 
 func (x *Resolved) Reset() {
 	*x = Resolved{}
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[41]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3383,7 +3360,7 @@ func (x *Resolved) String() string {
 func (*Resolved) ProtoMessage() {}
 
 func (x *Resolved) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[41]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3396,7 +3373,7 @@ func (x *Resolved) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Resolved.ProtoReflect.Descriptor instead.
 func (*Resolved) Descriptor() ([]byte, []int) {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{41}
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *Resolved) GetRef() *v1alpha1.EntityRef {
@@ -3440,7 +3417,7 @@ type ReconcileResponse struct {
 
 func (x *ReconcileResponse) Reset() {
 	*x = ReconcileResponse{}
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[42]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3452,7 +3429,7 @@ func (x *ReconcileResponse) String() string {
 func (*ReconcileResponse) ProtoMessage() {}
 
 func (x *ReconcileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[42]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3465,7 +3442,7 @@ func (x *ReconcileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReconcileResponse.ProtoReflect.Descriptor instead.
 func (*ReconcileResponse) Descriptor() ([]byte, []int) {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{42}
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *ReconcileResponse) GetEdits() []*Edit {
@@ -3497,7 +3474,7 @@ type Edit struct {
 
 func (x *Edit) Reset() {
 	*x = Edit{}
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[43]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3509,7 +3486,7 @@ func (x *Edit) String() string {
 func (*Edit) ProtoMessage() {}
 
 func (x *Edit) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[43]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3522,7 +3499,7 @@ func (x *Edit) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Edit.ProtoReflect.Descriptor instead.
 func (*Edit) Descriptor() ([]byte, []int) {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{43}
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *Edit) GetPath() string {
@@ -3557,11 +3534,11 @@ var File_frontseat_plugin_v1alpha1_plugin_proto protoreflect.FileDescriptor
 
 const file_frontseat_plugin_v1alpha1_plugin_proto_rawDesc = "" +
 	"\n" +
-	"&frontseat/plugin/v1alpha1/plugin.proto\x12\x19frontseat.plugin.v1alpha1\x1a'frontseat/plugin/v1alpha1/release.proto\x1a(frontseat/type/v1alpha1/diagnostic.proto\x1a$frontseat/type/v1alpha1/option.proto\x1a%frontseat/type/v1alpha1/service.proto\x1a#frontseat/type/v1alpha1/types.proto\"\x91\x03\n" +
+	"&frontseat/plugin/v1alpha1/plugin.proto\x12\x19frontseat.plugin.v1alpha1\x1a'frontseat/plugin/v1alpha1/release.proto\x1a(frontseat/type/v1alpha1/diagnostic.proto\x1a$frontseat/type/v1alpha1/option.proto\x1a%frontseat/type/v1alpha1/service.proto\x1a#frontseat/type/v1alpha1/types.proto\"\x8f\x03\n" +
 	"\aContext\x12I\n" +
 	"\aoptions\x18\x01 \x03(\v2/.frontseat.plugin.v1alpha1.Context.OptionsEntryR\aoptions\x12C\n" +
-	"\x05tools\x18\x02 \x03(\v2-.frontseat.plugin.v1alpha1.Context.ToolsEntryR\x05tools\x12<\n" +
-	"\aprofile\x18\a \x01(\x0e2\".frontseat.plugin.v1alpha1.ProfileR\aprofile\x12\x1c\n" +
+	"\x05tools\x18\x02 \x03(\v2-.frontseat.plugin.v1alpha1.Context.ToolsEntryR\x05tools\x12:\n" +
+	"\aprofile\x18\a \x01(\x0e2 .frontseat.type.v1alpha1.ProfileR\aprofile\x12\x1c\n" +
 	"\tplatforms\x18\b \x03(\tR\tplatforms\x1a`\n" +
 	"\fOptionsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12:\n" +
@@ -3714,14 +3691,15 @@ const file_frontseat_plugin_v1alpha1_plugin_proto_rawDesc = "" +
 	"\n" +
 	"dependency\x18\x04 \x01(\v2*.frontseat.plugin.v1alpha1.DependencyInputH\x00R\n" +
 	"dependencyB\x06\n" +
-	"\x04kind\"\x8f\x01\n" +
-	"\x0fDependencyInput\x12\x12\n" +
-	"\x03all\x18\x01 \x01(\bH\x00R\x03all\x12G\n" +
+	"\x04kind\"\xbb\x01\n" +
+	"\x0fDependencyInput\x12>\n" +
+	"\x03all\x18\x01 \x01(\v2*.frontseat.plugin.v1alpha1.AllRequirementsH\x00R\x03all\x12G\n" +
 	"\n" +
 	"coordinate\x18\x02 \x01(\v2%.frontseat.plugin.v1alpha1.CoordinateH\x00R\n" +
 	"coordinate\x12\x12\n" +
 	"\x04into\x18\x03 \x01(\tR\x04intoB\v\n" +
-	"\tselection\"\x7f\n" +
+	"\tselection\"\x11\n" +
+	"\x0fAllRequirements\"\x7f\n" +
 	"\bDownload\x12\x10\n" +
 	"\x03url\x18\x01 \x01(\tR\x03url\x12\x16\n" +
 	"\x06sha256\x18\x02 \x01(\tR\x06sha256\x12\x12\n" +
@@ -3778,11 +3756,7 @@ const file_frontseat_plugin_v1alpha1_plugin_proto_rawDesc = "" +
 	"\x04path\x18\x01 \x01(\tR\x04path\x12\x1a\n" +
 	"\bdocument\x18\x02 \x01(\x05R\bdocument\x12\x12\n" +
 	"\x04keys\x18\x03 \x03(\tR\x04keys\x12\x16\n" +
-	"\x06values\x18\x04 \x03(\tR\x06values*S\n" +
-	"\aProfile\x12\x17\n" +
-	"\x13PROFILE_UNSPECIFIED\x10\x00\x12\x17\n" +
-	"\x13PROFILE_DEVELOPMENT\x10\x01\x12\x16\n" +
-	"\x12PROFILE_PRODUCTION\x10\x022\xa2\x06\n" +
+	"\x06values\x18\x04 \x03(\tR\x06values2\xa2\x06\n" +
 	"\rPluginService\x12c\n" +
 	"\bDescribe\x12*.frontseat.plugin.v1alpha1.DescribeRequest\x1a+.frontseat.plugin.v1alpha1.DescribeResponse\x12`\n" +
 	"\aAnalyze\x12).frontseat.plugin.v1alpha1.AnalyzeRequest\x1a*.frontseat.plugin.v1alpha1.AnalyzeResponse\x12`\n" +
@@ -3806,43 +3780,43 @@ func file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP() []byte {
 	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescData
 }
 
-var file_frontseat_plugin_v1alpha1_plugin_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes = make([]protoimpl.MessageInfo, 47)
+var file_frontseat_plugin_v1alpha1_plugin_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes = make([]protoimpl.MessageInfo, 48)
 var file_frontseat_plugin_v1alpha1_plugin_proto_goTypes = []any{
-	(Profile)(0),                 // 0: frontseat.plugin.v1alpha1.Profile
-	(Option_Kind)(0),             // 1: frontseat.plugin.v1alpha1.Option.Kind
-	(*Context)(nil),              // 2: frontseat.plugin.v1alpha1.Context
-	(*Option)(nil),               // 3: frontseat.plugin.v1alpha1.Option
-	(*DescribeRequest)(nil),      // 4: frontseat.plugin.v1alpha1.DescribeRequest
-	(*DescribeResponse)(nil),     // 5: frontseat.plugin.v1alpha1.DescribeResponse
-	(*ServiceRequest)(nil),       // 6: frontseat.plugin.v1alpha1.ServiceRequest
-	(*ServiceResponse)(nil),      // 7: frontseat.plugin.v1alpha1.ServiceResponse
-	(*AnalyzeRequest)(nil),       // 8: frontseat.plugin.v1alpha1.AnalyzeRequest
-	(*AnalyzeResponse)(nil),      // 9: frontseat.plugin.v1alpha1.AnalyzeResponse
-	(*Analysis)(nil),             // 10: frontseat.plugin.v1alpha1.Analysis
-	(*Entity)(nil),               // 11: frontseat.plugin.v1alpha1.Entity
-	(*EntityRelation)(nil),       // 12: frontseat.plugin.v1alpha1.EntityRelation
-	(*ArrangeRequest)(nil),       // 13: frontseat.plugin.v1alpha1.ArrangeRequest
-	(*Handed)(nil),               // 14: frontseat.plugin.v1alpha1.Handed
-	(*ArrangeResponse)(nil),      // 15: frontseat.plugin.v1alpha1.ArrangeResponse
-	(*Project)(nil),              // 16: frontseat.plugin.v1alpha1.Project
-	(*GeneratedSource)(nil),      // 17: frontseat.plugin.v1alpha1.GeneratedSource
-	(*Coordinate)(nil),           // 18: frontseat.plugin.v1alpha1.Coordinate
-	(*Provide)(nil),              // 19: frontseat.plugin.v1alpha1.Provide
-	(*Produced)(nil),             // 20: frontseat.plugin.v1alpha1.Produced
-	(*Requirement)(nil),          // 21: frontseat.plugin.v1alpha1.Requirement
-	(*Origin)(nil),               // 22: frontseat.plugin.v1alpha1.Origin
-	(*Action)(nil),               // 23: frontseat.plugin.v1alpha1.Action
-	(*Build)(nil),                // 24: frontseat.plugin.v1alpha1.Build
-	(*Test)(nil),                 // 25: frontseat.plugin.v1alpha1.Test
-	(*Check)(nil),                // 26: frontseat.plugin.v1alpha1.Check
-	(*Fetch)(nil),                // 27: frontseat.plugin.v1alpha1.Fetch
-	(*SharedFetch)(nil),          // 28: frontseat.plugin.v1alpha1.SharedFetch
-	(*Program)(nil),              // 29: frontseat.plugin.v1alpha1.Program
-	(*Package)(nil),              // 30: frontseat.plugin.v1alpha1.Package
-	(*Publish)(nil),              // 31: frontseat.plugin.v1alpha1.Publish
-	(*Input)(nil),                // 32: frontseat.plugin.v1alpha1.Input
-	(*DependencyInput)(nil),      // 33: frontseat.plugin.v1alpha1.DependencyInput
+	(Option_Kind)(0),             // 0: frontseat.plugin.v1alpha1.Option.Kind
+	(*Context)(nil),              // 1: frontseat.plugin.v1alpha1.Context
+	(*Option)(nil),               // 2: frontseat.plugin.v1alpha1.Option
+	(*DescribeRequest)(nil),      // 3: frontseat.plugin.v1alpha1.DescribeRequest
+	(*DescribeResponse)(nil),     // 4: frontseat.plugin.v1alpha1.DescribeResponse
+	(*ServiceRequest)(nil),       // 5: frontseat.plugin.v1alpha1.ServiceRequest
+	(*ServiceResponse)(nil),      // 6: frontseat.plugin.v1alpha1.ServiceResponse
+	(*AnalyzeRequest)(nil),       // 7: frontseat.plugin.v1alpha1.AnalyzeRequest
+	(*AnalyzeResponse)(nil),      // 8: frontseat.plugin.v1alpha1.AnalyzeResponse
+	(*Analysis)(nil),             // 9: frontseat.plugin.v1alpha1.Analysis
+	(*Entity)(nil),               // 10: frontseat.plugin.v1alpha1.Entity
+	(*EntityRelation)(nil),       // 11: frontseat.plugin.v1alpha1.EntityRelation
+	(*ArrangeRequest)(nil),       // 12: frontseat.plugin.v1alpha1.ArrangeRequest
+	(*Handed)(nil),               // 13: frontseat.plugin.v1alpha1.Handed
+	(*ArrangeResponse)(nil),      // 14: frontseat.plugin.v1alpha1.ArrangeResponse
+	(*Project)(nil),              // 15: frontseat.plugin.v1alpha1.Project
+	(*GeneratedSource)(nil),      // 16: frontseat.plugin.v1alpha1.GeneratedSource
+	(*Coordinate)(nil),           // 17: frontseat.plugin.v1alpha1.Coordinate
+	(*Provide)(nil),              // 18: frontseat.plugin.v1alpha1.Provide
+	(*Produced)(nil),             // 19: frontseat.plugin.v1alpha1.Produced
+	(*Requirement)(nil),          // 20: frontseat.plugin.v1alpha1.Requirement
+	(*Origin)(nil),               // 21: frontseat.plugin.v1alpha1.Origin
+	(*Action)(nil),               // 22: frontseat.plugin.v1alpha1.Action
+	(*Build)(nil),                // 23: frontseat.plugin.v1alpha1.Build
+	(*Test)(nil),                 // 24: frontseat.plugin.v1alpha1.Test
+	(*Check)(nil),                // 25: frontseat.plugin.v1alpha1.Check
+	(*Fetch)(nil),                // 26: frontseat.plugin.v1alpha1.Fetch
+	(*SharedFetch)(nil),          // 27: frontseat.plugin.v1alpha1.SharedFetch
+	(*Program)(nil),              // 28: frontseat.plugin.v1alpha1.Program
+	(*Package)(nil),              // 29: frontseat.plugin.v1alpha1.Package
+	(*Publish)(nil),              // 30: frontseat.plugin.v1alpha1.Publish
+	(*Input)(nil),                // 31: frontseat.plugin.v1alpha1.Input
+	(*DependencyInput)(nil),      // 32: frontseat.plugin.v1alpha1.DependencyInput
+	(*AllRequirements)(nil),      // 33: frontseat.plugin.v1alpha1.AllRequirements
 	(*Download)(nil),             // 34: frontseat.plugin.v1alpha1.Download
 	(*Part)(nil),                 // 35: frontseat.plugin.v1alpha1.Part
 	(*ReportRequest)(nil),        // 36: frontseat.plugin.v1alpha1.ReportRequest
@@ -3858,95 +3832,97 @@ var file_frontseat_plugin_v1alpha1_plugin_proto_goTypes = []any{
 	nil,                          // 46: frontseat.plugin.v1alpha1.Context.OptionsEntry
 	nil,                          // 47: frontseat.plugin.v1alpha1.Context.ToolsEntry
 	nil,                          // 48: frontseat.plugin.v1alpha1.Command.EnvironmentEntry
-	(*v1alpha1.OptionValue)(nil), // 49: frontseat.type.v1alpha1.OptionValue
-	(*ReleaseRoles)(nil),         // 50: frontseat.plugin.v1alpha1.ReleaseRoles
-	(*v1alpha1.Service)(nil),     // 51: frontseat.type.v1alpha1.Service
-	(*v1alpha1.EntityRef)(nil),   // 52: frontseat.type.v1alpha1.EntityRef
-	(*v1alpha1.Diagnostic)(nil),  // 53: frontseat.type.v1alpha1.Diagnostic
-	(*BranchRequest)(nil),        // 54: frontseat.plugin.v1alpha1.BranchRequest
-	(*VersionRequest)(nil),       // 55: frontseat.plugin.v1alpha1.VersionRequest
-	(*BranchResponse)(nil),       // 56: frontseat.plugin.v1alpha1.BranchResponse
-	(*VersionResponse)(nil),      // 57: frontseat.plugin.v1alpha1.VersionResponse
+	(v1alpha1.Profile)(0),        // 49: frontseat.type.v1alpha1.Profile
+	(*v1alpha1.OptionValue)(nil), // 50: frontseat.type.v1alpha1.OptionValue
+	(*ReleaseRoles)(nil),         // 51: frontseat.plugin.v1alpha1.ReleaseRoles
+	(*v1alpha1.Service)(nil),     // 52: frontseat.type.v1alpha1.Service
+	(*v1alpha1.EntityRef)(nil),   // 53: frontseat.type.v1alpha1.EntityRef
+	(*v1alpha1.Diagnostic)(nil),  // 54: frontseat.type.v1alpha1.Diagnostic
+	(*BranchRequest)(nil),        // 55: frontseat.plugin.v1alpha1.BranchRequest
+	(*VersionRequest)(nil),       // 56: frontseat.plugin.v1alpha1.VersionRequest
+	(*BranchResponse)(nil),       // 57: frontseat.plugin.v1alpha1.BranchResponse
+	(*VersionResponse)(nil),      // 58: frontseat.plugin.v1alpha1.VersionResponse
 }
 var file_frontseat_plugin_v1alpha1_plugin_proto_depIdxs = []int32{
 	46, // 0: frontseat.plugin.v1alpha1.Context.options:type_name -> frontseat.plugin.v1alpha1.Context.OptionsEntry
 	47, // 1: frontseat.plugin.v1alpha1.Context.tools:type_name -> frontseat.plugin.v1alpha1.Context.ToolsEntry
-	0,  // 2: frontseat.plugin.v1alpha1.Context.profile:type_name -> frontseat.plugin.v1alpha1.Profile
-	1,  // 3: frontseat.plugin.v1alpha1.Option.kind:type_name -> frontseat.plugin.v1alpha1.Option.Kind
-	49, // 4: frontseat.plugin.v1alpha1.Option.default:type_name -> frontseat.type.v1alpha1.OptionValue
-	3,  // 5: frontseat.plugin.v1alpha1.DescribeResponse.options:type_name -> frontseat.plugin.v1alpha1.Option
-	50, // 6: frontseat.plugin.v1alpha1.DescribeResponse.release:type_name -> frontseat.plugin.v1alpha1.ReleaseRoles
-	51, // 7: frontseat.plugin.v1alpha1.ServiceRequest.written:type_name -> frontseat.type.v1alpha1.Service
-	51, // 8: frontseat.plugin.v1alpha1.ServiceResponse.service:type_name -> frontseat.type.v1alpha1.Service
-	2,  // 9: frontseat.plugin.v1alpha1.AnalyzeRequest.context:type_name -> frontseat.plugin.v1alpha1.Context
-	10, // 10: frontseat.plugin.v1alpha1.AnalyzeResponse.analyses:type_name -> frontseat.plugin.v1alpha1.Analysis
-	16, // 11: frontseat.plugin.v1alpha1.Analysis.projects:type_name -> frontseat.plugin.v1alpha1.Project
-	11, // 12: frontseat.plugin.v1alpha1.Analysis.entities:type_name -> frontseat.plugin.v1alpha1.Entity
-	52, // 13: frontseat.plugin.v1alpha1.Entity.ref:type_name -> frontseat.type.v1alpha1.EntityRef
-	12, // 14: frontseat.plugin.v1alpha1.Entity.relations:type_name -> frontseat.plugin.v1alpha1.EntityRelation
-	52, // 15: frontseat.plugin.v1alpha1.EntityRelation.target:type_name -> frontseat.type.v1alpha1.EntityRef
-	2,  // 16: frontseat.plugin.v1alpha1.ArrangeRequest.context:type_name -> frontseat.plugin.v1alpha1.Context
-	14, // 17: frontseat.plugin.v1alpha1.ArrangeRequest.handed:type_name -> frontseat.plugin.v1alpha1.Handed
-	18, // 18: frontseat.plugin.v1alpha1.Handed.coordinate:type_name -> frontseat.plugin.v1alpha1.Coordinate
+	49, // 2: frontseat.plugin.v1alpha1.Context.profile:type_name -> frontseat.type.v1alpha1.Profile
+	0,  // 3: frontseat.plugin.v1alpha1.Option.kind:type_name -> frontseat.plugin.v1alpha1.Option.Kind
+	50, // 4: frontseat.plugin.v1alpha1.Option.default:type_name -> frontseat.type.v1alpha1.OptionValue
+	2,  // 5: frontseat.plugin.v1alpha1.DescribeResponse.options:type_name -> frontseat.plugin.v1alpha1.Option
+	51, // 6: frontseat.plugin.v1alpha1.DescribeResponse.release:type_name -> frontseat.plugin.v1alpha1.ReleaseRoles
+	52, // 7: frontseat.plugin.v1alpha1.ServiceRequest.written:type_name -> frontseat.type.v1alpha1.Service
+	52, // 8: frontseat.plugin.v1alpha1.ServiceResponse.service:type_name -> frontseat.type.v1alpha1.Service
+	1,  // 9: frontseat.plugin.v1alpha1.AnalyzeRequest.context:type_name -> frontseat.plugin.v1alpha1.Context
+	9,  // 10: frontseat.plugin.v1alpha1.AnalyzeResponse.analyses:type_name -> frontseat.plugin.v1alpha1.Analysis
+	15, // 11: frontseat.plugin.v1alpha1.Analysis.projects:type_name -> frontseat.plugin.v1alpha1.Project
+	10, // 12: frontseat.plugin.v1alpha1.Analysis.entities:type_name -> frontseat.plugin.v1alpha1.Entity
+	53, // 13: frontseat.plugin.v1alpha1.Entity.ref:type_name -> frontseat.type.v1alpha1.EntityRef
+	11, // 14: frontseat.plugin.v1alpha1.Entity.relations:type_name -> frontseat.plugin.v1alpha1.EntityRelation
+	53, // 15: frontseat.plugin.v1alpha1.EntityRelation.target:type_name -> frontseat.type.v1alpha1.EntityRef
+	1,  // 16: frontseat.plugin.v1alpha1.ArrangeRequest.context:type_name -> frontseat.plugin.v1alpha1.Context
+	13, // 17: frontseat.plugin.v1alpha1.ArrangeRequest.handed:type_name -> frontseat.plugin.v1alpha1.Handed
+	17, // 18: frontseat.plugin.v1alpha1.Handed.coordinate:type_name -> frontseat.plugin.v1alpha1.Coordinate
 	41, // 19: frontseat.plugin.v1alpha1.ArrangeResponse.files:type_name -> frontseat.plugin.v1alpha1.File
-	19, // 20: frontseat.plugin.v1alpha1.Project.provides:type_name -> frontseat.plugin.v1alpha1.Provide
-	21, // 21: frontseat.plugin.v1alpha1.Project.requires:type_name -> frontseat.plugin.v1alpha1.Requirement
-	23, // 22: frontseat.plugin.v1alpha1.Project.actions:type_name -> frontseat.plugin.v1alpha1.Action
+	18, // 20: frontseat.plugin.v1alpha1.Project.provides:type_name -> frontseat.plugin.v1alpha1.Provide
+	20, // 21: frontseat.plugin.v1alpha1.Project.requires:type_name -> frontseat.plugin.v1alpha1.Requirement
+	22, // 22: frontseat.plugin.v1alpha1.Project.actions:type_name -> frontseat.plugin.v1alpha1.Action
 	40, // 23: frontseat.plugin.v1alpha1.Project.input_sets:type_name -> frontseat.plugin.v1alpha1.InputSet
-	17, // 24: frontseat.plugin.v1alpha1.Project.generated_sources:type_name -> frontseat.plugin.v1alpha1.GeneratedSource
-	18, // 25: frontseat.plugin.v1alpha1.Provide.coordinate:type_name -> frontseat.plugin.v1alpha1.Coordinate
-	20, // 26: frontseat.plugin.v1alpha1.Provide.artifacts:type_name -> frontseat.plugin.v1alpha1.Produced
-	18, // 27: frontseat.plugin.v1alpha1.Requirement.coordinate:type_name -> frontseat.plugin.v1alpha1.Coordinate
-	22, // 28: frontseat.plugin.v1alpha1.Requirement.origin:type_name -> frontseat.plugin.v1alpha1.Origin
+	16, // 24: frontseat.plugin.v1alpha1.Project.generated_sources:type_name -> frontseat.plugin.v1alpha1.GeneratedSource
+	17, // 25: frontseat.plugin.v1alpha1.Provide.coordinate:type_name -> frontseat.plugin.v1alpha1.Coordinate
+	19, // 26: frontseat.plugin.v1alpha1.Provide.artifacts:type_name -> frontseat.plugin.v1alpha1.Produced
+	17, // 27: frontseat.plugin.v1alpha1.Requirement.coordinate:type_name -> frontseat.plugin.v1alpha1.Coordinate
+	21, // 28: frontseat.plugin.v1alpha1.Requirement.origin:type_name -> frontseat.plugin.v1alpha1.Origin
 	38, // 29: frontseat.plugin.v1alpha1.Action.command:type_name -> frontseat.plugin.v1alpha1.Command
-	32, // 30: frontseat.plugin.v1alpha1.Action.inputs:type_name -> frontseat.plugin.v1alpha1.Input
+	31, // 30: frontseat.plugin.v1alpha1.Action.inputs:type_name -> frontseat.plugin.v1alpha1.Input
 	39, // 31: frontseat.plugin.v1alpha1.Action.outputs:type_name -> frontseat.plugin.v1alpha1.Output
-	24, // 32: frontseat.plugin.v1alpha1.Action.build:type_name -> frontseat.plugin.v1alpha1.Build
-	25, // 33: frontseat.plugin.v1alpha1.Action.test:type_name -> frontseat.plugin.v1alpha1.Test
-	26, // 34: frontseat.plugin.v1alpha1.Action.check:type_name -> frontseat.plugin.v1alpha1.Check
-	27, // 35: frontseat.plugin.v1alpha1.Action.fetch:type_name -> frontseat.plugin.v1alpha1.Fetch
-	28, // 36: frontseat.plugin.v1alpha1.Action.shared_fetch:type_name -> frontseat.plugin.v1alpha1.SharedFetch
-	29, // 37: frontseat.plugin.v1alpha1.Action.program:type_name -> frontseat.plugin.v1alpha1.Program
-	30, // 38: frontseat.plugin.v1alpha1.Action.package:type_name -> frontseat.plugin.v1alpha1.Package
-	31, // 39: frontseat.plugin.v1alpha1.Action.publish:type_name -> frontseat.plugin.v1alpha1.Publish
+	23, // 32: frontseat.plugin.v1alpha1.Action.build:type_name -> frontseat.plugin.v1alpha1.Build
+	24, // 33: frontseat.plugin.v1alpha1.Action.test:type_name -> frontseat.plugin.v1alpha1.Test
+	25, // 34: frontseat.plugin.v1alpha1.Action.check:type_name -> frontseat.plugin.v1alpha1.Check
+	26, // 35: frontseat.plugin.v1alpha1.Action.fetch:type_name -> frontseat.plugin.v1alpha1.Fetch
+	27, // 36: frontseat.plugin.v1alpha1.Action.shared_fetch:type_name -> frontseat.plugin.v1alpha1.SharedFetch
+	28, // 37: frontseat.plugin.v1alpha1.Action.program:type_name -> frontseat.plugin.v1alpha1.Program
+	29, // 38: frontseat.plugin.v1alpha1.Action.package:type_name -> frontseat.plugin.v1alpha1.Package
+	30, // 39: frontseat.plugin.v1alpha1.Action.publish:type_name -> frontseat.plugin.v1alpha1.Publish
 	38, // 40: frontseat.plugin.v1alpha1.Check.fix:type_name -> frontseat.plugin.v1alpha1.Command
 	41, // 41: frontseat.plugin.v1alpha1.SharedFetch.files:type_name -> frontseat.plugin.v1alpha1.File
 	34, // 42: frontseat.plugin.v1alpha1.SharedFetch.downloads:type_name -> frontseat.plugin.v1alpha1.Download
-	33, // 43: frontseat.plugin.v1alpha1.Input.dependency:type_name -> frontseat.plugin.v1alpha1.DependencyInput
-	18, // 44: frontseat.plugin.v1alpha1.DependencyInput.coordinate:type_name -> frontseat.plugin.v1alpha1.Coordinate
-	35, // 45: frontseat.plugin.v1alpha1.Download.parts:type_name -> frontseat.plugin.v1alpha1.Part
-	2,  // 46: frontseat.plugin.v1alpha1.ReportRequest.context:type_name -> frontseat.plugin.v1alpha1.Context
-	53, // 47: frontseat.plugin.v1alpha1.ReportResponse.diagnostics:type_name -> frontseat.type.v1alpha1.Diagnostic
-	48, // 48: frontseat.plugin.v1alpha1.Command.environment:type_name -> frontseat.plugin.v1alpha1.Command.EnvironmentEntry
-	32, // 49: frontseat.plugin.v1alpha1.InputSet.inputs:type_name -> frontseat.plugin.v1alpha1.Input
-	2,  // 50: frontseat.plugin.v1alpha1.ReconcileRequest.context:type_name -> frontseat.plugin.v1alpha1.Context
-	43, // 51: frontseat.plugin.v1alpha1.ReconcileRequest.entities:type_name -> frontseat.plugin.v1alpha1.Resolved
-	52, // 52: frontseat.plugin.v1alpha1.Resolved.ref:type_name -> frontseat.type.v1alpha1.EntityRef
-	52, // 53: frontseat.plugin.v1alpha1.Resolved.depends_on:type_name -> frontseat.type.v1alpha1.EntityRef
-	52, // 54: frontseat.plugin.v1alpha1.Resolved.dependency_of:type_name -> frontseat.type.v1alpha1.EntityRef
-	45, // 55: frontseat.plugin.v1alpha1.ReconcileResponse.edits:type_name -> frontseat.plugin.v1alpha1.Edit
-	49, // 56: frontseat.plugin.v1alpha1.Context.OptionsEntry.value:type_name -> frontseat.type.v1alpha1.OptionValue
-	4,  // 57: frontseat.plugin.v1alpha1.PluginService.Describe:input_type -> frontseat.plugin.v1alpha1.DescribeRequest
-	8,  // 58: frontseat.plugin.v1alpha1.PluginService.Analyze:input_type -> frontseat.plugin.v1alpha1.AnalyzeRequest
-	13, // 59: frontseat.plugin.v1alpha1.PluginService.Arrange:input_type -> frontseat.plugin.v1alpha1.ArrangeRequest
-	36, // 60: frontseat.plugin.v1alpha1.PluginService.Report:input_type -> frontseat.plugin.v1alpha1.ReportRequest
-	42, // 61: frontseat.plugin.v1alpha1.PluginService.Reconcile:input_type -> frontseat.plugin.v1alpha1.ReconcileRequest
-	6,  // 62: frontseat.plugin.v1alpha1.PluginService.Service:input_type -> frontseat.plugin.v1alpha1.ServiceRequest
-	54, // 63: frontseat.plugin.v1alpha1.PluginService.Branch:input_type -> frontseat.plugin.v1alpha1.BranchRequest
-	55, // 64: frontseat.plugin.v1alpha1.PluginService.Version:input_type -> frontseat.plugin.v1alpha1.VersionRequest
-	5,  // 65: frontseat.plugin.v1alpha1.PluginService.Describe:output_type -> frontseat.plugin.v1alpha1.DescribeResponse
-	9,  // 66: frontseat.plugin.v1alpha1.PluginService.Analyze:output_type -> frontseat.plugin.v1alpha1.AnalyzeResponse
-	15, // 67: frontseat.plugin.v1alpha1.PluginService.Arrange:output_type -> frontseat.plugin.v1alpha1.ArrangeResponse
-	37, // 68: frontseat.plugin.v1alpha1.PluginService.Report:output_type -> frontseat.plugin.v1alpha1.ReportResponse
-	44, // 69: frontseat.plugin.v1alpha1.PluginService.Reconcile:output_type -> frontseat.plugin.v1alpha1.ReconcileResponse
-	7,  // 70: frontseat.plugin.v1alpha1.PluginService.Service:output_type -> frontseat.plugin.v1alpha1.ServiceResponse
-	56, // 71: frontseat.plugin.v1alpha1.PluginService.Branch:output_type -> frontseat.plugin.v1alpha1.BranchResponse
-	57, // 72: frontseat.plugin.v1alpha1.PluginService.Version:output_type -> frontseat.plugin.v1alpha1.VersionResponse
-	65, // [65:73] is the sub-list for method output_type
-	57, // [57:65] is the sub-list for method input_type
-	57, // [57:57] is the sub-list for extension type_name
-	57, // [57:57] is the sub-list for extension extendee
-	0,  // [0:57] is the sub-list for field type_name
+	32, // 43: frontseat.plugin.v1alpha1.Input.dependency:type_name -> frontseat.plugin.v1alpha1.DependencyInput
+	33, // 44: frontseat.plugin.v1alpha1.DependencyInput.all:type_name -> frontseat.plugin.v1alpha1.AllRequirements
+	17, // 45: frontseat.plugin.v1alpha1.DependencyInput.coordinate:type_name -> frontseat.plugin.v1alpha1.Coordinate
+	35, // 46: frontseat.plugin.v1alpha1.Download.parts:type_name -> frontseat.plugin.v1alpha1.Part
+	1,  // 47: frontseat.plugin.v1alpha1.ReportRequest.context:type_name -> frontseat.plugin.v1alpha1.Context
+	54, // 48: frontseat.plugin.v1alpha1.ReportResponse.diagnostics:type_name -> frontseat.type.v1alpha1.Diagnostic
+	48, // 49: frontseat.plugin.v1alpha1.Command.environment:type_name -> frontseat.plugin.v1alpha1.Command.EnvironmentEntry
+	31, // 50: frontseat.plugin.v1alpha1.InputSet.inputs:type_name -> frontseat.plugin.v1alpha1.Input
+	1,  // 51: frontseat.plugin.v1alpha1.ReconcileRequest.context:type_name -> frontseat.plugin.v1alpha1.Context
+	43, // 52: frontseat.plugin.v1alpha1.ReconcileRequest.entities:type_name -> frontseat.plugin.v1alpha1.Resolved
+	53, // 53: frontseat.plugin.v1alpha1.Resolved.ref:type_name -> frontseat.type.v1alpha1.EntityRef
+	53, // 54: frontseat.plugin.v1alpha1.Resolved.depends_on:type_name -> frontseat.type.v1alpha1.EntityRef
+	53, // 55: frontseat.plugin.v1alpha1.Resolved.dependency_of:type_name -> frontseat.type.v1alpha1.EntityRef
+	45, // 56: frontseat.plugin.v1alpha1.ReconcileResponse.edits:type_name -> frontseat.plugin.v1alpha1.Edit
+	50, // 57: frontseat.plugin.v1alpha1.Context.OptionsEntry.value:type_name -> frontseat.type.v1alpha1.OptionValue
+	3,  // 58: frontseat.plugin.v1alpha1.PluginService.Describe:input_type -> frontseat.plugin.v1alpha1.DescribeRequest
+	7,  // 59: frontseat.plugin.v1alpha1.PluginService.Analyze:input_type -> frontseat.plugin.v1alpha1.AnalyzeRequest
+	12, // 60: frontseat.plugin.v1alpha1.PluginService.Arrange:input_type -> frontseat.plugin.v1alpha1.ArrangeRequest
+	36, // 61: frontseat.plugin.v1alpha1.PluginService.Report:input_type -> frontseat.plugin.v1alpha1.ReportRequest
+	42, // 62: frontseat.plugin.v1alpha1.PluginService.Reconcile:input_type -> frontseat.plugin.v1alpha1.ReconcileRequest
+	5,  // 63: frontseat.plugin.v1alpha1.PluginService.Service:input_type -> frontseat.plugin.v1alpha1.ServiceRequest
+	55, // 64: frontseat.plugin.v1alpha1.PluginService.Branch:input_type -> frontseat.plugin.v1alpha1.BranchRequest
+	56, // 65: frontseat.plugin.v1alpha1.PluginService.Version:input_type -> frontseat.plugin.v1alpha1.VersionRequest
+	4,  // 66: frontseat.plugin.v1alpha1.PluginService.Describe:output_type -> frontseat.plugin.v1alpha1.DescribeResponse
+	8,  // 67: frontseat.plugin.v1alpha1.PluginService.Analyze:output_type -> frontseat.plugin.v1alpha1.AnalyzeResponse
+	14, // 68: frontseat.plugin.v1alpha1.PluginService.Arrange:output_type -> frontseat.plugin.v1alpha1.ArrangeResponse
+	37, // 69: frontseat.plugin.v1alpha1.PluginService.Report:output_type -> frontseat.plugin.v1alpha1.ReportResponse
+	44, // 70: frontseat.plugin.v1alpha1.PluginService.Reconcile:output_type -> frontseat.plugin.v1alpha1.ReconcileResponse
+	6,  // 71: frontseat.plugin.v1alpha1.PluginService.Service:output_type -> frontseat.plugin.v1alpha1.ServiceResponse
+	57, // 72: frontseat.plugin.v1alpha1.PluginService.Branch:output_type -> frontseat.plugin.v1alpha1.BranchResponse
+	58, // 73: frontseat.plugin.v1alpha1.PluginService.Version:output_type -> frontseat.plugin.v1alpha1.VersionResponse
+	66, // [66:74] is the sub-list for method output_type
+	58, // [58:66] is the sub-list for method input_type
+	58, // [58:58] is the sub-list for extension type_name
+	58, // [58:58] is the sub-list for extension extendee
+	0,  // [0:58] is the sub-list for field type_name
 }
 
 func init() { file_frontseat_plugin_v1alpha1_plugin_proto_init() }
@@ -3981,8 +3957,8 @@ func file_frontseat_plugin_v1alpha1_plugin_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_frontseat_plugin_v1alpha1_plugin_proto_rawDesc), len(file_frontseat_plugin_v1alpha1_plugin_proto_rawDesc)),
-			NumEnums:      2,
-			NumMessages:   47,
+			NumEnums:      1,
+			NumMessages:   48,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

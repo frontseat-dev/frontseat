@@ -12,7 +12,7 @@ import (
 )
 
 func bufFixture(t *testing.T) conformance.Fixture {
-	context := &pluginv1.Context{Profile: pluginv1.Profile_PROFILE_DEVELOPMENT}
+	context := &pluginv1.Context{Profile: typev1.Profile_PROFILE_DEVELOPMENT}
 	return arrangingNothing(context, conformance.Fixture{
 		Name: "buf", ABI: 25, Description: &pluginv1.DescribeResponse{Name: "buf", Interests: []string{"**/buf.yaml", "!**/testdata/**"}, GeneratesSources: true},
 		Source: fixtureSource(t, "buf", "valid"), Absent: files{}, Malformed: fixtureSource(t, "buf", "malformed"), ErrorCode: "INVALID_MANIFEST",
@@ -42,7 +42,7 @@ func bufFixture(t *testing.T) conformance.Fixture {
 func BenchmarkBufAnalyze(b *testing.B) {
 	plugin := conformance.Plugin(b, "buf")
 	source := fixtureSource(b, "buf", "valid")
-	request := &pluginv1.AnalyzeRequest{Roots: []string{"app"}, Context: &pluginv1.Context{Profile: pluginv1.Profile_PROFILE_DEVELOPMENT}}
+	request := &pluginv1.AnalyzeRequest{Roots: []string{"app"}, Context: &pluginv1.Context{Profile: typev1.Profile_PROFILE_DEVELOPMENT}}
 	benchmarkAnalysis(b, plugin, "buf", source, request)
 }
 
@@ -57,7 +57,7 @@ func TestBudgetOfBufAnalysis(t *testing.T) {
 
 func TestBufRejectsUnsupportedGeneration(t *testing.T) {
 	plugin := conformance.Plugin(t, "buf")
-	request := &pluginv1.AnalyzeRequest{Roots: []string{"app"}, Context: &pluginv1.Context{Profile: pluginv1.Profile_PROFILE_DEVELOPMENT}}
+	request := &pluginv1.AnalyzeRequest{Roots: []string{"app"}, Context: &pluginv1.Context{Profile: typev1.Profile_PROFILE_DEVELOPMENT}}
 	valid := "version: v2\nplugins:\n  - local: protoc-gen-go\n    out: gen/go\ninputs:\n  - directory: .\n"
 	cases := map[string]string{
 		"remote input":                  strings.Replace(valid, "directory: .", "module: buf.build/acme/api", 1),
@@ -96,7 +96,7 @@ func TestBufRejectsUnsupportedGeneration(t *testing.T) {
 // refused by its file, beside a well-named one accepted.
 func TestBufNamesAnActionForEachTemplate(t *testing.T) {
 	plugin := conformance.Plugin(t, "buf")
-	request := &pluginv1.AnalyzeRequest{Roots: []string{"app"}, Context: &pluginv1.Context{Profile: pluginv1.Profile_PROFILE_DEVELOPMENT}}
+	request := &pluginv1.AnalyzeRequest{Roots: []string{"app"}, Context: &pluginv1.Context{Profile: typev1.Profile_PROFILE_DEVELOPMENT}}
 	template := "version: v2\nplugins:\n  - local: protoc-gen-go\n    out: ../sdk/go/api\ninputs:\n  - directory: .\n"
 	analyze := func(name string) (*pluginv1.AnalyzeResponse, error) {
 		answer := new(pluginv1.AnalyzeResponse)

@@ -9,9 +9,11 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/entity"
@@ -595,7 +597,7 @@ func planUnit(ctx context.Context, w Workspace, resolved *Resolved, strategies S
 		}
 		var out []*pluginv1.ReleaseCommit
 		for _, change := range all {
-			out = append(out, &pluginv1.ReleaseCommit{Id: change.Revision, Repository: repository, Message: change.Message, Time: change.Time, Members: entity.Protos(changed[change.Revision])})
+			out = append(out, &pluginv1.ReleaseCommit{Id: change.Revision, Repository: repository, Message: change.Message, CommitTime: timestamppb.New(time.Unix(change.Time, 0)), Members: entity.Protos(changed[change.Revision])})
 		}
 		return out, nil
 	}

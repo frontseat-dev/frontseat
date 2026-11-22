@@ -1,14 +1,17 @@
 package cmd
 
 import (
+	"errors"
+
 	"github.com/spf13/cobra"
 
 	"github.com/frontseat-dev/frontseat/sdk/go"
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 )
 
 var (
 	buildOnly    []string
-	buildProfile string
+	buildProfile profile
 	buildFix     bool
 )
 
@@ -31,8 +34,7 @@ The command follows the build to its end and exits with its exit code.`,
   frontseat build --fix //cli:go.format`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return built(cmd, func(w *frontseat.Workspace) (*frontseat.Build, error) {
-			// Which profiles there are is the daemon's to say.
-			return w.Build(cmd.Context(), frontseat.BuildRequest{Targets: args, Only: buildOnly, Profile: buildProfile, Fix: buildFix})
+			return w.Build(cmd.Context(), frontseat.BuildRequest{Targets: args, Only: buildOnly, Profile: buildProfile.Profile, Fix: buildFix})
 		})
 	},
 }
@@ -62,6 +64,41 @@ func init() {
 
 // profileFlag gives a command that builds the flag that names the
 // profile it builds with.
-func profileFlag(cmd *cobra.Command, profile *string) {
-	cmd.Flags().StringVar(profile, "profile", "", "the profile to build with, by name: development, or production, as a release builds")
+func profileFlag(cmd *cobra.Command, profile *profile) {
+	cmd.Flags().Var(profile, "profile", "the profile to build with: development, or production, as a release builds")
 }
+
+// profile is a profile as the flag names it, and as the API says it;
+// unset, the API's default, development.
+type profile struct{ typev1.Profile }
+
+// profiles are the profiles there are, by the name the flag takes.
+var profiles = map[string]typev1.Profile{
+	"development": typev1.Profile_PROFILE_DEVELOPMENT,
+	"production":  typev1.Profile_PROFILE_PRODUCTION,
+}
+
+// Set takes a profile by name; the empty name is none, as unset.
+func (p *profile) Set(name string) error {
+	if name == "" {
+		p.Profile = typev1.Profile_PROFILE_UNSPECIFIED
+		return nil
+	}
+	said, there := profiles[name]
+	if !there {
+		return errors.New("the profiles are development and production")
+	}
+	p.Profile = said
+	return nil
+}
+
+func (p *profile) String() string {
+	for name, said := range profiles {
+		if said == p.Profile {
+			return name
+		}
+	}
+	return ""
+}
+
+func (*profile) Type() string { return "profile" }
