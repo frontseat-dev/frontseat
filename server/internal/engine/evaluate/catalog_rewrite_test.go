@@ -12,7 +12,7 @@ import (
 	"testing"
 )
 
-func TestReviewRewritePreservesSDKScalarValues(t *testing.T) {
+func TestARewritePreservesSDKScalarValues(t *testing.T) {
 	parse := catalogReader(t)
 	for _, value := range []string{"2026-11-07", "0123", "0x12", "'0123'", "'2026-11-07'", "!!str 0123", "{date: 2026-11-07, number: 0123}", "[2026-11-07, 0123]", "!!str \"true\"", "|-\n  0123\n  2026-11-07"} {
 		t.Run(value, func(t *testing.T) {
@@ -38,7 +38,7 @@ func TestReviewRewritePreservesSDKScalarValues(t *testing.T) {
 	}
 }
 
-func TestReviewRewritePreservesSDKMergedExtensions(t *testing.T) {
+func TestARewritePreservesSDKMergedExtensions(t *testing.T) {
 	read := catalogReader(t)
 	for name, raw := range map[string]string{
 		"anchored spec":   "kind: Component\nmetadata: {name: a}\nspec: &spec {dependsOn: [component:b], date: 2026-11-07, id: 0123}\nx-copy: *spec\n",

@@ -10,9 +10,8 @@ import (
 	"github.com/frontseat-dev/frontseat/server/internal/engine/config"
 )
 
-// These controls were supplied by independent review. A prepared Component
-// receives its dependency bindings; existing Resource services keep their
-// explicit environment and address substitutions.
+// A prepared Component receives its dependency bindings; a Resource's
+// service keeps its explicit environment and address substitutions.
 func TestResourceDependenciesKeepTheirExplicitEnvironment(t *testing.T) {
 	db := resource("default", "db", map[string]int32{"sql": 5432})
 	db.Said.Exports = map[string]string{"TOKEN": "database-token"}

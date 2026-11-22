@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestReviewGeneratedRootAuthorityCannotOverlapChild(t *testing.T) {
+func TestGeneratedRootAuthorityCannotOverlapChild(t *testing.T) {
 	for _, root := range []string{".", "root"} {
 		t.Run(root, func(t *testing.T) {
 			producer := model.Label{Path: "producer", Plugin: "fixture", Name: "generate"}

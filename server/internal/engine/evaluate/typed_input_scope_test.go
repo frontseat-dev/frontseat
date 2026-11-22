@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-func TestReviewTypedInputsKeepCatalogReferenceScope(t *testing.T) {
+func TestTypedInputsKeepCatalogReferenceScope(t *testing.T) {
 	producer, err := custom("", config.Action{Name: "make", Directory: "producer", Command: []string{"true"}, Outputs: []string{"out"}})
 	if err != nil {
 		t.Fatal(err)
@@ -35,7 +35,7 @@ func TestReviewTypedInputsKeepCatalogReferenceScope(t *testing.T) {
 	}
 }
 
-func TestReviewTypedDependencySelectionsCompareActualPlacement(t *testing.T) {
+func TestTypedDependencySelectionsCompareActualPlacement(t *testing.T) {
 	coordinate := model.Coordinate{Ecosystem: "data", Name: "fixture"}
 	consumer := graph.Project{Root: "app", Plugin: "consumer", Requires: []graph.Requirement{{Coordinate: coordinate}}}
 	provider := graph.Project{Root: "fixture", Plugin: "producer", Provides: []graph.Provide{{Coordinate: coordinate, Sources: []string{"**"}}}}
@@ -61,7 +61,7 @@ func TestReviewTypedDependencySelectionsCompareActualPlacement(t *testing.T) {
 	}
 }
 
-func TestReviewTypedArtifactPlacementAliasesRetainRootRestrictions(t *testing.T) {
+func TestTypedArtifactPlacementAliasesRetainRootRestrictions(t *testing.T) {
 	coordinate := model.Coordinate{Ecosystem: "data", Name: "fixture"}
 	for _, tc := range []struct {
 		name, repository string

@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-func TestReviewProvidedArtifactColocationUsesCanonicalProjectRoots(t *testing.T) {
+func TestProvidedArtifactColocationUsesCanonicalProjectRoots(t *testing.T) {
 	coordinate := model.Coordinate{Ecosystem: "fixture-install", Name: "web"}
 	for _, roots := range [][2]string{{"", ""}, {".", ""}, {"", "."}, {"app/.", "app"}} {
 		t.Run(roots[0]+"-to-"+roots[1], func(t *testing.T) {

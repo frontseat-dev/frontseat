@@ -1,7 +1,6 @@
 package build
 
-// tests written by the independent review of fe67226..f74db45,
-// of what the daemon remembers from one run to the next.
+// What the daemon remembers from one run to the next.
 
 import (
 	"context"
