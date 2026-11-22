@@ -533,7 +533,9 @@ func (s *Snapshot) write(t *taken, repository, key, file string, content []byte,
 		delete(t.absent, key)
 	}
 	t.held[key] = written
-	s.keeper.keep(filepath.Join(t.directory, filepath.FromSlash(key)), written)
+	// Just written, it has not settled: nothing of it is kept for the
+	// run after, which reads it.
+	s.keeper.forget(filepath.Join(t.directory, filepath.FromSlash(key)))
 	// Written through a link, the file it leads to is what was written
 	// too, and is known as that by its own name.
 	if direct := filepath.Join(t.directory, filepath.FromSlash(key)); file != direct {
@@ -545,7 +547,7 @@ func (s *Snapshot) write(t *taken, repository, key, file string, content []byte,
 			if _, held := t.held[target]; held {
 				t.held[target] = written
 			}
-			s.keeper.keep(file, written)
+			s.keeper.forget(file)
 		}
 	}
 	return nil
