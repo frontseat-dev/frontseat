@@ -317,6 +317,7 @@ const mostDescribed = 1 << 20
 // in front of, which the runtime pulls it from and from nowhere else.
 // Where none is, the image as written, by its digest.
 func (r *runner) proxied(written string) (string, error) {
+	// What was written is not repeated: any client of the grid writes it.
 	pinned, err := image.Read(written)
 	if err != nil {
 		return "", fmt.Errorf("a service's image %w", err)
@@ -328,7 +329,7 @@ func (r *runner) proxied(written string) (string, error) {
 	}
 	proxy, ok := r.registries[pinned.Registry]
 	if !ok {
-		return "", fmt.Errorf("%q is of %s, which the proxy does not stand in front of", written, pinned.Registry)
+		return "", errors.New("the image is of a registry the proxy does not stand in front of")
 	}
 	return proxy + "/" + pinned.Path + "@" + pinned.Digest, nil
 }
@@ -402,7 +403,7 @@ func (a *attempt) ready(ctx context.Context, sb string, s *runnerv1.RunnerServic
 					return err
 				}
 				if answer.GetExitCode() != 0 {
-					return fmt.Errorf("%s: exit %d: %s", strings.Join(args, " "), answer.GetExitCode(), strings.TrimSpace(string(answer.GetOutput())))
+					return fmt.Errorf("the readiness command: exit %d: %s", answer.GetExitCode(), strings.TrimSpace(string(answer.GetOutput())))
 				}
 				return nil
 			}
@@ -482,8 +483,8 @@ func answered(ctx context.Context, socket, path string, matches *regexp.Regexp) 
 	}
 	if response.StatusCode >= 400 || !matches.Match(said) {
 		// The beginning of what it answered says why; the rest is the
-		// service's to keep.
-		return fmt.Errorf("GET %s: %s: %s", path, response.Status, strings.TrimSpace(string(said[:min(len(said), saidOf)])))
+		// service's to keep. A character cut in two at the end is left out.
+		return fmt.Errorf("GET %s: %s: %s", path, response.Status, strings.TrimSpace(strings.ToValidUTF8(string(said[:min(len(said), saidOf)]), "")))
 	}
 	return nil
 }
