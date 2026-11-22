@@ -13,11 +13,11 @@ import (
 	connect "connectrpc.com/connect/v2"
 
 	"github.com/frontseat-dev/frontseat/local/ports"
-	sandboxv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/sandbox/v1alpha1"
 	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/plain"
 	"github.com/frontseat-dev/frontseat/server/internal/source/told"
 	"github.com/frontseat-dev/frontseat/server/internal/source/vcs"
+	sandboxv1 "github.com/frontseat-dev/frontseat/server/sandbox/api/frontseat/sandbox/v1alpha1"
 )
 
 // Named is the label a workspace's sandbox carries the workspace's name

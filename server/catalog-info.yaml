@@ -19,16 +19,19 @@ spec:
     # and for where a person starts the local stack: each program and
     # platform is a file of its own in a release, frontseatd-<os>-<arch>.
     platforms: [linux/amd64, linux/arm64, darwin/arm64]
-    # The plugin contract's Go, what a worker's runner is told, and the
-    # daemon's internal API, are generated here by the contracts' Buf
-    # workspace (api/buf.gen.daemon.yaml, api/buf.gen.runner.yaml,
-    # api/buf.gen.source.yaml), and nowhere else of this Component.
+    # The plugin contract's Go, what a worker's runner is told, the
+    # daemon's internal API and the sandbox API are generated here by the
+    # contracts' Buf workspace (api/buf.gen.daemon.yaml,
+    # api/buf.gen.runner.yaml, api/buf.gen.source.yaml,
+    # api/buf.gen.sandbox.yaml), and nowhere else of this Component.
     generated:
       - directory: internal/pluginapi
         by: component:api
       - directory: internal/runnerapi
         by: component:api
       - directory: internal/sourceapi
+        by: component:api
+      - directory: sandbox/api
         by: component:api
     # The plugin host's tests, and those that load a plugin, run each
     # plugin's wasm module, from where its crate's wasm action left it

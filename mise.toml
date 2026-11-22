@@ -258,6 +258,7 @@ run = [
   "buf generate --template buf.gen.daemon.yaml",
   "buf generate --template buf.gen.runner.yaml",
   "buf generate --template buf.gen.source.yaml",
+  "buf generate --template buf.gen.sandbox.yaml",
   # Told the repository it writes for: this task runs in api/.
   "cargo run --quiet --locked -p frontseat-plugin-generate -- --root \"{{config_root}}\"",
 ]

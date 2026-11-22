@@ -116,7 +116,7 @@ var namedElsewhere = map[string][]string{
 	"plugins/go/src/composition_tests.rs": {"internal/ledger", "internal/other"},
 	"plugins/go/src/programs.rs":          {"internal/load/pkg.go", "internal/vendor/vendor_test.go"},
 	// A directory of the server's own, as its catalog file names it.
-	"server/catalog-info.yaml": {"internal/pluginapi", "internal/runnerapi", "internal/sourceapi"},
+	"server/catalog-info.yaml": {"internal/pluginapi", "internal/runnerapi", "internal/sourceapi", "sandbox/api"},
 	// GitHub's command line, as mise's lock names where it comes from.
 	"mise.lock": {"cli/cli"},
 	// wazero's package.

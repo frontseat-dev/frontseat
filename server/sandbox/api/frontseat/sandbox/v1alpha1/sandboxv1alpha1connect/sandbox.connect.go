@@ -37,7 +37,7 @@ package sandboxv1alpha1connect
 import (
 	connect "connectrpc.com/connect/v2"
 	context "context"
-	v1alpha1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/sandbox/v1alpha1"
+	v1alpha1 "github.com/frontseat-dev/frontseat/server/sandbox/api/frontseat/sandbox/v1alpha1"
 	sync "sync"
 )
 

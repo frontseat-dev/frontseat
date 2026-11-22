@@ -126,7 +126,7 @@ At a terminal, `workspace open` leaves you in a shell in the workspace. Build th
 or from your own shell with `--workspace NAME`:
 
 ```sh
-frontseat build --only compile --only lint --only generate-sdk --only generate-daemon --only generate-runner --only generate-source --only wasm --only depends-on
+frontseat build --only compile --only lint --only generate-sdk --only generate-daemon --only generate-runner --only generate-source --only generate-sandbox --only wasm --only depends-on
 frontseat builds
 ```
 

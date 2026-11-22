@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/sandbox/v1alpha1/sandboxv1alpha1connect"
 	"github.com/frontseat-dev/frontseat/server/internal/httpserver"
+	"github.com/frontseat-dev/frontseat/server/sandbox/api/frontseat/sandbox/v1alpha1/sandboxv1alpha1connect"
 )
 
 const creationHeader = "Frontseat-Runner-Attempt"
