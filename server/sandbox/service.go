@@ -216,7 +216,10 @@ func (t turn) give() { <-t }
 var _ sandboxv1alpha1connect.SandboxServiceHandler = (*service)(nil)
 
 func (s *service) CreateSandbox(ctx context.Context, req *sandboxv1.CreateSandboxRequest) (*sandboxv1.CreateSandboxResponse, error) {
-	spec := req.GetSpec()
+	// The spec is the service's own from here, checked and kept as one:
+	// a caller in its process keeps the one it asked with, and what it
+	// changes after is neither checked nor kept.
+	spec := proto.Clone(req.GetSpec()).(*sandboxv1.SandboxSpec)
 	if spec.GetImage() == "" {
 		return nil, refuse(connect.CodeInvalidArgument, "SPEC_INVALID", "a sandbox needs an image")
 	}
@@ -289,13 +292,11 @@ func (s *service) CreateSandbox(ctx context.Context, req *sandboxv1.CreateSandbo
 	return &sandboxv1.CreateSandboxResponse{Sandbox: made}, nil
 }
 
-// make makes a sandbox for a request. It is recorded before it is made:
+// make makes a sandbox for a request, of a spec that is the service's
+// own (CreateSandbox clones it). It is recorded before it is made:
 // a server that stops between the two finds the record when it starts,
 // and the sandbox, if there is one, is still the service's.
 func (s *service) make(ctx context.Context, spec *sandboxv1.SandboxSpec, request string) (*sandboxv1.Sandbox, error) {
-	// The spec is the service's own: a caller in its process keeps the
-	// one it asked with.
-	spec = proto.Clone(spec).(*sandboxv1.SandboxSpec)
 	id := newID()
 	wanted, err := s.asks(spec, id)
 	if err != nil {
