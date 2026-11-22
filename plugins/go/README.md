@@ -66,7 +66,7 @@ encoding do not belong in a plugin.
 
 The host resolves project requirements. Users never write their own dependency
 graph. Each module the `go.sum` locks is fetched by a shared
-action of its own (`fetch/<module>@<version>`, or `metadata/<module>@<version>`
+action of its own (`fetch/<module>@<version>`, or `fetch/<module>@<version>/go.mod`
 where only its `go.mod` is locked), told that module's lines of the lock and
 nothing of the project; Go fetches it through the proxy and verifies it
 against those lines. A malformed `go.sum` line is refused where it is. Lint, format,
@@ -79,7 +79,7 @@ production uses Go's optimized compilation. Both trim worker paths.
 
 A module's tests are an action for each package that has test files the go
 command builds on a worker, `test/<directory>`, and `test/.` for the package
-at the module's root. `test-build` builds their test programs together (`go
+at the module's root. `compile-tests` builds their test programs together (`go
 test -c -trimpath`), and each test runs its own program in its package's
 directory as the go command runs it (`-test.paniconexit0`), given that
 program, every file of its package's directory and its `testdata`, and
@@ -91,7 +91,7 @@ go command as a pattern where no package this reading sees is beneath it,
 so one it has nothing to build of is passed by, and outright where
 packages are beneath it, so that it never reaches one analysis does not
 see (generated source); what could write two test programs of one name is
-built by an action each (`test-build-1`). A module with
+built by an action each (`compile-tests/1`). A module with
 no test file has no test action. Which packages have tests on a worker is
 the go command's to say there: a test whose program it did not build, as
 for tests of another system or behind a tag nobody gave, is not run and

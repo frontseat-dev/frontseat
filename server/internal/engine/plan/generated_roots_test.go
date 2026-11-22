@@ -43,7 +43,7 @@ func TestGeneratedRootAuthorityCannotOverlapChild(t *testing.T) {
 // begins as the module's, are not bound; a claim that only holds a root,
 // never beneath one, binds nothing.
 func TestAGeneratedClaimBindsBeneathTheDeepestRootThatHoldsIt(t *testing.T) {
-	producer := model.Label{Path: "api", Plugin: "buf", Name: "generate-lib"}
+	producer := model.Label{Path: "api", Plugin: "buf", Name: "generate/lib"}
 	selected := []pattern.Selection{{{"**/*.go"}}}
 	module := func(root string) Action {
 		return Action{Label: model.Label{Path: root, Plugin: "go", Name: "compile"}, ProjectRoot: root, Sources: []pattern.Group{{Directory: root, Patterns: []string{"**/*.go"}, Generated: selected}}}

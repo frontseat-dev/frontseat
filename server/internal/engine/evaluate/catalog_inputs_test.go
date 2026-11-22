@@ -81,11 +81,11 @@ func TestACatalogInputFromTheRootIsReadFromTheRepositorysRoot(t *testing.T) {
 // project's path as written.
 func TestACatalogLabelFromTheRootNamesAProjectOfItsOwnRepository(t *testing.T) {
 	for repository, want := range map[string]string{"frontseat": "frontseat/plugins/apko", "": "plugins/apko"} {
-		read, err := readCatalogInputs(repository, "server", "server/catalog-info.yaml", "test.inputs", []string{"//plugins/apko:cargo.wasm"})
+		read, err := readCatalogInputs(repository, "server", "server/catalog-info.yaml", "test.inputs", []string{"//plugins/apko:cargo.package/wasm32-wasip1"})
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(read.references) != 1 || read.references[0].Path != want || read.references[0].Rest != "cargo.wasm" || read.references[0].Written != "//plugins/apko:cargo.wasm" {
+		if len(read.references) != 1 || read.references[0].Path != want || read.references[0].Rest != "cargo.package/wasm32-wasip1" || read.references[0].Written != "//plugins/apko:cargo.package/wasm32-wasip1" {
 			t.Errorf("in the repository %q, read as %+v, want the project %s", repository, read.references, want)
 		}
 	}

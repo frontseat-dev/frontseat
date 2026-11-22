@@ -458,7 +458,7 @@ fn a_cdylib_is_built_for_wasm_where_the_option_says_so() {
     let wasm = got.projects[0]
         .actions
         .iter()
-        .find(|a| a.name == "wasm")
+        .find(|a| a.name == "package/wasm32-wasip1")
         .expect("a wasm action");
     assert_eq!(wasm.tools, ["rust", "rust-std-wasm32-wasip1"]);
     assert_eq!(
@@ -469,7 +469,10 @@ fn a_cdylib_is_built_for_wasm_where_the_option_says_so() {
     // the repository pins.
     let got = analyze(&host, &wasm_context(false), "module").unwrap();
     assert!(
-        got.projects[0].actions.iter().all(|a| a.name != "wasm"),
+        got.projects[0]
+            .actions
+            .iter()
+            .all(|a| a.name != "package/wasm32-wasip1"),
         "built for wasm with the option unset"
     );
     // A library that is no cdylib is built for no wasm.
@@ -478,7 +481,7 @@ fn a_cdylib_is_built_for_wasm_where_the_option_says_so() {
         .projects[0]
         .actions
         .iter()
-        .all(|a| a.name != "wasm"));
+        .all(|a| a.name != "package/wasm32-wasip1"));
     // Set, with no standard library for wasm pinned, it is refused, and
     // not built for nothing.
     let unpinned =
@@ -497,7 +500,7 @@ fn a_packages_cdylib_examples_are_built_for_wasm_together() {
     let examples = got.projects[0]
         .actions
         .iter()
-        .find(|a| a.name == "wasm-examples")
+        .find(|a| a.name == "compile/wasm32-wasip1-examples")
         .expect("an action that builds the examples for wasm");
     assert!(examples
         .command
@@ -520,7 +523,7 @@ fn a_packages_cdylib_examples_are_built_for_wasm_together() {
         .projects[0]
         .actions
         .iter()
-        .all(|a| a.name != "wasm-examples"));
+        .all(|a| a.name != "compile/wasm32-wasip1-examples"));
 }
 
 /// A dependency a package has only on some targets is one all the same:

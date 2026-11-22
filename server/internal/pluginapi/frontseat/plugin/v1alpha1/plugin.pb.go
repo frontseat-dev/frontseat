@@ -1574,31 +1574,29 @@ func (x *Origin) GetLine() int32 {
 // entity that owns its project, the plugin's name and the action's name.
 type Action struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Name is its name within the project, lower-case words of [a-z0-9]
-	// joined by single hyphens. Plugins use the same names for the same
-	// things, since a run can be asked for only the actions of one name:
-	// lint, compile, test. A shared fetch's name is that, a slash, and
-	// what it is of, in letters, digits and "._~+@-/":
-	// fetch/github.com/spf13/cobra@v1.8.1.
+	// Name is its name within the project: a kind, lower-case words of
+	// [a-z0-9] joined by single hyphens, or a kind, a slash and what piece
+	// of that kind it is, in letters, digits and "._~+@-/", written one
+	// way: compile, generate/sdk, package/greet-linux-amd64,
+	// fetch/github.com/spf13/cobra@v1.8.1. Plugins use the same kinds for
+	// the same things: fetch, lint, format, compile, test, package, run,
+	// publish, generate (the Rust SDK's `kinds`). A run asked for a kind
+	// is asked for every action of it, whole or a piece, whichever plugin
+	// declared it, and the label that ends in a kind points at every
+	// piece of it of that project. The host reads nothing more of a name,
+	// but what follows of tests.
 	//
 	// A project's tests may be several actions, each a piece of them the
-	// project's tool tests by itself: a test is named "test", or "test", a
-	// slash and what piece it is, in the same letters, digits and
-	// "._~+@-/", as its tool spells it: test/internal/ledger for a
-	// package of a Go module, test/. for the package at its root. A run
-	// asked for the actions named "test" is asked for every piece, and
-	// the label that ends in "test" points at them all. Only a test is
-	// named so, and a project has "test" or pieces of it, never both.
+	// project's tool tests by itself: test/internal/ledger for a package
+	// of a Go module, test/. for the package at its root. Only a test is
+	// named "test" or a piece of it, and a project has "test" or pieces of
+	// it, never both.
 	//
 	// A piece may be cut into shards, each an action that runs a share of
 	// the piece's tests: a shard is named its piece, "@", which of them it
 	// is and of how many, from 1, as test/internal/ledger@2of4. No piece's
 	// own name holds "@". The label of a piece that is cut into shards
 	// points at its shards.
-	//
-	// An action that publishes is named "publish", a slash and what it
-	// publishes to, in lower-case words of [a-z0-9] joined by single
-	// hyphens: publish/github. Only one that publishes is named so.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Command is what it runs.
 	Command *Command `protobuf:"bytes,2,opt,name=command,proto3" json:"command,omitempty"`

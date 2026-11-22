@@ -3,8 +3,8 @@ use frontseat_plugin::prelude::*;
 use crate::manifest::{Manifest, Place};
 
 /// The checks of a workspace, by the names their findings are asked by.
-pub(super) const LINT: &str = "lint";
-pub(super) const FORMAT: &str = "format";
+pub(super) const LINT: &str = frontseat_plugin::kinds::LINT;
+pub(super) const FORMAT: &str = frontseat_plugin::kinds::FORMAT;
 
 pub(super) fn of(manifest: &Manifest) -> (Vec<Action>, Vec<GeneratedSource>) {
     let inputs = ["buf.yaml", "buf.lock", "**/*.proto"]

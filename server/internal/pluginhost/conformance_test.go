@@ -98,7 +98,7 @@ func expectedGoActions() []*pluginv1.Action {
 	// file: its own program, run in its package's directory, with its
 	// fixtures and nothing a build is handed, and nothing to do where
 	// its program was not left.
-	build := action("test-build", []string{"go", "test", "-c", "-trimpath", "-o", "_tests/0/", ".", "./internal/ledger/..."})
+	build := action("compile-tests", []string{"go", "test", "-c", "-trimpath", "-o", "_tests/0/", ".", "./internal/ledger/..."})
 	build.Outputs = []*pluginv1.Output{{Path: "_tests/0/hello.test", Optional: true}, {Path: "_tests/0/ledger.test", Optional: true}}
 	own := action("test/.", []string{"./_tests/0/hello.test", "-test.paniconexit0", "-test.timeout=10m"})
 	own.Kind = &pluginv1.Action_Test{Test: &pluginv1.Test{IdleWithoutInputs: true}}
@@ -318,7 +318,7 @@ func githubFixture() conformance.Fixture {
 		Source: files{"frontseat.yaml": "plugins:\n  github: {}\n"}, Absent: files{},
 		Analyze: &pluginv1.AnalyzeRequest{Context: context, Roots: []string{""}},
 		Projects: []*pluginv1.Project{{Kind: "github-repository", Name: "github", Manifest: "frontseat.yaml", Actions: []*pluginv1.Action{{
-			Name: "publish/release", Tools: []string{"gh"}, Kind: &pluginv1.Action_Publish{Publish: &pluginv1.Publish{Environment: []string{"GH_TOKEN"}}},
+			Name: "publish", Tools: []string{"gh"}, Kind: &pluginv1.Action_Publish{Publish: &pluginv1.Publish{Environment: []string{"GH_TOKEN"}}},
 			Command: &pluginv1.Command{Arguments: []string{"gh", "release", "create", "{frontseat.tag}", "{frontseat.artifacts}", "--repo", "{frontseat.remote}", "--verify-tag", "--title", "{frontseat.tag}", "--notes-file", "{frontseat.notes}", "--prerelease={frontseat.prerelease}"}},
 		}}}},
 		Reads: []conformance.Observation{{Import: "glob", Argument: "frontseat.yaml", Found: true}},

@@ -15,10 +15,10 @@ import (
 // inputs. Resolved again from other references, it is said again.
 func TestResolveSaysWhatAnActionHasNothingToDoWithout(t *testing.T) {
 	const program = "_tests/0/exists.test"
-	build := Action{Label: model.Label{Path: "lab/app", Plugin: "go", Name: "test-build"}, Repository: "lab", ProjectRoot: "app",
-		Declared: &pluginv1.Action{Name: "test-build", Outputs: []*pluginv1.Output{{Path: program, Optional: true}}}}
+	build := Action{Label: model.Label{Path: "lab/app", Plugin: "go", Name: "compile-tests"}, Repository: "lab", ProjectRoot: "app",
+		Declared: &pluginv1.Action{Name: "compile-tests", Outputs: []*pluginv1.Output{{Path: program, Optional: true}}}}
 	exact := Reference{Reference: model.Reference{Path: "lab/app", Rest: program, Written: ":" + program}, Plugin: "go", Shared: "lab"}
-	whole := Reference{Reference: model.Reference{Path: "lab/app", Rest: "test-build", Written: ":test-build"}, Plugin: "go", Shared: "lab"}
+	whole := Reference{Reference: model.Reference{Path: "lab/app", Rest: "compile-tests", Written: ":compile-tests"}, Plugin: "go", Shared: "lab"}
 	written := Reference{Reference: model.Reference{Path: "lab/app", Rest: program, Written: ":" + program}, File: "lab/app/catalog-info.yaml"}
 	want := Read{From: build.Label, Repository: "lab", ProjectRoot: "app", Output: program}
 	for _, tc := range []struct {

@@ -94,12 +94,12 @@ func TestAnActionWithNothingToDoIsSaidAndCounted(t *testing.T) {
 	var out strings.Builder
 	printer := plain.Printer{Out: &out}
 	printer.Event(&buildv1.BuildEvent{Event: &buildv1.BuildEvent_ActionFinished_{ActionFinished: &buildv1.BuildEvent_ActionFinished{Result: &buildv1.ActionResult{
-		Label: "//hello:go.test/tagged", Outcome: buildv1.Outcome_OUTCOME_IDLE, Message: "not run: //hello:go.test-build left no _tests/0/tagged.test, and it has nothing to do without it",
+		Label: "//hello:go.test/tagged", Outcome: buildv1.Outcome_OUTCOME_IDLE, Message: "not run: //hello:go.compile-tests left no _tests/0/tagged.test, and it has nothing to do without it",
 	}}}})
 	printer.Event(&buildv1.BuildEvent{Event: &buildv1.BuildEvent_Finished_{Finished: &buildv1.BuildEvent_Finished{Build: &buildv1.Build{
 		ExitCode: &buildv1.ExitCode{Name: "SUCCESS"}, Counts: &buildv1.Counts{Total: 2, Passed: 1, Idle: 1},
 	}}}})
-	for _, said := range []string{"idle    //hello:go.test/tagged  not run: //hello:go.test-build left no _tests/0/tagged.test", "passed 1, failed 0, errored 0, skipped 0, idle 1"} {
+	for _, said := range []string{"idle    //hello:go.test/tagged  not run: //hello:go.compile-tests left no _tests/0/tagged.test", "passed 1, failed 0, errored 0, skipped 0, idle 1"} {
 		if !strings.Contains(out.String(), said) {
 			t.Errorf("printed %q, which does not say %q", out.String(), said)
 		}

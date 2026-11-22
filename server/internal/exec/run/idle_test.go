@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	testBuild = model.Label{Path: "lab/fixtures", Plugin: "go", Name: "test-build"}
+	testBuild = model.Label{Path: "lab/fixtures", Plugin: "go", Name: "compile-tests"}
 	labTree   = source.Tree{Paths: map[string]string{"lab": "lab"}}
 )
 
@@ -44,7 +44,7 @@ func TestAnActionHasNothingToDoWhereWhatItReadsWasNotLeft(t *testing.T) {
 	test := reading("test/elsewhere", "_tests/0/elsewhere.test", true)
 	for says, handed := range map[string][]schedule.Handed{"another program": others, "nothing at all": nil, "nothing, said": {{From: testBuild}}} {
 		missing, idle := nothingToDo(labTree, test, handed)
-		if !idle || missing != "//lab/fixtures:go.test-build left no _tests/0/elsewhere.test" {
+		if !idle || missing != "//lab/fixtures:go.compile-tests left no _tests/0/elsewhere.test" {
 			t.Errorf("its build left %s: idle %v, missing %q; want it idle for the program it reads", says, idle, missing)
 		}
 	}
@@ -81,7 +81,7 @@ func (a *asked) Skip(plan.Action, model.Label, schedule.Outcome) {}
 // tests passes and leaves nothing, as where every test of the module is
 // for another system, and each test has nothing to do.
 func TestWhatLeftNothingAtAllLeavesItsReadersWithNothingToDo(t *testing.T) {
-	build := plan.Action{Label: testBuild, Repository: "lab", ProjectRoot: "fixtures", Declared: &pluginv1.Action{Name: "test-build",
+	build := plan.Action{Label: testBuild, Repository: "lab", ProjectRoot: "fixtures", Declared: &pluginv1.Action{Name: "compile-tests",
 		Outputs: []*pluginv1.Output{{Path: "_tests/0/elsewhere.test", Optional: true}}}}
 	runner := &asked{idle: map[string]bool{}}
 	schedule.All(t.Context(), []plan.Action{build, reading("test/elsewhere", "_tests/0/elsewhere.test", true)}, 4, runner)

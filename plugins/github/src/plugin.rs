@@ -1,5 +1,5 @@
-use frontseat_plugin::placeholders;
 use frontseat_plugin::prelude::*;
+use frontseat_plugin::{kinds, placeholders};
 
 pub(crate) struct GitHubPlugin;
 
@@ -62,7 +62,7 @@ impl Plugin for GitHubPlugin {
                 kind: "github-repository".into(),
                 name: "github".into(),
                 manifest,
-                actions: vec![Action::new("publish/release", Command::new(CREATE))
+                actions: vec![Action::new(kinds::PUBLISH, Command::new(CREATE))
                     .tool(TOOL)
                     .publishes([TOKEN])],
                 ..Default::default()
@@ -125,7 +125,7 @@ mod tests {
         );
         assert_eq!(project.actions.len(), 1);
         let action = &project.actions[0];
-        assert_eq!(action.name, "publish/release");
+        assert_eq!(action.name, "publish");
         assert_eq!(action.tools, ["gh"]);
         assert_eq!(
             action

@@ -220,9 +220,9 @@ func TestALibraryBuiltAsADynamicLibraryIsAlsoBuiltForWasm32Wasip1WhereTheReposit
 	workspace.write("module/Cargo.toml", "[package]\nname = \"my-module\"\nedition.workspace = true\nversion.workspace = true\n\n[lib]\ncrate-type = [\"cdylib\"]\n\n[dependencies]\ngreet = { path = \"../greet\" }\n")
 	workspace.write("module/src/lib.rs", "#[no_mangle]\npub extern \"C\" fn greet_len() -> u32 {\n    greet::greeting(1).len() as u32\n}\n")
 	workspace.write("Cargo.lock", workspace.file("Cargo.lock")+"\n[[package]]\nname = \"my-module\"\nversion = \"0.1.0\"\ndependencies = [\n \"greet\",\n]\n")
-	built := workspace.build(of("//module:cargo.wasm"))
+	built := workspace.build(of("//module:cargo.package/wasm32-wasip1"))
 	spec.Expect(built.outcome()).To(Equal("SUCCESS"), built.diagnostics())
-	spec.Expect(built.outcomeOf("//module:cargo.wasm")).To(Equal("passed"))
+	spec.Expect(built.outcomeOf("//module:cargo.package/wasm32-wasip1")).To(Equal("passed"))
 }
 
 // crateOf is the label of the shared fetch of a crate: name@version.

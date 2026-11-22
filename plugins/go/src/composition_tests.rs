@@ -85,7 +85,7 @@ fn served_plugin_composes_manifest_inputs_and_profile_actions() {
                 // The programs of its tests, then a test for each package
                 // that holds a test file: the module's own and two
                 // beneath it.
-                "test-build",
+                "compile-tests",
                 "test/.",
                 "test/internal/ledger",
                 "test/internal/other",

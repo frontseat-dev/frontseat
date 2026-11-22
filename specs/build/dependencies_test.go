@@ -288,7 +288,7 @@ var (
 func fetchOf(module string) string { return "//lab:go.fetch/" + module }
 
 // metadataOf is the label of the fetch of one module's go.mod alone.
-func metadataOf(module string) string { return "//lab:go.metadata/" + module }
+func metadataOf(module string) string { return "//lab:go.fetch/" + module + "/go.mod" }
 
 // fetches are the build's fetches of modules and of their metadata, in
 // any repository.
@@ -296,7 +296,7 @@ func (spec *scenario) fetches(b *Build) []string {
 	spec.Helper()
 	var out []string
 	for _, label := range b.actions() {
-		if strings.Contains(label, ":go.fetch/") || strings.Contains(label, ":go.metadata/") {
+		if strings.Contains(label, ":go.fetch/") {
 			out = append(out, label)
 		}
 	}

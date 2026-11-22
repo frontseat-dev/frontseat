@@ -32,8 +32,8 @@ import (
 
 // The fixture's images and the fetches of the arm64 one.
 const (
-	apkoArm64      = "//app:apko.image-aarch64"
-	apkoAmd64      = "//app:apko.image-x86-64"
+	apkoArm64      = "//app:apko.image/aarch64"
+	apkoAmd64      = "//app:apko.image/x86-64"
 	apkoKey        = "//:apko.fetch/packages.wolfi.dev/os/wolfi-signing.rsa.pub"
 	apkoBaselayout = "//:apko.fetch/packages.wolfi.dev/os/aarch64/wolfi-baselayout-20230201-r31.apk"
 	apkoBundle     = "//:apko.fetch/packages.wolfi.dev/os/aarch64/ca-certificates-bundle-20261020-r0.apk"

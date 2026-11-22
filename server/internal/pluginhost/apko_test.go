@@ -64,8 +64,8 @@ func expectedApkoActions() []*pluginv1.Action {
 		fetch("aarch64", "ca-certificates-bundle-20261020-r0", 10741, 107832, "5317ede8161f00cabc1781a2f4ced0d97ae8994b", "a49fd4ea44bc2c8ce9e321ef0f17ee548f1176f0b274416514dfd0acfbb61576"),
 		fetch("x86_64", "wolfi-baselayout-20230201-r31", 2642, 11950, "5b87dfefc8736ed0e7e89f492514706e32a6291e", "acdd17b56e9c61e17cc448ea64de0e41d4f95d576aa4d1e0334f1579a42b1d11"),
 		fetch("x86_64", "ca-certificates-bundle-20261020-r0", 10706, 107835, "f4fedfcc1f78e4fb91690127ce0f676a9891cca1", "dcba34a3b1269f5f76bfc9716e97dea183bd70de5f6dd35acbaab41d3f7dc0bd"),
-		image("image-aarch64", "aarch64"),
-		image("image-x86-64", "x86_64"),
+		image("image/aarch64", "aarch64"),
+		image("image/x86-64", "x86_64"),
 	}
 }
 

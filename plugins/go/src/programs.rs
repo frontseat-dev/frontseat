@@ -648,7 +648,7 @@ pub(super) fn programs(module: &str, directories: &[String]) -> Vec<Action> {
     offered(module, directories)
         .into_iter()
         .map(|(name, _)| Action {
-            name: format!("run/{name}"),
+            name: format!("{}/{name}", frontseat_plugin::kinds::RUN),
             command: Some(Command {
                 arguments: vec![format!("{PROGRAMS}{name}")],
                 ..Default::default()

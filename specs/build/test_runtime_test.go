@@ -15,7 +15,7 @@ func TestNativeTestShardsReceiveOnlyTheirComponentsRuntimeInputs(t *testing.T) {
 	t.Parallel()
 	spec := newScenario(t)
 	workspace := spec.nativeRuntimeInputs()
-	const compile = "//app:go.test-build"
+	const compile = "//app:go.compile-tests"
 	const fixture = "//fixture:custom.prepare"
 	const first = "//app:go.test/cases@1of2"
 	const second = "//app:go.test/cases@2of2"

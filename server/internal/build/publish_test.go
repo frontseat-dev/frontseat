@@ -230,7 +230,7 @@ func TestTheGitHubPluginsPublishIsRunByARelease(t *testing.T) {
 		t.Fatalf("the release ended %v (%s) with %v", release.GetState(), release.GetFailure(), release.GetUnits())
 	}
 	published := release.GetUnits()[0].GetPublished()
-	if len(published) != 1 || published[0].GetLabel() != "//:github.publish/release" || !strings.Contains(published[0].GetFailure(), "gh") {
+	if len(published) != 1 || published[0].GetLabel() != "//:github.publish" || !strings.Contains(published[0].GetFailure(), "gh") {
 		t.Errorf("the unit says it was published as %v", published)
 	}
 	if tagsOf(t, remote) != "greet/v1.0.0" {

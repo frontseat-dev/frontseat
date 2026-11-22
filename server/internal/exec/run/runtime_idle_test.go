@@ -16,7 +16,7 @@ import (
 // action that builds the program does not hide that it left none.
 func TestWhatACatalogAddsToATestsReadsDoesNotChangeWhenItIsIdle(t *testing.T) {
 	const program = "_tests/0/exists.test"
-	build := plan.Action{Label: testBuild, Repository: "lab", ProjectRoot: "fixtures", Declared: &pluginv1.Action{Name: "test-build", Outputs: []*pluginv1.Output{{Path: program, Optional: true}}}}
+	build := plan.Action{Label: testBuild, Repository: "lab", ProjectRoot: "fixtures", Declared: &pluginv1.Action{Name: "compile-tests", Outputs: []*pluginv1.Output{{Path: program, Optional: true}}}}
 	fixtureLabel := model.Label{Path: "lab/runtime", Plugin: "fixture", Name: "prepare"}
 	fixture := plan.Action{Label: fixtureLabel, Repository: "lab", ProjectRoot: "runtime", Declared: &pluginv1.Action{Name: "prepare", Outputs: []*pluginv1.Output{{Path: "fixture.dat", Optional: true}}}}
 	present := []schedule.Handed{{From: testBuild, Left: map[string]exec.Held{"lab/fixtures/" + program: {}}}}
@@ -28,7 +28,7 @@ func TestWhatACatalogAddsToATestsReadsDoesNotChangeWhenItIsIdle(t *testing.T) {
 		{"native present control", "", present, false},
 		{"native absent control", "", nil, true},
 		{"missing runtime data cannot skip a present native test", "//runtime:fixture.dat", present, false},
-		{"whole build runtime reference cannot erase native absence", ":go.test-build", nil, true},
+		{"whole build runtime reference cannot erase native absence", ":go.compile-tests", nil, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			test := reading("test/exists", program, true)

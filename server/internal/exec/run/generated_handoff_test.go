@@ -159,7 +159,7 @@ func TestAnActionIsHandedWhatItNamedAndNothingElse(t *testing.T) {
 // exclusion of the module's that names the claim's place holds, beside the
 // file it does not exclude.
 func TestAClaimBeneathAModuleIsPlacedWhereItIsInTheModule(t *testing.T) {
-	producer := model.Label{Path: "api", Plugin: "buf", Name: "generate-lib"}
+	producer := model.Label{Path: "api", Plugin: "buf", Name: "generate/lib"}
 	kept := exec.Held{Digest: exec.Digest{Hash: "kept", Size: 1}}
 	grid := &listing{files: map[string]exec.Held{"hello/v1/hello.pb.go": kept, "skip/v1/skip.pb.go": {Digest: exec.Digest{Hash: "skipped", Size: 1}}}}
 	runner := Runner{Answers: &exec.Remembering{Executor: grid}}
