@@ -72,7 +72,7 @@ func TestTheDaemonsSourceAPIIsTheControlPlanesAlone(t *testing.T) {
 	for _, call := range []string{"SetSource", "WaitSource"} {
 		status, said := spec.postAs(workspace.Build+"/frontseat.source.v1alpha1.SourceService/"+call, ownerToken(workspace.Server))
 		spec.Expect(status).To(Equal(http.StatusNotImplemented), call+": "+said)
-		spec.Expect(said).To(ContainSubstring("is none of its calls"), call)
+		spec.Expect(said).To(ContainSubstring("and this is none of them"), call)
 	}
 	status, said := spec.postAs(workspace.Build+"/frontseat.build.v1alpha1.BuildService/ListBuilds", ownerToken(workspace.Server))
 	spec.Expect(status).To(Equal(http.StatusOK), said)
