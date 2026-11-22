@@ -23,12 +23,14 @@ impl Command {
     }
 
     /// The same command, with a variable set in its environment.
+    #[must_use]
     pub fn env(mut self, name: impl Into<String>, value: impl Into<String>) -> Self {
         self.environment.insert(name.into(), value.into());
         self
     }
 
     /// The same command, run in a directory relative to its project's.
+    #[must_use]
     pub fn directory(mut self, directory: impl Into<String>) -> Self {
         self.directory = directory.into();
         self
@@ -65,18 +67,21 @@ impl Action {
     }
 
     /// The same action, run with a tool the repository pins.
+    #[must_use]
     pub fn tool(mut self, tool: impl Into<String>) -> Self {
         self.tools.push(tool.into());
         self
     }
 
     /// The same action, reading these besides what it reads.
+    #[must_use]
     pub fn inputs(mut self, inputs: impl IntoIterator<Item = Input>) -> Self {
         self.inputs.extend(inputs);
         self
     }
 
     /// The same action, leaving this besides what it leaves.
+    #[must_use]
     pub fn output(mut self, output: Output) -> Self {
         self.outputs.push(output);
         self
@@ -86,6 +91,7 @@ impl Action {
     /// no build runs it, and a release does, where the daemon is, once
     /// its tags are pushed. `environment` names the variables of where
     /// the daemon runs that its tool reads a token from, as `GH_TOKEN`.
+    #[must_use]
     pub fn publishes<V: Into<String>>(mut self, environment: impl IntoIterator<Item = V>) -> Self {
         self.publish = Some(crate::wire::Publish {
             environment: environment.into_iter().map(Into::into).collect(),
@@ -95,6 +101,7 @@ impl Action {
 
     /// The same action, as a check: it says whether the project is as it
     /// should be, and what it found ([`crate::Plugin::report`]).
+    #[must_use]
     pub fn check(mut self) -> Self {
         self.check = true;
         self
@@ -106,6 +113,7 @@ impl Action {
     /// environment. Say so only of the action that writes the version
     /// into what it makes, and name at least one: every other action
     /// stays the same action from one release to the next.
+    #[must_use]
     pub fn versioned(mut self) -> Self {
         self.versioned = true;
         self
@@ -116,12 +124,14 @@ impl Action {
     /// the name the tool gave it. It leaves at least one, each sure to
     /// be left. Declare it for the production profile alone where it
     /// costs what a development build should not pay.
+    #[must_use]
     pub fn package(mut self) -> Self {
         self.package = true;
         self
     }
 
     /// The same action, as one that runs tests.
+    #[must_use]
     pub fn test(mut self) -> Self {
         self.test = true;
         self
@@ -129,6 +139,7 @@ impl Action {
 
     /// The same check, with a command that changes the files it found
     /// wrong where the checkout is, rewriting those the patterns select.
+    #[must_use]
     pub fn fix<P: Into<String>>(
         mut self,
         command: Command,

@@ -18,7 +18,7 @@ pub fn description(name: &str) -> crate::Description {
 
 /// A package's `package.json`, as far as the plugins that build and
 /// test JavaScript read it.
-#[derive(Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Package {
     /// The package's name.

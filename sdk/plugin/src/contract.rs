@@ -15,7 +15,14 @@ use crate::{Analysis, File, Handed, Repository};
 ///     .at_line("app/Cargo.toml", 3)
 ///     .help("Commit Cargo.lock.");
 /// assert_eq!((refused.reason.as_str(), refused.line), ("missing-lock", 3));
+/// assert_eq!(refused.to_string(), "app/Cargo.toml: line 3: there is no lock. Commit Cargo.lock.");
 /// ```
+///
+/// It is an error as Rust's are: it is printed as a person reads it,
+/// where it is, what went wrong and what to do, and goes wherever a
+/// `std::error::Error` does. A plugin's own error becomes one with
+/// `impl From<MyError> for Error`, and `?` then carries it out of
+/// [`Plugin::analyze`].
 #[derive(Clone, Debug, PartialEq)]
 pub struct Error {
     /// Canonical RPC status.
@@ -35,6 +42,27 @@ pub struct Error {
     /// What to do about it.
     pub help: String,
 }
+
+/// A failure as a person reads it, and as its status's message says it:
+/// the file and the line it is about, where it has them, what went
+/// wrong, and what to do about it.
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if !self.path.is_empty() {
+            write!(f, "{}: ", self.path)?;
+        }
+        if self.line > 0 {
+            write!(f, "line {}: ", self.line)?;
+        }
+        if self.help.is_empty() {
+            return f.write_str(&self.message);
+        }
+        // One stop between them, whether the message ends in one or not.
+        write!(f, "{}. {}", self.message.trim_end_matches('.'), self.help)
+    }
+}
+
+impl std::error::Error for Error {}
 
 /// The type URLs of the two details a failure carries.
 const ERROR_INFO: &str = "type.googleapis.com/google.rpc.ErrorInfo";
@@ -93,12 +121,14 @@ impl Error {
     }
 
     /// The same failure, about a file of the repository.
+    #[must_use]
     pub fn at(mut self, path: impl Into<String>) -> Self {
         self.path = path.into();
         self
     }
 
     /// The same failure, about a line of a file of the repository, from 1.
+    #[must_use]
     pub fn at_line(self, path: impl Into<String>, line: i32) -> Self {
         Self {
             line,
@@ -107,6 +137,7 @@ impl Error {
     }
 
     /// The same failure, saying what to do about it.
+    #[must_use]
     pub fn help(mut self, help: impl Into<String>) -> Self {
         self.help = help.into();
         self
@@ -173,17 +204,7 @@ impl Error {
             .help("Write the failure as frontseat_plugin::Error says one is written.")
             .into_status(plugin);
         }
-        let mut message = self.message.clone();
-        if self.line > 0 {
-            message = format!("line {}: {message}", self.line);
-        }
-        if !self.path.is_empty() {
-            message = format!("{}: {message}", self.path);
-        }
-        if !self.help.is_empty() {
-            // One stop between them, whether the message ends in one or not.
-            message = format!("{}. {}", message.trim_end_matches('.'), self.help);
-        }
+        let message = self.to_string();
         let info = ErrorInfo {
             reason: self.reason.to_ascii_uppercase().replace('-', "_"),
             domain: format!("{plugin}.plugins.frontseat.dev"),
@@ -254,7 +275,7 @@ impl Error {
 }
 
 /// What a plugin is.
-#[derive(Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct Description {
     /// The plugin's name, lower-case `[a-z0-9-]`.
     pub name: String,
@@ -284,6 +305,7 @@ pub struct Description {
 
 /// An option a plugin takes: its name, and the value it has where nothing
 /// sets it. The value's kind is the option's kind.
+#[derive(Clone, Debug, PartialEq)]
 pub struct PluginOption {
     /// What it is set by, lower-case `[a-z0-9-]`.
     pub name: &'static str,
@@ -305,6 +327,36 @@ pub enum Value {
     Int(i64),
     /// A list of text. A setting replaces the whole list.
     StringList(Vec<String>),
+}
+
+impl From<&str> for Value {
+    fn from(text: &str) -> Self {
+        Value::String(text.into())
+    }
+}
+
+impl From<String> for Value {
+    fn from(text: String) -> Self {
+        Value::String(text)
+    }
+}
+
+impl From<bool> for Value {
+    fn from(switch: bool) -> Self {
+        Value::Bool(switch)
+    }
+}
+
+impl From<i64> for Value {
+    fn from(number: i64) -> Self {
+        Value::Int(number)
+    }
+}
+
+impl From<Vec<String>> for Value {
+    fn from(list: Vec<String>) -> Self {
+        Value::StringList(list)
+    }
 }
 
 impl From<Value> for crate::OptionValue {

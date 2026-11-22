@@ -1,60 +1,8 @@
-//! What a frontseat plugin is written against in Rust.
-//!
-//! The contract between a plugin and the host is the protobuf in
-//! `api/plugin-proto`. This crate is a convenience over the types generated
-//! from it (`src/gen`, written by `generate/`, never edited): nothing here
-//! is on the wire that is not in the contract.
-//!
-//! A plugin implements [`Plugin`] and hands it to [`serve!`]. What it
-//! needs to do so is in the [`prelude`]. This one finds a project
-//! wherever a `Makefile` is, and runs `make test` as its tests:
-//!
-//! ```
-//! use frontseat_plugin::prelude::*;
-//! use frontseat_plugin::repository::join;
-//!
-//! struct Make;
-//!
-//! impl Plugin for Make {
-//!     fn describe(&self) -> Description {
-//!         Description {
-//!             name: "make".into(),
-//!             interests: vec!["**/Makefile".into()],
-//!             ..Default::default()
-//!         }
-//!     }
-//!
-//!     fn analyze(&self, repo: &Repository, root: &str) -> Result<Analysis, Error> {
-//!         let manifest = join(root, "Makefile");
-//!         if repo.read(&manifest)?.is_none() {
-//!             return Ok(Analysis::default());
-//!         }
-//!         let test = Action::new("test", Command::new(["make", "test"]))
-//!             .tool("make")
-//!             .inputs([Input::source("**")])
-//!             .test();
-//!         Ok(Analysis {
-//!             projects: vec![Project {
-//!                 root: root.into(),
-//!                 name: root.into(),
-//!                 kind: "make-project".into(),
-//!                 manifest,
-//!                 actions: vec![test],
-//!                 ..Default::default()
-//!             }],
-//!             ..Default::default()
-//!         })
-//!     }
-//! }
-//!
-//! frontseat_plugin::serve!(Make);
-//! # fn main() {}
-//! ```
-//!
-//! `examples/make.rs` is this plugin whole, with its findings, and the
-//! crate's README says how a plugin is built, enabled and tested.
+#![doc = include_str!("../README.md")]
 
-#[doc(hidden)]
+/// The guest half of the ABI and the dispatch of a call to a plugin:
+/// what [`serve!`] exports from a module, and what `frontseat-plugin-test`
+/// asks a plugin through. A plugin does not call it.
 pub mod abi;
 
 /// The contract's types, generated. A plugin reaches them through the
@@ -91,7 +39,10 @@ pub mod javascript;
 /// for a plugin that names its types: `toml::Spanned`, `toml::Value`.
 pub use toml;
 
-#[doc(hidden)]
+/// The contract's messages as they are generated from
+/// `api/plugin-proto`: what each call's request and response are on the
+/// wire. A plugin is written with the names beside this module, and
+/// reaches here for a message that has none.
 pub use frontseat::plugin::v1alpha1 as wire;
 pub use frontseat::r#type::v1alpha1::{
     option_value, service_ready, Bump, Diagnostic, EntityRef, OptionValue, Service, ServiceApi,
@@ -105,6 +56,13 @@ pub use wire::{
     Download, Edit, Entity, EntityRelation, File, GeneratedSource, Handed, Input, InputSet, Origin,
     Output, Part, Produced, Profile, Project, Provide, ReleaseCommit, Requirement, Resolved,
     VersionReason, VersionRequest, VersionResponse,
+};
+/// What a call is told beside its request, and what the calls answer as
+/// the host reads them: what a test of a plugin is answered
+/// (`frontseat-plugin-test`).
+pub use wire::{
+    AnalyzeResponse, ArrangeResponse, Context, DescribeResponse, Publish, ReconcileResponse,
+    ReportResponse, ServiceResponse,
 };
 
 /// The plugin ABI this SDK speaks.

@@ -211,6 +211,7 @@ fn invalid_toml(path: &str, text: &str, error: &toml::de::Error) -> Error {
 }
 
 /// A typed document with the text it was read from.
+#[derive(Clone, Debug, PartialEq)]
 pub struct Typed<T> {
     /// The document, read as its type.
     pub value: T,
