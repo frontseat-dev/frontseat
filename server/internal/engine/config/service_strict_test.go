@@ -7,10 +7,9 @@ import (
 	"github.com/frontseat-dev/frontseat/server/internal/engine/config"
 )
 
-// a null among a service's lists is dropped without a word, so
-// what is started is not what was written: args [a, ~, b] becomes
-// [a, b], a readiness command loses an argument, and a null readiness
-// check is no check. Configuration is read strictly.
+// A null among a service's lists is refused where it is written: what is
+// started is what was written, and a list read without one of its
+// entries is not.
 func TestANullAmongAServiceSListsIsNotDroppedWithoutAWord(t *testing.T) {
 	for name, text := range map[string]string{
 		"args":    "      as: container\n      args: [a, ~, b]\n",
@@ -24,9 +23,8 @@ func TestANullAmongAServiceSListsIsNotDroppedWithoutAWord(t *testing.T) {
 	}
 }
 
-// what the YAML decoder says of a re-marshalled node names
-// "line 1" of nothing the author wrote, after the true line, and a Go
-// struct type.
+// A mistake in a service names the line it is written on and what its
+// key takes: no line of anything else, and nothing of how it is read.
 func TestAServiceMistakeNamesOnlyTheLineItIsWrittenOn(t *testing.T) {
 	for name, text := range map[string]string{
 		"timeout": "      as: container\n      timeout: \"30\"\n",

@@ -6,7 +6,9 @@ import (
 	"github.com/frontseat-dev/frontseat/server/internal/engine/config"
 )
 
-func TestProductionReviewProgramBooleanSpellings(t *testing.T) {
+// Whether an action is a program is read as YAML reads a switch,
+// however it is written.
+func TestAnActionsSwitchIsReadHoweverYAMLWritesIt(t *testing.T) {
 	for _, item := range []struct {
 		written string
 		want    bool

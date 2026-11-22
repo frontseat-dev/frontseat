@@ -141,21 +141,80 @@ func TestCatalogAliasesDoNotWeakenExplicitFrontseatConfiguration(t *testing.T) {
 	}
 }
 
-// An action of an entity's own that says launch, as a program once did,
-// is refused by name, saying how a program is said now; the control,
-// program: true, is a program.
-func TestAnActionThatSaysLaunchIsRefusedByName(t *testing.T) {
+// An action of an entity's own takes the keys it is read by: any other
+// is refused where it is written, with what an action takes. The
+// control is a key it takes.
+func TestAnActionRefusesAKeyItDoesNotTake(t *testing.T) {
 	read := func(key string) (*config.Repository, error) {
 		return config.Read(t.Context(), "", files{
 			config.File:         "plugins: {}\n",
 			"catalog-info.yaml": "apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata: {name: app}\nspec:\n  frontseat:\n    actions:\n      serve:\n        " + key + ": true\n        tools: [caddy]\n        command: [caddy, run]\n",
 		})
 	}
-	if _, err := read("launch"); err == nil || !strings.Contains(err.Error(), "an action takes no key launch: a program is said by program: true") {
-		t.Errorf("an action that says launch: %v", err)
+	if _, err := read("serves"); err == nil || !strings.Contains(err.Error(), "line 8: an action takes no key serves; it takes check, command,") {
+		t.Errorf("an action with a key it does not take: %v", err)
 	}
 	if got, err := read("program"); err != nil || len(got.Actions()) != 1 || !got.Actions()[0].Program {
 		t.Errorf("control, program: true: %v", err)
+	}
+}
+
+// A Component sets a plugin's options for its directory, once: a second
+// setting for the directory is refused, where the later once won, and so
+// is one by an entity that is no directory. The control is one Component
+// that sets them.
+func TestAPluginsOptionsAreSetOnceForADirectoryByAComponent(t *testing.T) {
+	document := func(kind, name, strict string) string {
+		return "apiVersion: backstage.io/v1alpha1\nkind: " + kind + "\nmetadata: {name: " + name + "}\nspec:\n  frontseat:\n    plugins: {tool: {strict: " + strict + "}}\n"
+	}
+	read := func(catalog string) (*config.Repository, error) {
+		return config.Read(t.Context(), "repo", files{config.File: "plugins:\n  tool:\n", "service/catalog-info.yaml": catalog})
+	}
+	got, err := read(document("Component", "service", "true"))
+	if err != nil {
+		t.Fatalf("control, one Component that sets an option: %v", err)
+	}
+	if held, err := got.Options("tool", declared, "service/cmd"); err != nil || !held[2].Value.GetBoolValue() || held[2].Origin != "repo/service/catalog-info.yaml" {
+		t.Fatalf("control, the option beneath its directory: %v, %v", held, err)
+	}
+	if _, err := read(document("Component", "service", "true") + "---\n" + document("Component", "other", "false")); err == nil || !strings.Contains(err.Error(), "line 13: spec.frontseat.plugins is said twice for one directory, here and in repo/service/catalog-info.yaml") {
+		t.Errorf("two settings for one directory: %v", err)
+	}
+	for _, kind := range []string{"System", "Domain", "Resource", "API"} {
+		if _, err := read(document(kind, "service", "true")); err == nil || !strings.Contains(err.Error(), "line 6: spec.frontseat.plugins is said by a Component") {
+			t.Errorf("a %s that sets an option: %v", kind, err)
+		}
+	}
+}
+
+// Of two options a plugin does not take, the first by name is the one
+// refused, every time the file is read.
+func TestWhichOptionIsRefusedDoesNotChangeBetweenReads(t *testing.T) {
+	for range 50 {
+		read, err := config.Read(t.Context(), "repo", files{config.File: "plugins:\n  tool:\n    zeta: 1\n    alpha: 2\n    mid: 3\n"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := read.Check("tool", declared); err == nil || !strings.Contains(err.Error(), "line 4: the tool plugin takes no option alpha") {
+			t.Fatalf("the option refused: %v", err)
+		}
+	}
+}
+
+// A name that is no action's name and a platform said twice are refused
+// by what a name and a list of platforms are, and are not repeated.
+func TestARefusedNameIsNotRepeated(t *testing.T) {
+	for written, says := range map[string]string{
+		"    actions: {Secret_Name: {command: [x]}}\n": "an action's name is lower-case letters, digits and dashes",
+		"    platforms: [secret/arch, secret/arch]\n":  "spec.frontseat.platforms names a platform twice",
+	} {
+		_, err := config.Read(t.Context(), "repo", files{config.File: "plugins: {}\n", "catalog-info.yaml": "apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata: {name: app}\nspec:\n  frontseat:\n" + written})
+		if err == nil || !strings.Contains(err.Error(), says) || strings.Contains(strings.ToLower(err.Error()), "secret") {
+			t.Errorf("%q: %v, want %q and nothing of what was written", written, err, says)
+		}
+	}
+	if _, err := config.Read(t.Context(), "repo", files{config.File: "plugins: {}\n", "catalog-info.yaml": "apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata: {name: app}\nspec:\n  frontseat:\n    actions: {lint: {command: [x]}}\n    platforms: [linux/amd64, linux/arm64]\n"}); err != nil {
+		t.Errorf("control, a name and two platforms: %v", err)
 	}
 }
 

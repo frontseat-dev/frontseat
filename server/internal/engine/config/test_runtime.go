@@ -15,7 +15,7 @@ import (
 // TestRuntime declares additional data for a Component's inferred tests.
 // Inputs are relative to Directory, the catalog file's directory; references
 // keep the catalog's existing scope. Commands and test selection belong to
-// the adapter. Tools name the repository's mise pins, never versions.
+// the plugin. Tools name the repository's mise pins, never versions.
 type TestRuntime struct {
 	File, Directory string
 	Entity          entity.Ref
@@ -64,10 +64,11 @@ func readTestRuntime(file, directory string, document, node *yaml.Node) (TestRun
 				if name.ShortTag() != "!!str" || !testservice.Exportable(name.Value) {
 					return wrong(name.Line, "test.environment contains an invalid variable name")
 				}
-				if content.Kind != yaml.ScalarNode || content.ShortTag() != "!!str" || strings.ContainsRune(content.Value, '\x00') {
+				value, ok := text(content)
+				if !ok || strings.ContainsRune(value, '\x00') {
 					return wrong(content.Line, "test.environment.%s must be text without NUL", name.Value)
 				}
-				out.Environment[name.Value] = content.Value
+				out.Environment[name.Value] = value
 			}
 		default:
 			return wrong(key.Line, "spec.frontseat.test takes no key %s; it takes inputs, tools and environment", key.Value)
