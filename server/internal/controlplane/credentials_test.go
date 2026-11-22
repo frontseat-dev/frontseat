@@ -166,6 +166,17 @@ func TestAPersonsCredentialsAreTheirsAlone(t *testing.T) {
 	if listed, _ := credentials(third).ListCredentials(ctx, &credentialv1.ListCredentialsRequest{}); len(listed.GetCredentials()) != 0 {
 		t.Errorf("what was refused was kept: %v", listed)
 	}
+	// A host written with a user before it is refused without it said
+	// back: the refusal says what a host is, not what was written. The
+	// control is the hosts above, written without one and kept.
+	for _, written := range []string{"ada:v4lue-of-adas@forge.example", "https://ada:v4lue-of-adas@forge.example", "http://v4lue-of-adas@forge.example"} {
+		_, err := credentials(third).SetCredential(ctx, &credentialv1.SetCredentialRequest{Credential: &credentialv1.Credential{Host: written, Secret: "s"}})
+		if connect.CodeOf(err) != connect.CodeInvalidArgument {
+			t.Errorf("a host written with a user: %v, want it refused", err)
+		} else if strings.Contains(err.Error(), "v4lue-of-adas") {
+			t.Errorf("the refusal of a host repeats what was written in it: %v", err)
+		}
+	}
 	// One in use is kept, by name; the control is the same let go of once
 	// it is not.
 	s.mu.Lock()

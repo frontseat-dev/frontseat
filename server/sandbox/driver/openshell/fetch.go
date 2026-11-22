@@ -61,15 +61,16 @@ func sent(host string) (scheme, at string, err error) {
 // in place of the one it held under the id for the same host. The
 // gateway holds it outside every sandbox: a sandbox is given a stand-in,
 // which the proxy of its supervisor, beside it and not in it, trades for
-// the credential in a request it lets through. A credential is never
-// moved to another host: a sandbox let through with it would send the
-// new secret where the old one went.
+// the credential in a request it lets through, to the host and port it
+// was kept for, encrypted or not (the package says what is not held). A
+// credential is never moved to another host: a sandbox let through with
+// it would send the new secret where the old one went.
 func (d *Driver) Credential(ctx context.Context, id, host, user, secret string) error {
 	if d.config.Identity == "" {
 		return &driver.Unsupported{Driver: d.Name(), Capability: "a credential kept by a gateway that asks no one who they are"}
 	}
 	if !driver.CredentialID(id) {
-		return fmt.Errorf("%w: openshell: %q is no credential's id", driver.ErrInvalid, id)
+		return fmt.Errorf("%w: openshell: a credential is asked for by what is no credential's id", driver.ErrInvalid)
 	}
 	scheme, at, err := sent(host)
 	if err != nil {
@@ -140,7 +141,7 @@ func (d *Driver) Credential(ctx context.Context, id, host, user, secret string) 
 // Forget lets go of the credential under an id.
 func (d *Driver) Forget(ctx context.Context, id string) error {
 	if !driver.CredentialID(id) {
-		return fmt.Errorf("%w: openshell: %q is no credential's id", driver.ErrInvalid, id)
+		return fmt.Errorf("%w: openshell: a credential is asked for by what is no credential's id", driver.ErrInvalid)
 	}
 	provider, _ := kept(id)
 	if _, err := d.gateway.Providers().Delete(ctx, d.config.Workspace, provider); err != nil && !client.IsNotFound(err) {
@@ -174,7 +175,7 @@ type fetched struct {
 // server kept it under the id, for a host it can say.
 func (d *Driver) Kept(ctx context.Context, id string) (string, string, string, error) {
 	if !driver.CredentialID(id) {
-		return "", "", "", fmt.Errorf("%w: openshell: %q is no credential's id", driver.ErrInvalid, id)
+		return "", "", "", fmt.Errorf("%w: openshell: a credential is asked for by what is no credential's id", driver.ErrInvalid)
 	}
 	provider, variable := kept(id)
 	held, err := d.gateway.Providers().Get(ctx, d.config.Workspace, provider)
@@ -220,7 +221,7 @@ func (d *Driver) ruled(ctx context.Context, record driver.Sandbox) (fetched, err
 		}
 		for _, program := range rule.Programs {
 			if !strings.HasPrefix(program, "/") || path.Clean(program) != program || program == "/" || !plain.Text(program) {
-				return fetched{}, fmt.Errorf("%w: openshell: %q is no one program's path, which a rule names its programs by", driver.ErrInvalid, program)
+				return fetched{}, fmt.Errorf("%w: openshell: the rule for %s names a program by what is no one program's path", driver.ErrInvalid, at)
 			}
 		}
 		endpoint := client.PolicyNetworkEndpoint{Host: name, Port: port, Protocol: "tcp"}
@@ -229,12 +230,12 @@ func (d *Driver) ruled(ctx context.Context, record driver.Sandbox) (fetched, err
 		}
 		for _, asked := range rule.Requests {
 			if !slices.Contains([]string{"GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"}, asked.Method) || !plain.Asked(asked.Path) {
-				return fetched{}, fmt.Errorf("%w: openshell: %s %q is no request a rule lets through: one is a method and a path written plainly, a part of which after its first may be any one part, written *", driver.ErrInvalid, asked.Method, asked.Path)
+				return fetched{}, fmt.Errorf("%w: openshell: the rule for %s lets through what is no request: one is a method and a path written plainly, a part of which after its first may be any one part, written *", driver.ErrInvalid, at)
 			}
 			allow := &client.L7Allow{Method: asked.Method, Path: asked.Path}
 			for parameter, value := range asked.Query {
 				if !plain.Text(parameter) || !plain.Text(value) || strings.Contains(parameter+value, "/") {
-					return fetched{}, fmt.Errorf("%w: openshell: %q=%q is no parameter a request is held to", driver.ErrInvalid, parameter, value)
+					return fetched{}, fmt.Errorf("%w: openshell: the rule for %s holds a request to what is no parameter", driver.ErrInvalid, at)
 				}
 				if allow.Query == nil {
 					allow.Query = map[string]client.L7QueryMatcher{}

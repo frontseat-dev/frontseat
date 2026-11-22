@@ -508,7 +508,7 @@ func (s *service) CreateWorkspace(ctx context.Context, req *workspacev1.CreateWo
 		}
 	}
 	if !frontseat.IsWorkspaceName(called) {
-		return nil, refusedFor(connect.CodeInvalidArgument, "NAME_INVALID", fmt.Sprintf("%q is no workspace's name: one is lower-case letters, digits and dashes, at most 48", called))
+		return nil, refusedFor(connect.CodeInvalidArgument, "NAME_INVALID", "the name is no workspace's: one is lower-case letters, digits and dashes, at most 48")
 	}
 	// One at a time for a name: whoever asks second finds the first's.
 	s.mu.Lock()
@@ -623,7 +623,7 @@ func (s *service) named(called string) (*held, error) {
 	defer s.mu.Unlock()
 	h := s.held[called]
 	if h == nil {
-		return nil, refusedFor(connect.CodeNotFound, "WORKSPACE_NOT_FOUND", fmt.Sprintf("there is no workspace %q", called))
+		return nil, refusedFor(connect.CodeNotFound, "WORKSPACE_NOT_FOUND", "there is no workspace of the name asked for")
 	}
 	return h, nil
 }

@@ -345,7 +345,7 @@ func selector(given string) (map[string]string, error) {
 		}
 		name, value, found := strings.Cut(each, "=")
 		if !found || name == "" {
-			return nil, fmt.Errorf("the label selector %q: want name=value, separated by commas", given)
+			return nil, errors.New("the label selector is not name=value, separated by commas")
 		}
 		out[name] = value
 	}
@@ -427,7 +427,7 @@ func (s *service) turnOf(ctx context.Context, id string) (*record, error) {
 		}
 	}
 	if !there {
-		return nil, refuse(connect.CodeNotFound, "SANDBOX_NOT_FOUND", fmt.Sprintf("no sandbox has the id %q", id))
+		return nil, refuse(connect.CodeNotFound, "SANDBOX_NOT_FOUND", "no sandbox has the id asked for")
 	}
 	return r, nil
 }
@@ -497,17 +497,17 @@ func wanted(spec *sandboxv1.SandboxSpec) (out driver.Sandbox, err error) {
 			return driver.Sandbox{}, errors.New("a rule names no host")
 		}
 		if name := rule.GetCredential(); name != "" && !driver.CredentialID(name) {
-			return driver.Sandbox{}, fmt.Errorf("the rule for %s names %q, which is no credential's name", rule.GetHost(), name)
+			return driver.Sandbox{}, errors.New("a rule names a credential by what is no credential's name")
 		}
 		asked := driver.Rule{Host: rule.GetHost(), Programs: rule.GetPrograms(), CredentialID: rule.GetCredential()}
 		for _, program := range rule.GetPrograms() {
 			if program == "" {
-				return driver.Sandbox{}, fmt.Errorf("the rule for %s names a program by no path", rule.GetHost())
+				return driver.Sandbox{}, errors.New("a rule names a program by no path")
 			}
 		}
 		for _, request := range rule.GetRequests() {
 			if request.GetMethod() == "" || request.GetPath() == "" {
-				return driver.Sandbox{}, fmt.Errorf("the rule for %s lets through a request of no method or no path", rule.GetHost())
+				return driver.Sandbox{}, errors.New("a rule lets through a request of no method or no path")
 			}
 			asked.Requests = append(asked.Requests, driver.Request{Method: request.GetMethod(), Path: request.GetPath(), Query: request.GetQuery()})
 		}
@@ -526,7 +526,7 @@ func wanted(spec *sandboxv1.SandboxSpec) (out driver.Sandbox, err error) {
 	named := map[string]bool{"main": true}
 	for _, c := range spec.GetContainers() {
 		if !containerName.MatchString(c.GetName()) || named[c.GetName()] {
-			return driver.Sandbox{}, fmt.Errorf("a container is named by lower-case letters, digits and dashes, once, and not main: %q", c.GetName())
+			return driver.Sandbox{}, errors.New("a container is named by lower-case letters, digits and dashes, once, and not main")
 		}
 		named[c.GetName()] = true
 		if err := imageOf(c.GetImage()); err != nil {
@@ -549,7 +549,7 @@ func imageOf(image string) error {
 		return errors.New("it names no image")
 	}
 	if _, err := reference.ParseAnyReference(image); err != nil {
-		return fmt.Errorf("%q is not an image's reference: %v", image, err)
+		return errors.New("it is not named by an image's reference")
 	}
 	return nil
 }
@@ -568,19 +568,19 @@ func volumesOf(volumes []*sandboxv1.Volume) ([]driver.Volume, error) {
 		case sandboxv1.Volume_KIND_UNSPECIFIED, sandboxv1.Volume_KIND_EPHEMERAL:
 			volume.Kind = driver.Ephemeral
 			if volume.ReadOnly {
-				return nil, fmt.Errorf("the volume %q starts empty and may not be written: nothing could ever be in it", v.GetName())
+				return nil, errors.New("a volume starts empty and may not be written: nothing could ever be in it")
 			}
 		case sandboxv1.Volume_KIND_HOST:
 			volume.Kind = driver.Host
 		default:
-			return nil, fmt.Errorf("the volume %q is of no kind this server knows", v.GetName())
+			return nil, errors.New("a volume is of no kind this server knows")
 		}
 		if sub := volume.Subpath; sub != "" {
 			if volume.Kind == driver.Ephemeral {
-				return nil, fmt.Errorf("the volume %q starts empty: it has no subpath to mount", v.GetName())
+				return nil, errors.New("a volume starts empty and names a subpath: it has none to mount")
 			}
 			if path.IsAbs(sub) || path.Clean(sub) != sub || sub == "." || sub == ".." || strings.HasPrefix(sub, "../") || strings.ContainsRune(sub, '\\') {
-				return nil, fmt.Errorf("the volume %q: subpath %q is not a plain directory beneath its root", v.GetName(), sub)
+				return nil, errors.New("a volume's subpath is not a plain directory beneath its root")
 			}
 		}
 		out = append(out, volume)
@@ -606,7 +606,7 @@ func (s *service) observe(ctx context.Context, id string) (*sandboxv1.Sandbox, e
 	r, ok := s.records[id]
 	s.mu.Unlock()
 	if !ok {
-		return nil, refuse(connect.CodeNotFound, "SANDBOX_NOT_FOUND", fmt.Sprintf("no sandbox has the id %q", id))
+		return nil, refuse(connect.CodeNotFound, "SANDBOX_NOT_FOUND", "no sandbox has the id asked for")
 	}
 	now, err := s.driver.Observe(ctx, id)
 	if errors.Is(err, driver.ErrNotFound) {
@@ -781,7 +781,7 @@ func (s *service) ExecSandbox(ctx context.Context, req *sandboxv1.ExecSandboxReq
 	r, ok := s.records[req.GetSandboxId()]
 	s.mu.Unlock()
 	if !ok {
-		return nil, refuse(connect.CodeNotFound, "SANDBOX_NOT_FOUND", fmt.Sprintf("no sandbox has the id %q", req.GetSandboxId()))
+		return nil, refuse(connect.CodeNotFound, "SANDBOX_NOT_FOUND", "no sandbox has the id asked for")
 	}
 	// A container is one the sandbox was made with, named as it was: the
 	// name is never handed to the runtime otherwise.
@@ -790,7 +790,7 @@ func (s *service) ExecSandbox(ctx context.Context, req *sandboxv1.ExecSandboxReq
 		container = ""
 	}
 	if container != "" && !slices.ContainsFunc(r.wanted.Containers, func(c driver.SandboxContainer) bool { return c.Name == container }) {
-		return nil, refuse(connect.CodeNotFound, "CONTAINER_NOT_FOUND", fmt.Sprintf("the sandbox %q has no container %q", req.GetSandboxId(), container))
+		return nil, refuse(connect.CodeNotFound, "CONTAINER_NOT_FOUND", fmt.Sprintf("the sandbox %q has no container of the name asked for", req.GetSandboxId()))
 	}
 	now, err := s.driver.Observe(ctx, req.GetSandboxId())
 	if errors.Is(err, driver.ErrNotFound) {
@@ -863,7 +863,7 @@ func (s *service) Dial(ctx context.Context, id string, port int) (net.Conn, erro
 	_, made := s.records[id]
 	s.mu.Unlock()
 	if !made {
-		return nil, fmt.Errorf("no sandbox has the id %q", id)
+		return nil, errors.New("no sandbox has the id asked for")
 	}
 	return s.driver.Dial(ctx, id, port)
 }
@@ -1002,7 +1002,7 @@ func (s *service) DescribeCredential(ctx context.Context, req *sandboxv1.Describ
 	}
 	host, username, variable, err := keeps.Kept(ctx, req.GetName())
 	if errors.Is(err, driver.ErrNotFound) {
-		return nil, refuse(connect.CodeNotFound, "CREDENTIAL_NOT_FOUND", fmt.Sprintf("no credential is kept as %s", req.GetName()))
+		return nil, refuse(connect.CodeNotFound, "CREDENTIAL_NOT_FOUND", "no credential is kept by the name asked for")
 	}
 	if err != nil {
 		return nil, said(err)
@@ -1021,7 +1021,7 @@ func (s *service) DeleteCredential(ctx context.Context, req *sandboxv1.DeleteCre
 	}
 	if err := keeps.Forget(ctx, req.GetName()); err != nil {
 		if errors.Is(err, driver.ErrInUse) {
-			return nil, refuse(connect.CodeFailedPrecondition, "CREDENTIAL_IN_USE", fmt.Sprintf("a sandbox is still let through with the credential %s: it is let go of once those sandboxes have ended", req.GetName()))
+			return nil, refuse(connect.CodeFailedPrecondition, "CREDENTIAL_IN_USE", "a sandbox is still let through with the credential: it is let go of once those sandboxes have ended")
 		}
 		return nil, said(err)
 	}

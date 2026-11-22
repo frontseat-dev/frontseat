@@ -413,11 +413,11 @@ func reached(allowed string) (string, uint32, error) {
 	}
 	number, err := strconv.ParseUint(port, 10, 16)
 	if err != nil || number == 0 {
-		return "", 0, fmt.Errorf("openshell: %q names no port a sandbox may reach", allowed)
+		return "", 0, errors.New("openshell: a host is written with no port a sandbox may reach")
 	}
 	host = strings.ToLower(strings.TrimSuffix(host, "."))
 	if !hostname(host) {
-		return "", 0, fmt.Errorf("openshell: %q is not a host's name: a sandbox is let reach a name, never an address", allowed)
+		return "", 0, errors.New("openshell: a host is not written as a host's name: a sandbox is let reach a name, never an address")
 	}
 	return host, uint32(number), nil
 }

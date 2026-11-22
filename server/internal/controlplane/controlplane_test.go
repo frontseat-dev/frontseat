@@ -1410,3 +1410,42 @@ func refusedAsNotServed(err error, reason string) bool {
 	said, domain := frontseat.Reason(err)
 	return connect.CodeOf(err) == connect.CodeUnimplemented && said == reason && domain == refusal.Workspace
 }
+
+// A refusal of a workspace says what is wrong and repeats nothing of
+// what it refused: not a name, not a repository's path, not an address,
+// each of which may hold a token. The control of each is the same
+// request with what it refused mended, which is taken.
+func TestARefusalOfAWorkspaceRepeatsNothingItRefused(t *testing.T) {
+	const refusedValue = "v4lue-of-adas"
+	_, client := made(t, "x", of("https://forge.example/acme/code.git"))
+	waited(t, client, "x")
+	ctx := context.Background()
+	refused := func(what string, err error) {
+		t.Helper()
+		if err == nil {
+			t.Errorf("%s was taken", what)
+		} else if strings.Contains(err.Error(), refusedValue) {
+			t.Errorf("the refusal of %s repeats what it refused: %v", what, err)
+		}
+	}
+	_, err := client.CreateWorkspace(ctx, &workspacev1.CreateWorkspaceRequest{Name: "A-" + refusedValue, Spec: of("https://forge.example/acme/code.git")})
+	refused("a name that is none", err)
+	_, err = client.DescribeWorkspace(ctx, &workspacev1.DescribeWorkspaceRequest{Name: "A-" + refusedValue})
+	refused("a name there is no workspace of", err)
+	_, err = client.CreateWorkspace(ctx, &workspacev1.CreateWorkspaceRequest{Name: "path", Spec: of("https://forge.example/acme/a%20" + refusedValue + ".git")})
+	refused("a repository's path written otherwise than plainly", err)
+	more := of("https://forge.example/acme/code.git")
+	more.Repositories = append(more.Repositories, &workspacev1.RepositorySource{Remote: "https://forge.example/" + refusedValue + "/other.git"})
+	_, err = client.UpdateWorkspace(ctx, &workspacev1.UpdateWorkspaceRequest{Name: "x", Spec: more})
+	refused("a repository its sandbox does not reach", err)
+	// The controls.
+	if _, err := client.CreateWorkspace(ctx, &workspacev1.CreateWorkspaceRequest{Name: "a-" + refusedValue, Spec: of("https://forge.example/acme/a-" + refusedValue + ".git")}); err != nil {
+		t.Errorf("the control: a workspace of a name and a path written plainly: %v", err)
+	}
+	if _, err := client.DescribeWorkspace(ctx, &workspacev1.DescribeWorkspaceRequest{Name: "a-" + refusedValue}); err != nil {
+		t.Errorf("the control: a workspace there is, asked after: %v", err)
+	}
+	if _, err := client.UpdateWorkspace(ctx, &workspacev1.UpdateWorkspaceRequest{Name: "x", Spec: of("https://forge.example/acme/code.git")}); err != nil {
+		t.Errorf("the control: a repository its sandbox reaches: %v", err)
+	}
+}
