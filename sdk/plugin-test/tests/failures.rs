@@ -3,7 +3,7 @@
 //! the message the plugin wrote.
 use frontseat_plugin::prelude::*;
 use frontseat_plugin::Code;
-use frontseat_plugin_test::{TestHost, TestPlugin};
+use frontseat_plugin_test::{Files, TestHost, TestPlugin};
 
 /// One row of `testdata/failures.json`: a failure as an author may write
 /// one, and whether the host accepts it.
@@ -137,4 +137,83 @@ fn a_read_the_host_could_not_serve_fails_the_call_whatever_the_plugin_does() {
     plugin
         .analyze(&TestHost::empty(), &context, &["outside"])
         .refused("glob-outside-repository");
+}
+
+struct Reading;
+impl Plugin for Reading {
+    fn describe(&self) -> Description {
+        Description {
+            name: "reading".into(),
+            ..Default::default()
+        }
+    }
+    fn analyze(&self, repo: &Repository, root: &str) -> Result<Analysis, Error> {
+        // A read the host fails, taken for a file that is not there.
+        let path = match root {
+            "up" => "../Cargo.toml",
+            "absolute" => "/etc/hosts",
+            "directory" => "app",
+            _ => "app/missing",
+        };
+        let _ = repo.read(path).ok().flatten();
+        Ok(Analysis::default())
+    }
+}
+
+/// The host fails a call that read a path out of the repository, or a
+/// directory, as it fails one whose read it could not serve; the testkit
+/// does too. A file that is not there is no failure.
+#[test]
+fn a_read_out_of_the_repository_or_of_a_directory_fails_the_call() {
+    let plugin = TestPlugin::new(Reading);
+    let context = plugin.context(Profile::Development);
+    let host = TestHost::new(Files::new().with("app/x", ""));
+    for (root, reason) in [
+        ("up", "read-outside-repository"),
+        ("absolute", "read-outside-repository"),
+        ("directory", "read-of-directory"),
+    ] {
+        plugin.analyze(&host, &context, &[root]).refused(reason);
+    }
+    plugin.analyze(&host, &context, &["missing"]).answered();
+}
+
+struct Sarif;
+impl Plugin for Sarif {
+    fn describe(&self) -> Description {
+        Description {
+            name: "sarif".into(),
+            ..Default::default()
+        }
+    }
+    fn report(
+        &self,
+        _repo: &Repository,
+        _root: &str,
+        _action: &str,
+        _printed: &Printed,
+    ) -> Result<Vec<Diagnostic>, Error> {
+        Err(Error::not_served("sarif", "sarif output is not read yet"))
+    }
+}
+
+/// Report answered `UNIMPLEMENTED` for a reason other than its own is a
+/// failure of the call, as the host reads it, and no Report unserved.
+/// The control is a plugin that leaves Report to the SDK.
+#[test]
+fn unimplemented_for_another_reason_is_no_method_unserved() {
+    let printed = Printed::default();
+    let plugin = TestPlugin::new(Sarif);
+    let context = plugin.context(Profile::Development);
+    let answer = plugin.report(&TestHost::empty(), &context, "", "lint", &printed);
+    let unserved = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| answer.unsupported()));
+    assert!(
+        unserved.is_err(),
+        "sarif-not-served was taken for Report unserved"
+    );
+    let plugin = TestPlugin::new(Forgiving);
+    let context = plugin.context(Profile::Development);
+    plugin
+        .report(&TestHost::empty(), &context, "", "lint", &printed)
+        .unsupported();
 }

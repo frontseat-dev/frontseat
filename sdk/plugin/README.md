@@ -8,13 +8,13 @@ holds and what each one builds, tests and checks, and what a check
 found. It reads the repository only through what Frontseat serves it,
 and runs nothing itself: it declares actions, and Frontseat runs them on
 the grid. The contract between the two is the protobuf in
-[`api/plugin-proto`](../../api/plugin-proto) and its
-[ABI document](../../api/plugin-proto/ABI.md); this crate implements it
+[`api/plugin-proto`](https://github.com/frontseat-dev/frontseat/tree/main/api/plugin-proto) and its
+[ABI document](https://github.com/frontseat-dev/frontseat/blob/main/api/plugin-proto/ABI.md); this crate implements it
 once, so a plugin is a type that implements `Plugin`.
 
 ## A plugin in five minutes
 
-[`examples/make.rs`](examples/make.rs) is a plugin whole, and is what
+[`examples/make.rs`](https://github.com/frontseat-dev/frontseat/blob/main/sdk/plugin/examples/make.rs) is a plugin whole, and is what
 follows. It finds a project wherever a `Makefile` is, runs `make test`
 as its tests and `make lint` as a check, and reads what the check found
 from what it printed:
@@ -143,7 +143,7 @@ plugins:
 
 ## Test it
 
-[`frontseat-plugin-test`](../plugin-test) asks a plugin as Frontseat
+[`frontseat-plugin-test`](https://docs.rs/frontseat-plugin-test) asks a plugin as Frontseat
 asks it, on the machine that builds it, over a repository held in
 memory: see its README.
 
