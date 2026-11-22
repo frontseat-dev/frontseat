@@ -31,17 +31,17 @@ func codeOf(err error) connect.Code {
 func TestWhatASpecNamesOfContainersAndSubpathsIsChecked(t *testing.T) {
 	client, _ := serve(t)
 	refused := map[string]*sandboxv1.SandboxSpec{
-		"a subpath leaving its volume":                    {Image: "box", Volumes: []*sandboxv1.Volume{{Name: "w", Path: "/w", Kind: sandboxv1.Volume_KIND_HOST, Source: "/tmp", Subpath: "../other"}}},
-		"an absolute subpath":                             {Image: "box", Volumes: []*sandboxv1.Volume{{Name: "w", Path: "/w", Kind: sandboxv1.Volume_KIND_HOST, Source: "/tmp", Subpath: "/etc"}}},
-		"a subpath of no plain form":                      {Image: "box", Volumes: []*sandboxv1.Volume{{Name: "w", Path: "/w", Kind: sandboxv1.Volume_KIND_HOST, Source: "/tmp", Subpath: "a/./b"}}},
-		"a subpath of an empty volume":                    {Image: "box", Volumes: []*sandboxv1.Volume{{Name: "w", Path: "/w", Subpath: "a"}}},
-		"a container named main":                          {Image: "box", Containers: []*sandboxv1.Container{{Name: "main", Image: "box"}}},
-		"two containers of one name":                      {Image: "box", Containers: []*sandboxv1.Container{{Name: "db", Image: "box"}, {Name: "db", Image: "box"}}},
-		"a container named as a path":                     {Image: "box", Containers: []*sandboxv1.Container{{Name: "../db", Image: "box"}}},
-		"a container of no image":                         {Image: "box", Containers: []*sandboxv1.Container{{Name: "db"}}},
-		"a container image that is an option of docker's": {Image: "box", Containers: []*sandboxv1.Container{{Name: "db", Image: "--privileged"}}},
-		"a sandbox image that is an option of docker's":   {Image: "--volume=/:/host"},
-		"an image of no reference's form":                 {Image: "box", Containers: []*sandboxv1.Container{{Name: "db", Image: "Box With Spaces"}}},
+		"a subpath leaving its volume":                    {Image: "box", Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_ALL}, Volumes: []*sandboxv1.Volume{{Name: "w", Path: "/w", Kind: sandboxv1.Volume_KIND_HOST, Source: "/tmp", Subpath: "../other"}}},
+		"an absolute subpath":                             {Image: "box", Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_ALL}, Volumes: []*sandboxv1.Volume{{Name: "w", Path: "/w", Kind: sandboxv1.Volume_KIND_HOST, Source: "/tmp", Subpath: "/etc"}}},
+		"a subpath of no plain form":                      {Image: "box", Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_ALL}, Volumes: []*sandboxv1.Volume{{Name: "w", Path: "/w", Kind: sandboxv1.Volume_KIND_HOST, Source: "/tmp", Subpath: "a/./b"}}},
+		"a subpath of an empty volume":                    {Image: "box", Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_ALL}, Volumes: []*sandboxv1.Volume{{Name: "w", Path: "/w", Subpath: "a"}}},
+		"a container named main":                          {Image: "box", Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_ALL}, Containers: []*sandboxv1.Container{{Name: "main", Image: "box"}}},
+		"two containers of one name":                      {Image: "box", Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_ALL}, Containers: []*sandboxv1.Container{{Name: "db", Image: "box"}, {Name: "db", Image: "box"}}},
+		"a container named as a path":                     {Image: "box", Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_ALL}, Containers: []*sandboxv1.Container{{Name: "../db", Image: "box"}}},
+		"a container of no image":                         {Image: "box", Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_ALL}, Containers: []*sandboxv1.Container{{Name: "db"}}},
+		"a container image that is an option of docker's": {Image: "box", Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_ALL}, Containers: []*sandboxv1.Container{{Name: "db", Image: "--privileged"}}},
+		"a sandbox image that is an option of docker's":   {Image: "--volume=/:/host", Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_ALL}},
+		"an image of no reference's form":                 {Image: "box", Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_ALL}, Containers: []*sandboxv1.Container{{Name: "db", Image: "Box With Spaces"}}},
 	}
 	for what, spec := range refused {
 		if _, err := client.CreateSandbox(context.Background(), &sandboxv1.CreateSandboxRequest{Spec: spec}); codeOf(err) != connect.CodeInvalidArgument {
@@ -50,7 +50,7 @@ func TestWhatASpecNamesOfContainersAndSubpathsIsChecked(t *testing.T) {
 	}
 	// The control: a plain subpath and a plainly named container are no
 	// mistake; this driver cannot give them, and says so.
-	_, err := client.CreateSandbox(context.Background(), &sandboxv1.CreateSandboxRequest{Spec: &sandboxv1.SandboxSpec{Image: "box", Containers: []*sandboxv1.Container{{Name: "db", Image: "box"}}}})
+	_, err := client.CreateSandbox(context.Background(), &sandboxv1.CreateSandboxRequest{Spec: &sandboxv1.SandboxSpec{Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_ALL}, Image: "box", Containers: []*sandboxv1.Container{{Name: "db", Image: "box"}}}})
 	if codeOf(err) != connect.CodeUnimplemented || !strings.Contains(err.Error(), "further containers") {
 		t.Errorf("further containers of a driver that has none: %v, want them refused as not served, by name", err)
 	}
@@ -58,7 +58,7 @@ func TestWhatASpecNamesOfContainersAndSubpathsIsChecked(t *testing.T) {
 
 func TestADriverThatCannotRunACommandInASandboxSaysSo(t *testing.T) {
 	client, _ := serve(t)
-	made := create(t, client, &sandboxv1.SandboxSpec{Image: "box"})
+	made := create(t, client, &sandboxv1.SandboxSpec{Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_ALL}, Image: "box"})
 	_, err := client.ExecSandbox(context.Background(), &sandboxv1.ExecSandboxRequest{SandboxId: made.GetId(), Arguments: []string{"true"}})
 	if codeOf(err) != connect.CodeUnimplemented {
 		t.Errorf("exec where the driver cannot: %v, want it refused as not served", err)

@@ -216,7 +216,7 @@ func TestASandboxAnotherLabelledForAWorkspaceIsNotEndedWithIt(t *testing.T) {
 	client, held, _, sandboxes := overRealServed(t)
 	ctx := context.Background()
 	own := madeX(t, client, sandboxes)
-	other, err := sandboxes.CreateSandbox(ctx, &sandboxv1.CreateSandboxRequest{RequestId: "another-asking", Spec: &sandboxv1.SandboxSpec{
+	other, err := sandboxes.CreateSandbox(ctx, &sandboxv1.CreateSandboxRequest{RequestId: "another-asking", Spec: &sandboxv1.SandboxSpec{Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_ALL},
 		Image: "registry.example/acme/box:1", Labels: map[string]string{Named: "x"},
 	}})
 	if err != nil {

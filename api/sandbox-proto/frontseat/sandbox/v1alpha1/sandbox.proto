@@ -43,9 +43,9 @@ service SandboxService {
   // that sandbox is there (CreateSandboxRequest.request_id).
   //
   // ### Errors
-  // - INVALID_ARGUMENT: the spec names no image, or holds something this
-  //   server does not know (SPEC_INVALID); the request_id is longer than
-  //   128 bytes (REQUEST_ID_INVALID).
+  // - INVALID_ARGUMENT: the spec names no image, says no egress mode, or
+  //   holds something this server does not know (SPEC_INVALID); the
+  //   request_id is longer than 128 bytes (REQUEST_ID_INVALID).
   // - UNIMPLEMENTED: the spec asks for what the driver cannot enforce;
   //   the message names it (CAPABILITY_NOT_SERVED).
   // - FAILED_PRECONDITION: the sandbox the same request_id made is
@@ -123,7 +123,8 @@ service SandboxService {
   // - NOT_FOUND: no sandbox has that id (SANDBOX_NOT_FOUND), or it has
   //   no container of that name (CONTAINER_NOT_FOUND).
   // - INVALID_ARGUMENT: no command is given (COMMAND_MISSING), or the
-  //   timeout is zero or negative (TIMEOUT_INVALID).
+  //   timeout is zero, negative or more than ten minutes
+  //   (TIMEOUT_INVALID).
   // - FAILED_PRECONDITION: the sandbox is not running
   //   (SANDBOX_NOT_RUNNING).
   // - UNIMPLEMENTED: the driver runs no command in a sandbox
@@ -239,9 +240,9 @@ message SandboxSpec {
   // image's own command), as one command line, as `tini --` is run before
   // a command. Empty for none.
   repeated string wrapper = 15;
-  // User is the user its first process runs as, by number, never root's
-  // (0); empty for the sandbox's own.
-  string user = 16;
+  // `user_id` is the user its first process runs as, by number; zero
+  // for its image's own. No sandbox is asked to run as root.
+  uint32 user_id = 16;
   // Writable are the directories of its image it may write, each an
   // absolute path, beside its own temporary directory and what is
   // mounted in it. Under a driver that does not restrict what a sandbox
@@ -250,8 +251,8 @@ message SandboxSpec {
   repeated string writable = 17;
   // Environment is the environment its first process starts with.
   map<string, string> environment = 3;
-  // Egress is what it may reach.
-  Egress egress = 7;
+  // Egress is what it may reach: every sandbox says.
+  Egress egress = 7 [(google.api.field_behavior) = REQUIRED];
   // Ports are the ports of it to make reachable.
   repeated int32 ports = 9;
   // Volumes are the volumes mounted in it.
@@ -303,23 +304,20 @@ message Container {
 // Egress is what a sandbox may reach.
 message Egress {
   // Mode is the rule.
-  Mode mode = 1;
+  Mode mode = 1 [(google.api.field_behavior) = REQUIRED];
   // Rules are the hosts it may reach under MODE_ALLOW_LISTED, each with
   // its limits: which programs may reach the host, which requests are
   // let through, and which kept credential is added to them. At most one
-  // rule names a host. Under a driver that lets a sandbox reach only
-  // hosts that are named, they are also what a sandbox of
-  // MODE_UNSPECIFIED may reach. With MODE_ALLOW_ALL and MODE_BLOCK there
-  // are none. A driver that cannot limit a rule to its programs or its
+  // rule names a host. With MODE_ALLOW_ALL and MODE_BLOCK there are
+  // none. A driver that cannot limit a rule to its programs or its
   // requests, or that keeps no credential, refuses a rule that asks for
   // that (CAPABILITY_NOT_SERVED).
   repeated EgressRule rules = 3;
 
   // Mode is the rule for what a sandbox may reach.
   enum Mode {
-    // MODE_UNSPECIFIED: the driver's default. Under a driver that lets a
-    // sandbox reach only hosts that are named, it is what the rules
-    // name; under any other, it is anything.
+    // MODE_UNSPECIFIED: not said. A sandbox is refused without a mode
+    // (SPEC_INVALID).
     MODE_UNSPECIFIED = 0;
     // MODE_ALLOW_ALL: anything. A driver that lets a sandbox reach only
     // hosts that are named refuses it.
@@ -515,8 +513,8 @@ message ExecSandboxRequest {
   // Arguments are the program and its arguments.
   repeated string arguments = 3 [(google.api.field_behavior) = REQUIRED];
   // Timeout is how long the command may run: past it, the command is
-  // ended and the call is refused. Unset, it is a minute. It has no
-  // upper limit.
+  // ended and the call is refused. Unset, it is a minute; it is at most
+  // ten minutes.
   google.protobuf.Duration timeout = 4;
 }
 
@@ -527,6 +525,8 @@ message ExecSandboxResponse {
   // Output is what it printed, stdout and stderr as written: the first
   // 1 MiB of it.
   bytes output = 2;
+  // `output_truncated` is whether it printed more than output holds.
+  bool output_truncated = 3;
 }
 
 // Credential is a secret for one host, kept by the server outside every

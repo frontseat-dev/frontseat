@@ -39,7 +39,7 @@ func through(t *testing.T, server, sandbox string, port int) (string, *http.Resp
 // seen.
 func TestAPortOfASandboxIsReachedAsBytesThroughTheServer(t *testing.T) {
 	client, srv := serve(t)
-	made := create(t, client, &sandboxv1.SandboxSpec{Image: "box", Ports: []int32{2222}})
+	made := create(t, client, &sandboxv1.SandboxSpec{Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_ALL}, Image: "box", Ports: []int32{2222}})
 
 	said, _, err := through(t, srv.URL, made.GetId(), 2222)
 
@@ -56,7 +56,7 @@ func TestAPortOfASandboxIsReachedAsBytesThroughTheServer(t *testing.T) {
 // it passes.
 func TestATunnelPassesWhatStandsInFrontOfTheServer(t *testing.T) {
 	client, srv := serve(t)
-	made := create(t, client, &sandboxv1.SandboxSpec{Image: "box", Ports: []int32{2222}})
+	made := create(t, client, &sandboxv1.SandboxSpec{Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_ALL}, Image: "box", Ports: []int32{2222}})
 	behind, err := url.Parse(srv.URL)
 	if err != nil {
 		t.Fatal(err)
@@ -73,7 +73,7 @@ func TestATunnelPassesWhatStandsInFrontOfTheServer(t *testing.T) {
 
 func TestATunnelIsOpenedOnlyToAPortOfASandboxTheServerMade(t *testing.T) {
 	client, srv := serve(t)
-	made := create(t, client, &sandboxv1.SandboxSpec{Image: "box", Ports: []int32{2222}})
+	made := create(t, client, &sandboxv1.SandboxSpec{Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_ALL}, Image: "box", Ports: []int32{2222}})
 
 	for name, to := range map[string]struct {
 		sandbox string

@@ -184,9 +184,9 @@ type SandboxServiceClient interface {
 	// that sandbox is there (CreateSandboxRequest.request_id).
 	//
 	// ### Errors
-	// - INVALID_ARGUMENT: the spec names no image, or holds something this
-	//   server does not know (SPEC_INVALID); the request_id is longer than
-	//   128 bytes (REQUEST_ID_INVALID).
+	// - INVALID_ARGUMENT: the spec names no image, says no egress mode, or
+	//   holds something this server does not know (SPEC_INVALID); the
+	//   request_id is longer than 128 bytes (REQUEST_ID_INVALID).
 	// - UNIMPLEMENTED: the spec asks for what the driver cannot enforce;
 	//   the message names it (CAPABILITY_NOT_SERVED).
 	// - FAILED_PRECONDITION: the sandbox the same request_id made is
@@ -245,7 +245,8 @@ type SandboxServiceClient interface {
 	// - NOT_FOUND: no sandbox has that id (SANDBOX_NOT_FOUND), or it has
 	//   no container of that name (CONTAINER_NOT_FOUND).
 	// - INVALID_ARGUMENT: no command is given (COMMAND_MISSING), or the
-	//   timeout is zero or negative (TIMEOUT_INVALID).
+	//   timeout is zero, negative or more than ten minutes
+	//   (TIMEOUT_INVALID).
 	// - FAILED_PRECONDITION: the sandbox is not running
 	//   (SANDBOX_NOT_RUNNING).
 	// - UNIMPLEMENTED: the driver runs no command in a sandbox
@@ -318,9 +319,9 @@ type SandboxServiceHandler interface {
 	// that sandbox is there (CreateSandboxRequest.request_id).
 	//
 	// ### Errors
-	// - INVALID_ARGUMENT: the spec names no image, or holds something this
-	//   server does not know (SPEC_INVALID); the request_id is longer than
-	//   128 bytes (REQUEST_ID_INVALID).
+	// - INVALID_ARGUMENT: the spec names no image, says no egress mode, or
+	//   holds something this server does not know (SPEC_INVALID); the
+	//   request_id is longer than 128 bytes (REQUEST_ID_INVALID).
 	// - UNIMPLEMENTED: the spec asks for what the driver cannot enforce;
 	//   the message names it (CAPABILITY_NOT_SERVED).
 	// - FAILED_PRECONDITION: the sandbox the same request_id made is
@@ -379,7 +380,8 @@ type SandboxServiceHandler interface {
 	// - NOT_FOUND: no sandbox has that id (SANDBOX_NOT_FOUND), or it has
 	//   no container of that name (CONTAINER_NOT_FOUND).
 	// - INVALID_ARGUMENT: no command is given (COMMAND_MISSING), or the
-	//   timeout is zero or negative (TIMEOUT_INVALID).
+	//   timeout is zero, negative or more than ten minutes
+	//   (TIMEOUT_INVALID).
 	// - FAILED_PRECONDITION: the sandbox is not running
 	//   (SANDBOX_NOT_RUNNING).
 	// - UNIMPLEMENTED: the driver runs no command in a sandbox

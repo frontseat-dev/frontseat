@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	connect "connectrpc.com/connect/v2"
+	"github.com/frontseat-dev/frontseat/sdk/go"
 	sandboxv1 "github.com/frontseat-dev/frontseat/server/sandbox/api/frontseat/sandbox/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/sandbox/api/frontseat/sandbox/v1alpha1/sandboxv1alpha1connect"
 	"github.com/frontseat-dev/frontseat/server/sandbox/driver"
@@ -108,14 +109,13 @@ func madeReaching(t *testing.T, client sandboxv1alpha1connect.SandboxServiceClie
 }
 
 // Under a driver that lets nothing be reached unnamed, a sandbox that
-// says nothing of what it may reach reaches what its rules name and no
-// other, and one that asks to reach anything is refused by name and
-// not made.
+// lists what it may reach reaches what its rules name and no other, and
+// one that asks to reach anything is refused by name and not made.
 func TestUnderADriverThatLetsNothingBeReachedUnnamedASandboxReachesWhatItLists(t *testing.T) {
 	d, client := overClosed(t)
 	ctx := context.Background()
 
-	made := madeReaching(t, client, &sandboxv1.Egress{Rules: []*sandboxv1.EgressRule{{Host: "forge.example:443"}}})
+	made := madeReaching(t, client, &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_LISTED, Rules: []*sandboxv1.EgressRule{{Host: "forge.example:443"}}})
 	asked := d.asked[made.GetId()]
 	if !asked.Egress.Listed || asked.Egress.Block || len(asked.Egress.Rules) != 1 || asked.Egress.Rules[0].Host.String() != "forge.example:443" {
 		t.Errorf("the driver was asked for %+v, want only the host the spec lists", asked.Egress)
@@ -133,12 +133,11 @@ func TestUnderADriverThatLetsNothingBeReachedUnnamedASandboxReachesWhatItLists(t
 }
 
 // The control: a driver whose sandboxes may reach anything is asked for
-// one that does, lists or no lists.
+// one that does.
 func TestUnderADriverWhoseSandboxesReachAnythingNothingChanges(t *testing.T) {
 	client, _ := serve(t)
 	ctx := context.Background()
 	for name, egress := range map[string]*sandboxv1.Egress{
-		"nothing said":    {Rules: []*sandboxv1.EgressRule{{Host: "forge.example:443"}}},
 		"anything, asked": {Mode: sandboxv1.Egress_MODE_ALLOW_ALL},
 	} {
 		if _, err := client.CreateSandbox(ctx, &sandboxv1.CreateSandboxRequest{Spec: &sandboxv1.SandboxSpec{Image: "box", Egress: egress}}); err != nil {
@@ -182,7 +181,7 @@ func TestACredentialIsKeptByTheDriverAndAFetchIsAskedOfIt(t *testing.T) {
 
 	// A rule attaches the credential, and is asked of the driver as it
 	// was given.
-	made := madeReaching(t, client, &sandboxv1.Egress{Rules: []*sandboxv1.EgressRule{{Host: "forge.example", Credential: "adas-forge", Requests: []*sandboxv1.EgressRequest{{Method: "GET", Path: "/acme/code/refs"}}}}})
+	made := madeReaching(t, client, &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_LISTED, Rules: []*sandboxv1.EgressRule{{Host: "forge.example", Credential: "adas-forge", Requests: []*sandboxv1.EgressRequest{{Method: "GET", Path: "/acme/code/refs"}}}}})
 	if got := d.asked[made.GetId()].Egress.Rules; len(got) != 1 || got[0].CredentialID != "adas-forge" {
 		t.Errorf("the driver was asked for the rules %+v, want the credential attached", got)
 	}
@@ -229,7 +228,7 @@ func TestWhatASandboxMayReachIsAskedOfTheDriverRuleByRule(t *testing.T) {
 	fetcher, daemon := []string{"/usr/bin/a-fetcher"}, []string{"/opt/a/daemon"}
 	const refs, pack = "/acme/code/info/refs", "/acme/code/a-service"
 	service := map[string]string{"service": "a-service"}
-	made := madeReaching(t, client, &sandboxv1.Egress{Rules: []*sandboxv1.EgressRule{
+	made := madeReaching(t, client, &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_LISTED, Rules: []*sandboxv1.EgressRule{
 		{Host: forge, Programs: fetcher, Credential: "adas-forge", Requests: []*sandboxv1.EgressRequest{{Method: "GET", Path: refs, Query: service}, {Method: "POST", Path: pack}}},
 		{Host: grid, Programs: daemon},
 		{Host: catalog},
@@ -254,7 +253,7 @@ func TestWhatASandboxMayReachIsAskedOfTheDriverRuleByRule(t *testing.T) {
 		"a host that is an address": {Host: "192.0.2.7"},
 		"a host of no port":         {Host: "forge.example:"},
 	} {
-		_, err := client.CreateSandbox(ctx, &sandboxv1.CreateSandboxRequest{Spec: &sandboxv1.SandboxSpec{Image: "box", Egress: &sandboxv1.Egress{Rules: []*sandboxv1.EgressRule{rule}}}})
+		_, err := client.CreateSandbox(ctx, &sandboxv1.CreateSandboxRequest{Spec: &sandboxv1.SandboxSpec{Image: "box", Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_LISTED, Rules: []*sandboxv1.EgressRule{rule}}}})
 		if connect.CodeOf(err) != connect.CodeInvalidArgument {
 			t.Errorf("%s: %v, want it refused as not well formed", what, err)
 		}
@@ -296,7 +295,7 @@ func TestARefusalOfASandboxRepeatsNothingItRefused(t *testing.T) {
 	_, client := overClosed(t)
 	ctx := context.Background()
 	asked := func(change func(*sandboxv1.SandboxSpec)) error {
-		spec := &sandboxv1.SandboxSpec{Image: "box", Egress: &sandboxv1.Egress{Rules: []*sandboxv1.EgressRule{{Host: "forge.example:443"}}}}
+		spec := &sandboxv1.SandboxSpec{Image: "box", Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_LISTED, Rules: []*sandboxv1.EgressRule{{Host: "forge.example:443"}}}}
 		change(spec)
 		_, err := client.CreateSandbox(ctx, &sandboxv1.CreateSandboxRequest{Spec: spec})
 		return err
@@ -328,5 +327,39 @@ func TestARefusalOfASandboxRepeatsNothingItRefused(t *testing.T) {
 		} else if strings.Contains(strings.ToLower(err.Error()), strings.ToLower(refusedValue[:5])) {
 			t.Errorf("the refusal of %s repeats what it refused: %v", what, err)
 		}
+	}
+}
+
+// A sandbox that says nothing of what it may reach is refused, under a
+// driver that lets nothing be reached unnamed and under one whose
+// sandboxes reach anything alike, and nothing is made: no driver's
+// default stands in for what it did not say. The control is the same
+// sandbox saying what it reaches, as each driver can give it, made under
+// both.
+func TestASandboxThatSaysNothingOfWhatItMayReachIsRefused(t *testing.T) {
+	_, closed := overClosed(t)
+	open, _ := serve(t)
+	for name, c := range map[string]struct {
+		client sandboxv1alpha1connect.SandboxServiceClient
+		said   *sandboxv1.Egress
+	}{
+		"closed": {closed, &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_LISTED, Rules: []*sandboxv1.EgressRule{{Host: "forge.example:443"}}}},
+		"open":   {open, &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_ALL}},
+	} {
+		client := c.client
+		for said, egress := range map[string]*sandboxv1.Egress{
+			"no egress":            nil,
+			"rules and no mode":    {Rules: []*sandboxv1.EgressRule{{Host: "forge.example:443"}}},
+			"an egress of no mode": {},
+		} {
+			_, err := client.CreateSandbox(context.Background(), &sandboxv1.CreateSandboxRequest{Spec: &sandboxv1.SandboxSpec{Image: "box", Egress: egress}})
+			if reason, _ := frontseat.Reason(err); connect.CodeOf(err) != connect.CodeInvalidArgument || reason != "SPEC_INVALID" {
+				t.Errorf("%s, %s: %v; want SPEC_INVALID", name, said, err)
+			}
+		}
+		if listed, err := client.ListSandboxes(context.Background(), &sandboxv1.ListSandboxesRequest{}); err != nil || len(listed.GetSandboxes()) != 0 {
+			t.Errorf("%s: a refused sandbox was made: %v, %v", name, listed.GetSandboxes(), err)
+		}
+		madeReaching(t, client, c.said)
 	}
 }

@@ -42,10 +42,10 @@ func lingering(t *testing.T, held *drivertest.Memory, client sandboxv1alpha1conn
 // is gone once the driver holds it no more. The control is the sandbox that ends at once, which is not
 // found afterwards.
 func TestASandboxWhoseEndingLingersIsStillListed(t *testing.T) {
-	asked := &sandboxv1.CreateSandboxRequest{RequestId: "of-x", Spec: &sandboxv1.SandboxSpec{Image: "box", Labels: map[string]string{"of": "x"}}}
+	asked := &sandboxv1.CreateSandboxRequest{RequestId: "of-x", Spec: &sandboxv1.SandboxSpec{Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_ALL}, Image: "box", Labels: map[string]string{"of": "x"}}}
 	held, client, at := madeOverMemory(t, asked)
 	ctx := context.Background()
-	control := create(t, client, &sandboxv1.SandboxSpec{Image: "box"})
+	control := create(t, client, &sandboxv1.SandboxSpec{Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_ALL}, Image: "box"})
 	if _, err := client.DeleteSandbox(ctx, &sandboxv1.DeleteSandboxRequest{SandboxId: control.GetId()}); err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +91,7 @@ func TestASandboxWhoseEndingLingersIsStillListed(t *testing.T) {
 // request that made it, sent again, makes another. The control is the
 // request sent again before, which is answered with the first.
 func TestASandboxThatEndedByItselfIsForgottenAndItsRequestMakesAnother(t *testing.T) {
-	asked := &sandboxv1.CreateSandboxRequest{RequestId: "of-x", Spec: &sandboxv1.SandboxSpec{Image: "box", Labels: map[string]string{"of": "x"}}}
+	asked := &sandboxv1.CreateSandboxRequest{RequestId: "of-x", Spec: &sandboxv1.SandboxSpec{Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_ALL}, Image: "box", Labels: map[string]string{"of": "x"}}}
 	held, client, first := madeOverMemory(t, asked)
 	ctx := context.Background()
 	if same, err := client.CreateSandbox(ctx, asked); err != nil || same.GetSandbox().GetId() != first.GetId() {
@@ -115,7 +115,7 @@ func TestASandboxThatEndedByItselfIsForgottenAndItsRequestMakesAnother(t *testin
 // The request that made a sandbox, sent again once the sandbox is gone
 // and before anything listed it, makes another all the same.
 func TestARequestWhoseSandboxIsGoneUnlistedMakesAnother(t *testing.T) {
-	asked := &sandboxv1.CreateSandboxRequest{RequestId: "of-y", Spec: &sandboxv1.SandboxSpec{Image: "box"}}
+	asked := &sandboxv1.CreateSandboxRequest{RequestId: "of-y", Spec: &sandboxv1.SandboxSpec{Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_ALL}, Image: "box"}}
 	held, client, first := madeOverMemory(t, asked)
 	ctx := context.Background()
 	gone := lingering(t, held, client, first.GetId())
