@@ -27,6 +27,9 @@ fn after(last: &str, messages: &[&str]) -> VersionRequest {
     }
 }
 
+// Branch and Version answer by the one strategy of each the plugin
+// claims, whatever they are asked: a second claimed is served by a match
+// on the strategy, and this test is changed with it.
 #[test]
 fn it_says_the_strategies_it_serves() {
     let described = crate::served().describe();
