@@ -41,8 +41,14 @@ func NewShell(config ShellConfig) (*Shell, error) {
 	return s, nil
 }
 
-// Address is where the editor endpoint is listening.
-func (s *Shell) Address() string { return s.listener.Addr().String() }
+// Address is where the editor endpoint is listening; nowhere, empty,
+// for the nil Shell.
+func (s *Shell) Address() string {
+	if s == nil {
+		return ""
+	}
+	return s.listener.Addr().String()
+}
 
 // Wait returns when the editor server ends, with its failure if any.
 func (s *Shell) Wait() error {
