@@ -192,3 +192,44 @@ func TestWhatAServiceRefusesIsNotRepeated(t *testing.T) {
 		t.Errorf("a service said by another kind: %v", err)
 	}
 }
+
+// An API a Component's service provides is written as every other
+// reference of its catalog file is, bare and read in the entity's
+// namespace, the kind api where none is written, and held in full. The
+// whole reference is read as before. Refused: a key of another kind, a
+// key that names no entity, and one API written twice in two spellings.
+func TestAServicesAPIIsWrittenAsAReferenceIsWritten(t *testing.T) {
+	component := func(namespace, apis string) files {
+		repository := resourceWith("      program: \":serve\"\n      ports: {http: 80}\n      ready: [{port: http}]\n      apis:\n" + apis)
+		repository["catalog-info.yaml"] = strings.Replace(repository["catalog-info.yaml"], "kind: Resource\nmetadata: {name: db}", "kind: Component\nmetadata: {name: orders, namespace: "+namespace+"}", 1)
+		return repository
+	}
+	export := "{port: http, exports: {ORDERS_URL: \"http://{host}:{port.http}\"}}"
+	for written, want := range map[string]string{
+		"orders-api":             "api:shop/orders-api",
+		"api:orders-api":         "api:shop/orders-api",
+		"api:shop/orders-api":    "api:shop/orders-api",
+		"api:default/orders-api": "api:default/orders-api",
+		"default/orders-api":     "api:default/orders-api",
+		"API:Shop/Orders-Api":    "api:shop/orders-api",
+	} {
+		read, err := config.Read(t.Context(), "repo", component("shop", "        \""+written+"\": "+export+"\n"))
+		if err != nil {
+			t.Errorf("%s: %v", written, err)
+			continue
+		}
+		apis := read.Services()[0].Said.GetApis()
+		if _, held := apis[want]; !held || len(apis) != 1 {
+			t.Errorf("%s: held as %v, want %s", written, apis, want)
+		}
+	}
+	for written, says := range map[string]string{
+		"        component:orders-api: " + export + "\n":                                    "service.apis: an API is named as a reference is written",
+		"        \"api:\": " + export + "\n":                                                "service.apis: an API is named as a reference is written",
+		"        orders-api: " + export + "\n        api:shop/orders-api: " + export + "\n": "service.apis names one API twice",
+	} {
+		if _, err := config.Read(t.Context(), "repo", component("shop", written)); err == nil || !strings.Contains(err.Error(), says) {
+			t.Errorf("want %q, got %v", says, err)
+		}
+	}
+}

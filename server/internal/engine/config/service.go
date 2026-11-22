@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"maps"
@@ -11,6 +12,7 @@ import (
 	"go.yaml.in/yaml/v4"
 
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
+	"github.com/frontseat-dev/frontseat/sdk/go/entity"
 
 	"github.com/frontseat-dev/frontseat/server/internal/engine/internal/yamlnode"
 	"github.com/frontseat-dev/frontseat/server/internal/model"
@@ -169,6 +171,20 @@ func readAPI(node *yaml.Node) (*typev1.ServiceApi, bool) {
 	return api, true
 }
 
+// apiOf reads an API's reference as a catalog file writes one of
+// another entity: the kind api where none is written, and the namespace
+// the entity's own where none is.
+func apiOf(written, namespace string) (entity.Ref, error) {
+	if !strings.Contains(written, ":") {
+		written = "api:" + written
+	}
+	ref, err := entity.ParseIn(written, namespace)
+	if err == nil && ref.Kind != "api" {
+		err = errors.New("not an API")
+	}
+	return ref, err
+}
+
 // readService reads spec.frontseat.service of one catalog document into
 // the shape a service has, each key into the field that holds it. This
 // is the one place a service is turned from what a file holds: text is
@@ -293,6 +309,7 @@ func readService(file, directory string, document, node *yaml.Node) (Service, er
 		// A name is held where it is written, so that its refusal says
 		// its own line: what a service's shape is held to again
 		// (testservice.Shaped) knows no line.
+		apis := map[string]*typev1.ServiceApi{}
 		for i := 0; val.Kind == yaml.MappingNode && i+1 < len(val.Content); i += 2 {
 			name, held := val.Content[i], error(nil)
 			switch key.Value {
@@ -300,10 +317,25 @@ func readService(file, directory string, document, node *yaml.Node) (Service, er
 				held = testservice.Variable(key.Value, name.Value)
 			case "ports":
 				held = testservice.Port(name.Value, said.Ports[name.Value])
+			case "apis":
+				// Written as every reference of the file is, held in full:
+				// two spellings of one API are one API written twice.
+				ref, err := apiOf(name.Value, service.Namespace)
+				switch _, twice := apis[ref.String()]; {
+				case err != nil:
+					held = errors.New("service.apis: an API is named as a reference is written: a name, api:<name> or api:<namespace>/<name>, read in the entity's namespace")
+				case twice:
+					held = errors.New("service.apis names one API twice")
+				default:
+					apis[ref.String()] = said.Apis[name.Value]
+				}
 			}
 			if held != nil {
 				return mistake(name.Line, "%v", held)
 			}
+		}
+		if key.Value == "apis" {
+			said.Apis = apis
 		}
 		if key.Value == "timeout" {
 			said.Timeout = durationpb.New(time.Duration(seconds) * time.Second)
