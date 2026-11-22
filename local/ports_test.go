@@ -11,10 +11,10 @@ import (
 	"github.com/frontseat-dev/frontseat/local/ports"
 )
 
-// listens is where each file that cannot read local/ports, of the stack's
+// said is where each file that cannot read local/ports, of the stack's
 // image and the box's Dockerfile, says a port it holds, to listen on it
 // or to dial it: the text it is said in, with the port's number.
-var listens = []struct {
+var said = []struct {
 	file string
 	text string
 	port int
@@ -34,11 +34,11 @@ var listens = []struct {
 	{"box.Dockerfile", `"--shell", "0.0.0.0:%d"`, ports.Shell},
 }
 
-// listeningElsewhere returns each file of the image that does not say its port as
+// saidElsewhere returns each file that does not say its port as
 // local/ports does, reading each through read.
-func listeningElsewhere(read func(file string) ([]byte, error)) ([]string, error) {
+func saidElsewhere(read func(file string) ([]byte, error)) ([]string, error) {
 	var out []string
-	for _, each := range listens {
+	for _, each := range said {
 		content, err := read(each.file)
 		if err != nil {
 			return nil, err
@@ -53,18 +53,18 @@ func listeningElsewhere(read func(file string) ([]byte, error)) ([]string, error
 // The stack's one container and a box listen, and are dialled, where
 // local/ports says, each port said once there and held here in the
 // files that cannot read it.
-func TestTheStacksImageListensWhereThePortsAreSaid(t *testing.T) {
-	wrong, err := listeningElsewhere(os.ReadFile)
+func TestEveryFileThatCannotReadThePortsSaysThemAsTheyAre(t *testing.T) {
+	wrong, err := saidElsewhere(os.ReadFile)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(wrong) > 0 {
-		t.Errorf("not listening where local/ports says: %s", strings.Join(wrong, ", "))
+		t.Errorf("a port not said as local/ports says it: %s", strings.Join(wrong, ", "))
 	}
 	// The control: a port written otherwise is found.
-	moved, err := listeningElsewhere(func(file string) ([]byte, error) {
+	moved, err := saidElsewhere(func(file string) ([]byte, error) {
 		content, err := os.ReadFile(file)
-		if file == listens[2].file {
+		if file == said[2].file {
 			content = []byte(strings.ReplaceAll(string(content), strconv.Itoa(ports.Grid), "9999"))
 		}
 		return content, err
@@ -72,11 +72,11 @@ func TestTheStacksImageListensWhereThePortsAreSaid(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(moved, []string{listens[2].file}) {
-		t.Errorf("a moved grid port was found in %v, want %s", moved, listens[2].file)
+	if !slices.Equal(moved, []string{said[2].file}) {
+		t.Errorf("a moved grid port was found in %v, want %s", moved, said[2].file)
 	}
 	// And a box's: its daemon told to serve its source API elsewhere.
-	moved, err = listeningElsewhere(func(file string) ([]byte, error) {
+	moved, err = saidElsewhere(func(file string) ([]byte, error) {
 		content, err := os.ReadFile(file)
 		if file == "box.Dockerfile" {
 			content = []byte(strings.ReplaceAll(string(content), strconv.Itoa(ports.Source), "9999"))
