@@ -13,7 +13,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -29,15 +29,28 @@ const suffix = ".json"
 type Dir struct{ dir string }
 
 // Open returns the records kept in a directory, making it, the server's
-// alone, where it is not there.
+// alone, where it is not there. One that is there open to others is
+// narrowed to the server's alone: it is the server's own directory, and
+// what it holds is said to no one else.
 func Open(dir string) (Dir, error) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return Dir{}, err
 	}
+	info, err := os.Stat(dir)
+	if err != nil {
+		return Dir{}, err
+	}
+	if info.Mode().Perm()&0o077 != 0 {
+		if err := os.Chmod(dir, info.Mode().Perm()&0o700); err != nil {
+			return Dir{}, err
+		}
+	}
 	return Dir{dir: dir}, nil
 }
 
-// File is where the record of a name is kept.
+// File is where the record of a name is kept. A name is one its caller
+// has checked to be a plain name: it is joined as it is written, and one
+// that climbs names a file outside the directory.
 func (d Dir) File(name string) string { return filepath.Join(d.dir, name+suffix) }
 
 // Keep writes a record under a name, in place of the one there was.
@@ -58,8 +71,11 @@ func (d Dir) Drop(name string) error {
 }
 
 // Read reads the record of a name into a value, and says whether there
-// is one. A record that holds a field the value has not, or anything
-// after itself, is an error.
+// is one. A record is one JSON object: one that is anything else (null
+// among it), that holds a field the value has not, or that has anything
+// after itself, is an error. A field is matched as encoding/json
+// matches one, its name in any case, and a field written twice is read
+// as the last.
 func (d Dir) Read(name string, into any) (bool, error) {
 	raw, err := os.ReadFile(d.File(name))
 	if errors.Is(err, fs.ErrNotExist) {
@@ -68,13 +84,16 @@ func (d Dir) Read(name string, into any) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	if trimmed := bytes.TrimSpace(raw); len(trimmed) == 0 || trimmed[0] != '{' {
+		return true, errors.New("the record is no JSON object")
+	}
 	reader := json.NewDecoder(bytes.NewReader(raw))
 	reader.DisallowUnknownFields()
 	if err := reader.Decode(into); err != nil {
 		return true, err
 	}
-	if reader.More() {
-		return true, fmt.Errorf("the record holds more than one value")
+	if _, err := reader.Token(); !errors.Is(err, io.EOF) {
+		return true, errors.New("the record holds more than one value")
 	}
 	return true, nil
 }
@@ -97,8 +116,38 @@ func (d Dir) Names() ([]string, error) {
 	return out, nil
 }
 
-// Write writes a file whole: it is written beside and moved into place,
-// so that whoever reads it finds all of it or the one before.
+// Write writes a file whole: it is written beside, in the same
+// directory and named with a dot before it, and moved into place, so
+// that whoever reads it finds all of it or the one before. The file has
+// the mode asked, whatever the one before had and whatever the umask,
+// and once Write returns it is on the disk: the file and the directory
+// that names it are each synced.
 func Write(file string, content []byte, mode os.FileMode) error {
-	return renameio.WriteFile(file, content, mode)
+	dir := filepath.Dir(file)
+	pending, err := renameio.NewPendingFile(file, renameio.WithTempDir(dir), renameio.WithStaticPermissions(mode))
+	if err != nil {
+		return err
+	}
+	// Once it has replaced the file, there is nothing left to clean.
+	defer func() { _ = pending.Cleanup() }()
+	if _, err := pending.Write(content); err != nil {
+		return err
+	}
+	if err := pending.CloseAtomicallyReplace(); err != nil {
+		return err
+	}
+	return synced(dir)
+}
+
+// synced syncs a directory, so that what it names is on the disk.
+func synced(dir string) error {
+	opened, err := os.Open(dir)
+	if err != nil {
+		return err
+	}
+	if err := opened.Sync(); err != nil {
+		_ = opened.Close()
+		return err
+	}
+	return opened.Close()
 }

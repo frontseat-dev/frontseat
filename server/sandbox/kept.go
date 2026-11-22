@@ -16,7 +16,7 @@ import (
 // (server/internal/records). A record is written before its sandbox is
 // made and removed once the sandbox is known to be gone, so that at no
 // moment is there a sandbox the service made and holds no record of.
-type kept struct{ records.Dir }
+type kept struct{ dir records.Dir }
 
 // stored is a record as a file holds it.
 type stored struct {
@@ -36,7 +36,7 @@ func open(dir string) (kept, error) {
 	if err != nil {
 		return kept{}, fmt.Errorf("the sandboxes' records: %w", err)
 	}
-	return kept{d}, nil
+	return kept{dir: d}, nil
 }
 
 // keep writes a sandbox's record, in place of the one there was.
@@ -45,7 +45,7 @@ func (k kept) keep(id string, r *record) error {
 	if err != nil {
 		return err
 	}
-	if err := k.Keep(id, stored{Request: r.request, Spec: spec, Created: r.created}); err != nil {
+	if err := k.dir.Keep(id, stored{Request: r.request, Spec: spec, Created: r.created}); err != nil {
 		return fmt.Errorf("keeping the record of the sandbox %s: %w", id, err)
 	}
 	return nil
@@ -53,7 +53,7 @@ func (k kept) keep(id string, r *record) error {
 
 // drop removes a sandbox's record. Dropping one that is gone succeeds.
 func (k kept) drop(id string) error {
-	if err := k.Drop(id); err != nil {
+	if err := k.dir.Drop(id); err != nil {
 		return fmt.Errorf("dropping the record of the sandbox %s: %w", id, err)
 	}
 	return nil
@@ -63,20 +63,20 @@ func (k kept) drop(id string) error {
 // one written by a server that kept something this one does not know is
 // not read in part.
 func (k kept) all() (map[string]*record, error) {
-	ids, err := k.Names()
+	ids, err := k.dir.Names()
 	if err != nil {
 		return nil, err
 	}
 	out := map[string]*record{}
 	for _, id := range ids {
 		var held stored
-		_, err := k.Read(id, &held)
+		_, err := k.dir.Read(id, &held)
 		spec := &sandboxv1.SandboxSpec{}
 		if err == nil {
 			err = protojson.Unmarshal(held.Spec, spec)
 		}
 		if err != nil {
-			return nil, unread(k.File(id), id, err)
+			return nil, unread(k.dir.File(id), id, err)
 		}
 		out[id] = &record{spec: spec, request: held.Request, created: held.Created, turn: newTurn()}
 	}

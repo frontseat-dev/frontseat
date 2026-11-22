@@ -46,7 +46,8 @@ func TestARecordKeptIsReadBackListedAndDropped(t *testing.T) {
 }
 
 // A record that holds a field its reader does not know is not read in
-// part, and says which; the control, without the field, is read.
+// part, and says which; nor is one that is no JSON object, or that has
+// anything after itself. The control, the object alone, is read.
 func TestARecordOfAFieldItsReaderDoesNotKnowIsRefused(t *testing.T) {
 	dir, err := records.Open(t.TempDir())
 	if err != nil {
@@ -59,11 +60,68 @@ func TestARecordOfAFieldItsReaderDoesNotKnowIsRefused(t *testing.T) {
 	if _, err := dir.Read("one", &read); err == nil || !strings.Contains(err.Error(), "since") {
 		t.Fatalf("err = %v, want the field it does not know named", err)
 	}
+	for what, written := range map[string]string{
+		"null":                       `null`,
+		"a list":                     `[{"owner":"someone"}]`,
+		"a closing bracket after it": `{"owner":"someone"}]`,
+		"a closing brace after it":   `{"owner":"someone"}}`,
+		"another record after it":    `{"owner":"someone"} {"owner":"another"}`,
+		"nothing":                    ``,
+	} {
+		if err := os.WriteFile(dir.File("one"), []byte(written), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if found, err := dir.Read("one", &read); err == nil {
+			t.Errorf("a record of %s is read: %v, %v", what, read, found)
+		}
+	}
 	if err := os.WriteFile(dir.File("one"), []byte(`{"owner":"someone"}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if found, err := dir.Read("one", &read); err != nil || !found || read.Owner != "someone" {
 		t.Errorf("the record without the field is read as %v, %v, %v", read, found, err)
+	}
+}
+
+// A record kept has the mode a record has, whatever the file before it
+// had, and the directory it is kept in is the server's alone, whatever
+// it was when it was opened.
+func TestARecordIsKeptAsTheServersAlone(t *testing.T) {
+	state := filepath.Join(t.TempDir(), "state")
+	if err := os.Mkdir(state, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(state, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	modeOf := func(path string) os.FileMode {
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return info.Mode().Perm()
+	}
+	dir, err := records.Open(state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mode := modeOf(state); mode != 0o700 {
+		t.Errorf("the directory is %v, want the server's alone", mode)
+	}
+	if err := os.WriteFile(dir.File("one"), []byte(`{"owner":"someone"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(dir.File("one"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := dir.Keep("one", kept{Owner: "another"}); err != nil {
+		t.Fatal(err)
+	}
+	if mode := modeOf(dir.File("one")); mode != 0o600 {
+		t.Errorf("the record kept over one others could read is %v, want the server's alone", mode)
+	}
+	if entries, err := os.ReadDir(state); err != nil || len(entries) != 1 {
+		t.Errorf("the directory holds %v, %v, want the record alone", entries, err)
 	}
 }
 
