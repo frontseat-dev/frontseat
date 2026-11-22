@@ -875,7 +875,7 @@ mise run docs:serve       # serve the TechDocs site on http://localhost:8000
 | `sdk/plugin` | The plugin SDK: contract types and their constructors, repository access and paths, strict readers, a refusal (`Error`) and its decoder, findings read from what a check printed; `examples/make.rs`, the plugin an author starts from |
 | `server/git` | Git, run hardened over a checkout, and remotes read |
 | `server/telemetry` | OpenTelemetry providers, propagation, logs, measurements |
-| `server/internal/model`, `.../wire` | Build labels, coordinates; their protobuf conversion |
+| `server/internal/model`, `.../wire` | Build labels, coordinates; their protobuf conversion; the one diagnostic (`model.Mistake`: repository, file, line, rule, reason, message, help) and the one way it is sent (`wire.Failure`) |
 | `server/internal/pluginhost` | Wasm calls, read tracking, plugin-answer validation |
 | `server/internal/httpserver` | A server command's HTTP listener and request lifetime |
 | `server/internal/image` | An image's reference, read by Docker's own parser, and what the container runtime says an image is started with (`Started`) |

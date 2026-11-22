@@ -1,7 +1,7 @@
 package config
 
 import (
-	"fmt"
+	"github.com/frontseat-dev/frontseat/server/internal/model"
 
 	"go.yaml.in/yaml/v4"
 
@@ -44,14 +44,14 @@ func entityOf(document, frontseat *yaml.Node) (entity.Ref, error) {
 	n, hasName := written(name)
 	space, hasSpace := written(namespace)
 	if !hasKind || !hasName || namespace != nil && !hasSpace {
-		return entity.Ref{}, fmt.Errorf("line %d: spec.frontseat is said by an entity, which has a kind and a name, each text, and a namespace, where it says one, of text", frontseat.Line)
+		return entity.Ref{}, &model.Mistake{Line: frontseat.Line, Message: "spec.frontseat is said by an entity, which has a kind and a name, each text, and a namespace, where it says one, of text"}
 	}
 	ref := entity.New(k, space, n)
 	if want, defined := spelled[ref.Kind]; defined && k != want {
-		return entity.Ref{}, fmt.Errorf("line %d: kind is written as Backstage writes it: %s", kind.Line, want)
+		return entity.Ref{}, &model.Mistake{Line: kind.Line, Message: "kind is written as Backstage writes it: " + want}
 	}
 	if ref.Validate() != nil {
-		return entity.Ref{}, fmt.Errorf("line %d: spec.frontseat is said by an entity whose reference is none: a kind, namespace and name are each of letters and digits, with dashes, dots or underscores between them", frontseat.Line)
+		return entity.Ref{}, &model.Mistake{Line: frontseat.Line, Message: "spec.frontseat is said by an entity whose reference is none: a kind, namespace and name are each of letters and digits, with dashes, dots or underscores between them"}
 	}
 	return ref, nil
 }
@@ -60,7 +60,7 @@ func entityOf(document, frontseat *yaml.Node) (entity.Ref, error) {
 // says, where the entity is another.
 func componentOnly(ref entity.Ref, node *yaml.Node, key string) error {
 	if ref.Kind != entity.KindComponent {
-		return fmt.Errorf("line %d: %s belongs to a Component", node.Line, key)
+		return &model.Mistake{Line: node.Line, Message: key + " belongs to a Component"}
 	}
 	return nil
 }

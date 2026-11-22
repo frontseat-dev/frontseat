@@ -2,7 +2,6 @@ package config
 
 import (
 	"errors"
-	"fmt"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"maps"
 	"slices"
@@ -26,9 +25,9 @@ import (
 // plugin answered, held to what a service is (server/internal/testservice).
 // A Component selects one of its programs instead.
 type Service struct {
-	// File is the catalog file it is written in, relative to the
-	// workspace; Directory the entity's directory in the repository; and
-	// Line where in the file it is written.
+	// File is the catalog file it is written in, relative to
+	// Repository; Directory the entity's directory in the repository;
+	// and Line where in the file it is written.
 	File, Directory string
 	Line            int
 	// Entity is the entity it is said by, a Resource or a Component.
@@ -49,8 +48,8 @@ type Service struct {
 
 // Mistake is a mistake in what is said of the service, where it is
 // written.
-func (service Service) Mistake(err error) error {
-	return &model.Mistake{File: service.File, Message: fmt.Sprintf("line %d: %v", service.Line, err)}
+func (service Service) Mistake(err error) *model.Mistake {
+	return &model.Mistake{Repository: service.Repository, File: service.File, Line: service.Line, Message: err.Error()}
 }
 
 // serviceValues is what each key of a service takes, as a mistake says
@@ -183,9 +182,9 @@ func apiOf(written, namespace string) (entity.Ref, error) {
 // shape can hold wrongly is refused by the one check of it
 // (testservice.Shaped). A key written to say nothing is refused: what is
 // written is kept by the plugin as it is, and nothing cannot be kept.
-func readService(file, directory string, ref entity.Ref, node *yaml.Node) (Service, error) {
+func readService(file place, directory string, ref entity.Ref, node *yaml.Node) (Service, error) {
 	mistake := func(line int, format string, a ...any) (Service, error) {
-		return Service{}, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: ", line) + fmt.Sprintf(format, a...)}
+		return Service{}, file.at(line, format, a...)
 	}
 	if ref.Kind != "resource" && ref.Kind != entity.KindComponent {
 		return mistake(node.Line, "only a Resource or Component is started as a service")
@@ -193,12 +192,12 @@ func readService(file, directory string, ref entity.Ref, node *yaml.Node) (Servi
 	if node.Kind != yaml.MappingNode {
 		return mistake(node.Line, "service is a map: what it is, and what is written of it")
 	}
-	service := Service{File: file, Directory: directory, Line: node.Line, Entity: ref, Said: &typev1.Service{}}
+	service := Service{Repository: file.repository, File: file.file, Directory: directory, Line: node.Line, Entity: ref, Said: &typev1.Service{}}
 	said := service.Said
 	for i := 0; i+1 < len(node.Content); i += 2 {
 		key, val := node.Content[i], node.Content[i+1]
 		if _, taken := serviceValues[key.Value]; !taken {
-			return mistake(key.Line, "service takes no key %s; it takes %s", key.Value, strings.Join(slices.Sorted(maps.Keys(serviceValues)), ", "))
+			return Service{}, &model.Mistake{Repository: file.repository, File: file.file, Line: key.Line, Message: "service takes no key " + key.Value, Help: "it takes " + strings.Join(slices.Sorted(maps.Keys(serviceValues)), ", ")}
 		}
 		// Nothing among what is written is null: a list that held one
 		// would be read without it, and what is started would not be

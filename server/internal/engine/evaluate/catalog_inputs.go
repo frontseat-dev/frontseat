@@ -73,12 +73,12 @@ func readCatalogInputs(repository, directory, file, what string, written []strin
 		case pattern.IsReference(input):
 			named++
 		case rooted && !pattern.Valid(within):
-			return catalogReading{}, &model.Mistake{File: file, Message: fmt.Sprintf("%s: its input %d is not a pattern of files beneath the repository's root", what, i+1)}
+			return catalogReading{}, &model.Mistake{Repository: repository, File: file, Message: fmt.Sprintf("%s: its input %d is not a pattern of files beneath the repository's root", what, i+1)}
 		case rooted:
 		case strings.HasPrefix(input, "="):
-			return catalogReading{}, &model.Mistake{File: file, Message: fmt.Sprintf("%s: its input %d names an input set, which a catalog file declares none of", what, i+1)}
+			return catalogReading{}, &model.Mistake{Repository: repository, File: file, Message: fmt.Sprintf("%s: its input %d names an input set, which a catalog file declares none of", what, i+1)}
 		case !pattern.Valid(input):
-			return catalogReading{}, &model.Mistake{File: file, Message: fmt.Sprintf("%s: its input %d is not a pattern of files beneath the project", what, i+1)}
+			return catalogReading{}, &model.Mistake{Repository: repository, File: file, Message: fmt.Sprintf("%s: its input %d is not a pattern of files beneath the project", what, i+1)}
 		default:
 			sources++
 		}
@@ -100,9 +100,9 @@ func readCatalogInputs(repository, directory, file, what string, written []strin
 		}
 		ref, err := model.ParseReference(repository, directory, input)
 		if err != nil {
-			return catalogReading{}, &model.Mistake{File: file, Message: fmt.Sprintf("%s: %s", what, strings.TrimPrefix(err.Error(), "model: "))}
+			return catalogReading{}, &model.Mistake{Repository: repository, File: file, Message: fmt.Sprintf("%s: %s", what, strings.TrimPrefix(err.Error(), "model: "))}
 		}
-		out.references = append(out.references, plan.Reference{Reference: ref, File: file})
+		out.references = append(out.references, plan.Reference{Reference: ref, Repository: repository, File: file})
 	}
 	return out, nil
 }

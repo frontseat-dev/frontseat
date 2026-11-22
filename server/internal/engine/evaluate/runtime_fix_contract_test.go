@@ -28,7 +28,7 @@ func TestATestIsNotGivenWhatItsOwnCommandSets(t *testing.T) {
 	out := evaluation(map[string]string{"TEST_REVIEW_VALUE": "own"})
 	err := testRuntimes(&out, configured, nil)
 	var mistake *model.Mistake
-	if !errors.As(err, &mistake) || mistake.File != "app/catalog-info.yaml" || !strings.Contains(mistake.Message, "TEST_REVIEW_VALUE") {
+	if !errors.As(err, &mistake) || mistake.Where() != "app/catalog-info.yaml" || !strings.Contains(mistake.Message, "TEST_REVIEW_VALUE") {
 		t.Fatalf("given what its command sets, the setting was taken: %v", err)
 	}
 	out = evaluation(nil)

@@ -62,8 +62,8 @@ func TestTwoDocumentsThatDeclareOneActionAreRefused(t *testing.T) {
 			if !errors.As(err, &mistake) {
 				t.Fatalf("err = %v, want the file's mistake", err)
 			}
-			if mistake.File != "provider/catalog-info.yaml" || !strings.Contains(mistake.Message, "//provider:custom.lint is declared by more than one document") {
-				t.Fatalf("mistake = %q in %q, want the action named in its file", mistake.Message, mistake.File)
+			if mistake.Where() != "provider/catalog-info.yaml" || !strings.Contains(mistake.Message, "//provider:custom.lint is declared by more than one document") {
+				t.Fatalf("mistake = %q in %q, want the action named in its file", mistake.Message, mistake.Where())
 			}
 		})
 	}

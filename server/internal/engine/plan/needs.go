@@ -21,7 +21,8 @@ func Check(actions []Action) error {
 	for _, action := range actions {
 		for _, need := range action.Needs {
 			if _, held := byLabel[need.String()]; !held {
-				return &model.Mistake{File: written(action), Message: fmt.Sprintf("%s reads what %s leaves, which is not in the workspace", action.Label, need)}
+				repository, file := written(action)
+				return &model.Mistake{Repository: repository, File: file, Message: fmt.Sprintf("%s reads what %s leaves, which is not in the workspace", action.Label, need)}
 			}
 		}
 	}
@@ -45,13 +46,13 @@ func Check(actions []Action) error {
 			circle := append(append([]string{}, along[from:]...), label)
 			// The file is the first a reference of the circle was
 			// written in, whichever action the walk began at.
-			file := ""
+			repository, file := "", ""
 			for _, each := range circle {
-				if file = written(byLabel[each]); file != "" {
+				if repository, file = written(byLabel[each]); file != "" {
 					break
 				}
 			}
-			return &model.Mistake{File: file, Message: circle[0] + " reads what " + strings.Join(circle[1:], " leaves, which reads what ") + " leaves"}
+			return &model.Mistake{Repository: repository, File: file, Message: circle[0] + " reads what " + strings.Join(circle[1:], " leaves, which reads what ") + " leaves"}
 		}
 		state[label] = walking
 		along = append(along, label)
@@ -72,15 +73,15 @@ func Check(actions []Action) error {
 	return nil
 }
 
-// written is the catalog file an action's references were written in;
-// empty for a plugin's action.
-func written(action Action) string {
+// written is the catalog file an action's references were written in,
+// and its repository; empty for a plugin's action.
+func written(action Action) (repository, file string) {
 	for _, ref := range action.References {
 		if ref.File != "" {
-			return ref.File
+			return ref.Repository, ref.File
 		}
 	}
-	return ""
+	return "", ""
 }
 
 // With returns the chosen actions and everything they need, each after

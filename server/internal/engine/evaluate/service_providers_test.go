@@ -19,7 +19,7 @@ func TestResourceDependenciesKeepTheirExplicitEnvironment(t *testing.T) {
 	idp.Said.Environment = map[string]string{"DB": "{db.port.sql}"}
 	declared := map[entity.Ref][]entity.Ref{component: {ref("default", "idp")}, ref("default", "idp"): {ref("default", "db")}}
 	started := map[entity.Ref]config.Service{ref("default", "db"): db, ref("default", "idp"): idp}
-	beside, _, err := besideOf(component, "app/catalog-info.yaml", declared, started, nil)
+	beside, _, err := besideOf(component, manifest{file: "app/catalog-info.yaml"}, declared, started, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -31,7 +31,7 @@ func TestResourceDependenciesKeepTheirExplicitEnvironment(t *testing.T) {
 		t.Error("Resource unexpectedly received its dependency's export TOKEN")
 	}
 	idp.Said.Environment["TOKEN"] = "idp-token"
-	if _, _, err := besideOf(component, "app/catalog-info.yaml", declared, started, nil); err != nil {
+	if _, _, err := besideOf(component, manifest{file: "app/catalog-info.yaml"}, declared, started, nil); err != nil {
 		t.Fatalf("explicit Resource environment was refused: %v", err)
 	}
 }
@@ -70,7 +70,7 @@ func TestAProviderBindingConflictNamesTheSameVariableEachTime(t *testing.T) {
 	declared := map[entity.Ref][]entity.Ref{component: {provider}, provider: {ref("default", "db")}}
 	started := map[entity.Ref]config.Service{ref("default", "db"): db, provider: app}
 	for range 256 {
-		_, _, err := besideOf(component, "app/catalog-info.yaml", declared, started, nil)
+		_, _, err := besideOf(component, manifest{file: "app/catalog-info.yaml"}, declared, started, nil)
 		if err == nil || !strings.Contains(err.Error(), "sets A, which a dependency exports") {
 			t.Fatalf("the first conflicting binding was not named: %v", err)
 		}

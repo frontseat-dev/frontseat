@@ -161,7 +161,7 @@ func evaluate(ctx context.Context, src Source, plugins []*pluginhost.Plugin, ans
 		for _, name := range configured.Plugins() {
 			plugin := pluginhost.Named(plugins, name)
 			if plugin == nil {
-				return out, &model.Mistake{File: path.Join(repository, config.File), Message: fmt.Sprintf("there is no plugin %s", name)}
+				return out, &model.Mistake{Repository: repository, File: config.File, Message: fmt.Sprintf("there is no plugin %s", name)}
 			}
 			if err := configured.Check(name, plugin.Description.GetOptions()); err != nil {
 				return out, err
@@ -197,7 +197,7 @@ func evaluate(ctx context.Context, src Source, plugins []*pluginhost.Plugin, ans
 			// anything is resolved: a need would be met by whichever was
 			// read last, and one of the two never run.
 			if declared[action.Label] {
-				return out, &model.Mistake{File: own.File, Message: fmt.Sprintf("%s is declared by more than one document: an action has one declaration", action.Label)}
+				return out, &model.Mistake{Repository: own.Repository, File: own.File, Message: fmt.Sprintf("%s is declared by more than one document: an action has one declaration", action.Label)}
 			}
 			declared[action.Label] = true
 			out.Actions = append(out.Actions, action)
@@ -212,7 +212,7 @@ func evaluate(ctx context.Context, src Source, plugins []*pluginhost.Plugin, ans
 			written.Repository = repository
 			ref := written.Entity
 			if other, twice := started[ref]; twice {
-				return out, &model.Mistake{File: written.File, Message: fmt.Sprintf("%s is started twice: here and in %s", ref, other.File)}
+				return out, &model.Mistake{Repository: written.Repository, File: written.File, Message: fmt.Sprintf("%s is started twice: here and in %s", ref, path.Join(other.Repository, other.File))}
 			}
 			// How it is started is what the plugin it names says.
 			l := written
@@ -242,7 +242,7 @@ func evaluate(ctx context.Context, src Source, plugins []*pluginhost.Plugin, ans
 			if conflict.Duplicate {
 				rule, reason, help = "catalog/duplicate-entity", "DUPLICATE_ENTITY", "Give each catalog entity one descriptor; use distinct namespaces for different entities with the same name."
 			}
-			err = wire.SourceMistake(conflict.Repository, conflict.Manifest, rule, reason, conflict.Message, help)
+			err = &model.Mistake{Repository: conflict.Repository, File: conflict.Manifest, Rule: rule, Reason: reason, Message: conflict.Message, Help: help}
 		}
 		return out, err
 	}
@@ -407,10 +407,10 @@ func kept(ctx context.Context, src Source, plugins []*pluginhost.Plugin, answers
 		if !held.outOfStep {
 			continue
 		}
-		shown := path.Join(held.descriptor.Repository, held.descriptor.Manifest)
+		at := manifest{held.descriptor.Repository, held.descriptor.Manifest}
 		plugin := byName[held.descriptor.Plugin]
 		if plugin == nil {
-			return nil, &model.Mistake{File: shown, Message: fmt.Sprintf("the plugin %s that found its entities is not loaded", held.descriptor.Plugin)}
+			return nil, at.mistake("the plugin %s that found its entities is not loaded", held.descriptor.Plugin)
 		}
 		request := &pluginv1.ReconcileRequest{Context: held.descriptor.Context, Root: held.descriptor.Root, Entities: held.resolved}
 		response := new(pluginv1.ReconcileResponse)
@@ -419,7 +419,7 @@ func kept(ctx context.Context, src Source, plugins []*pluginhost.Plugin, answers
 			return nil, mistaken(held.descriptor.Repository, err)
 		}
 		if err := pluginhost.CheckReconciliation(held.descriptor.Plugin, request, response); err != nil {
-			return nil, &model.Mistake{File: shown, Message: err.Error()}
+			return nil, at.mistake("%v", err)
 		}
 		fixed := held.raw
 		for _, edit := range response.GetEdits() {
@@ -428,11 +428,11 @@ func kept(ctx context.Context, src Source, plugins []*pluginhost.Plugin, answers
 			}
 			var err error
 			if fixed, err = yamlnode.SetStrings(fixed, int(edit.GetDocument()), edit.GetKeys(), edit.GetValues()); err != nil {
-				return nil, &model.Mistake{File: shown, Message: err.Error()}
+				return nil, at.mistake("%v", err)
 			}
 		}
 		if bytes.Equal(fixed, held.raw) {
-			return nil, &model.Mistake{File: shown, Message: fmt.Sprintf("the plugin %s proposes no change, though the file does not say what the source says", held.descriptor.Plugin)}
+			return nil, at.mistake("the plugin %s proposes no change, though the file does not say what the source says", held.descriptor.Plugin)
 		}
 		// The plugin's own reading of what it proposed must say what the
 		// source says: the graph and the rewrite agree, or neither is used.
@@ -443,7 +443,7 @@ func kept(ctx context.Context, src Source, plugins []*pluginhost.Plugin, answers
 		}
 		for _, resolved := range held.resolved {
 			if err := agrees(again, resolved); err != nil {
-				return nil, &model.Mistake{File: shown, Message: fmt.Sprintf("the plugin %s's rewrite does not say what the source says: %v", held.descriptor.Plugin, err)}
+				return nil, at.mistake("the plugin %s's rewrite does not say what the source says: %v", held.descriptor.Plugin, err)
 			}
 		}
 		actions[n].InStep.Fixed = fixed
@@ -552,7 +552,7 @@ func tools(ctx context.Context, repository string, files config.Reader) (map[str
 	}
 	versions, err := pins.Versions(raw)
 	if err != nil {
-		return nil, &model.Mistake{File: path.Join(repository, pins.Files[0]), Message: err.Error()}
+		return nil, &model.Mistake{Repository: repository, File: pins.Files[0], Message: err.Error()}
 	}
 	return versions, nil
 }
@@ -735,13 +735,13 @@ func custom(repository string, own config.Action) (plan.Action, error) {
 		action.Declared.Kind = &pluginv1.Action_Package{Package: &pluginv1.Package{}}
 	}
 	if err := pluginhost.CheckRewrites(what, own.Rewrites); err != nil {
-		return plan.Action{}, &model.Mistake{File: own.File, Message: err.Error()}
+		return plan.Action{}, &model.Mistake{Repository: own.Repository, File: own.File, Message: err.Error()}
 	}
 	if err := pluginhost.CheckFix(what, action.Declared); err != nil {
-		return plan.Action{}, &model.Mistake{File: own.File, Message: err.Error()}
+		return plan.Action{}, &model.Mistake{Repository: own.Repository, File: own.File, Message: err.Error()}
 	}
 	if err := pluginhost.CheckOutputs(what, own.Outputs); err != nil {
-		return plan.Action{}, &model.Mistake{File: own.File, Message: err.Error()}
+		return plan.Action{}, &model.Mistake{Repository: own.Repository, File: own.File, Message: err.Error()}
 	}
 	for _, output := range own.Outputs {
 		action.Declared.Outputs = append(action.Declared.Outputs, &pluginv1.Output{Path: output})
@@ -751,24 +751,24 @@ func custom(repository string, own config.Action) (plan.Action, error) {
 	if own.Kind == config.KindProgram {
 		action.Declared.Kind = &pluginv1.Action_Program{Program: &pluginv1.Program{}}
 		if err := pluginhost.CheckProgram(action.Declared); err != nil {
-			return plan.Action{}, &model.Mistake{File: own.File, Message: err.Error()}
+			return plan.Action{}, &model.Mistake{Repository: own.Repository, File: own.File, Message: err.Error()}
 		}
 	}
 	if own.Kind == config.KindPublish {
 		// What it reads is nothing: it is given its unit's artifacts.
 		if len(own.Inputs) > 0 {
-			return plan.Action{}, &model.Mistake{File: own.File, Message: what + " publishes and says what it reads: it is given its unit's artifacts, and reads nothing else"}
+			return plan.Action{}, &model.Mistake{Repository: own.Repository, File: own.File, Message: what + " publishes and says what it reads: it is given its unit's artifacts, and reads nothing else"}
 		}
 		action.Declared.Kind = &pluginv1.Action_Publish{Publish: &pluginv1.Publish{Environment: own.InheritEnvironment}}
 		if err := pluginhost.CheckPublish(what, action.Declared); err != nil {
-			return plan.Action{}, &model.Mistake{File: own.File, Message: err.Error()}
+			return plan.Action{}, &model.Mistake{Repository: own.Repository, File: own.File, Message: err.Error()}
 		}
 	}
 	if err := pluginhost.CheckVersion(what, action.Declared); err != nil {
-		return plan.Action{}, &model.Mistake{File: own.File, Message: err.Error()}
+		return plan.Action{}, &model.Mistake{Repository: own.Repository, File: own.File, Message: err.Error()}
 	}
 	if err := pluginhost.CheckPackage(what, action.Declared); err != nil {
-		return plan.Action{}, &model.Mistake{File: own.File, Message: err.Error()}
+		return plan.Action{}, &model.Mistake{Repository: own.Repository, File: own.File, Message: err.Error()}
 	}
 	return action, nil
 }

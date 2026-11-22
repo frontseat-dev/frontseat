@@ -3,6 +3,7 @@ package release
 import (
 	"fmt"
 	"maps"
+	"path"
 	"slices"
 	"sort"
 	"strings"
@@ -130,7 +131,7 @@ func Resolve(w Workspace) (*Resolved, error) {
 	said := map[entity.Ref]config.Release{}
 	for _, each := range w.Said {
 		if other, twice := said[each.Entity]; twice {
-			return nil, &model.Mistake{File: each.File, Message: fmt.Sprintf("%s says how it is released twice: here and in %s", each.Entity, other.File)}
+			return nil, &model.Mistake{Repository: each.Repository, File: each.File, Message: fmt.Sprintf("%s says how it is released twice: here and in %s", each.Entity, path.Join(other.Repository, other.File))}
 		}
 		said[each.Entity] = each
 	}
@@ -148,7 +149,7 @@ func Resolve(w Workspace) (*Resolved, error) {
 		case 1:
 			return found[0], true, nil
 		}
-		return entity.Ref{}, false, &model.Mistake{File: said[ref].File, Message: fmt.Sprintf("%s is part of %s and %s; it is released with one %s", ref, found[0], found[1], kind)}
+		return entity.Ref{}, false, &model.Mistake{Repository: said[ref].Repository, File: said[ref].File, Message: fmt.Sprintf("%s is part of %s and %s; it is released with one %s", ref, found[0], found[1], kind)}
 	}
 	// inherited resolves the settings every level passes down.
 	inherited := func(levels ...entity.Ref) Settings {
@@ -185,7 +186,7 @@ func Resolve(w Workspace) (*Resolved, error) {
 	member := func(ref, unit entity.Ref) error {
 		for _, key := range slices.Sorted(maps.Keys(said[ref].Settings)) {
 			if key != config.ReleaseGrouping {
-				return &model.Mistake{File: said[ref].File, Message: fmt.Sprintf("%s versions with %s, which says how it is released: spec.frontseat.release.%s is the group's to say", ref.Name, unit.Name, key)}
+				return &model.Mistake{Repository: said[ref].Repository, File: said[ref].File, Message: fmt.Sprintf("%s versions with %s, which says how it is released: spec.frontseat.release.%s is the group's to say", ref.Name, unit.Name, key)}
 			}
 		}
 		return nil
@@ -238,7 +239,7 @@ func Resolve(w Workspace) (*Resolved, error) {
 			if out.settings[domain].Synced && says && own == config.GroupingSynced {
 				// Synced here would say two things: that its members version
 				// together, and that it versions with its domain.
-				return nil, &model.Mistake{File: said[ref].File, Message: fmt.Sprintf("%s is part of the synced domain %s, which groups it: say independent to release it on its own, or nothing", ref.Name, domain.Name)}
+				return nil, &model.Mistake{Repository: said[ref].Repository, File: said[ref].File, Message: fmt.Sprintf("%s is part of the synced domain %s, which groups it", ref.Name, domain.Name), Help: "say independent to release it on its own, or nothing"}
 			}
 			if out.settings[domain].Synced && !says {
 				if err := member(ref, domain); err != nil {
@@ -292,9 +293,9 @@ func Resolve(w Workspace) (*Resolved, error) {
 		}
 		if says && own == config.GroupingSynced {
 			if !in {
-				return nil, &model.Mistake{File: said[ref].File, Message: fmt.Sprintf("%s says it versions with its group, and is part of no system", ref.Name)}
+				return nil, &model.Mistake{Repository: said[ref].Repository, File: said[ref].File, Message: fmt.Sprintf("%s says it versions with its group, and is part of no system", ref.Name)}
 			}
-			return nil, &model.Mistake{File: said[ref].File, Message: fmt.Sprintf("%s says it versions with %s, which says its members version on their own", ref.Name, system.Name)}
+			return nil, &model.Mistake{Repository: said[ref].Repository, File: said[ref].File, Message: fmt.Sprintf("%s says it versions with %s, which says its members version on their own", ref.Name, system.Name)}
 		}
 		levels := []entity.Ref{ref}
 		group := ref

@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"github.com/frontseat-dev/frontseat/server/internal/model"
 	"maps"
 	"regexp"
 	"slices"
@@ -14,16 +15,15 @@ import (
 	"go.yaml.in/yaml/v4"
 
 	"github.com/frontseat-dev/frontseat/sdk/go/entity"
-	"github.com/frontseat-dev/frontseat/server/internal/model"
 )
 
 // Release is what one entity's catalog file says of how it is released:
 // spec.frontseat.release. A setting it does not say is inherited, or is
 // the default; which is for whoever resolves it to say.
 type Release struct {
-	// File is the catalog file it is written in, relative to the
-	// workspace.
-	File string
+	// Repository is the repository it is written in; File the catalog
+	// file, relative to it.
+	Repository, File string
 	// Entity is the entity that says it.
 	Entity entity.Ref
 	// Settings are the settings it says, by key, each as it is written.
@@ -69,9 +69,9 @@ var (
 // file. Each setting is text, written directly, and is checked as far as
 // it can be alone: what it means beside other entities' is for whoever
 // resolves them.
-func readRelease(file string, ref entity.Ref, node *yaml.Node) (Release, error) {
+func readRelease(file place, ref entity.Ref, node *yaml.Node) (Release, error) {
 	mistake := func(line int, format string, a ...any) (Release, error) {
-		return Release{}, &model.Mistake{File: file, Message: fmt.Sprintf(format, a...) + fmt.Sprintf(" (line %d)", line)}
+		return Release{}, file.at(line, format, a...)
 	}
 	if node.Kind != yaml.MappingNode {
 		return mistake(node.Line, "spec.frontseat.release is a map of settings: %s", releaseSettings)
@@ -82,12 +82,12 @@ func readRelease(file string, ref entity.Ref, node *yaml.Node) (Release, error) 
 	if !slices.Contains([]string{KindDomain, KindSystem, entity.KindComponent}, ref.Kind) {
 		return mistake(node.Line, "spec.frontseat.release is said by a Domain, a System or a Component")
 	}
-	out := Release{File: file, Entity: ref, Settings: map[string]string{}}
+	out := Release{Repository: file.repository, File: file.file, Entity: ref, Settings: map[string]string{}}
 	for i := 0; i+1 < len(node.Content); i += 2 {
 		key, said := node.Content[i], node.Content[i+1]
 		switch {
 		case !releaseKeys[key.Value]:
-			return mistake(key.Line, "spec.frontseat.release.%s is no release setting; it takes %s", key.Value, releaseSettings)
+			return Release{}, &model.Mistake{Repository: file.repository, File: file.file, Line: key.Line, Message: fmt.Sprintf("spec.frontseat.release.%s is no release setting", key.Value), Help: "it takes " + releaseSettings}
 		case key.Value == ReleasePrereleaseTag && said.Kind == yaml.ScalarNode && said.ShortTag() == "!!bool":
 			// Whether a prerelease is tagged is true or false, as the
 			// YAML reader reads them, and is kept as it reads it.

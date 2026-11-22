@@ -151,7 +151,7 @@ func TestAnActionRefusesAKeyItDoesNotTake(t *testing.T) {
 			"catalog-info.yaml": "apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata: {name: app}\nspec:\n  frontseat:\n    actions:\n      serve:\n        " + key + ": true\n        tools: [caddy]\n        command: [caddy, run]\n",
 		})
 	}
-	if _, err := read("serves"); err == nil || !strings.Contains(err.Error(), "line 8: an action takes no key serves; it takes command,") {
+	if _, err := read("serves"); err == nil || !strings.Contains(err.Error(), ":8: an action takes no key serves; it takes command,") {
 		t.Errorf("an action with a key it does not take: %v", err)
 	}
 	if got, err := read("versioned"); err != nil || len(got.Actions()) != 1 || !got.Actions()[0].Versioned {
@@ -184,18 +184,18 @@ func TestAnActionIsOfOneKind(t *testing.T) {
 		}
 	}
 	for keys, says := range map[string]string{
-		"        kind: test\n":                             "line 9: kind is one of build, check, program, package and publish",
-		"        kind: [check]\n":                          "line 9: kind is one of build, check, program, package and publish",
-		"        check: true\n":                            "line 9: an action takes no key check; it takes command, description, fix, inherit-environment, inputs, kind, outputs, rewrites, tools, versioned",
+		"        kind: test\n":                             ":9: kind is one of build, check, program, package and publish",
+		"        kind: [check]\n":                          ":9: kind is one of build, check, program, package and publish",
+		"        check: true\n":                            ":9: an action takes no key check; it takes command, description, fix, inherit-environment, inputs, kind, outputs, rewrites, tools, versioned",
 		"        program: true\n":                          "an action takes no key program",
 		"        publish: true\n":                          "an action takes no key publish",
 		"        package: true\n":                          "an action takes no key package",
-		"        fix: [lint, --fix]\n":                     "line 9: the action lint says fix, which only an action of kind check takes",
-		"        rewrites: [\"*.md\"]\n":                   "line 9: the action lint says rewrites, which only an action of kind check takes",
-		"        inherit-environment: [GH_TOKEN]\n":        "line 9: the action lint says inherit-environment, which only an action of kind publish takes",
-		"        kind: package\n":                          "line 9: the action lint is of kind package and says no outputs: what it leaves is what is shipped",
-		"        kind: program\n        versioned: true\n": "line 10: the action lint says versioned, which only an action of kind build or package takes",
-		"        kind: publish\n        versioned: true\n": "line 10: the action lint says versioned, which only an action of kind build or package takes",
+		"        fix: [lint, --fix]\n":                     ":9: the action lint says fix, which only an action of kind check takes",
+		"        rewrites: [\"*.md\"]\n":                   ":9: the action lint says rewrites, which only an action of kind check takes",
+		"        inherit-environment: [GH_TOKEN]\n":        ":9: the action lint says inherit-environment, which only an action of kind publish takes",
+		"        kind: package\n":                          ":9: the action lint is of kind package and says no outputs: what it leaves is what is shipped",
+		"        kind: program\n        versioned: true\n": ":10: the action lint says versioned, which only an action of kind build or package takes",
+		"        kind: publish\n        versioned: true\n": ":10: the action lint says versioned, which only an action of kind build or package takes",
 	} {
 		if _, err := read(keys); err == nil || !strings.Contains(err.Error(), says) {
 			t.Errorf("%q: want %q, got %v", keys, says, err)
@@ -221,11 +221,11 @@ func TestAPluginsOptionsAreSetOnceForADirectoryByAComponent(t *testing.T) {
 	if held, err := got.Options("tool", declared, "service/cmd"); err != nil || !held[2].Value.GetBoolValue() || held[2].Origin != "repo/service/catalog-info.yaml" {
 		t.Fatalf("control, the option beneath its directory: %v, %v", held, err)
 	}
-	if _, err := read(document("Component", "service", "true") + "---\n" + document("Component", "other", "false")); err == nil || !strings.Contains(err.Error(), "line 13: spec.frontseat.plugins is said twice for one directory, here and in repo/service/catalog-info.yaml") {
+	if _, err := read(document("Component", "service", "true") + "---\n" + document("Component", "other", "false")); err == nil || !strings.Contains(err.Error(), ":13: spec.frontseat.plugins is said twice for one directory, here and in repo/service/catalog-info.yaml") {
 		t.Errorf("two settings for one directory: %v", err)
 	}
 	for _, kind := range []string{"System", "Domain", "Resource", "API"} {
-		if _, err := read(document(kind, "service", "true")); err == nil || !strings.Contains(err.Error(), "line 6: spec.frontseat.plugins is said by a Component") {
+		if _, err := read(document(kind, "service", "true")); err == nil || !strings.Contains(err.Error(), ":6: spec.frontseat.plugins is said by a Component") {
 			t.Errorf("a %s that sets an option: %v", kind, err)
 		}
 	}
@@ -239,7 +239,7 @@ func TestWhichOptionIsRefusedDoesNotChangeBetweenReads(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := read.Check("tool", declared); err == nil || !strings.Contains(err.Error(), "line 4: the tool plugin takes no option alpha") {
+		if err := read.Check("tool", declared); err == nil || !strings.Contains(err.Error(), ":4: the tool plugin takes no option alpha") {
 			t.Fatalf("the option refused: %v", err)
 		}
 	}

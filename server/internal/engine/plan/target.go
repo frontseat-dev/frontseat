@@ -42,7 +42,7 @@ func Pointed(actions []Action, entities []record.Located, targets, only []string
 			// A program is run, and is no part of a build: pointed
 			// at by itself, it is said so, and never built in passing.
 			if actions[i].IsProgram() && strings.HasPrefix(target, "//") {
-				return nil, &model.Mistake{Message: fmt.Sprintf("%s is a program, which no build runs: frontseat run %s", target, target)}
+				return nil, &model.Mistake{Message: fmt.Sprintf("%s is a program, which no build runs", target), Help: "frontseat run " + target}
 			}
 			// Nor is what publishes: a release runs it, once its tags
 			// are pushed.
@@ -63,7 +63,7 @@ func Pointed(actions []Action, entities []record.Located, targets, only []string
 			}
 		}
 		if !known[name] {
-			return nil, &model.Mistake{Message: fmt.Sprintf("no action is named %s%s", name, nearest(name, slices.Collect(maps.Keys(known))))}
+			return nil, &model.Mistake{Message: "no action is named " + name, Help: nearest(name, slices.Collect(maps.Keys(known)))}
 		}
 		names[name] = true
 	}
@@ -133,7 +133,7 @@ func pointed(actions []Action, entities []record.Located, target string) ([]int,
 		if len(pieces) > 0 {
 			return pieces, nil
 		}
-		return nil, &model.Mistake{Message: fmt.Sprintf("there is no action %s%s", target, nearest(target, labels))}
+		return nil, &model.Mistake{Message: "there is no action " + target, Help: nearest(target, labels)}
 
 	case target == "." || strings.Contains(target, "/") && !strings.Contains(target, ":"):
 		at := strings.Trim(path.Clean(target), "/")
@@ -204,7 +204,7 @@ func pointed(actions []Action, entities []record.Located, target string) ([]int,
 	case len(paths) > 0:
 		return nil, &model.Mistake{Message: fmt.Sprintf("nothing is built for %s, at %s", target, strings.Join(paths, " and "))}
 	}
-	return nil, &model.Mistake{Message: fmt.Sprintf("there is no entity %s in the workspace%s", target, nearest(target, names))}
+	return nil, &model.Mistake{Message: fmt.Sprintf("there is no entity %s in the workspace", target), Help: nearest(target, names)}
 }
 
 // beneath returns the actions of the projects at or under a directory of
@@ -237,7 +237,12 @@ func nearest(name string, known []string) string {
 	if best == "" {
 		return ""
 	}
-	return "; did you mean " + best + "?"
+	return "did you mean " + best + "?"
+}
+
+// helped is what helps, each clause of it that says anything, in turn.
+func helped(clauses ...string) string {
+	return strings.Join(slices.DeleteFunc(clauses, func(clause string) bool { return clause == "" }), "; ")
 }
 
 // distance is how many letters must be changed, added or dropped to turn
@@ -287,9 +292,9 @@ func Program(actions []Action, target string) (runs []Action, program Action, er
 	}
 	switch {
 	case found < 0:
-		return nil, Action{}, &model.Mistake{Message: fmt.Sprintf("there is no program %s%s; %s", target, nearest(target, programs), offered(programs))}
+		return nil, Action{}, &model.Mistake{Message: "there is no program " + target, Help: helped(nearest(target, programs), offered(programs))}
 	case !actions[found].IsProgram():
-		return nil, Action{}, &model.Mistake{Message: fmt.Sprintf("%s is a step of a build, and no program: frontseat build %s; %s", target, target, offered(programs))}
+		return nil, Action{}, &model.Mistake{Message: target + " is a step of a build, and no program", Help: helped("frontseat build "+target, offered(programs))}
 	}
 	if actions[found].HasSources() || len(actions[found].Declared.GetTools()) > 0 {
 		return nil, Action{}, &model.Mistake{Message: fmt.Sprintf("%s needs prepared source or tools: this program is supported for test services, not for frontseat run", target)}

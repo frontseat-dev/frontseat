@@ -38,10 +38,10 @@ func testRuntimes(out *Evaluation, configured map[string][]config.TestRuntime, p
 		for _, written := range configured[repository] {
 			key := testOwner{repository, written.Entity}
 			if !known[key] {
-				return &model.Mistake{File: written.File, Message: fmt.Sprintf("test runtime settings name %s, which the catalog has not discovered in this repository", written.Entity)}
+				return &model.Mistake{Repository: written.Repository, File: written.File, Message: fmt.Sprintf("test runtime settings name %s, which the catalog has not discovered in this repository", written.Entity)}
 			}
 			if _, twice := settings[key]; twice {
-				return &model.Mistake{File: written.File, Message: fmt.Sprintf("%s declares test runtime data twice", written.Entity)}
+				return &model.Mistake{Repository: written.Repository, File: written.File, Message: fmt.Sprintf("%s declares test runtime data twice", written.Entity)}
 			}
 			reading, err := readCatalogInputs(repository, written.Directory, written.File, "test.inputs", written.Inputs)
 			if err != nil {
@@ -49,7 +49,7 @@ func testRuntimes(out *Evaluation, configured map[string][]config.TestRuntime, p
 			}
 			for _, tool := range written.Tools {
 				if pinned[repository][tool] == "" {
-					return &model.Mistake{File: written.File, Message: fmt.Sprintf("test.tools names %q, which this repository's mise.toml does not pin", tool)}
+					return &model.Mistake{Repository: written.Repository, File: written.File, Message: fmt.Sprintf("test.tools names %q, which this repository's mise.toml does not pin", tool)}
 				}
 			}
 			settings[key] = prepared{written, reading}
@@ -95,7 +95,7 @@ func testRuntimes(out *Evaluation, configured map[string][]config.TestRuntime, p
 			}
 		}
 		if twice != "" {
-			return &model.Mistake{File: setting.File, Message: fmt.Sprintf("test.environment gives %s, which %s sets for itself", twice, action.Label)}
+			return &model.Mistake{Repository: setting.Repository, File: setting.File, Message: fmt.Sprintf("test.environment gives %s, which %s sets for itself", twice, action.Label)}
 		}
 		action.Environment = setting.Environment
 	}

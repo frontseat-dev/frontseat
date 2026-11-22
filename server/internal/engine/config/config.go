@@ -81,8 +81,9 @@ type Repository struct {
 // shipped is the platforms one catalog file says its entity ships for,
 // which hold for its directory and beneath.
 type shipped struct {
-	file, directory string
-	platforms       []string
+	file      place
+	directory string
+	platforms []string
 }
 
 // platform is what a platform is written as: an operating system and
@@ -91,9 +92,9 @@ var platform = regexp.MustCompile(`^[a-z0-9]+/[a-z0-9]+$`)
 
 // readPlatforms reads spec.frontseat.platforms of one document: a list
 // of platforms, each once.
-func readPlatforms(file string, node *yaml.Node) ([]string, error) {
+func readPlatforms(file place, node *yaml.Node) ([]string, error) {
 	mistake := func(line int, format string, a ...any) ([]string, error) {
-		return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: ", line) + fmt.Sprintf(format, a...)}
+		return nil, file.at(line, format, a...)
 	}
 	if node.Kind != yaml.SequenceNode {
 		return mistake(node.Line, "spec.frontseat.platforms is a list of the platforms the entity ships for, each <os>/<arch>, as linux/amd64")
@@ -138,9 +139,9 @@ func (r *Repository) TestRuntimes() []TestRuntime { return r.tests }
 
 // Action is an action of an entity's own, as its catalog file writes it.
 type Action struct {
-	// File is the catalog file it is written in, relative to the
-	// workspace.
-	File string
+	// Repository is the repository it is written in; File the catalog
+	// file, relative to it.
+	Repository, File string
 	// Directory is the entity's directory in the repository; empty for
 	// the repository's root.
 	Directory string
@@ -205,8 +206,36 @@ var onlyOf = map[string][]string{
 
 // scope is what one catalog file sets, for its directory and beneath.
 type scope struct {
-	file, directory string
-	plugins         map[string]map[string]*yaml.Node
+	file place
+	// origin is file as the workspace names it, which an option set
+	// there says it is set in.
+	origin    string
+	directory string
+	plugins   map[string]map[string]*yaml.Node
+}
+
+// place is a file of a repository: where what is read of it is written,
+// and where a mistake in it is.
+type place struct{ repository, file string }
+
+// String is the file as the workspace names it.
+func (p place) String() string { return path.Join(p.repository, p.file) }
+
+// at is a mistake at a line of the file.
+func (p place) at(line int, format string, a ...any) error {
+	return &model.Mistake{Repository: p.repository, File: p.file, Line: line, Message: fmt.Sprintf(format, a...)}
+}
+
+// in is the mistake err says, in the file: at the line it says, if it
+// says one.
+func (p place) in(err error) error {
+	var said *model.Mistake
+	if errors.As(err, &said) {
+		in := *said
+		in.Repository, in.File = p.repository, p.file
+		return &in
+	}
+	return &model.Mistake{Repository: p.repository, File: p.file, Message: err.Error()}
 }
 
 // Read reads a repository's configuration. A repository with no
@@ -229,14 +258,14 @@ func Read(ctx context.Context, name string, files Reader) (*Repository, error) {
 		return nil, err
 	}
 	if len(documents) > 1 {
-		return nil, &model.Mistake{File: r.origin(File), Message: "it holds more than one document"}
+		return nil, r.origin(File).in(errors.New("it holds more than one document"))
 	}
 	if len(documents) == 1 {
 		root := documents[0]
 		for i := 0; i+1 < len(root.Content); i += 2 {
 			key, value := root.Content[i], root.Content[i+1]
 			if key.Value != "plugins" {
-				return nil, &model.Mistake{File: r.origin(File), Message: fmt.Sprintf("line %d: it takes no key %s; a repository lists its plugins under plugins", key.Line, key.Value)}
+				return nil, &model.Mistake{Repository: r.name, File: File, Line: key.Line, Message: fmt.Sprintf("it takes no key %s", key.Value), Help: "a repository lists its plugins under plugins"}
 			}
 			if r.listed, r.repository, err = plugins(r.origin(File), value); err != nil {
 				return nil, err
@@ -255,7 +284,8 @@ func Read(ctx context.Context, name string, files Reader) (*Repository, error) {
 		if err != nil {
 			return nil, err
 		}
-		documents, err := parse(r.origin(file), raw, false)
+		written := r.origin(file)
+		documents, err := parse(written, raw, false)
 		if err != nil {
 			return nil, err
 		}
@@ -267,23 +297,23 @@ func Read(ctx context.Context, name string, files Reader) (*Repository, error) {
 			frontseat := yamlnode.Child(yamlnode.Child(document, "spec"), "frontseat")
 			spec, err := yamlnode.ResolvedChild(document, "spec")
 			if err != nil {
-				return nil, &model.Mistake{File: r.origin(file), Message: err.Error()}
+				return nil, written.in(err)
 			}
 			if spec != nil {
 				resolved, err := yamlnode.ResolvedChild(spec, "frontseat")
 				if err != nil {
-					return nil, &model.Mistake{File: r.origin(file), Message: err.Error()}
+					return nil, written.in(err)
 				}
 				if resolved != nil && frontseat == nil {
-					return nil, &model.Mistake{File: r.origin(file), Message: "spec.frontseat must be written directly, not inherited through an alias or merge"}
+					return nil, written.in(errors.New("spec.frontseat must be written directly, not inherited through an alias or merge"))
 				}
 			}
 			if frontseat != nil {
 				if frontseat.Kind != yaml.MappingNode {
-					return nil, &model.Mistake{File: r.origin(file), Message: "spec.frontseat must be a map"}
+					return nil, written.in(errors.New("spec.frontseat must be a map"))
 				}
 				if err := strict(frontseat, true); err != nil {
-					return nil, &model.Mistake{File: r.origin(file), Message: err.Error()}
+					return nil, written.in(err)
 				}
 			}
 			// What is under spec.frontseat is frontseat's to read, all of
@@ -293,7 +323,7 @@ func Read(ctx context.Context, name string, files Reader) (*Repository, error) {
 				for i := 0; i+1 < len(frontseat.Content); i += 2 {
 					key := frontseat.Content[i]
 					if key.Value != "actions" && key.Value != "plugins" && key.Value != "service" && key.Value != "release" && key.Value != "test" && key.Value != "generated" && key.Value != "platforms" {
-						return nil, &model.Mistake{File: r.origin(file), Message: fmt.Sprintf("line %d: spec.frontseat takes no key %s; it takes actions, generated, platforms, plugins, release, service and test", key.Line, key.Value)}
+						return nil, &model.Mistake{Repository: r.name, File: file, Line: key.Line, Message: fmt.Sprintf("spec.frontseat takes no key %s", key.Value), Help: "it takes actions, generated, platforms, plugins, release, service and test"}
 					}
 				}
 			}
@@ -303,29 +333,29 @@ func Read(ctx context.Context, name string, files Reader) (*Repository, error) {
 			// The entity is read once, one way, for every key it says.
 			ref, err := entityOf(document, frontseat)
 			if err != nil {
-				return nil, &model.Mistake{File: r.origin(file), Message: err.Error()}
+				return nil, written.in(err)
 			}
 			if node := yamlnode.Child(frontseat, "test"); node != nil {
-				read, err := readTestRuntime(r.origin(file), directory, ref, node)
+				read, err := readTestRuntime(written, directory, ref, node)
 				if err != nil {
 					return nil, err
 				}
 				for _, before := range r.tests {
 					if before.Entity == read.Entity {
-						return nil, &model.Mistake{File: read.File, Message: fmt.Sprintf("%s declares test runtime data twice, here and in %s", read.Entity, before.File)}
+						return nil, written.in(fmt.Errorf("%s declares test runtime data twice, here and in %s", read.Entity, path.Join(before.Repository, before.File)))
 					}
 				}
 				r.tests = append(r.tests, read)
 			}
 			if node := yamlnode.Child(frontseat, "generated"); node != nil {
-				read, err := readGenerated(r.origin(file), directory, ref, node)
+				read, err := readGenerated(written, directory, ref, node)
 				if err != nil {
 					return nil, err
 				}
 				for _, said := range read {
 					for _, before := range r.generated {
 						if before.Directory == said.Directory {
-							return nil, &model.Mistake{File: said.File, Message: fmt.Sprintf("%s is said to be generated twice: here and in %s", said.Directory, before.File)}
+							return nil, written.in(fmt.Errorf("%s is said to be generated twice: here and in %s", said.Directory, path.Join(before.Repository, before.File)))
 						}
 					}
 					r.generated = append(r.generated, said)
@@ -336,35 +366,35 @@ func Read(ctx context.Context, name string, files Reader) (*Repository, error) {
 				// directory, and a Component alone has one: a System or
 				// a Domain is no directory, and says none.
 				if ref.Kind != entity.KindComponent {
-					return nil, &model.Mistake{File: r.origin(file), Message: fmt.Sprintf("line %d: spec.frontseat.platforms is said by a Component, for what is built beneath its directory", node.Line)}
+					return nil, written.at(node.Line, "spec.frontseat.platforms is said by a Component, for what is built beneath its directory")
 				}
-				read, err := readPlatforms(r.origin(file), node)
+				read, err := readPlatforms(written, node)
 				if err != nil {
 					return nil, err
 				}
 				for _, before := range r.platforms {
 					if before.directory == directory {
-						return nil, &model.Mistake{File: r.origin(file), Message: fmt.Sprintf("line %d: spec.frontseat.platforms is said twice for one directory, here and in %s", node.Line, before.file)}
+						return nil, written.at(node.Line, "spec.frontseat.platforms is said twice for one directory, here and in %s", before.file)
 					}
 				}
-				r.platforms = append(r.platforms, shipped{file: r.origin(file), directory: directory, platforms: read})
+				r.platforms = append(r.platforms, shipped{file: written, directory: directory, platforms: read})
 			}
 			if node := yamlnode.Child(frontseat, "service"); node != nil {
-				service, err := readService(r.origin(file), directory, ref, node)
+				service, err := readService(written, directory, ref, node)
 				if err != nil {
 					return nil, err
 				}
 				r.services = append(r.services, service)
 			}
 			if node := yamlnode.Child(frontseat, "release"); node != nil {
-				release, err := readRelease(r.origin(file), ref, node)
+				release, err := readRelease(written, ref, node)
 				if err != nil {
 					return nil, err
 				}
 				r.releases = append(r.releases, release)
 			}
 			if own := yamlnode.Child(frontseat, "actions"); own != nil {
-				read, err := actions(r.origin(file), directory, own)
+				read, err := actions(written, directory, own)
 				if err != nil {
 					return nil, err
 				}
@@ -378,18 +408,18 @@ func Read(ctx context.Context, name string, files Reader) (*Repository, error) {
 			// platform does, and a Component alone has one: what holds for
 			// the whole repository is said in its own file.
 			if ref.Kind != entity.KindComponent {
-				return nil, &model.Mistake{File: r.origin(file), Message: fmt.Sprintf("line %d: spec.frontseat.plugins is said by a Component, for what is built beneath its directory; what holds for the repository is said in %s", set.Line, File)}
+				return nil, &model.Mistake{Repository: r.name, File: file, Line: set.Line, Message: "spec.frontseat.plugins is said by a Component, for what is built beneath its directory", Help: "what holds for the repository is said in " + File}
 			}
 			for _, before := range r.entities {
 				if before.directory == directory {
-					return nil, &model.Mistake{File: r.origin(file), Message: fmt.Sprintf("line %d: spec.frontseat.plugins is said twice for one directory, here and in %s", set.Line, before.file)}
+					return nil, written.at(set.Line, "spec.frontseat.plugins is said twice for one directory, here and in %s", before.file)
 				}
 			}
-			_, options, err := plugins(r.origin(file), set)
+			_, options, err := plugins(written, set)
 			if err != nil {
 				return nil, err
 			}
-			r.entities = append(r.entities, scope{file: r.origin(file), directory: directory, plugins: options})
+			r.entities = append(r.entities, scope{file: written, origin: written.String(), directory: directory, plugins: options})
 		}
 	}
 	// The nearest setting wins, so the deepest directory is applied last.
@@ -398,8 +428,8 @@ func Read(ctx context.Context, name string, files Reader) (*Repository, error) {
 	return r, nil
 }
 
-// origin is a file of the repository as the workspace names it.
-func (r *Repository) origin(file string) string { return path.Join(r.name, file) }
+// origin is a file of the repository.
+func (r *Repository) origin(file string) place { return place{r.name, file} }
 
 // Plugins returns the plugins the repository lists, in its order.
 func (r *Repository) Plugins() []string { return r.listed }
@@ -412,20 +442,20 @@ func (r *Repository) Actions() []Action { return r.actions }
 var named = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`)
 
 // actions reads a mapping of an entity's own actions.
-func actions(file, directory string, node *yaml.Node) ([]Action, error) {
+func actions(file place, directory string, node *yaml.Node) ([]Action, error) {
 	if node.Kind != yaml.MappingNode {
-		return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: actions is a map of actions, each by its name", node.Line)}
+		return nil, file.at(node.Line, "actions is a map of actions, each by its name")
 	}
 	var out []Action
 	for i := 0; i+1 < len(node.Content); i += 2 {
 		name, body := node.Content[i], node.Content[i+1]
 		if !named.MatchString(name.Value) {
-			return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: an action's name is lower-case letters, digits and dashes, beginning with a letter or a digit", name.Line)}
+			return nil, file.at(name.Line, "an action's name is lower-case letters, digits and dashes, beginning with a letter or a digit")
 		}
 		if body.Kind != yaml.MappingNode {
-			return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: the action %s is a map: its command, and what it reads and writes", body.Line, name.Value)}
+			return nil, file.at(body.Line, "the action %s is a map: its command, and what it reads and writes", name.Value)
 		}
-		action := Action{File: file, Directory: directory, Name: name.Value, Kind: KindBuild}
+		action := Action{Repository: file.repository, File: file.file, Directory: directory, Name: name.Value, Kind: KindBuild}
 		// said is where each key is written, for a refusal by its kind.
 		said := map[string]int{}
 		for j := 0; j+1 < len(body.Content); j += 2 {
@@ -436,7 +466,7 @@ func actions(file, directory string, node *yaml.Node) ([]Action, error) {
 			case "description":
 				// What it does, said for whoever reads the file.
 				if value.Kind != yaml.ScalarNode || value.ShortTag() != "!!str" {
-					return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: description is text", value.Line)}
+					return nil, file.at(value.Line, "description is text")
 				}
 				continue
 			case "command":
@@ -456,39 +486,39 @@ func actions(file, directory string, node *yaml.Node) ([]Action, error) {
 			case "kind":
 				kind, ok := text(value)
 				if !ok || !slices.Contains(kinds, kind) {
-					return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: kind is one of %s and %s", value.Line, strings.Join(kinds[:len(kinds)-1], ", "), kinds[len(kinds)-1])}
+					return nil, file.at(value.Line, "kind is one of %s and %s", strings.Join(kinds[:len(kinds)-1], ", "), kinds[len(kinds)-1])
 				}
 				action.Kind = kind
 				continue
 			case "versioned":
 				if value.Kind != yaml.ScalarNode || value.ShortTag() != "!!bool" || value.Decode(&action.Versioned) != nil {
-					return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: versioned is true or false", value.Line)}
+					return nil, file.at(value.Line, "versioned is true or false")
 				}
 				continue
 			default:
-				return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: an action takes no key %s; it takes command, description, fix, inherit-environment, inputs, kind, outputs, rewrites, tools, versioned", key.Line, key.Value)}
+				return nil, &model.Mistake{Repository: file.repository, File: file.file, Line: key.Line, Message: "an action takes no key " + key.Value, Help: "it takes command, description, fix, inherit-environment, inputs, kind, outputs, rewrites, tools, versioned"}
 			}
 			read, wrong := textList(value)
 			switch {
 			case wrong == value:
-				return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: %s is a list", value.Line, key.Value)}
+				return nil, file.at(value.Line, "%s is a list", key.Value)
 			case wrong != nil:
-				return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: %s is a list of text", wrong.Line, key.Value)}
+				return nil, file.at(wrong.Line, "%s is a list of text", key.Value)
 			}
 			*list = read
 		}
 		if len(action.Command) == 0 {
-			return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: the action %s says no command", name.Line, name.Value)}
+			return nil, file.at(name.Line, "the action %s says no command", name.Value)
 		}
 		// What only some kinds take is refused, where it is written, by
 		// an action of another.
 		for _, key := range slices.Sorted(maps.Keys(onlyOf)) {
 			if line, written := said[key]; written && !slices.Contains(onlyOf[key], action.Kind) {
-				return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: the action %s says %s, which only an action of kind %s takes", line, name.Value, key, strings.Join(onlyOf[key], " or "))}
+				return nil, file.at(line, "the action %s says %s, which only an action of kind %s takes", name.Value, key, strings.Join(onlyOf[key], " or "))
 			}
 		}
 		if action.Kind == KindPackage && len(action.Outputs) == 0 {
-			return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: the action %s is of kind package and says no outputs: what it leaves is what is shipped", said["kind"], name.Value)}
+			return nil, file.at(said["kind"], "the action %s is of kind package and says no outputs: what it leaves is what is shipped", name.Value)
 		}
 		out = append(out, action)
 	}
@@ -520,7 +550,7 @@ func (r *Repository) Check(plugin string, declared []*pluginv1.OptionDeclaration
 	for _, entity := range r.entities {
 		for _, name := range slices.Sorted(maps.Keys(entity.plugins)) {
 			if !slices.Contains(r.listed, name) {
-				return &model.Mistake{File: entity.file, Message: fmt.Sprintf("it sets options of the %s plugin, which the repository does not list in %s", name, File)}
+				return entity.file.in(fmt.Errorf("it sets options of the %s plugin, which the repository does not list in %s", name, File))
 			}
 		}
 	}
@@ -565,8 +595,9 @@ func (r *Repository) Options(plugin string, declared []*pluginv1.OptionDeclarati
 // an entity's, against what the plugin declared.
 func (r *Repository) settle(plugin string, declared []*pluginv1.OptionDeclaration, entity *scope) (map[string]Option, error) {
 	file, set := r.origin(File), r.repository[plugin]
+	origin := ""
 	if entity != nil {
-		file, set = entity.file, entity.plugins[plugin]
+		file, origin, set = entity.file, entity.origin, entity.plugins[plugin]
 	}
 	out := map[string]Option{}
 	// The first by name is the one refused, whenever it is read.
@@ -579,16 +610,19 @@ func (r *Repository) settle(plugin string, declared []*pluginv1.OptionDeclaratio
 			}
 		}
 		if option == nil {
-			return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: the %s plugin takes no option %s%s", node.Line, plugin, name, taken(declared))}
+			return nil, &model.Mistake{Repository: file.repository, File: file.file, Line: node.Line, Message: fmt.Sprintf("the %s plugin takes no option %s", plugin, name), Help: taken(declared)}
 		}
 		if entity != nil && !option.GetEntitySettable() {
-			return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: %s is set for a repository, in %s, and not by a Component", node.Line, name, File)}
+			return nil, file.at(node.Line, "%s is set for a repository, in %s, and not by a Component", name, File)
 		}
 		value, err := valueOf(option, node)
 		if err != nil {
-			return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: %s", node.Line, err)}
+			return nil, file.at(node.Line, "%s", err)
 		}
-		out[name] = Option{Name: name, Value: value, Origin: file}
+		if origin == "" {
+			origin = file.String()
+		}
+		out[name] = Option{Name: name, Value: value, Origin: origin}
 	}
 	return out, nil
 }
@@ -596,14 +630,14 @@ func (r *Repository) settle(plugin string, declared []*pluginv1.OptionDeclaratio
 // taken says which options a plugin takes, for whoever misspelt one.
 func taken(declared []*pluginv1.OptionDeclaration) string {
 	if len(declared) == 0 {
-		return "; it takes none"
+		return "it takes none"
 	}
 	names := make([]string, 0, len(declared))
 	for _, option := range declared {
 		names = append(names, option.GetName())
 	}
 	sort.Strings(names)
-	return "; it takes " + strings.Join(names, ", ")
+	return "it takes " + strings.Join(names, ", ")
 }
 
 // valueOf reads a value as the kind its option takes.
@@ -645,9 +679,9 @@ func valueOf(option *pluginv1.OptionDeclaration, node *yaml.Node) (*typev1.Optio
 }
 
 // plugins reads a mapping of plugins to what is set of each.
-func plugins(file string, node *yaml.Node) ([]string, map[string]map[string]*yaml.Node, error) {
+func plugins(file place, node *yaml.Node) ([]string, map[string]map[string]*yaml.Node, error) {
 	if node.Kind != yaml.MappingNode {
-		return nil, nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: plugins is a map of plugins, each to what it sets", node.Line)}
+		return nil, nil, file.at(node.Line, "plugins is a map of plugins, each to what it sets")
 	}
 	var names []string
 	set := map[string]map[string]*yaml.Node{}
@@ -662,7 +696,7 @@ func plugins(file string, node *yaml.Node) ([]string, map[string]map[string]*yam
 				set[name.Value][options.Content[j].Value] = options.Content[j+1]
 			}
 		default:
-			return nil, nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: what is set of the %s plugin is a map of its options", options.Line, name.Value)}
+			return nil, nil, file.at(options.Line, "what is set of the %s plugin is a map of its options", name.Value)
 		}
 	}
 	return names, set, nil
@@ -670,9 +704,9 @@ func plugins(file string, node *yaml.Node) ([]string, map[string]map[string]*yam
 
 // parse rejects duplicate keys throughout. Aliases are forbidden in Frontseat
 // configuration; catalog-owned fields follow their ecosystem's YAML semantics.
-func parse(file string, raw []byte, noAliases bool) ([]*yaml.Node, error) {
+func parse(file place, raw []byte, noAliases bool) ([]*yaml.Node, error) {
 	if len(raw) > yamlnode.MaxDocumentBytes {
-		return nil, &model.Mistake{File: file, Message: "configuration exceeds 4 MiB"}
+		return nil, file.in(errors.New("configuration exceeds 4 MiB"))
 	}
 	var documents []*yaml.Node
 	decoder := yaml.NewDecoder(bytes.NewReader(raw))
@@ -683,7 +717,7 @@ func parse(file string, raw []byte, noAliases bool) ([]*yaml.Node, error) {
 			return documents, nil
 		}
 		if err != nil {
-			return nil, &model.Mistake{File: file, Message: err.Error()}
+			return nil, file.in(err)
 		}
 		if len(document.Content) == 0 {
 			continue
@@ -693,10 +727,10 @@ func parse(file string, raw []byte, noAliases bool) ([]*yaml.Node, error) {
 			continue
 		}
 		if root.Kind != yaml.MappingNode {
-			return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: a document is a map", root.Line)}
+			return nil, file.at(root.Line, "a document is a map")
 		}
 		if err := strict(root, noAliases); err != nil {
-			return nil, &model.Mistake{File: file, Message: err.Error()}
+			return nil, file.in(err)
 		}
 		documents = append(documents, root)
 	}
@@ -704,14 +738,14 @@ func parse(file string, raw []byte, noAliases bool) ([]*yaml.Node, error) {
 
 func strict(node *yaml.Node, noAliases bool) error {
 	if noAliases && (node.Kind == yaml.AliasNode || node.Anchor != "") {
-		return fmt.Errorf("line %d: anchors and aliases are not read; write the value out", node.Line)
+		return &model.Mistake{Line: node.Line, Message: "anchors and aliases are not read", Help: "write the value out"}
 	}
 	if node.Kind == yaml.MappingNode {
 		seen := map[string]bool{}
 		for i := 0; i+1 < len(node.Content); i += 2 {
 			key := node.Content[i]
 			if seen[key.Value] {
-				return fmt.Errorf("line %d: %s is set twice", key.Line, key.Value)
+				return &model.Mistake{Line: key.Line, Message: key.Value + " is set twice"}
 			}
 			seen[key.Value] = true
 		}

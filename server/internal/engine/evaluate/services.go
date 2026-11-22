@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
-	"path"
 	"regexp"
 	"slices"
 	"strconv"
@@ -75,9 +74,9 @@ func services(out *Evaluation, services map[entity.Ref]config.Service) error {
 	}
 	// The catalog file each entity is written in: where a mistake in
 	// what a component's tests are given is said.
-	files := map[entity.Ref]string{}
+	files := map[entity.Ref]manifest{}
 	for _, node := range out.Catalog.Nodes(nil) {
-		files[node.Ref] = path.Join(node.Repository, node.Manifest)
+		files[node.Ref] = manifest{node.Repository, node.Manifest}
 	}
 	made := map[entity.Ref]givenBeside{}
 	for i := range out.Actions {
@@ -163,7 +162,7 @@ func serviceRelationships(nodes []catalog.Node, descriptors []catalog.Descriptor
 			if node.Ref.Kind == "component" && relation.Type == "consumesApi" && relation.Target.Kind == "api" {
 				matches := providers[relation.Target]
 				if len(matches) > 1 {
-					return nil, nil, &model.Mistake{File: path.Join(node.Repository, node.Manifest), Message: fmt.Sprintf("%s consumes %s, which has more than one prepared service provider: %s", node.Ref, relation.Target, matches)}
+					return nil, nil, &model.Mistake{Repository: node.Repository, File: node.Manifest, Message: fmt.Sprintf("%s consumes %s, which has more than one prepared service provider: %s", node.Ref, relation.Target, matches)}
 				}
 				declared[node.Ref] = append(declared[node.Ref], matches...)
 				for _, provider := range matches {
@@ -233,13 +232,21 @@ func servicePrograms(out *Evaluation, services map[entity.Ref]config.Service) (m
 // component's own, written in file, or a service's. With what the tests
 // are given it returns each service's name in the sandbox, so that
 // nobody reads the sandbox again to learn them.
-func besideOf(component entity.Ref, file string, declared map[entity.Ref][]entity.Ref, services map[entity.Ref]config.Service, apis apiEdges) (*plan.Beside, []sandboxed, error) {
+// manifest is the catalog file an entity is written in, where a mistake
+// in what it says is said.
+type manifest struct{ repository, file string }
+
+func (m manifest) mistake(format string, a ...any) error {
+	return &model.Mistake{Repository: m.repository, File: m.file, Message: fmt.Sprintf(format, a...)}
+}
+
+func besideOf(component entity.Ref, file manifest, declared map[entity.Ref][]entity.Ref, services map[entity.Ref]config.Service, apis apiEdges) (*plan.Beside, []sandboxed, error) {
 	order, err := startOrder(component, declared, services)
 	if err != nil || len(order) == 0 {
 		return nil, nil, err
 	}
 	if len(order) > servicesAtMost {
-		return nil, nil, &model.Mistake{File: file, Message: fmt.Sprintf("%s needs more than %d runtime services", component, servicesAtMost)}
+		return nil, nil, file.mistake("%s needs more than %d runtime services", component, servicesAtMost)
 	}
 	names := map[entity.Ref]string{}
 	started := make([]sandboxed, len(order))
@@ -301,7 +308,7 @@ func besideOf(component entity.Ref, file string, declared map[entity.Ref][]entit
 	// every service it is given an endpoint of, by its entity; no export
 	// is named so, whether or not there are endpoints to tell.
 	if _, exported := environment[endpointsVariable]; exported {
-		return nil, nil, &model.Mistake{File: file, Message: fmt.Sprintf("%s is given %s by an export, and it is where a test is told its services' endpoints", component, endpointsVariable)}
+		return nil, nil, file.mistake("%s is given %s by an export, and it is where a test is told its services' endpoints", component, endpointsVariable)
 	}
 	if len(endpoints) > 0 {
 		told, err := json.Marshal(endpoints)
@@ -488,7 +495,7 @@ func startOrder(component entity.Ref, declared map[entity.Ref][]entity.Ref, serv
 		case 2:
 			return nil
 		case 1:
-			return &model.Mistake{File: services[ref].File, Message: fmt.Sprintf("runtime service startup cycle: %s depends on itself: %s", ref, strings.Join(append(path, ref.String()), " -> "))}
+			return &model.Mistake{Repository: services[ref].Repository, File: services[ref].File, Message: fmt.Sprintf("runtime service startup cycle: %s depends on itself: %s", ref, strings.Join(append(path, ref.String()), " -> "))}
 		}
 		state[ref] = 1
 		for _, dep := range started(declared[ref], services) {

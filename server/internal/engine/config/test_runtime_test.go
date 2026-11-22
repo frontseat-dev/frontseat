@@ -20,7 +20,7 @@ func TestATestRuntimeDeclaresDataAndNeverAReplacementCommand(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := read.TestRuntimes()
-	if len(got) != 1 || got[0].Directory != "parent" || got[0].File != "repo/parent/catalog-info.yaml" || got[0].Entity.String() != "component:default/app" || len(got[0].Inputs) != 2 || len(got[0].Tools) != 1 || got[0].Environment["MODE"] != "test" {
+	if len(got) != 1 || got[0].Directory != "parent" || got[0].Repository != "repo" || got[0].File != "parent/catalog-info.yaml" || got[0].Entity.String() != "component:default/app" || len(got[0].Inputs) != 2 || len(got[0].Tools) != 1 || got[0].Environment["MODE"] != "test" {
 		t.Fatalf("runtime declaration lost its origin or data: %+v", got)
 	}
 	for _, body := range []string{

@@ -15,7 +15,7 @@ import (
 // input set is a project's, and a catalog file declares none. A mistake
 // names the file and what was being read, once.
 func TestCatalogInputsAreSourceOrWhatAnotherActionLeft(t *testing.T) {
-	read, err := readCatalogInputs("lab", "chain", "lab/chain/catalog-info.yaml", "the action report", []string{"src/**", ":go.fetch", "!src/skip/**", "//lib:made/"})
+	read, err := readCatalogInputs("lab", "chain", "chain/catalog-info.yaml", "the action report", []string{"src/**", ":go.fetch", "!src/skip/**", "//lib:made/"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -24,7 +24,7 @@ func TestCatalogInputsAreSourceOrWhatAnotherActionLeft(t *testing.T) {
 	}
 	var written []string
 	for _, reference := range read.references {
-		if reference.File != "lab/chain/catalog-info.yaml" || reference.Plugin != "" {
+		if reference.Repository != "lab" || reference.File != "chain/catalog-info.yaml" || reference.Plugin != "" {
 			t.Errorf("a reference of a catalog file read as %+v", reference)
 		}
 		written = append(written, reference.Path+" "+reference.Written)
@@ -32,7 +32,7 @@ func TestCatalogInputsAreSourceOrWhatAnotherActionLeft(t *testing.T) {
 	if !slices.Equal(written, []string{"lab/chain :go.fetch", "lab/lib //lib:made/"}) {
 		t.Errorf("references read as %v", written)
 	}
-	if read, err := readCatalogInputs("lab", "chain", "lab/chain/catalog-info.yaml", "the action report", nil); err != nil || read.source.Patterns != nil || read.references != nil {
+	if read, err := readCatalogInputs("lab", "chain", "chain/catalog-info.yaml", "the action report", nil); err != nil || read.source.Patterns != nil || read.references != nil {
 		t.Errorf("nothing written read as %+v, %v", read, err)
 	}
 	for input, says := range map[string]string{
@@ -47,9 +47,9 @@ func TestCatalogInputsAreSourceOrWhatAnotherActionLeft(t *testing.T) {
 		"//lab/chain":     `the action report: the input "//lab/chain" names a project and nothing of it`,
 		"://lab/lib:made": `the action report: the input "://lab/lib:made" names another project after a colon`,
 	} {
-		_, err := readCatalogInputs("lab", "chain", "lab/chain/catalog-info.yaml", "the action report", []string{"src/**", input})
+		_, err := readCatalogInputs("lab", "chain", "chain/catalog-info.yaml", "the action report", []string{"src/**", input})
 		var mistake *model.Mistake
-		if !errors.As(err, &mistake) || mistake.File != "lab/chain/catalog-info.yaml" || !strings.HasPrefix(mistake.Message, says) {
+		if !errors.As(err, &mistake) || mistake.Where() != "lab/chain/catalog-info.yaml" || !strings.HasPrefix(mistake.Message, says) {
 			t.Errorf("%q: %v, want %q of the catalog file", input, err, says)
 		}
 	}
@@ -59,7 +59,7 @@ func TestCatalogInputsAreSourceOrWhatAnotherActionLeft(t *testing.T) {
 // fixture of another Component or the contracts; the control is one
 // written from the catalog file's directory, which stays beneath it.
 func TestACatalogInputFromTheRootIsReadFromTheRepositorysRoot(t *testing.T) {
-	read, err := readCatalogInputs("lab", "chain", "lab/chain/catalog-info.yaml", "test.inputs", []string{"fixtures/**", "/api/**/*.proto", "!/api/internal/**"})
+	read, err := readCatalogInputs("lab", "chain", "chain/catalog-info.yaml", "test.inputs", []string{"fixtures/**", "/api/**/*.proto", "!/api/internal/**"})
 	if err != nil {
 		t.Fatal(err)
 	}
