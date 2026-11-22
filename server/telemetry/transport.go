@@ -38,9 +38,9 @@ func (Transport) RoundTrip(r *http.Request) (*http.Response, error) {
 		return s.transport.RoundTrip(r)
 	}
 	// An API caller may supply its own SDK context, as agents do.
-	copy := r.Clone(r.Context())
-	propagation.TraceContext{}.Inject(copy.Context(), propagation.HeaderCarrier(copy.Header))
-	return http.DefaultTransport.RoundTrip(copy)
+	sent := r.Clone(r.Context())
+	propagation.TraceContext{}.Inject(sent.Context(), propagation.HeaderCarrier(sent.Header))
+	return http.DefaultTransport.RoundTrip(sent)
 }
 
 // Handler continues incoming traces and gives API work its process's providers.

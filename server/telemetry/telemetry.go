@@ -7,7 +7,6 @@ package telemetry
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
@@ -142,10 +141,23 @@ func PipelineDuration(ctx context.Context, name string, elapsed time.Duration, r
 // default Unset status. Callers log a diagnostic once where they handle it.
 func End(span trace.Span, err error) {
 	if err != nil {
-		span.SetAttributes(semconv.ErrorTypeKey.String(fmt.Sprintf("%T", err)))
+		span.SetAttributes(semconv.ErrorTypeKey.String(kindOf(err)))
 		span.SetStatus(codes.Error, err.Error())
 	}
 	span.End()
+}
+
+// kindOf is what went wrong as a span's error.type says it: one of a few
+// kinds, found through whatever wraps the error, so that it is a
+// dimension to count by. The error's own words are the span's status.
+func kindOf(err error) string {
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		return "timeout"
+	case errors.Is(err, context.Canceled):
+		return "cancelled"
+	}
+	return "error"
 }
 
 // Outcome records the command process's exit code, including unsuccessful exits
