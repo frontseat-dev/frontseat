@@ -82,9 +82,10 @@ func Own(t testing.TB, dir string) {
 	}
 }
 
-// Caddy adds the official native release used by the service proofs. It can
-// stand alone or accompany Go's pins; the POC and acceptance specs share the
-// same archive checksums, never a host installation.
+// Caddy adds the official native release the tests of a service run. It
+// can stand alone or accompany Go's pins; the sandbox service's tests and
+// the acceptance specs share the same archive checksums, never a host
+// installation.
 func Caddy(t testing.TB, dir string) {
 	add(t, dir, "caddy", `"http:caddy"`)
 }

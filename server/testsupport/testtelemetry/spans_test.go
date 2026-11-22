@@ -22,7 +22,7 @@ import (
 )
 
 func TestCollectorTypedObserverRefusals(t *testing.T) {
-	if mode := os.Getenv("FRONTSEAT_REVIEW_ATTRIBUTE_REFUSAL"); mode != "" {
+	if mode := os.Getenv("FRONTSEAT_TELEMETRY_ATTRIBUTE_REFUSAL"); mode != "" {
 		span := &tracepb.Span{}
 		if strings.HasSuffix(mode, "wrong") {
 			span.Attributes = []*commonpb.KeyValue{{Key: "value", Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: "0"}}}}
@@ -50,7 +50,7 @@ func TestCollectorTypedObserverRefusals(t *testing.T) {
 			ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 			defer cancel()
 			cmd := exec.CommandContext(ctx, executable, "-test.run=^TestCollectorTypedObserverRefusals$", "-test.count=1")
-			cmd.Env = append(os.Environ(), "FRONTSEAT_REVIEW_ATTRIBUTE_REFUSAL="+mode)
+			cmd.Env = append(os.Environ(), "FRONTSEAT_TELEMETRY_ATTRIBUTE_REFUSAL="+mode)
 			out, err := cmd.CombinedOutput()
 			if ctx.Err() != nil {
 				t.Fatalf("refusal child did not finish: %s", out)
@@ -74,10 +74,10 @@ func TestCollectorTraceSelectionAndNestedOwnership(t *testing.T) {
 	span := func(id, run string) *tracepb.Span {
 		return &tracepb.Span{TraceId: []byte(id), Name: "evaluate", Attributes: []*commonpb.KeyValue{{Key: "run", Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: run}}}}}
 	}
-	first := span("review-trace-001", "first")
+	first := span("trace-001", "first")
 	first.ProtoReflect().SetUnknown([]byte{0xa0, 0x06, 0x07})
-	second := span("review-trace-002", "second")
-	wrongType := span("review-trace-003", "")
+	second := span("trace-002", "second")
+	wrongType := span("trace-003", "")
 	wrongType.Attributes[0].Value.Value = &commonpb.AnyValue_IntValue{IntValue: 0}
 	child := &tracepb.Span{TraceId: bytes.Clone(first.TraceId), Name: "plan"}
 	request := &traceapi.ExportTraceServiceRequest{ResourceSpans: []*tracepb.ResourceSpans{{ScopeSpans: []*tracepb.ScopeSpans{{Spans: []*tracepb.Span{first, second, wrongType, child}}}}}}
@@ -195,7 +195,7 @@ func TestCollectorListenerCleanupJoinsAcceptedExport(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = conn.Close() })
 	_ = conn.SetDeadline(time.Now().Add(5 * time.Second))
-	request := &traceapi.ExportTraceServiceRequest{ResourceSpans: []*tracepb.ResourceSpans{{ScopeSpans: []*tracepb.ScopeSpans{{Spans: []*tracepb.Span{{Name: "accepted", TraceId: []byte("review-trace-0001")}}}}}}}
+	request := &traceapi.ExportTraceServiceRequest{ResourceSpans: []*tracepb.ResourceSpans{{ScopeSpans: []*tracepb.ScopeSpans{{Spans: []*tracepb.Span{{Name: "accepted", TraceId: []byte("trace-0001")}}}}}}}
 	body, err := proto.Marshal(request)
 	if err != nil {
 		t.Fatal(err)
