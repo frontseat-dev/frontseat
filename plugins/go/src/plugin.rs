@@ -8,6 +8,13 @@ use frontseat_plugin::repository::join;
 
 pub(super) struct GoPlugin;
 
+/// The options a repository or an entity sets, by name: each is said
+/// here once, where it is declared and where it is read.
+pub(super) const TEST_TIMEOUT: &str = "test-timeout";
+pub(super) const TEST_SHARDS: &str = "test-shards";
+pub(super) const TAGS: &str = "tags";
+pub(super) const VERSION: &str = "version";
+
 impl Plugin for GoPlugin {
     fn describe(&self) -> Description {
         Description {
@@ -18,20 +25,26 @@ impl Plugin for GoPlugin {
                 .map(str::to_string)
                 .to_vec(),
             options: vec![
+                // How long each action that runs tests may take, a
+                // package's tests or one shard of them, as the go
+                // command writes a duration: every test program is
+                // started with it, and 0 is no limit, as it is the go
+                // command's. What the go command would not read, or
+                // would read as less than nothing, is refused.
                 PluginOption::new(
-                    "test-timeout",
-                    "How long each test action may run, as the go command writes a duration (10m).",
+                    TEST_TIMEOUT,
+                    "How long each test action may run, as the go command writes a duration (10m); 0 is no limit.",
                     "10m",
                 )
                 .entity_settable(),
                 PluginOption::new(
-                    "test-shards",
+                    TEST_SHARDS,
                     "Into how many actions each package's tests are cut at most, each running a share.",
                     1,
                 )
                 .entity_settable(),
                 PluginOption::new(
-                    "tags",
+                    TAGS,
                     "The build tags a module is linted, compiled and tested with.",
                     Vec::<String>::new(),
                 )
@@ -40,7 +53,7 @@ impl Plugin for GoPlugin {
                 // a package, by its import path, and what of the release
                 // it is set to when the program is linked.
                 PluginOption::new(
-                    "version",
+                    VERSION,
                     "Variables a module's programs say their version by, each <package>.<variable>=<version|tag|commit|unit>.",
                     Vec::<String>::new(),
                 )

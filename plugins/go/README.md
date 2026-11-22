@@ -96,7 +96,10 @@ no test file has no test action. Which packages have tests on a worker is
 the go command's to say there: a test whose program it did not build, as
 for tests of another system or behind a tag nobody gave, is not run and
 ends idle. Refused by name: a directory with test files whose name the go
-command would refuse too. Where
+command would refuse too. Every test program is started with
+`test-timeout`, a length of time as the go command writes one (`90s`,
+`1h30m`; `0` is no limit): one it would not read, or less than nothing, is
+refused where the module is read (`invalid-test-timeout`). Where
 `test-shards` is more than 1, a package's test is cut into that many actions
 at most (`test/<directory>@1ofN`), each running a share of the package's
 tests by name and the last everything the others were not told to. Not

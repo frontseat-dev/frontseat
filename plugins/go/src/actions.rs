@@ -1,5 +1,6 @@
 use crate::inputs::Tested;
 use crate::manifest::{Entry, Locked};
+use crate::plugin;
 use frontseat_plugin::prelude::*;
 use frontseat_plugin::repository::{join, literal};
 use frontseat_plugin::version;
@@ -82,7 +83,14 @@ fn linked_version(variables: &[String], manifest: &str) -> Result<Option<String>
 /// say, by its build constraints, its go.mod and the worker it runs on,
 /// and a module may have none: so the directory is one a compile may
 /// not leave.
-const PROGRAMS: &str = "~/go/bin/";
+pub(super) const PROGRAMS: &str = "~/go/bin/";
+
+/// The actions of a module that another place names: the compile, whose
+/// programs a run is given, and the checks, by the names their findings
+/// are asked by.
+pub(super) const COMPILE: &str = "compile";
+const LINT: &str = "lint";
+const FORMAT: &str = "format";
 
 /// What was found of a module, read from its files.
 #[derive(Clone, Copy)]
@@ -235,8 +243,20 @@ pub(super) fn actions(
         tested,
         programs,
     } = *found;
-    let tags = repo.string_list("tags")?;
-    let timeout = repo.string("test-timeout")?;
+    let tags = repo.string_list(plugin::TAGS)?;
+    let timeout = repo.string(plugin::TEST_TIMEOUT)?;
+    // The go command's own reading, before a worker is asked: what it
+    // would not read fails every test of the module, far from where it
+    // was set. Less than nothing is no limit to the go command, which
+    // is written 0: it is refused too. The value is not repeated.
+    if crate::duration::nanoseconds(timeout).is_none_or(|nanoseconds| nanoseconds < 0) {
+        return Err(Error::invalid(
+            "invalid-test-timeout",
+            &join(root, "go.mod"),
+            "test-timeout for this module is no length of time as the go command writes one, or is less than nothing",
+            "Set test-timeout to a number and a unit, as 90s, 10m or 1h30m, or to 0 for no limit, in frontseat.yaml or the entity's catalog file.",
+        ));
+    }
     let fetches: Vec<Action> = locked.entries.iter().map(fetch).collect();
     // Each is named as every plugin names its like, reads the modules
     // this one requires of the workspace, and waits for the ones it
@@ -262,7 +282,7 @@ pub(super) fn actions(
             .inputs(fetches.iter().map(|fetch| Input::output(&fetch.name)))
             .inputs([Input::dependencies(format!("{REQUIRED}/{{name}}"))])
     };
-    let shards = repo.int("test-shards")?;
+    let shards = repo.int(plugin::TEST_SHARDS)?;
     if shards < 1 {
         // A plugin is told what an option is set to and not where: the
         // mistake is said of the module it was set for.
@@ -291,12 +311,12 @@ pub(super) fn actions(
     };
     let tests = tests(&testing, &action)?;
     let mut compiling = over_module(compile(repo.profile()?), tags);
-    let version = linked_version(repo.string_list("version")?, &join(root, "go.mod"))?;
+    let version = linked_version(repo.string_list(plugin::VERSION)?, &join(root, "go.mod"))?;
     // A flag of the go command's, before the packages it is given.
     if let Some(flag) = &version {
         compiling.insert(compiling.len() - 1, flag.clone());
     }
-    let mut compile = action("compile", compiling).output(Output::optional(PROGRAMS));
+    let mut compile = action(COMPILE, compiling).output(Output::optional(PROGRAMS));
     // Only the action that links the programs is given the version: the
     // tests and the checks of a module are the same from one release to
     // the next.
@@ -305,10 +325,10 @@ pub(super) fn actions(
     }
     // vet passes or fails on what it finds, and what it found is read
     // from what it printed (report).
-    let lint = action("lint", over_module(&["go", "vet"], tags)).check();
+    let lint = action(LINT, over_module(&["go", "vet"], tags)).check();
     // gofmt -l names what it would change and writes nothing: a check.
     // Its fix, gofmt -w, runs where the checkout is and nowhere else.
-    let format = action("format", ["gofmt", "-l", "."].map(str::to_string).to_vec())
+    let format = action(FORMAT, ["gofmt", "-l", "."].map(str::to_string).to_vec())
         .check()
         .fix(Command::new(["gofmt", "-w", "."]), ["**/*.go"]);
     // What the module ships: each of its programs, made for each
@@ -660,11 +680,11 @@ fn selecting(names: &[&str], shard: usize, count: usize) -> String {
 /// gofmt -l names each file it would change, one a line.
 pub(super) fn report(root: &str, action: &str, printed: &Printed) -> Vec<Diagnostic> {
     match action {
-        "lint" => String::from_utf8_lossy(&printed.stderr)
+        LINT => String::from_utf8_lossy(&printed.stderr)
             .lines()
             .filter_map(|line| vet(root, line))
             .collect(),
-        "format" => unformatted(root, printed),
+        FORMAT => unformatted(root, printed),
         _ => Vec::new(),
     }
 }
@@ -1211,6 +1231,47 @@ mod tests {
             .unwrap()
             .arguments;
         assert_eq!(arguments.last().map(String::as_str), Some("./..."));
+    }
+
+    /// A test-timeout the go command would not read, or would read as
+    /// less than nothing, is refused where the module is read, by the
+    /// option's name and without the value; the control is one it reads,
+    /// which every test of the module is started with.
+    #[test]
+    fn a_test_timeout_that_is_no_duration_is_refused_by_name() {
+        let plugin = TestPlugin::new(crate::served());
+        let host = TestHost::new(
+            frontseat_plugin_test::Files::new()
+                .with("app/go.mod", "module example.com/hello\n\ngo 1.27\n")
+                .with("app/hello.go", "package hello\n")
+                .with("app/hello_test.go", "package hello\nfunc TestA() {}\n"),
+        );
+        let timed = |timeout: &str| {
+            let context = plugin
+                .context(Profile::Development)
+                .option("test-timeout", Value::String(timeout.into()));
+            plugin.analyze(&host, &context, &["app"])
+        };
+        let answered = timed("1h30m").answered();
+        let test = answered.analyses[0].projects[0]
+            .actions
+            .iter()
+            .find(|action| action.name == "test/.")
+            .expect("the module's own package has a test");
+        assert!(test
+            .command
+            .as_ref()
+            .unwrap()
+            .arguments
+            .contains(&"-test.timeout=1h30m".to_string()));
+        // No limit is written 0, and is read.
+        timed("0").answered();
+        for written in ["ten-minutes-of-secret", "10", "", "-5m"] {
+            let refused = timed(written).refused("invalid-test-timeout");
+            assert_eq!(refused.path, "app/go.mod");
+            assert!(refused.message.contains("test-timeout"));
+            assert!(!refused.message.contains("secret") && !refused.help.contains("secret"));
+        }
     }
 }
 

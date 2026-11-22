@@ -19,7 +19,7 @@ func bufFixture(t *testing.T) conformance.Fixture {
 		Analyze: &pluginv1.AnalyzeRequest{Context: context, Roots: []string{"app"}},
 		Projects: []*pluginv1.Project{{Root: "app", Name: "app", Kind: "buf-workspace", Manifest: "app/buf.yaml",
 			Actions: []*pluginv1.Action{
-				{Name: "lint", Command: &pluginv1.Command{Arguments: []string{"buf", "lint"}}, Inputs: []*pluginv1.Input{pluginhost.SourceInput("buf.yaml"), pluginhost.SourceInput("buf.lock"), pluginhost.SourceInput("**/*.proto")}, Tools: []string{"buf"}, Kind: &pluginv1.Action_Build{Build: &pluginv1.Build{}}},
+				{Name: "lint", Command: &pluginv1.Command{Arguments: []string{"buf", "lint"}}, Inputs: []*pluginv1.Input{pluginhost.SourceInput("buf.yaml"), pluginhost.SourceInput("buf.lock"), pluginhost.SourceInput("**/*.proto")}, Tools: []string{"buf"}, Kind: &pluginv1.Action_Check{Check: &pluginv1.Check{}}},
 				{Name: "format", Command: &pluginv1.Command{Arguments: []string{"buf", "format", "-d", "--exit-code"}}, Inputs: []*pluginv1.Input{pluginhost.SourceInput("buf.yaml"), pluginhost.SourceInput("**/*.proto")}, Tools: []string{"buf"}, Kind: &pluginv1.Action_Check{Check: &pluginv1.Check{Fix: &pluginv1.Command{Arguments: []string{"buf", "format", "-w"}}, Rewrites: []string{"**/*.proto"}}}},
 				// A template whose output is outside the workspace is
 				// generated beneath the project, at where the repository

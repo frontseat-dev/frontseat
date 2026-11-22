@@ -52,7 +52,9 @@ declared patterns with the checkout's copy by digest, and a copy that
 differs, one that is missing or one the generator no longer produces is a
 rewrite; a checkout that holds no copy at all keeps none. The build fails as a rewrite and says which files; `frontseat
 build --fix` writes the worker's output over them, through the snapshot.
-Nothing asks the checkout's history. `buf format -d --exit-code` is a
+Nothing asks the checkout's history. `buf lint` is a check: each line it
+prints as `path:line:column:message` is a finding (`buf/lint`) at its file
+and line, a compile error among them. `buf format -d --exit-code` is a
 check whose findings (`buf/format`) name each file; its fix, `buf format
 -w`, runs where the checkout is.
 
