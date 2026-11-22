@@ -57,9 +57,15 @@ func built(cmd *cobra.Command, start func(*frontseat.Workspace) (*frontseat.Buil
 func init() {
 	rootCmd.AddCommand(buildCmd)
 	asksAWorkspace(buildCmd)
-	buildCmd.Flags().StringArrayVar(&buildOnly, "only", nil, "keep only the actions of this name or kind, such as lint or generate; give it once for each")
+	onlyFlag(buildCmd, &buildOnly)
 	profileFlag(buildCmd, &buildProfile)
 	buildCmd.Flags().BoolVar(&buildFix, "fix", false, "write what is out of step as it should be, where a build would fail and say so")
+}
+
+// onlyFlag gives a command that builds the flag that keeps the actions
+// of a name or kind.
+func onlyFlag(cmd *cobra.Command, only *[]string) {
+	cmd.Flags().StringArrayVar(only, "only", nil, "keep only the actions of this name or kind, such as lint or generate; give it once for each")
 }
 
 // profileFlag gives a command that builds the flag that names the
