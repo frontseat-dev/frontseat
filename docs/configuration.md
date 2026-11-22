@@ -259,7 +259,7 @@ action; a name is lower-case letters, digits and dashes. An action
 | `versioned` | switch | `false` | It is given the version of the release it is built for, where its command names it. |
 | `package` | switch | `false` | It makes what the entity ships: each file it leaves is an artifact of a release. It says its `outputs`. |
 | `publish` | switch | `false` | It publishes what a release shipped. It is named `custom.publish/<name>`, says no `inputs`, and is none of the other kinds. |
-| `environment` | list of text | `[]` | Names of variables of where the daemon runs that the action is given. Only with `publish`. |
+| `inherit-environment` | list of text | `[]` | Names of variables of where the daemon runs that the action is given, their values as the daemon has them. Only with `publish`. |
 
 ```yaml
 # handbook/catalog-info.yaml
@@ -294,7 +294,7 @@ spec:
         publish: true
         command: [gh, release, create]
         tools: [gh]
-        environment: [GH_TOKEN]
+        inherit-environment: [GH_TOKEN]
 ```
 
 ### `service`
@@ -307,12 +307,12 @@ one of the two is written.
 | Key | Said by | Type | Default | Meaning |
 |---|---|---|---|---|
 | `as` | Resource | text | | What starts it, a name a listed plugin claims: `container` for the image written here, or `postgres`. The plugin says every key that is left out. |
-| `program` | Component, Resource | text | | The program action that is the service, as `:go.run/orders`. It takes no `image` and no `args`. |
+| `program` | Component, Resource | text | | The program action that is the service, as `:go.run/orders`. It takes no `image` and no `arguments`. |
 | `image` | Resource | text | the plugin's | The image, named with its registry and digest. |
-| `args` | Resource | list of text | the plugin's | The image's arguments. `{host}`, `{port.<name>}` (a port of its own) and `{<resource>.port.<name>}` (a port of a Resource it depends on, by that Resource's name) are filled in. |
-| `env` | both | map of name to text | `{}` | Variables it is started with, filled in as `args` is. |
+| `arguments` | Resource | list of text | the plugin's | The image's arguments. `{host}`, `{port.<name>}` (a port of its own) and `{<resource>.port.<name>}` (a port of a Resource it depends on, by that Resource's name) are filled in. |
+| `environment` | both | map of name to text | `{}` | Variables it is started with, filled in as `arguments` is. |
 | `ports` | both | map of name to whole number | the plugin's | The ports it listens on, 1 to 65535, each under a name of lower-case letters, digits and dashes. At least one. |
-| `ready` | both | list of checks | the plugin's | When it is ready. At least one check, each one of `port: <name>`, `http: {port, path, body}` (`body` a regular expression) or `command: [...]`, whose arguments are filled in as `args` is. |
+| `ready` | both | list of checks | the plugin's | When it is ready. At least one check, each one of `port: <name>`, `http: {port, path, body}` (`body` a regular expression) or `command: [...]`, whose arguments are filled in as `arguments` is. |
 | `timeout` | both | whole number of seconds | `120` | How long it is given to be ready. At most `3600`. |
 | `exports` | Resource | map of name to text | the plugin's | Variables each test given the service is told, with `{host}` and `{port.<name>}` filled in. |
 | `apis` | Component | map of API to `{port, exports}` | | For each API the Component provides, written as a reference is (`orders-api`, `api:orders-api` or `api:<namespace>/orders-api`; the kind is `api` where none is written): the port it is served on, and the variables a test that consumes that API is told. |
@@ -338,8 +338,8 @@ spec:
     service:
       as: container
       image: registry.example.com/team/redis@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec
-      args: [--port, "{port.redis}"]
-      env: {MODE: test}
+      arguments: [--port, "{port.redis}"]
+      environment: {MODE: test}
       ports: {redis: 6379}
       ready:
         - port: redis

@@ -733,7 +733,7 @@ func custom(repository string, own config.Action) (plan.Action, error) {
 		}
 		action.Label.Name = "publish/" + own.Name
 		action.Declared.Name = action.Label.Name
-		action.Declared.Publish = &pluginv1.Publish{Environment: own.Environment}
+		action.Declared.Publish = &pluginv1.Publish{Environment: own.InheritEnvironment}
 		if err := pluginhost.CheckPublish(what, action.Declared); err != nil {
 			return plan.Action{}, &model.Mistake{File: own.File, Message: err.Error()}
 		}

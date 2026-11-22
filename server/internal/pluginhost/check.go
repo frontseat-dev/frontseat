@@ -1281,11 +1281,11 @@ func CheckService(plugin string, request *pluginv1.ServiceRequest, response *plu
 	case written.GetImage() != "" && answered.GetImage() != written.GetImage():
 		return changed("image")
 	case len(written.GetArguments()) > 0 && !slices.Equal(answered.GetArguments(), written.GetArguments()):
-		return changed("args")
+		return changed("arguments")
 	case len(written.GetPorts()) > 0 && !maps.Equal(answered.GetPorts(), written.GetPorts()):
 		return changed("ports")
 	case len(written.GetEnvironment()) > 0 && !maps.Equal(answered.GetEnvironment(), written.GetEnvironment()):
-		return changed("env")
+		return changed("environment")
 	case written.GetTimeout() != nil && !proto.Equal(answered.GetTimeout(), written.GetTimeout()):
 		return changed("timeout")
 	case len(written.GetExports()) > 0 && !maps.Equal(answered.GetExports(), written.GetExports()):

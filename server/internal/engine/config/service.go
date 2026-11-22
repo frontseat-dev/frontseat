@@ -56,19 +56,19 @@ func (service Service) Mistake(err error) error {
 // serviceValues is what each key of a service takes, as a mistake says
 // it; a key it does not hold is refused, with the keys it holds.
 var serviceValues = map[string]string{
-	"as":        "a name: what a plugin of the repository starts",
-	"endpoints": "names, each with an address of {host} and one of its ports",
-	"program":   "an action reference naming one program",
-	"apis":      "provided API references, each with a port and exports",
-	"image":     "text: an image, named with its registry and digest",
-	"args":      "a list of text",
-	"env":       "names, each with its value as text",
-	"exports":   "names, each with its value as text",
-	"ports":     "names, each with its port, a whole number",
-	"timeout":   "a whole number of seconds",
-	"ready":     "a list of checks, each one of port: <name>, http: {port, path, body} or command: [...]",
-	"user":      "text: the user its image runs as, by number, never 0, written in quotes, as \"70\"",
-	"writable":  "a list of the directories of its image it writes, each an absolute path",
+	"as":          "a name: what a plugin of the repository starts",
+	"endpoints":   "names, each with an address of {host} and one of its ports",
+	"program":     "an action reference naming one program",
+	"apis":        "provided API references, each with a port and exports",
+	"image":       "text: an image, named with its registry and digest",
+	"arguments":   "a list of text",
+	"environment": "names, each with its value as text",
+	"exports":     "names, each with its value as text",
+	"ports":       "names, each with its port, a whole number",
+	"timeout":     "a whole number of seconds",
+	"ready":       "a list of checks, each one of port: <name>, http: {port, path, body} or command: [...]",
+	"user":        "text: the user its image runs as, by number, never 0, written in quotes, as \"70\"",
+	"writable":    "a list of the directories of its image it writes, each an absolute path",
 }
 
 // null reports whether a node is a null: a key written with no value.
@@ -234,12 +234,12 @@ func readService(file, directory string, ref entity.Ref, node *yaml.Node) (Servi
 				said.Image, read = text(val)
 			}
 			nothing = said.Image == ""
-		case "args":
+		case "arguments":
 			if written {
 				said.Arguments, wrong = textList(val)
 			}
 			read, nothing = wrong == nil, len(said.Arguments) == 0
-		case "env":
+		case "environment":
 			if written {
 				said.Environment, read = mapOf(val, text)
 			}
@@ -295,7 +295,7 @@ func readService(file, directory string, ref entity.Ref, node *yaml.Node) (Servi
 		for i := 0; val.Kind == yaml.MappingNode && i+1 < len(val.Content); i += 2 {
 			name, held := val.Content[i], error(nil)
 			switch key.Value {
-			case "exports", "env":
+			case "exports", "environment":
 				held = testservice.Variable(key.Value, name.Value)
 			case "ports":
 				held = testservice.Port(name.Value, said.Ports[name.Value])
