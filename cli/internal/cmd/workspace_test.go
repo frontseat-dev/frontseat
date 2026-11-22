@@ -64,7 +64,7 @@ func TestASSHConnectionIsToTheWorkspaceNamed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if proxy := optionOf(options, "ProxyCommand"); proxy != `"/usr/local/bin/frontseat" workspace ssh --stdio --workspace=payments` {
+	if proxy := optionOf(options, "ProxyCommand"); proxy != `"/usr/local/bin/frontseat" workspace ssh --stdio payments` {
 		t.Errorf("the SSH client goes by %s, want the workspace named", proxy)
 	}
 	options, err = sshOptions("/usr/local/bin/frontseat", "/home/a/.ssh/id", "")
@@ -77,8 +77,12 @@ func TestASSHConnectionIsToTheWorkspaceNamed(t *testing.T) {
 	if _, err := sshOptions("/usr/local/bin/frontseat", "/home/a/.ssh/id", "a b;c"); err == nil {
 		t.Error("a workspace's name that is none was put to the SSH client")
 	}
-	if sub, _, err := rootCmd.Find([]string{"workspace", "ssh"}); err != nil || sub.Flags().Lookup("workspace") == nil {
-		t.Error("workspace ssh takes no --workspace")
+	// The subject of a workspace command is named as its argument, and
+	// by no flag.
+	for _, path := range [][]string{{"workspace", "ssh"}, {"workspace", "describe"}, {"workspace", "add"}, {"workspace", "delete"}, {"workspace", "open"}} {
+		if sub, _, err := rootCmd.Find(path); err != nil || sub.Flags().Lookup("workspace") != nil {
+			t.Errorf("%v takes --workspace", path)
+		}
 	}
 }
 
@@ -92,15 +96,26 @@ func optionOf(options [][2]string, name string) string {
 }
 
 // The checkout a workspace is opened of is given with nothing else
-// named: a directory given beside a name, a repository or an entity is
-// refused, never dropped.
+// named: a directory, or what is said of a workspace when it is made,
+// given beside a workspace's name is refused, never dropped. Open names
+// a workspace there is, or none: a repository or an entity is told to
+// workspace create.
 func TestADirectoryIsNotGivenBesideWhatIsNamed(t *testing.T) {
 	serverAt(t, "http://127.0.0.1:1")
-	for _, named := range []string{"services-main", "https://example.com/a.git", "component:payments"} {
-		_, _, err := runAt(t, context.Background(), "", "workspace", "open", named, "--directory", t.TempDir())
-		if err == nil || !strings.Contains(err.Error(), "--directory") {
-			t.Errorf("%s with --directory: %v, want it refused by the flag's name", named, err)
+	for _, flag := range [][]string{{"--directory", t.TempDir()}, {"--name", "x"}, {"--push"}, {"--image", "box"}} {
+		_, _, err := runAt(t, context.Background(), "", append([]string{"workspace", "open", "services-main"}, flag...)...)
+		if err == nil || !strings.Contains(err.Error(), flag[0]) {
+			t.Errorf("a name with %s: %v, want it refused by the flag's name", flag[0], err)
 		}
+	}
+	for _, named := range []string{"https://example.com/a.git", "component:payments"} {
+		_, _, err := runAt(t, context.Background(), "", "workspace", "open", named)
+		if err == nil || !strings.Contains(err.Error(), "workspace create") {
+			t.Errorf("open %s: %v, want it told to workspace create", named, err)
+		}
+	}
+	if _, _, err := runAt(t, context.Background(), "", "workspace", "open", "a", "b"); err == nil {
+		t.Error("open of two names was taken")
 	}
 }
 
@@ -129,7 +144,7 @@ func came(created bool, state workspacev1.WorkspaceStatus_State) func() *workspa
 	}
 }
 
-// A workspace opened of what is named says how it came to be the one
+// A workspace made of what is named says how it came to be the one
 // opened, as one opened of a checkout does: made, there and filled now,
 // or as it was left.
 func TestAWorkspaceOpenedOfWhatIsNamedSaysHowItCame(t *testing.T) {
@@ -141,29 +156,36 @@ func TestAWorkspaceOpenedOfWhatIsNamedSaysHowItCame(t *testing.T) {
 		"payments  as it was left\n": came(false, workspacev1.WorkspaceStatus_STATE_READY),
 	} {
 		plane.answers = answers
-		if got, _, err := runAt(t, context.Background(), "", "workspace", "open", "component:payments"); err != nil || got != want {
+		if got, _, err := runAt(t, context.Background(), "", "workspace", "create", "--entity", "component:payments"); err != nil || got != want {
 			t.Errorf("opened, it printed %q (%v), want %q", got, err, want)
 		}
 	}
 }
 
-// --whole is said of the entities a workspace is opened of: with a
-// checkout, or repositories alone, it would change nothing, and is
-// refused before anything is asked, never dropped. The control is an
-// entity, whose workspace is asked for whole.
+// --whole is said of the entities a workspace is made of: with
+// repositories alone it would change nothing, and is refused before
+// anything is asked, never dropped; workspace open, of a checkout's
+// repository, takes none. A repository is named by its address over
+// http or https, and nothing named is refused. The control is an entity,
+// whose workspace is asked for whole.
 func TestWholeIsSaidOfEntitiesAlone(t *testing.T) {
 	plane := &making{answers: came(true, workspacev1.WorkspaceStatus_STATE_POPULATING)}
 	serverAt(t, serving(t, func(api *connect.Server) { workspacev1alpha1connect.RegisterWorkspaceServiceHandler(api, plane) }))
-	for _, named := range [][]string{{}, {"https://example.com/a.git"}} {
-		_, _, err := runAt(t, context.Background(), "", append([]string{"workspace", "open", "--whole"}, named...)...)
-		if err == nil || !strings.Contains(err.Error(), "--whole") {
-			t.Errorf("--whole with %v: %v, want it refused by the flag's name", named, err)
+	for _, args := range [][]string{
+		{"workspace", "create", "--whole", "--repository", "https://example.com/a.git"},
+		{"workspace", "create", "--whole"},
+		{"workspace", "create"},
+		{"workspace", "create", "--repository", "git@example.com:acme/a.git"},
+		{"workspace", "open", "--whole"},
+	} {
+		if _, _, err := runAt(t, context.Background(), "", args...); err == nil {
+			t.Errorf("%v was taken", args)
 		}
 	}
 	if len(plane.created) != 0 {
 		t.Errorf("what was refused asked the control plane for %d workspaces", len(plane.created))
 	}
-	if _, _, err := runAt(t, context.Background(), "", "workspace", "open", "--whole", "component:payments"); err != nil || len(plane.created) != 1 || !plane.created[0].GetSpec().GetWholeRepositories() {
+	if _, _, err := runAt(t, context.Background(), "", "workspace", "create", "--whole", "--entity", "component:payments"); err != nil || len(plane.created) != 1 || !plane.created[0].GetSpec().GetWholeRepositories() {
 		t.Errorf("the control: --whole with an entity: %v, asked %v", err, plane.created)
 	}
 }
@@ -199,8 +221,8 @@ func TestFlagsThatDoNotGoTogetherAreRefused(t *testing.T) {
 	for _, command := range [][]string{
 		{"workspace", "credential", "forge.example", "--forget", "--username", "someone"},
 		{"workspace", "ssh", "--stdio", "--config"},
-		{"workspace", "ssh", "--config", "ls"},
-		{"workspace", "ssh", "--stdio", "ls"},
+		{"workspace", "ssh", "--config", "--", "ls"},
+		{"workspace", "ssh", "--stdio", "--", "ls"},
 	} {
 		printed, _, err := runAt(t, context.Background(), "", command...)
 		if err == nil || printed != "" {
@@ -215,5 +237,26 @@ func TestFlagsThatDoNotGoTogetherAreRefused(t *testing.T) {
 	}
 	if printed, _, err := runAt(t, context.Background(), "", "workspace", "ssh", "--config"); err != nil || !strings.HasPrefix(printed, "Host frontseat-workspace\n") {
 		t.Errorf("the control: --config alone printed %q (%v)", printed, err)
+	}
+}
+
+// A workspace made at a terminal is gone on into, unless --no-shell says
+// it is not: with it, the command returns once the workspace is made,
+// and runs no SSH client.
+func TestAWorkspaceIsNotGoneIntoWithNoShell(t *testing.T) {
+	wasAt := atTerminal
+	t.Cleanup(func() { atTerminal = wasAt })
+	atTerminal = func() bool { return true }
+	plane := &making{answers: came(true, workspacev1.WorkspaceStatus_STATE_POPULATING)}
+	serverAt(t, serving(t, func(api *connect.Server) { workspacev1alpha1connect.RegisterWorkspaceServiceHandler(api, plane) }))
+	t.Setenv("PATH", t.TempDir())
+	if printed, _, err := runAt(t, context.Background(), "", "workspace", "create", "--entity", "payments", "--no-shell"); err != nil || printed != "payments  made\n" {
+		t.Errorf("made with --no-shell at a terminal: %q, %v", printed, err)
+	}
+	if _, _, err := runAt(t, context.Background(), "", "workspace", "create", "--entity", "payments"); err == nil || !strings.Contains(err.Error(), "no SSH client") {
+		t.Errorf("the control: made at a terminal, it went on into no shell: %v", err)
+	}
+	if _, _, err := runAt(t, context.Background(), "", "workspace", "create", "--entity", "payments", "--shell", "--no-shell"); err == nil {
+		t.Error("--shell and --no-shell were taken together")
 	}
 }

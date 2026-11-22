@@ -300,10 +300,10 @@ func TestAWorkspaceOpenedByEntityClonesWhatItsBackstageSays(t *testing.T) {
 	}
 	owner := sdkClient(t, at, frontseat.WithToken(strings.TrimSpace(string(raw))))
 	t.Cleanup(func() { ended(owner.Workspace(name)) })
-	open := exec.Command(command, "workspace", "open", "--name", name, "--image", image, "component:gateway")
+	open := exec.Command(command, "workspace", "create", "--name", name, "--image", image, "--no-shell", "--entity", "component:gateway")
 	open.Env = append(os.Environ(), "XDG_CONFIG_HOME="+config)
 	if said, err := open.CombinedOutput(); err != nil {
-		t.Fatalf("frontseat workspace open component:gateway: %v\n%s", err, said)
+		t.Fatalf("frontseat workspace create --entity component:gateway: %v\n%s", err, said)
 	}
 	made := owner.Workspace(name)
 	held, err := made.Describe(ctx)

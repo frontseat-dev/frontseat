@@ -110,7 +110,8 @@ func TestTheLocalBuildMakesAWorkspaceAndBuildsIt(t *testing.T) {
 	testforge.Hello(t, checkout)
 
 	// Whatever becomes of the creation, the workspace it may have made
-	// is ended: the context names it from the moment it is recorded.
+	// is ended, by the name it was made with.
+	name := fmt.Sprintf("dist-%d", time.Now().UnixNano()%1_000_000_000)
 	// The command returns when the workspace is gone, so nothing is left
 	// for the server, which is stopped next, to leave behind: no sandbox
 	// of this server's is there after it.
@@ -120,7 +121,7 @@ func TestTheLocalBuildMakesAWorkspaceAndBuildsIt(t *testing.T) {
 		// becomes of that.
 		ending, stop := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer stop()
-		cmd := exec.CommandContext(ending, command, "workspace", "delete")
+		cmd := exec.CommandContext(ending, command, "workspace", "delete", name, "--yes")
 		cmd.Dir = checkout
 		if out, err := cmd.CombinedOutput(); err != nil && !strings.Contains(string(out), "there is no workspace") {
 			t.Errorf("frontseat workspace delete: %v\n%s", err, out)
@@ -139,7 +140,7 @@ func TestTheLocalBuildMakesAWorkspaceAndBuildsIt(t *testing.T) {
 			}
 		}
 	})
-	ran(t, checkout, 5*time.Minute, command, "workspace", "open", "--image", image, testforge.Serve(t, filepath.Dir(checkout))+"/code")
+	ran(t, checkout, 5*time.Minute, command, "workspace", "create", "--name", name, "--image", image, "--no-shell", "--repository", testforge.Serve(t, filepath.Dir(checkout))+"/code")
 	built := ran(t, checkout, 5*time.Minute, command, "build")
 	if !strings.Contains(built, "build_") {
 		t.Fatalf("frontseat build printed no build:\n%s", built)

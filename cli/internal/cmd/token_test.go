@@ -168,9 +168,9 @@ func TestNoCommandAsksAControlPlaneOnAnotherMachineInClear(t *testing.T) {
 	t.Cleanup(func() { secretFrom = nil })
 	for _, command := range [][]string{
 		{"workspace", "list"},
-		{"workspace", "describe", "--workspace", "named"},
+		{"workspace", "describe", "named"},
 		{"workspace", "delete", "named"},
-		{"workspace", "ssh", "--stdio", "--workspace", "named"},
+		{"workspace", "ssh", "--stdio", "named"},
 		{"workspace", "credential", "forge.example"},
 		{"build", "list", "--workspace", "named"},
 		{"build", "--workspace", "named"},

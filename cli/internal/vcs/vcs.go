@@ -54,7 +54,7 @@ type Author struct {
 var (
 	// ErrNoCheckout is a directory that is in no checkout. A checkout that
 	// is there and cannot be read is another error, which says why.
-	ErrNoCheckout = errors.New("this directory is in no checkout of a repository: run it in one, or name the repository: `frontseat workspace open URL`")
+	ErrNoCheckout = errors.New("this directory is in no checkout of a repository: run it in one, or make a workspace of the repository: `frontseat workspace create --repository URL`")
 	// ErrNoBranch is a checkout that is on no branch.
 	ErrNoBranch = errors.New("this checkout is on no branch: switch to one, since a workspace is of a branch")
 	// ErrNoRemote is a checkout whose branch has no remote a sandbox can

@@ -2,14 +2,12 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"regexp"
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 	"golang.org/x/term"
 
 	"github.com/frontseat-dev/frontseat/cli/internal/machine"
@@ -17,34 +15,32 @@ import (
 )
 
 var (
-	// checkout is the workspace to open as the flags say it: this
-	// checkout's, or what is named is made with its name, push and image.
-	checkout  machine.OpenOptions
-	openWhole bool
+	// opened is this checkout's workspace as the flags say it.
+	opened machine.OpenOptions
+	// openShell and openNoShell say whether a workspace opened or made
+	// is gone on into, in a shell; without either, it is at a terminal.
+	openShell, openNoShell bool
 )
 
 // openCmd opens a workspace, and makes it the one the other commands ask.
 var openCmd = &cobra.Command{
-	Use:   "open [WORKSPACE | REPOSITORY... | ENTITY...]",
-	Short: "Open a workspace: this checkout's, a repository's, entities', or one there is",
-	Long: `Open a workspace, the one there is, as it was left, or a new one, and make
-it the workspace the other commands ask.
+	Use:   "open [NAME]",
+	Short: "Open a workspace: one there is, by its name, or this checkout's",
+	Long: `Open a workspace and make it the workspace the other commands ask.
 
-With nothing named, it is the workspace of the repository this checkout is
-of, at the branch it is on, cloned from the checkout's remote. Named a
-repository (URL or URL#REF) or entities (kind:name; one word alone is
-read as a workspace's name), it is a workspace of those: the control
-plane resolves entities through the Backstage catalog its operator
-gives it, and refuses them where it has none. Named a workspace there
-is, by its name, it is that one.
+Named, it is the workspace there is of that name, as it was left. With
+no name, it is the workspace of the repository this checkout is of, at
+the branch it is on, cloned from the checkout's remote: the one there
+is, as it was left, or a new one, named by its repository and branch or
+by --name. A workspace of repositories or entities is made with
+workspace create.
 
-A workspace is given a name by what it was first asked for, or the one
---name gives. Asked for again, it is the same workspace. It is the
-control plane's every command asks (frontseat --help).
+It is the control plane's every command asks (frontseat --help).
 
 At a terminal it goes on into a shell there, by this machine's SSH
 client; leaving the shell leaves the workspace as it is. Run by a script
-or an agent, it opens the workspace and returns.
+or an agent, it opens the workspace and returns. --shell and --no-shell
+say which, whatever runs it.
 
 Nothing of this machine is given to it. A workspace holds what the remote
 holds: commits that are not pushed and files that are not committed are
@@ -54,25 +50,19 @@ What is done in a workspace leaves it by a push from it, which only a
 workspace made with --push may do: to its own repositories and no other,
 as far as the credential the control plane keeps lets it.`,
 	Example: `  frontseat workspace open
-  frontseat workspace open https://example.com/acme/services.git#main
-  frontseat workspace open component:payments
+  frontseat workspace open --no-shell
   frontseat workspace open services-main`,
-	Args: cobra.ArbitraryArgs,
+	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
+		if len(args) == 1 {
+			return openByName(cmd, args[0])
+		}
 		fs, err := server()
 		if err != nil {
 			return err
 		}
-		if len(args) > 0 {
-			return openNamed(ctx, fs, args, cmd.Flags())
-		}
-		// A checkout's repository is cloned whole: there are no entities
-		// whose directories alone could be.
-		if openWhole {
-			return errors.New("--whole is said of the entities a workspace is opened of, and none is named: a checkout's repository is cloned whole as it is")
-		}
-		open := checkout
+		open := opened
 		if open.Directory == "" {
 			directory, err := os.Getwd()
 			if err != nil {
@@ -118,63 +108,38 @@ func left(err error, workspace *frontseat.Workspace) error {
 	return fmt.Errorf("%w\nthe workspace is %s: `frontseat workspace open` again goes on with it, and `frontseat workspace delete %s` ends it, with what it holds", err, workspace.Name(), workspace.Name())
 }
 
-// openNamed opens what was named: a workspace there is, by its name, or
-// a workspace of the repositories or the entities named.
-func openNamed(ctx context.Context, fs *frontseat.Client, args []string, flags *pflag.FlagSet) error {
+// openByName opens the workspace there is of a name, as it was left.
+func openByName(cmd *cobra.Command, name string) error {
+	if !frontseat.IsWorkspaceName(name) {
+		return fmt.Errorf("%q is no workspace's name: one is lower-case letters, digits and dashes, at most 48; a workspace of repositories or entities is made with `frontseat workspace create`", name)
+	}
+	// What a workspace is was said when it was made, and is not asked
+	// again of one that is there; a directory names a checkout.
+	for _, flag := range []string{"name", "push", "image", "directory"} {
+		if cmd.Flags().Changed(flag) {
+			return fmt.Errorf("--%s is said of the workspace of a checkout, and %s is one there is: open it by its name alone", flag, name)
+		}
+	}
+	fs, err := server()
+	if err != nil {
+		return err
+	}
 	key, err := machine.AuthorizedKey()
 	if err != nil {
 		return err
 	}
-	spec := frontseat.WorkspaceSpec{AuthorizedKey: key}
-	// A directory names the checkout a workspace is opened of, and is
-	// given with nothing named.
-	if flags.Changed("directory") {
-		return errors.New("--directory names the checkout to open a workspace of, and is given with no workspace, repository or entity named")
-	}
-	// One word that can be a workspace's name is read as one: an entity
-	// is written with its kind.
-	if len(args) == 1 && frontseat.IsWorkspaceName(args[0]) {
-		// What a workspace is was said when it was made, and is not asked
-		// again of one that is there.
-		for _, flag := range []string{"name", "push", "image", "whole"} {
-			if flags.Changed(flag) {
-				return fmt.Errorf("--%s is said of a workspace when it is made, and %s is one there is: open it by its name alone", flag, args[0])
-			}
-		}
-		spec.Name = args[0]
-	} else {
-		spec = frontseat.WorkspaceSpec{Name: checkout.Name, Image: checkout.Image, Push: checkout.Push, Whole: openWhole, AuthorizedKey: key}
-		for _, arg := range args {
-			switch {
-			case strings.Contains(arg, "://"):
-				repository, err := machine.Repository(arg)
-				if err != nil {
-					return err
-				}
-				spec.Repositories = append(spec.Repositories, repository)
-			case strings.Contains(arg, "@") && strings.Contains(arg, ":"):
-				return fmt.Errorf("a workspace clones a repository over http or https, and is given its address so: %q is not one", arg)
-			default:
-				named, err := typed([]string{arg})
-				if err != nil {
-					return fmt.Errorf("%q is no workspace's name, no repository's address and no entity: %w", arg, err)
-				}
-				spec.Entities = append(spec.Entities, named...)
-			}
-		}
-		// The repositories of entities are cloned whole, or the entities'
-		// directories alone: of repositories named, there is no less.
-		if openWhole && len(spec.Entities) == 0 {
-			return errors.New("--whole is said of the entities a workspace is opened of, and none is named: a repository named is cloned whole as it is")
-		}
-	}
+	return opening(cmd.Context(), fs, frontseat.WorkspaceSpec{Name: name, AuthorizedKey: key})
+}
+
+// opening opens what a spec asks for, says how it came to be, and goes
+// on into it where a shell is wanted: in its repository where it holds
+// one, and above them where it holds several.
+func opening(ctx context.Context, fs *frontseat.Client, spec frontseat.WorkspaceSpec) error {
 	got, err := fs.Open(ctx, spec)
 	if err := kept(fs, got, err); err != nil {
 		return err
 	}
 	said("%s  %s", got.Workspace.Name(), got.Outcome)
-	// A workspace of one repository is entered in it, and one of several
-	// above them.
 	in := ""
 	if holds := got.Status.GetStatus().GetRepositories(); len(holds) == 1 {
 		in = holds[0].GetName()
@@ -185,12 +150,13 @@ func openNamed(ctx context.Context, fs *frontseat.Client, args []string, flags *
 // entered goes on, at a terminal, into a shell in a workspace that was
 // opened or made: a person who opens a workspace means to be in it. What
 // is not at a terminal, a script or an agent, has no one to type, and is
-// given what was opened and nothing more. The workspace was opened
-// whatever is then done in the shell: how the shell's last command ended
-// is not how this command ends, and only an SSH client that could not
-// get in (255, its own) is.
+// given what was opened and nothing more; --shell and --no-shell say
+// which, whatever runs it. The workspace was opened whatever is then
+// done in the shell: how the shell's last command ended is not how this
+// command ends, and only an SSH client that could not get in (255, its
+// own) is.
 func entered(ctx context.Context, repository string) error {
-	if !term.IsTerminal(int(os.Stdin.Fd())) || !term.IsTerminal(int(os.Stdout.Fd())) {
+	if wanted := openShell || (!openNoShell && atTerminal()); !wanted {
 		return nil
 	}
 	err := shell(ctx, "", true, []string{entering(repository)})
@@ -236,11 +202,26 @@ func notHeld(unpushed, uncommitted int) string {
 	return strings.Join(parts, ", and ")
 }
 
+// atTerminal is whether a person is at a terminal, to be shown and
+// asked: standard input and output are both one. A test stands in for
+// it.
+var atTerminal = func() bool {
+	return term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stdout.Fd()))
+}
+
 func init() {
 	workspaceCmd.AddCommand(openCmd)
-	openCmd.Flags().StringVar(&checkout.Name, "name", "", "the workspace's name; without it, the one the control plane gives what is asked for")
-	openCmd.Flags().BoolVar(&checkout.Push, "push", false, "make the workspace one that may push to its repositories, with whatever credential the control plane keeps for their hosts; said when a workspace is made, and refused of one made without it")
-	openCmd.Flags().BoolVar(&openWhole, "whole", false, "clone the entities' repositories whole, not only the directories the entities govern")
-	openCmd.Flags().StringVar(&checkout.Image, "image", "", "the box image a new workspace's sandbox runs; without it, the control plane's own")
-	openCmd.Flags().StringVar(&checkout.Directory, "directory", "", "a directory of the checkout; without it, the one this is run in")
+	openCmd.Flags().StringVar(&opened.Name, "name", "", "the name of this checkout's workspace; without it, the one the control plane gives its repository and branch")
+	openCmd.Flags().BoolVar(&opened.Push, "push", false, "make this checkout's workspace one that may push to its repository, with whatever credential the control plane keeps for its host; said when a workspace is made, and refused of one made without it")
+	openCmd.Flags().StringVar(&opened.Image, "image", "", "the box image a new workspace's sandbox runs; without it, the control plane's own")
+	openCmd.Flags().StringVar(&opened.Directory, "directory", "", "a directory of the checkout; without it, the one this is run in")
+	shellFlags(openCmd)
+}
+
+// shellFlags gives a command that opens a workspace the flags that say
+// whether it goes on into a shell there.
+func shellFlags(cmd *cobra.Command) {
+	cmd.Flags().BoolVar(&openShell, "shell", false, "go on into a shell in the workspace, whatever runs this; without it or --no-shell, at a terminal")
+	cmd.Flags().BoolVar(&openNoShell, "no-shell", false, "open the workspace and return, at a terminal too")
+	cmd.MarkFlagsMutuallyExclusive("shell", "no-shell")
 }
