@@ -107,14 +107,15 @@ type ReleaseServiceClient interface {
 	//   or what a release plugin answered is not what the plugin contract
 	//   lets it answer (RELEASE_INVALID).
 	// - NOT_FOUND: an entity the workspace does not hold (ENTITY_NOT_FOUND).
-	// - FAILED_PRECONDITION: what an entity says of how it is released is
-	//   mistaken; a repository the request reaches lists no release plugin;
-	//   a unit's members are in more than one repository; units depend on
-	//   each other in a cycle; a unit depends on a unit that has a change
-	//   not yet released, and the request does not release that unit; a
-	//   version is tagged on another commit already. The message names
-	//   what (SOURCE_MISTAKEN, or the catalog's own reason, as
-	//   GraphService.ListEntities gives it).
+	// - FAILED_PRECONDITION: the workspace holds no repository that is
+	//   ready to build (WORKSPACE_NOT_READY). Or what an entity says of
+	//   how it is released is mistaken; a repository the request reaches
+	//   lists no release plugin; a unit's members are in more than one
+	//   repository; units depend on each other in a cycle; a unit depends
+	//   on a unit that has a change not yet released, and the request does
+	//   not release that unit; a version is tagged on another commit
+	//   already. The message names what (SOURCE_MISTAKEN, or the catalog's
+	//   own reason, as GraphService.ListEntities gives it).
 	// - UNIMPLEMENTED: what is released is part of a domain within a
 	//   domain, whose release is not served (RELEASE_NOT_SERVED).
 	// - UNAVAILABLE: the daemon is ending (DAEMON_ENDING).
@@ -170,14 +171,15 @@ type ReleaseServiceHandler interface {
 	//   or what a release plugin answered is not what the plugin contract
 	//   lets it answer (RELEASE_INVALID).
 	// - NOT_FOUND: an entity the workspace does not hold (ENTITY_NOT_FOUND).
-	// - FAILED_PRECONDITION: what an entity says of how it is released is
-	//   mistaken; a repository the request reaches lists no release plugin;
-	//   a unit's members are in more than one repository; units depend on
-	//   each other in a cycle; a unit depends on a unit that has a change
-	//   not yet released, and the request does not release that unit; a
-	//   version is tagged on another commit already. The message names
-	//   what (SOURCE_MISTAKEN, or the catalog's own reason, as
-	//   GraphService.ListEntities gives it).
+	// - FAILED_PRECONDITION: the workspace holds no repository that is
+	//   ready to build (WORKSPACE_NOT_READY). Or what an entity says of
+	//   how it is released is mistaken; a repository the request reaches
+	//   lists no release plugin; a unit's members are in more than one
+	//   repository; units depend on each other in a cycle; a unit depends
+	//   on a unit that has a change not yet released, and the request does
+	//   not release that unit; a version is tagged on another commit
+	//   already. The message names what (SOURCE_MISTAKEN, or the catalog's
+	//   own reason, as GraphService.ListEntities gives it).
 	// - UNIMPLEMENTED: what is released is part of a domain within a
 	//   domain, whose release is not served (RELEASE_NOT_SERVED).
 	// - UNAVAILABLE: the daemon is ending (DAEMON_ENDING).
