@@ -67,10 +67,7 @@ func SetStrings(raw []byte, document int, keys []string, values []string) ([]byt
 	}
 	leaf := mappings[len(mappings)-1]
 	last := keys[len(keys)-1]
-	list, err := entries(leaf, last, values)
-	if err != nil {
-		return nil, err
-	}
+	list := entries(leaf, last, values)
 	if !put(leaf, last, list) {
 		return raw, nil
 	}
@@ -122,15 +119,15 @@ func SetStrings(raw []byte, document int, keys []string, values []string) ([]byt
 // copied is a shallow copy of a mapping: its own content slice, and no
 // anchor, so that what shared the anchor is left as it was.
 func copied(mapping *yaml.Node) *yaml.Node {
-	copy := *mapping
-	copy.Anchor = ""
-	copy.Content = append([]*yaml.Node(nil), mapping.Content...)
-	return &copy
+	shallow := *mapping
+	shallow.Anchor = ""
+	shallow.Content = append([]*yaml.Node(nil), mapping.Content...)
+	return &shallow
 }
 
 // entries are the values as nodes: an entry that was written under the
 // key and is one of the values is kept as written, the first time.
-func entries(mapping *yaml.Node, key string, values []string) ([]*yaml.Node, error) {
+func entries(mapping *yaml.Node, key string, values []string) []*yaml.Node {
 	direct := Child(mapping, key)
 	used := map[int]bool{}
 	list := make([]*yaml.Node, 0, len(values))
@@ -147,7 +144,7 @@ func entries(mapping *yaml.Node, key string, values []string) ([]*yaml.Node, err
 		}
 		list = append(list, node)
 	}
-	return list, nil
+	return list
 }
 
 // quotingOf is the quoting every string of a list was written with, where

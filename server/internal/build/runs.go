@@ -1,25 +1,11 @@
 package build
 
-import runexec "github.com/frontseat-dev/frontseat/server/internal/exec/run"
-
-import "github.com/frontseat-dev/frontseat/server/internal/source/record"
-
-import "github.com/frontseat-dev/frontseat/sdk/go/entity"
-
 import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/frontseat-dev/frontseat/server/internal/history"
-	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
-	"github.com/frontseat-dev/frontseat/server/telemetry"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/log"
-	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
-	statuspb "google.golang.org/genproto/googleapis/rpc/status"
-	"google.golang.org/grpc/codes"
 	"io"
 	"os"
 	"path"
@@ -28,8 +14,18 @@ import (
 	"sync"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/log"
+	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
+	statuspb "google.golang.org/genproto/googleapis/rpc/status"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
+	"github.com/frontseat-dev/frontseat/sdk/go/entity"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/evaluate"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/graph"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/plan"
@@ -37,12 +33,14 @@ import (
 	"github.com/frontseat-dev/frontseat/server/internal/exec"
 	"github.com/frontseat-dev/frontseat/server/internal/exec/download"
 	"github.com/frontseat-dev/frontseat/server/internal/exec/program"
+	runexec "github.com/frontseat-dev/frontseat/server/internal/exec/run"
+	"github.com/frontseat-dev/frontseat/server/internal/history"
 	"github.com/frontseat-dev/frontseat/server/internal/model"
+	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/pluginhost"
 	sourced "github.com/frontseat-dev/frontseat/server/internal/source"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/durationpb"
-	"google.golang.org/protobuf/types/known/timestamppb"
+	"github.com/frontseat-dev/frontseat/server/internal/source/record"
+	"github.com/frontseat-dev/frontseat/server/telemetry"
 )
 
 // How a run ends, in Bazel's names and numbers.
@@ -81,7 +79,7 @@ type runs struct {
 	// telemetry connects each run to its originating command.
 	telemetry *telemetry.Signals
 	// history is where the runs outlive the daemon.
-	history history.Store
+	history *history.Store
 	// now is the time; time.Now unless a test says otherwise.
 	now func() time.Time
 	// files is what the daemon keeps of the workspace's files from one
@@ -116,18 +114,19 @@ func (rs *runs) stop() {
 	}
 	rs.going.Wait()
 	rs.history.Release()
-	os.RemoveAll(rs.tools)
+	// A fix's work is the daemon's for as long as it runs, and nothing's
+	// after. What cannot be removed now is cleared by the daemon that
+	// keeps its runs here next.
+	_ = os.RemoveAll(rs.tools)
 }
 
 // newRuns returns a daemon's runs: those kept in a directory by the
 // daemons before it, and those it will make. A run a daemon died under
-// is ended here, and says so.
-func newRuns(held *sourced.Workspace, plugins []*pluginhost.Plugin, executor exec.Executor, downloads download.Fetcher, platform map[string]string, signals *telemetry.Signals, kept string) (*runs, error) {
+// is ended here, and says so. The runs that ended long ago are let go by
+// the clock given, which is the machine's own where none is.
+func newRuns(held *sourced.Workspace, plugins []*pluginhost.Plugin, executor exec.Executor, downloads download.Fetcher, platform map[string]string, signals *telemetry.Signals, kept string, now func() time.Time) (*runs, error) {
 	keptHistory, err := history.Open(kept)
 	if err != nil {
-		return nil, err
-	}
-	if err := keptHistory.Hold(); err != nil {
 		return nil, err
 	}
 	// A fix's work, the tool trees it runs with and its copies, is kept
@@ -139,7 +138,7 @@ func newRuns(held *sourced.Workspace, plugins []*pluginhost.Plugin, executor exe
 		keptHistory.Release()
 		return nil, err
 	}
-	rs := &runs{workspace: held, plugins: plugins, executor: executor, downloads: downloads, answered: &exec.Remembering{Executor: executor}, platform: platform, telemetry: signals, history: keptHistory, files: &source.Keeper{}, answers: &evaluate.Answers{}, byID: map[string]*run{}, tools: tools}
+	rs := &runs{workspace: held, plugins: plugins, executor: executor, downloads: downloads, answered: &exec.Remembering{Executor: executor}, platform: platform, telemetry: signals, history: keptHistory, files: &source.Keeper{}, answers: &evaluate.Answers{}, byID: map[string]*run{}, tools: tools, now: now}
 	before, err := keptHistory.All()
 	if err != nil {
 		keptHistory.Release()
@@ -166,6 +165,7 @@ func recorded(kept history.Read) *run {
 	r := &run{
 		cancel:  func() {},
 		changed: make(chan struct{}),
+		done:    make(chan struct{}),
 		state:   kept.Made,
 		results: map[string]*buildv1.ActionResult{},
 		tests:   map[string]bool{},
@@ -216,7 +216,7 @@ func (rs *runs) prune() {
 		// Finished state and end time must be from the same observation.
 		// A run may finish after this snapshot; a second read of endedness
 		// would then treat the snapshot's absent end time as ancient.
-		if ended > newest && state.GetState() != buildv1.Build_STATE_RUNNING && now().Sub(state.GetEndTime().AsTime()) > lingers {
+		if ended > endedKept && state.GetState() != buildv1.Build_STATE_RUNNING && now().Sub(state.GetEndTime().AsTime()) > lingers {
 			ended--
 			delete(rs.byID, state.GetId())
 			// What cannot be removed now is removed by the daemon that
@@ -229,7 +229,6 @@ func (rs *runs) prune() {
 	rs.order = kept
 }
 
-// create starts a run and returns it at once.
 // profiles are the profiles there are, by name, each with the way of
 // building it is at its base. Frontseat defines these two; a profile a
 // repository defines for itself is found here once there are any.
@@ -254,10 +253,6 @@ func profileOf(asked string) (string, pluginv1.Profile, error) {
 	return asked, base, nil
 }
 
-// create makes a run and starts it. A run given something to run is
-// a run's: it builds what the one program its target names is made
-// of, and brings that to where the daemon is; every other run is a
-// build, and is given nil.
 // versions is what a release tells the build it makes: the version
 // each entity it releases is released at, by the entity, and the commit
 // each repository is planned at, by the repository.
@@ -293,7 +288,16 @@ func versioned(actions []plan.Action, entities []record.Located, of *versions) [
 	return out
 }
 
+// create makes a run, starts it and returns it at once. A run given
+// where to bring a program is made for a run of that program: it builds
+// what the one program its target names is made of, and brings that to
+// where the daemon is; every other run is given nil. A run given
+// versions is made for a release.
 func (rs *runs) create(parent context.Context, profile string, base pluginv1.Profile, targets, only []string, fix, testsOnly bool, running *delivery, released *versions) (*run, error) {
+	id, err := newID(history.IDPrefix, history.IDBytes)
+	if err != nil {
+		return nil, err
+	}
 	ctx, cancel := context.WithCancel(rs.telemetry.Context(context.WithoutCancel(parent)))
 	r := &run{
 		base:      base,
@@ -305,12 +309,13 @@ func (rs *runs) create(parent context.Context, profile string, base pluginv1.Pro
 		tests:     map[string]bool{},
 		cancel:    cancel,
 		changed:   make(chan struct{}),
+		done:      make(chan struct{}),
 		state: &buildv1.Build{
-			Id:         newID(),
+			Id:         id,
 			Profile:    profile,
 			Targets:    targets,
 			State:      buildv1.Build_STATE_RUNNING,
-			CreateTime: timestamppb.Now(),
+			CreateTime: timestamppb.New(rs.clock()),
 			Counts:     &buildv1.Counts{},
 			Cost:       &buildv1.Cost{},
 		},
@@ -387,7 +392,7 @@ func (rs *runs) execute(ctx context.Context, r *run) {
 	telemetry.PipelineDuration(ctx, "build", time.Since(started), result, errorType)
 	telemetry.Message(ctx, severity, "run finished", result)
 	span.End()
-	r.finish(time.Now(), code, failure, cancelled)
+	r.finish(rs.clock(), code, failure, cancelled)
 	rs.prune()
 }
 
@@ -466,7 +471,7 @@ func (rs *runs) work(ctx context.Context, r *run) (code *buildv1.ExitCode, failu
 		execution.SetAttributes(attribute.Int("read", snapshot.Hashed()-read))
 		var failed error
 		if code != nil && code.GetCode() != 0 {
-			failed = fmt.Errorf("%s", code.GetName())
+			failed = errors.New(code.GetName())
 		}
 		telemetry.End(execution, failed)
 	}()
@@ -542,8 +547,10 @@ type run struct {
 	tests map[string]bool
 	// publishes is what a release's build leaves it to publish with.
 	publishes *publishing
-	// changed is closed, and replaced, each time an event is appended.
+	// changed is closed, and replaced, each time an event is appended;
+	// done is closed when the run has ended.
 	changed chan struct{}
+	done    chan struct{}
 	// record is the run's place in the daemon's history: each event is
 	// added to it as it happens. lost is the first thing that could not
 	// be kept there; a run that lost something does not end well.
@@ -655,6 +662,23 @@ func (r *run) since(sequence int64) ([]*buildv1.BuildEvent, bool, <-chan struct{
 	return out, r.state.GetState() != buildv1.Build_STATE_RUNNING, r.changed
 }
 
+// wait returns true once the run has ended, and false once stop is
+// closed before it has. A run that has ended is one that ended, whatever
+// stop says; a nil stop waits for the end alone.
+func (r *run) wait(stop <-chan struct{}) bool {
+	select {
+	case <-r.done:
+		return true
+	default:
+	}
+	select {
+	case <-r.done:
+		return true
+	case <-stop:
+		return false
+	}
+}
+
 // actions returns what the run's actions did, in the order it planned
 // them.
 func (r *run) actions() []*buildv1.ActionResult {
@@ -741,6 +765,15 @@ func (r *run) apply(e *buildv1.BuildEvent) {
 		}
 	case *buildv1.BuildEvent_Finished_:
 		r.state = proto.Clone(event.Finished.GetBuild()).(*buildv1.Build)
+		// Whoever waits on the run is told it has ended, once: a record
+		// read back may hold more than one event that ends its run.
+		if r.state.GetState() != buildv1.Build_STATE_RUNNING {
+			select {
+			case <-r.done:
+			default:
+				close(r.done)
+			}
+		}
 		return
 	}
 	r.state.LastSequence = e.GetSequence()
@@ -862,16 +895,15 @@ func (r *run) finish(at time.Time, code *buildv1.ExitCode, failure *statuspb.Sta
 	r.appendLocked(&buildv1.BuildEvent{Event: &buildv1.BuildEvent_Finished_{Finished: &buildv1.BuildEvent_Finished{Build: final}}})
 }
 
-func newID() string {
-	var b [6]byte
-	if _, err := rand.Read(b[:]); err != nil {
-		panic(fmt.Sprintf("server: no randomness: %v", err))
+// newID returns a new id: a prefix, and so many random bytes in
+// lowercase hex.
+func newID(prefix string, size int) (string, error) {
+	b := make([]byte, size)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
 	}
-	return "build_" + hex.EncodeToString(b[:])
+	return prefix + hex.EncodeToString(b), nil
 }
-
-// newest is the number of completed runs retained after the grace period.
-const newest = 12
 
 // runRecord is the durable record a live run appends to. Its storage details
 // belong to history; the run decides the meaning and ordering of events.

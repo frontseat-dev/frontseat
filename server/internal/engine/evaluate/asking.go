@@ -10,7 +10,7 @@ import (
 
 // asking is the evaluator's query boundary. Answers serves ordinary evaluation;
 // a retained session can collect query dependencies through the same operations.
-// Repository reads and standalone calls keep their existing behavior.
+// Repository reads and standalone calls are the same through either.
 type asking interface {
 	begin()
 	said(context.Context, repositoryView) (*config.Repository, map[string]string, error)

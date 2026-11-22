@@ -1,7 +1,5 @@
 package graph
 
-import "github.com/frontseat-dev/frontseat/server/internal/source/record"
-
 import (
 	"fmt"
 	"path"
@@ -9,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/frontseat-dev/frontseat/server/internal/model"
+	"github.com/frontseat-dev/frontseat/server/internal/source/record"
 )
 
 // Graph is a workspace's projects and what provides what each requires.

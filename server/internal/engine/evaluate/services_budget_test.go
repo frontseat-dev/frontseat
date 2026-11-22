@@ -51,7 +51,7 @@ func BenchmarkAPIServiceDependencies(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for b.Loop() {
-		dependencies, err := serviceDependencies(g.Nodes(nil), descriptors, started)
+		dependencies, _, err := serviceRelationships(g.Nodes(nil), descriptors, started)
 		if err != nil || len(dependencies) != 1001 {
 			b.Fatalf("invalid runtime projection: %d consumers, %v", len(dependencies), err)
 		}

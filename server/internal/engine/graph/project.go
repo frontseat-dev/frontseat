@@ -1,11 +1,11 @@
 package graph
 
-import "github.com/frontseat-dev/frontseat/server/internal/pattern"
-
 import (
+	"path"
+
 	"github.com/frontseat-dev/frontseat/server/internal/engine/config"
 	"github.com/frontseat-dev/frontseat/server/internal/model"
-	"path"
+	"github.com/frontseat-dev/frontseat/server/internal/pattern"
 )
 
 // Provide is something a project can be required by, and what a project

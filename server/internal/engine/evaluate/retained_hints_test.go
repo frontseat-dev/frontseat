@@ -11,6 +11,15 @@ import (
 	"time"
 )
 
+// The snapshot a daemon evaluates is a source that counts and hints: a
+// change to either method's shape fails here, where it would otherwise
+// be dropped without a word.
+var _ interface {
+	Source
+	Counting
+	Hinting
+} = (*source.Snapshot)(nil)
+
 type hintedProbe struct {
 	Source
 	mu    sync.Mutex

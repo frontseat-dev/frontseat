@@ -1,9 +1,5 @@
 package evaluate
 
-import "github.com/frontseat-dev/frontseat/server/internal/source/record"
-
-import "github.com/frontseat-dev/frontseat/sdk/go/entity"
-
 import (
 	"bytes"
 	"context"
@@ -11,7 +7,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/frontseat-dev/frontseat/server/internal/engine/internal/yamlnode"
 	"path"
 	"runtime"
 	"slices"
@@ -21,16 +16,18 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
-
+	"github.com/frontseat-dev/frontseat/sdk/go/entity"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/catalog"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/config"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/graph"
+	"github.com/frontseat-dev/frontseat/server/internal/engine/internal/yamlnode"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/plan"
 	"github.com/frontseat-dev/frontseat/server/internal/model"
 	"github.com/frontseat-dev/frontseat/server/internal/pattern"
 	"github.com/frontseat-dev/frontseat/server/internal/pins"
 	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/pluginhost"
+	"github.com/frontseat-dev/frontseat/server/internal/source/record"
 	"github.com/frontseat-dev/frontseat/server/internal/wire"
 )
 
@@ -162,12 +159,7 @@ func evaluate(ctx context.Context, src Source, plugins []*pluginhost.Plugin, ans
 		}
 		var selected []*pluginhost.Plugin
 		for _, name := range configured.Plugins() {
-			var plugin *pluginhost.Plugin
-			for _, loaded := range plugins {
-				if loaded.Description.GetName() == name {
-					plugin = loaded
-				}
-			}
+			plugin := pluginhost.Named(plugins, name)
 			if plugin == nil {
 				return out, &model.Mistake{File: path.Join(repository, config.File), Message: fmt.Sprintf("there is no plugin %s", name)}
 			}
@@ -308,7 +300,7 @@ func evaluate(ctx context.Context, src Source, plugins []*pluginhost.Plugin, ans
 // refused before anything is resolved by label: a need would be met by
 // whichever was read last, and the other never run. A plugin is named
 // as it names itself, and may take the name the host gives the actions
-// of a catalog file (Custom) or its own (Catalog). seen holds the labels
+// of a catalog file (customPlugin) or its own (catalogPlugin). seen holds the labels
 // already taken, and is given those of actions.
 func distinct(seen map[model.Label]bool, actions []plan.Action) error {
 	for _, action := range actions {
@@ -320,9 +312,9 @@ func distinct(seen map[model.Label]bool, actions []plan.Action) error {
 	return nil
 }
 
-// Catalog is the plugin the host's own actions over catalog files are
-// named after.
-const Catalog = "catalog"
+// catalogPlugin is the plugin the host's own actions over catalog files
+// are named after.
+const catalogPlugin = "catalog"
 
 // kept returns the host's own actions: one for each catalog file that
 // describes an entity of the workspace, holding what the file says each
@@ -382,7 +374,7 @@ func kept(ctx context.Context, src Source, plugins []*pluginhost.Plugin, answers
 			n = len(actions)
 			at[shown] = n
 			actions = append(actions, plan.Action{
-				Label:       model.Label{Path: entry.Path(), Plugin: Catalog, Name: "depends-on"},
+				Label:       model.Label{Path: entry.Path(), Plugin: catalogPlugin, Name: "depends-on"},
 				Repository:  descriptor.Repository,
 				ProjectRoot: entry.Root,
 				Declared:    &pluginv1.Action{Name: "depends-on"},
@@ -655,12 +647,7 @@ func hand(ctx context.Context, src Source, plugins []*pluginhost.Plugin, answers
 	given := make([]bool, len(order))
 	for n, key := range order {
 		group := together[key]
-		for _, loaded := range plugins {
-			if loaded.Description.GetName() == group.project.Plugin {
-				asked[n] = loaded
-			}
-		}
-		if asked[n] == nil {
+		if asked[n] = pluginhost.Named(plugins, group.project.Plugin); asked[n] == nil {
 			continue
 		}
 		options := map[string]*typev1.OptionValue{}
@@ -710,8 +697,8 @@ func hand(ctx context.Context, src Source, plugins []*pluginhost.Plugin, answers
 	return resolved, nil
 }
 
-// Custom is the plugin an entity's own actions are named after.
-const Custom = "custom"
+// customPlugin is the plugin an entity's own actions are named after.
+const customPlugin = "custom"
 
 // custom is an entity's own action, as the host addresses it.
 func custom(repository string, own config.Action) (plan.Action, error) {
@@ -722,7 +709,7 @@ func custom(repository string, own config.Action) (plan.Action, error) {
 		return plan.Action{}, err
 	}
 	action := plan.Action{
-		Label:       model.Label{Path: at, Plugin: Custom, Name: own.Name},
+		Label:       model.Label{Path: at, Plugin: customPlugin, Name: own.Name},
 		Repository:  repository,
 		ProjectRoot: own.Directory,
 		Sources:     reading.ofOwn(),

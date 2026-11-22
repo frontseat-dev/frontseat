@@ -12,12 +12,13 @@ import (
 
 // begun is a store of runs in a directory of the test's own, a run, and
 // the record the store began for it.
-func begun(t *testing.T) (Store, *buildv1.Build, *Record) {
+func begun(t *testing.T) (*Store, *buildv1.Build, *Record) {
 	t.Helper()
 	kept, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(kept.Release)
 	made := &buildv1.Build{Id: "build_0123456789ab"}
 	record, err := kept.Begin(made)
 	if err != nil {
@@ -100,6 +101,7 @@ func TestRecordReportsUnderlyingWriteFailures(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
+				defer store.Release()
 				record, err := store.Begin(&buildv1.Build{Id: "build_0123456789ab"})
 				if err != nil {
 					t.Fatal(err)

@@ -1,16 +1,13 @@
 package plan
 
-import "github.com/frontseat-dev/frontseat/server/internal/pattern"
-
-import "github.com/frontseat-dev/frontseat/server/internal/source/record"
-
-import "github.com/frontseat-dev/frontseat/sdk/go/entity"
-
 import (
 	"strings"
 
+	"github.com/frontseat-dev/frontseat/sdk/go/entity"
 	"github.com/frontseat-dev/frontseat/server/internal/model"
+	"github.com/frontseat-dev/frontseat/server/internal/pattern"
 	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
+	"github.com/frontseat-dev/frontseat/server/internal/source/record"
 )
 
 // Action is one action of a workspace, as a plugin declared it and as the
@@ -82,7 +79,7 @@ type Action struct {
 // Beside is a test's services, as the grid's runner is told them and
 // the test is told of them.
 type Beside struct {
-	// Sandbox is the runner sandbox, encoded (frontseat.sandbox.v1alpha1.
+	// Sandbox is the runner sandbox, encoded (frontseat.runner.v1alpha1.
 	// RunnerSandbox): written into the action's root, and so in its key.
 	Sandbox []byte
 	// Environment is what the services export, as the test is given it.

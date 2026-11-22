@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -249,14 +250,18 @@ func TestAnEventCutShortIsNotPartOfARun(t *testing.T) {
 // never let go.
 func TestOnlyTheNewestRunsAreKept(t *testing.T) {
 	// A run that has only just ended is kept whatever has ended since:
-	// to this daemon every run ended an hour ago.
-	later := func() time.Time { return time.Now().Add(time.Hour) }
-	config := configuration{Workspace: oneModule(t), Mounted: true, Executor: scripted{}, Builds: t.TempDir(), Now: later}
+	// the daemon's clock is put on an hour once fourteen runs have ended,
+	// and the run that ends after them lets go of the oldest.
+	var ahead atomic.Int64
+	clock := func() time.Time { return time.Now().Add(time.Duration(ahead.Load())) }
+	config := configuration{Workspace: oneModule(t), Mounted: true, Executor: scripted{}, Builds: t.TempDir(), Now: clock}
 	c := serveAs(t, config)
 	var ids []string
 	for range 14 {
 		ids = append(ids, wait(t, c.runs, create(t, c.runs).GetId()).GetId())
 	}
+	ahead.Store(int64(time.Hour))
+	ids = append(ids, wait(t, c.runs, create(t, c.runs).GetId()).GetId())
 
 	kept := func(c clients) {
 		t.Helper()
@@ -269,7 +274,7 @@ func TestOnlyTheNewestRunsAreKept(t *testing.T) {
 				t.Errorf("run %d of the list is %s, want %s: the newest first", i, run.GetId(), want)
 			}
 		}
-		for _, gone := range ids[:2] {
+		for _, gone := range ids[:len(ids)-12] {
 			if _, err := c.runs.DescribeBuild(context.Background(), &buildv1.DescribeBuildRequest{BuildId: gone}); connect.CodeOf(err) != connect.CodeNotFound {
 				t.Errorf("asking after %s, a run let go: %v; want it not found", gone, err)
 			}

@@ -102,7 +102,7 @@ func (p *retainedEngine) projected(ctx context.Context, src Source, profile plug
 		}
 		ended = true
 		span.SetAttributes(attribute.Int("asked", out.work.Asked), attribute.Int("again", out.work.Again), attribute.Bool("retained", out.work.Retained))
-		if reads, ok := src.(interface{ Hashed() int }); ok {
+		if reads, ok := src.(Counting); ok {
 			span.SetAttributes(attribute.Int("read", reads.Hashed()))
 		}
 		telemetry.End(span, failure)
@@ -361,7 +361,7 @@ func (t *retainedTrace) same(ctx context.Context, src Source, answers *Answers, 
 // without hints retain capture order. The run boundary delegates any validation
 // failure to ordinary evaluation, which owns externally returned diagnostics.
 func (t *retainedTrace) checkOrder(src Source) []int {
-	hints, hinted := src.(interface{ MayHaveChanged(string, string) bool })
+	hints, hinted := src.(Hinting)
 	priority := make([]bool, len(t.queries))
 	if hinted {
 		for i, q := range t.queries {

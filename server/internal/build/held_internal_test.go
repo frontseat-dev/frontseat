@@ -22,23 +22,24 @@ import (
 
 // begun is a run under way, as create makes one, with its record in a
 // directory.
-func begun(t *testing.T, kept history.Store, id string) *run {
+func begun(t *testing.T, kept *history.Store, id string) *run {
 	t.Helper()
 	made := &buildv1.Build{Id: id, State: buildv1.Build_STATE_RUNNING, CreateTime: timestamppb.Now(), Counts: &buildv1.Counts{}, Cost: &buildv1.Cost{}}
 	record, err := kept.Begin(made)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &run{cancel: func() {}, changed: make(chan struct{}), state: made, results: map[string]*buildv1.ActionResult{}, tests: map[string]bool{}, record: record}
+	return &run{cancel: func() {}, changed: make(chan struct{}), done: make(chan struct{}), state: made, results: map[string]*buildv1.ActionResult{}, tests: map[string]bool{}, record: record}
 }
 
-// opened is the history kept in a directory.
-func opened(t *testing.T, dir string) history.Store {
+// opened is the history kept in a directory, held until the test ends.
+func opened(t *testing.T, dir string) *history.Store {
 	t.Helper()
 	kept, err := history.Open(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(kept.Release)
 	return kept
 }
 
@@ -46,7 +47,7 @@ func opened(t *testing.T, dir string) history.Store {
 // is given nothing else, makes of them.
 func readRuns(t *testing.T, dir string) *runs {
 	t.Helper()
-	rs, err := newRuns(nil, nil, nil, nil, nil, nil, dir)
+	rs, err := newRuns(nil, nil, nil, nil, nil, nil, dir, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +79,7 @@ func plannedOf(actions int) *buildv1.BuildEvent {
 }
 
 // reloaded is what the daemon that comes after says of the one run kept.
-func reloaded(t *testing.T, kept history.Store) *run {
+func reloaded(t *testing.T, kept *history.Store) *run {
 	t.Helper()
 	all, err := kept.All()
 	if err != nil {
@@ -221,7 +222,7 @@ func TestLettingARunGoRemovesOnlyThatRun(t *testing.T) {
 				named = endedAs
 			}
 			crafted(t, dir, oldest, whole(oldest, 0, named)...)
-			endedRuns(t, dir, 1, newest)
+			endedRuns(t, dir, 1, endedKept)
 
 			rs := readRuns(t, dir)
 
@@ -237,8 +238,8 @@ func TestLettingARunGoRemovesOnlyThatRun(t *testing.T) {
 					directories++
 				}
 			}
-			if directories != newest+1 {
-				t.Errorf("the directory holds %d directories; want the %d newest runs and someone's notes", directories, newest)
+			if directories != endedKept+1 {
+				t.Errorf("the directory holds %d directories; want the %d newest runs and someone's notes", directories, endedKept)
 			}
 			if _, err := os.Stat(filepath.Join(dir, oldest)); err == nil {
 				t.Errorf("the oldest run's record is still there, though the daemon lists %d runs", len(rs.list()))
@@ -263,7 +264,7 @@ func TestARecordThatSaysLittleDoesNotStopTheDaemon(t *testing.T) {
 					t.Errorf("the daemon panicked reading its runs: %v", r)
 				}
 			}()
-			if _, err := newRuns(nil, nil, nil, nil, nil, nil, dir); err != nil {
+			if _, err := newRuns(nil, nil, nil, nil, nil, nil, dir, nil); err != nil {
 				t.Logf("the daemon refused, which is an answer: %v", err)
 			}
 		})
@@ -294,7 +295,7 @@ func TestARecordCutAnywhereIsARunOrNone(t *testing.T) {
 			t.Fatal(err)
 		}
 		for range 2 {
-			rs, err := newRuns(nil, nil, nil, nil, nil, nil, dir)
+			rs, err := newRuns(nil, nil, nil, nil, nil, nil, dir, nil)
 			if err != nil {
 				t.Fatalf("cut at %d: %v", cut, err)
 			}
@@ -345,7 +346,7 @@ func TestWhatARecordNamesAsPrintedIsADigestOrNothing(t *testing.T) {
 	planned := &buildv1.BuildEvent{Sequence: 1, Event: &buildv1.BuildEvent_Planned_{Planned: &buildv1.BuildEvent_Planned{Actions: []*buildv1.BuildEvent_PlannedAction{{Label: "//a:path"}, {Label: "//a:never"}}}}}
 	crafted(t, dir, id, made, planned, result(2, "//a:path", "../../../secret"), result(3, "//a:never", never), last)
 	rs := readRuns(t, dir)
-	service := &runService{runs: rs}
+	service := &buildService{runs: rs}
 	for _, label := range []string{"//a:path", "//a:never"} {
 		var got []*buildv1.StreamBuildLogsResponse
 		err := service.logs(t.Context(), &buildv1.StreamBuildLogsRequest{BuildId: id, Label: label}, func(part *buildv1.StreamBuildLogsResponse) error {

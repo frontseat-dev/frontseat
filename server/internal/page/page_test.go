@@ -31,12 +31,12 @@ func TestEveryItemIsListedOnceAcrossThePages(t *testing.T) {
 }
 
 func TestAPageIsAsLargeAsAskedUpToTheMost(t *testing.T) {
-	items := make([]int, Most+5)
+	items := make([]int, most+5)
 	for _, c := range []struct {
 		size int32
 		want int
 		more bool
-	}{{0, Default, true}, {7, 7, true}, {Most + 5, Most, true}, {-1, Default, true}} {
+	}{{0, defaultSize, true}, {7, 7, true}, {most + 5, most, true}, {-1, defaultSize, true}} {
 		got, next, err := Of(items, c.size, "")
 		if err != nil || len(got) != c.want || (next != "") != c.more {
 			t.Errorf("size %d: %d items, next %q, %v; want %d", c.size, len(got), next, err, c.want)

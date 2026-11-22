@@ -29,16 +29,11 @@ const (
 	retainedWireBytes = 8 << 20
 	// graphRequestsAdmitted graph requests own source at once, each from
 	// taking it through the projection it returns; the rest wait, holding
-	// none, and are not capped in number: one waiting costs about 1.2 KB.
-	// One at a time made a burst of eight requests 33% slower than no
-	// bound and a burst of thirty-two 20% slower; two made neither slower
-	// (32.9 ms and 124.2 ms, against 33.8 ms and 142.3 ms unbounded), and
-	// each one admitted costs one source of the workspace while 64 wait
-	// (349 KB, 614 KB and 1.14 MB at one, two and four for 500 modules,
-	// against 16.9 MB with no bound); those were measured once, before the
-	// work was brought onto ABI 14, and nothing here makes them again. A
-	// build takes the snapshot it began with and waits for none of them to
-	// take source; the evaluation itself is for one request at a time,
-	// builds and graph queries alike.
+	// none, and are not capped in number. Each one admitted costs one
+	// source of the workspace while the rest wait
+	// (TestQueuedGraphRequestsOwnAsManySourcesAsAreAdmitted). A build
+	// takes the snapshot it began with and waits for none of them to take
+	// source; the evaluation itself is for one request at a time, builds
+	// and graph queries alike.
 	graphRequestsAdmitted = 2
 )

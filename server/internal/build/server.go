@@ -100,12 +100,12 @@ func newDaemon(config configuration) (*Daemon, error) {
 		return nil, err
 	}
 	api := connect.NewServer()
-	runs, err := newRuns(held, config.Plugins, config.Executor, config.Downloads, config.Platform, config.Telemetry, config.Builds)
+	runs, err := newRuns(held, config.Plugins, config.Executor, config.Downloads, config.Platform, config.Telemetry, config.Builds, config.Now)
 	if err != nil {
 		return nil, err
 	}
-	runs.now, runs.given = config.Now, config.Given
-	buildv1alpha1connect.RegisterBuildServiceHandler(api, &runService{runs: runs})
+	runs.given = config.Given
+	buildv1alpha1connect.RegisterBuildServiceHandler(api, &buildService{runs: runs})
 	graph := &graphService{runs: runs}
 	// What the daemon keeps of an evaluation, and how many graph requests
 	// own source at once (retained.go).
@@ -119,7 +119,7 @@ func newDaemon(config configuration) (*Daemon, error) {
 	made := newReleases(graph)
 	buildv1alpha1connect.RegisterReleaseServiceHandler(api, &releaseService{graph: graph, releases: made})
 	programs := newProgramRuns(runs)
-	buildv1alpha1connect.RegisterRunServiceHandler(api, &programService{programs: programs})
+	buildv1alpha1connect.RegisterRunServiceHandler(api, &runService{programs: programs})
 	mux := http.NewServeMux()
 	connecthttp.Mount(mux, api)
 	return &Daemon{Handler: config.Telemetry.Handler(mux, "build API"), Source: config.Telemetry.Handler(source.Serve(held), "source API"), held: held, runs: runs, graph: graph, releases: made, programs: programs}, nil

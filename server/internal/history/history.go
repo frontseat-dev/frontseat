@@ -32,33 +32,21 @@ import (
 // record and has the run. Nothing of it is kept anywhere else.
 type Store struct {
 	dir string
-	// held is the directory's lock, held for as long as a daemon keeps
-	// its runs there.
+	// held is the directory's lock, held from Open until Release.
 	held *os.File
 }
+
+// A run's id names its directory: IDPrefix, then IDBytes random bytes
+// in lowercase hex. Whoever makes a run names it so, and what is in the
+// directory under another name is no run's.
+const (
+	IDPrefix = "build_"
+	IDBytes  = 6
+)
 
 // lockFile is what a daemon holds while it keeps its runs in a
 // directory.
 const lockFile = "lock"
-
-// Hold takes the directory for one daemon. Two daemons that kept their
-// runs in one directory would each take the other's runs under way for
-// runs a daemon died under, end them, and let them go. So a directory
-// is one daemon's at a time, as Bazel's output base and Buck2's daemon
-// directory are, and a daemon that is given another's says so and does
-// not start.
-func (h *Store) Hold() error {
-	file, err := os.OpenFile(filepath.Join(h.dir, lockFile), os.O_CREATE|os.O_RDWR, 0o600)
-	if err != nil {
-		return fmt.Errorf("the runs' records: %w", err)
-	}
-	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
-		file.Close()
-		return fmt.Errorf("the directory %s is where another daemon keeps its runs: a directory is one daemon's at a time", h.dir)
-	}
-	h.held = file
-	return nil
-}
 
 // Release lets the directory go, for the daemon that comes after.
 func (h *Store) Release() {
@@ -77,15 +65,28 @@ const (
 )
 
 // Open returns the runs kept in a directory, making it where it is
-// not there.
-func Open(dir string) (Store, error) {
+// not there, and takes the directory for one daemon until Release. Two
+// daemons that kept their runs in one directory would each take the
+// other's runs under way for runs a daemon died under, end them, and
+// let them go. So a directory is one daemon's at a time, as Bazel's
+// output base and Buck2's daemon directory are, and a daemon that is
+// given another's says so and does not start.
+func Open(dir string) (*Store, error) {
 	if dir == "" {
-		return Store{}, errors.New("the daemon was given no directory to keep its runs in (--state)")
+		return nil, errors.New("the daemon was given no directory to keep its runs in (--state)")
 	}
 	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return Store{}, fmt.Errorf("the runs' records: %w", err)
+		return nil, fmt.Errorf("the runs' records: %w", err)
 	}
-	return Store{dir: dir}, nil
+	file, err := os.OpenFile(filepath.Join(dir, lockFile), os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		return nil, fmt.Errorf("the runs' records: %w", err)
+	}
+	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		file.Close()
+		return nil, fmt.Errorf("the directory %s is where another daemon keeps its runs: a directory is one daemon's at a time", dir)
+	}
+	return &Store{dir: dir, held: file}, nil
 }
 
 // Record is one run's place in the history, open to be added to.
@@ -111,7 +112,7 @@ type Record struct {
 const settles = 250 * time.Millisecond
 
 // Begin makes a run's place and writes the run as it was made.
-func (h Store) Begin(made *buildv1.Build) (*Record, error) {
+func (h *Store) Begin(made *buildv1.Build) (*Record, error) {
 	dir := filepath.Join(h.dir, made.GetId())
 	if err := os.MkdirAll(filepath.Join(dir, printedDir), 0o700); err != nil {
 		return nil, fmt.Errorf("keeping the run %s: %w", made.GetId(), err)
@@ -244,7 +245,7 @@ func (r *Record) Printed(digest *buildv1.Digest) (io.ReadCloser, error) {
 }
 
 // Drop lets a run go, with all that was kept of it.
-func (h Store) Drop(id string) error {
+func (h *Store) Drop(id string) error {
 	return os.RemoveAll(filepath.Join(h.dir, id))
 }
 
@@ -260,7 +261,7 @@ type Read struct {
 // that wrote it died writing: it is taken off the record, and the run
 // is the events before it. A run whose record does not hold the run as
 // it was made was never made, and is let go.
-func (h Store) All() ([]Read, error) {
+func (h *Store) All() ([]Read, error) {
 	entries, err := os.ReadDir(h.dir)
 	if err != nil {
 		return nil, err
@@ -291,7 +292,7 @@ func (h Store) All() ([]Read, error) {
 }
 
 // one reads a run's record.
-func (h Store) one(id string) (Read, error) {
+func (h *Store) one(id string) (Read, error) {
 	dir := filepath.Join(h.dir, id)
 	file, err := os.OpenFile(filepath.Join(dir, recordFile), os.O_RDWR|os.O_APPEND, 0o600)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -381,7 +382,7 @@ func (c *counted) ReadByte() (byte, error) {
 
 // isID is whether a name is one a build is given.
 func isID(name string) bool {
-	rest, is := strings.CutPrefix(name, "build_")
+	rest, is := strings.CutPrefix(name, IDPrefix)
 	raw, err := hex.DecodeString(rest)
-	return is && err == nil && len(raw) == 6 && rest == strings.ToLower(rest)
+	return is && err == nil && len(raw) == IDBytes && rest == strings.ToLower(rest)
 }

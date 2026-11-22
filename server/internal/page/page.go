@@ -13,8 +13,8 @@ import (
 // The sizes of a page: what a request that asks none is given, and the
 // most any is given.
 const (
-	Default = 100
-	Most    = 1000
+	defaultSize = 100
+	most        = 1000
 )
 
 // ErrToken is a page token that no List gave: one a caller made, or one
@@ -37,9 +37,9 @@ func Of[T any](items []T, size int32, token string) ([]T, string, error) {
 	n := int(size)
 	switch {
 	case n <= 0:
-		n = Default
-	case n > Most:
-		n = Most
+		n = defaultSize
+	case n > most:
+		n = most
 	}
 	if from >= len(items) {
 		return nil, "", nil
