@@ -5,6 +5,7 @@ package build
 // control beside it that passes.
 
 import (
+	"context"
 	"fmt"
 	"github.com/frontseat-dev/frontseat/server/internal/history"
 	"os"
@@ -88,7 +89,7 @@ func reloaded(t *testing.T, kept *history.Store) *run {
 	if len(all) != 1 {
 		t.Fatalf("the next daemon finds %d runs, want 1", len(all))
 	}
-	return recorded(all[0])
+	return recorded(all[0], nil)
 }
 
 // A run of a large workspace cannot be read back: its
@@ -418,3 +419,61 @@ func (r failedRecord) Event(e *buildv1.BuildEvent) error {
 	return r.runRecord.Event(e)
 }
 func (r failedRecord) Written() error { return syscall.ENOSPC }
+
+// A record that says its run ended, with no event that ends it, is a run
+// whoever waits on is answered at once, as one ended by its last event
+// is (the control); neither waits until the caller gives up.
+func TestWaitingOnARunARecordSaysEndedReturns(t *testing.T) {
+	id := "build_0123456789ab"
+	ended := whole(id, 0, id)
+	said := proto.Clone(ended[0]).(*buildv1.Build)
+	said.State = buildv1.Build_STATE_FINISHED
+	for name, messages := range map[string][]proto.Message{
+		"control: ended by its last event": ended,
+		"said to have ended, by no event":  {said, plannedOf(1)},
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			crafted(t, dir, id, messages...)
+			service := &buildService{runs: readRuns(t, dir)}
+			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+			defer cancel()
+			got, err := service.WaitBuild(ctx, &buildv1.WaitBuildRequest{BuildId: id})
+			if err != nil || got.GetBuild().GetState() != buildv1.Build_STATE_FINISHED {
+				t.Fatalf("waiting on the run: %v, %v", got, err)
+			}
+		})
+	}
+}
+
+// A run's events are stamped by the daemon's clock, as its making and
+// its end are, and so is the end of a run read back that its daemon died
+// under; a run with no clock is stamped by the system's (the control).
+func TestARunsEventsAreStampedByTheDaemonsClock(t *testing.T) {
+	at := time.Date(2030, 1, 2, 3, 4, 5, 0, time.UTC)
+	dir := t.TempDir()
+	r := begun(t, opened(t, dir), "build_0123456789ab")
+	r.stage(buildv1.Build_STAGE_EVALUATING)
+	if got := r.events[0].GetTime().AsTime(); got.Year() == at.Year() {
+		t.Fatalf("a run with no clock was stamped %v", got)
+	}
+	r.clock = func() time.Time { return at }
+	r.stage(buildv1.Build_STAGE_EXECUTING)
+	if got := r.events[1].GetTime().AsTime(); !got.Equal(at) {
+		t.Errorf("the event is stamped %v, want the daemon's %v", got, at)
+	}
+	bytes, err := os.ReadFile(filepath.Join(dir, "build_0123456789ab", recordFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	again := t.TempDir()
+	write(t, again, filepath.Join("build_0123456789ab", recordFile), string(bytes))
+	rs, err := newRuns(nil, nil, nil, nil, nil, nil, again, func() time.Time { return at })
+	if err != nil {
+		t.Fatal(err)
+	}
+	read := rs.list()[0]
+	if last := read.events[len(read.events)-1]; !last.GetTime().AsTime().Equal(at) {
+		t.Errorf("the end of a run its daemon died under is stamped %v, want the daemon's %v", last.GetTime().AsTime(), at)
+	}
+}

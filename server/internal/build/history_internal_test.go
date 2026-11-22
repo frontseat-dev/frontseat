@@ -32,7 +32,7 @@ func TestARunThatHasNotEndedIsNeverLetGo(t *testing.T) {
 	rs.mu.Lock()
 	for _, record := range records {
 		if record.Made.GetId() == late {
-			rs.order = append(rs.order, recorded(record))
+			rs.order = append(rs.order, recorded(record, nil))
 		} else {
 			_ = record.Record.Close()
 		}

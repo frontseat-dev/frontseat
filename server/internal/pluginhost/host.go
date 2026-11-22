@@ -77,6 +77,18 @@ type Plugin struct {
 	compiled wazero.CompiledModule
 }
 
+// Named is the plugin of a name among those loaded, the last loaded of
+// that name: one loaded after another of its name is the one asked.
+// Nil where there is none.
+func Named(plugins []*Plugin, name string) *Plugin {
+	for _, loaded := range slices.Backward(plugins) {
+		if loaded.Description.GetName() == name {
+			return loaded
+		}
+	}
+	return nil
+}
+
 // The ABI's exports, each with the shape the ABI document gives it.
 var exports = []struct {
 	name            string

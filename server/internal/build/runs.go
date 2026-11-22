@@ -148,7 +148,7 @@ func newRuns(held *sourced.Workspace, plugins []*pluginhost.Plugin, executor exe
 		// A run is known by the name its record is kept under, which is
 		// what its record was read by.
 		id := each.Made.GetId()
-		r := recorded(each)
+		r := recorded(each, rs.clock)
 		rs.byID[id] = r
 		rs.order = append(rs.order, r)
 	}
@@ -161,8 +161,9 @@ func newRuns(held *sourced.Workspace, plugins []*pluginhost.Plugin, executor exe
 // is one its daemon died under: nobody finished it and nobody cancelled
 // it, and it ends in error, at the last moment it is known to have been
 // under way.
-func recorded(kept history.Read) *run {
+func recorded(kept history.Read, clock func() time.Time) *run {
 	r := &run{
+		clock:   clock,
 		cancel:  func() {},
 		changed: make(chan struct{}),
 		done:    make(chan struct{}),
@@ -179,6 +180,9 @@ func recorded(kept history.Read) *run {
 	if r.state.GetState() == buildv1.Build_STATE_RUNNING {
 		r.finish(last, exitInternal, failureOf(errors.New("the daemon ended while the run was under way"), codes.Internal), false)
 	} else {
+		// A record may say the run ended without the event that ends
+		// it: whoever waits on it is told it has ended all the same.
+		r.over()
 		r.lost = r.record.Close()
 	}
 	return r
@@ -300,6 +304,7 @@ func (rs *runs) create(parent context.Context, profile string, base pluginv1.Pro
 	}
 	ctx, cancel := context.WithCancel(rs.telemetry.Context(context.WithoutCancel(parent)))
 	r := &run{
+		clock:     rs.clock,
 		base:      base,
 		running:   running,
 		released:  released,
@@ -515,6 +520,9 @@ func (rs *runs) work(ctx context.Context, r *run) (code *buildv1.ExitCode, failu
 // run is one run: its state, its events and what its actions did.
 type run struct {
 	cancel context.CancelFunc
+	// clock is the daemon's clock, which stamps the run's events; nil,
+	// they are stamped by the system's.
+	clock func() time.Time
 	// base is the way the source is built: which of the two the run's
 	// profile is.
 	base pluginv1.Profile
@@ -708,7 +716,11 @@ func (r *run) append(e *buildv1.BuildEvent) {
 // follows the run.
 func (r *run) appendLocked(e *buildv1.BuildEvent) {
 	e.Sequence = int64(len(r.events) + 1)
-	e.Time = timestamppb.Now()
+	at := time.Now
+	if r.clock != nil {
+		at = r.clock
+	}
+	e.Time = timestamppb.New(at())
 	r.apply(e)
 	if r.lost == nil {
 		r.lost = r.record.Event(e)
@@ -765,18 +777,22 @@ func (r *run) apply(e *buildv1.BuildEvent) {
 		}
 	case *buildv1.BuildEvent_Finished_:
 		r.state = proto.Clone(event.Finished.GetBuild()).(*buildv1.Build)
-		// Whoever waits on the run is told it has ended, once: a record
-		// read back may hold more than one event that ends its run.
 		if r.state.GetState() != buildv1.Build_STATE_RUNNING {
-			select {
-			case <-r.done:
-			default:
-				close(r.done)
-			}
+			r.over()
 		}
 		return
 	}
 	r.state.LastSequence = e.GetSequence()
+}
+
+// over tells whoever waits on the run that it has ended, once: a record
+// read back may hold more than one event that ends its run.
+func (r *run) over() {
+	select {
+	case <-r.done:
+	default:
+		close(r.done)
+	}
 }
 
 // print keeps what an action printed in the run's record and returns

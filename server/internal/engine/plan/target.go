@@ -63,7 +63,7 @@ func Pointed(actions []Action, entities []record.Located, targets, only []string
 			}
 		}
 		if !known[name] {
-			return nil, &model.Mistake{Message: fmt.Sprintf("no action is named %s%s", name, nearest(name, slices.Sorted(maps.Keys(known))))}
+			return nil, &model.Mistake{Message: fmt.Sprintf("no action is named %s%s", name, nearest(name, slices.Collect(maps.Keys(known))))}
 		}
 		names[name] = true
 	}
