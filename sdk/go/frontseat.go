@@ -19,8 +19,11 @@
 // program that wants the wire itself, which Received and Listed read to
 // their ends.
 //
-// What a server refuses by name is read with Reason. The examples run
-// against a server of their own on this machine.
+// Every call that a server refuses fails with an Error, which says the
+// canonical code and, where the server refused it by name, the reason
+// (ReasonWorkspaceNotFound and the rest), matched with errors.As or,
+// against the sentinels (ErrWorkspaceNotFound), errors.Is. The examples
+// run against a server of their own on this machine.
 package frontseat
 
 import (
@@ -77,7 +80,7 @@ func New(server string, options ...Option) *Client {
 		}
 	}
 	reach.Origin = server
-	return &Client{server: server, reach: reach, api: transport.New(server, reach)}
+	return &Client{server: server, reach: reach, api: transport.New(server, reach, errorsRead)}
 }
 
 // Server is the address the Client was made for.
@@ -89,5 +92,5 @@ func (c *Client) at(address string) *connect.Client {
 	if address == c.server {
 		return c.api
 	}
-	return transport.New(address, c.reach)
+	return transport.New(address, c.reach, errorsRead)
 }

@@ -861,7 +861,7 @@ mise run docs:serve       # serve the TechDocs site on http://localhost:8000
 
 | Where | What it holds |
 |---|---|
-| `sdk/go` | The Go SDK's one client (`frontseat.New`), and the one reader of a stream to its end (`Received`), of every page of a List (`Listed`), of a refusal's reason (`Reason`) and of a workspace's name (`IsWorkspaceName`) |
+| `sdk/go` | The Go SDK's one client (`frontseat.New`), the one reading of a refusal (`Error`, its `Reason…` constants held to what the servers give by `TestEveryReasonAClientIsGivenIsOneTheGoSDKNames`), and the one reader of a stream to its end (`Received`), of every page of a List (`Listed`), of a refusal's reason (`Reason`) and of a workspace's name (`IsWorkspaceName`) |
 | `sdk/go/api` | The API's generated Go and Connect clients and handlers |
 | `sdk/go/entity` | Entity references: the one parser and formatter, for a file (`String`), as typed (`Written`) and on a line (`Short`) |
 | `sdk/go/bearer` | A token presented to its origin alone, following no redirect, and never in clear to another machine (`Private`, `ErrInClear`), and what an origin is (`Of`): the SDK's and the server's |

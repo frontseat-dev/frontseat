@@ -7,6 +7,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"slices"
 
 	connect "connectrpc.com/connect/v2"
 	"connectrpc.com/connect/v2/connecthttp"
@@ -25,21 +26,22 @@ type Reach struct {
 }
 
 // New connects API requests to an endpoint, presenting the token where
-// the endpoint is of the origin, and nowhere else. Where the token would
+// the endpoint is of the origin, and nowhere else, through the
+// interceptors given. Where the token would
 // go in clear to another machine, every call is refused before an HTTP
 // client is asked, FAILED_PRECONDITION with bearer.ErrInClear as its
 // cause, by an error that names neither the address nor the token: an
 // HTTP client names the address of every request it fails.
-func New(endpoint string, reach Reach) *connect.Client {
+func New(endpoint string, reach Reach, interceptors ...connect.ClientInterceptor) *connect.Client {
 	over := reach.HTTP
 	if over == nil {
 		over = &http.Client{Transport: traced{}}
 	}
 	connected := connecthttp.NewTransport(bearer.Client(over, reach.Token, reach.Origin), endpoint)
 	if reach.Token != "" && inClear(endpoint, reach.Origin) {
-		return connect.NewClient(connected, refusedInClear)
+		return connect.NewClient(connected, slices.Concat(interceptors, []connect.ClientInterceptor{refusedInClear})...)
 	}
-	return connect.NewClient(connected)
+	return connect.NewClient(connected, interceptors...)
 }
 
 // inClear is whether requests to an endpoint of an origin would carry

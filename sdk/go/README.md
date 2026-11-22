@@ -102,18 +102,32 @@ plane on another machine with `https`.
 
 ## Errors
 
-A server refuses by name. The reason is in the error, and a program
-reads the reason, never the message:
+Every call a server refuses fails with a `*frontseat.Error`: its
+canonical `Code`, and, where the server refused it by name, its
+`Reason` and the `Domain` of the service that refused. A program reads
+the code and the reason, never the message, which is for a person:
 
 ```go
-if reason, _ := frontseat.Reason(err); reason == "WORKSPACE_NOT_FOUND" {
+var refused *frontseat.Error
+if errors.As(err, &refused) && refused.Reason == frontseat.ReasonProfileUnknown {
+	// ...
+}
+if errors.Is(err, frontseat.ErrWorkspaceNotFound) {
 	// ...
 }
 ```
 
-Each call's reasons are listed with it in the contract, and in the
-comments of the generated client beneath `sdk/go/api`. `connect.CodeOf(err)`
-gives the error's code.
+Every reason a server gives is a `Reason…` constant; the refusals a
+caller most often acts on are sentinels for `errors.Is`
+(`ErrWorkspaceNotFound`, `ErrWorkspaceNotReady`, `ErrBuildNotFound`,
+`ErrRunNotFound`, `ErrReleaseNotFound`, `ErrEtagMismatch`,
+`ErrEntitiesNotServed`). Each call's reasons are listed with it in the
+contract, and in the comments of the generated client beneath
+`sdk/go/api`. What the SDK refuses itself is a sentinel too:
+`ErrWorkspaceUnnamed`, `ErrHere`, and, of a workspace that cannot be
+worked in, `ErrWorkspaceFailed` and `ErrWorkspacePaused`, each also
+`ErrWorkspaceNotReady`. `frontseat.Reason(err)` is a shorthand for the
+reason and the domain.
 
 ## The other packages
 
@@ -127,6 +141,6 @@ gives the error's code.
 ## Examples
 
 `example_test.go` holds an example for each of `New`, `Client.Open`,
-`Workspace.Build`, `Workspace.Release` and `Reason`. Each runs against a
+`Workspace.Build`, `Workspace.Release` and `Error`. Each runs against a
 server of its own on this machine, and `go test` holds it to what it
 prints.
