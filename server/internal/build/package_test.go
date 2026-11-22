@@ -39,7 +39,7 @@ func packagedSource(t *testing.T, twice bool) func(remote string) {
 			if twice {
 				left = "same"
 			}
-			write(t, remote, name+"/catalog-info.yaml", "apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata:\n  name: "+name+"\nspec:\n  type: library\n  lifecycle: production\n  owner: team\n  frontseat:\n    actions:\n      pack:\n        command: [tool, pack]\n        outputs: [out/"+left+"-linux-amd64, out/"+left+".tgz]\n        package: true\n      notes:\n        command: [tool, notes]\n        outputs: [out/notes.txt]\n")
+			write(t, remote, name+"/catalog-info.yaml", "apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata:\n  name: "+name+"\nspec:\n  type: library\n  lifecycle: production\n  owner: team\n  frontseat:\n    actions:\n      pack:\n        command: [tool, pack]\n        outputs: [out/"+left+"-linux-amd64, out/"+left+".tgz]\n        kind: package\n      notes:\n        command: [tool, notes]\n        outputs: [out/notes.txt]\n")
 		}
 	}
 }
@@ -71,7 +71,7 @@ func TestTwoArtifactsOfOneNameFailTheReleaseBeforeItTags(t *testing.T) {
 	c, clone := releasingClients(t, leaving{}, "release/1.0", func(remote string) {
 		write(t, remote, "catalog-info.yaml", "apiVersion: backstage.io/v1alpha1\nkind: System\nmetadata:\n  name: both\nspec:\n  owner: team\n  frontseat:\n    release:\n      grouping: independent\n")
 		for _, name := range []string{"greet", "log"} {
-			write(t, remote, name+"/catalog-info.yaml", "apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata:\n  name: "+name+"\nspec:\n  type: library\n  lifecycle: production\n  owner: team\n  system: both\n  frontseat:\n    actions:\n      pack:\n        command: [tool, pack]\n        outputs: [out/same.tgz]\n        package: true\n")
+			write(t, remote, name+"/catalog-info.yaml", "apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata:\n  name: "+name+"\nspec:\n  type: library\n  lifecycle: production\n  owner: team\n  system: both\n  frontseat:\n    actions:\n      pack:\n        command: [tool, pack]\n        outputs: [out/same.tgz]\n        kind: package\n")
 		}
 	})
 	s := &releaseService{graph: c.daemon.releases.graph, releases: c.daemon.releases}
@@ -132,7 +132,7 @@ func TestAReleaseBuildsAProgramForEachPlatformItsEntityShipsFor(t *testing.T) {
 // The control is the package beside them, released alone.
 func TestAPackageThatLeavesWhatCannotBeShippedFailsTheRelease(t *testing.T) {
 	pack := func(name, outputs string) string {
-		return "apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata:\n  name: " + name + "\nspec:\n  type: library\n  lifecycle: production\n  owner: team\n  frontseat:\n    actions:\n      pack:\n        command: [tool, pack]\n        outputs: " + outputs + "\n        package: true\n"
+		return "apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata:\n  name: " + name + "\nspec:\n  type: library\n  lifecycle: production\n  owner: team\n  frontseat:\n    actions:\n      pack:\n        command: [tool, pack]\n        outputs: " + outputs + "\n        kind: package\n"
 	}
 	for name, c := range map[string]struct {
 		outputs string

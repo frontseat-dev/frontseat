@@ -177,8 +177,8 @@ func TestAnEntitySOwnFixIsHeldToItsCheckAFixOfWhatIsNotACheckOrThatSaysNothingIt
 
 	workspace := spec.checkingEntity("sound", []string{"true"}, []string{"true"})
 	workspace.write("catalog-info.yaml", "apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata: {name: lab}\nspec:\n  type: service\n  lifecycle: production\n  owner: team\n  frontseat:\n    actions:\n      nocheck:\n        command: [\"true\"]\n        fix: [\"true\"]\n        inputs: [f.txt]\n        rewrites: [f.txt]\n")
-	spec.Expect(workspace.build().says()).To(SatisfyAll(ContainSubstring("nocheck"), ContainSubstring("not a check")))
-	workspace.write("catalog-info.yaml", "apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata: {name: lab}\nspec:\n  type: service\n  lifecycle: production\n  owner: team\n  frontseat:\n    actions:\n      norewrites:\n        check: true\n        command: [\"true\"]\n        fix: [\"true\"]\n        inputs: [f.txt]\n")
+	spec.Expect(workspace.build().says()).To(SatisfyAll(ContainSubstring("nocheck"), ContainSubstring("says fix, which only an action of kind check takes")))
+	workspace.write("catalog-info.yaml", "apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata: {name: lab}\nspec:\n  type: service\n  lifecycle: production\n  owner: team\n  frontseat:\n    actions:\n      norewrites:\n        kind: check\n        command: [\"true\"]\n        fix: [\"true\"]\n        inputs: [f.txt]\n")
 	spec.Expect(workspace.build().says()).To(SatisfyAll(ContainSubstring("norewrites"), ContainSubstring("nothing it may change")))
 	// Sound, the same check builds.
 	workspace.write("catalog-info.yaml", entityWithActions(map[string]ownCheck{"sound": {check: []string{"true"}, fix: []string{"true"}}}))
@@ -209,7 +209,7 @@ func TestARewritePatternThatReachesOutsideWhatTheCheckIsGivenIsRefusedByName(t *
 	spec := newScenario(t)
 
 	workspace := spec.checkingEntity("escape", []string{"true"}, []string{"true"})
-	workspace.write("catalog-info.yaml", "apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata: {name: lab}\nspec:\n  type: service\n  lifecycle: production\n  owner: team\n  frontseat:\n    actions:\n      escape:\n        check: true\n        command: [\"true\"]\n        fix: [\"true\"]\n        inputs: [f.txt]\n        rewrites: [../other.txt]\n")
+	workspace.write("catalog-info.yaml", "apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata: {name: lab}\nspec:\n  type: service\n  lifecycle: production\n  owner: team\n  frontseat:\n    actions:\n      escape:\n        kind: check\n        command: [\"true\"]\n        fix: [\"true\"]\n        inputs: [f.txt]\n        rewrites: [../other.txt]\n")
 	spec.Expect(workspace.build().says()).To(ContainSubstring("../other.txt"))
 }
 
@@ -231,7 +231,7 @@ func entityWithActions(checks map[string]ownCheck) string {
 		return "[" + strings.Join(parts, ", ") + "]"
 	}
 	for name, check := range checks {
-		out += "      " + name + ":\n        check: true\n        command: " + quoted(check.check) + "\n        fix: " + quoted(check.fix) + "\n        inputs: [\"*.txt\", \"*.sh\"]\n        rewrites: [\"*.txt\", \"*.sh\"]\n"
+		out += "      " + name + ":\n        kind: check\n        command: " + quoted(check.check) + "\n        fix: " + quoted(check.fix) + "\n        inputs: [\"*.txt\", \"*.sh\"]\n        rewrites: [\"*.txt\", \"*.sh\"]\n"
 	}
 	return out
 }

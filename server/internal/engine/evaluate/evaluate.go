@@ -722,24 +722,16 @@ func custom(repository string, own config.Action) (plan.Action, error) {
 			Kind:      &pluginv1.Action_Build{Build: &pluginv1.Build{}},
 		},
 	}
-	// What a check says of its fix, only a check says: one that is not
-	// says it in vain, and is refused by the line that wrote it.
-	switch {
-	case own.Check:
+	// It is of the one kind it says; what only a check says, the
+	// configuration refused of any other where it was written.
+	switch own.Kind {
+	case config.KindCheck:
 		check := &pluginv1.Check{Rewrites: own.Rewrites}
 		if len(own.Fix) > 0 {
 			check.Fix = &pluginv1.Command{Arguments: own.Fix}
 		}
 		action.Declared.Kind = &pluginv1.Action_Check{Check: check}
-	case len(own.Fix) > 0:
-		return plan.Action{}, &model.Mistake{File: own.File, Message: what + " has a fix, and is not a check"}
-	case len(own.Rewrites) > 0:
-		return plan.Action{}, &model.Mistake{File: own.File, Message: what + " says what it may change, and is not a check"}
-	}
-	if own.Package {
-		if own.Check || own.Program || own.Publish {
-			return plan.Action{}, &model.Mistake{File: own.File, Message: what + " is a package, and is a check, a program or what publishes: an action is of one kind"}
-		}
+	case config.KindPackage:
 		action.Declared.Kind = &pluginv1.Action_Package{Package: &pluginv1.Package{}}
 	}
 	if err := pluginhost.CheckRewrites(what, own.Rewrites); err != nil {
@@ -754,26 +746,18 @@ func custom(repository string, own config.Action) (plan.Action, error) {
 	for _, output := range own.Outputs {
 		action.Declared.Outputs = append(action.Declared.Outputs, &pluginv1.Output{Path: output})
 	}
-	if own.Program {
-		if own.Check || own.Publish {
-			return plan.Action{}, &model.Mistake{File: own.File, Message: what + " is a program, and is a check or what publishes: an action is of one kind"}
-		}
-		action.Label.Name = "run/" + own.Name
-		action.Declared.Name = action.Label.Name
+	// It is named as it is written, whatever its kind: the name in the
+	// file is the name on the command line.
+	if own.Kind == config.KindProgram {
 		action.Declared.Kind = &pluginv1.Action_Program{Program: &pluginv1.Program{}}
 		if err := pluginhost.CheckProgram(action.Declared); err != nil {
 			return plan.Action{}, &model.Mistake{File: own.File, Message: err.Error()}
 		}
 	}
-	if own.Publish {
+	if own.Kind == config.KindPublish {
 		// What it reads is nothing: it is given its unit's artifacts.
 		if len(own.Inputs) > 0 {
 			return plan.Action{}, &model.Mistake{File: own.File, Message: what + " publishes and says what it reads: it is given its unit's artifacts, and reads nothing else"}
-		}
-		action.Label.Name = "publish/" + own.Name
-		action.Declared.Name = action.Label.Name
-		if own.Check {
-			return plan.Action{}, &model.Mistake{File: own.File, Message: what + " publishes, and is a check: an action is of one kind"}
 		}
 		action.Declared.Kind = &pluginv1.Action_Publish{Publish: &pluginv1.Publish{Environment: own.InheritEnvironment}}
 		if err := pluginhost.CheckPublish(what, action.Declared); err != nil {

@@ -25,7 +25,7 @@ func TestTwoDocumentsThatDeclareOneActionAreRefused(t *testing.T) {
 		return "apiVersion: backstage.io/v1alpha1\nkind: " + kind + "\nmetadata: {name: " + name + "}\nspec:\n  type: service\n  lifecycle: production\n  owner: team\n  frontseat:\n" +
 			"    actions:\n      lint:\n        command: [lint, --config, " + config + "]\n        inputs: [" + config + "]\n" + service
 	}
-	const service = "      serve:\n        program: true\n        tools: [caddy]\n        command: [caddy, run]\n    service:\n      program: \":custom.run/serve\"\n      ports: {http: 8080}\n      ready: [{port: http}]\n"
+	const service = "      serve:\n        kind: program\n        tools: [caddy]\n        command: [caddy, run]\n    service:\n      program: \":custom.serve\"\n      ports: {http: 8080}\n      ready: [{port: http}]\n"
 	component, resource := document("Component", "provider", "primary.json", ""), document("Resource", "other", "replacement.json", "")
 	serving := document("Component", "provider", "primary.json", service)
 	plugins := []*pluginhost.Plugin{loadedPlugin(t, "backstage")}

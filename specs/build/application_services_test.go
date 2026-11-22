@@ -133,12 +133,12 @@ spec:
   frontseat:
     actions:
       serve:
-        program: true
+        kind: program
         command: [caddy, run, --config, caddy.json]
         tools: [caddy]
         inputs: [caddy.json]
     service:
-      program: ":custom.run/serve"
+      program: ":custom.serve"
       ports: {http: 8080}
       ready: [{http: {port: http, path: /, body: hello}}]
       apis:
