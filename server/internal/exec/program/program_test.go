@@ -295,7 +295,7 @@ func TestAProgramBuiltForAnotherPlatformIsNotRun(t *testing.T) {
 	b := bringer(t, grid{"bin": {"hello": greeter}})
 	b.Platform = map[string]string{"OSFamily": "plan9", "ISA": "aarch64"}
 	_, err := b.Bring(context.Background(), "code", action("~/go/bin/hello"), map[string]execport.Held{tools.Home + "/go/bin": held("bin")})
-	var other *program.OtherPlatform
+	var other *tools.OtherPlatform
 	if !errors.As(err, &other) || other.Workers != "plan9-arm64" {
 		t.Fatalf("a program of another platform: %v", err)
 	}

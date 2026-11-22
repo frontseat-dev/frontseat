@@ -58,17 +58,6 @@ type Brought struct {
 	environment []string
 }
 
-// OtherPlatform is a program built for the workers, where the daemon is
-// on another platform: it is not the daemon's to run.
-type OtherPlatform struct {
-	Label           string
-	Workers, Daemon string
-}
-
-func (e *OtherPlatform) Error() string {
-	return fmt.Sprintf("%s was built for the workers' %s, and the daemon is on %s: a program runs where the daemon's platform is the workers'", e.Label, e.Workers, e.Daemon)
-}
-
 // Bring writes what a program reads of what other actions left where
 // the daemon is, each thing where it sits in the action's root, and
 // finds the program among it. repository is the directory of the
@@ -80,8 +69,8 @@ func (b Bringer) Bring(ctx context.Context, repository string, action plan.Actio
 	if !action.IsProgram() || len(arguments) == 0 {
 		return nil, fmt.Errorf("%s is no program", label)
 	}
-	if workers, daemon := tools.PlatformName(b.Platform), tools.Here(); workers != daemon {
-		return nil, &OtherPlatform{Label: label, Workers: workers, Daemon: daemon}
+	if err := tools.RunsHere(label+" was built for the workers'", b.Platform); err != nil {
+		return nil, err
 	}
 	if err := os.MkdirAll(b.Kept, 0o755); err != nil {
 		return nil, err
@@ -90,6 +79,8 @@ func (b Bringer) Bring(ctx context.Context, repository string, action plan.Actio
 	if err != nil {
 		return nil, err
 	}
+	// Its own to delete: a directory made here, for this program, which
+	// nothing else names.
 	defer func() {
 		if err != nil {
 			os.RemoveAll(dir)
@@ -150,19 +141,7 @@ func (b Bringer) Bring(ctx context.Context, repository string, action plan.Actio
 	if err != nil {
 		return nil, fmt.Errorf("%s runs %s, which nothing it reads left: %w", label, named, err)
 	}
-	environment := []string{
-		"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-		"HOME=" + home, "TMPDIR=" + tmp,
-	}
-	given := action.Declared.GetCommand().GetEnvironment()
-	names := make([]string, 0, len(given))
-	for name := range given {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	for _, name := range names {
-		environment = append(environment, name+"="+given[name])
-	}
+	environment := append(tools.Local(home, tmp), tools.Assignments(action.Declared.GetCommand().GetEnvironment())...)
 	return &Brought{
 		Label: label, dir: dir, program: program,
 		arguments: slices.Clone(arguments[1:]), directory: directory, environment: environment,
@@ -172,17 +151,12 @@ func (b Bringer) Bring(ctx context.Context, repository string, action plan.Actio
 // within returns a file as it is on the disk, any link followed, where
 // it is a regular file that may be run and is beneath a directory.
 func within(directory, at string) (string, error) {
-	led, err := filepath.EvalSymlinks(at)
-	if err != nil {
-		return "", errors.New("there is no such file")
-	}
-	base, err := filepath.EvalSymlinks(directory)
-	if err != nil {
-		return "", err
-	}
-	rel, err := filepath.Rel(base, led)
-	if err != nil || !filepath.IsLocal(rel) {
+	led, err := execport.Within(directory, at)
+	switch {
+	case errors.Is(err, execport.ErrOutside):
 		return "", errors.New("it leads outside what was brought")
+	case err != nil:
+		return "", errors.New("there is no such file")
 	}
 	info, err := os.Stat(led)
 	switch {
@@ -199,7 +173,8 @@ func within(directory, at string) (string, error) {
 // Remove removes what was brought, and whatever the program wrote
 // beside it. A program that was started removes it itself, when it
 // ends. What the program left that may not be written, as the go
-// command leaves the modules it fetched, is made so first.
+// command leaves the modules it fetched, is made so first. It is its own
+// to delete: the directory Bring made for this program.
 func (b *Brought) Remove() {
 	if os.RemoveAll(b.dir) == nil {
 		return
@@ -278,8 +253,8 @@ func (b *Brought) Start(arguments []string, printed func(stderr bool, line []byt
 		})
 	}
 	go func() {
-		err := command.Wait()
-		running.code = exitCode(command.ProcessState, err)
+		_ = command.Wait()
+		running.code = exitCode(command.ProcessState)
 		// Whatever it started and left behind ends with it, and with
 		// that the pipes: everything printed is then read to its end.
 		// What left its group is not ended, and may hold a pipe: the
@@ -343,7 +318,7 @@ func lines(from io.Reader, say func([]byte)) {
 
 // exitCode is what a program exited with: 128 and the signal's number
 // where a signal ended it, as a shell says it.
-func exitCode(state *os.ProcessState, err error) int {
+func exitCode(state *os.ProcessState) int {
 	if state == nil {
 		return -1
 	}

@@ -10,8 +10,9 @@
 // tools as it sees its sources: as inputs, the same on every worker.
 //
 // A worker therefore needs frontseat-action (server/internal/confine),
-// mise, and tar to unpack what the asset service fetched for a download
-// (exec/download), and nothing else.
+// mise, and what a fetch's command runs to place what the asset service
+// fetched for a download (exec/download): the shell, tar, and the
+// programs that cut and check a part of one.
 //
 // Whatever a worker runs for a repository is confined: an action, and
 // the install of a tool the repository pins. What confines it is the
@@ -31,8 +32,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/frontseat-dev/frontseat/server/telemetry"
-	"go.opentelemetry.io/otel/attribute"
 	"io/fs"
 	"os"
 	"path"
@@ -43,10 +42,13 @@ import (
 	"strings"
 	"sync"
 
+	"go.opentelemetry.io/otel/attribute"
+
 	"github.com/frontseat-dev/frontseat/server/internal/confine"
 	"github.com/frontseat-dev/frontseat/server/internal/exec"
 	"github.com/frontseat-dev/frontseat/server/internal/pins"
 	"github.com/frontseat-dev/frontseat/server/internal/testservice"
+	"github.com/frontseat-dev/frontseat/server/telemetry"
 )
 
 // home is the directory of an action's root that holds what frontseat
@@ -57,10 +59,26 @@ const home = ".frontseat"
 // what is its own, such as what it fetched.
 const Home = home + "/home"
 
+// temporary is where mise keeps its temporary files beneath an action's
+// root, and data where it keeps its own, the tools among it
+// (confine.MiseInstalls).
+const (
+	temporary = home + "/tmp"
+	data      = home + "/mise"
+)
+
+// Downloads is where what a fetch downloaded is placed in its root, each
+// by its digest.
+const Downloads = home + "/downloads"
+
+// Path is where the system's programs are found, on a worker and where
+// the daemon runs what it runs itself.
+const Path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
 // worker is what every action, and every install of a tool, is given of
 // the worker's: where its programs are, and how mise is to run there.
 var worker = []confine.Variable{
-	{Name: "PATH", Parts: []string{"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"}},
+	{Name: "PATH", Parts: []string{Path}},
 	{Name: "MISE_YES", Parts: []string{"1"}},
 	{Name: "MISE_TRUSTED_CONFIG_PATHS", Parts: []string{"/"}},
 }
@@ -96,8 +114,8 @@ var installing = mustEncode(confine.Spec{
 // keeps. Its own environment names none of them for it.
 var base = append([]confine.Variable{
 	{Name: "HOME", Parts: beneath(Home)},
-	{Name: "TMPDIR", Parts: beneath(home + "/tmp")},
-	{Name: "MISE_DATA_DIR", Parts: beneath(home + "/mise")},
+	{Name: "TMPDIR", Parts: beneath(temporary)},
+	{Name: "MISE_DATA_DIR", Parts: beneath(data)},
 	{Name: "MISE_OFFLINE", Parts: []string{"1"}},
 	{Name: "MISE_EXEC_AUTO_INSTALL", Parts: []string{"0"}},
 }, worker...)
@@ -149,12 +167,7 @@ func Within(label string, within map[string]string, mise []string, own ...map[st
 //
 // The environment is mise's, asked once for the run (environ), and not
 // asked again at every action: mise x around each command cost every
-// action its own process. Measured 2026-11-09 on the local grid (8
-// slots, Apple M4 Max): specs/compare's thousand modules built cold by
-// frontseat, each action's execution taken from the metadata the grid's
-// action cache holds for it (ExecutedActionMetadata, by GetActionResult):
-// under mise x the median action executed in 69.0 ms, without it in
-// 45.8 ms, and the build took 31.0 s and 21.6 s.
+// action a process of its own.
 //
 // All of it is set inside what confines the action, by frontseat-action
 // just before the command runs: a repository's mise.toml says what a path holds
@@ -169,7 +182,7 @@ func command(own map[string]string, given []given, within map[string]string, net
 	for _, name := range sortedNames(within) {
 		env = append(env, confine.Variable{Name: name, Parts: []string{within[name]}})
 	}
-	return confine.Encode(confine.Spec{Home: Home, Temporary: home + "/tmp", Network: network, Environment: env})
+	return confine.Encode(confine.Spec{Home: Home, Temporary: temporary, Network: network, Environment: env})
 }
 
 // asking is how mise is asked for the environment of some tools and of
@@ -178,7 +191,7 @@ func command(own map[string]string, given []given, within map[string]string, net
 // action's own environment (own), which a repository's mise.toml may
 // build on: the root it ran in, on its first line, then mise's answer.
 func asking(own map[string]string) (string, error) {
-	return confine.Encode(confine.Spec{Home: Home, Temporary: home + "/tmp", SayRoot: true, Environment: owned(own, 0)})
+	return confine.Encode(confine.Spec{Home: Home, Temporary: temporary, SayRoot: true, Environment: owned(own, 0)})
 }
 
 // owned is what every command an action runs by is first given: the
@@ -300,7 +313,7 @@ func (p *Provisioner) Use(ctx context.Context, action exec.Action, repository st
 		held[at] = each
 	}
 	for _, tool := range tools {
-		tree, installed, err := p.tree(ctx, action.Root, action.Files, repository, tool)
+		tree, installed, err := p.Installed(ctx, action.Root, action.Files, repository, tool)
 		if err != nil {
 			return exec.Action{}, err
 		}
@@ -577,9 +590,9 @@ func (p *Provisioner) Environment(ctx context.Context, root string, files exec.F
 		return nil, err
 	}
 	beneath := []struct{ within, at string }{
-		{"/" + path.Join(home, "mise"), layout.Data},
+		{"/" + data, layout.Data},
 		{"/" + Home, layout.Home},
-		{"/" + path.Join(home, "tmp"), layout.Temporary},
+		{"/" + temporary, layout.Temporary},
 		{"", layout.Root},
 	}
 	out := make([]string, 0, len(answered.given))
@@ -604,31 +617,76 @@ func (p *Provisioner) Environment(ctx context.Context, root string, files exec.F
 }
 
 // PlatformName is the name mise gives the workers' platform, as the lock
-// pins a tool for it: linux-arm64.
-func PlatformName(platform map[string]string) string { return platformOf(platform) }
+// pins a tool for it: linux-arm64. An architecture mise has no name of
+// its own for is named as the platform names it, so that a lock that
+// pins nothing for it says which.
+func PlatformName(platform map[string]string) string {
+	arch, named := map[string]string{"aarch64": "arm64", "x86-64": "x64"}[platform["ISA"]]
+	if !named {
+		arch = strings.ToLower(platform["ISA"])
+	}
+	return strings.ToLower(platform["OSFamily"]) + "-" + arch
+}
 
-// Here is the daemon's platform, named as PlatformName names the
-// workers': linux-arm64. What runs where the daemon is, a fix or a
-// program, runs the workers' tools only where the two are the same.
-func Here() string {
-	arch := map[string]string{"arm64": "arm64", "amd64": "x64"}[runtime.GOARCH]
-	if arch == "" {
+// DaemonPlatform is the daemon's platform, named as PlatformName names
+// the workers': linux-arm64. What runs where the daemon is, a fix or a
+// program, runs what the workers installed or built only where the two
+// are the same.
+func DaemonPlatform() string {
+	arch, named := map[string]string{"arm64": "arm64", "amd64": "x64"}[runtime.GOARCH]
+	if !named {
 		arch = runtime.GOARCH
 	}
 	return runtime.GOOS + "-" + arch
 }
 
-// Installed returns a tool of a repository as the run was answered for
-// it, as a tree the grid holds, and the name of the directory mise keeps
-// it in: what a fix runs with where the checkout is, the same tool the
-// check runs with on the grid.
-func (p *Provisioner) Installed(ctx context.Context, root string, files exec.Files, repository, tool string) (exec.Digest, string, error) {
-	return p.tree(ctx, root, files, repository, tool)
+// OtherPlatform is what the workers installed or built, asked to run
+// where the daemon is, on another platform than theirs: it is not the
+// daemon's to run.
+type OtherPlatform struct {
+	// What is what was asked to run and what it has of the workers', as
+	// a refusal says it before it names their platform.
+	What            string
+	Workers, Daemon string
 }
 
-// tree returns a tool of a repository as the run was answered for it,
-// asking where it has not been asked.
-func (p *Provisioner) tree(ctx context.Context, root string, files exec.Files, repository, tool string) (exec.Digest, string, error) {
+func (e *OtherPlatform) Error() string {
+	return fmt.Sprintf("%s %s, and the daemon is on %s: it runs where the daemon's platform is the workers'", e.What, e.Workers, e.Daemon)
+}
+
+// RunsHere refuses what the workers installed or built for a platform
+// where the daemon is not on it (OtherPlatform).
+func RunsHere(what string, platform map[string]string) error {
+	if workers, daemon := PlatformName(platform), DaemonPlatform(); workers != daemon {
+		return &OtherPlatform{What: what, Workers: workers, Daemon: daemon}
+	}
+	return nil
+}
+
+// Local is what a command the daemon runs where it is, a fix or a
+// program, runs with before anything else: the system's programs, and a
+// home and scratch space of its own; nothing of the daemon's.
+func Local(home, tmp string) []string {
+	return []string{"PATH=" + Path, "HOME=" + home, "TMPDIR=" + tmp}
+}
+
+// Assignments returns variables as a command's environment is written,
+// name=value, sorted.
+func Assignments(variables map[string]string) []string {
+	out := make([]string, 0, len(variables))
+	for name, value := range variables {
+		out = append(out, name+"="+value)
+	}
+	slices.Sort(out)
+	return out
+}
+
+// Installed returns a tool of a repository as the run was answered for
+// it, asking where it has not been asked: a tree the grid holds, and the
+// name of the directory mise keeps it in. An action is given it in its
+// root, and a fix runs with it where the checkout is, the same tool the
+// check runs with on the grid.
+func (p *Provisioner) Installed(ctx context.Context, root string, files exec.Files, repository, tool string) (exec.Digest, string, error) {
 	key := root + "\x00" + repository + "\x00" + tool
 	p.mu.Lock()
 	known, there := p.asked[key]
@@ -667,7 +725,7 @@ func (p *Provisioner) pinned(ctx context.Context, root string, files exec.Files,
 	if err != nil {
 		return exec.Digest{}, "", fmt.Errorf("the tool %s: %w", tool, err)
 	}
-	if err := pins.Locked(lock, tool, platformOf(p.Platform)); err != nil {
+	if err := pins.Locked(lock, tool, PlatformName(p.Platform)); err != nil {
 		return exec.Digest{}, "", fmt.Errorf("the tool %s: %w", tool, err)
 	}
 	// mise names a tool's directory after what it is pinned as, with what
@@ -756,10 +814,4 @@ func pinsFor(root string, files exec.Files, repository string, tools []string) (
 		}
 	}
 	return pins.For(content[0], content[1], tools)
-}
-
-// platformOf is mise's name for the platform of a grid's workers.
-func platformOf(platform map[string]string) string {
-	arch := map[string]string{"aarch64": "arm64", "x86-64": "x64"}[platform["ISA"]]
-	return strings.ToLower(platform["OSFamily"]) + "-" + arch
 }

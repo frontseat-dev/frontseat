@@ -175,6 +175,20 @@ type Digest struct {
 	Size int64
 }
 
+// Valid says whether a digest's hash is a SHA-256 as the grid prints
+// one: sixty-four lowercase hexadecimal digits, and so a plain file name.
+func (d Digest) Valid() bool {
+	if len(d.Hash) != 64 {
+		return false
+	}
+	for _, c := range d.Hash {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
+			return false
+		}
+	}
+	return true
+}
+
 // Result is what an action did.
 type Result struct {
 	// ExitCode is the command's exit code.

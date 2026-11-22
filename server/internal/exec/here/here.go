@@ -74,8 +74,8 @@ func (r Runner) Ready(ctx context.Context, snapshot *source.Snapshot, asked Aske
 	named := asked.Tools
 	installs := map[string]string{}
 	if len(named) > 0 {
-		if workers, here := tools.PlatformName(r.Tools.Platform), tools.Here(); workers != here {
-			return nil, "", &OtherPlatform{What: asked.What, Tools: named, Workers: workers, Daemon: here}
+		if err := tools.RunsHere(asked.What+" runs with "+strings.Join(named, " and ")+", the workers'", r.Tools.Platform); err != nil {
+			return nil, "", err
 		}
 		for _, tool := range named {
 			tree, installed, err := r.Tools.Installed(ctx, snapshot.Root, snapshot, repository, tool)
@@ -104,7 +104,7 @@ func (r Runner) Ready(ctx context.Context, snapshot *source.Snapshot, asked Aske
 	if err != nil {
 		return nil, "", fmt.Errorf("%s: %w", asked.What, err)
 	}
-	env, err = withTools(Environment(home, tmp), checked, installs)
+	env, err = withTools(tools.Local(home, tmp), checked, installs)
 	if err != nil {
 		return nil, "", fmt.Errorf("%s: %w", asked.What, err)
 	}
@@ -122,8 +122,8 @@ func (r Runner) Ready(ctx context.Context, snapshot *source.Snapshot, asked Aske
 	// The command, with that environment and its own, and nothing of
 	// the daemon's: a tool that is not in the tree it was
 	// given is not found elsewhere.
-	env = append(env, environment(command.GetEnvironment())...)
-	env = append(env, environment(asked.Given)...)
+	env = append(env, tools.Assignments(command.GetEnvironment())...)
+	env = append(env, tools.Assignments(asked.Given)...)
 	if len(command.GetArguments()) == 0 {
 		return nil, "", fmt.Errorf("%s runs nothing", asked.What)
 	}
@@ -153,7 +153,7 @@ func withTools(env, given []string, installs map[string]string) ([]string, error
 			return nil, fmt.Errorf("the tool %s is not in the tree it was given: nothing of it is on the path mise gives", tool)
 		}
 	}
-	return environment(merged), nil
+	return tools.Assignments(merged), nil
 }
 
 // found returns a program as the command's own path finds it: in one of
@@ -188,16 +188,7 @@ func found(name string, env []string, data string, withTools bool) (string, erro
 // taken as it is on the disk, any link on the way followed: mise names
 // a tool's tree by where the tree is, and the daemon by the link it made.
 func beneath(directory, at string) bool {
-	led, err := filepath.EvalSymlinks(at)
-	if err != nil {
-		return false
-	}
-	within, err := filepath.EvalSymlinks(directory)
-	if err != nil {
-		return false
-	}
-	rel, err := filepath.Rel(within, led)
-	if err == nil && (rel == "." || filepath.IsLocal(rel)) {
+	if _, err := exec.Within(directory, at); err == nil {
 		return true
 	}
 	// A directory of links to trees: beneath one of them is beneath it.
@@ -206,48 +197,11 @@ func beneath(directory, at string) bool {
 		return false
 	}
 	for _, entry := range entries {
-		target, err := filepath.EvalSymlinks(filepath.Join(directory, entry.Name()))
-		if err != nil {
-			continue
-		}
-		if rel, err := filepath.Rel(target, led); err == nil && (rel == "." || filepath.IsLocal(rel)) {
+		if _, err := exec.Within(filepath.Join(directory, entry.Name()), at); err == nil {
 			return true
 		}
 	}
 	return false
-}
-
-// Environment is what a command runs with here before what its tools and
-// repository put in it: the system's programs, and a home and scratch
-// space of its own; nothing of the daemon's.
-func Environment(home, tmp string) []string {
-	return []string{
-		"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-		"HOME=" + home, "TMPDIR=" + tmp,
-	}
-}
-
-// environment is a command's own environment, as name=value, sorted.
-func environment(given map[string]string) []string {
-	out := make([]string, 0, len(given))
-	for name, value := range given {
-		out = append(out, name+"="+value)
-	}
-	slices.Sort(out)
-	return out
-}
-
-// OtherPlatform is a command that runs with tools, where the daemon is on a
-// platform other than the workers': their tools are not its to run.
-type OtherPlatform struct {
-	// What is what would have run, as a mistake names it.
-	What            string
-	Tools           []string
-	Workers, Daemon string
-}
-
-func (e *OtherPlatform) Error() string {
-	return fmt.Sprintf("%s runs with %s, the workers' %s, and the daemon is on %s: it runs where the daemon's platform is the workers'", e.What, strings.Join(e.Tools, " and "), e.Workers, e.Daemon)
 }
 
 // materializing is one tree at a time for each tree: two commands that
@@ -263,7 +217,7 @@ var materializing = struct {
 // brought beside its place and moved into it, so one a daemon died
 // under is never taken for whole.
 func (r Runner) materialize(ctx context.Context, tree exec.Digest) (string, error) {
-	if !Hex64(tree.Hash) {
+	if !tree.Valid() {
 		return "", fmt.Errorf("the tool's tree is named by %q, which is not a digest", tree.Hash)
 	}
 	name := fmt.Sprintf("%s-%d", tree.Hash, tree.Size)
@@ -284,6 +238,9 @@ func (r Runner) materialize(ctx context.Context, tree exec.Digest) (string, erro
 	if _, err := os.Stat(at); err == nil {
 		return at, nil
 	}
+	// Its own to delete: a name beneath the daemon's own directory that
+	// this function alone makes, for this tree, whose lock is held: what
+	// is there is what a daemon that died bringing it left.
 	partial := at + ".partial"
 	if err := os.RemoveAll(partial); err != nil {
 		return "", err
@@ -295,18 +252,4 @@ func (r Runner) materialize(ctx context.Context, tree exec.Digest) (string, erro
 		return "", err
 	}
 	return at, nil
-}
-
-// Hex64 says whether a string is a SHA-256 digest as the grid prints
-// one: sixty-four lowercase hexadecimal digits, and so a plain file name.
-func Hex64(s string) bool {
-	if len(s) != 64 {
-		return false
-	}
-	for _, c := range s {
-		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
-			return false
-		}
-	}
-	return true
 }
