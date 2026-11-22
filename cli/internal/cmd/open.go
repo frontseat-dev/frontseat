@@ -17,7 +17,9 @@ import (
 )
 
 var (
-	opened    machine.Open
+	// checkout is the workspace to open as the flags say it: this
+	// checkout's, or what is named is made with its name, push and image.
+	checkout  machine.OpenOptions
 	openWhole bool
 )
 
@@ -70,7 +72,7 @@ as far as the credential the control plane keeps lets it.`,
 		if openWhole {
 			return errors.New("--whole is said of the entities a workspace is opened of, and none is named: a checkout's repository is cloned whole as it is")
 		}
-		open := opened
+		open := checkout
 		if open.Directory == "" {
 			directory, err := os.Getwd()
 			if err != nil {
@@ -141,7 +143,7 @@ func openNamed(ctx context.Context, fs *frontseat.Client, args []string, flags *
 		}
 		spec.Name = args[0]
 	} else {
-		spec = frontseat.WorkspaceSpec{Name: opened.Name, Image: opened.Image, Push: opened.Push, Whole: openWhole, AuthorizedKey: key}
+		spec = frontseat.WorkspaceSpec{Name: checkout.Name, Image: checkout.Image, Push: checkout.Push, Whole: openWhole, AuthorizedKey: key}
 		for _, arg := range args {
 			switch {
 			case strings.Contains(arg, "://"):
@@ -235,9 +237,9 @@ func notHeld(unpushed, uncommitted int) string {
 
 func init() {
 	workspaceCmd.AddCommand(openCmd)
-	openCmd.Flags().StringVar(&opened.Name, "name", "", "the workspace's name; without it, the one the control plane gives what is asked for")
-	openCmd.Flags().BoolVar(&opened.Push, "push", false, "make the workspace one that may push to its repositories, with whatever credential the control plane keeps for their hosts; said when a workspace is made, and refused of one made without it")
+	openCmd.Flags().StringVar(&checkout.Name, "name", "", "the workspace's name; without it, the one the control plane gives what is asked for")
+	openCmd.Flags().BoolVar(&checkout.Push, "push", false, "make the workspace one that may push to its repositories, with whatever credential the control plane keeps for their hosts; said when a workspace is made, and refused of one made without it")
 	openCmd.Flags().BoolVar(&openWhole, "whole", false, "clone the entities' repositories whole, not only the directories the entities govern")
-	openCmd.Flags().StringVar(&opened.Image, "image", "", "the box image a new workspace's sandbox runs; without it, the control plane's own")
-	openCmd.Flags().StringVar(&opened.Directory, "directory", "", "a directory of the checkout; without it, the one this is run in")
+	openCmd.Flags().StringVar(&checkout.Image, "image", "", "the box image a new workspace's sandbox runs; without it, the control plane's own")
+	openCmd.Flags().StringVar(&checkout.Directory, "directory", "", "a directory of the checkout; without it, the one this is run in")
 }
