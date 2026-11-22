@@ -21,8 +21,10 @@ You need:
   Command Line Tools on macOS, your distribution's build toolchain on
   Linux. Rust build scripts and the Go race detector need it.
 - A container runtime answering `docker` that runs Linux containers:
-  OrbStack, Docker Desktop, or Docker or Podman on Linux. Only
-  `mise run check` works without one.
+  OrbStack or Docker Desktop. On a Linux machine's own Docker the grid
+  is published on the loopback, which the address the runtime gives
+  that machine does not reach, so a workspace does not reach the grid
+  there. `mise run check` needs none.
 
 Then, in order:
 
@@ -97,7 +99,7 @@ builds the box image from this checkout every time and names it by what
 it holds, so the stack runs this checkout's box whatever another checkout
 built since; a stack another checkout started is refused, and `mise
 stop` (`frontseat-local down`) stops it from any checkout. It also lays out the token the
-stack's control plane knows you by, in `~/.config/frontseat/local/token`,
+stack's control plane knows you by, in `$XDG_CONFIG_HOME/frontseat/local/token` (else `~/.config/frontseat/local/token`),
 which the command line and the specs that ask the stack present; the
 control plane answers nothing without it, and serves the sandbox API to
 no one.
