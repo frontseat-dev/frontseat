@@ -162,14 +162,14 @@ func (r reached) sdk() *frontseat.Workspace {
 // making is a workspace to make, of the control plane at Server.
 type making struct {
 	Server string
-	frontseat.Spec
+	frontseat.WorkspaceSpec
 }
 
 // made makes a workspace as the owner of its control plane asks for it,
 // waits until it can be worked in, and says how it came to be.
-func made(ctx context.Context, m making) (reached, frontseat.Opened, error) {
-	opened, err := frontseat.New(m.Server, owned(m.Server)).Open(ctx, m.Spec)
-	return reachedOf(m.Server, opened.Held), opened, err
+func made(ctx context.Context, m making) (reached, frontseat.OpenResult, error) {
+	opened, err := frontseat.New(m.Server, owned(m.Server)).Open(ctx, m.WorkspaceSpec)
+	return reachedOf(m.Server, opened.Status), opened, err
 }
 
 var (
@@ -307,7 +307,7 @@ func (spec *scenario) cloning(directory string) making {
 	testforge.Committed(spec.TB, directory)
 	at, err := filepath.Rel(sources, directory)
 	spec.Expect(err).NotTo(HaveOccurred())
-	return making{Spec: frontseat.Spec{Repositories: []frontseat.Repository{{Remote: forge + "/" + filepath.ToSlash(at)}}, AuthorizedKey: testidentity.Authorized()}}
+	return making{WorkspaceSpec: frontseat.WorkspaceSpec{Repositories: []frontseat.Repository{{Remote: forge + "/" + filepath.ToSlash(at)}}, AuthorizedKey: testidentity.Authorized()}}
 }
 
 // ready follows a workspace, for five minutes at most, until the control
@@ -433,7 +433,7 @@ func (spec *scenario) inASandboxOfItsOwn(create making) *Workspace {
 // own, from an entity of the company's catalog.
 func (spec *scenario) workspaceInASandboxOf(described string) *Workspace {
 	spec.Helper()
-	return spec.inASandboxOfItsOwn(making{Spec: frontseat.Spec{
+	return spec.inASandboxOfItsOwn(making{WorkspaceSpec: frontseat.WorkspaceSpec{
 		Entities: []string{entity.New("", "", described).String()},
 	}})
 }
@@ -861,7 +861,7 @@ func (spec *scenario) retainedPlane() string {
 
 func (spec *scenario) retainedTool(at string) *Workspace {
 	spec.Helper()
-	w := spec.inASandboxOfItsOwn(making{Server: at, Spec: frontseat.Spec{
+	w := spec.inASandboxOfItsOwn(making{Server: at, WorkspaceSpec: frontseat.WorkspaceSpec{
 		Entities: entitiesForRetainedTool(),
 	}})
 	spec.Expect(w.Build).To(Equal(at + "/workspaces/" + w.Workspace + "/build"))

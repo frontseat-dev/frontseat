@@ -33,7 +33,7 @@ func TestOpeningACheckoutGivesTheWorkspaceOfItsRepositoryAndBranchAndOpeningItAg
 	checkout := aCheckoutOf(spec.aRepositoryWithABranch("main"), "main")
 
 	first := spec.opening(checkout)
-	spec.Expect(first.How).To(Equal(frontseat.Made))
+	spec.Expect(first.Outcome).To(Equal(frontseat.OpenOutcomeCreated))
 	reopened := &Workspace{spec, first.reached}
 	spec.Expect(reopened.prints("cat " + code + "/branch")).To(Equal("main"))
 
@@ -41,7 +41,7 @@ func TestOpeningACheckoutGivesTheWorkspaceOfItsRepositoryAndBranchAndOpeningItAg
 	// same workspace, as it was left, and not one made anew.
 	reopened.copyIn("/work/left-here", "by the first")
 	again := spec.opening(checkout)
-	spec.Expect(again.How).To(Equal(frontseat.Left))
+	spec.Expect(again.Outcome).To(Equal(frontseat.OpenOutcomeExisting))
 	spec.Expect(again.Sandbox).To(Equal(first.Sandbox))
 	spec.Expect((&Workspace{spec, again.reached}).prints("cat /work/left-here")).To(Equal("by the first"))
 	// It says which directory the repository is in, beneath where a
@@ -60,7 +60,7 @@ func TestAnotherBranchOfTheSameRepositoryIsAnotherWorkspace(t *testing.T) {
 	main := spec.opening(aCheckoutOf(repository, "main"))
 	other := spec.opening(aCheckoutOf(repository, "other"))
 
-	spec.Expect(other.How).To(Equal(frontseat.Made))
+	spec.Expect(other.Outcome).To(Equal(frontseat.OpenOutcomeCreated))
 	spec.Expect(other.Sandbox).NotTo(Equal(main.Sandbox))
 	spec.Expect((&Workspace{spec, main.reached}).prints("cat " + code + "/branch")).To(Equal("main"))
 	spec.Expect((&Workspace{spec, other.reached}).prints("cat " + code + "/branch")).To(Equal("other"))
@@ -76,7 +76,7 @@ func TestAWorkspaceThatWasPausedIsOpenedRunning(t *testing.T) {
 
 	again := spec.opening(checkout)
 
-	spec.Expect(again.How).To(Equal(frontseat.Left))
+	spec.Expect(again.Outcome).To(Equal(frontseat.OpenOutcomeExisting))
 	spec.Expect(again.Sandbox).To(Equal(first.Sandbox))
 	spec.Expect((&Workspace{spec, again.reached}).state()).To(Equal("running"))
 	spec.Expect((&Workspace{spec, again.reached}).prints("cat " + code + "/branch")).To(Equal("main"))
@@ -130,7 +130,7 @@ func TestAWorkspaceWhoseMakingWasStoppedBeforeItHeldItsRepositoryIsFilledWhenItI
 	// Opening ended nothing when it failed: the sandbox is the one
 	// that was there.
 	spec.Expect(again.Sandbox).To(Equal(stopped.Sandbox))
-	spec.Expect(again.How).To(Equal(frontseat.Filled))
+	spec.Expect(again.Outcome).To(Equal(frontseat.OpenOutcomeFilled))
 	spec.Expect((&Workspace{spec, again.reached}).prints("cat " + code + "/branch")).To(Equal("later"))
 }
 
@@ -147,7 +147,7 @@ func TestTwoRepositoriesOfOneNameAreNotOneWorkspaceTheSecondIsRefusedAndTakesANa
 	// The first is as it was, and the second is opened under a name.
 	spec.Expect((&Workspace{spec, first.reached}).state()).To(Equal("running"))
 	second := spec.openingAs(aName(), other)
-	spec.Expect(second.How).To(Equal(frontseat.Made))
+	spec.Expect(second.Outcome).To(Equal(frontseat.OpenOutcomeCreated))
 	spec.Expect(second.Sandbox).NotTo(Equal(first.Sandbox))
 }
 
@@ -184,7 +184,7 @@ type said struct {
 // the directory the checkout's repository is in.
 type opened struct {
 	reached
-	How        frontseat.How
+	Outcome    frontseat.OpenOutcome
 	Repository string
 }
 
@@ -250,7 +250,7 @@ func (spec *scenario) openingAs(name string, checkout said) opened {
 
 func (spec *scenario) attemptingAs(name string, checkout said) (opened, error) {
 	spec.Helper()
-	at, got, err := made(context.Background(), making{Server: server, Spec: frontseat.Spec{
+	at, got, err := made(context.Background(), making{Server: server, WorkspaceSpec: frontseat.WorkspaceSpec{
 		Name: name, Repositories: []frontseat.Repository{{Remote: checkout.remote, Ref: checkout.branch}}, Author: checkout.author, AuthorizedKey: testidentity.Authorized(),
 	}})
 	if got.Workspace != nil {
@@ -259,13 +259,13 @@ func (spec *scenario) attemptingAs(name string, checkout said) (opened, error) {
 			ended(named)
 		})
 	}
-	out := opened{reached: at, How: got.How}
+	out := opened{reached: at, Outcome: got.Outcome}
 	if err != nil {
 		return out, err
 	}
 	// What it holds is read, and not taken on its name's word, as the
 	// command line reads it: one that holds other source is not this one.
-	for _, held := range got.Held.GetStatus().GetRepositories() {
+	for _, held := range got.Status.GetStatus().GetRepositories() {
 		if held.GetRemote() == checkout.remote {
 			out.Repository = held.GetName()
 			return out, nil

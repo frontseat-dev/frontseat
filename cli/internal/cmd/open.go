@@ -73,7 +73,7 @@ as far as the credential the control plane keeps lets it.`,
 			open.Directory = here
 		}
 		got, err := machine.OpenCheckout(ctx, fs, open, machine.Checkout())
-		if err := kept(fs, got.Opened, err); err != nil {
+		if err := kept(fs, got.OpenResult, err); err != nil {
 			return err
 		}
 		standing := got.Standing
@@ -84,8 +84,8 @@ as far as the credential the control plane keeps lets it.`,
 		if missing := notHeld(standing.Unpushed, standing.Uncommitted); missing != "" {
 			said("  %s: the workspace does not hold them", missing)
 		}
-		said("%s  %s", got.Workspace.Name(), how(got.How))
-		if got.Held.GetSpec().GetPush() {
+		said("%s  %s", got.Workspace.Name(), got.Outcome)
+		if got.Status.GetSpec().GetPush() {
 			said("  it may push to this repository, with whatever credential the control plane keeps for its host")
 		}
 		return entered(ctx, got.Repository)
@@ -94,7 +94,7 @@ as far as the credential the control plane keeps lets it.`,
 
 // kept makes a workspace that was opened the one the other commands
 // ask; of one that could not be opened, it says that it is still there.
-func kept(fs *frontseat.Client, got frontseat.Opened, err error) error {
+func kept(fs *frontseat.Client, got frontseat.OpenResult, err error) error {
 	if err != nil {
 		return left(err, got.Workspace)
 	}
@@ -117,7 +117,7 @@ func openNamed(ctx context.Context, fs *frontseat.Client, args []string, flags *
 	if err != nil {
 		return err
 	}
-	spec := frontseat.Spec{AuthorizedKey: key}
+	spec := frontseat.WorkspaceSpec{AuthorizedKey: key}
 	// A directory names the checkout a workspace is opened of, and is
 	// given with nothing named.
 	if flags.Changed("directory") {
@@ -135,7 +135,7 @@ func openNamed(ctx context.Context, fs *frontseat.Client, args []string, flags *
 		}
 		spec.Name = args[0]
 	} else {
-		spec = frontseat.Spec{Name: opened.Name, Image: opened.Image, Push: opened.Push, Whole: openWhole, AuthorizedKey: key}
+		spec = frontseat.WorkspaceSpec{Name: opened.Name, Image: opened.Image, Push: opened.Push, Whole: openWhole, AuthorizedKey: key}
 		for _, named := range args {
 			switch {
 			case strings.Contains(named, "://"):
@@ -158,15 +158,11 @@ func openNamed(ctx context.Context, fs *frontseat.Client, args []string, flags *
 	if err := kept(fs, got, err); err != nil {
 		return err
 	}
-	came := "as it was left"
-	if got.How == frontseat.Made {
-		came = "made"
-	}
-	said("%s  %s", got.Workspace.Name(), came)
+	said("%s  %s", got.Workspace.Name(), got.Outcome)
 	// A workspace of one repository is entered in it, and one of several
 	// above them.
 	in := ""
-	if holds := got.Held.GetStatus().GetRepositories(); len(holds) == 1 {
+	if holds := got.Status.GetStatus().GetRepositories(); len(holds) == 1 {
 		in = holds[0].GetName()
 	}
 	return entered(ctx, in)
@@ -208,18 +204,6 @@ func entering(repository string) string {
 // plainName is one directory's name of letters, digits and . _ - +,
 // which a shell reads as it is written.
 var plainName = regexp.MustCompile(`^[A-Za-z0-9._+-]{1,255}$`)
-
-// how says how a workspace came to be the one opened.
-func how(came frontseat.How) string {
-	switch came {
-	case frontseat.Made:
-		return "made"
-	case frontseat.Filled:
-		return "filled: it was there and held nothing yet"
-	default:
-		return "as it was left"
-	}
-}
 
 // notHeld says what of a checkout its remote does not hold, in a
 // person's words; empty where it holds it all.

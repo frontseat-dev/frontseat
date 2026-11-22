@@ -38,7 +38,7 @@ import (
 // madeWorkspace makes a workspace of a control plane, as the client
 // given asks for it, and ends its sandbox with the test. It returns the
 // workspace as it was once it could be worked in.
-func madeWorkspace(t *testing.T, fs *frontseat.Client, create frontseat.Spec) (*frontseat.Workspace, *workspacev1.Workspace) {
+func madeWorkspace(t *testing.T, fs *frontseat.Client, create frontseat.WorkspaceSpec) (*frontseat.Workspace, *workspacev1.Workspace) {
 	t.Helper()
 	// The test's key opens a shell in it, as a person's does in theirs.
 	create.AuthorizedKey = testidentity.Authorized()
@@ -57,7 +57,7 @@ func madeWorkspace(t *testing.T, fs *frontseat.Client, create frontseat.Spec) (*
 	if err != nil {
 		t.Fatal(err)
 	}
-	return made.Workspace, made.Held
+	return made.Workspace, made.Status
 }
 
 // ended ends a workspace a test made, and waits until it is gone.
@@ -123,7 +123,7 @@ func TestAWorkspaceClonesARepositoryAndBuildsIt(t *testing.T) {
 	checkout := helloModule(t)
 
 	at := local(t)
-	made, held := madeWorkspace(t, frontseat.New(at.URL, at.Owner), frontseat.Spec{Image: image, Repositories: cloned(t, checkout)})
+	made, held := madeWorkspace(t, frontseat.New(at.URL, at.Owner), frontseat.WorkspaceSpec{Image: image, Repositories: cloned(t, checkout)})
 
 	// Its daemon is reached through the control plane by the workspace's
 	// name, and by no sandbox's id.
@@ -146,7 +146,7 @@ func TestAnEditorOpensTheWorkspaceOverSSHThroughTheSandboxAPI(t *testing.T) {
 		t.Fatal(err)
 	}
 	at := local(t)
-	made, _ := madeWorkspace(t, frontseat.New(at.URL, at.Owner), frontseat.Spec{Image: image, Repositories: cloned(t, checkout)})
+	made, _ := madeWorkspace(t, frontseat.New(at.URL, at.Owner), frontseat.WorkspaceSpec{Image: image, Repositories: cloned(t, checkout)})
 
 	// What an editor does first: log in, look at the machine, and reach
 	// it through a forwarded connection.
@@ -289,7 +289,7 @@ func TestAWorkspaceOpenedByEntityClonesWhatItsBackstageSays(t *testing.T) {
 		t.Fatal(err)
 	}
 	refusing := frontseat.New(unserved, frontseat.WithToken(strings.TrimSpace(string(raw))))
-	_, err = refusing.Open(ctx, frontseat.Spec{Name: fmt.Sprintf("test-%d", time.Now().UnixNano()), Image: image, Entities: []string{"component:gateway"}})
+	_, err = refusing.Open(ctx, frontseat.WorkspaceSpec{Name: fmt.Sprintf("test-%d", time.Now().UnixNano()), Image: image, Entities: []string{"component:gateway"}})
 	if connect.CodeOf(err) != connect.CodeUnimplemented || reasonOf(err) != "ENTITIES_NOT_SERVED" {
 		t.Errorf("opened by entity without a Backstage: %v (%s), want it refused UNIMPLEMENTED, ENTITIES_NOT_SERVED", err, reasonOf(err))
 	}

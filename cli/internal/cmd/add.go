@@ -23,7 +23,7 @@ var addCmd = &cobra.Command{
   frontseat workspace add --repository https://example.com/acme/platform.git`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		more := frontseat.Spec{Whole: addWhole, Entities: addEntities}
+		more := frontseat.WorkspaceSpec{Whole: addWhole, Entities: addEntities}
 		if len(addRepositories)+len(addEntities) == 0 {
 			return errors.New("name what to add with --entity or --repository")
 		}
