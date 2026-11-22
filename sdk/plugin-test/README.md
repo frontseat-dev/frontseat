@@ -31,12 +31,15 @@ fn a_makefile_is_a_project() {
   directory such as `testdata/valid` (`Files::from_dir`).
 - `TestHost` serves them as Frontseat does: it globs as Frontseat's host
   globs, in the pattern language `host.proto` says, records what the
-  plugin read (`reads`), and fails a read or a glob when told to.
+  plugin read (`reads`), and fails a read or a glob when told to. A
+  call in which a read failed fails with that failure, as Frontseat
+  fails it, whatever the plugin made of the read.
 - `TestPlugin` asks the plugin through the SDK's own dispatch, each
   call encoded and its answer decoded, so the SDK checks options and
   profiles as it does in a module. `answered()` is the answer, and
   `refused(reason)` the refusal, an `Error` whose reason is as the
-  plugin wrote it.
+  plugin wrote it. An answer that is not looked at is a warning: a test
+  that asks and checks nothing proves nothing.
 
 ## What it cannot check
 

@@ -16,7 +16,10 @@ frontseat-plugin = { path = "../plugin", version = "0.0.0" }
 prost = "0.14"
 # Patterns matched as the host's doublestar matches them; held to it by
 # testdata/select.json, which the host's own matcher runs too.
-globset = { version = "0.4", default-features = false }
+# Pinned to the release the matcher was held to: it reads the regular
+# expression globset compiles a pattern to, which globset does not
+# promise the form of.
+globset = { version = "=0.4.21", default-features = false }
 # globset's own, to match what it compiles a pattern to in Unicode, as
 # doublestar matches: a `?` is a character, not a byte.
 regex-automata = { version = "0.4.18", default-features = false, features = ["std", "syntax", "meta", "nfa", "hybrid", "perf"] }

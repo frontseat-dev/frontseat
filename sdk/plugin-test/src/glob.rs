@@ -163,7 +163,13 @@ fn compile(glob: &str) -> Option<Regex> {
         .backslash_escape(true)
         .build()
         .ok()?;
-    let bytes = compiled.regex().strip_prefix("(?-u)")?;
+    // globset promises nothing of what it writes here: its version is
+    // pinned (Cargo.toml), and one that writes otherwise is heard of,
+    // where every pattern would select nothing without a word.
+    let bytes = compiled
+        .regex()
+        .strip_prefix("(?-u)")
+        .expect("globset writes a pattern's regular expression after (?-u)");
     Regex::new(&unicode(bytes)?).ok()
 }
 
@@ -441,6 +447,41 @@ mod tests {
             }
         }
         assert!(wrong.is_empty(), "{}", wrong.join("\n"));
+    }
+
+    /// A name written as a pattern (`repository::literal`) selects the
+    /// name and nothing near it, by this matcher and, each a case of the
+    /// shared table, by the host's.
+    #[test]
+    fn a_name_written_as_a_pattern_selects_itself_alone() {
+        let raw =
+            std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/testdata/select.json")).unwrap();
+        let cases: Vec<Case> = serde_json::from_slice(&raw).unwrap();
+        for (name, near) in [
+            ("a[1]", "a1"),
+            ("{x,y}", "x"),
+            ("!x", "x"),
+            ("a\\b", "ab"),
+            ("é?", "éx"),
+            ("a*b", "axb"),
+            ("pkg[1]/a*b", "pkg1/axb"),
+        ] {
+            let pattern = frontseat_plugin::repository::literal(name);
+            assert!(
+                select(&[&pattern], name),
+                "{pattern} does not select {name}"
+            );
+            assert!(!select(&[&pattern], near), "{pattern} selects {near}");
+            for (path, selected) in [(name, true), (near, false)] {
+                assert!(
+                    cases.iter().any(|case| case.patterns == [pattern.as_str()]
+                        && case.path == path
+                        && case.selected == selected
+                        && case.directory.is_none()),
+                    "the shared table holds no case of {pattern} and {path}, for the host to run"
+                );
+            }
+        }
     }
 
     #[test]
