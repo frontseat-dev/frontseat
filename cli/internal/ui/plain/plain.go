@@ -30,9 +30,18 @@ func shown(text string) string {
 	return out.String()
 }
 
-// hidden is a character a terminal acts on and does not show.
+// hidden is a character a terminal acts on and does not show: what
+// controls it, and what turns the text around it or stands in it unseen
+// (the marks of direction and the characters of no width), by which a
+// line can be made to read as another.
 func hidden(r rune) bool {
-	return r < 0x20 || r == 0x7f || (r >= 0x80 && r < 0xa0) || r == utf8.RuneError
+	switch {
+	case r < 0x20, r == 0x7f, r >= 0x80 && r < 0xa0, r == utf8.RuneError:
+		return true
+	case r >= 0x200b && r <= 0x200f, r >= 0x202a && r <= 0x202e, r >= 0x2060 && r <= 0x2069, r == 0xfeff:
+		return true
+	}
+	return false
 }
 
 // Printer writes a build's events as lines.
@@ -118,14 +127,19 @@ func (p Printer) finished(build *buildv1.Build) {
 	p.found(build.GetDiagnostics())
 }
 
-// found writes what was found, each where it was found.
 // Printed writes what an action that failed printed, beneath the line
-// that says it failed: every line, as the action printed it, set in as
-// what an action is told is, so that none is taken for a line of this
-// printer's own.
+// that says it failed: every line, as the action printed it, set in
+// behind a bar, which no line of this printer's own begins with, so
+// that nothing an action prints is taken for what the printer says of
+// it. A tab is written as it is: what a compiler or a test prints is
+// set out with them, and one moves nothing but the text after it.
 func (p Printer) Printed(lines []*typev1.LogLine) {
 	for _, line := range lines {
-		fmt.Fprintf(p.Out, "        %s\n", shown(line.GetText()))
+		parts := strings.Split(line.GetText(), "\t")
+		for i, part := range parts {
+			parts[i] = shown(part)
+		}
+		fmt.Fprintf(p.Out, "        | %s\n", strings.Join(parts, "\t"))
 	}
 }
 
@@ -135,6 +149,7 @@ func (p Printer) Unread(err error) {
 	fmt.Fprintf(p.Out, "        what it printed could not be read: %s\n", shown(err.Error()))
 }
 
+// found writes what was found, each where it was found.
 func (p Printer) found(diagnostics []*typev1.Diagnostic) {
 	for _, found := range diagnostics {
 		at := ""
