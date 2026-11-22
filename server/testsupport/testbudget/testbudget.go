@@ -8,8 +8,8 @@
 // many times slower; to compare two versions closely, run the same
 // benchmarks on both and give the results to benchstat.
 //
-// A budget is raised in the change that needs it, with the measurement
-// and the reason beside it.
+// A budget is the owner's to raise: a change that goes over one removes
+// the cost, or asks, with the measurement and the reason.
 package testbudget
 
 import (

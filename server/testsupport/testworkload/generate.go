@@ -1,3 +1,6 @@
+// Package testworkload writes the workspace the comparisons build: one
+// source of Go modules of a shape, laid out for Frontseat, Bazel and Buck2
+// alike, so that each tool builds the same thing (specs/compare).
 package testworkload
 
 import (

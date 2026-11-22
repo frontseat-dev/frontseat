@@ -15,6 +15,8 @@ import (
 	"strconv"
 	"sync"
 	"testing"
+
+	"github.com/frontseat-dev/frontseat/server/testsupport/testlisten"
 )
 
 //go:embed testdata/*.crate
@@ -31,18 +33,27 @@ type Origin struct {
 // download is rewritten to.
 var path = regexp.MustCompile(`^/crates/([A-Za-z0-9_-]+)/([0-9A-Za-z.+-]+)/download$`)
 
-// Crates starts an origin of the crates in testdata, on this machine's
-// loopback, and stops it when the test ends.
+// Crates starts an origin of the crates in testdata, on a port of this
+// machine that is the test's own (testlisten.Own), since the grid's
+// asset service reaches it from a container and what it asks is
+// counted, and stops it when the test ends, once it has stopped serving.
 func Crates(t testing.TB) *Origin {
 	t.Helper()
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	listener, err := testlisten.Own("tcp")
 	if err != nil {
 		t.Fatal(err)
 	}
 	o := &Origin{asked: map[string]int{}, port: listener.Addr().(*net.TCPAddr).Port}
 	server := &http.Server{Handler: http.HandlerFunc(o.serve)}
-	go func() { _ = server.Serve(listener) }()
-	t.Cleanup(func() { _ = server.Close() })
+	served := make(chan struct{})
+	go func() {
+		defer close(served)
+		_ = server.Serve(listener)
+	}()
+	t.Cleanup(func() {
+		_ = server.Close()
+		<-served
+	})
 	return o
 }
 
