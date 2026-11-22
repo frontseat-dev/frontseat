@@ -37,7 +37,7 @@ func TestADaemonMadeAnewKeepsNothingOfTheOneBefore(t *testing.T) {
 		return got, failure, stats.Evaluations
 	}
 	first, err, evaluations := asked(all)
-	if err != nil || evaluations != 1 || !slices.ContainsFunc(first.GetProjects(), func(p *buildv1.Project) bool { return p.GetPlugin() == "go" }) {
+	if err != nil || evaluations != 1 || !slices.ContainsFunc(first.GetProjects(), func(p *buildv1.Project) bool { return p.GetRef().GetPlugin() == "go" }) {
 		t.Fatalf("the first daemon found no project of the Go plugin: %v, %v, evaluated %d times: this test proves nothing", first, err, evaluations)
 	}
 	same, err, evaluations := asked(all)

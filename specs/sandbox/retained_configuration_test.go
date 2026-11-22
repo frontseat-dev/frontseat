@@ -43,7 +43,8 @@ func TestRetainedWorkspaceRevalidatesOptionsAndRecoversAfterMalformedSettings(t 
 	}
 	spec.Expect(tags).To(HaveLen(1))
 	spec.Expect(tags[0].GetValue().GetStringListValue().GetValues()).To(Equal([]string{"retained_option_probe"}))
-	spec.Expect(tags[0].GetOrigin()).To(Equal("lab/frontseat.yaml"))
+	spec.Expect(tags[0].GetOrigin().GetRepository()).To(Equal("lab"))
+	spec.Expect(tags[0].GetOrigin().GetPath()).To(Equal("frontseat.yaml"))
 	spec.Expect(proto.Equal(before, changed)).To(BeFalse())
 	failed := w.build(retainedCompileOnly)
 	spec.Expect(failed.outcome()).To(Equal("BUILD_FAILURE"))

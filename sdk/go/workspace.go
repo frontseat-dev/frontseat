@@ -90,7 +90,7 @@ type Author struct {
 
 // proto is the spec as the API carries it.
 func (s WorkspaceSpec) proto() (*workspacev1.WorkspaceSpec, error) {
-	spec := &workspacev1.WorkspaceSpec{Whole: s.Whole, Push: s.Push, Image: s.Image, AuthorizedKey: s.AuthorizedKey}
+	spec := &workspacev1.WorkspaceSpec{WholeRepositories: s.Whole, Push: s.Push, Image: s.Image, AuthorizedKey: s.AuthorizedKey}
 	for _, r := range s.Repositories {
 		spec.Repositories = append(spec.Repositories, &workspacev1.RepositorySource{Remote: r.Remote, Ref: r.Ref})
 	}
@@ -329,7 +329,7 @@ func (w *Workspace) Add(ctx context.Context, more WorkspaceSpec) error {
 			spec.Entities = append(spec.Entities, ref)
 		}
 	}
-	spec.Whole = spec.Whole || adding.GetWhole()
+	spec.WholeRepositories = spec.WholeRepositories || adding.GetWholeRepositories()
 	if _, err := api.UpdateWorkspace(ctx, &workspacev1.UpdateWorkspaceRequest{Name: w.name, Spec: spec}); err != nil {
 		return err
 	}

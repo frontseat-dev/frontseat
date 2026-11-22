@@ -42,7 +42,7 @@ func (p Printer) Plan(plan *buildv1.ReleasePlan) {
 			for _, reason := range reasons {
 				p.reason(reason)
 			}
-		case len(reasons) > 0 && reasons[0].GetKind() == buildv1.ReasonKind_REASON_KIND_RELEASED:
+		case len(reasons) > 0 && reasons[0].GetKind() == buildv1.ReleaseReason_KIND_RELEASED:
 			fmt.Fprintf(p.Out, "%s  released as %s  tag %s\n", name, shown(unit.GetLastVersion()), shown(unit.GetTag()))
 		default:
 			fmt.Fprintf(p.Out, "%s  holds%s: %s\n", name, shown(at(unit.GetLastVersion())), shown(held(reasons)))
@@ -61,9 +61,9 @@ func at(version string) string {
 // reason writes one reason a unit moves, in a line of its own.
 func (p Printer) reason(reason *buildv1.ReleaseReason) {
 	switch reason.GetKind() {
-	case buildv1.ReasonKind_REASON_KIND_FIRST_RELEASE:
+	case buildv1.ReleaseReason_KIND_FIRST_RELEASE:
 		fmt.Fprintln(p.Out, "  its first release")
-	case buildv1.ReasonKind_REASON_KIND_OWN_CHANGE:
+	case buildv1.ReleaseReason_KIND_OWN_CHANGE:
 		fmt.Fprintf(p.Out, "  %s  (%.12s)\n", shown(reason.GetSummary()), shown(reason.GetCommit().GetCommit()))
 	default:
 		fmt.Fprintf(p.Out, "  %s\n", Word(reason.GetKind()))
@@ -76,9 +76,9 @@ func held(reasons []*buildv1.ReleaseReason) string {
 		return "no reason was given"
 	}
 	switch reason := reasons[0]; reason.GetKind() {
-	case buildv1.ReasonKind_REASON_KIND_UNCHANGED:
+	case buildv1.ReleaseReason_KIND_UNCHANGED:
 		return "nothing of it changed since its last release"
-	case buildv1.ReasonKind_REASON_KIND_BRANCH:
+	case buildv1.ReleaseReason_KIND_BRANCH:
 		return reason.GetSummary()
 	default:
 		return Word(reason.GetKind())
@@ -96,7 +96,7 @@ func (p Printer) Release(release *buildv1.Release) {
 		}
 		for _, tag := range unit.GetTags() {
 			did := "tagged"
-			if unit.GetAlready() {
+			if unit.GetAlreadyReleased() {
 				did = "was tagged already"
 			}
 			fmt.Fprintf(p.Out, "%s  %s  %s %s in %s  (%.12s)\n", named(unit.GetEntity()), shown(unit.GetVersion()), did, shown(tag.GetName()), shown(tag.GetRepository()), shown(tag.GetCommit()))
@@ -104,10 +104,10 @@ func (p Printer) Release(release *buildv1.Release) {
 		// What it built to ship, each file by its name, with the
 		// sha256 a checksum file would hold of it.
 		for _, artifact := range unit.GetArtifacts() {
-			fmt.Fprintf(p.Out, "  %s  %s  %d bytes\n", shown(artifact.GetSha256()), shown(artifact.GetName()), artifact.GetSize())
+			fmt.Fprintf(p.Out, "  %s  %s  %d bytes\n", shown(artifact.GetDigest().GetHash()), shown(artifact.GetName()), artifact.GetDigest().GetSizeBytes())
 		}
 		// What became of each publish of it, and why one failed.
-		for _, published := range unit.GetPublished() {
+		for _, published := range unit.GetPublishes() {
 			if published.GetFailure() == "" {
 				fmt.Fprintf(p.Out, "  published by %s\n", shown(published.GetLabel()))
 				continue

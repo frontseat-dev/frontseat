@@ -46,7 +46,7 @@ func projectsOf(t testing.TB, graph buildv1alpha1connect.GraphServiceClient) []s
 	}
 	var out []string
 	for _, project := range listed.GetProjects() {
-		out = append(out, project.GetRoot())
+		out = append(out, project.GetRef().GetRoot())
 	}
 	sort.Strings(out)
 	return out

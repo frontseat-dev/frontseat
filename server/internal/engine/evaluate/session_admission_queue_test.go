@@ -294,7 +294,7 @@ func TestRetainedAdmissionQueuedGraphTakesFreshSourceAfterRefusal(t *testing.T) 
 	if len(got.projects.GetProjects()) == 0 {
 		t.Fatal("mutation control requires a nonempty result")
 	}
-	got.projects.Projects[0].Root = "caller-mutated-root"
+	got.projects.Projects[0].Ref.Root = "caller-mutated-root"
 	if proto.Equal(got.projects, want) {
 		t.Fatal("mutation control did not change returned facts")
 	}

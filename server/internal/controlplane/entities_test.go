@@ -143,7 +143,7 @@ func TestAnEntityResolvesToTheRepositoriesItsSandboxReachesAlone(t *testing.T) {
 	for _, r := range holds.GetRepositories() {
 		repositories = append(repositories, r.GetName()+"="+r.GetRemote()+"@"+r.GetRef()+":"+strings.Join(r.GetRoots(), ","))
 	}
-	for _, l := range holds.GetLocated() {
+	for _, l := range holds.GetEntities() {
 		located = append(located, l.GetRef().GetKind()+":"+l.GetRef().GetNamespace()+"/"+l.GetRef().GetName()+"@"+l.GetRepository()+"/"+l.GetRoot())
 	}
 	if got := strings.Join(repositories, " "); got != "platform=https://forge.example/acme/platform@main:gateway services=https://forge.example/acme/services@main:greet" {
@@ -193,14 +193,14 @@ func TestAResolutionIsKeptAndNotDoneAgain(t *testing.T) {
 	asked := len(fake.Asked())
 	s.daemon("sbx_1").restarted()
 	again := toldAgain(t, s.daemon("sbx_1"), 2)
-	if again.GetLocated()[0].GetRoot() != "payments" || again.GetRepositories()[0].GetRoots()[0] != "payments" {
+	if again.GetEntities()[0].GetRoot() != "payments" || again.GetRepositories()[0].GetRoots()[0] != "payments" {
 		t.Errorf("a daemon started again was told %v, want what was resolved", again)
 	}
 	first.Close()
 	after, _, _ := served(t, s, state, resolving(t, fake))
 	s.daemon("sbx_1").restarted()
 	recovered := toldAgain(t, s.daemon("sbx_1"), 3)
-	if recovered.GetLocated()[0].GetRoot() != "payments" || recovered.GetRepositories()[0].GetRoots()[0] != "payments" {
+	if recovered.GetEntities()[0].GetRoot() != "payments" || recovered.GetRepositories()[0].GetRoots()[0] != "payments" {
 		t.Errorf("under a control plane started again, its daemon was told %v", recovered)
 	}
 	if described, err := after.DescribeWorkspace(ctx, &workspacev1.DescribeWorkspaceRequest{Name: "kept"}); err != nil || described.GetWorkspace().GetStatus().GetEntities()[0].GetRoot() != "payments" {
@@ -213,7 +213,7 @@ func TestAResolutionIsKeptAndNotDoneAgain(t *testing.T) {
 		t.Fatal(err)
 	}
 	waited(t, after, "fresh")
-	if fresh := toldAgain(t, s.daemon(s.of("fresh")), 1); fresh.GetLocated()[0].GetRoot() != "moved" {
+	if fresh := toldAgain(t, s.daemon(s.of("fresh")), 1); fresh.GetEntities()[0].GetRoot() != "moved" {
 		t.Errorf("the control, a workspace asked for after the change, was told %v", fresh)
 	}
 }

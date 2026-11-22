@@ -97,11 +97,11 @@ message SourceSpec {
   int64 generation = 1 [(google.api.field_behavior) = REQUIRED];
   // Repositories are repositories to clone: those a workspace was asked
   // for, and those the control plane resolved its entities to.
-  repeated Checkout repositories = 2;
-  // Located are the entities the control plane resolved, and where each
+  repeated RepositorySource repositories = 2;
+  // Entities are the entities the control plane resolved, and where each
   // is among the repositories. The daemon resolves nothing itself: this
   // is all it knows of which entity is where.
-  repeated LocatedEntity located = 3;
+  repeated LocatedEntity entities = 3;
 }
 
 // LocatedEntity is an entity, and where its source is.
@@ -109,14 +109,14 @@ message LocatedEntity {
   // Ref names the entity in full.
   frontseat.type.v1alpha1.EntityRef ref = 1 [(google.api.field_behavior) = REQUIRED];
   // Repository is the name of the repository that holds it, as a
-  // Checkout names it.
+  // RepositorySource names it.
   string repository = 2 [(google.api.field_behavior) = REQUIRED];
   // Root is its directory in that repository; empty for all of it.
   string root = 3;
 }
 
-// Checkout is a repository for the daemon to clone.
-message Checkout {
+// RepositorySource is a repository for the daemon to clone.
+message RepositorySource {
   // Remote is its URL.
   string remote = 1 [(google.api.field_behavior) = REQUIRED];
   // Ref is the branch, tag or commit to stand at; empty for the remote's

@@ -203,36 +203,36 @@ message ReleaseUnit {
 // ReleaseReason is one reason a unit moves or holds.
 message ReleaseReason {
   // Kind is what sort of reason it is.
-  ReasonKind kind = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
+  Kind kind = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Bump is what this reason alone is worth.
   frontseat.type.v1alpha1.Bump bump = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // Commit is the commit that is the reason, for OWN_CHANGE.
+  // Commit is the commit that is the reason, for KIND_OWN_CHANGE.
   RepositoryCommit commit = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Summary says the reason in a line: a commit's first line for
-  // OWN_CHANGE, the branching strategy's reason for BRANCH.
+  // KIND_OWN_CHANGE, the branching strategy's reason for KIND_BRANCH.
   string summary = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
-}
 
-// ReasonKind is what sort of reason a ReleaseReason is.
-enum ReasonKind {
-  // REASON_KIND_UNSPECIFIED: not said.
-  REASON_KIND_UNSPECIFIED = 0;
-  // REASON_KIND_OWN_CHANGE: a commit since the last release changed a
-  // member's files.
-  REASON_KIND_OWN_CHANGE = 1;
-  // REASON_KIND_UNCHANGED: nothing changed since the last release.
-  REASON_KIND_UNCHANGED = 2;
-  // REASON_KIND_FIRST_RELEASE: it has never been released; it is released
-  // at its initial version.
-  REASON_KIND_FIRST_RELEASE = 3;
-  // REASON_KIND_RELEASED: the commit it is planned from carries this
-  // unit's tag already: it is released, at that version, and releasing
-  // writes no new version. A tag on an earlier commit with nothing
-  // changed since is UNCHANGED.
-  REASON_KIND_RELEASED = 4;
-  // REASON_KIND_BRANCH: its branch releases nothing of it, as its
-  // branching strategy says; the summary says why.
-  REASON_KIND_BRANCH = 5;
+  // Kind is what sort of reason it is.
+  enum Kind {
+    // KIND_UNSPECIFIED: not said.
+    KIND_UNSPECIFIED = 0;
+    // KIND_OWN_CHANGE: a commit since the last release changed a
+    // member's files.
+    KIND_OWN_CHANGE = 1;
+    // KIND_UNCHANGED: nothing changed since the last release.
+    KIND_UNCHANGED = 2;
+    // KIND_FIRST_RELEASE: it has never been released; it is released at
+    // its initial version.
+    KIND_FIRST_RELEASE = 3;
+    // KIND_RELEASED: the commit it is planned from carries this unit's
+    // tag already: it is released, at that version, and releasing
+    // writes no new version. A tag on an earlier commit with nothing
+    // changed since is KIND_UNCHANGED.
+    KIND_RELEASED = 4;
+    // KIND_BRANCH: its branch releases nothing of it, as its branching
+    // strategy says; the summary says why.
+    KIND_BRANCH = 5;
+  }
 }
 
 // CreateReleaseRequest releases a plan.
@@ -318,21 +318,21 @@ message ReleasedUnit {
   // unit is from one repository; none, for a prerelease its unit does
   // not tag.
   repeated ReleaseTag tags = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // Already says the tags were there, at the commit planned from, before
-  // this release: it changed nothing for this unit.
-  bool already = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // `already_released` says the tags were there, at the commit planned
+  // from, before this release: it changed nothing for this unit.
+  bool already_released = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Artifacts are what the release built of it to ship: each file a
   // package action of its members left, in the order of their names. A
   // unit found released already has none: nothing was built of it.
   repeated ReleaseArtifact artifacts = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // Published is what became of each publish of it, in the order they
+  // Publishes are what became of each publish of it, in the order they
   // ran. A unit found released already has none: nothing was built of
   // it to publish.
-  repeated ReleasePublished published = 6 [(google.api.field_behavior) = OUTPUT_ONLY];
+  repeated PublishResult publishes = 6 [(google.api.field_behavior) = OUTPUT_ONLY];
 }
 
-// ReleasePublished is what became of one publish of a unit.
-message ReleasePublished {
+// PublishResult is what became of one publish of a unit.
+message PublishResult {
   // Label is the label of the action that publishes.
   string label = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Failure says why it failed, with what its tool printed; empty where
@@ -345,11 +345,8 @@ message ReleaseArtifact {
   // Name is its name, as the tool that made it wrote it:
   // "greet-linux-amd64". No two artifacts of a release share one.
   string name = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // Sha256 is the sha256 of its bytes, in hexadecimal, as the grid
-  // holds them.
-  string sha256 = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // Size is how many bytes it is.
-  int64 size = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Digest is the address of its bytes in the grid's store.
+  Digest digest = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Label is the label of the action that left it.
   string label = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
 }

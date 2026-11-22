@@ -147,7 +147,7 @@ func reachedOf(server string, w *workspacev1.Workspace) reached {
 // the newest the control plane made for it that is not ending; empty
 // for none.
 func livingIn(server, name string) string {
-	listed, err := testsandbox.Client(beneathOf(server)).ListSandboxes(context.Background(), &sandboxv1.ListSandboxesRequest{PageSize: 1000, LabelSelector: "frontseat.dev/workspace=" + name})
+	listed, err := testsandbox.Client(beneathOf(server)).ListSandboxes(context.Background(), &sandboxv1.ListSandboxesRequest{PageSize: 1000, Labels: map[string]string{"frontseat.dev/workspace": name}})
 	if err != nil {
 		panic(err)
 	}
@@ -824,10 +824,16 @@ func (spec *scenario) askForASandbox(what ...wanting) *Sandbox {
 	return &Sandbox{scenario: spec, id: id}
 }
 
-// sandboxesLabelled are the sandboxes found by what they are for.
+// sandboxesLabelled are the sandboxes found by what they are for: each
+// label written name=value.
 func (spec *scenario) sandboxesLabelled(labels ...string) []string {
 	spec.Helper()
-	listed, err := testsandbox.Client(beneathOf(server)).ListSandboxes(context.Background(), &sandboxv1.ListSandboxesRequest{PageSize: 1000, LabelSelector: strings.Join(labels, ",")})
+	selected := map[string]string{}
+	for _, label := range labels {
+		name, value, _ := strings.Cut(label, "=")
+		selected[name] = value
+	}
+	listed, err := testsandbox.Client(beneathOf(server)).ListSandboxes(context.Background(), &sandboxv1.ListSandboxesRequest{PageSize: 1000, Labels: selected})
 	spec.Expect(err).NotTo(HaveOccurred())
 	var ids []string
 	for _, found := range listed.GetSandboxes() {
@@ -910,7 +916,7 @@ func (w *Workspace) retainedToolProject() *buildv1.Project {
 	w.Expect(err).NotTo(HaveOccurred())
 	var matching []*buildv1.Project
 	for _, p := range listed.GetProjects() {
-		if p.GetRepository() == "lab" && p.GetRoot() == "tool" && p.GetPlugin() == "go" {
+		if p.GetRef().GetRepository() == "lab" && p.GetRef().GetRoot() == "tool" && p.GetRef().GetPlugin() == "go" {
 			matching = append(matching, p)
 		}
 	}

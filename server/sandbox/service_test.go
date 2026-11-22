@@ -117,8 +117,8 @@ func TestASandboxsPortIsReachedBeneathItsPath(t *testing.T) {
 	made := create(t, client, &sandboxv1.SandboxSpec{Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_ALL}, Image: "box", Ports: []int32{7600}})
 
 	endpoint := made.GetEndpoints()[0]
-	if want := srv.URL + "/sandboxes/" + made.GetId() + "/ports/7600"; endpoint.GetUrl() != want {
-		t.Fatalf("the port's URL is %s, want %s", endpoint.GetUrl(), want)
+	if want := srv.URL + "/sandboxes/" + made.GetId() + "/ports/7600"; endpoint.GetUri() != want {
+		t.Fatalf("the port's URL is %s, want %s", endpoint.GetUri(), want)
 	}
 	// The memory driver's sandboxes answer a connection with their id and
 	// no HTTP, which a proxy reports as a bad gateway, and says: the
@@ -128,7 +128,7 @@ func TestASandboxsPortIsReachedBeneathItsPath(t *testing.T) {
 	prev := log.Writer()
 	t.Cleanup(func() { log.SetOutput(prev) })
 	log.SetOutput(&said)
-	resp, err := srv.Client().Get(endpoint.GetUrl() + "/")
+	resp, err := srv.Client().Get(endpoint.GetUri() + "/")
 	log.SetOutput(prev)
 	if err != nil {
 		t.Fatal(err)

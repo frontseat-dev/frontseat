@@ -939,11 +939,10 @@ func analyze(ctx context.Context, view repositoryView, plugin *pluginhost.Plugin
 					found.Provides = append(found.Provides, provided)
 				}
 				for _, requirement := range project.GetRequires() {
-					origin := requirement.GetOrigin()
-
 					found.Requires = append(found.Requires, graph.Requirement{
 						Coordinate: wire.ReadCoordinate(requirement.GetCoordinate()),
-						Origin:     fmt.Sprintf("%s:%d", path.Join(view.repository, origin.GetPath()), origin.GetLine()),
+						File:       requirement.GetOrigin().GetPath(),
+						Line:       requirement.GetOrigin().GetLine(),
 						Version:    requirement.GetVersion(),
 					})
 				}

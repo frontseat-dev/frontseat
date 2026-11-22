@@ -208,17 +208,18 @@ func Serve(ctx context.Context, config Config) error {
 	return err
 }
 
-// labelled are the sandboxes that carry labels, every page of them.
-func (r *runner) labelled(ctx context.Context, selector string) ([]*sandboxv1.Sandbox, error) {
+// labelled are the sandboxes that carry a label of a value, every page
+// of them.
+func (r *runner) labelled(ctx context.Context, label, value string) ([]*sandboxv1.Sandbox, error) {
 	return page.All(func(token string) ([]*sandboxv1.Sandbox, string, error) {
-		page, err := r.sandboxes.ListSandboxes(ctx, &sandboxv1.ListSandboxesRequest{LabelSelector: selector, PageToken: token})
+		page, err := r.sandboxes.ListSandboxes(ctx, &sandboxv1.ListSandboxesRequest{Labels: map[string]string{label: value}, PageToken: token})
 		return page.GetSandboxes(), page.GetNextPageToken(), err
 	})
 }
 
 // sweep removes the runner sandboxes a runner that ended left.
 func (r *runner) sweep(ctx context.Context) error {
-	remaining, err := r.labelled(ctx, label+"=1")
+	remaining, err := r.labelled(ctx, label, "1")
 	if err != nil {
 		return fmt.Errorf("finding sandboxes left: %w", err)
 	}

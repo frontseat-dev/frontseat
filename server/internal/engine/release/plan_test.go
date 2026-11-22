@@ -246,18 +246,18 @@ func TestUnderReleaseFlowAUnitMovesOnItsBranchsLine(t *testing.T) {
 		history histories
 		said    []config.Release
 		next    string
-		reason  buildv1.ReasonKind
+		reason  buildv1.ReleaseReason_Kind
 	}{
-		"a fix on a release branch":                {on("release/1.26", []string{"greet/v1.26.0"}, "fix: trim"), nil, "1.26.1", buildv1.ReasonKind_REASON_KIND_OWN_CHANGE},
-		"a branch cut for a line not yet released": {on("release/1.27", []string{"greet/v1.26.3"}, "fix: trim"), nil, "1.27.0", buildv1.ReasonKind_REASON_KIND_OWN_CHANGE},
-		"a feature on a branch cut for a new line": {on("release/1.27", []string{"greet/v1.26.3"}, "feat: by name"), nil, "1.27.0", buildv1.ReasonKind_REASON_KIND_OWN_CHANGE},
-		"never released, on a release branch":      {on("release/0.77", nil, "fix: trim"), nil, "0.77.0", buildv1.ReasonKind_REASON_KIND_FIRST_RELEASE},
-		"never released, its initial on the line":  {on("release/0.77", nil, "fix: trim"), []config.Release{says("greet", "initial", "0.77.3")}, "0.77.3", buildv1.ReasonKind_REASON_KIND_FIRST_RELEASE},
-		"the default branch":                       {on("main", []string{"greet/v1.26.0"}, "feat: by name"), nil, "", buildv1.ReasonKind_REASON_KIND_BRANCH},
-		"nothing changed since its last release":   {on("release/1.26", []string{"greet/v1.26.0"}), nil, "", buildv1.ReasonKind_REASON_KIND_UNCHANGED},
-		"changes that release nothing":             {on("release/1.26", []string{"greet/v1.26.0"}, "docs: more"), nil, "", buildv1.ReasonKind_REASON_KIND_UNCHANGED},
-		"the highest of its tags is its last":      {on("release/1.26", []string{"greet/v1.26.0", "greet/v1.26.4", "greet/v1.26.2"}, "fix: trim"), nil, "1.26.5", buildv1.ReasonKind_REASON_KIND_OWN_CHANGE},
-		"another unit's tags are not its own":      {on("release/1.26", []string{"greet/v1.26.0", "log/v1.26.9", "greeting/v1.26.9", "greet/v1.26.9-rc.1", "greet/v1.26", "greet/vnext"}, "fix: trim"), nil, "1.26.1", buildv1.ReasonKind_REASON_KIND_OWN_CHANGE},
+		"a fix on a release branch":                {on("release/1.26", []string{"greet/v1.26.0"}, "fix: trim"), nil, "1.26.1", buildv1.ReleaseReason_KIND_OWN_CHANGE},
+		"a branch cut for a line not yet released": {on("release/1.27", []string{"greet/v1.26.3"}, "fix: trim"), nil, "1.27.0", buildv1.ReleaseReason_KIND_OWN_CHANGE},
+		"a feature on a branch cut for a new line": {on("release/1.27", []string{"greet/v1.26.3"}, "feat: by name"), nil, "1.27.0", buildv1.ReleaseReason_KIND_OWN_CHANGE},
+		"never released, on a release branch":      {on("release/0.77", nil, "fix: trim"), nil, "0.77.0", buildv1.ReleaseReason_KIND_FIRST_RELEASE},
+		"never released, its initial on the line":  {on("release/0.77", nil, "fix: trim"), []config.Release{says("greet", "initial", "0.77.3")}, "0.77.3", buildv1.ReleaseReason_KIND_FIRST_RELEASE},
+		"the default branch":                       {on("main", []string{"greet/v1.26.0"}, "feat: by name"), nil, "", buildv1.ReleaseReason_KIND_BRANCH},
+		"nothing changed since its last release":   {on("release/1.26", []string{"greet/v1.26.0"}), nil, "", buildv1.ReleaseReason_KIND_UNCHANGED},
+		"changes that release nothing":             {on("release/1.26", []string{"greet/v1.26.0"}, "docs: more"), nil, "", buildv1.ReleaseReason_KIND_UNCHANGED},
+		"the highest of its tags is its last":      {on("release/1.26", []string{"greet/v1.26.0", "greet/v1.26.4", "greet/v1.26.2"}, "fix: trim"), nil, "1.26.5", buildv1.ReleaseReason_KIND_OWN_CHANGE},
+		"another unit's tags are not its own":      {on("release/1.26", []string{"greet/v1.26.0", "log/v1.26.9", "greeting/v1.26.9", "greet/v1.26.9-rc.1", "greet/v1.26", "greet/vnext"}, "fix: trim"), nil, "1.26.1", buildv1.ReleaseReason_KIND_OWN_CHANGE},
 	} {
 		greet := greetOf(t, name, &strategies{}, c.history, c.said...)
 		if greet == nil {
@@ -308,7 +308,7 @@ func TestACommitThatCarriesAUnitsTagIsReleased(t *testing.T) {
 		t.Fatal(err)
 	}
 	greet := unitOf(t, plan, "greet")
-	if greet.GetReasons()[0].GetKind() != buildv1.ReasonKind_REASON_KIND_RELEASED || greet.GetNextVersion() != "" || greet.GetLastVersion() != "1.26.0" || greet.GetTag() != "greet/v1.26.0" {
+	if greet.GetReasons()[0].GetKind() != buildv1.ReleaseReason_KIND_RELEASED || greet.GetNextVersion() != "" || greet.GetLastVersion() != "1.26.0" || greet.GetTag() != "greet/v1.26.0" {
 		t.Errorf("a released unit is planned as %v", greet)
 	}
 }
@@ -508,7 +508,7 @@ func TestALinesLastReleaseIsItsOwnWhereverItsTagIs(t *testing.T) {
 			continue
 		}
 		greet := unitOf(t, plan, "greet")
-		isFirst := greet.GetReasons()[0].GetKind() == buildv1.ReasonKind_REASON_KIND_FIRST_RELEASE
+		isFirst := greet.GetReasons()[0].GetKind() == buildv1.ReleaseReason_KIND_FIRST_RELEASE
 		if greet.GetLastVersion() != c.last || greet.GetNextVersion() != c.next || history["services"].since != c.since || isFirst != c.first {
 			t.Errorf("%s: last %q, next %q, changes since %q, first %v; want %q, %q, %q, %v", name, greet.GetLastVersion(), greet.GetNextVersion(), history["services"].since, isFirst, c.last, c.next, c.since, c.first)
 		}
@@ -793,7 +793,7 @@ func TestAnEtagIsTheSameBeforeAReleaseAndAfter(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if kind := released.GetUnits()[0].GetReasons()[0].GetKind(); kind != buildv1.ReasonKind_REASON_KIND_RELEASED {
+	if kind := released.GetUnits()[0].GetReasons()[0].GetKind(); kind != buildv1.ReleaseReason_KIND_RELEASED {
 		t.Fatalf("after its tag is written the unit is %v", kind)
 	}
 	if released.GetEtag() != planned.Plan.GetEtag() {
@@ -1094,7 +1094,7 @@ func TestVersionsNeverGoBackwardsAUnitContinuesAboveWhatItsMembersWereReleasedAs
 	if err != nil {
 		t.Fatal(err)
 	}
-	if retail := unitOf(t, plan, "retail"); retail.GetReasons()[0].GetKind() == buildv1.ReasonKind_REASON_KIND_RELEASED || retail.GetTag() == "retail/v2.3.0" {
+	if retail := unitOf(t, plan, "retail"); retail.GetReasons()[0].GetKind() == buildv1.ReleaseReason_KIND_RELEASED || retail.GetTag() == "retail/v2.3.0" {
 		t.Errorf("a domain is released as its system's tag: %v", retail)
 	}
 }
@@ -1185,7 +1185,7 @@ func TestABranchThatReleasesNothingStableReleasesAPrerelease(t *testing.T) {
 	// It is planned from the unit's highest release, in its branch's
 	// history or not, and says so: what moved it, and from what.
 	unreached := greetOf(t, "from a release its branch does not reach", &strategies{prereleases: true}, then(on("main", []string{"greet/v1.26.4"}, "feat: by name").unreached()))
-	if unreached.GetLastVersion() != "1.26.4" || unreached.GetBump() != typev1.Bump_BUMP_MINOR || unreached.GetReasons()[0].GetKind() != buildv1.ReasonKind_REASON_KIND_OWN_CHANGE {
+	if unreached.GetLastVersion() != "1.26.4" || unreached.GetBump() != typev1.Bump_BUMP_MINOR || unreached.GetReasons()[0].GetKind() != buildv1.ReleaseReason_KIND_OWN_CHANGE {
 		t.Errorf("planned from %q by %v for %v; want from 1.26.4, by a minor, for its own change", unreached.GetLastVersion(), unreached.GetBump(), unreached.GetReasons())
 	}
 	// A fix on the default branch is a minor, since that is where the
@@ -1193,7 +1193,7 @@ func TestABranchThatReleasesNothingStableReleasesAPrerelease(t *testing.T) {
 	if heading := greetOf(t, "a fix on the default branch", &strategies{prereleases: true}, then(on("main", []string{"greet/v1.26.4"}, "fix: trim").unreached())); heading.GetNextVersion() != "1.27.0-main-20261121101500" || heading.GetBump() != typev1.Bump_BUMP_MINOR {
 		t.Errorf("a fix on the default branch is %q by %v", heading.GetNextVersion(), heading.GetBump())
 	}
-	if held := greetOf(t, "nothing moved since a release it does not reach", &strategies{prereleases: true}, then(on("main", []string{"greet/v1.26.4"}, "docs: more").unreached())); held.GetNextVersion() != "" || held.GetReasons()[0].GetKind() != buildv1.ReasonKind_REASON_KIND_UNCHANGED {
+	if held := greetOf(t, "nothing moved since a release it does not reach", &strategies{prereleases: true}, then(on("main", []string{"greet/v1.26.4"}, "docs: more").unreached())); held.GetNextVersion() != "" || held.GetReasons()[0].GetKind() != buildv1.ReleaseReason_KIND_UNCHANGED {
 		t.Errorf("what moved nothing is released as %q for %v", held.GetNextVersion(), held.GetReasons())
 	}
 	// A later commit's is later, as a semantic version orders them.

@@ -20,21 +20,21 @@ func TestWhatTheDaemonIsToldIsWholeOrRefused(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	named := []*sourcev1.Checkout{{Name: "services", Remote: "file:///nowhere/services"}}
+	named := []*sourcev1.RepositorySource{{Name: "services", Remote: "file:///nowhere/services"}}
 	for what, c := range map[string]struct {
 		spec   *sourcev1.SourceSpec
 		reason string
 	}{
-		"a repository without a name": {&sourcev1.SourceSpec{Generation: 1, Repositories: []*sourcev1.Checkout{{Remote: "file:///nowhere/services"}}}, told.Unfit},
-		"an entity of no namespace":   {&sourcev1.SourceSpec{Generation: 1, Repositories: named, Located: []*sourcev1.LocatedEntity{{Ref: &typev1.EntityRef{Kind: "component", Name: "hello"}, Repository: "services"}}}, told.Unfit},
-		"an entity of no kind":        {&sourcev1.SourceSpec{Generation: 1, Repositories: named, Located: []*sourcev1.LocatedEntity{{Ref: &typev1.EntityRef{Namespace: "default", Name: "hello"}, Repository: "services"}}}, told.Unfit},
-		"entities alone":              {&sourcev1.SourceSpec{Generation: 1, Located: []*sourcev1.LocatedEntity{{Ref: &typev1.EntityRef{Kind: "component", Namespace: "default", Name: "hello"}, Repository: "services"}}}, told.Missing},
+		"a repository without a name": {&sourcev1.SourceSpec{Generation: 1, Repositories: []*sourcev1.RepositorySource{{Remote: "file:///nowhere/services"}}}, told.Unfit},
+		"an entity of no namespace":   {&sourcev1.SourceSpec{Generation: 1, Repositories: named, Entities: []*sourcev1.LocatedEntity{{Ref: &typev1.EntityRef{Kind: "component", Name: "hello"}, Repository: "services"}}}, told.Unfit},
+		"an entity of no kind":        {&sourcev1.SourceSpec{Generation: 1, Repositories: named, Entities: []*sourcev1.LocatedEntity{{Ref: &typev1.EntityRef{Namespace: "default", Name: "hello"}, Repository: "services"}}}, told.Unfit},
+		"entities alone":              {&sourcev1.SourceSpec{Generation: 1, Entities: []*sourcev1.LocatedEntity{{Ref: &typev1.EntityRef{Kind: "component", Namespace: "default", Name: "hello"}, Repository: "services"}}}, told.Missing},
 	} {
 		if reason, _ := frontseat.Reason(brought(held, c.spec)); reason != c.reason {
 			t.Errorf("%s: refused %q, want %s", what, reason, c.reason)
 		}
 	}
-	whole := &sourcev1.SourceSpec{Generation: 1, Repositories: named, Located: []*sourcev1.LocatedEntity{{Ref: &typev1.EntityRef{Kind: "component", Namespace: "default", Name: "hello"}, Repository: "services", Root: "hello"}}}
+	whole := &sourcev1.SourceSpec{Generation: 1, Repositories: named, Entities: []*sourcev1.LocatedEntity{{Ref: &typev1.EntityRef{Kind: "component", Namespace: "default", Name: "hello"}, Repository: "services", Root: "hello"}}}
 	if err := brought(held, whole); err != nil {
 		t.Errorf("the control, told whole: %v", err)
 	}

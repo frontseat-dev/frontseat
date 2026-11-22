@@ -242,9 +242,9 @@ type WorkspaceSpec struct {
 	// provided the catalog holds one entity of that kind and name. The
 	// workspace's status says which entity each one resolved to.
 	Entities []*v1alpha1.EntityRef `protobuf:"bytes,2,rep,name=entities,proto3" json:"entities,omitempty"`
-	// Whole has the daemon clone every file of the entities' repositories,
-	// not only the directories the entities own.
-	Whole bool `protobuf:"varint,4,opt,name=whole,proto3" json:"whole,omitempty"`
+	// `whole_repositories` has the daemon clone every file of the
+	// entities' repositories, not only the directories the entities own.
+	WholeRepositories bool `protobuf:"varint,4,opt,name=whole_repositories,json=wholeRepositories,proto3" json:"whole_repositories,omitempty"`
 	// Push lets it push to the repositories named, with the credential the
 	// control plane keeps for their hosts. It is set when the workspace is
 	// made, and cannot be changed.
@@ -320,9 +320,9 @@ func (x *WorkspaceSpec) GetEntities() []*v1alpha1.EntityRef {
 	return nil
 }
 
-func (x *WorkspaceSpec) GetWhole() bool {
+func (x *WorkspaceSpec) GetWholeRepositories() bool {
 	if x != nil {
-		return x.Whole
+		return x.WholeRepositories
 	}
 	return false
 }
@@ -1309,11 +1309,11 @@ const file_frontseat_workspace_v1alpha1_workspace_proto_rawDesc = "" +
 	"\x06status\x18\x03 \x01(\v2-.frontseat.workspace.v1alpha1.WorkspaceStatusB\x04\xe2A\x01\x03R\x06status\x12A\n" +
 	"\vcreate_time\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\n" +
 	"createTime\x12\x1a\n" +
-	"\x05owner\x18\x05 \x01(\tB\x04\xe2A\x01\x03R\x05owner\"\xff\x02\n" +
+	"\x05owner\x18\x05 \x01(\tB\x04\xe2A\x01\x03R\x05owner\"\x98\x03\n" +
 	"\rWorkspaceSpec\x12R\n" +
 	"\frepositories\x18\x01 \x03(\v2..frontseat.workspace.v1alpha1.RepositorySourceR\frepositories\x12>\n" +
-	"\bentities\x18\x02 \x03(\v2\".frontseat.type.v1alpha1.EntityRefR\bentities\x12\x14\n" +
-	"\x05whole\x18\x04 \x01(\bR\x05whole\x12\x12\n" +
+	"\bentities\x18\x02 \x03(\v2\".frontseat.type.v1alpha1.EntityRefR\bentities\x12-\n" +
+	"\x12whole_repositories\x18\x04 \x01(\bR\x11wholeRepositories\x12\x12\n" +
 	"\x04push\x18\x05 \x01(\bR\x04push\x12<\n" +
 	"\x06author\x18\x06 \x01(\v2$.frontseat.workspace.v1alpha1.AuthorR\x06author\x12%\n" +
 	"\x0eauthorized_key\x18\a \x01(\tR\rauthorizedKey\x12\x14\n" +

@@ -20,6 +20,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"slices"
 	"sort"
@@ -543,7 +544,7 @@ func (w *Workspace) catalogEntities() map[string]*buildv1.Entity {
 func (spec *scenario) wholeWorkspaceOf(names ...string) *Workspace {
 	spec.Helper()
 	w := spec.emptyWorkspace()
-	spec.Expect(w.bring(&workspacev1.WorkspaceSpec{Entities: spec.entities(names...), Whole: true})).To(Succeed())
+	spec.Expect(w.bring(&workspacev1.WorkspaceSpec{Entities: spec.entities(names...), WholeRepositories: true})).To(Succeed())
 	return w
 }
 
@@ -689,14 +690,16 @@ func (w *Workspace) projectFailure() *statuspb.Status {
 func (w *Workspace) option(project, name string) Setting {
 	w.scenario.Helper()
 	for _, found := range w.projects() {
-		if found.GetRepository()+"/"+found.GetRoot() != project || found.GetPlugin() != "go" {
+		if found.GetRef().GetRepository()+"/"+found.GetRef().GetRoot() != project || found.GetRef().GetPlugin() != "go" {
 			continue
 		}
 		for _, held := range found.GetOptions() {
 			if held.GetName() == name {
-				from := held.GetOrigin()
-				if from == "" {
-					from = "the plugin"
+				// Where it is set is said from the workspace: its
+				// repository's name and the file.
+				from := "the plugin"
+				if at := held.GetOrigin(); at != nil {
+					from = path.Join(at.GetRepository(), at.GetPath())
 				}
 				value := held.GetValue()
 				switch v := value.GetValue().(type) {
@@ -747,7 +750,7 @@ func (w *Workspace) dependsOn(entity string) []string {
 func (w *Workspace) ownerOf(project string) string {
 	w.scenario.Helper()
 	for _, found := range w.projects() {
-		if found.GetRepository()+"/"+found.GetRoot() == project {
+		if found.GetRef().GetRepository()+"/"+found.GetRef().GetRoot() == project {
 			return written(found.GetOwner())
 		}
 	}
@@ -759,7 +762,7 @@ func (w *Workspace) ownerOf(project string) string {
 func (w *Workspace) requires(project string) []Requirement {
 	w.scenario.Helper()
 	for _, found := range w.projects() {
-		if found.GetRepository()+"/"+found.GetRoot() != project {
+		if found.GetRef().GetRepository()+"/"+found.GetRef().GetRoot() != project {
 			continue
 		}
 		var out []Requirement
@@ -768,7 +771,7 @@ func (w *Workspace) requires(project string) []Requirement {
 			if provider := required.GetProviderProject(); provider != nil {
 				by = filepath.ToSlash(filepath.Join(provider.GetRepository(), provider.GetRoot()))
 			}
-			out = append(out, Requirement{what: required.GetCoordinate(), saidAt: required.GetOrigin(), at: required.GetVersion(), providedBy: by})
+			out = append(out, Requirement{what: required.GetCoordinate(), saidAt: fmt.Sprintf("%s:%d", path.Join(required.GetOrigin().GetRepository(), required.GetOrigin().GetPath()), required.GetOrigin().GetLine()), at: required.GetVersion(), providedBy: by})
 		}
 		return out
 	}
@@ -1313,7 +1316,7 @@ func (spec *scenario) expectEvaluateStage(span *tracepb.Span, retained, didAsk b
 func rootsOf(projects []*buildv1.Project) []string {
 	roots := make([]string, 0, len(projects))
 	for _, project := range projects {
-		roots = append(roots, project.GetRoot())
+		roots = append(roots, project.GetRef().GetRoot())
 	}
 	return roots
 }
@@ -2027,9 +2030,9 @@ func (u *Unit) channel() string { return u.unit.GetChannel() }
 func (u *Unit) why() []string {
 	var out []string
 	for _, reason := range u.unit.GetReasons() {
-		kind := strings.ReplaceAll(strings.ToLower(strings.TrimPrefix(reason.GetKind().String(), "REASON_KIND_")), "_", " ")
+		kind := strings.ReplaceAll(strings.ToLower(strings.TrimPrefix(reason.GetKind().String(), "KIND_")), "_", " ")
 		switch reason.GetKind() {
-		case buildv1.ReasonKind_REASON_KIND_OWN_CHANGE, buildv1.ReasonKind_REASON_KIND_BRANCH:
+		case buildv1.ReleaseReason_KIND_OWN_CHANGE, buildv1.ReleaseReason_KIND_BRANCH:
 			out = append(out, kind+": "+reason.GetSummary())
 		default:
 			out = append(out, kind)
@@ -2111,7 +2114,7 @@ func (s *Shipped) already(unit string) bool {
 	s.scenario.Helper()
 	for _, released := range s.release.GetUnits() {
 		if released.GetEntity().GetName() == unit {
-			return released.GetAlready()
+			return released.GetAlreadyReleased()
 		}
 	}
 	s.scenario.Fatal("the release made nothing of " + unit)

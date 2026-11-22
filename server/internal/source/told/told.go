@@ -46,17 +46,17 @@ type Resolved struct {
 func Spec(spec *workspacev1.WorkspaceSpec, generation int64, resolved Resolved, nameOf func(remote string) string) *sourcev1.SourceSpec {
 	out := &sourcev1.SourceSpec{Generation: generation}
 	for _, r := range spec.GetRepositories() {
-		out.Repositories = append(out.Repositories, &sourcev1.Checkout{Remote: r.GetRemote(), Ref: r.GetRef(), Name: nameOf(r.GetRemote())})
+		out.Repositories = append(out.Repositories, &sourcev1.RepositorySource{Remote: r.GetRemote(), Ref: r.GetRef(), Name: nameOf(r.GetRemote())})
 	}
 	for _, c := range resolved.Checkouts {
 		roots := c.Roots
-		if spec.GetWhole() {
+		if spec.GetWholeRepositories() {
 			roots = nil
 		}
-		out.Repositories = append(out.Repositories, &sourcev1.Checkout{Remote: c.Remote, Ref: c.Ref, Roots: roots, Name: c.Name})
+		out.Repositories = append(out.Repositories, &sourcev1.RepositorySource{Remote: c.Remote, Ref: c.Ref, Roots: roots, Name: c.Name})
 	}
 	for _, l := range resolved.Located {
-		out.Located = append(out.Located, &sourcev1.LocatedEntity{Ref: entity.Proto(l.Ref), Repository: l.Repository, Root: l.Root})
+		out.Entities = append(out.Entities, &sourcev1.LocatedEntity{Ref: entity.Proto(l.Ref), Repository: l.Repository, Root: l.Root})
 	}
 	return out
 }

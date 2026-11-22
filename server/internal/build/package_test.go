@@ -54,7 +54,7 @@ func TestAReleaseListsWhatItsPackagesLeft(t *testing.T) {
 	_, release := releasedAlone(t, c, "greet")
 	var listed []string
 	for _, each := range release.GetUnits()[0].GetArtifacts() {
-		if len(each.GetSha256()) != 64 || each.GetSize() == 0 || each.GetLabel() != "//services/greet:custom.pack" {
+		if len(each.GetDigest().GetHash()) != 64 || each.GetDigest().GetSizeBytes() == 0 || each.GetLabel() != "//services/greet:custom.pack" {
 			t.Errorf("an artifact is listed as %v", each)
 		}
 		listed = append(listed, each.GetName())

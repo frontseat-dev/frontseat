@@ -163,7 +163,7 @@ func TestWholeIsSaidOfEntitiesAlone(t *testing.T) {
 	if len(plane.created) != 0 {
 		t.Errorf("what was refused asked the control plane for %d workspaces", len(plane.created))
 	}
-	if _, _, err := runAt(t, context.Background(), "", "workspace", "open", "--whole", "component:payments"); err != nil || len(plane.created) != 1 || !plane.created[0].GetSpec().GetWhole() {
+	if _, _, err := runAt(t, context.Background(), "", "workspace", "open", "--whole", "component:payments"); err != nil || len(plane.created) != 1 || !plane.created[0].GetSpec().GetWholeRepositories() {
 		t.Errorf("the control: --whole with an entity: %v, asked %v", err, plane.created)
 	}
 }
@@ -184,7 +184,7 @@ func TestWholeIsSaidOfTheEntitiesAddedAlone(t *testing.T) {
 	if plane.changes() != 0 {
 		t.Errorf("what was refused told the control plane %d changes", plane.changes())
 	}
-	if _, _, err := runAt(t, context.Background(), "", "workspace", "add", "--whole", "--entity", "component:payments"); err != nil || plane.changes() != 1 || !plane.updated[0].GetWhole() {
+	if _, _, err := runAt(t, context.Background(), "", "workspace", "add", "--whole", "--entity", "component:payments"); err != nil || plane.changes() != 1 || !plane.updated[0].GetWholeRepositories() {
 		t.Errorf("the control: --whole with an entity: %v, told %v", err, plane.updated)
 	}
 }

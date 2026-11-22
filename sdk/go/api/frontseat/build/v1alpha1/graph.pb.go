@@ -283,7 +283,8 @@ type ReleaseSettingOrigin struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Key is the setting, as spec.frontseat.release writes it: "grouping",
 	// "tag", "initial", "versioning", "branching", "prerelease" or
-	// "prerelease-tag".
+	// "prerelease-tag". The keys are the catalog file's own spelling,
+	// which is why one is "versioning" and not a field's name.
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	// Entity is the entity whose catalog file sets it.
 	Entity        *v1alpha1.EntityRef `protobuf:"bytes,2,opt,name=entity,proto3" json:"entity,omitempty"`
@@ -406,12 +407,9 @@ func (x *EntityRelation) GetTargetPresent() bool {
 // Project is something a plugin found to build.
 type Project struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Repository is the workspace's name for the repository it is in.
-	Repository string `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// Root is its directory, relative to the repository.
-	Root string `protobuf:"bytes,2,opt,name=root,proto3" json:"root,omitempty"`
-	// Plugin is the plugin that found it.
-	Plugin string `protobuf:"bytes,3,opt,name=plugin,proto3" json:"plugin,omitempty"`
+	// Ref names it: its repository, its directory and the plugin that
+	// found it.
+	Ref *ProjectRef `protobuf:"bytes,1,opt,name=ref,proto3" json:"ref,omitempty"`
 	// Kind is what it is in its ecosystem, e.g. "go-module".
 	Kind string `protobuf:"bytes,4,opt,name=kind,proto3" json:"kind,omitempty"`
 	// Name is its name in its ecosystem.
@@ -464,25 +462,11 @@ func (*Project) Descriptor() ([]byte, []int) {
 	return file_frontseat_build_v1alpha1_graph_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *Project) GetRepository() string {
+func (x *Project) GetRef() *ProjectRef {
 	if x != nil {
-		return x.Repository
+		return x.Ref
 	}
-	return ""
-}
-
-func (x *Project) GetRoot() string {
-	if x != nil {
-		return x.Root
-	}
-	return ""
-}
-
-func (x *Project) GetPlugin() string {
-	if x != nil {
-		return x.Plugin
-	}
-	return ""
+	return nil
 }
 
 func (x *Project) GetKind() string {
@@ -540,9 +524,8 @@ type ProjectRequirement struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Coordinate is what is required, written "<ecosystem>:<name>".
 	Coordinate string `protobuf:"bytes,1,opt,name=coordinate,proto3" json:"coordinate,omitempty"`
-	// Origin is where it is said: a file relative to the workspace, and
-	// the line, "<file>:<line>".
-	Origin string `protobuf:"bytes,3,opt,name=origin,proto3" json:"origin,omitempty"`
+	// Origin is where it is said: a file of a repository, and its line.
+	Origin *v1alpha1.SourceLocation `protobuf:"bytes,3,opt,name=origin,proto3" json:"origin,omitempty"`
 	// `provider_project` is the project of the workspace that provides it;
 	// unset for what is provided from outside the workspace.
 	ProviderProject *ProjectRef `protobuf:"bytes,4,opt,name=provider_project,json=providerProject,proto3" json:"provider_project,omitempty"`
@@ -593,11 +576,11 @@ func (x *ProjectRequirement) GetCoordinate() string {
 	return ""
 }
 
-func (x *ProjectRequirement) GetOrigin() string {
+func (x *ProjectRequirement) GetOrigin() *v1alpha1.SourceLocation {
 	if x != nil {
 		return x.Origin
 	}
-	return ""
+	return nil
 }
 
 func (x *ProjectRequirement) GetProviderProject() *ProjectRef {
@@ -689,9 +672,9 @@ type ProjectOption struct {
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Value is its value, of the kind the option has.
 	Value *v1alpha1.OptionValue `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
-	// Origin is the file that sets it, relative to the workspace; empty
-	// where nothing sets it and the value is the plugin's own.
-	Origin        string `protobuf:"bytes,3,opt,name=origin,proto3" json:"origin,omitempty"`
+	// Origin is the file that sets it, its line zero; unset where nothing
+	// sets it and the value is the plugin's own.
+	Origin        *v1alpha1.SourceLocation `protobuf:"bytes,3,opt,name=origin,proto3" json:"origin,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -740,11 +723,11 @@ func (x *ProjectOption) GetValue() *v1alpha1.OptionValue {
 	return nil
 }
 
-func (x *ProjectOption) GetOrigin() string {
+func (x *ProjectOption) GetOrigin() *v1alpha1.SourceLocation {
 	if x != nil {
 		return x.Origin
 	}
-	return ""
+	return nil
 }
 
 // ListEntitiesRequest asks for a page of the workspace's entities.
@@ -975,7 +958,7 @@ var File_frontseat_build_v1alpha1_graph_proto protoreflect.FileDescriptor
 
 const file_frontseat_build_v1alpha1_graph_proto_rawDesc = "" +
 	"\n" +
-	"$frontseat/build/v1alpha1/graph.proto\x12\x18frontseat.build.v1alpha1\x1a$frontseat/build/v1alpha1/types.proto\x1a$frontseat/type/v1alpha1/option.proto\x1a#frontseat/type/v1alpha1/types.proto\x1a\x1fgoogle/api/field_behavior.proto\"\x88\x03\n" +
+	"$frontseat/build/v1alpha1/graph.proto\x12\x18frontseat.build.v1alpha1\x1a$frontseat/build/v1alpha1/types.proto\x1a(frontseat/type/v1alpha1/diagnostic.proto\x1a$frontseat/type/v1alpha1/option.proto\x1a#frontseat/type/v1alpha1/types.proto\x1a\x1fgoogle/api/field_behavior.proto\"\x88\x03\n" +
 	"\x06Entity\x12:\n" +
 	"\x03ref\x18\x01 \x01(\v2\".frontseat.type.v1alpha1.EntityRefB\x04\xe2A\x01\x03R\x03ref\x12$\n" +
 	"\n" +
@@ -1007,13 +990,9 @@ const file_frontseat_build_v1alpha1_graph_proto_rawDesc = "" +
 	"\x0eEntityRelation\x12\x18\n" +
 	"\x04type\x18\x01 \x01(\tB\x04\xe2A\x01\x03R\x04type\x12@\n" +
 	"\x06target\x18\x02 \x01(\v2\".frontseat.type.v1alpha1.EntityRefB\x04\xe2A\x01\x03R\x06target\x12+\n" +
-	"\x0etarget_present\x18\x03 \x01(\bB\x04\xe2A\x01\x03R\rtargetPresent\"\xb8\x03\n" +
-	"\aProject\x12$\n" +
-	"\n" +
-	"repository\x18\x01 \x01(\tB\x04\xe2A\x01\x03R\n" +
-	"repository\x12\x18\n" +
-	"\x04root\x18\x02 \x01(\tB\x04\xe2A\x01\x03R\x04root\x12\x1c\n" +
-	"\x06plugin\x18\x03 \x01(\tB\x04\xe2A\x01\x03R\x06plugin\x12\x18\n" +
+	"\x0etarget_present\x18\x03 \x01(\bB\x04\xe2A\x01\x03R\rtargetPresent\"\x98\x03\n" +
+	"\aProject\x12<\n" +
+	"\x03ref\x18\x01 \x01(\v2$.frontseat.build.v1alpha1.ProjectRefB\x04\xe2A\x01\x03R\x03ref\x12\x18\n" +
 	"\x04kind\x18\x04 \x01(\tB\x04\xe2A\x01\x03R\x04kind\x12\x18\n" +
 	"\x04name\x18\x05 \x01(\tB\x04\xe2A\x01\x03R\x04name\x12 \n" +
 	"\bmanifest\x18\x06 \x01(\tB\x04\xe2A\x01\x03R\bmanifest\x12>\n" +
@@ -1021,12 +1000,12 @@ const file_frontseat_build_v1alpha1_graph_proto_rawDesc = "" +
 	"\aoptions\x18\b \x03(\v2'.frontseat.build.v1alpha1.ProjectOptionB\x04\xe2A\x01\x03R\aoptions\x12 \n" +
 	"\bprovides\x18\t \x03(\tB\x04\xe2A\x01\x03R\bprovides\x12N\n" +
 	"\brequires\x18\n" +
-	" \x03(\v2,.frontseat.build.v1alpha1.ProjectRequirementB\x04\xe2A\x01\x03R\brequires\"\xcf\x01\n" +
+	" \x03(\v2,.frontseat.build.v1alpha1.ProjectRequirementB\x04\xe2A\x01\x03R\brequires\"\xf8\x01\n" +
 	"\x12ProjectRequirement\x12$\n" +
 	"\n" +
 	"coordinate\x18\x01 \x01(\tB\x04\xe2A\x01\x03R\n" +
-	"coordinate\x12\x1c\n" +
-	"\x06origin\x18\x03 \x01(\tB\x04\xe2A\x01\x03R\x06origin\x12U\n" +
+	"coordinate\x12E\n" +
+	"\x06origin\x18\x03 \x01(\v2'.frontseat.type.v1alpha1.SourceLocationB\x04\xe2A\x01\x03R\x06origin\x12U\n" +
 	"\x10provider_project\x18\x04 \x01(\v2$.frontseat.build.v1alpha1.ProjectRefB\x04\xe2A\x01\x03R\x0fproviderProject\x12\x1e\n" +
 	"\aversion\x18\x05 \x01(\tB\x04\xe2A\x01\x03R\aversion\"j\n" +
 	"\n" +
@@ -1035,11 +1014,11 @@ const file_frontseat_build_v1alpha1_graph_proto_rawDesc = "" +
 	"repository\x18\x01 \x01(\tB\x04\xe2A\x01\x03R\n" +
 	"repository\x12\x18\n" +
 	"\x04root\x18\x02 \x01(\tB\x04\xe2A\x01\x03R\x04root\x12\x1c\n" +
-	"\x06plugin\x18\x03 \x01(\tB\x04\xe2A\x01\x03R\x06plugin\"\x89\x01\n" +
+	"\x06plugin\x18\x03 \x01(\tB\x04\xe2A\x01\x03R\x06plugin\"\xb2\x01\n" +
 	"\rProjectOption\x12\x18\n" +
 	"\x04name\x18\x01 \x01(\tB\x04\xe2A\x01\x03R\x04name\x12@\n" +
-	"\x05value\x18\x02 \x01(\v2$.frontseat.type.v1alpha1.OptionValueB\x04\xe2A\x01\x03R\x05value\x12\x1c\n" +
-	"\x06origin\x18\x03 \x01(\tB\x04\xe2A\x01\x03R\x06origin\"Q\n" +
+	"\x05value\x18\x02 \x01(\v2$.frontseat.type.v1alpha1.OptionValueB\x04\xe2A\x01\x03R\x05value\x12E\n" +
+	"\x06origin\x18\x03 \x01(\v2'.frontseat.type.v1alpha1.SourceLocationB\x04\xe2A\x01\x03R\x06origin\"Q\n" +
 	"\x13ListEntitiesRequest\x12\x1b\n" +
 	"\tpage_size\x18\x01 \x01(\x05R\bpageSize\x12\x1d\n" +
 	"\n" +
@@ -1074,21 +1053,22 @@ func file_frontseat_build_v1alpha1_graph_proto_rawDescGZIP() []byte {
 
 var file_frontseat_build_v1alpha1_graph_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_frontseat_build_v1alpha1_graph_proto_goTypes = []any{
-	(*Entity)(nil),               // 0: frontseat.build.v1alpha1.Entity
-	(*EntityRelease)(nil),        // 1: frontseat.build.v1alpha1.EntityRelease
-	(*ReleaseSettingOrigin)(nil), // 2: frontseat.build.v1alpha1.ReleaseSettingOrigin
-	(*EntityRelation)(nil),       // 3: frontseat.build.v1alpha1.EntityRelation
-	(*Project)(nil),              // 4: frontseat.build.v1alpha1.Project
-	(*ProjectRequirement)(nil),   // 5: frontseat.build.v1alpha1.ProjectRequirement
-	(*ProjectRef)(nil),           // 6: frontseat.build.v1alpha1.ProjectRef
-	(*ProjectOption)(nil),        // 7: frontseat.build.v1alpha1.ProjectOption
-	(*ListEntitiesRequest)(nil),  // 8: frontseat.build.v1alpha1.ListEntitiesRequest
-	(*ListEntitiesResponse)(nil), // 9: frontseat.build.v1alpha1.ListEntitiesResponse
-	(*ListProjectsRequest)(nil),  // 10: frontseat.build.v1alpha1.ListProjectsRequest
-	(*ListProjectsResponse)(nil), // 11: frontseat.build.v1alpha1.ListProjectsResponse
-	(*v1alpha1.EntityRef)(nil),   // 12: frontseat.type.v1alpha1.EntityRef
-	(Grouping)(0),                // 13: frontseat.build.v1alpha1.Grouping
-	(*v1alpha1.OptionValue)(nil), // 14: frontseat.type.v1alpha1.OptionValue
+	(*Entity)(nil),                  // 0: frontseat.build.v1alpha1.Entity
+	(*EntityRelease)(nil),           // 1: frontseat.build.v1alpha1.EntityRelease
+	(*ReleaseSettingOrigin)(nil),    // 2: frontseat.build.v1alpha1.ReleaseSettingOrigin
+	(*EntityRelation)(nil),          // 3: frontseat.build.v1alpha1.EntityRelation
+	(*Project)(nil),                 // 4: frontseat.build.v1alpha1.Project
+	(*ProjectRequirement)(nil),      // 5: frontseat.build.v1alpha1.ProjectRequirement
+	(*ProjectRef)(nil),              // 6: frontseat.build.v1alpha1.ProjectRef
+	(*ProjectOption)(nil),           // 7: frontseat.build.v1alpha1.ProjectOption
+	(*ListEntitiesRequest)(nil),     // 8: frontseat.build.v1alpha1.ListEntitiesRequest
+	(*ListEntitiesResponse)(nil),    // 9: frontseat.build.v1alpha1.ListEntitiesResponse
+	(*ListProjectsRequest)(nil),     // 10: frontseat.build.v1alpha1.ListProjectsRequest
+	(*ListProjectsResponse)(nil),    // 11: frontseat.build.v1alpha1.ListProjectsResponse
+	(*v1alpha1.EntityRef)(nil),      // 12: frontseat.type.v1alpha1.EntityRef
+	(Grouping)(0),                   // 13: frontseat.build.v1alpha1.Grouping
+	(*v1alpha1.SourceLocation)(nil), // 14: frontseat.type.v1alpha1.SourceLocation
+	(*v1alpha1.OptionValue)(nil),    // 15: frontseat.type.v1alpha1.OptionValue
 }
 var file_frontseat_build_v1alpha1_graph_proto_depIdxs = []int32{
 	12, // 0: frontseat.build.v1alpha1.Entity.ref:type_name -> frontseat.type.v1alpha1.EntityRef
@@ -1101,22 +1081,25 @@ var file_frontseat_build_v1alpha1_graph_proto_depIdxs = []int32{
 	2,  // 7: frontseat.build.v1alpha1.EntityRelease.set_by:type_name -> frontseat.build.v1alpha1.ReleaseSettingOrigin
 	12, // 8: frontseat.build.v1alpha1.ReleaseSettingOrigin.entity:type_name -> frontseat.type.v1alpha1.EntityRef
 	12, // 9: frontseat.build.v1alpha1.EntityRelation.target:type_name -> frontseat.type.v1alpha1.EntityRef
-	12, // 10: frontseat.build.v1alpha1.Project.owner:type_name -> frontseat.type.v1alpha1.EntityRef
-	7,  // 11: frontseat.build.v1alpha1.Project.options:type_name -> frontseat.build.v1alpha1.ProjectOption
-	5,  // 12: frontseat.build.v1alpha1.Project.requires:type_name -> frontseat.build.v1alpha1.ProjectRequirement
-	6,  // 13: frontseat.build.v1alpha1.ProjectRequirement.provider_project:type_name -> frontseat.build.v1alpha1.ProjectRef
-	14, // 14: frontseat.build.v1alpha1.ProjectOption.value:type_name -> frontseat.type.v1alpha1.OptionValue
-	0,  // 15: frontseat.build.v1alpha1.ListEntitiesResponse.entities:type_name -> frontseat.build.v1alpha1.Entity
-	4,  // 16: frontseat.build.v1alpha1.ListProjectsResponse.projects:type_name -> frontseat.build.v1alpha1.Project
-	8,  // 17: frontseat.build.v1alpha1.GraphService.ListEntities:input_type -> frontseat.build.v1alpha1.ListEntitiesRequest
-	10, // 18: frontseat.build.v1alpha1.GraphService.ListProjects:input_type -> frontseat.build.v1alpha1.ListProjectsRequest
-	9,  // 19: frontseat.build.v1alpha1.GraphService.ListEntities:output_type -> frontseat.build.v1alpha1.ListEntitiesResponse
-	11, // 20: frontseat.build.v1alpha1.GraphService.ListProjects:output_type -> frontseat.build.v1alpha1.ListProjectsResponse
-	19, // [19:21] is the sub-list for method output_type
-	17, // [17:19] is the sub-list for method input_type
-	17, // [17:17] is the sub-list for extension type_name
-	17, // [17:17] is the sub-list for extension extendee
-	0,  // [0:17] is the sub-list for field type_name
+	6,  // 10: frontseat.build.v1alpha1.Project.ref:type_name -> frontseat.build.v1alpha1.ProjectRef
+	12, // 11: frontseat.build.v1alpha1.Project.owner:type_name -> frontseat.type.v1alpha1.EntityRef
+	7,  // 12: frontseat.build.v1alpha1.Project.options:type_name -> frontseat.build.v1alpha1.ProjectOption
+	5,  // 13: frontseat.build.v1alpha1.Project.requires:type_name -> frontseat.build.v1alpha1.ProjectRequirement
+	14, // 14: frontseat.build.v1alpha1.ProjectRequirement.origin:type_name -> frontseat.type.v1alpha1.SourceLocation
+	6,  // 15: frontseat.build.v1alpha1.ProjectRequirement.provider_project:type_name -> frontseat.build.v1alpha1.ProjectRef
+	15, // 16: frontseat.build.v1alpha1.ProjectOption.value:type_name -> frontseat.type.v1alpha1.OptionValue
+	14, // 17: frontseat.build.v1alpha1.ProjectOption.origin:type_name -> frontseat.type.v1alpha1.SourceLocation
+	0,  // 18: frontseat.build.v1alpha1.ListEntitiesResponse.entities:type_name -> frontseat.build.v1alpha1.Entity
+	4,  // 19: frontseat.build.v1alpha1.ListProjectsResponse.projects:type_name -> frontseat.build.v1alpha1.Project
+	8,  // 20: frontseat.build.v1alpha1.GraphService.ListEntities:input_type -> frontseat.build.v1alpha1.ListEntitiesRequest
+	10, // 21: frontseat.build.v1alpha1.GraphService.ListProjects:input_type -> frontseat.build.v1alpha1.ListProjectsRequest
+	9,  // 22: frontseat.build.v1alpha1.GraphService.ListEntities:output_type -> frontseat.build.v1alpha1.ListEntitiesResponse
+	11, // 23: frontseat.build.v1alpha1.GraphService.ListProjects:output_type -> frontseat.build.v1alpha1.ListProjectsResponse
+	22, // [22:24] is the sub-list for method output_type
+	20, // [20:22] is the sub-list for method input_type
+	20, // [20:20] is the sub-list for extension type_name
+	20, // [20:20] is the sub-list for extension extendee
+	0,  // [0:20] is the sub-list for field type_name
 }
 
 func init() { file_frontseat_build_v1alpha1_graph_proto_init() }

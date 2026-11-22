@@ -369,8 +369,8 @@ func (rs *releases) carryOut(m *made, planned *release.Planned, built *run) {
 				return
 			}
 			became.Version = unit.GetNextVersion()
-		case len(unit.GetReasons()) > 0 && unit.GetReasons()[0].GetKind() == buildv1.ReasonKind_REASON_KIND_RELEASED:
-			became.Version, became.Already = unit.GetLastVersion(), true
+		case len(unit.GetReasons()) > 0 && unit.GetReasons()[0].GetKind() == buildv1.ReleaseReason_KIND_RELEASED:
+			became.Version, became.AlreadyReleased = unit.GetLastVersion(), true
 		default:
 			// A unit that holds is neither built nor tagged.
 			continue
@@ -444,7 +444,7 @@ func (rs *releases) publish(ctx context.Context, m *made, planned *release.Plann
 	for at, became := range m.snapshot().GetUnits() {
 		ref := entity.FromProto(became.GetEntity())
 		unit := units[ref.String()]
-		if became.GetAlready() || len(became.GetTags()) == 0 || unit == nil {
+		if became.GetAlreadyReleased() || len(became.GetTags()) == 0 || unit == nil {
 			continue
 		}
 		repository := planned.Repositories[ref]
@@ -473,21 +473,21 @@ func (rs *releases) publish(ctx context.Context, m *made, planned *release.Plann
 			if ctx.Err() != nil {
 				return failed, true
 			}
-			said := &buildv1.ReleasePublished{Label: action.Label.String()}
+			said := &buildv1.PublishResult{Label: action.Label.String()}
 			var err error
 			if of.Remote, err = runs.workspace.Remote(ctx, repository); err == nil {
 				err = runner.Run(ctx, with.snapshot, action, of)
 			}
 			if err != nil && ctx.Err() != nil {
 				said.Failure = "the daemon ended while it ran: it may be half done"
-				m.change(func(r *buildv1.Release) { r.Units[at].Published = append(r.Units[at].Published, said) })
+				m.change(func(r *buildv1.Release) { r.Units[at].Publishes = append(r.Units[at].Publishes, said) })
 				return failed, true
 			}
 			if err != nil {
 				said.Failure = err.Error()
 				failed = append(failed, fmt.Sprintf("%s of %s", action.Label, ref.Name))
 			}
-			m.change(func(r *buildv1.Release) { r.Units[at].Published = append(r.Units[at].Published, said) })
+			m.change(func(r *buildv1.Release) { r.Units[at].Publishes = append(r.Units[at].Publishes, said) })
 		}
 	}
 	return failed, false

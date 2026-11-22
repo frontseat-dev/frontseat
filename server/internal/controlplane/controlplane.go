@@ -431,7 +431,7 @@ func derived(spec *workspacev1.WorkspaceSpec) string {
 // source is what a spec asks a workspace to hold, apart from what it may
 // do and who asks.
 func source(spec *workspacev1.WorkspaceSpec) *workspacev1.WorkspaceSpec {
-	return &workspacev1.WorkspaceSpec{Repositories: spec.GetRepositories(), Entities: spec.GetEntities(), Whole: spec.GetWhole()}
+	return &workspacev1.WorkspaceSpec{Repositories: spec.GetRepositories(), Entities: spec.GetEntities(), WholeRepositories: spec.GetWholeRepositories()}
 }
 
 // digest is a short name for a message, the same for the same message.
@@ -736,7 +736,7 @@ func (s *service) UpdateWorkspace(ctx context.Context, req *workspacev1.UpdateWo
 		return nil, err
 	}
 	kept := proto.Clone(has).(*workspacev1.WorkspaceSpec)
-	kept.Repositories, kept.Entities, kept.Whole = wanted.GetRepositories(), wanted.GetEntities(), wanted.GetWhole()
+	kept.Repositories, kept.Entities, kept.WholeRepositories = wanted.GetRepositories(), wanted.GetEntities(), wanted.GetWholeRepositories()
 	// An ending asked for meanwhile stops it, as it stops a pass.
 	telling, cancel := h.stoppable(ctx, 2*time.Minute)
 	answered, err := s.daemon(h.sandbox).SetSource(telling, &sourcev1.SetSourceRequest{Spec: told.Spec(kept, h.generation+1, resolved, s.nameOf)})
@@ -789,7 +789,7 @@ func lacks(has, wanted *workspacev1.WorkspaceSpec) string {
 			return "the entity " + entity.GetName()
 		}
 	}
-	if has.GetWhole() && !wanted.GetWhole() {
+	if has.GetWholeRepositories() && !wanted.GetWholeRepositories() {
 		return "its repositories whole"
 	}
 	return ""
@@ -1016,7 +1016,7 @@ func (s *service) step(ctx context.Context, h *held) *workspacev1.WorkspaceStatu
 		// kept. A sandbox that carries its name and no request of its own
 		// is another's, and is not its to end.
 		listed, err := page.All(func(token string) ([]*sandboxv1.Sandbox, string, error) {
-			page, err := s.Sandboxes.ListSandboxes(ctx, &sandboxv1.ListSandboxesRequest{LabelSelector: Named + "=" + called, PageToken: token})
+			page, err := s.Sandboxes.ListSandboxes(ctx, &sandboxv1.ListSandboxesRequest{Labels: map[string]string{Named: called}, PageToken: token})
 			return page.GetSandboxes(), page.GetNextPageToken(), err
 		})
 		if err != nil {

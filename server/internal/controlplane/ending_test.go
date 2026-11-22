@@ -109,7 +109,7 @@ func inSandbox(t *testing.T, client workspacev1alpha1connect.WorkspaceServiceCli
 			t.Fatal(err)
 		}
 		if now.GetWorkspace().GetStatus().GetBuildUri() != "" {
-			listed, err := sandboxes.ListSandboxes(context.Background(), &sandboxv1.ListSandboxesRequest{LabelSelector: Named + "=" + name})
+			listed, err := sandboxes.ListSandboxes(context.Background(), &sandboxv1.ListSandboxesRequest{Labels: map[string]string{Named: name}})
 			if err != nil {
 				t.Fatal(err)
 			}

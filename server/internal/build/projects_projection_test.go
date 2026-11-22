@@ -20,15 +20,25 @@ func TestProjectProjectionServesExistingGraphContract(t *testing.T) {
 	}
 	var project *buildv1.Project
 	for _, p := range got.GetProjects() {
-		if p.Plugin == "go" {
+		if p.GetRef().GetPlugin() == "go" {
 			project = p
 		}
 	}
-	if project == nil || project.GetRoot() != "hello" || project.GetManifest() != "hello/go.mod" || project.GetOwner().GetName() != "hello" {
+	if project == nil || project.GetRef().GetRoot() != "hello" || project.GetManifest() != "hello/go.mod" || project.GetOwner().GetName() != "hello" {
 		t.Fatalf("missing project identity or owner: %v", project)
 	}
 	if len(project.GetProvides()) != 1 || project.GetProvides()[0] != "go:example.com/hello" || len(project.GetOptions()) == 0 {
 		t.Fatalf("missing provides or options: %v", project)
+	}
+	// Where an option is set is a location of the workspace's source: the
+	// file of the repository that sets it; one nothing sets has none.
+	for _, option := range project.GetOptions() {
+		switch at := option.GetOrigin(); {
+		case option.GetName() == "tags" && (at.GetPath() != "hello/catalog-info.yaml" || at.GetLine() != 0):
+			t.Errorf("tags is said to be set at %v, want hello/catalog-info.yaml", at)
+		case option.GetName() != "tags" && at != nil:
+			t.Errorf("%s, which nothing sets, is said to be set at %v", option.GetName(), at)
+		}
 	}
 	if _, err := graph.ListEntities(t.Context(), &buildv1.ListEntitiesRequest{}); err != nil {
 		t.Fatal(err)
@@ -38,7 +48,7 @@ func TestProjectProjectionServesExistingGraphContract(t *testing.T) {
 		t.Fatal("graph request planned a build")
 	}
 	want := proto.CloneOf(got)
-	project.Root = "caller mutation"
+	project.Ref.Root = "caller mutation"
 	project.Owner.Name = "caller mutation"
 	project.Options[0].Name = "caller mutation"
 	next, err := graph.ListProjects(t.Context(), &buildv1.ListProjectsRequest{})

@@ -161,8 +161,8 @@ func TestIsTheDomainItsCatalogFilesDeclareWhoseComponentsOwnEveryProject(t *test
 	// repository's and no Component's (plugins/github): its publish is each
 	// unit's of the repository. Every other project is a Component's.
 	for _, project := range workspace.projects() {
-		named := project.GetRepository() + "/" + project.GetRoot()
-		if project.GetPlugin() == "github" && project.GetRoot() == "" {
+		named := project.GetRef().GetRepository() + "/" + project.GetRef().GetRoot()
+		if project.GetRef().GetPlugin() == "github" && project.GetRef().GetRoot() == "" {
 			spec.Expect(written(project.GetOwner())).To(BeEmpty(), named)
 			continue
 		}

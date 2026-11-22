@@ -26,10 +26,10 @@ func projectionUnknown(message proto.Message) {
 
 func TestRetainedProjectionProjectFieldsAreOwned(t *testing.T) {
 	mutations := map[string]func(*buildv1.Project){
-		"identity":        func(p *buildv1.Project) { p.Root = "caller" },
+		"identity":        func(p *buildv1.Project) { p.Ref.Root = "caller" },
 		"owner":           func(p *buildv1.Project) { p.Owner.Name = "caller" },
 		"provides":        func(p *buildv1.Project) { p.Provides[0] = "caller" },
-		"requirement":     func(p *buildv1.Project) { p.Requires[0].Origin = "caller" },
+		"requirement":     func(p *buildv1.Project) { p.Requires[0].Origin.Path = "caller" },
 		"provider":        func(p *buildv1.Project) { p.Requires[0].ProviderProject.Root = "caller" },
 		"option identity": func(p *buildv1.Project) { p.Options[0].Name = "caller" },
 		"nested option":   func(p *buildv1.Project) { p.Options[0].Value.GetStringListValue().Values[0] = "caller" },
@@ -251,7 +251,7 @@ func TestRetainedProjectionConcurrentOperationsAndEarlierMutation(t *testing.T) 
 	started, stop := make(chan struct{}), make(chan struct{})
 	var mutator sync.WaitGroup
 	mutator.Go(func() {
-		firstProjects.Projects[0].Root = "caller"
+		firstProjects.Projects[0].Ref.Root = "caller"
 		firstPlan.Asked[0].Declared.Name = "caller"
 		close(started)
 		for {

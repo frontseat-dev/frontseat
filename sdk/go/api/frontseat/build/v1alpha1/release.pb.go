@@ -50,75 +50,75 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// ReasonKind is what sort of reason a ReleaseReason is.
-type ReasonKind int32
+// Kind is what sort of reason it is.
+type ReleaseReason_Kind int32
 
 const (
-	// REASON_KIND_UNSPECIFIED: not said.
-	ReasonKind_REASON_KIND_UNSPECIFIED ReasonKind = 0
-	// REASON_KIND_OWN_CHANGE: a commit since the last release changed a
+	// KIND_UNSPECIFIED: not said.
+	ReleaseReason_KIND_UNSPECIFIED ReleaseReason_Kind = 0
+	// KIND_OWN_CHANGE: a commit since the last release changed a
 	// member's files.
-	ReasonKind_REASON_KIND_OWN_CHANGE ReasonKind = 1
-	// REASON_KIND_UNCHANGED: nothing changed since the last release.
-	ReasonKind_REASON_KIND_UNCHANGED ReasonKind = 2
-	// REASON_KIND_FIRST_RELEASE: it has never been released; it is released
-	// at its initial version.
-	ReasonKind_REASON_KIND_FIRST_RELEASE ReasonKind = 3
-	// REASON_KIND_RELEASED: the commit it is planned from carries this
-	// unit's tag already: it is released, at that version, and releasing
+	ReleaseReason_KIND_OWN_CHANGE ReleaseReason_Kind = 1
+	// KIND_UNCHANGED: nothing changed since the last release.
+	ReleaseReason_KIND_UNCHANGED ReleaseReason_Kind = 2
+	// KIND_FIRST_RELEASE: it has never been released; it is released at
+	// its initial version.
+	ReleaseReason_KIND_FIRST_RELEASE ReleaseReason_Kind = 3
+	// KIND_RELEASED: the commit it is planned from carries this unit's
+	// tag already: it is released, at that version, and releasing
 	// writes no new version. A tag on an earlier commit with nothing
-	// changed since is UNCHANGED.
-	ReasonKind_REASON_KIND_RELEASED ReasonKind = 4
-	// REASON_KIND_BRANCH: its branch releases nothing of it, as its
-	// branching strategy says; the summary says why.
-	ReasonKind_REASON_KIND_BRANCH ReasonKind = 5
+	// changed since is KIND_UNCHANGED.
+	ReleaseReason_KIND_RELEASED ReleaseReason_Kind = 4
+	// KIND_BRANCH: its branch releases nothing of it, as its branching
+	// strategy says; the summary says why.
+	ReleaseReason_KIND_BRANCH ReleaseReason_Kind = 5
 )
 
-// Enum value maps for ReasonKind.
+// Enum value maps for ReleaseReason_Kind.
 var (
-	ReasonKind_name = map[int32]string{
-		0: "REASON_KIND_UNSPECIFIED",
-		1: "REASON_KIND_OWN_CHANGE",
-		2: "REASON_KIND_UNCHANGED",
-		3: "REASON_KIND_FIRST_RELEASE",
-		4: "REASON_KIND_RELEASED",
-		5: "REASON_KIND_BRANCH",
+	ReleaseReason_Kind_name = map[int32]string{
+		0: "KIND_UNSPECIFIED",
+		1: "KIND_OWN_CHANGE",
+		2: "KIND_UNCHANGED",
+		3: "KIND_FIRST_RELEASE",
+		4: "KIND_RELEASED",
+		5: "KIND_BRANCH",
 	}
-	ReasonKind_value = map[string]int32{
-		"REASON_KIND_UNSPECIFIED":   0,
-		"REASON_KIND_OWN_CHANGE":    1,
-		"REASON_KIND_UNCHANGED":     2,
-		"REASON_KIND_FIRST_RELEASE": 3,
-		"REASON_KIND_RELEASED":      4,
-		"REASON_KIND_BRANCH":        5,
+	ReleaseReason_Kind_value = map[string]int32{
+		"KIND_UNSPECIFIED":   0,
+		"KIND_OWN_CHANGE":    1,
+		"KIND_UNCHANGED":     2,
+		"KIND_FIRST_RELEASE": 3,
+		"KIND_RELEASED":      4,
+		"KIND_BRANCH":        5,
 	}
 )
 
-func (x ReasonKind) Enum() *ReasonKind {
-	p := new(ReasonKind)
+func (x ReleaseReason_Kind) Enum() *ReleaseReason_Kind {
+	p := new(ReleaseReason_Kind)
 	*p = x
 	return p
 }
 
-func (x ReasonKind) String() string {
+func (x ReleaseReason_Kind) String() string {
 	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
 }
 
-func (ReasonKind) Descriptor() protoreflect.EnumDescriptor {
+func (ReleaseReason_Kind) Descriptor() protoreflect.EnumDescriptor {
 	return file_frontseat_build_v1alpha1_release_proto_enumTypes[0].Descriptor()
 }
 
-func (ReasonKind) Type() protoreflect.EnumType {
+func (ReleaseReason_Kind) Type() protoreflect.EnumType {
 	return &file_frontseat_build_v1alpha1_release_proto_enumTypes[0]
 }
 
-func (x ReasonKind) Number() protoreflect.EnumNumber {
+func (x ReleaseReason_Kind) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
-// Deprecated: Use ReasonKind.Descriptor instead.
-func (ReasonKind) EnumDescriptor() ([]byte, []int) {
-	return file_frontseat_build_v1alpha1_release_proto_rawDescGZIP(), []int{0}
+// Deprecated: Use ReleaseReason_Kind.Descriptor instead.
+func (ReleaseReason_Kind) EnumDescriptor() ([]byte, []int) {
+	return file_frontseat_build_v1alpha1_release_proto_rawDescGZIP(), []int{5, 0}
 }
 
 // State is where a release is.
@@ -635,13 +635,13 @@ func (x *ReleaseUnit) GetPrerelease() bool {
 type ReleaseReason struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Kind is what sort of reason it is.
-	Kind ReasonKind `protobuf:"varint,1,opt,name=kind,proto3,enum=frontseat.build.v1alpha1.ReasonKind" json:"kind,omitempty"`
+	Kind ReleaseReason_Kind `protobuf:"varint,1,opt,name=kind,proto3,enum=frontseat.build.v1alpha1.ReleaseReason_Kind" json:"kind,omitempty"`
 	// Bump is what this reason alone is worth.
 	Bump v1alpha1.Bump `protobuf:"varint,2,opt,name=bump,proto3,enum=frontseat.type.v1alpha1.Bump" json:"bump,omitempty"`
-	// Commit is the commit that is the reason, for OWN_CHANGE.
+	// Commit is the commit that is the reason, for KIND_OWN_CHANGE.
 	Commit *RepositoryCommit `protobuf:"bytes,3,opt,name=commit,proto3" json:"commit,omitempty"`
 	// Summary says the reason in a line: a commit's first line for
-	// OWN_CHANGE, the branching strategy's reason for BRANCH.
+	// KIND_OWN_CHANGE, the branching strategy's reason for KIND_BRANCH.
 	Summary       string `protobuf:"bytes,4,opt,name=summary,proto3" json:"summary,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -677,11 +677,11 @@ func (*ReleaseReason) Descriptor() ([]byte, []int) {
 	return file_frontseat_build_v1alpha1_release_proto_rawDescGZIP(), []int{5}
 }
 
-func (x *ReleaseReason) GetKind() ReasonKind {
+func (x *ReleaseReason) GetKind() ReleaseReason_Kind {
 	if x != nil {
 		return x.Kind
 	}
-	return ReasonKind_REASON_KIND_UNSPECIFIED
+	return ReleaseReason_KIND_UNSPECIFIED
 }
 
 func (x *ReleaseReason) GetBump() v1alpha1.Bump {
@@ -930,17 +930,17 @@ type ReleasedUnit struct {
 	// unit is from one repository; none, for a prerelease its unit does
 	// not tag.
 	Tags []*ReleaseTag `protobuf:"bytes,3,rep,name=tags,proto3" json:"tags,omitempty"`
-	// Already says the tags were there, at the commit planned from, before
-	// this release: it changed nothing for this unit.
-	Already bool `protobuf:"varint,4,opt,name=already,proto3" json:"already,omitempty"`
+	// `already_released` says the tags were there, at the commit planned
+	// from, before this release: it changed nothing for this unit.
+	AlreadyReleased bool `protobuf:"varint,4,opt,name=already_released,json=alreadyReleased,proto3" json:"already_released,omitempty"`
 	// Artifacts are what the release built of it to ship: each file a
 	// package action of its members left, in the order of their names. A
 	// unit found released already has none: nothing was built of it.
 	Artifacts []*ReleaseArtifact `protobuf:"bytes,5,rep,name=artifacts,proto3" json:"artifacts,omitempty"`
-	// Published is what became of each publish of it, in the order they
+	// Publishes are what became of each publish of it, in the order they
 	// ran. A unit found released already has none: nothing was built of
 	// it to publish.
-	Published     []*ReleasePublished `protobuf:"bytes,6,rep,name=published,proto3" json:"published,omitempty"`
+	Publishes     []*PublishResult `protobuf:"bytes,6,rep,name=publishes,proto3" json:"publishes,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -996,9 +996,9 @@ func (x *ReleasedUnit) GetTags() []*ReleaseTag {
 	return nil
 }
 
-func (x *ReleasedUnit) GetAlready() bool {
+func (x *ReleasedUnit) GetAlreadyReleased() bool {
 	if x != nil {
-		return x.Already
+		return x.AlreadyReleased
 	}
 	return false
 }
@@ -1010,15 +1010,15 @@ func (x *ReleasedUnit) GetArtifacts() []*ReleaseArtifact {
 	return nil
 }
 
-func (x *ReleasedUnit) GetPublished() []*ReleasePublished {
+func (x *ReleasedUnit) GetPublishes() []*PublishResult {
 	if x != nil {
-		return x.Published
+		return x.Publishes
 	}
 	return nil
 }
 
-// ReleasePublished is what became of one publish of a unit.
-type ReleasePublished struct {
+// PublishResult is what became of one publish of a unit.
+type PublishResult struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Label is the label of the action that publishes.
 	Label string `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
@@ -1029,20 +1029,20 @@ type ReleasePublished struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ReleasePublished) Reset() {
-	*x = ReleasePublished{}
+func (x *PublishResult) Reset() {
+	*x = PublishResult{}
 	mi := &file_frontseat_build_v1alpha1_release_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ReleasePublished) String() string {
+func (x *PublishResult) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ReleasePublished) ProtoMessage() {}
+func (*PublishResult) ProtoMessage() {}
 
-func (x *ReleasePublished) ProtoReflect() protoreflect.Message {
+func (x *PublishResult) ProtoReflect() protoreflect.Message {
 	mi := &file_frontseat_build_v1alpha1_release_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1054,19 +1054,19 @@ func (x *ReleasePublished) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ReleasePublished.ProtoReflect.Descriptor instead.
-func (*ReleasePublished) Descriptor() ([]byte, []int) {
+// Deprecated: Use PublishResult.ProtoReflect.Descriptor instead.
+func (*PublishResult) Descriptor() ([]byte, []int) {
 	return file_frontseat_build_v1alpha1_release_proto_rawDescGZIP(), []int{10}
 }
 
-func (x *ReleasePublished) GetLabel() string {
+func (x *PublishResult) GetLabel() string {
 	if x != nil {
 		return x.Label
 	}
 	return ""
 }
 
-func (x *ReleasePublished) GetFailure() string {
+func (x *PublishResult) GetFailure() string {
 	if x != nil {
 		return x.Failure
 	}
@@ -1079,11 +1079,8 @@ type ReleaseArtifact struct {
 	// Name is its name, as the tool that made it wrote it:
 	// "greet-linux-amd64". No two artifacts of a release share one.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// Sha256 is the sha256 of its bytes, in hexadecimal, as the grid
-	// holds them.
-	Sha256 string `protobuf:"bytes,2,opt,name=sha256,proto3" json:"sha256,omitempty"`
-	// Size is how many bytes it is.
-	Size int64 `protobuf:"varint,3,opt,name=size,proto3" json:"size,omitempty"`
+	// Digest is the address of its bytes in the grid's store.
+	Digest *Digest `protobuf:"bytes,2,opt,name=digest,proto3" json:"digest,omitempty"`
 	// Label is the label of the action that left it.
 	Label         string `protobuf:"bytes,4,opt,name=label,proto3" json:"label,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -1127,18 +1124,11 @@ func (x *ReleaseArtifact) GetName() string {
 	return ""
 }
 
-func (x *ReleaseArtifact) GetSha256() string {
+func (x *ReleaseArtifact) GetDigest() *Digest {
 	if x != nil {
-		return x.Sha256
+		return x.Digest
 	}
-	return ""
-}
-
-func (x *ReleaseArtifact) GetSize() int64 {
-	if x != nil {
-		return x.Size
-	}
-	return 0
+	return nil
 }
 
 func (x *ReleaseArtifact) GetLabel() string {
@@ -1434,12 +1424,19 @@ const file_frontseat_build_v1alpha1_release_proto_rawDesc = "" +
 	"\achannel\x18\x11 \x01(\tB\x04\xe2A\x01\x03R\achannel\x12$\n" +
 	"\n" +
 	"prerelease\x18\x12 \x01(\bB\x04\xe2A\x01\x03R\n" +
-	"prerelease\"\xf2\x01\n" +
-	"\rReleaseReason\x12>\n" +
-	"\x04kind\x18\x01 \x01(\x0e2$.frontseat.build.v1alpha1.ReasonKindB\x04\xe2A\x01\x03R\x04kind\x127\n" +
+	"prerelease\"\xfe\x02\n" +
+	"\rReleaseReason\x12F\n" +
+	"\x04kind\x18\x01 \x01(\x0e2,.frontseat.build.v1alpha1.ReleaseReason.KindB\x04\xe2A\x01\x03R\x04kind\x127\n" +
 	"\x04bump\x18\x02 \x01(\x0e2\x1d.frontseat.type.v1alpha1.BumpB\x04\xe2A\x01\x03R\x04bump\x12H\n" +
 	"\x06commit\x18\x03 \x01(\v2*.frontseat.build.v1alpha1.RepositoryCommitB\x04\xe2A\x01\x03R\x06commit\x12\x1e\n" +
-	"\asummary\x18\x04 \x01(\tB\x04\xe2A\x01\x03R\asummary\"v\n" +
+	"\asummary\x18\x04 \x01(\tB\x04\xe2A\x01\x03R\asummary\"\x81\x01\n" +
+	"\x04Kind\x12\x14\n" +
+	"\x10KIND_UNSPECIFIED\x10\x00\x12\x13\n" +
+	"\x0fKIND_OWN_CHANGE\x10\x01\x12\x12\n" +
+	"\x0eKIND_UNCHANGED\x10\x02\x12\x16\n" +
+	"\x12KIND_FIRST_RELEASE\x10\x03\x12\x11\n" +
+	"\rKIND_RELEASED\x10\x04\x12\x0f\n" +
+	"\vKIND_BRANCH\x10\x05\"v\n" +
 	"\x14CreateReleaseRequest\x12D\n" +
 	"\bentities\x18\x01 \x03(\v2\".frontseat.type.v1alpha1.EntityRefB\x04\xe2A\x01\x02R\bentities\x12\x18\n" +
 	"\x04etag\x18\x02 \x01(\tB\x04\xe2A\x01\x02R\x04etag\"T\n" +
@@ -1463,21 +1460,20 @@ const file_frontseat_build_v1alpha1_release_proto_rawDesc = "" +
 	"\rSTATE_PUSHING\x10\x06\x12\x14\n" +
 	"\x10STATE_PUBLISHING\x10\a\x12\x12\n" +
 	"\x0eSTATE_UNPUSHED\x10\x04\x12\x10\n" +
-	"\fSTATE_FAILED\x10\x05\"\xef\x02\n" +
+	"\fSTATE_FAILED\x10\x05\"\xfd\x02\n" +
 	"\fReleasedUnit\x12@\n" +
 	"\x06entity\x18\x01 \x01(\v2\".frontseat.type.v1alpha1.EntityRefB\x04\xe2A\x01\x03R\x06entity\x12\x1e\n" +
 	"\aversion\x18\x02 \x01(\tB\x04\xe2A\x01\x03R\aversion\x12>\n" +
-	"\x04tags\x18\x03 \x03(\v2$.frontseat.build.v1alpha1.ReleaseTagB\x04\xe2A\x01\x03R\x04tags\x12\x1e\n" +
-	"\aalready\x18\x04 \x01(\bB\x04\xe2A\x01\x03R\aalready\x12M\n" +
-	"\tartifacts\x18\x05 \x03(\v2).frontseat.build.v1alpha1.ReleaseArtifactB\x04\xe2A\x01\x03R\tartifacts\x12N\n" +
-	"\tpublished\x18\x06 \x03(\v2*.frontseat.build.v1alpha1.ReleasePublishedB\x04\xe2A\x01\x03R\tpublished\"N\n" +
-	"\x10ReleasePublished\x12\x1a\n" +
+	"\x04tags\x18\x03 \x03(\v2$.frontseat.build.v1alpha1.ReleaseTagB\x04\xe2A\x01\x03R\x04tags\x12/\n" +
+	"\x10already_released\x18\x04 \x01(\bB\x04\xe2A\x01\x03R\x0falreadyReleased\x12M\n" +
+	"\tartifacts\x18\x05 \x03(\v2).frontseat.build.v1alpha1.ReleaseArtifactB\x04\xe2A\x01\x03R\tartifacts\x12K\n" +
+	"\tpublishes\x18\x06 \x03(\v2'.frontseat.build.v1alpha1.PublishResultB\x04\xe2A\x01\x03R\tpublishes\"K\n" +
+	"\rPublishResult\x12\x1a\n" +
 	"\x05label\x18\x01 \x01(\tB\x04\xe2A\x01\x03R\x05label\x12\x1e\n" +
-	"\afailure\x18\x02 \x01(\tB\x04\xe2A\x01\x03R\afailure\"\x7f\n" +
+	"\afailure\x18\x02 \x01(\tB\x04\xe2A\x01\x03R\afailure\"\x87\x01\n" +
 	"\x0fReleaseArtifact\x12\x18\n" +
-	"\x04name\x18\x01 \x01(\tB\x04\xe2A\x01\x03R\x04name\x12\x1c\n" +
-	"\x06sha256\x18\x02 \x01(\tB\x04\xe2A\x01\x03R\x06sha256\x12\x18\n" +
-	"\x04size\x18\x03 \x01(\x03B\x04\xe2A\x01\x03R\x04size\x12\x1a\n" +
+	"\x04name\x18\x01 \x01(\tB\x04\xe2A\x01\x03R\x04name\x12>\n" +
+	"\x06digest\x18\x02 \x01(\v2 .frontseat.build.v1alpha1.DigestB\x04\xe2A\x01\x03R\x06digest\x12\x1a\n" +
 	"\x05label\x18\x04 \x01(\tB\x04\xe2A\x01\x03R\x05label\"j\n" +
 	"\n" +
 	"ReleaseTag\x12$\n" +
@@ -1495,15 +1491,7 @@ const file_frontseat_build_v1alpha1_release_proto_rawDesc = "" +
 	"\n" +
 	"release_id\x18\x01 \x01(\tB\x04\xe2A\x01\x02R\treleaseId\"R\n" +
 	"\x13WaitReleaseResponse\x12;\n" +
-	"\arelease\x18\x01 \x01(\v2!.frontseat.build.v1alpha1.ReleaseR\arelease*\xb1\x01\n" +
-	"\n" +
-	"ReasonKind\x12\x1b\n" +
-	"\x17REASON_KIND_UNSPECIFIED\x10\x00\x12\x1a\n" +
-	"\x16REASON_KIND_OWN_CHANGE\x10\x01\x12\x19\n" +
-	"\x15REASON_KIND_UNCHANGED\x10\x02\x12\x1d\n" +
-	"\x19REASON_KIND_FIRST_RELEASE\x10\x03\x12\x18\n" +
-	"\x14REASON_KIND_RELEASED\x10\x04\x12\x16\n" +
-	"\x12REASON_KIND_BRANCH\x10\x052\xe1\x03\n" +
+	"\arelease\x18\x01 \x01(\v2!.frontseat.build.v1alpha1.ReleaseR\arelease2\xe1\x03\n" +
 	"\x0eReleaseService\x12o\n" +
 	"\vPlanRelease\x12,.frontseat.build.v1alpha1.PlanReleaseRequest\x1a-.frontseat.build.v1alpha1.PlanReleaseResponse\"\x03\x90\x02\x01\x12p\n" +
 	"\rCreateRelease\x12..frontseat.build.v1alpha1.CreateReleaseRequest\x1a/.frontseat.build.v1alpha1.CreateReleaseResponse\x12{\n" +
@@ -1526,7 +1514,7 @@ func file_frontseat_build_v1alpha1_release_proto_rawDescGZIP() []byte {
 var file_frontseat_build_v1alpha1_release_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_frontseat_build_v1alpha1_release_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
 var file_frontseat_build_v1alpha1_release_proto_goTypes = []any{
-	(ReasonKind)(0),                 // 0: frontseat.build.v1alpha1.ReasonKind
+	(ReleaseReason_Kind)(0),         // 0: frontseat.build.v1alpha1.ReleaseReason.Kind
 	(Release_State)(0),              // 1: frontseat.build.v1alpha1.Release.State
 	(*PlanReleaseRequest)(nil),      // 2: frontseat.build.v1alpha1.PlanReleaseRequest
 	(*PlanReleaseResponse)(nil),     // 3: frontseat.build.v1alpha1.PlanReleaseResponse
@@ -1538,7 +1526,7 @@ var file_frontseat_build_v1alpha1_release_proto_goTypes = []any{
 	(*CreateReleaseResponse)(nil),   // 9: frontseat.build.v1alpha1.CreateReleaseResponse
 	(*Release)(nil),                 // 10: frontseat.build.v1alpha1.Release
 	(*ReleasedUnit)(nil),            // 11: frontseat.build.v1alpha1.ReleasedUnit
-	(*ReleasePublished)(nil),        // 12: frontseat.build.v1alpha1.ReleasePublished
+	(*PublishResult)(nil),           // 12: frontseat.build.v1alpha1.PublishResult
 	(*ReleaseArtifact)(nil),         // 13: frontseat.build.v1alpha1.ReleaseArtifact
 	(*ReleaseTag)(nil),              // 14: frontseat.build.v1alpha1.ReleaseTag
 	(*DescribeReleaseRequest)(nil),  // 15: frontseat.build.v1alpha1.DescribeReleaseRequest
@@ -1549,6 +1537,7 @@ var file_frontseat_build_v1alpha1_release_proto_goTypes = []any{
 	(Grouping)(0),                   // 20: frontseat.build.v1alpha1.Grouping
 	(v1alpha1.Bump)(0),              // 21: frontseat.type.v1alpha1.Bump
 	(*timestamppb.Timestamp)(nil),   // 22: google.protobuf.Timestamp
+	(*Digest)(nil),                  // 23: frontseat.build.v1alpha1.Digest
 }
 var file_frontseat_build_v1alpha1_release_proto_depIdxs = []int32{
 	19, // 0: frontseat.build.v1alpha1.PlanReleaseRequest.entities:type_name -> frontseat.type.v1alpha1.EntityRef
@@ -1562,7 +1551,7 @@ var file_frontseat_build_v1alpha1_release_proto_depIdxs = []int32{
 	21, // 8: frontseat.build.v1alpha1.ReleaseUnit.bump:type_name -> frontseat.type.v1alpha1.Bump
 	7,  // 9: frontseat.build.v1alpha1.ReleaseUnit.reasons:type_name -> frontseat.build.v1alpha1.ReleaseReason
 	19, // 10: frontseat.build.v1alpha1.ReleaseUnit.depends_on:type_name -> frontseat.type.v1alpha1.EntityRef
-	0,  // 11: frontseat.build.v1alpha1.ReleaseReason.kind:type_name -> frontseat.build.v1alpha1.ReasonKind
+	0,  // 11: frontseat.build.v1alpha1.ReleaseReason.kind:type_name -> frontseat.build.v1alpha1.ReleaseReason.Kind
 	21, // 12: frontseat.build.v1alpha1.ReleaseReason.bump:type_name -> frontseat.type.v1alpha1.Bump
 	5,  // 13: frontseat.build.v1alpha1.ReleaseReason.commit:type_name -> frontseat.build.v1alpha1.RepositoryCommit
 	19, // 14: frontseat.build.v1alpha1.CreateReleaseRequest.entities:type_name -> frontseat.type.v1alpha1.EntityRef
@@ -1575,22 +1564,23 @@ var file_frontseat_build_v1alpha1_release_proto_depIdxs = []int32{
 	19, // 21: frontseat.build.v1alpha1.ReleasedUnit.entity:type_name -> frontseat.type.v1alpha1.EntityRef
 	14, // 22: frontseat.build.v1alpha1.ReleasedUnit.tags:type_name -> frontseat.build.v1alpha1.ReleaseTag
 	13, // 23: frontseat.build.v1alpha1.ReleasedUnit.artifacts:type_name -> frontseat.build.v1alpha1.ReleaseArtifact
-	12, // 24: frontseat.build.v1alpha1.ReleasedUnit.published:type_name -> frontseat.build.v1alpha1.ReleasePublished
-	10, // 25: frontseat.build.v1alpha1.DescribeReleaseResponse.release:type_name -> frontseat.build.v1alpha1.Release
-	10, // 26: frontseat.build.v1alpha1.WaitReleaseResponse.release:type_name -> frontseat.build.v1alpha1.Release
-	2,  // 27: frontseat.build.v1alpha1.ReleaseService.PlanRelease:input_type -> frontseat.build.v1alpha1.PlanReleaseRequest
-	8,  // 28: frontseat.build.v1alpha1.ReleaseService.CreateRelease:input_type -> frontseat.build.v1alpha1.CreateReleaseRequest
-	15, // 29: frontseat.build.v1alpha1.ReleaseService.DescribeRelease:input_type -> frontseat.build.v1alpha1.DescribeReleaseRequest
-	17, // 30: frontseat.build.v1alpha1.ReleaseService.WaitRelease:input_type -> frontseat.build.v1alpha1.WaitReleaseRequest
-	3,  // 31: frontseat.build.v1alpha1.ReleaseService.PlanRelease:output_type -> frontseat.build.v1alpha1.PlanReleaseResponse
-	9,  // 32: frontseat.build.v1alpha1.ReleaseService.CreateRelease:output_type -> frontseat.build.v1alpha1.CreateReleaseResponse
-	16, // 33: frontseat.build.v1alpha1.ReleaseService.DescribeRelease:output_type -> frontseat.build.v1alpha1.DescribeReleaseResponse
-	18, // 34: frontseat.build.v1alpha1.ReleaseService.WaitRelease:output_type -> frontseat.build.v1alpha1.WaitReleaseResponse
-	31, // [31:35] is the sub-list for method output_type
-	27, // [27:31] is the sub-list for method input_type
-	27, // [27:27] is the sub-list for extension type_name
-	27, // [27:27] is the sub-list for extension extendee
-	0,  // [0:27] is the sub-list for field type_name
+	12, // 24: frontseat.build.v1alpha1.ReleasedUnit.publishes:type_name -> frontseat.build.v1alpha1.PublishResult
+	23, // 25: frontseat.build.v1alpha1.ReleaseArtifact.digest:type_name -> frontseat.build.v1alpha1.Digest
+	10, // 26: frontseat.build.v1alpha1.DescribeReleaseResponse.release:type_name -> frontseat.build.v1alpha1.Release
+	10, // 27: frontseat.build.v1alpha1.WaitReleaseResponse.release:type_name -> frontseat.build.v1alpha1.Release
+	2,  // 28: frontseat.build.v1alpha1.ReleaseService.PlanRelease:input_type -> frontseat.build.v1alpha1.PlanReleaseRequest
+	8,  // 29: frontseat.build.v1alpha1.ReleaseService.CreateRelease:input_type -> frontseat.build.v1alpha1.CreateReleaseRequest
+	15, // 30: frontseat.build.v1alpha1.ReleaseService.DescribeRelease:input_type -> frontseat.build.v1alpha1.DescribeReleaseRequest
+	17, // 31: frontseat.build.v1alpha1.ReleaseService.WaitRelease:input_type -> frontseat.build.v1alpha1.WaitReleaseRequest
+	3,  // 32: frontseat.build.v1alpha1.ReleaseService.PlanRelease:output_type -> frontseat.build.v1alpha1.PlanReleaseResponse
+	9,  // 33: frontseat.build.v1alpha1.ReleaseService.CreateRelease:output_type -> frontseat.build.v1alpha1.CreateReleaseResponse
+	16, // 34: frontseat.build.v1alpha1.ReleaseService.DescribeRelease:output_type -> frontseat.build.v1alpha1.DescribeReleaseResponse
+	18, // 35: frontseat.build.v1alpha1.ReleaseService.WaitRelease:output_type -> frontseat.build.v1alpha1.WaitReleaseResponse
+	32, // [32:36] is the sub-list for method output_type
+	28, // [28:32] is the sub-list for method input_type
+	28, // [28:28] is the sub-list for extension type_name
+	28, // [28:28] is the sub-list for extension extendee
+	0,  // [0:28] is the sub-list for field type_name
 }
 
 func init() { file_frontseat_build_v1alpha1_release_proto_init() }

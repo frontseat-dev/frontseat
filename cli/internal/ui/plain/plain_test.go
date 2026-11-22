@@ -169,7 +169,7 @@ func TestASkippedActionIsSaidToBeSkipped(t *testing.T) {
 func TestAnEnumsValueIsSaidInWords(t *testing.T) {
 	for want, value := range map[string]protoreflect.Enum{
 		"ready":      workspacev1.WorkspaceStatus_STATE_READY,
-		"own change": buildv1.ReasonKind_REASON_KIND_OWN_CHANGE,
+		"own change": buildv1.ReleaseReason_KIND_OWN_CHANGE,
 		"grid cache": buildv1.Provenance_PROVENANCE_GRID_CACHE,
 		"unpushed":   buildv1.Release_STATE_UNPUSHED,
 		"99":         buildv1.Outcome(99),
