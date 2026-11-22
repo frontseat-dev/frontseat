@@ -63,8 +63,9 @@ pub struct Located<'a> {
     pub path: &'a str,
     /// The line, from 1.
     pub line: i32,
-    /// The column, from 1, where the tool said one.
-    pub column: Option<u32>,
+    /// The column, from 1, where the tool said one: an `i32`, as the
+    /// contract's `SourceLocation` carries a line and a column.
+    pub column: Option<i32>,
     /// What it says there, trimmed.
     pub message: &'a str,
 }
@@ -79,9 +80,9 @@ impl<'a> Located<'a> {
         let (number, rest) = rest.split_once(':')?;
         let line: i32 = number.trim().parse().ok().filter(|line| *line >= 1)?;
         let (column, message) = match rest.split_once(':') {
-            Some((column, message)) => match column.trim().parse::<u32>() {
-                Ok(column) => (Some(column), message),
-                Err(_) => (None, rest),
+            Some((column, message)) => match column.trim().parse::<i32>() {
+                Ok(column) if column >= 1 => (Some(column), message),
+                _ => (None, rest),
             },
             None => (None, rest),
         };

@@ -24,9 +24,10 @@ impl Plugin for Documents {
         _: &[Handoff],
     ) -> Result<Vec<File>, Error> {
         let output = if root.ends_with(".toml") {
-            repo.toml(root)?.map(|table| format!("{table:?}"))
+            repo.toml_table(root)?.map(|table| format!("{table:?}"))
         } else {
-            repo.yaml::<serde_json::Value>(root)?
+            repo.yaml_stream::<serde_json::Value>(root)
+                .map(|read| read.map(|document| document.value))?
                 .map(|documents| format!("{documents:?}"))
         };
         Ok(output

@@ -358,7 +358,7 @@ fn findings_are_read_from_what_clippy_and_rustfmt_print() {
     let repo = context(&[("rust", "1.99.1")]);
     let plugin = plugin();
     let lint = plugin
-        .report(&host, &repo, "hello", "lint", &Printed { exit_code: 101, stdout: Vec::new(), stderr: b"    Checking hello v0.1.0\nhello/src/main.rs:2:9: warning: unused variable: `x`\nwarning: `hello` (bin \"hello\") generated 1 warning\nerror: could not compile `hello` (bin \"hello\") due to 1 previous error; 1 warning emitted\n".to_vec() })
+        .report(&host, &repo, "hello", "lint", &Printed::new(101, Vec::new(), b"    Checking hello v0.1.0\nhello/src/main.rs:2:9: warning: unused variable: `x`\nwarning: `hello` (bin \"hello\") generated 1 warning\nerror: could not compile `hello` (bin \"hello\") due to 1 previous error; 1 warning emitted\n".to_vec()))
         .answered()
         .diagnostics;
     assert_eq!(lint.len(), 1);
@@ -369,7 +369,7 @@ fn findings_are_read_from_what_clippy_and_rustfmt_print() {
     let at = lint[0].source_location.as_ref().unwrap();
     assert_eq!((at.path.as_str(), at.line), ("hello/src/main.rs", 2));
     let format = plugin
-        .report(&host, &repo, "hello", "format", &Printed { exit_code: 1, stdout: b"Diff in /work/repo/hello/src/main.rs:1:\n-fn main(){}\n+fn main() {}\nDiff in /work/repo/hello/src/main.rs:4:\n-x\n+y\n".to_vec(), stderr: Vec::new() })
+        .report(&host, &repo, "hello", "format", &Printed::new(1, b"Diff in /work/repo/hello/src/main.rs:1:\n-fn main(){}\n+fn main() {}\nDiff in /work/repo/hello/src/main.rs:4:\n-x\n+y\n".to_vec(), Vec::new()))
         .answered()
         .diagnostics;
     assert_eq!(format.len(), 1);

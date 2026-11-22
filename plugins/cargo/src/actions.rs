@@ -161,7 +161,7 @@ pub(super) fn actions(
     // A library built as a C-style dynamic library is a wasm module, and
     // so are its examples so built, where the option says so: built in
     // release, as a module is shipped, the examples together.
-    if !repo.bool(WASM)? {
+    if !repo.option_bool(WASM)? {
         return Ok(actions);
     }
     let wasm = |name: &str, more: &[&str]| {

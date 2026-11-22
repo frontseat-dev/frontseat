@@ -32,7 +32,7 @@ impl Repository<'_> {
 
     /// Read TOML through the parser family Cargo uses. Duplicate keys,
     /// malformed values and out-of-range integers are errors, not defaults.
-    pub fn toml(&self, path: &str) -> Result<Option<TomlTable>, Error> {
+    pub fn toml_table(&self, path: &str) -> Result<Option<TomlTable>, Error> {
         self.document_text(path)?
             .map(|text| {
                 text.parse::<TomlTable>()
@@ -42,18 +42,15 @@ impl Repository<'_> {
     }
 
     /// Read a typed TOML document through the same parser and policy as
-    /// `toml`, with its text beside it, so that a plugin with
+    /// `toml_table`, with its text beside it, so that a plugin with
     /// `toml::Spanned` fields can say the line a value is on (`line_of`).
     /// Unknown keys are the struct's concern.
-    pub fn toml_document<T: DeserializeOwned>(
-        &self,
-        path: &str,
-    ) -> Result<Option<Typed<T>>, Error> {
+    pub fn toml<T: DeserializeOwned>(&self, path: &str) -> Result<Option<Document<T>>, Error> {
         self.document_text(path)?
             .map(|text| {
-                let value = toml::from_str::<T>(&text)
+                let value = ::toml::from_str::<T>(&text)
                     .map_err(|error| invalid_toml(path, &text, &error))?;
-                Ok(Typed { value, text })
+                Ok(Document { value, text })
             })
             .transpose()
     }
@@ -67,7 +64,10 @@ impl Repository<'_> {
     /// 100,000; alias replay is limited to 16,384 events per document. Plugins cannot
     /// weaken this policy. A struct can add `serde(deny_unknown_fields)` where
     /// its ecosystem schema requires that; extension fields remain its concern.
-    pub fn yaml<T: DeserializeOwned>(&self, path: &str) -> Result<Option<Vec<T>>, Error> {
+    pub fn yaml_stream<T: DeserializeOwned>(
+        &self,
+        path: &str,
+    ) -> Result<Option<Document<Vec<T>>>, Error> {
         self.document_text(path)?
             .map(|text| {
                 validate_yaml_nulls(path, &text)?;
@@ -86,19 +86,24 @@ impl Repository<'_> {
                         max_total_replayed_events: 16_384,
                     },
                 };
-                serde_saphyr::from_multiple_with_options(&text, options).map_err(|error| {
+                let value = serde_saphyr::from_multiple_with_options(&text, options).map_err(|error| {
                     let line = error.location().and_then(|location| i32::try_from(location.line()).ok()).unwrap_or(0);
                     Error::invalid("invalid-yaml", path, error.to_string(), "Correct the YAML syntax and value types, keep keys unique, and keep aliases within the document limits.")
                         .at_line(path, line)
-                })
+                })?;
+                Ok(Document { value, text })
             })
             .transpose()
     }
 
     /// Read a manifest containing exactly one nonempty YAML document. Absence
     /// remains distinct from an empty file or an ambiguous document stream.
-    pub fn yaml_document<T: DeserializeOwned>(&self, path: &str) -> Result<Option<T>, Error> {
-        let Some(mut documents) = self.yaml::<T>(path)? else {
+    pub fn yaml<T: DeserializeOwned>(&self, path: &str) -> Result<Option<Document<T>>, Error> {
+        let Some(Document {
+            value: mut documents,
+            text,
+        }) = self.yaml_stream::<T>(path)?
+        else {
             return Ok(None);
         };
         if documents.len() != 1 {
@@ -109,7 +114,7 @@ impl Repository<'_> {
                 "Keep one manifest document in this file.",
             ));
         }
-        Ok(documents.pop())
+        Ok(documents.pop().map(|value| Document { value, text }))
     }
 
     /// Read one typed JSON document, as a lock a tool writes in JSON is.
@@ -119,10 +124,10 @@ impl Repository<'_> {
     /// once;
     /// nesting is limited to the parser's 128 levels and the file to 4 MiB.
     /// Unknown keys are the struct's concern.
-    pub fn json_document<T: DeserializeOwned>(&self, path: &str) -> Result<Option<T>, Error> {
+    pub fn json<T: DeserializeOwned>(&self, path: &str) -> Result<Option<Document<T>>, Error> {
         self.document_text(path)?
             .map(|text| {
-                serde_json::from_str(&text).map_err(|error| {
+                let value = serde_json::from_str(&text).map_err(|error| {
                     Error::invalid(
                         "invalid-json",
                         path,
@@ -130,7 +135,8 @@ impl Repository<'_> {
                         "Correct the JSON syntax and value types, keeping each key unique.",
                     )
                     .at_line(path, i32::try_from(error.line()).unwrap_or(0))
-                })
+                })?;
+                Ok(Document { value, text })
             })
             .transpose()
     }
@@ -201,7 +207,7 @@ fn invalid_toml(path: &str, text: &str, error: &toml::de::Error) -> Error {
 
 /// A typed document with the text it was read from.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Typed<T> {
+pub struct Document<T> {
     /// The document, read as its type.
     pub value: T,
     /// Its text, for the line a value is on ([`line_of`]).

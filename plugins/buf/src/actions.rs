@@ -128,11 +128,7 @@ mod check_tests {
             [("lint", true), ("format", true), ("generate", false)]
         );
 
-        let printed = Printed {
-            exit_code: 100,
-            stdout: b"hello/v1/hello.proto:5:10:Field name \"Message\" should be lower_snake_case, such as \"message\".\n../up.proto:1:1:outside the workspace\nnot a finding\n".to_vec(),
-            stderr: Vec::new(),
-        };
+        let printed = Printed::new(100, b"hello/v1/hello.proto:5:10:Field name \"Message\" should be lower_snake_case, such as \"message\".\n../up.proto:1:1:outside the workspace\nnot a finding\n".to_vec(), Vec::new());
         let found = plugin
             .report(&host, &context, "proto", "lint", &printed)
             .answered()

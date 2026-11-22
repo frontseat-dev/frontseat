@@ -31,34 +31,18 @@ impl Plugin for GoPlugin {
                 // started with it, and 0 is no limit, as it is the go
                 // command's. What the go command would not read, or
                 // would read as less than nothing, is refused.
-                PluginOption {
-                    name: TEST_TIMEOUT,
-                    default: Value::String("10m".into()),
-                    entity_settable: true,
-                },
+                PluginOption::new(TEST_TIMEOUT, Value::String("10m".into())).entity_settable(),
                 // Into how many actions a package's tests are cut at most,
                 // each running a share of them.
-                PluginOption {
-                    name: TEST_SHARDS,
-                    default: Value::Int(1),
-                    entity_settable: true,
-                },
+                PluginOption::new(TEST_SHARDS, Value::Int(1)).entity_settable(),
                 // The build tags a module is linted, compiled and tested with.
-                PluginOption {
-                    name: TAGS,
-                    default: Value::StringList(Vec::new()),
-                    entity_settable: true,
-                },
+                PluginOption::new(TAGS, Value::StringList(Vec::new())).entity_settable(),
                 // The variables a module's programs say their version by,
                 // each "<package>.<variable>=<what>": a string variable of
                 // a package, by its import path, and what of the release
                 // it is set to when the program is linked: version, tag,
                 // commit or unit.
-                PluginOption {
-                    name: VERSION,
-                    default: Value::StringList(Vec::new()),
-                    entity_settable: true,
-                },
+                PluginOption::new(VERSION, Value::StringList(Vec::new())).entity_settable(),
             ],
             ..Default::default()
         }

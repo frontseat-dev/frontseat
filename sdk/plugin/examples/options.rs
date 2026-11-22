@@ -11,26 +11,10 @@ impl Plugin for Options {
         Description {
             name: "options".into(),
             options: vec![
-                PluginOption {
-                    name: "int",
-                    default: Value::Int(0),
-                    entity_settable: true,
-                },
-                PluginOption {
-                    name: "bool",
-                    default: Value::Bool(false),
-                    entity_settable: true,
-                },
-                PluginOption {
-                    name: "string",
-                    default: Value::String(String::new()),
-                    entity_settable: true,
-                },
-                PluginOption {
-                    name: "list",
-                    default: Value::StringList(Vec::new()),
-                    entity_settable: true,
-                },
+                PluginOption::new("int", Value::Int(0)).entity_settable(),
+                PluginOption::new("bool", Value::Bool(false)).entity_settable(),
+                PluginOption::new("string", Value::String(String::new())).entity_settable(),
+                PluginOption::new("list", Value::StringList(Vec::new())).entity_settable(),
             ],
             ..Default::default()
         }
@@ -53,21 +37,21 @@ impl Plugin for Options {
         let mut files = vec![
             File {
                 path: "integer".into(),
-                content: repo.int("int")?.to_string().into_bytes(),
+                content: repo.option_int("int")?.to_string().into_bytes(),
                 ..Default::default()
             },
             File {
                 path: "boolean".into(),
-                content: repo.bool("bool")?.to_string().into_bytes(),
+                content: repo.option_bool("bool")?.to_string().into_bytes(),
                 ..Default::default()
             },
             File {
                 path: "string".into(),
-                content: repo.string("string")?.as_bytes().to_vec(),
+                content: repo.option_str("string")?.as_bytes().to_vec(),
                 ..Default::default()
             },
         ];
-        for (i, value) in repo.string_list("list")?.iter().enumerate() {
+        for (i, value) in repo.option_list("list")?.iter().enumerate() {
             files.push(File {
                 path: format!("item-{i}"),
                 content: value.as_bytes().to_vec(),

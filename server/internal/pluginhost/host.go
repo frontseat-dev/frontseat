@@ -234,7 +234,7 @@ func (p *Plugin) Close(ctx context.Context) error { return p.compiled.Close(ctx)
 // ErrUnsupported is what a plugin's answer is where the plugin does not
 // serve the method: UNIMPLEMENTED, for the method's own reason (Report's
 // is REPORT_NOT_SERVED, Branch's BRANCHING_STRATEGY_NOT_SERVED) or, of a
-// method its SDK does not know, UNKNOWN_METHOD. UNIMPLEMENTED
+// method its SDK does not know, METHOD_NOT_SERVED. UNIMPLEMENTED
 // for another reason is of what the method was asked about, which the
 // plugin does not build yet, and is a failure of the call.
 var ErrUnsupported = errors.New("pluginhost: the plugin does not serve the method")

@@ -325,7 +325,7 @@ func TestUnimplementedIsAMethodUnservedOnlyForTheMethodsOwnReason(t *testing.T) 
 		unserved       bool
 	}{
 		{"Report", "REPORT_NOT_SERVED", true},
-		{"Report", "UNKNOWN_METHOD", true},
+		{"Report", "METHOD_NOT_SERVED", true},
 		{"Report", "SARIF_NOT_SERVED", false},
 		{"Report", "ANALYZE_NOT_SERVED", false},
 		{"Reconcile", "RECONCILE_NOT_SERVED", true},

@@ -1,7 +1,7 @@
 use crate::{wire, Error, Profile};
 
 mod document;
-pub use document::{line_of, TomlTable, Typed};
+pub use document::{line_of, Document, TomlTable};
 
 /// The most bytes of a file a plugin takes from a read: the host answers
 /// a larger file as too large, and copies none of it into the module.
@@ -113,7 +113,7 @@ impl<'a> Repository<'a> {
     }
 
     /// Returns a string option, refusing a missing value or another kind.
-    pub fn string(&self, name: &str) -> Result<&str, crate::Error> {
+    pub fn option_str(&self, name: &str) -> Result<&str, crate::Error> {
         match self.option(name)? {
             crate::option_value::Value::StringValue(value) => Ok(value),
             _ => Err(Self::not_of_kind(name, "a string")),
@@ -121,7 +121,7 @@ impl<'a> Repository<'a> {
     }
 
     /// Returns a boolean option, preserving false as a present value.
-    pub fn bool(&self, name: &str) -> Result<bool, crate::Error> {
+    pub fn option_bool(&self, name: &str) -> Result<bool, crate::Error> {
         match self.option(name)? {
             crate::option_value::Value::BoolValue(value) => Ok(*value),
             _ => Err(Self::not_of_kind(name, "a bool")),
@@ -129,7 +129,7 @@ impl<'a> Repository<'a> {
     }
 
     /// Returns an exact signed 64-bit integer option.
-    pub fn int(&self, name: &str) -> Result<i64, crate::Error> {
+    pub fn option_int(&self, name: &str) -> Result<i64, crate::Error> {
         match self.option(name)? {
             crate::option_value::Value::IntValue(value) => Ok(*value),
             _ => Err(Self::not_of_kind(name, "an int")),
@@ -137,7 +137,7 @@ impl<'a> Repository<'a> {
     }
 
     /// Returns a list option with its entries and order intact.
-    pub fn string_list(&self, name: &str) -> Result<&[String], crate::Error> {
+    pub fn option_list(&self, name: &str) -> Result<&[String], crate::Error> {
         match self.option(name)? {
             crate::option_value::Value::StringListValue(value) => Ok(&value.values),
             _ => Err(Self::not_of_kind(name, "a string list")),

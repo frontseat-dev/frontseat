@@ -117,7 +117,7 @@ impl Action {
 
     /// The same action, given the version of the release it is built
     /// for: the host fills what its command names of it
-    /// ([`crate::version`]), in its arguments and the values of its
+    /// ([`crate::placeholders`]), in its arguments and the values of its
     /// environment. Say so only of the action that writes the version
     /// into what it makes, and name at least one: every other action
     /// stays the same action from one release to the next.
@@ -179,17 +179,20 @@ impl Action {
 
     /// The same action, as a check with a command that changes the files
     /// it found wrong where the checkout is, rewriting those the patterns
-    /// select.
+    /// select, besides any said before.
     #[must_use]
     pub fn fix<P: Into<String>>(
         mut self,
         command: Command,
         rewrites: impl IntoIterator<Item = P>,
     ) -> Self {
-        self.kind = Some(ActionKind::Check(Check {
-            fix: Some(command),
-            rewrites: rewrites.into_iter().map(Into::into).collect(),
-        }));
+        let mut check = match self.kind.take() {
+            Some(ActionKind::Check(check)) => check,
+            _ => Check::default(),
+        };
+        check.fix = Some(command);
+        check.rewrites.extend(rewrites.into_iter().map(Into::into));
+        self.kind = Some(ActionKind::Check(check));
         self
     }
 

@@ -1,5 +1,5 @@
+use frontseat_plugin::placeholders;
 use frontseat_plugin::prelude::*;
-use frontseat_plugin::version;
 
 pub(crate) struct GitHubPlugin;
 
@@ -21,15 +21,15 @@ const CREATE: [&str; 13] = [
     "gh",
     "release",
     "create",
-    version::TAG,
-    "{frontseat.artifacts}",
+    placeholders::TAG,
+    placeholders::ARTIFACTS,
     "--repo",
-    "{frontseat.remote}",
+    placeholders::REMOTE,
     "--verify-tag",
     "--title",
-    version::TAG,
+    placeholders::TAG,
     "--notes-file",
-    "{frontseat.notes}",
+    placeholders::NOTES,
     "--prerelease={frontseat.prerelease}",
 ];
 
@@ -140,14 +140,14 @@ mod tests {
                 "release",
                 "create",
                 "{frontseat.tag}",
-                "{frontseat.artifacts}",
+                placeholders::ARTIFACTS,
                 "--repo",
-                "{frontseat.remote}",
+                placeholders::REMOTE,
                 "--verify-tag",
                 "--title",
                 "{frontseat.tag}",
                 "--notes-file",
-                "{frontseat.notes}",
+                placeholders::NOTES,
                 "--prerelease={frontseat.prerelease}",
             ]
         );

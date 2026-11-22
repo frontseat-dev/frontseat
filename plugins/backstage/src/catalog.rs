@@ -88,7 +88,7 @@ impl Document {
         )?;
         let reference =
             entity::reference(&self.kind, &self.metadata.namespace, &self.metadata.name)
-                .map_err(|message| invalid(manifest, message))?;
+                .map_err(|error| invalid(manifest, error.message))?;
         if !crate::metadata::api_version(&self.api_version) {
             return Err(invalid(
                 manifest,
