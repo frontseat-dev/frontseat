@@ -27,6 +27,10 @@ jobs:
       # text, and no image anyone pulls. The two say the same, or no
       # worker takes an action.
       GRID_WORKERS: docker://frontseat.dev/workers/v1
+      # The tenant's mirror as cargo reaches it: its cargo remote
+      # (frontseat-enterprise, the fleet's bundled mirror's cargo-proxy).
+      # A runner reaches no registry itself.
+      MIRROR_CARGO: sparse+http://mirror-backend.frontseat.svc:8080/cargo/cargo-proxy/
       MISE_YES: "1"
     steps:
       # All of the history, since a release is planned from it, and no
@@ -44,6 +48,14 @@ jobs:
         run: |
           mise trust
           mise install
+      # cargo has no variable that replaces a registry, as Go and npm have,
+      # which the runner carries: it is told in its own configuration, in
+      # the runner's home, which lasts as long as the job.
+      - name: Point cargo at the mirror
+        run: |
+          home="${CARGO_HOME:-$HOME/.cargo}"
+          mkdir -p "$home"
+          printf '[source.crates-io]\nreplace-with = "mirror"\n\n[source.mirror]\nregistry = "%s"\n' "$MIRROR_CARGO" > "$home/config.toml"
       # Until a released frontseat is installed here by mise, this checkout
       # builds the frontseat that builds it.
       - name: Build frontseat's programs and plugins
