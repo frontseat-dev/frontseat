@@ -64,7 +64,7 @@ impl Plugin for CargoPlugin {
         repo: &Repository,
         root: &str,
         _actions: &[String],
-        handed: &[Handed],
+        handed: &[Handoff],
     ) -> Result<Vec<File>, Error> {
         repo.pinned(RUST, &join(root, "Cargo.toml"))?;
         let Some(mut own) = read(repo, root)? else {
@@ -225,7 +225,7 @@ impl Plugin for CargoPlugin {
             root: root.into(),
             kind: "cargo-package".into(),
             name: package.name.clone(),
-            provides: vec![Provide {
+            provides: vec![Provision {
                 coordinate: Some(Coordinate {
                     ecosystem: "cargo".into(),
                     name: package.name.clone(),

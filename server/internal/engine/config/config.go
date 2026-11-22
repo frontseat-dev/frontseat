@@ -469,7 +469,7 @@ type Option struct {
 
 // Check holds everything set of a plugin, anywhere in the repository, to
 // the options the plugin declared.
-func (r *Repository) Check(plugin string, declared []*pluginv1.Option) error {
+func (r *Repository) Check(plugin string, declared []*pluginv1.OptionDeclaration) error {
 	if _, err := r.settle(plugin, declared, nil); err != nil {
 		return err
 	}
@@ -490,7 +490,7 @@ func (r *Repository) Check(plugin string, declared []*pluginv1.Option) error {
 
 // Options returns every option a plugin declared, each as it holds for a
 // directory of the repository, sorted by name.
-func (r *Repository) Options(plugin string, declared []*pluginv1.Option, directory string) ([]Option, error) {
+func (r *Repository) Options(plugin string, declared []*pluginv1.OptionDeclaration, directory string) ([]Option, error) {
 	held := map[string]Option{}
 	for _, option := range declared {
 		held[option.GetName()] = Option{Name: option.GetName(), Value: option.GetDefault()}
@@ -524,14 +524,14 @@ func (r *Repository) Options(plugin string, declared []*pluginv1.Option, directo
 
 // settle reads what one place sets of a plugin, the repository's file or
 // an entity's, against what the plugin declared.
-func (r *Repository) settle(plugin string, declared []*pluginv1.Option, entity *scope) (map[string]Option, error) {
+func (r *Repository) settle(plugin string, declared []*pluginv1.OptionDeclaration, entity *scope) (map[string]Option, error) {
 	file, set := r.origin(File), r.repository[plugin]
 	if entity != nil {
 		file, set = entity.file, entity.plugins[plugin]
 	}
 	out := map[string]Option{}
 	for name, node := range set {
-		var option *pluginv1.Option
+		var option *pluginv1.OptionDeclaration
 		for _, d := range declared {
 			if d.GetName() == name {
 				option = d
@@ -556,7 +556,7 @@ func (r *Repository) settle(plugin string, declared []*pluginv1.Option, entity *
 }
 
 // taken says which options a plugin takes, for whoever misspelt one.
-func taken(declared []*pluginv1.Option) string {
+func taken(declared []*pluginv1.OptionDeclaration) string {
 	if len(declared) == 0 {
 		return "; it takes none"
 	}
@@ -569,16 +569,16 @@ func taken(declared []*pluginv1.Option) string {
 }
 
 // valueOf reads a value as the kind its option takes.
-func valueOf(option *pluginv1.Option, node *yaml.Node) (*typev1.OptionValue, error) {
+func valueOf(option *pluginv1.OptionDeclaration, node *yaml.Node) (*typev1.OptionValue, error) {
 	name := option.GetName()
 	scalar := func(tag string) bool { return node.Kind == yaml.ScalarNode && node.ShortTag() == tag }
 	switch option.GetKind() {
-	case pluginv1.Option_KIND_STRING:
+	case pluginv1.OptionDeclaration_KIND_STRING:
 		if !scalar("!!str") {
 			return nil, fmt.Errorf("%s is text", name)
 		}
 		return &typev1.OptionValue{Value: &typev1.OptionValue_StringValue{StringValue: node.Value}}, nil
-	case pluginv1.Option_KIND_BOOL:
+	case pluginv1.OptionDeclaration_KIND_BOOL:
 		// YAML writes true as true, True or TRUE: what was meant is read
 		// from the value, not from how it was spelt.
 		var on bool
@@ -586,13 +586,13 @@ func valueOf(option *pluginv1.Option, node *yaml.Node) (*typev1.OptionValue, err
 			return nil, fmt.Errorf("%s is true or false", name)
 		}
 		return &typev1.OptionValue{Value: &typev1.OptionValue_BoolValue{BoolValue: on}}, nil
-	case pluginv1.Option_KIND_INT:
+	case pluginv1.OptionDeclaration_KIND_INT:
 		var number int64
 		if !scalar("!!int") || node.Decode(&number) != nil {
 			return nil, fmt.Errorf("%s is a whole number", name)
 		}
 		return &typev1.OptionValue{Value: &typev1.OptionValue_IntValue{IntValue: number}}, nil
-	case pluginv1.Option_KIND_STRING_LIST:
+	case pluginv1.OptionDeclaration_KIND_STRING_LIST:
 		if node.Kind != yaml.SequenceNode {
 			return nil, fmt.Errorf("%s is a list", name)
 		}
@@ -604,7 +604,7 @@ func valueOf(option *pluginv1.Option, node *yaml.Node) (*typev1.OptionValue, err
 			items = append(items, item.Value)
 		}
 		return &typev1.OptionValue{Value: &typev1.OptionValue_StringListValue{StringListValue: &typev1.OptionValue_StringList{Values: items}}}, nil
-	case pluginv1.Option_KIND_DURATION:
+	case pluginv1.OptionDeclaration_KIND_DURATION:
 		// A length of time says its unit, as Go writes one: 90s, 10m,
 		// 1h30m. A bare number says none, and is refused.
 		length, err := time.ParseDuration(node.Value)
@@ -612,7 +612,7 @@ func valueOf(option *pluginv1.Option, node *yaml.Node) (*typev1.OptionValue, err
 			return nil, fmt.Errorf("%s is a length of time, not below zero, as 90s or 10m", name)
 		}
 		return &typev1.OptionValue{Value: &typev1.OptionValue_DurationValue{DurationValue: durationpb.New(length)}}, nil
-	case pluginv1.Option_KIND_STRING_MAP:
+	case pluginv1.OptionDeclaration_KIND_STRING_MAP:
 		if node.Kind != yaml.MappingNode {
 			return nil, fmt.Errorf("%s is a map of text by name", name)
 		}

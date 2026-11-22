@@ -15,13 +15,13 @@ import (
 
 // bounded are options that say what a value may be: a length of time, a
 // map whose values are words, a bounded number and a worded list.
-func bounded() []*pluginv1.Option {
+func bounded() []*pluginv1.OptionDeclaration {
 	least, most := int64(1), int64(8)
-	return []*pluginv1.Option{
-		{Name: "timeout", Kind: pluginv1.Option_KIND_DURATION, Default: &typev1.OptionValue{Value: &typev1.OptionValue_DurationValue{DurationValue: durationpb.New(10 * time.Minute)}}},
-		{Name: "variables", Kind: pluginv1.Option_KIND_STRING_MAP, Allowed: []string{"version", "commit"}, Default: &typev1.OptionValue{Value: &typev1.OptionValue_StringMapValue{StringMapValue: &typev1.OptionValue_StringMap{}}}},
-		{Name: "shards", Kind: pluginv1.Option_KIND_INT, Minimum: &least, Maximum: &most, Default: &typev1.OptionValue{Value: &typev1.OptionValue_IntValue{IntValue: 1}}},
-		{Name: "levels", Kind: pluginv1.Option_KIND_STRING_LIST, Allowed: []string{"low", "high"}, Default: &typev1.OptionValue{Value: &typev1.OptionValue_StringListValue{StringListValue: &typev1.OptionValue_StringList{}}}},
+	return []*pluginv1.OptionDeclaration{
+		{Name: "timeout", Kind: pluginv1.OptionDeclaration_KIND_DURATION, Default: &typev1.OptionValue{Value: &typev1.OptionValue_DurationValue{DurationValue: durationpb.New(10 * time.Minute)}}},
+		{Name: "variables", Kind: pluginv1.OptionDeclaration_KIND_STRING_MAP, Allowed: []string{"version", "commit"}, Default: &typev1.OptionValue{Value: &typev1.OptionValue_StringMapValue{StringMapValue: &typev1.OptionValue_StringMap{}}}},
+		{Name: "shards", Kind: pluginv1.OptionDeclaration_KIND_INT, Minimum: &least, Maximum: &most, Default: &typev1.OptionValue{Value: &typev1.OptionValue_IntValue{IntValue: 1}}},
+		{Name: "levels", Kind: pluginv1.OptionDeclaration_KIND_STRING_LIST, Allowed: []string{"low", "high"}, Default: &typev1.OptionValue{Value: &typev1.OptionValue_StringListValue{StringListValue: &typev1.OptionValue_StringList{}}}},
 	}
 }
 

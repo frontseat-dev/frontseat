@@ -57,8 +57,8 @@ use std::path::Path;
 
 use frontseat_plugin::{
     wire, AnalyzeResponse, ArrangeResponse, BranchRequest, BranchResponse, Code, DescribeResponse,
-    Error, Handed, Host, Plugin, Printed, Profile, ReconcileResponse, ReportResponse, Repository,
-    Resolved, Service, ServiceResponse, Value, VersionRequest, VersionResponse,
+    EntityDependencies, Error, Handoff, Host, Plugin, Printed, Profile, ReconcileResponse,
+    ReportResponse, Repository, Service, ServiceResponse, Value, VersionRequest, VersionResponse,
 };
 use prost::Message;
 
@@ -548,7 +548,7 @@ impl<P: Plugin> TestPlugin<P> {
         context: &TestContext,
         root: &str,
         actions: &[&str],
-        handed: &[Handed],
+        handed: &[Handoff],
     ) -> Answer<ArrangeResponse> {
         self.ask(
             host,
@@ -591,7 +591,7 @@ impl<P: Plugin> TestPlugin<P> {
         host: &TestHost,
         context: &TestContext,
         root: &str,
-        entities: &[Resolved],
+        entities: &[EntityDependencies],
     ) -> Answer<ReconcileResponse> {
         self.ask(
             host,

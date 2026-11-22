@@ -7,7 +7,7 @@ mod fixture;
 use frontseat_plugin::Input;
 use frontseat_plugin::{
     Action, ActionKind, Analysis, Build, Code, Command, Coordinate, Description, Error, File,
-    Handed, InputSet, Origin, Plugin, Project, Provide, Repository, Requirement,
+    Handoff, InputSet, Origin, Plugin, Project, Provision, Repository, Requirement,
 };
 
 struct Cohabiting;
@@ -46,7 +46,7 @@ impl Plugin for Cohabiting {
                 kind: "contract-fixture".into(),
                 name: provided.clone(),
                 manifest: manifest.clone(),
-                provides: vec![Provide {
+                provides: vec![Provision {
                     coordinate: Some(Coordinate {
                         ecosystem: "go".into(),
                         name: provided,
@@ -95,7 +95,7 @@ impl Plugin for Cohabiting {
         _: &Repository,
         _: &str,
         _: &[String],
-        _: &[Handed],
+        _: &[Handoff],
     ) -> Result<Vec<File>, Error> {
         // cmp reads the declared dependency placement directly.
         Ok(Vec::new())

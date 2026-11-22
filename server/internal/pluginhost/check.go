@@ -584,7 +584,7 @@ func checkProject(plugin, root string, project *pluginv1.Project, found map[stri
 // Each provided artifact is one declared output of the provider itself.
 // Consumers know the coordinate, never these private action names.
 func checkProvidedArtifacts(project *pluginv1.Project) error {
-	if !slices.ContainsFunc(project.GetProvides(), func(p *pluginv1.Provide) bool { return len(p.GetArtifacts()) > 0 }) {
+	if !slices.ContainsFunc(project.GetProvides(), func(p *pluginv1.Provision) bool { return len(p.GetArtifacts()) > 0 }) {
 		return nil
 	}
 	actions := make(map[string]*pluginv1.Action, len(project.GetActions()))

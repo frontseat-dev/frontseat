@@ -21,7 +21,7 @@ func sound() *pluginv1.AnalyzeResponse {
 		Kind:     "go-module",
 		Name:     "example.com/hello",
 		Manifest: "services/hello/go.mod",
-		Provides: []*pluginv1.Provide{{Coordinate: &pluginv1.Coordinate{Ecosystem: "go", Name: "example.com/hello"}, Sources: "sources"}},
+		Provides: []*pluginv1.Provision{{Coordinate: &pluginv1.Coordinate{Ecosystem: "go", Name: "example.com/hello"}, Sources: "sources"}},
 		Requires: []*pluginv1.Requirement{{Coordinate: &pluginv1.Coordinate{Ecosystem: "go", Name: "example.com/greet"}, Origin: &pluginv1.Origin{Path: "services/hello/go.mod", Line: 5}}},
 		InputSets: []*pluginv1.InputSet{
 			{Name: "sources", Inputs: []*pluginv1.Input{pluginhost.SourceInput("go.mod"), pluginhost.SourceInput("**/*.go"), pluginhost.SourceInput("!**/testdata/**")}},
@@ -103,7 +103,7 @@ func TestProjectRootAliasesCannotDuplicateIdentity(t *testing.T) {
 	for _, roots := range [][2]string{{"", "."}, {"pkg", "sub/../pkg"}, {"pkg", "./pkg"}, {"pkg", "pkg/"}, {"pkg", "pkg/."}, {"pkg", "pkg"}, {"pkg", "other"}} {
 		var projects []*pluginv1.Project
 		for i, root := range roots {
-			projects = append(projects, &pluginv1.Project{Root: root, Name: "fixture", Kind: "fixture", Manifest: "manifest.toml", Provides: []*pluginv1.Provide{{Coordinate: &pluginv1.Coordinate{Ecosystem: "fixture", Name: []string{"one", "two"}[i]}}}})
+			projects = append(projects, &pluginv1.Project{Root: root, Name: "fixture", Kind: "fixture", Manifest: "manifest.toml", Provides: []*pluginv1.Provision{{Coordinate: &pluginv1.Coordinate{Ecosystem: "fixture", Name: []string{"one", "two"}[i]}}}})
 		}
 		err := pluginhost.CheckAnalysis("fixture", []string{""}, &pluginv1.AnalyzeResponse{Analyses: []*pluginv1.Analysis{{Projects: projects}}})
 		if roots[1] == "other" {

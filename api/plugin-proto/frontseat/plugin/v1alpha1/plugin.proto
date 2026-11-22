@@ -104,24 +104,24 @@ message Context {
   // Profile is the way the source is to be built. A plugin declares the
   // commands of that way: its compiler flags and its tools' own switches.
   // It is never unspecified.
-  frontseat.type.v1alpha1.Profile profile = 7;
+  frontseat.type.v1alpha1.Profile profile = 3;
   // Platforms are the platforms what the plugin is asked about is
   // shipped for, as its entity says (spec.frontseat.platforms), each an
   // operating system and an architecture as "linux/amd64": what a
   // project's package actions are made for. None, where its entity says
   // none; a plugin whose tool makes what is the same on every platform
   // makes nothing of them.
-  repeated string platforms = 8;
+  repeated string platforms = 4;
 }
 
-// Option is an option a plugin takes: something a repository, or an
-// entity, may set of how the plugin builds. The host checks what is set
+// OptionDeclaration is an option a plugin takes: something a repository,
+// or an entity, may set of how the plugin builds. The host checks what is set
 // against it, where it is written, and hands the plugin every option it
 // declared, each with the value that holds where the plugin is asked. A
 // value the option does not take is refused at the file and line that
 // wrote it, so a plugin need not check its kind, its bounds or the
 // words it allows.
-message Option {
+message OptionDeclaration {
   // Name is what it is set by, lower-case words of [a-z0-9] joined by
   // single hyphens.
   string name = 1;
@@ -181,21 +181,21 @@ message DescribeResponse {
   // Interests are patterns of the files it reads, relative to a
   // repository, in the pattern language host.proto says. The host calls
   // Analyze only for a directory that holds a file they select.
-  repeated string interests = 5;
+  repeated string interests = 2;
   // Options are the options it takes. A repository or an entity can set
   // these and no others.
-  repeated Option options = 6;
+  repeated OptionDeclaration options = 3;
   // Generates_sources says Analyze declares generated source regions from
   // committed manifests. The host asks these plugins before other plugins and
   // refuses discovery that reads any generated region. No action runs during
   // analysis; generated files cannot supply analysis metadata.
-  bool generates_sources = 7;
+  bool generates_sources = 4;
   // Release is what it serves of releasing; unset, nothing.
-  ReleaseRoles release = 8;
+  ReleaseRoles release = 5;
   // Services are the names it answers Service for, as an entity's
   // service names what it is, lower-case [a-z0-9-]: "postgres". The
   // host refuses a name two plugins of a repository claim.
-  repeated string services = 9;
+  repeated string services = 6;
 }
 
 // ServiceRequest asks how a service of a name the plugin claims is
@@ -283,11 +283,11 @@ message ArrangeRequest {
   repeated string actions = 3;
   // Handed is what they were handed, in the order it was found: what the
   // project requires first, then what that requires.
-  repeated Handed handed = 4;
+  repeated Handoff handed = 4;
 }
 
-// Handed is something a project was handed.
-message Handed {
+// Handoff is something a project was handed.
+message Handoff {
   // Coordinate is what it is required by.
   Coordinate coordinate = 1;
   // Into is the directory it was placed in, relative to the project.
@@ -318,7 +318,7 @@ message Project {
   string manifest = 4;
   // Provides are the coordinates it can be required by, each with what
   // a project that requires it is handed.
-  repeated Provide provides = 5;
+  repeated Provision provides = 5;
   // Requires are what it needs of other projects and of the world.
   repeated Requirement requires = 6;
   // Actions are its actions.
@@ -385,11 +385,11 @@ message Coordinate {
   string name = 2;
 }
 
-// Provide is a coordinate a project can be required by, and what a
+// Provision is a coordinate a project can be required by, and what a
 // project that requires it is handed. A plugin never names another
 // project's files: it says what its own project hands over, and the host
 // hands it to whatever requires the coordinate.
-message Provide {
+message Provision {
   // Coordinate is what it is required by.
   Coordinate coordinate = 1;
   // Sources is the name of an input set of the project: the files handed
@@ -402,12 +402,12 @@ message Provide {
   // Output.optional is inherited: a missing required output fails, while
   // a missing optional output contributes no files. Home outputs and shared
   // fetches are not served here.
-  repeated Produced artifacts = 3;
+  repeated OutputRef artifacts = 3;
 }
 
-// Produced selects one declared output, without exposing another plugin's
+// OutputRef selects one declared output, without exposing another plugin's
 // action names to consumers of the providing coordinate.
-message Produced {
+message OutputRef {
   // Action is the producing action's name in the providing project.
   string action = 1;
   // Output is an exact project-relative output of that action.
@@ -424,13 +424,13 @@ message Requirement {
   // the host refuses a requirement without a file and a line. An edge
   // is shown with it, so that whoever asks why one project needs another
   // is pointed at the line.
-  Origin origin = 5;
+  Origin origin = 2;
   // Version is the version the project's own files resolve it to, as the
   // ecosystem spells it: v1.2.3 for Go (its go.mod, whose versions the
   // go.sum locks), 1.2.3 for Cargo (Cargo.lock). Empty where they say
   // none. Where the workspace provides it, what is built is the
   // provider's source, whatever this says.
-  string version = 6;
+  string version = 3;
 }
 
 // Origin is a place in a file of the repository.
@@ -745,7 +745,7 @@ message DependencyInput {
   // Into is required: a directory relative to the consuming project, with
   // {name} replaced by each handed coordinate's name, or {root} alone to
   // preserve the provider's directory in the same repository. The host tells
-  // the plugin the resolved relative directory in Handed.into. Artifact-only
+  // the plugin the resolved relative directory in Handoff.into. Artifact-only
   // handoffs at the same root may use "."; sources may not cover their own
   // root. Artifact paths retain their provider-relative layout beneath Into.
   string into = 3;
@@ -843,13 +843,13 @@ message Output {
   // which every action has of its own: where a tool keeps what it
   // fetched, and where an action that needs it finds it without being
   // told.
-  string path = 2;
+  string path = 1;
   // Optional says the action may pass without leaving it: its tool
   // writes it for some of what it is given and not for the rest, and
   // what was given cannot be told apart beforehand. An action that
   // needs this one then finds nothing there. Without it, an action that
   // passes and does not leave an output has failed.
-  bool optional = 3;
+  bool optional = 2;
 }
 
 // InputSet is inputs declared once, by name.
@@ -859,7 +859,7 @@ message InputSet {
   // Inputs are patterns relative to the project, or other sets. A set
   // is of source: what an action left is named in an action's own
   // inputs, never in a set.
-  repeated Input inputs = 4;
+  repeated Input inputs = 2;
   // Accepts_generated includes generated contributions selected by these
   // patterns. Nested sets retain their own selections; exclusions in the
   // final action or provider selection still apply. Snapshot-only inputs do
@@ -894,12 +894,13 @@ message ReconcileRequest {
   string root = 2;
   // Entities are the entities of files out of step, with what the
   // source says of each.
-  repeated Resolved entities = 3;
+  repeated EntityDependencies entities = 3;
 }
 
-// Resolved is an entity and what the source says of it: components only,
-// since only components are inferred.
-message Resolved {
+// EntityDependencies is an entity and what the source says it depends on
+// and is depended on by: components only, since only components are
+// inferred.
+message EntityDependencies {
   // Ref is the entity, as the plugin answered it.
   frontseat.type.v1alpha1.EntityRef ref = 1;
   // Manifest is the file that describes it, relative to the repository.

@@ -326,7 +326,7 @@ fn served_plugin_arranges_local_dependencies_using_the_pinned_tool() {
     let host = TestHost::new(files(false, false));
     let unpinned = plugin.context(Profile::Development);
     let pinned = unpinned.clone().tool("go", "1.27.3");
-    let handed = Handed {
+    let handed = Handoff {
         coordinate: Some(Coordinate {
             ecosystem: "go".into(),
             name: "example.com/dep".into(),

@@ -49,30 +49,30 @@ const (
 )
 
 // Kind is a kind of value an option takes.
-type Option_Kind int32
+type OptionDeclaration_Kind int32
 
 const (
 	// KIND_UNSPECIFIED: not said; such an option is refused.
-	Option_KIND_UNSPECIFIED Option_Kind = 0
+	OptionDeclaration_KIND_UNSPECIFIED OptionDeclaration_Kind = 0
 	// KIND_STRING: text.
-	Option_KIND_STRING Option_Kind = 1
+	OptionDeclaration_KIND_STRING OptionDeclaration_Kind = 1
 	// KIND_BOOL: true or false.
-	Option_KIND_BOOL Option_Kind = 2
+	OptionDeclaration_KIND_BOOL OptionDeclaration_Kind = 2
 	// KIND_INT: a signed 64-bit integer.
-	Option_KIND_INT Option_Kind = 3
+	OptionDeclaration_KIND_INT OptionDeclaration_Kind = 3
 	// KIND_STRING_LIST: a list of text. A setting replaces the whole list.
-	Option_KIND_STRING_LIST Option_Kind = 4
+	OptionDeclaration_KIND_STRING_LIST OptionDeclaration_Kind = 4
 	// KIND_DURATION: a length of time, never below zero, written as Go's
 	// time.ParseDuration reads one: "90s", "10m", "1h30m".
-	Option_KIND_DURATION Option_Kind = 5
+	OptionDeclaration_KIND_DURATION OptionDeclaration_Kind = 5
 	// KIND_STRING_MAP: text by name, written as a YAML map, each name
 	// said once. A setting replaces the whole map.
-	Option_KIND_STRING_MAP Option_Kind = 6
+	OptionDeclaration_KIND_STRING_MAP OptionDeclaration_Kind = 6
 )
 
-// Enum value maps for Option_Kind.
+// Enum value maps for OptionDeclaration_Kind.
 var (
-	Option_Kind_name = map[int32]string{
+	OptionDeclaration_Kind_name = map[int32]string{
 		0: "KIND_UNSPECIFIED",
 		1: "KIND_STRING",
 		2: "KIND_BOOL",
@@ -81,7 +81,7 @@ var (
 		5: "KIND_DURATION",
 		6: "KIND_STRING_MAP",
 	}
-	Option_Kind_value = map[string]int32{
+	OptionDeclaration_Kind_value = map[string]int32{
 		"KIND_UNSPECIFIED": 0,
 		"KIND_STRING":      1,
 		"KIND_BOOL":        2,
@@ -92,30 +92,30 @@ var (
 	}
 )
 
-func (x Option_Kind) Enum() *Option_Kind {
-	p := new(Option_Kind)
+func (x OptionDeclaration_Kind) Enum() *OptionDeclaration_Kind {
+	p := new(OptionDeclaration_Kind)
 	*p = x
 	return p
 }
 
-func (x Option_Kind) String() string {
+func (x OptionDeclaration_Kind) String() string {
 	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
 }
 
-func (Option_Kind) Descriptor() protoreflect.EnumDescriptor {
+func (OptionDeclaration_Kind) Descriptor() protoreflect.EnumDescriptor {
 	return file_frontseat_plugin_v1alpha1_plugin_proto_enumTypes[0].Descriptor()
 }
 
-func (Option_Kind) Type() protoreflect.EnumType {
+func (OptionDeclaration_Kind) Type() protoreflect.EnumType {
 	return &file_frontseat_plugin_v1alpha1_plugin_proto_enumTypes[0]
 }
 
-func (x Option_Kind) Number() protoreflect.EnumNumber {
+func (x OptionDeclaration_Kind) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
-// Deprecated: Use Option_Kind.Descriptor instead.
-func (Option_Kind) EnumDescriptor() ([]byte, []int) {
+// Deprecated: Use OptionDeclaration_Kind.Descriptor instead.
+func (OptionDeclaration_Kind) EnumDescriptor() ([]byte, []int) {
 	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{1, 0}
 }
 
@@ -132,14 +132,14 @@ type Context struct {
 	// Profile is the way the source is to be built. A plugin declares the
 	// commands of that way: its compiler flags and its tools' own switches.
 	// It is never unspecified.
-	Profile v1alpha1.Profile `protobuf:"varint,7,opt,name=profile,proto3,enum=frontseat.type.v1alpha1.Profile" json:"profile,omitempty"`
+	Profile v1alpha1.Profile `protobuf:"varint,3,opt,name=profile,proto3,enum=frontseat.type.v1alpha1.Profile" json:"profile,omitempty"`
 	// Platforms are the platforms what the plugin is asked about is
 	// shipped for, as its entity says (spec.frontseat.platforms), each an
 	// operating system and an architecture as "linux/amd64": what a
 	// project's package actions are made for. None, where its entity says
 	// none; a plugin whose tool makes what is the same on every platform
 	// makes nothing of them.
-	Platforms     []string `protobuf:"bytes,8,rep,name=platforms,proto3" json:"platforms,omitempty"`
+	Platforms     []string `protobuf:"bytes,4,rep,name=platforms,proto3" json:"platforms,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -202,14 +202,14 @@ func (x *Context) GetPlatforms() []string {
 	return nil
 }
 
-// Option is an option a plugin takes: something a repository, or an
-// entity, may set of how the plugin builds. The host checks what is set
+// OptionDeclaration is an option a plugin takes: something a repository,
+// or an entity, may set of how the plugin builds. The host checks what is set
 // against it, where it is written, and hands the plugin every option it
 // declared, each with the value that holds where the plugin is asked. A
 // value the option does not take is refused at the file and line that
 // wrote it, so a plugin need not check its kind, its bounds or the
 // words it allows.
-type Option struct {
+type OptionDeclaration struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Name is what it is set by, lower-case words of [a-z0-9] joined by
 	// single hyphens.
@@ -218,7 +218,7 @@ type Option struct {
 	// at most 200 bytes: what whoever sets it reads of it. It is required.
 	Description string `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
 	// Kind is the kind of value it takes.
-	Kind Option_Kind `protobuf:"varint,3,opt,name=kind,proto3,enum=frontseat.plugin.v1alpha1.Option_Kind" json:"kind,omitempty"`
+	Kind OptionDeclaration_Kind `protobuf:"varint,3,opt,name=kind,proto3,enum=frontseat.plugin.v1alpha1.OptionDeclaration_Kind" json:"kind,omitempty"`
 	// Default is its value where nothing sets it, and is held to what the
 	// option takes, as a value set is.
 	Default *v1alpha1.OptionValue `protobuf:"bytes,4,opt,name=default,proto3" json:"default,omitempty"`
@@ -239,20 +239,20 @@ type Option struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *Option) Reset() {
-	*x = Option{}
+func (x *OptionDeclaration) Reset() {
+	*x = OptionDeclaration{}
 	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *Option) String() string {
+func (x *OptionDeclaration) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*Option) ProtoMessage() {}
+func (*OptionDeclaration) ProtoMessage() {}
 
-func (x *Option) ProtoReflect() protoreflect.Message {
+func (x *OptionDeclaration) ProtoReflect() protoreflect.Message {
 	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -264,61 +264,61 @@ func (x *Option) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Option.ProtoReflect.Descriptor instead.
-func (*Option) Descriptor() ([]byte, []int) {
+// Deprecated: Use OptionDeclaration.ProtoReflect.Descriptor instead.
+func (*OptionDeclaration) Descriptor() ([]byte, []int) {
 	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *Option) GetName() string {
+func (x *OptionDeclaration) GetName() string {
 	if x != nil {
 		return x.Name
 	}
 	return ""
 }
 
-func (x *Option) GetDescription() string {
+func (x *OptionDeclaration) GetDescription() string {
 	if x != nil {
 		return x.Description
 	}
 	return ""
 }
 
-func (x *Option) GetKind() Option_Kind {
+func (x *OptionDeclaration) GetKind() OptionDeclaration_Kind {
 	if x != nil {
 		return x.Kind
 	}
-	return Option_KIND_UNSPECIFIED
+	return OptionDeclaration_KIND_UNSPECIFIED
 }
 
-func (x *Option) GetDefault() *v1alpha1.OptionValue {
+func (x *OptionDeclaration) GetDefault() *v1alpha1.OptionValue {
 	if x != nil {
 		return x.Default
 	}
 	return nil
 }
 
-func (x *Option) GetEntitySettable() bool {
+func (x *OptionDeclaration) GetEntitySettable() bool {
 	if x != nil {
 		return x.EntitySettable
 	}
 	return false
 }
 
-func (x *Option) GetMinimum() int64 {
+func (x *OptionDeclaration) GetMinimum() int64 {
 	if x != nil && x.Minimum != nil {
 		return *x.Minimum
 	}
 	return 0
 }
 
-func (x *Option) GetMaximum() int64 {
+func (x *OptionDeclaration) GetMaximum() int64 {
 	if x != nil && x.Maximum != nil {
 		return *x.Maximum
 	}
 	return 0
 }
 
-func (x *Option) GetAllowed() []string {
+func (x *OptionDeclaration) GetAllowed() []string {
 	if x != nil {
 		return x.Allowed
 	}
@@ -373,21 +373,21 @@ type DescribeResponse struct {
 	// Interests are patterns of the files it reads, relative to a
 	// repository, in the pattern language host.proto says. The host calls
 	// Analyze only for a directory that holds a file they select.
-	Interests []string `protobuf:"bytes,5,rep,name=interests,proto3" json:"interests,omitempty"`
+	Interests []string `protobuf:"bytes,2,rep,name=interests,proto3" json:"interests,omitempty"`
 	// Options are the options it takes. A repository or an entity can set
 	// these and no others.
-	Options []*Option `protobuf:"bytes,6,rep,name=options,proto3" json:"options,omitempty"`
+	Options []*OptionDeclaration `protobuf:"bytes,3,rep,name=options,proto3" json:"options,omitempty"`
 	// Generates_sources says Analyze declares generated source regions from
 	// committed manifests. The host asks these plugins before other plugins and
 	// refuses discovery that reads any generated region. No action runs during
 	// analysis; generated files cannot supply analysis metadata.
-	GeneratesSources bool `protobuf:"varint,7,opt,name=generates_sources,json=generatesSources,proto3" json:"generates_sources,omitempty"`
+	GeneratesSources bool `protobuf:"varint,4,opt,name=generates_sources,json=generatesSources,proto3" json:"generates_sources,omitempty"`
 	// Release is what it serves of releasing; unset, nothing.
-	Release *ReleaseRoles `protobuf:"bytes,8,opt,name=release,proto3" json:"release,omitempty"`
+	Release *ReleaseRoles `protobuf:"bytes,5,opt,name=release,proto3" json:"release,omitempty"`
 	// Services are the names it answers Service for, as an entity's
 	// service names what it is, lower-case [a-z0-9-]: "postgres". The
 	// host refuses a name two plugins of a repository claim.
-	Services      []string `protobuf:"bytes,9,rep,name=services,proto3" json:"services,omitempty"`
+	Services      []string `protobuf:"bytes,6,rep,name=services,proto3" json:"services,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -436,7 +436,7 @@ func (x *DescribeResponse) GetInterests() []string {
 	return nil
 }
 
-func (x *DescribeResponse) GetOptions() []*Option {
+func (x *DescribeResponse) GetOptions() []*OptionDeclaration {
 	if x != nil {
 		return x.Options
 	}
@@ -893,7 +893,7 @@ type ArrangeRequest struct {
 	Actions []string `protobuf:"bytes,3,rep,name=actions,proto3" json:"actions,omitempty"`
 	// Handed is what they were handed, in the order it was found: what the
 	// project requires first, then what that requires.
-	Handed        []*Handed `protobuf:"bytes,4,rep,name=handed,proto3" json:"handed,omitempty"`
+	Handed        []*Handoff `protobuf:"bytes,4,rep,name=handed,proto3" json:"handed,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -949,15 +949,15 @@ func (x *ArrangeRequest) GetActions() []string {
 	return nil
 }
 
-func (x *ArrangeRequest) GetHanded() []*Handed {
+func (x *ArrangeRequest) GetHanded() []*Handoff {
 	if x != nil {
 		return x.Handed
 	}
 	return nil
 }
 
-// Handed is something a project was handed.
-type Handed struct {
+// Handoff is something a project was handed.
+type Handoff struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Coordinate is what it is required by.
 	Coordinate *Coordinate `protobuf:"bytes,1,opt,name=coordinate,proto3" json:"coordinate,omitempty"`
@@ -969,20 +969,20 @@ type Handed struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *Handed) Reset() {
-	*x = Handed{}
+func (x *Handoff) Reset() {
+	*x = Handoff{}
 	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *Handed) String() string {
+func (x *Handoff) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*Handed) ProtoMessage() {}
+func (*Handoff) ProtoMessage() {}
 
-func (x *Handed) ProtoReflect() protoreflect.Message {
+func (x *Handoff) ProtoReflect() protoreflect.Message {
 	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -994,19 +994,19 @@ func (x *Handed) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Handed.ProtoReflect.Descriptor instead.
-func (*Handed) Descriptor() ([]byte, []int) {
+// Deprecated: Use Handoff.ProtoReflect.Descriptor instead.
+func (*Handoff) Descriptor() ([]byte, []int) {
 	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{12}
 }
 
-func (x *Handed) GetCoordinate() *Coordinate {
+func (x *Handoff) GetCoordinate() *Coordinate {
 	if x != nil {
 		return x.Coordinate
 	}
 	return nil
 }
 
-func (x *Handed) GetInto() string {
+func (x *Handoff) GetInto() string {
 	if x != nil {
 		return x.Into
 	}
@@ -1076,7 +1076,7 @@ type Project struct {
 	Manifest string `protobuf:"bytes,4,opt,name=manifest,proto3" json:"manifest,omitempty"`
 	// Provides are the coordinates it can be required by, each with what
 	// a project that requires it is handed.
-	Provides []*Provide `protobuf:"bytes,5,rep,name=provides,proto3" json:"provides,omitempty"`
+	Provides []*Provision `protobuf:"bytes,5,rep,name=provides,proto3" json:"provides,omitempty"`
 	// Requires are what it needs of other projects and of the world.
 	Requires []*Requirement `protobuf:"bytes,6,rep,name=requires,proto3" json:"requires,omitempty"`
 	// Actions are its actions.
@@ -1165,7 +1165,7 @@ func (x *Project) GetManifest() string {
 	return ""
 }
 
-func (x *Project) GetProvides() []*Provide {
+func (x *Project) GetProvides() []*Provision {
 	if x != nil {
 		return x.Provides
 	}
@@ -1367,11 +1367,11 @@ func (x *Coordinate) GetName() string {
 	return ""
 }
 
-// Provide is a coordinate a project can be required by, and what a
+// Provision is a coordinate a project can be required by, and what a
 // project that requires it is handed. A plugin never names another
 // project's files: it says what its own project hands over, and the host
 // hands it to whatever requires the coordinate.
-type Provide struct {
+type Provision struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Coordinate is what it is required by.
 	Coordinate *Coordinate `protobuf:"bytes,1,opt,name=coordinate,proto3" json:"coordinate,omitempty"`
@@ -1385,25 +1385,25 @@ type Provide struct {
 	// Output.optional is inherited: a missing required output fails, while
 	// a missing optional output contributes no files. Home outputs and shared
 	// fetches are not served here.
-	Artifacts     []*Produced `protobuf:"bytes,3,rep,name=artifacts,proto3" json:"artifacts,omitempty"`
+	Artifacts     []*OutputRef `protobuf:"bytes,3,rep,name=artifacts,proto3" json:"artifacts,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *Provide) Reset() {
-	*x = Provide{}
+func (x *Provision) Reset() {
+	*x = Provision{}
 	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *Provide) String() string {
+func (x *Provision) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*Provide) ProtoMessage() {}
+func (*Provision) ProtoMessage() {}
 
-func (x *Provide) ProtoReflect() protoreflect.Message {
+func (x *Provision) ProtoReflect() protoreflect.Message {
 	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1415,35 +1415,35 @@ func (x *Provide) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Provide.ProtoReflect.Descriptor instead.
-func (*Provide) Descriptor() ([]byte, []int) {
+// Deprecated: Use Provision.ProtoReflect.Descriptor instead.
+func (*Provision) Descriptor() ([]byte, []int) {
 	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{17}
 }
 
-func (x *Provide) GetCoordinate() *Coordinate {
+func (x *Provision) GetCoordinate() *Coordinate {
 	if x != nil {
 		return x.Coordinate
 	}
 	return nil
 }
 
-func (x *Provide) GetSources() string {
+func (x *Provision) GetSources() string {
 	if x != nil {
 		return x.Sources
 	}
 	return ""
 }
 
-func (x *Provide) GetArtifacts() []*Produced {
+func (x *Provision) GetArtifacts() []*OutputRef {
 	if x != nil {
 		return x.Artifacts
 	}
 	return nil
 }
 
-// Produced selects one declared output, without exposing another plugin's
+// OutputRef selects one declared output, without exposing another plugin's
 // action names to consumers of the providing coordinate.
-type Produced struct {
+type OutputRef struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Action is the producing action's name in the providing project.
 	Action string `protobuf:"bytes,1,opt,name=action,proto3" json:"action,omitempty"`
@@ -1453,20 +1453,20 @@ type Produced struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *Produced) Reset() {
-	*x = Produced{}
+func (x *OutputRef) Reset() {
+	*x = OutputRef{}
 	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *Produced) String() string {
+func (x *OutputRef) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*Produced) ProtoMessage() {}
+func (*OutputRef) ProtoMessage() {}
 
-func (x *Produced) ProtoReflect() protoreflect.Message {
+func (x *OutputRef) ProtoReflect() protoreflect.Message {
 	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1478,19 +1478,19 @@ func (x *Produced) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Produced.ProtoReflect.Descriptor instead.
-func (*Produced) Descriptor() ([]byte, []int) {
+// Deprecated: Use OutputRef.ProtoReflect.Descriptor instead.
+func (*OutputRef) Descriptor() ([]byte, []int) {
 	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{18}
 }
 
-func (x *Produced) GetAction() string {
+func (x *OutputRef) GetAction() string {
 	if x != nil {
 		return x.Action
 	}
 	return ""
 }
 
-func (x *Produced) GetOutput() string {
+func (x *OutputRef) GetOutput() string {
 	if x != nil {
 		return x.Output
 	}
@@ -1508,13 +1508,13 @@ type Requirement struct {
 	// the host refuses a requirement without a file and a line. An edge
 	// is shown with it, so that whoever asks why one project needs another
 	// is pointed at the line.
-	Origin *Origin `protobuf:"bytes,5,opt,name=origin,proto3" json:"origin,omitempty"`
+	Origin *Origin `protobuf:"bytes,2,opt,name=origin,proto3" json:"origin,omitempty"`
 	// Version is the version the project's own files resolve it to, as the
 	// ecosystem spells it: v1.2.3 for Go (its go.mod, whose versions the
 	// go.sum locks), 1.2.3 for Cargo (Cargo.lock). Empty where they say
 	// none. Where the workspace provides it, what is built is the
 	// provider's source, whatever this says.
-	Version       string `protobuf:"bytes,6,opt,name=version,proto3" json:"version,omitempty"`
+	Version       string `protobuf:"bytes,3,opt,name=version,proto3" json:"version,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2553,7 +2553,7 @@ type DependencyInput struct {
 	// Into is required: a directory relative to the consuming project, with
 	// {name} replaced by each handed coordinate's name, or {root} alone to
 	// preserve the provider's directory in the same repository. The host tells
-	// the plugin the resolved relative directory in Handed.into. Artifact-only
+	// the plugin the resolved relative directory in Handoff.into. Artifact-only
 	// handoffs at the same root may use "."; sources may not cover their own
 	// root. Artifact paths retain their provider-relative layout beneath Into.
 	Into          string `protobuf:"bytes,3,opt,name=into,proto3" json:"into,omitempty"`
@@ -3067,13 +3067,13 @@ type Output struct {
 	// which every action has of its own: where a tool keeps what it
 	// fetched, and where an action that needs it finds it without being
 	// told.
-	Path string `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
+	Path string `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
 	// Optional says the action may pass without leaving it: its tool
 	// writes it for some of what it is given and not for the rest, and
 	// what was given cannot be told apart beforehand. An action that
 	// needs this one then finds nothing there. Without it, an action that
 	// passes and does not leave an output has failed.
-	Optional      bool `protobuf:"varint,3,opt,name=optional,proto3" json:"optional,omitempty"`
+	Optional      bool `protobuf:"varint,2,opt,name=optional,proto3" json:"optional,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3130,7 +3130,7 @@ type InputSet struct {
 	// Inputs are patterns relative to the project, or other sets. A set
 	// is of source: what an action left is named in an action's own
 	// inputs, never in a set.
-	Inputs []*Input `protobuf:"bytes,4,rep,name=inputs,proto3" json:"inputs,omitempty"`
+	Inputs []*Input `protobuf:"bytes,2,rep,name=inputs,proto3" json:"inputs,omitempty"`
 	// Accepts_generated includes generated contributions selected by these
 	// patterns. Nested sets retain their own selections; exclusions in the
 	// final action or provider selection still apply. Snapshot-only inputs do
@@ -3273,7 +3273,7 @@ type ReconcileRequest struct {
 	Root string `protobuf:"bytes,2,opt,name=root,proto3" json:"root,omitempty"`
 	// Entities are the entities of files out of step, with what the
 	// source says of each.
-	Entities      []*Resolved `protobuf:"bytes,3,rep,name=entities,proto3" json:"entities,omitempty"`
+	Entities      []*EntityDependencies `protobuf:"bytes,3,rep,name=entities,proto3" json:"entities,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3322,16 +3322,17 @@ func (x *ReconcileRequest) GetRoot() string {
 	return ""
 }
 
-func (x *ReconcileRequest) GetEntities() []*Resolved {
+func (x *ReconcileRequest) GetEntities() []*EntityDependencies {
 	if x != nil {
 		return x.Entities
 	}
 	return nil
 }
 
-// Resolved is an entity and what the source says of it: components only,
-// since only components are inferred.
-type Resolved struct {
+// EntityDependencies is an entity and what the source says it depends on
+// and is depended on by: components only, since only components are
+// inferred.
+type EntityDependencies struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Ref is the entity, as the plugin answered it.
 	Ref *v1alpha1.EntityRef `protobuf:"bytes,1,opt,name=ref,proto3" json:"ref,omitempty"`
@@ -3346,20 +3347,20 @@ type Resolved struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *Resolved) Reset() {
-	*x = Resolved{}
+func (x *EntityDependencies) Reset() {
+	*x = EntityDependencies{}
 	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *Resolved) String() string {
+func (x *EntityDependencies) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*Resolved) ProtoMessage() {}
+func (*EntityDependencies) ProtoMessage() {}
 
-func (x *Resolved) ProtoReflect() protoreflect.Message {
+func (x *EntityDependencies) ProtoReflect() protoreflect.Message {
 	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -3371,33 +3372,33 @@ func (x *Resolved) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Resolved.ProtoReflect.Descriptor instead.
-func (*Resolved) Descriptor() ([]byte, []int) {
+// Deprecated: Use EntityDependencies.ProtoReflect.Descriptor instead.
+func (*EntityDependencies) Descriptor() ([]byte, []int) {
 	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{42}
 }
 
-func (x *Resolved) GetRef() *v1alpha1.EntityRef {
+func (x *EntityDependencies) GetRef() *v1alpha1.EntityRef {
 	if x != nil {
 		return x.Ref
 	}
 	return nil
 }
 
-func (x *Resolved) GetManifest() string {
+func (x *EntityDependencies) GetManifest() string {
 	if x != nil {
 		return x.Manifest
 	}
 	return ""
 }
 
-func (x *Resolved) GetDependsOn() []*v1alpha1.EntityRef {
+func (x *EntityDependencies) GetDependsOn() []*v1alpha1.EntityRef {
 	if x != nil {
 		return x.DependsOn
 	}
 	return nil
 }
 
-func (x *Resolved) GetDependencyOf() []*v1alpha1.EntityRef {
+func (x *EntityDependencies) GetDependencyOf() []*v1alpha1.EntityRef {
 	if x != nil {
 		return x.DependencyOf
 	}
@@ -3538,19 +3539,19 @@ const file_frontseat_plugin_v1alpha1_plugin_proto_rawDesc = "" +
 	"\aContext\x12I\n" +
 	"\aoptions\x18\x01 \x03(\v2/.frontseat.plugin.v1alpha1.Context.OptionsEntryR\aoptions\x12C\n" +
 	"\x05tools\x18\x02 \x03(\v2-.frontseat.plugin.v1alpha1.Context.ToolsEntryR\x05tools\x12:\n" +
-	"\aprofile\x18\a \x01(\x0e2 .frontseat.type.v1alpha1.ProfileR\aprofile\x12\x1c\n" +
-	"\tplatforms\x18\b \x03(\tR\tplatforms\x1a`\n" +
+	"\aprofile\x18\x03 \x01(\x0e2 .frontseat.type.v1alpha1.ProfileR\aprofile\x12\x1c\n" +
+	"\tplatforms\x18\x04 \x03(\tR\tplatforms\x1a`\n" +
 	"\fOptionsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12:\n" +
 	"\x05value\x18\x02 \x01(\v2$.frontseat.type.v1alpha1.OptionValueR\x05value:\x028\x01\x1a8\n" +
 	"\n" +
 	"ToolsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xde\x03\n" +
-	"\x06Option\x12\x12\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xf4\x03\n" +
+	"\x11OptionDeclaration\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
-	"\vdescription\x18\x02 \x01(\tR\vdescription\x12:\n" +
-	"\x04kind\x18\x03 \x01(\x0e2&.frontseat.plugin.v1alpha1.Option.KindR\x04kind\x12>\n" +
+	"\vdescription\x18\x02 \x01(\tR\vdescription\x12E\n" +
+	"\x04kind\x18\x03 \x01(\x0e21.frontseat.plugin.v1alpha1.OptionDeclaration.KindR\x04kind\x12>\n" +
 	"\adefault\x18\x04 \x01(\v2$.frontseat.type.v1alpha1.OptionValueR\adefault\x12'\n" +
 	"\x0fentity_settable\x18\x05 \x01(\bR\x0eentitySettable\x12\x1d\n" +
 	"\aminimum\x18\x06 \x01(\x03H\x00R\aminimum\x88\x01\x01\x12\x1d\n" +
@@ -3568,14 +3569,14 @@ const file_frontseat_plugin_v1alpha1_plugin_proto_rawDesc = "" +
 	"\b_minimumB\n" +
 	"\n" +
 	"\b_maximum\"\x11\n" +
-	"\x0fDescribeRequest\"\x8d\x02\n" +
+	"\x0fDescribeRequest\"\x98\x02\n" +
 	"\x10DescribeResponse\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1c\n" +
-	"\tinterests\x18\x05 \x03(\tR\tinterests\x12;\n" +
-	"\aoptions\x18\x06 \x03(\v2!.frontseat.plugin.v1alpha1.OptionR\aoptions\x12+\n" +
-	"\x11generates_sources\x18\a \x01(\bR\x10generatesSources\x12A\n" +
-	"\arelease\x18\b \x01(\v2'.frontseat.plugin.v1alpha1.ReleaseRolesR\arelease\x12\x1a\n" +
-	"\bservices\x18\t \x03(\tR\bservices\"`\n" +
+	"\tinterests\x18\x02 \x03(\tR\tinterests\x12F\n" +
+	"\aoptions\x18\x03 \x03(\v2,.frontseat.plugin.v1alpha1.OptionDeclarationR\aoptions\x12+\n" +
+	"\x11generates_sources\x18\x04 \x01(\bR\x10generatesSources\x12A\n" +
+	"\arelease\x18\x05 \x01(\v2'.frontseat.plugin.v1alpha1.ReleaseRolesR\arelease\x12\x1a\n" +
+	"\bservices\x18\x06 \x03(\tR\bservices\"`\n" +
 	"\x0eServiceRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12:\n" +
 	"\awritten\x18\x02 \x01(\v2 .frontseat.type.v1alpha1.ServiceR\awritten\"M\n" +
@@ -3598,25 +3599,25 @@ const file_frontseat_plugin_v1alpha1_plugin_proto_rawDesc = "" +
 	"\x0eEntityRelation\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\tR\x04type\x12:\n" +
 	"\x06target\x18\x02 \x01(\v2\".frontseat.type.v1alpha1.EntityRefR\x06target\x12!\n" +
-	"\finverse_type\x18\x03 \x01(\tR\vinverseType\"\xb7\x01\n" +
+	"\finverse_type\x18\x03 \x01(\tR\vinverseType\"\xb8\x01\n" +
 	"\x0eArrangeRequest\x12<\n" +
 	"\acontext\x18\x01 \x01(\v2\".frontseat.plugin.v1alpha1.ContextR\acontext\x12\x12\n" +
 	"\x04root\x18\x02 \x01(\tR\x04root\x12\x18\n" +
-	"\aactions\x18\x03 \x03(\tR\aactions\x129\n" +
-	"\x06handed\x18\x04 \x03(\v2!.frontseat.plugin.v1alpha1.HandedR\x06handed\"c\n" +
-	"\x06Handed\x12E\n" +
+	"\aactions\x18\x03 \x03(\tR\aactions\x12:\n" +
+	"\x06handed\x18\x04 \x03(\v2\".frontseat.plugin.v1alpha1.HandoffR\x06handed\"d\n" +
+	"\aHandoff\x12E\n" +
 	"\n" +
 	"coordinate\x18\x01 \x01(\v2%.frontseat.plugin.v1alpha1.CoordinateR\n" +
 	"coordinate\x12\x12\n" +
 	"\x04into\x18\x02 \x01(\tR\x04into\"H\n" +
 	"\x0fArrangeResponse\x125\n" +
-	"\x05files\x18\x01 \x03(\v2\x1f.frontseat.plugin.v1alpha1.FileR\x05files\"\x91\x04\n" +
+	"\x05files\x18\x01 \x03(\v2\x1f.frontseat.plugin.v1alpha1.FileR\x05files\"\x93\x04\n" +
 	"\aProject\x12\x12\n" +
 	"\x04root\x18\x01 \x01(\tR\x04root\x12\x12\n" +
 	"\x04kind\x18\x02 \x01(\tR\x04kind\x12\x12\n" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x12\x1a\n" +
-	"\bmanifest\x18\x04 \x01(\tR\bmanifest\x12>\n" +
-	"\bprovides\x18\x05 \x03(\v2\".frontseat.plugin.v1alpha1.ProvideR\bprovides\x12B\n" +
+	"\bmanifest\x18\x04 \x01(\tR\bmanifest\x12@\n" +
+	"\bprovides\x18\x05 \x03(\v2$.frontseat.plugin.v1alpha1.ProvisionR\bprovides\x12B\n" +
 	"\brequires\x18\x06 \x03(\v2&.frontseat.plugin.v1alpha1.RequirementR\brequires\x12;\n" +
 	"\aactions\x18\a \x03(\v2!.frontseat.plugin.v1alpha1.ActionR\aactions\x12B\n" +
 	"\n" +
@@ -3634,22 +3635,22 @@ const file_frontseat_plugin_v1alpha1_plugin_proto_rawDesc = "" +
 	"\n" +
 	"Coordinate\x12\x1c\n" +
 	"\tecosystem\x18\x01 \x01(\tR\tecosystem\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\"\xad\x01\n" +
-	"\aProvide\x12E\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\"\xb0\x01\n" +
+	"\tProvision\x12E\n" +
 	"\n" +
 	"coordinate\x18\x01 \x01(\v2%.frontseat.plugin.v1alpha1.CoordinateR\n" +
 	"coordinate\x12\x18\n" +
-	"\asources\x18\x02 \x01(\tR\asources\x12A\n" +
-	"\tartifacts\x18\x03 \x03(\v2#.frontseat.plugin.v1alpha1.ProducedR\tartifacts\":\n" +
-	"\bProduced\x12\x16\n" +
+	"\asources\x18\x02 \x01(\tR\asources\x12B\n" +
+	"\tartifacts\x18\x03 \x03(\v2$.frontseat.plugin.v1alpha1.OutputRefR\tartifacts\";\n" +
+	"\tOutputRef\x12\x16\n" +
 	"\x06action\x18\x01 \x01(\tR\x06action\x12\x16\n" +
 	"\x06output\x18\x02 \x01(\tR\x06output\"\xa9\x01\n" +
 	"\vRequirement\x12E\n" +
 	"\n" +
 	"coordinate\x18\x01 \x01(\v2%.frontseat.plugin.v1alpha1.CoordinateR\n" +
 	"coordinate\x129\n" +
-	"\x06origin\x18\x05 \x01(\v2!.frontseat.plugin.v1alpha1.OriginR\x06origin\x12\x18\n" +
-	"\aversion\x18\x06 \x01(\tR\aversion\"0\n" +
+	"\x06origin\x18\x02 \x01(\v2!.frontseat.plugin.v1alpha1.OriginR\x06origin\x12\x18\n" +
+	"\aversion\x18\x03 \x01(\tR\aversion\"0\n" +
 	"\x06Origin\x12\x12\n" +
 	"\x04path\x18\x01 \x01(\tR\x04path\x12\x12\n" +
 	"\x04line\x18\x02 \x01(\x05R\x04line\"\xff\x05\n" +
@@ -3728,23 +3729,23 @@ const file_frontseat_plugin_v1alpha1_plugin_proto_rawDesc = "" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"8\n" +
 	"\x06Output\x12\x12\n" +
-	"\x04path\x18\x02 \x01(\tR\x04path\x12\x1a\n" +
-	"\boptional\x18\x03 \x01(\bR\boptional\"\x85\x01\n" +
+	"\x04path\x18\x01 \x01(\tR\x04path\x12\x1a\n" +
+	"\boptional\x18\x02 \x01(\bR\boptional\"\x85\x01\n" +
 	"\bInputSet\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x128\n" +
-	"\x06inputs\x18\x04 \x03(\v2 .frontseat.plugin.v1alpha1.InputR\x06inputs\x12+\n" +
+	"\x06inputs\x18\x02 \x03(\v2 .frontseat.plugin.v1alpha1.InputR\x06inputs\x12+\n" +
 	"\x11accepts_generated\x18\x03 \x01(\bR\x10acceptsGenerated\"T\n" +
 	"\x04File\x12\x12\n" +
 	"\x04path\x18\x01 \x01(\tR\x04path\x12\x18\n" +
 	"\acontent\x18\x02 \x01(\fR\acontent\x12\x1e\n" +
 	"\n" +
 	"executable\x18\x03 \x01(\bR\n" +
-	"executable\"\xa5\x01\n" +
+	"executable\"\xaf\x01\n" +
 	"\x10ReconcileRequest\x12<\n" +
 	"\acontext\x18\x01 \x01(\v2\".frontseat.plugin.v1alpha1.ContextR\acontext\x12\x12\n" +
-	"\x04root\x18\x02 \x01(\tR\x04root\x12?\n" +
-	"\bentities\x18\x03 \x03(\v2#.frontseat.plugin.v1alpha1.ResolvedR\bentities\"\xe8\x01\n" +
-	"\bResolved\x124\n" +
+	"\x04root\x18\x02 \x01(\tR\x04root\x12I\n" +
+	"\bentities\x18\x03 \x03(\v2-.frontseat.plugin.v1alpha1.EntityDependenciesR\bentities\"\xf2\x01\n" +
+	"\x12EntityDependencies\x124\n" +
 	"\x03ref\x18\x01 \x01(\v2\".frontseat.type.v1alpha1.EntityRefR\x03ref\x12\x1a\n" +
 	"\bmanifest\x18\x02 \x01(\tR\bmanifest\x12A\n" +
 	"\n" +
@@ -3783,9 +3784,9 @@ func file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP() []byte {
 var file_frontseat_plugin_v1alpha1_plugin_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes = make([]protoimpl.MessageInfo, 48)
 var file_frontseat_plugin_v1alpha1_plugin_proto_goTypes = []any{
-	(Option_Kind)(0),             // 0: frontseat.plugin.v1alpha1.Option.Kind
+	(OptionDeclaration_Kind)(0),  // 0: frontseat.plugin.v1alpha1.OptionDeclaration.Kind
 	(*Context)(nil),              // 1: frontseat.plugin.v1alpha1.Context
-	(*Option)(nil),               // 2: frontseat.plugin.v1alpha1.Option
+	(*OptionDeclaration)(nil),    // 2: frontseat.plugin.v1alpha1.OptionDeclaration
 	(*DescribeRequest)(nil),      // 3: frontseat.plugin.v1alpha1.DescribeRequest
 	(*DescribeResponse)(nil),     // 4: frontseat.plugin.v1alpha1.DescribeResponse
 	(*ServiceRequest)(nil),       // 5: frontseat.plugin.v1alpha1.ServiceRequest
@@ -3796,13 +3797,13 @@ var file_frontseat_plugin_v1alpha1_plugin_proto_goTypes = []any{
 	(*Entity)(nil),               // 10: frontseat.plugin.v1alpha1.Entity
 	(*EntityRelation)(nil),       // 11: frontseat.plugin.v1alpha1.EntityRelation
 	(*ArrangeRequest)(nil),       // 12: frontseat.plugin.v1alpha1.ArrangeRequest
-	(*Handed)(nil),               // 13: frontseat.plugin.v1alpha1.Handed
+	(*Handoff)(nil),              // 13: frontseat.plugin.v1alpha1.Handoff
 	(*ArrangeResponse)(nil),      // 14: frontseat.plugin.v1alpha1.ArrangeResponse
 	(*Project)(nil),              // 15: frontseat.plugin.v1alpha1.Project
 	(*GeneratedSource)(nil),      // 16: frontseat.plugin.v1alpha1.GeneratedSource
 	(*Coordinate)(nil),           // 17: frontseat.plugin.v1alpha1.Coordinate
-	(*Provide)(nil),              // 18: frontseat.plugin.v1alpha1.Provide
-	(*Produced)(nil),             // 19: frontseat.plugin.v1alpha1.Produced
+	(*Provision)(nil),            // 18: frontseat.plugin.v1alpha1.Provision
+	(*OutputRef)(nil),            // 19: frontseat.plugin.v1alpha1.OutputRef
 	(*Requirement)(nil),          // 20: frontseat.plugin.v1alpha1.Requirement
 	(*Origin)(nil),               // 21: frontseat.plugin.v1alpha1.Origin
 	(*Action)(nil),               // 22: frontseat.plugin.v1alpha1.Action
@@ -3826,7 +3827,7 @@ var file_frontseat_plugin_v1alpha1_plugin_proto_goTypes = []any{
 	(*InputSet)(nil),             // 40: frontseat.plugin.v1alpha1.InputSet
 	(*File)(nil),                 // 41: frontseat.plugin.v1alpha1.File
 	(*ReconcileRequest)(nil),     // 42: frontseat.plugin.v1alpha1.ReconcileRequest
-	(*Resolved)(nil),             // 43: frontseat.plugin.v1alpha1.Resolved
+	(*EntityDependencies)(nil),   // 43: frontseat.plugin.v1alpha1.EntityDependencies
 	(*ReconcileResponse)(nil),    // 44: frontseat.plugin.v1alpha1.ReconcileResponse
 	(*Edit)(nil),                 // 45: frontseat.plugin.v1alpha1.Edit
 	nil,                          // 46: frontseat.plugin.v1alpha1.Context.OptionsEntry
@@ -3847,9 +3848,9 @@ var file_frontseat_plugin_v1alpha1_plugin_proto_depIdxs = []int32{
 	46, // 0: frontseat.plugin.v1alpha1.Context.options:type_name -> frontseat.plugin.v1alpha1.Context.OptionsEntry
 	47, // 1: frontseat.plugin.v1alpha1.Context.tools:type_name -> frontseat.plugin.v1alpha1.Context.ToolsEntry
 	49, // 2: frontseat.plugin.v1alpha1.Context.profile:type_name -> frontseat.type.v1alpha1.Profile
-	0,  // 3: frontseat.plugin.v1alpha1.Option.kind:type_name -> frontseat.plugin.v1alpha1.Option.Kind
-	50, // 4: frontseat.plugin.v1alpha1.Option.default:type_name -> frontseat.type.v1alpha1.OptionValue
-	2,  // 5: frontseat.plugin.v1alpha1.DescribeResponse.options:type_name -> frontseat.plugin.v1alpha1.Option
+	0,  // 3: frontseat.plugin.v1alpha1.OptionDeclaration.kind:type_name -> frontseat.plugin.v1alpha1.OptionDeclaration.Kind
+	50, // 4: frontseat.plugin.v1alpha1.OptionDeclaration.default:type_name -> frontseat.type.v1alpha1.OptionValue
+	2,  // 5: frontseat.plugin.v1alpha1.DescribeResponse.options:type_name -> frontseat.plugin.v1alpha1.OptionDeclaration
 	51, // 6: frontseat.plugin.v1alpha1.DescribeResponse.release:type_name -> frontseat.plugin.v1alpha1.ReleaseRoles
 	52, // 7: frontseat.plugin.v1alpha1.ServiceRequest.written:type_name -> frontseat.type.v1alpha1.Service
 	52, // 8: frontseat.plugin.v1alpha1.ServiceResponse.service:type_name -> frontseat.type.v1alpha1.Service
@@ -3861,16 +3862,16 @@ var file_frontseat_plugin_v1alpha1_plugin_proto_depIdxs = []int32{
 	11, // 14: frontseat.plugin.v1alpha1.Entity.relations:type_name -> frontseat.plugin.v1alpha1.EntityRelation
 	53, // 15: frontseat.plugin.v1alpha1.EntityRelation.target:type_name -> frontseat.type.v1alpha1.EntityRef
 	1,  // 16: frontseat.plugin.v1alpha1.ArrangeRequest.context:type_name -> frontseat.plugin.v1alpha1.Context
-	13, // 17: frontseat.plugin.v1alpha1.ArrangeRequest.handed:type_name -> frontseat.plugin.v1alpha1.Handed
-	17, // 18: frontseat.plugin.v1alpha1.Handed.coordinate:type_name -> frontseat.plugin.v1alpha1.Coordinate
+	13, // 17: frontseat.plugin.v1alpha1.ArrangeRequest.handed:type_name -> frontseat.plugin.v1alpha1.Handoff
+	17, // 18: frontseat.plugin.v1alpha1.Handoff.coordinate:type_name -> frontseat.plugin.v1alpha1.Coordinate
 	41, // 19: frontseat.plugin.v1alpha1.ArrangeResponse.files:type_name -> frontseat.plugin.v1alpha1.File
-	18, // 20: frontseat.plugin.v1alpha1.Project.provides:type_name -> frontseat.plugin.v1alpha1.Provide
+	18, // 20: frontseat.plugin.v1alpha1.Project.provides:type_name -> frontseat.plugin.v1alpha1.Provision
 	20, // 21: frontseat.plugin.v1alpha1.Project.requires:type_name -> frontseat.plugin.v1alpha1.Requirement
 	22, // 22: frontseat.plugin.v1alpha1.Project.actions:type_name -> frontseat.plugin.v1alpha1.Action
 	40, // 23: frontseat.plugin.v1alpha1.Project.input_sets:type_name -> frontseat.plugin.v1alpha1.InputSet
 	16, // 24: frontseat.plugin.v1alpha1.Project.generated_sources:type_name -> frontseat.plugin.v1alpha1.GeneratedSource
-	17, // 25: frontseat.plugin.v1alpha1.Provide.coordinate:type_name -> frontseat.plugin.v1alpha1.Coordinate
-	19, // 26: frontseat.plugin.v1alpha1.Provide.artifacts:type_name -> frontseat.plugin.v1alpha1.Produced
+	17, // 25: frontseat.plugin.v1alpha1.Provision.coordinate:type_name -> frontseat.plugin.v1alpha1.Coordinate
+	19, // 26: frontseat.plugin.v1alpha1.Provision.artifacts:type_name -> frontseat.plugin.v1alpha1.OutputRef
 	17, // 27: frontseat.plugin.v1alpha1.Requirement.coordinate:type_name -> frontseat.plugin.v1alpha1.Coordinate
 	21, // 28: frontseat.plugin.v1alpha1.Requirement.origin:type_name -> frontseat.plugin.v1alpha1.Origin
 	38, // 29: frontseat.plugin.v1alpha1.Action.command:type_name -> frontseat.plugin.v1alpha1.Command
@@ -3896,10 +3897,10 @@ var file_frontseat_plugin_v1alpha1_plugin_proto_depIdxs = []int32{
 	48, // 49: frontseat.plugin.v1alpha1.Command.environment:type_name -> frontseat.plugin.v1alpha1.Command.EnvironmentEntry
 	31, // 50: frontseat.plugin.v1alpha1.InputSet.inputs:type_name -> frontseat.plugin.v1alpha1.Input
 	1,  // 51: frontseat.plugin.v1alpha1.ReconcileRequest.context:type_name -> frontseat.plugin.v1alpha1.Context
-	43, // 52: frontseat.plugin.v1alpha1.ReconcileRequest.entities:type_name -> frontseat.plugin.v1alpha1.Resolved
-	53, // 53: frontseat.plugin.v1alpha1.Resolved.ref:type_name -> frontseat.type.v1alpha1.EntityRef
-	53, // 54: frontseat.plugin.v1alpha1.Resolved.depends_on:type_name -> frontseat.type.v1alpha1.EntityRef
-	53, // 55: frontseat.plugin.v1alpha1.Resolved.dependency_of:type_name -> frontseat.type.v1alpha1.EntityRef
+	43, // 52: frontseat.plugin.v1alpha1.ReconcileRequest.entities:type_name -> frontseat.plugin.v1alpha1.EntityDependencies
+	53, // 53: frontseat.plugin.v1alpha1.EntityDependencies.ref:type_name -> frontseat.type.v1alpha1.EntityRef
+	53, // 54: frontseat.plugin.v1alpha1.EntityDependencies.depends_on:type_name -> frontseat.type.v1alpha1.EntityRef
+	53, // 55: frontseat.plugin.v1alpha1.EntityDependencies.dependency_of:type_name -> frontseat.type.v1alpha1.EntityRef
 	45, // 56: frontseat.plugin.v1alpha1.ReconcileResponse.edits:type_name -> frontseat.plugin.v1alpha1.Edit
 	50, // 57: frontseat.plugin.v1alpha1.Context.OptionsEntry.value:type_name -> frontseat.type.v1alpha1.OptionValue
 	3,  // 58: frontseat.plugin.v1alpha1.PluginService.Describe:input_type -> frontseat.plugin.v1alpha1.DescribeRequest

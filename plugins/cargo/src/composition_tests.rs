@@ -289,7 +289,7 @@ fn production_compiles_in_release() {
 fn the_workspace_manifest_is_narrowed_to_the_packages_present() {
     let host = TestHost::new(valid());
     let repo = context(&[("rust", "1.99.1")]);
-    let handed = [Handed {
+    let handed = [Handoff {
         coordinate: Some(Coordinate {
             ecosystem: "cargo".into(),
             name: "greet".into(),

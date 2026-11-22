@@ -146,7 +146,7 @@ impl Plugin for Example {
         _repo: &Repository,
         root: &str,
         actions: &[String],
-        handed: &[Handed],
+        handed: &[Handoff],
     ) -> Result<Vec<File>, Error> {
         assert_eq!(actions, ["compile"]);
         assert_eq!(handed[0].into, "dependencies");
@@ -178,10 +178,10 @@ fn dispatch_encodes_all_setting_kinds() {
     assert_eq!(
         kinds,
         [
-            wire::option::Kind::String as i32,
-            wire::option::Kind::Bool as i32,
-            wire::option::Kind::Int as i32,
-            wire::option::Kind::StringList as i32
+            wire::option_declaration::Kind::String as i32,
+            wire::option_declaration::Kind::Bool as i32,
+            wire::option_declaration::Kind::Int as i32,
+            wire::option_declaration::Kind::StringList as i32
         ]
     );
     assert_eq!(
@@ -257,7 +257,7 @@ fn dispatch_preserves_roots_handover_and_diagnostics() {
             context: Some(example_context()),
             root: "app".into(),
             actions: vec!["compile".into()],
-            handed: vec![Handed {
+            handed: vec![Handoff {
                 into: "dependencies".into(),
                 ..Default::default()
             }],

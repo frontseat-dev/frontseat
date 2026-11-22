@@ -88,7 +88,7 @@ impl Plugin for JestPlugin {
         repo: &Repository,
         root: &str,
         actions: &[String],
-        handed: &[Handed],
+        handed: &[Handoff],
     ) -> Result<Vec<File>, Error> {
         let manifest = join(root, "package.json");
         let package = repo

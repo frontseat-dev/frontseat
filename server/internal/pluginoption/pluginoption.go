@@ -27,16 +27,16 @@ const DescriptionAtMost = 200
 // aside: it says what it does in one line, bounds an integer alone, and
 // allows words only of a kind of text, each once. What it says is
 // named in the error, never what it holds.
-func Declared(option *pluginv1.Option) error {
+func Declared(option *pluginv1.OptionDeclaration) error {
 	name, description := option.GetName(), option.GetDescription()
 	kind := option.GetKind()
-	text := kind == pluginv1.Option_KIND_STRING || kind == pluginv1.Option_KIND_STRING_LIST || kind == pluginv1.Option_KIND_STRING_MAP
+	text := kind == pluginv1.OptionDeclaration_KIND_STRING || kind == pluginv1.OptionDeclaration_KIND_STRING_LIST || kind == pluginv1.OptionDeclaration_KIND_STRING_MAP
 	switch {
 	case strings.TrimSpace(description) == "":
 		return fmt.Errorf("the option %s says nothing of what it does: an option has a description", name)
 	case len(description) > DescriptionAtMost || !line(description):
 		return fmt.Errorf("the option %s has a description that is not one line of printable text of at most %d bytes", name, DescriptionAtMost)
-	case (option.Minimum != nil || option.Maximum != nil) && kind != pluginv1.Option_KIND_INT:
+	case (option.Minimum != nil || option.Maximum != nil) && kind != pluginv1.OptionDeclaration_KIND_INT:
 		return fmt.Errorf("the option %s bounds a value that is no integer: only an integer has a least and a most", name)
 	case option.Minimum != nil && option.Maximum != nil && option.GetMinimum() > option.GetMaximum():
 		return fmt.Errorf("the option %s has a least above its most", name)
@@ -57,20 +57,20 @@ func Declared(option *pluginv1.Option) error {
 // Takes holds a value to what an option takes: its kind, its bounds and
 // the words it allows. It names the option and the rule, never the
 // value, which may hold what is not to be repeated.
-func Takes(option *pluginv1.Option, value *typev1.OptionValue) error {
+func Takes(option *pluginv1.OptionDeclaration, value *typev1.OptionValue) error {
 	name := option.GetName()
 	switch option.GetKind() {
-	case pluginv1.Option_KIND_STRING:
+	case pluginv1.OptionDeclaration_KIND_STRING:
 		v, is := value.GetValue().(*typev1.OptionValue_StringValue)
 		if !is {
 			return fmt.Errorf("%s is text", name)
 		}
 		return allowed(option, "", v.StringValue)
-	case pluginv1.Option_KIND_BOOL:
+	case pluginv1.OptionDeclaration_KIND_BOOL:
 		if _, is := value.GetValue().(*typev1.OptionValue_BoolValue); !is {
 			return fmt.Errorf("%s is true or false", name)
 		}
-	case pluginv1.Option_KIND_INT:
+	case pluginv1.OptionDeclaration_KIND_INT:
 		v, is := value.GetValue().(*typev1.OptionValue_IntValue)
 		switch {
 		case !is:
@@ -80,7 +80,7 @@ func Takes(option *pluginv1.Option, value *typev1.OptionValue) error {
 		case option.Maximum != nil && v.IntValue > option.GetMaximum():
 			return fmt.Errorf("%s is at most %d", name, option.GetMaximum())
 		}
-	case pluginv1.Option_KIND_STRING_LIST:
+	case pluginv1.OptionDeclaration_KIND_STRING_LIST:
 		v, is := value.GetValue().(*typev1.OptionValue_StringListValue)
 		if !is || v.StringListValue == nil {
 			return fmt.Errorf("%s is a list of text", name)
@@ -90,12 +90,12 @@ func Takes(option *pluginv1.Option, value *typev1.OptionValue) error {
 				return err
 			}
 		}
-	case pluginv1.Option_KIND_DURATION:
+	case pluginv1.OptionDeclaration_KIND_DURATION:
 		v, is := value.GetValue().(*typev1.OptionValue_DurationValue)
 		if !is || v.DurationValue == nil || v.DurationValue.CheckValid() != nil || v.DurationValue.AsDuration() < 0 {
 			return fmt.Errorf("%s is a length of time, not below zero, as 90s or 10m", name)
 		}
-	case pluginv1.Option_KIND_STRING_MAP:
+	case pluginv1.OptionDeclaration_KIND_STRING_MAP:
 		v, is := value.GetValue().(*typev1.OptionValue_StringMapValue)
 		if !is || v.StringMapValue == nil {
 			return fmt.Errorf("%s is a map of text by name", name)
@@ -112,7 +112,7 @@ func Takes(option *pluginv1.Option, value *typev1.OptionValue) error {
 }
 
 // allowed holds a word to the words an option allows, if it allows any.
-func allowed(option *pluginv1.Option, of, word string) error {
+func allowed(option *pluginv1.OptionDeclaration, of, word string) error {
 	words := option.GetAllowed()
 	if len(words) == 0 || slices.Contains(words, word) {
 		return nil

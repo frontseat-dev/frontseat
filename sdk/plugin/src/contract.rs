@@ -1,4 +1,4 @@
-use crate::{Analysis, File, Handed, Repository};
+use crate::{Analysis, File, Handoff, Repository};
 
 /// A failure a plugin reports with what a reader needs to act on it.
 ///
@@ -465,8 +465,8 @@ impl From<Value> for crate::OptionValue {
 
 impl PluginOption {
     /// The declared kind, matching the default without a second source of truth.
-    pub fn kind(&self) -> crate::wire::option::Kind {
-        use crate::wire::option::Kind;
+    pub fn kind(&self) -> crate::wire::option_declaration::Kind {
+        use crate::wire::option_declaration::Kind;
         match &self.default {
             Value::String(_) => Kind::String,
             Value::Bool(_) => Kind::Bool,
@@ -513,7 +513,7 @@ pub trait Plugin {
         _repo: &Repository,
         _root: &str,
         actions: &[String],
-        handed: &[Handed],
+        handed: &[Handoff],
     ) -> Result<Vec<File>, Error> {
         if !actions.is_empty() || !handed.is_empty() {
             return Err(Error::new(
@@ -536,7 +536,7 @@ pub trait Plugin {
         &self,
         _repo: &Repository,
         _root: &str,
-        _entities: &[crate::Resolved],
+        _entities: &[crate::EntityDependencies],
     ) -> Result<Vec<crate::Edit>, Error> {
         Err(
             Error::not_served("reconcile", "this plugin reconciles no catalog").help(

@@ -22,14 +22,14 @@ func cargoFixture(t *testing.T) conformance.Fixture {
 	without := &pluginv1.Context{Profile: typev1.Profile_PROFILE_DEVELOPMENT, Options: options}
 	narrowed := "[workspace]\nmembers = [\"greet\", \"hello\"]\nresolver = \"2\"\n\n[workspace.dependencies]\nitoa = \"1\"\n\n[workspace.package]\nedition = \"2021\"\nversion = \"0.1.0\"\n"
 	return conformance.Fixture{
-		ABI: 25, Description: &pluginv1.DescribeResponse{Name: "cargo", Interests: []string{"**/Cargo.toml", "**/Cargo.lock", "**/*.rs", "**/.cargo/config.toml", "**/rustfmt.toml", "**/.rustfmt.toml", "**/clippy.toml", "**/.clippy.toml", "!**/target/**", "!**/testdata/**"}, Options: []*pluginv1.Option{{Name: "wasm", Description: "Whether each cdylib crate is also built to wasm32-wasip1.", Kind: pluginv1.Option_KIND_BOOL, Default: &typev1.OptionValue{Value: &typev1.OptionValue_BoolValue{BoolValue: false}}, EntitySettable: true}}},
+		ABI: 25, Description: &pluginv1.DescribeResponse{Name: "cargo", Interests: []string{"**/Cargo.toml", "**/Cargo.lock", "**/*.rs", "**/.cargo/config.toml", "**/rustfmt.toml", "**/.rustfmt.toml", "**/clippy.toml", "**/.clippy.toml", "!**/target/**", "!**/testdata/**"}, Options: []*pluginv1.OptionDeclaration{{Name: "wasm", Description: "Whether each cdylib crate is also built to wasm32-wasip1.", Kind: pluginv1.OptionDeclaration_KIND_BOOL, Default: &typev1.OptionValue{Value: &typev1.OptionValue_BoolValue{BoolValue: false}}, EntitySettable: true}}},
 		Name: "cargo", Source: fixtureSource(t, "cargo", "valid"),
 		Absent: files{}, Malformed: fixtureSource(t, "cargo", "malformed"), ErrorCode: "INVALID_TOML",
 		Projects: []*pluginv1.Project{{
 			Root: "hello", Name: "hello", Kind: "cargo-package", Manifest: "hello/Cargo.toml",
 			Actions:        expectedCargoActions(),
 			InputSets:      []*pluginv1.InputSet{{Name: "package", AcceptsGenerated: true, Inputs: []*pluginv1.Input{pluginhost.SourceInput("**"), pluginhost.SourceInput("!target/**")}}},
-			Provides:       []*pluginv1.Provide{{Coordinate: &pluginv1.Coordinate{Ecosystem: "cargo", Name: "hello"}, Sources: "package"}},
+			Provides:       []*pluginv1.Provision{{Coordinate: &pluginv1.Coordinate{Ecosystem: "cargo", Name: "hello"}, Sources: "package"}},
 			Requires:       []*pluginv1.Requirement{{Coordinate: &pluginv1.Coordinate{Ecosystem: "cargo", Name: "greet"}, Origin: &pluginv1.Origin{Path: "hello/Cargo.toml", Line: 7}, Version: "0.1.0"}},
 			AlwaysArranged: true,
 		}},
@@ -42,7 +42,7 @@ func cargoFixture(t *testing.T) conformance.Fixture {
 			{Import: "glob", Argument: "**/Cargo.toml\x00!target/**\x00!**/testdata/**", Directory: "hello", Found: true},
 		},
 		Analyze:          &pluginv1.AnalyzeRequest{Roots: []string{"hello"}, Context: with},
-		Arrange:          &pluginv1.ArrangeRequest{Root: "hello", Context: with, Actions: []string{"compile"}, Handed: []*pluginv1.Handed{{Coordinate: &pluginv1.Coordinate{Ecosystem: "cargo", Name: "greet"}, Into: "../greet"}}},
+		Arrange:          &pluginv1.ArrangeRequest{Root: "hello", Context: with, Actions: []string{"compile"}, Handed: []*pluginv1.Handoff{{Coordinate: &pluginv1.Coordinate{Ecosystem: "cargo", Name: "greet"}, Into: "../greet"}}},
 		Files:            []*pluginv1.File{{Path: "Cargo.toml", Content: []byte(narrowed)}, {Path: "Cargo.lock", Content: []byte(fixtureSource(t, "cargo", "valid")["Cargo.lock"])}},
 		InvalidArrange:   &pluginv1.ArrangeRequest{Root: "hello", Context: without},
 		ArrangeErrorCode: "UNPINNED_TOOL", ArrangeErrorPath: "hello/Cargo.toml",
