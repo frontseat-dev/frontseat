@@ -158,11 +158,11 @@ func TestWhatAPluginCannotMakeFitWhatIsWrittenIsRefusedWhereItIsWritten(t *testi
 	t.Parallel()
 	spec := newScenario(t)
 
-	workspace := spec.databaseWorkspace("      as: postgres\n      env: {TZ: UTC}\n")
+	workspace := spec.databaseWorkspace("      as: postgres\n      environment: {TZ: UTC}\n")
 
 	spec.Expect(workspace.build().says()).To(And(
 		ContainSubstring("catalog-info.yaml"),
-		ContainSubstring("resource:default/db, started as postgres: the env written gives PostgreSQL no POSTGRES_PASSWORD"),
+		ContainSubstring("resource:default/db, started as postgres: the environment written gives PostgreSQL no POSTGRES_PASSWORD"),
 	))
 }
 
@@ -270,7 +270,7 @@ var endpointTest = strings.NewReplacer(
 // The service: busybox answering whoever connects with hello.
 const greeterService = `      as: container
       image: docker.io/library/busybox:1.37@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec
-      args: [nc, -lk, -p, "7000", -e, echo, hello]
+      arguments: [nc, -lk, -p, "7000", -e, echo, hello]
       ports: {greet: 7000}
       ready: [{port: greet}]
       exports: {GREETER_ADDR: "{host}:{port.greet}"}

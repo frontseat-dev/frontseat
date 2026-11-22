@@ -126,12 +126,12 @@ func postgresFixture(t testing.TB) conformance.Fixture {
 			{Request: asked(&typev1.Service{Environment: map[string]string{"TZ": "UTC"}}), Refused: "NO_PASSWORD"},
 			{Request: asked(&typev1.Service{Environment: map[string]string{"POSTGRES_PASSWORD": ""}}), Refused: "NO_PASSWORD"},
 			{Request: asked(&typev1.Service{Environment: map[string]string{"POSTGRES_HOST_AUTH_METHOD": "scram-sha-256"}}), Refused: "NO_PASSWORD"},
-			{Request: asked(&typev1.Service{Environment: map[string]string{"POSTGRES_PASSWORD": "x", "PGPORT": "6543"}}), Refused: "PORT_IN_ENV"},
-			{Request: asked(&typev1.Service{Ports: map[string]int32{"sql": 6543}, Arguments: []string{"-c", "fsync=off"}}), Refused: "PORT_BESIDE_ARGS"},
-			{Request: asked(&typev1.Service{Arguments: []string{"-p", "6543"}}), Refused: "PORT_IN_ARGS"},
-			{Request: asked(&typev1.Service{Arguments: []string{"--port=6543"}}), Refused: "PORT_IN_ARGS"},
-			{Request: asked(&typev1.Service{Arguments: []string{"-c", "port=6543"}}), Refused: "PORT_IN_ARGS"},
-			{Request: asked(&typev1.Service{Ports: map[string]int32{"sql": 6543}, Arguments: []string{"-p", "{port.sql}"}}), Refused: "PORT_IN_ARGS"},
+			{Request: asked(&typev1.Service{Environment: map[string]string{"POSTGRES_PASSWORD": "x", "PGPORT": "6543"}}), Refused: "PORT_IN_ENVIRONMENT"},
+			{Request: asked(&typev1.Service{Ports: map[string]int32{"sql": 6543}, Arguments: []string{"-c", "fsync=off"}}), Refused: "PORT_BESIDE_ARGUMENTS"},
+			{Request: asked(&typev1.Service{Arguments: []string{"-p", "6543"}}), Refused: "PORT_IN_ARGUMENTS"},
+			{Request: asked(&typev1.Service{Arguments: []string{"--port=6543"}}), Refused: "PORT_IN_ARGUMENTS"},
+			{Request: asked(&typev1.Service{Arguments: []string{"-c", "port=6543"}}), Refused: "PORT_IN_ARGUMENTS"},
+			{Request: asked(&typev1.Service{Ports: map[string]int32{"sql": 6543}, Arguments: []string{"-p", "{port.sql}"}}), Refused: "PORT_IN_ARGUMENTS"},
 			{Request: &pluginv1.ServiceRequest{Name: "container"}, Refused: "UNCLAIMED_SERVICE"},
 		},
 	}
@@ -152,11 +152,11 @@ func TestAPluginThatChangesWhatWasWrittenOfAServiceIsRefused(t *testing.T) {
 		"image": func(l *typev1.Service) {
 			l.Image = "docker.io/library/other@sha256:" + greeterImage[len(greeterImage)-64:]
 		},
-		"args":    func(l *typev1.Service) { l.Arguments = append(l.Arguments, "--privileged") },
-		"ports":   func(l *typev1.Service) { l.Ports["debug"] = 9229 },
-		"env":     func(l *typev1.Service) { l.Environment = map[string]string{"LD_PRELOAD": "/x.so"} },
-		"exports": func(l *typev1.Service) { l.Exports["LD_PRELOAD"] = "/x.so" },
-		"ready":   func(l *typev1.Service) { l.Ready = nil },
+		"arguments":   func(l *typev1.Service) { l.Arguments = append(l.Arguments, "--privileged") },
+		"ports":       func(l *typev1.Service) { l.Ports["debug"] = 9229 },
+		"environment": func(l *typev1.Service) { l.Environment = map[string]string{"LD_PRELOAD": "/x.so"} },
+		"exports":     func(l *typev1.Service) { l.Exports["LD_PRELOAD"] = "/x.so" },
+		"ready":       func(l *typev1.Service) { l.Ready = nil },
 		"apis": func(l *typev1.Service) {
 			l.Apis = map[string]*typev1.ServiceApi{"api:default/other": {Port: "greeting", Exports: map[string]string{"OTHER": "{host}"}}}
 		},

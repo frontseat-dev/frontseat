@@ -34,11 +34,11 @@ const publisher = `out="$1/$(echo "$2" | tr / _)"; tag="$2"; notes="$4"; shift 2
 func publishingSource(t *testing.T, into string, fails bool, atRoot bool) func(remote string) {
 	failing := ""
 	if fails {
-		failing = "        environment: [RELEASE_TOKEN, OTHER_TOKEN, FAILS]\n"
+		failing = "        inherit-environment: [RELEASE_TOKEN, OTHER_TOKEN, FAILS]\n"
 	}
 	publish := "      release:\n        command: [sh, -c, '" + publisher + "', publish, " + into + ", '{frontseat.tag}', '{frontseat.version}', '{frontseat.notes}', '{frontseat.remote}', 'prerelease={frontseat.prerelease}', '{frontseat.artifacts}']\n        publish: true\n"
 	if !fails {
-		publish += "        environment: [RELEASE_TOKEN, OTHER_TOKEN]\n"
+		publish += "        inherit-environment: [RELEASE_TOKEN, OTHER_TOKEN]\n"
 	}
 	publish += failing
 	return func(remote string) {

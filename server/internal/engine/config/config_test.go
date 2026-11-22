@@ -228,14 +228,14 @@ func TestAnActionOfAnEntitysOwnSaysItPublishesAndWhatItIsGiven(t *testing.T) {
 			"catalog-info.yaml": "apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata: {name: app}\nspec:\n  frontseat:\n    actions:\n      release:\n        tools: [gh]\n        command: [gh, release, create]\n" + keys,
 		})
 	}
-	got, err := read("        publish: true\n        environment: [GH_TOKEN]\n")
-	if err != nil || len(got.Actions()) != 1 || !got.Actions()[0].Publish || !slices.Equal(got.Actions()[0].Environment, []string{"GH_TOKEN"}) {
+	got, err := read("        publish: true\n        inherit-environment: [GH_TOKEN]\n")
+	if err != nil || len(got.Actions()) != 1 || !got.Actions()[0].Publish || !slices.Equal(got.Actions()[0].InheritEnvironment, []string{"GH_TOKEN"}) {
 		t.Errorf("control, an action that publishes: %v, %v", got.Actions(), err)
 	}
 	for keys, says := range map[string]string{
-		"        environment: [GH_TOKEN]\n":                      "the action release says an environment, which only an action that publishes is given",
-		"        publish: 'yes'\n":                               "publish is true or false",
-		"        publish: true\n        environment: GH_TOKEN\n": "environment is a list",
+		"        inherit-environment: [GH_TOKEN]\n":                      "the action release says inherit-environment, which only an action that publishes is given",
+		"        publish: 'yes'\n":                                       "publish is true or false",
+		"        publish: true\n        inherit-environment: GH_TOKEN\n": "inherit-environment is a list",
 	} {
 		if _, err := read(keys); err == nil || !strings.Contains(err.Error(), says) {
 			t.Errorf("%q: %v, want %q", keys, err, says)

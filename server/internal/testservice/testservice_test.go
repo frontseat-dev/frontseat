@@ -54,10 +54,10 @@ func TestWhatAServiceCannotBeIsRefusedByItsKey(t *testing.T) {
 		"service.exports: a name the shell can export is letters, digits and underscores": func(l *typev1.Service) { l.Exports = map[string]string{"LD-PRELOAD": "x"} },
 		// What it starts with is named as what it exports is: each of
 		// these would reach the runtime as --env <name>=<value>.
-		"service.env: a name the shell can export is letters":  func(l *typev1.Service) { l.Environment = map[string]string{"": "x"} },
-		"service.env: a name the shell can export is letters,": func(l *typev1.Service) { l.Environment = map[string]string{"A=B": "x"} },
-		"service.env: a name the shell can export is":          func(l *typev1.Service) { l.Environment = map[string]string{"A B": "x"} },
-		"service.env: a name the shell can export":             func(l *typev1.Service) { l.Environment = map[string]string{"A\nB": "x"} },
+		"service.environment: a name the shell can export is letters":  func(l *typev1.Service) { l.Environment = map[string]string{"": "x"} },
+		"service.environment: a name the shell can export is letters,": func(l *typev1.Service) { l.Environment = map[string]string{"A=B": "x"} },
+		"service.environment: a name the shell can export is":          func(l *typev1.Service) { l.Environment = map[string]string{"A B": "x"} },
+		"service.environment: a name the shell can export":             func(l *typev1.Service) { l.Environment = map[string]string{"A\nB": "x"} },
 	} {
 		l := whole()
 		change(l)

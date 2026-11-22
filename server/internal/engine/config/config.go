@@ -173,10 +173,10 @@ type Action struct {
 	// is an artifact of a release.
 	Package bool
 	// Publish says it publishes what a release shipped, where the
-	// daemon is; Environment names the variables of where the daemon
-	// runs that it is given then.
-	Publish     bool
-	Environment []string
+	// daemon is; InheritEnvironment names the variables of where the
+	// daemon runs that it is given then (inherit-environment).
+	Publish            bool
+	InheritEnvironment []string
 }
 
 // scope is what one catalog file sets, for its directory and beneath.
@@ -424,8 +424,8 @@ func actions(file, directory string, node *yaml.Node) ([]Action, error) {
 				list = &action.Rewrites
 			case "fix":
 				list = &action.Fix
-			case "environment":
-				list = &action.Environment
+			case "inherit-environment":
+				list = &action.InheritEnvironment
 			case "check", "program", "versioned", "package", "publish":
 				if value.Kind != yaml.ScalarNode || value.ShortTag() != "!!bool" {
 					return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: %s is true or false", value.Line, key.Value)}
@@ -448,7 +448,7 @@ func actions(file, directory string, node *yaml.Node) ([]Action, error) {
 				}
 				continue
 			default:
-				return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: an action takes no key %s; it takes check, command, description, environment, fix, inputs, outputs, package, program, publish, rewrites, tools, versioned", key.Line, key.Value)}
+				return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: an action takes no key %s; it takes check, command, description, fix, inherit-environment, inputs, outputs, package, program, publish, rewrites, tools, versioned", key.Line, key.Value)}
 			}
 			read, wrong := textList(value)
 			switch {
@@ -462,8 +462,8 @@ func actions(file, directory string, node *yaml.Node) ([]Action, error) {
 		if len(action.Command) == 0 {
 			return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: the action %s says no command", name.Line, name.Value)}
 		}
-		if len(action.Environment) > 0 && !action.Publish {
-			return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: the action %s says an environment, which only an action that publishes is given", name.Line, name.Value)}
+		if len(action.InheritEnvironment) > 0 && !action.Publish {
+			return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: the action %s says inherit-environment, which only an action that publishes is given", name.Line, name.Value)}
 		}
 		out = append(out, action)
 	}

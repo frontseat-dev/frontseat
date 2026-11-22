@@ -775,7 +775,7 @@ func custom(repository string, own config.Action) (plan.Action, error) {
 		if own.Check {
 			return plan.Action{}, &model.Mistake{File: own.File, Message: what + " publishes, and is a check: an action is of one kind"}
 		}
-		action.Declared.Kind = &pluginv1.Action_Publish{Publish: &pluginv1.Publish{Environment: own.Environment}}
+		action.Declared.Kind = &pluginv1.Action_Publish{Publish: &pluginv1.Publish{Environment: own.InheritEnvironment}}
 		if err := pluginhost.CheckPublish(what, action.Declared); err != nil {
 			return plan.Action{}, &model.Mistake{File: own.File, Message: err.Error()}
 		}

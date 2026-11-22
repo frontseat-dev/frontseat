@@ -93,18 +93,18 @@ impl Plugin for PostgresPlugin {
         if said("POSTGRES_PASSWORD").is_none() && !trusting {
             return Err(refused(
                 "no-password",
-                "the env written gives PostgreSQL no POSTGRES_PASSWORD, and it does not start without one".into(),
-                "Write POSTGRES_PASSWORD in env, or leave env out.".into(),
+                "the environment written gives PostgreSQL no POSTGRES_PASSWORD, and it does not start without one".into(),
+                "Write POSTGRES_PASSWORD in environment, or leave environment out.".into(),
             ));
         }
         // The port is said in one place, ports: the server and every
         // client read PGPORT too, and readiness would ask another.
         if service.environment.contains_key("PGPORT") {
             return Err(refused(
-                "port-in-env",
-                "the env written sets PGPORT, and the port PostgreSQL serves is said by ports"
+                "port-in-environment",
+                "the environment written sets PGPORT, and the port PostgreSQL serves is said by ports"
                     .into(),
-                format!("Write ports: {{{PORT}: …}}, and leave PGPORT out of env."),
+                format!("Write ports: {{{PORT}: …}}, and leave PGPORT out of environment."),
             ));
         }
         // What the image makes of its environment: a role named by
@@ -119,17 +119,17 @@ impl Plugin for PostgresPlugin {
         // beside the port it serves on where it is told none.
         if let Some(sets) = service.arguments.iter().find(|a| sets_port(a)) {
             return Err(refused(
-                "port-in-args",
-                format!("the args written tell the server its port ({sets}), and the port PostgreSQL serves is said by ports"),
-                format!("Leave the port out of args, and write ports: {{{PORT}: …}} with no args where it is not {DEFAULT_PORT}."),
+                "port-in-arguments",
+                format!("the arguments written tell the server its port ({sets}), and the port PostgreSQL serves is said by ports"),
+                format!("Leave the port out of arguments, and write ports: {{{PORT}: …}} with no arguments where it is not {DEFAULT_PORT}."),
             ));
         }
         if port != DEFAULT_PORT {
             if !service.arguments.is_empty() {
                 return Err(refused(
-                    "port-beside-args",
-                    format!("ports says {port} beside args, and the server is told its port by arguments this plugin writes"),
-                    format!("Leave args out, or leave ports out and serve on {DEFAULT_PORT}."),
+                    "port-beside-arguments",
+                    format!("ports says {port} beside arguments, and the server is told its port by arguments this plugin writes"),
+                    format!("Leave arguments out, or leave ports out and serve on {DEFAULT_PORT}."),
                 ));
             }
             // The image takes what begins with a dash as the server's
@@ -323,14 +323,14 @@ mod tests {
             .reason
     }
 
-    fn args(arguments: &[&str]) -> Service {
+    fn arguments(written: &[&str]) -> Service {
         Service {
-            arguments: arguments.iter().map(|a| a.to_string()).collect(),
+            arguments: written.iter().map(|a| a.to_string()).collect(),
             ..Default::default()
         }
     }
 
-    fn env(pairs: &[(&str, &str)]) -> Service {
+    fn environment(pairs: &[(&str, &str)]) -> Service {
         Service {
             environment: pairs
                 .iter()
@@ -340,38 +340,50 @@ mod tests {
         }
     }
 
-    // A server given no way to let a client in never starts: an env with
+    // A server given no way to let a client in never starts: an environment with
     // no password, an empty one, or a rule other than the one that asks
     // none.
     #[test]
     fn an_env_that_gives_no_way_in_is_refused() {
-        assert_eq!(refusal(env(&[("TZ", "UTC")])), "no-password");
-        assert_eq!(refusal(env(&[("POSTGRES_PASSWORD", "")])), "no-password");
+        assert_eq!(refusal(environment(&[("TZ", "UTC")])), "no-password");
         assert_eq!(
-            refusal(env(&[("POSTGRES_HOST_AUTH_METHOD", "scram-sha-256")])),
+            refusal(environment(&[("POSTGRES_PASSWORD", "")])),
             "no-password"
         );
         assert_eq!(
-            refusal(env(&[("POSTGRES_PASSWORD_FILE", "/run/secret")])),
+            refusal(environment(&[(
+                "POSTGRES_HOST_AUTH_METHOD",
+                "scram-sha-256"
+            )])),
+            "no-password"
+        );
+        assert_eq!(
+            refusal(environment(&[("POSTGRES_PASSWORD_FILE", "/run/secret")])),
             "no-password"
         );
         // The control: the rule that asks none is a way in, and a test is
         // then told no password.
         let trusting = PostgresPlugin
-            .service("postgres", &env(&[("POSTGRES_HOST_AUTH_METHOD", "trust")]))
+            .service(
+                "postgres",
+                &environment(&[("POSTGRES_HOST_AUTH_METHOD", "trust")]),
+            )
             .unwrap();
         assert!(!trusting.exports.contains_key("PGPASSWORD"));
         assert_eq!(trusting.exports["PGUSER"], "postgres");
     }
 
-    // The port is said by ports and nowhere else: not by the env every
+    // The port is said by ports and nowhere else: not by the environment every
     // client and the server read, and not by the server's arguments, in
     // any spelling it takes.
     #[test]
     fn a_port_said_anywhere_but_ports_is_refused() {
         assert_eq!(
-            refusal(env(&[("POSTGRES_PASSWORD", "x"), ("PGPORT", "6543")])),
-            "port-in-env"
+            refusal(environment(&[
+                ("POSTGRES_PASSWORD", "x"),
+                ("PGPORT", "6543")
+            ])),
+            "port-in-environment"
         );
         for spelling in [
             &["-p", "6543"][..],
@@ -383,14 +395,18 @@ mod tests {
             &["-cport=6543"],
             &["-p", "{port.sql}"],
         ] {
-            assert_eq!(refusal(args(spelling)), "port-in-args", "{spelling:?}");
+            assert_eq!(
+                refusal(arguments(spelling)),
+                "port-in-arguments",
+                "{spelling:?}"
+            );
         }
         // The control: arguments that say no port are kept, on the port
         // the server serves on where it is told none.
         let kept = PostgresPlugin
             .service(
                 "postgres",
-                &args(&["-c", "fsync=off", "-c", "max_connections=20"]),
+                &arguments(&["-c", "fsync=off", "-c", "max_connections=20"]),
             )
             .unwrap();
         assert_eq!(
@@ -406,9 +422,9 @@ mod tests {
     fn args_beside_another_port_are_refused_and_either_alone_is_started() {
         let both = Service {
             ports: [("sql".to_string(), 6543)].into(),
-            ..args(&["-c", "fsync=off"])
+            ..arguments(&["-c", "fsync=off"])
         };
-        assert_eq!(refusal(both), "port-beside-args");
+        assert_eq!(refusal(both), "port-beside-arguments");
         let port_alone = Service {
             ports: [("sql".to_string(), 6543)].into(),
             ..Default::default()
@@ -421,7 +437,7 @@ mod tests {
             ["-p", "6543"]
         );
         assert!(PostgresPlugin
-            .service("postgres", &args(&["-c", "fsync=off"]))
+            .service("postgres", &arguments(&["-c", "fsync=off"]))
             .is_ok());
     }
 

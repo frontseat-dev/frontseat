@@ -16,19 +16,19 @@ beside it; what it writes is the same on every official image.
 
 Whatever is written beside `as` is kept, whole, and the rest is said to
 fit it: another `image`; a `ports: {sql: …}` the server is then told to
-listen on; an `env` whose `POSTGRES_USER`, `POSTGRES_PASSWORD` and
+listen on; an `environment` whose `POSTGRES_USER`, `POSTGRES_PASSWORD` and
 `POSTGRES_DB` readiness and the exports follow; `exports` of other names;
 `endpoints` of other names or addresses. `exports` and `endpoints`
 written replace the plugin's own, all of them: a test is then told and
 given only what is written.
 
 What cannot be made to fit is refused by name, since it would be a
-server that never becomes ready: an `env` that gives no way in (no
+server that never becomes ready: an `environment` that gives no way in (no
 `POSTGRES_PASSWORD`, or an empty one, unless `POSTGRES_HOST_AUTH_METHOD`
 is `trust`, and then a test is told no `PGPASSWORD`); a password kept in
-a file, which nothing can place yet; `PGPORT` in `env`, and a port said
-among `args` in any spelling the server reads, since the port is said by
-`ports` alone; and `args` beside a port other than 5432, since the
+a file, which nothing can place yet; `PGPORT` in `environment`, and a port said
+among `arguments` in any spelling the server reads, since the port is said by
+`ports` alone; and `arguments` beside a port other than 5432, since the
 server is told its port by arguments, and those written are kept as
 they are.
 A key written to say nothing (`exports: {}`) is refused where the
@@ -60,7 +60,7 @@ plugins:
 |---|---|
 | `image` | PostgreSQL 17 on Alpine, the official image by digest, run as user `70` |
 | `ports` | `{sql: 5432}` |
-| `env` | `POSTGRES_USER`, `POSTGRES_PASSWORD` and `POSTGRES_DB`, each `postgres` |
+| `environment` | `POSTGRES_USER`, `POSTGRES_PASSWORD` and `POSTGRES_DB`, each `postgres` |
 | `writable` | `/var/lib/postgresql` and `/var/run/postgresql` |
 | `ready` | `pg_isready` over the network, for the port, the role and the database that hold |
 | `endpoints` | `sql`, at `{host}:{port.sql}` |
