@@ -27,6 +27,11 @@ var addCmd = &cobra.Command{
 		if len(addRepositories)+len(addEntities) == 0 {
 			return errors.New("name what to add with --entity or --repository")
 		}
+		// Repositories are cloned whole: there are no entities whose
+		// directories alone could be.
+		if addWhole && len(addEntities) == 0 {
+			return errors.New("--whole is said of the entities added, and none is named: a repository is cloned whole as it is")
+		}
 		for _, r := range addRepositories {
 			named, err := machine.Repository(r)
 			if err != nil {

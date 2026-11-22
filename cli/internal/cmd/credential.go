@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -60,7 +61,7 @@ reads no more than it must.`,
 		if credentialForget {
 			return credentials.Delete(cmd.Context(), args[0])
 		}
-		secret, err := secretRead(cmd.ErrOrStderr(), args[0])
+		secret, err := secretRead(cmd.Context(), cmd.ErrOrStderr(), args[0])
 		if err != nil {
 			return err
 		}
@@ -71,14 +72,36 @@ reads no more than it must.`,
 // secretRead reads the secret of a host's credential: a line, and no
 // long one. A person at a terminal is asked for it on asking, and what
 // they type is not shown; anything else is read from standard input to
-// its end.
-func secretRead(asking io.Writer, host string) (string, error) {
+// its end. An interrupt while a person is asked ends the asking: the
+// terminal is given back as it was, and the read is left to end with
+// the command.
+func secretRead(ctx context.Context, asking io.Writer, host string) (string, error) {
 	var read []byte
 	var err error
 	if stdin := int(os.Stdin.Fd()); secretFrom == nil && term.IsTerminal(stdin) {
+		was, held := term.GetState(stdin)
+		if held != nil {
+			return "", held
+		}
+		type typing struct {
+			read []byte
+			err  error
+		}
+		typed := make(chan typing, 1)
 		fmt.Fprintf(asking, "Secret for %s (it is not shown): ", plain.Shown(host))
-		read, err = term.ReadPassword(stdin)
-		fmt.Fprintln(asking)
+		go func() {
+			read, err := term.ReadPassword(stdin)
+			typed <- typing{read, err}
+		}()
+		select {
+		case got := <-typed:
+			read, err = got.read, got.err
+			fmt.Fprintln(asking)
+		case <-ctx.Done():
+			restored := term.Restore(stdin, was)
+			fmt.Fprintln(asking)
+			return "", errors.Join(ctx.Err(), restored)
+		}
 	} else {
 		from := secretFrom
 		if from == nil {
