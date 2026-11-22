@@ -152,11 +152,11 @@ func FuzzARequestIsHeldToOneDirectoryOfTheBuildDirectory(f *testing.F) {
 	})
 }
 
-// A service is checked ready through the socket of its route, in a
-// directory the service writes, and never through a link it left there
-// to a socket of anyone else's: both checks refuse a link to a socket
-// that answers, and the control is that socket, which each finds ready.
-func TestAServiceIsCheckedReadyThroughItsOwnSocketAndNoLink(t *testing.T) {
+// answering is the socket of a service that answers every request with
+// body, in a directory of its own whose path is short enough for a
+// socket's.
+func answering(t *testing.T, body string) string {
+	t.Helper()
 	dir, err := os.MkdirTemp("", "ready")
 	if err != nil {
 		t.Fatal(err)
@@ -167,10 +167,19 @@ func TestAServiceIsCheckedReadyThroughItsOwnSocketAndNoLink(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	server := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("ok")) })}
+	server := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(body)) })}
 	go func() { _ = server.Serve(listener) }()
 	t.Cleanup(func() { server.Close() })
-	link := filepath.Join(dir, "link")
+	return socket
+}
+
+// A service is checked ready through the socket of its route, in a
+// directory the service writes, and never through a link it left there
+// to a socket of anyone else's: both checks refuse a link to a socket
+// that answers, and the control is that socket, which each finds ready.
+func TestAServiceIsCheckedReadyThroughItsOwnSocketAndNoLink(t *testing.T) {
+	socket := answering(t, "ok")
+	link := filepath.Join(filepath.Dir(socket), "link")
 	if err := os.Symlink(socket, link); err != nil {
 		t.Fatal(err)
 	}
@@ -191,23 +200,9 @@ func TestAServiceIsCheckedReadyThroughItsOwnSocketAndNoLink(t *testing.T) {
 // A check that fails says the beginning of what the service answered,
 // and no more: a service answers what it likes, at any length.
 func TestAFailedCheckRepeatsOnlyTheBeginningOfWhatAServiceAnswered(t *testing.T) {
-	dir, err := os.MkdirTemp("", "ready")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { os.RemoveAll(dir) })
-	socket := filepath.Join(dir, "socket")
-	listener, err := net.Listen("unix", socket)
-	if err != nil {
-		t.Fatal(err)
-	}
-	server := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte("starting" + strings.Repeat("x", 64<<10)))
-	})}
-	go func() { _ = server.Serve(listener) }()
-	t.Cleanup(func() { server.Close() })
+	socket := answering(t, "starting"+strings.Repeat("x", 64<<10))
 
-	err = answered(t.Context(), socket, "/", regexp.MustCompile("^ready$"))
+	err := answered(t.Context(), socket, "/", regexp.MustCompile("^ready$"))
 
 	if err == nil || !strings.Contains(err.Error(), "starting") {
 		t.Fatalf("a check the answer does not match: %v", err)
