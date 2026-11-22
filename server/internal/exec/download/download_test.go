@@ -1,18 +1,14 @@
 package download_test
 
 import (
-	"bytes"
 	"context"
-	"crypto/sha1"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"net"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
-	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -28,6 +24,7 @@ import (
 	"github.com/frontseat-dev/frontseat/server/internal/exec/access"
 	"github.com/frontseat-dev/frontseat/server/internal/exec/download"
 	"github.com/frontseat-dev/frontseat/server/internal/exec/reapi/reapitest"
+	"github.com/frontseat-dev/frontseat/server/internal/place"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testauthority"
 )
 
@@ -96,18 +93,6 @@ func fetchesItoa(t *testing.T, client *download.Client) {
 	if digest.Hash != sum || digest.Size != 15935 {
 		t.Errorf("digest = %+v; want itoa 1.0.18's archive by its sha256", digest)
 	}
-}
-
-// downloadedWhole is a directory that holds, read-only as a worker is
-// given it, a download fetched whole, named "whole", and what it holds.
-func downloadedWhole(t *testing.T) (string, []byte) {
-	t.Helper()
-	directory := t.TempDir()
-	whole := []byte("signature|control section|data section, longer")
-	if err := os.WriteFile(filepath.Join(directory, "whole"), whole, 0o444); err != nil {
-		t.Fatal(err)
-	}
-	return directory, whole
 }
 
 const (
@@ -349,20 +334,15 @@ func TestARewriteThatIsNoExpressionIsRefusedAtTheStart(t *testing.T) {
 	}
 }
 
-// The unpacking command names each archive and its directory as an
-// argument and never in its text, and its text is the same for every
-// download.
-func TestUnpackingIsOneCommandWithArguments(t *testing.T) {
-	one := download.Unpacking("a.crate", "vendor/")
+// The unpacking command is frontseat-place of the daemon's form, told
+// each archive and its directory as arguments, and runs no shell.
+func TestUnpackingIsFrontseatsOwnProgramToldItsArguments(t *testing.T) {
 	two := download.Unpacking("a.crate", "vendor/", "b.crate", "vendor/")
-	if one[2] != two[2] {
-		t.Error("the command's text differs between downloads")
+	if want := []string{place.Placer, "unpack", "a.crate", "vendor/", "b.crate", "vendor/"}; !slices.Equal(two, want) {
+		t.Errorf("command = %q; want %q", two, want)
 	}
-	if strings.Contains(one[2], "a.crate") {
-		t.Error("an archive's name is in the command's text")
-	}
-	if len(two) != 8 || two[0] != "/bin/sh" || two[4] != "a.crate" || two[7] != "vendor/" {
-		t.Errorf("command = %q", two)
+	if none := download.Unpacking(); !slices.Equal(none, []string{place.Placer, "unpack"}) {
+		t.Errorf("the command that places nothing = %q", none)
 	}
 }
 
@@ -495,66 +475,14 @@ func TestAnUncheckedAnswerThatNamesNoContentIsRefused(t *testing.T) {
 	}
 }
 
-// The cutting command, run as a worker runs it: each part is cut out by
-// its offset and length and kept where every part is what its checksum
-// says; at one that is not, the command fails, says which address and
-// bytes, and keeps nothing, not even a sound part before it. Nothing of
-// a download is in the command's text.
-func TestCuttingKeepsEachPartThatIsWhatItsChecksumSaysAndFailsAtOneThatIsNot(t *testing.T) {
-	directory, whole := downloadedWhole(t)
-	control, data := whole[10:25], whole[26:]
-	sha1Of := func(b []byte) string { sum := sha1.Sum(b); return hex.EncodeToString(sum[:]) }
-	sha256Of := func(b []byte) string { sum := sha256.Sum256(b); return hex.EncodeToString(sum[:]) }
-	run := func(parts ...string) (string, error) {
-		command := download.Cutting(parts...)
-		cmd := exec.Command(command[0], command[1:]...)
-		cmd.Dir = directory
-		out, err := cmd.CombinedOutput()
-		return string(out), err
+// The cutting command is frontseat-place of the daemon's form, told
+// each part's seven as arguments, and runs no shell; what it does with
+// them is place's to show.
+func TestCuttingIsFrontseatsOwnProgramToldItsParts(t *testing.T) {
+	part := []string{"whole", "0", "1", "sha1", strings.Repeat("1a", 20), "a.part", "https://example.com/a"}
+	if got, want := download.Cutting(part...), append([]string{place.Placer, "cut"}, part...); !slices.Equal(got, want) {
+		t.Errorf("command = %q; want %q", got, want)
 	}
-	out, err := run(
-		"whole", "10", "15", "sha1", sha1Of(control), "kept/a b/control", "https://example.com/x.apk",
-		"whole", "26", strconv.Itoa(len(data)), "sha256", sha256Of(data), "kept/data", "https://example.com/x.apk",
-	)
-	if err != nil {
-		t.Fatalf("sound parts were refused, so this test proves nothing: %v\n%s", err, out)
-	}
-	for name, want := range map[string][]byte{"kept/a b/control": control, "kept/data": data} {
-		if got, err := os.ReadFile(filepath.Join(directory, name)); err != nil || !bytes.Equal(got, want) {
-			t.Errorf("%s = %q, %v; want %q", name, got, err, want)
-		}
-	}
-	for name, parts := range map[string][]string{
-		"a part that is not what its sha1 says":   {"whole", "11", "15", "sha1", sha1Of(control), "bad/control", "https://example.com/x.apk"},
-		"a part that is not what its sha256 says": {"whole", "26", strconv.Itoa(len(data) - 1), "sha256", sha256Of(data), "bad/data", "https://example.com/x.apk"},
-		"a part past the end of the download":     {"whole", "40", "100", "sha256", sha256Of(data), "bad/past", "https://example.com/x.apk"},
-		"a sound part before one that is not": {
-			"whole", "10", "15", "sha1", sha1Of(control), "bad/first", "https://example.com/x.apk",
-			"whole", "0", "3", "sha1", sha1Of(control), "bad/second", "https://example.com/y.apk",
-		},
-	} {
-		out, err := run(parts...)
-		if err == nil {
-			t.Errorf("%s: passed", name)
-			continue
-		}
-		address := parts[len(parts)-1]
-		if !strings.Contains(out, address) || !strings.Contains(out, "the lock holds") {
-			t.Errorf("%s: said %q; want the address %s and what the lock holds", name, out, address)
-		}
-		if _, err := os.Stat(filepath.Join(directory, "bad")); err == nil {
-			t.Errorf("%s: something was kept", name)
-		}
-	}
-	one, two := download.Cutting(parts7("a")...), download.Cutting(append(parts7("a"), parts7("b")...)...)
-	if one[2] != two[2] || strings.Contains(one[2], "example.com") || len(two) != 4+14 {
-		t.Errorf("the command's text differs between downloads, or holds one: %q", two)
-	}
-}
-
-// parts7 is the seven arguments of one part of a download named.
-func parts7(name string) []string {
-	return []string{name, "0", "1", "sha1", strings.Repeat("1a", 20), name + ".part", "https://example.com/" + name}
 }
 
 // The asset service is asked as its grid is: over TLS, known by the

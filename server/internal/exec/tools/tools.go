@@ -10,9 +10,10 @@
 // tools as it sees its sources: as inputs, the same on every worker.
 //
 // A worker therefore needs frontseat-action (server/internal/confine),
-// mise, and what a fetch's command runs to place what the asset service
-// fetched for a download (exec/download): the shell, tar, and the
-// programs that cut and check a part of one.
+// frontseat-place beside it, which unpacks or cuts what the asset service
+// fetched for a download (exec/download, server/internal/place), and
+// mise, and nothing else of Frontseat's: no tar or checksum program of its
+// image.
 //
 // Whatever a worker runs for a repository is confined: an action, and
 // the install of a tool the repository pins. What confines it is the

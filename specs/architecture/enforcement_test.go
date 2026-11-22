@@ -298,6 +298,13 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		// The confiner is confine alone.
 		{"server/cmd/frontseat-action/main.go", "server/internal/confine", true},
 		{"server/cmd/frontseat-action/main.go", "server/internal/runner", false},
+		// What a fetch runs is place alone, and only the fetch's command
+		// names it.
+		{"server/cmd/frontseat-place/main.go", "server/internal/place", true},
+		{"server/cmd/frontseat-place/main.go", "server/internal/confine", false},
+		{"server/internal/exec/download/download.go", "server/internal/place", true},
+		{"server/internal/exec/stage/stage.go", "server/internal/place", false},
+		{"server/internal/place/place.go", "server/internal/confine", false},
 		// The shared libraries moved from the server are each one thing.
 		{"server/internal/testservice/testservice.go", "server/internal/image", true},
 		{"server/internal/testservice/testservice.go", "server/internal/model", false},

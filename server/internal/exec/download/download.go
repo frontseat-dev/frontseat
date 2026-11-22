@@ -6,7 +6,8 @@
 // and checksum, so every repository and daemon of the grid shares one
 // download. A daemon asks it for what a shared fetch declares
 // (SharedFetch.downloads) and places the answer in the fetch's root, where
-// the fetch unpacks it with no network (Unpacking).
+// the fetch unpacks it with no network, by a program of Frontseat's own
+// installed beside the confiner (Unpacking, server/internal/place).
 //
 // Where a lock holds no checksum of the whole of a download, only of
 // parts of it, the service is asked for the URL unchecked, and the fetch
@@ -50,6 +51,7 @@ import (
 
 	"github.com/frontseat-dev/frontseat/server/internal/exec"
 	"github.com/frontseat-dev/frontseat/server/internal/exec/access"
+	"github.com/frontseat-dev/frontseat/server/internal/place"
 	"github.com/frontseat-dev/frontseat/server/telemetry"
 )
 
@@ -335,14 +337,14 @@ func publicHost(hostname string) error {
 
 // Unpacking is the command of a fetch that downloads: for each archive
 // and the directory it goes into, both relative to where the command
-// runs, it makes the directory and unpacks the archive there, as tar -xz
-// does, never over a file that is there already (-k): what the fetch was
+// runs, frontseat-place makes the directory and unpacks the archive
+// there, never over a file that is there already: what the fetch was
 // given beside the archive, such as the checksum cargo reads, is never
-// replaced by what the archive holds. Nothing of what was downloaded is
-// put into the command's text: each is an argument, and the text is the
-// same for every such fetch.
+// replaced by what the archive holds (place). Nothing of what was
+// downloaded is run: each is an argument to a program of Frontseat's
+// own, which runs no shell.
 func Unpacking(archivesAndDirectories ...string) []string {
-	return append([]string{"/bin/sh", "-c", unpack, "sh"}, archivesAndDirectories...)
+	return place.Unpack(archivesAndDirectories...)
 }
 
 // Cutting is the command of a fetch that keeps parts of what it
@@ -352,40 +354,7 @@ func Unpacking(archivesAndDirectories ...string) []string {
 // address it came from, to say so by. Every part is checked first, and
 // only where each is what its checksum says is any kept: at the first
 // that is not, the command fails, says which, and leaves nothing. As with
-// Unpacking, each is an argument and the text is the same for every such
-// fetch.
+// Unpacking, each is an argument to frontseat-place (place).
 func Cutting(parts ...string) []string {
-	return append([]string{"/bin/sh", "-c", cut, "sh"}, parts...)
+	return place.Cut(parts...)
 }
-
-// cut is the text of Cutting: $1 what was downloaded, $2 the offset, $3
-// the length, $4 the kind of checksum, $5 the checksum, $6 the file, $7
-// the address. The first pass checks each part and puts its seven
-// arguments back at the end, so that the second finds them as they were.
-const cut = `set -e
-n=$#
-while [ $n -ge 7 ]; do
-  said=$(tail -c "+$(($2 + 1))" "$1" | head -c "$3" | "$4sum")
-  said=${said%% *}
-  if [ "$said" != "$5" ]; then
-    echo "$7: the $3 bytes at $2 have the $4 $said, and the lock holds $5" >&2
-    exit 1
-  fi
-  set -- "$@" "$1" "$2" "$3" "$4" "$5" "$6" "$7"
-  shift 7
-  n=$((n - 7))
-done
-while [ $# -ge 7 ]; do
-  mkdir -p "$(dirname "$6")"
-  tail -c "+$(($2 + 1))" "$1" | head -c "$3" > "$6"
-  shift 7
-done`
-
-// unpack is the text of Unpacking: $1 an archive, $2 where it goes, and
-// so on in pairs.
-const unpack = `set -e
-while [ $# -ge 2 ]; do
-  mkdir -p "$2"
-  tar -xzkf "$1" -C "$2"
-  shift 2
-done`

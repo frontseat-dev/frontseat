@@ -3,7 +3,7 @@ kind: Component
 metadata:
   name: server
   namespace: frontseat
-  description: "The server: the daemon (frontseatd), which plans and runs a workspace's builds on the grid with its plugin host and holds the source the control plane tells it to; the control plane (frontseat-local on the local stack), which keeps workspaces over the sandboxes they live in and each person's credentials; the sandbox service and its drivers; the grid's runner of tests with services (frontseat-runner); the confiner every action runs by (frontseat-action); and the test support"
+  description: "The server: the daemon (frontseatd), which plans and runs a workspace's builds on the grid with its plugin host and holds the source the control plane tells it to; the control plane (frontseat-local on the local stack), which keeps workspaces over the sandboxes they live in and each person's credentials; the sandbox service and its drivers; the grid's runner of tests with services (frontseat-runner); the confiner every action runs by (frontseat-action); what a fetch runs to place what it downloaded (frontseat-place); and the test support"
 spec:
   type: service
   lifecycle: experimental

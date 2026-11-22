@@ -101,6 +101,9 @@ var policies = []policy{
 	{"server/internal/httpserver", []string{}},
 	{"server/internal/image", []string{}},
 	{"server/internal/confine", []string{}},
+	// What a fetch's command runs in place of a shell: the standard
+	// library alone, which its form holds by the Go release.
+	{"server/internal/place", []string{}},
 	// Whether what leads out of a sandbox is written plainly: one reader
 	// of a host, an origin, a path and a program, for the control plane
 	// and the gateway's driver.
@@ -154,7 +157,7 @@ var policies = []policy{
 	// grid's dial and its asset service's, and for nothing else.
 	{"server/internal/exec/access", []string{}},
 	{"server/internal/exec/reapi", []string{"server/telemetry", "server/internal/exec", "server/internal/exec/access", "server/internal/confine"}},
-	{"server/internal/exec/download", []string{"server/telemetry", "server/internal/exec", "server/internal/exec/access"}},
+	{"server/internal/exec/download", []string{"server/telemetry", "server/internal/exec", "server/internal/exec/access", "server/internal/place"}},
 	{"server/internal/exec/tools", []string{"server/telemetry", "server/internal/exec", "server/internal/pins", "server/internal/testservice", "server/internal/confine"}},
 	{"server/internal/exec/tools/toolstest", []string{"server/internal/exec"}},
 	{"server/internal/pluginhost/pluginhosttest", []string{"sdk/go/api/**", "server/internal/pluginapi/**", "server/internal/pattern"}},
@@ -215,6 +218,7 @@ var policies = []policy{
 	// stack is by the stack's own package.
 	{"server/cmd/frontseat-local", []string{"server/internal/controlplane", "server/internal/backstage", "server/internal/source", "server/internal/httpserver", "server/internal/secretfile", "server/telemetry", "local", "local/ports", "local/stack", "local/box"}},
 	{"server/cmd/frontseat-action", []string{"server/internal/confine"}},
+	{"server/cmd/frontseat-place", []string{"server/internal/place"}},
 	// The grid's runner: a thin main over the runner, which serves the
 	// sandbox API over the container runtime to itself.
 	{"server/cmd/frontseat-runner", []string{"server/internal/runner"}},

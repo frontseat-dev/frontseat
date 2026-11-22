@@ -3,6 +3,7 @@ package stage
 import (
 	"context"
 	"github.com/frontseat-dev/frontseat/server/internal/pattern"
+	"slices"
 	"strings"
 	"testing"
 
@@ -128,8 +129,8 @@ func TestADownloadingFetchIsGivenWhatWasFetchedAndUnpacksItOffline(t *testing.T)
 	}
 	script := strings.Join(staged.Arguments, " ")
 	switch {
-	case !strings.Contains(script, "tar -xzkf"):
-		t.Errorf("the command does not unpack: %q", staged.Arguments)
+	case !strings.Contains(script, " "+placer()+" unpack "):
+		t.Errorf("the command does not unpack with frontseat-place: %q", staged.Arguments)
 	case !strings.Contains(script, " "+archive+" .frontseat/home/.cargo/vendor"):
 		t.Errorf("the command does not name the archive and its directory: %q", staged.Arguments)
 	case networked(staged.Arguments):
@@ -182,7 +183,7 @@ func TestAFetchThatCutsPartsIsGivenTheWholeUncheckedAndChecksEachPartOffline(t *
 	home := ".frontseat/home/.cache/dev.chainguard.go-apk/https%3A%2F%2Fpackages.wolfi.dev%2Fos/aarch64/busybox-1.37.0-r50/"
 	script := strings.Join(staged.Arguments, " ")
 	for _, want := range []string{
-		"\"$4sum\"",
+		" " + placer() + " cut ",
 		" " + whole + " 647 982 sha1 " + control + " " + home + control + ".ctl.tar.gz " + address,
 		" " + whole + " 1629 1301 sha256 " + data + " " + home + data + ".dat.tar.gz " + address,
 	} {
@@ -190,7 +191,7 @@ func TestAFetchThatCutsPartsIsGivenTheWholeUncheckedAndChecksEachPartOffline(t *
 			t.Errorf("the command lacks %q: %q", want, staged.Arguments)
 		}
 	}
-	if strings.Contains(script, "tar -xzkf") {
+	if strings.Contains(script, " unpack ") {
 		t.Errorf("the command unpacks, and nothing is to be unpacked: %q", staged.Arguments)
 	}
 	if networked(staged.Arguments) {
@@ -228,14 +229,17 @@ func TestAFetchOfWhatItsLockHoldsWholeLeavesItsFilesAndReachesNothing(t *testing
 		if networked(staged.Arguments) {
 			t.Errorf("the command has the network, and needs none: %q", staged.Arguments)
 		}
-		if last := staged.Arguments[len(staged.Arguments)-1]; last != "sh" {
-			t.Errorf("the command is given %q to place, and there is nothing to place", last)
+		if command := staged.Arguments[3:]; !slices.Equal(command, []string{placer(), "unpack"}) {
+			t.Errorf("the command is %q; want frontseat-place told nothing to place", command)
 		}
 	}
 	if len(service.asked) != 0 {
 		t.Errorf("the asset service was asked %q", service.asked)
 	}
 }
+
+// placer is frontseat-place as the daemon names it, of its form.
+func placer() string { return download.Unpacking()[0] }
 
 // networked says whether a staged command reaches the network: what
 // frontseat-action is told, its second word, says so.

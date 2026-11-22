@@ -210,7 +210,13 @@ the change that fixes it.
   policy lets them reach the hosts named (`network=egress`); every other
   reaches nothing. `frontseat-action`, built of `server/internal/confine`
   alone so that its form is what it does, sets the action up, confines
-  it and runs it. Held by: `TestTheConfinerIsConfineAlone`,
+  it and runs it. A fetch's command is `frontseat-place`, built of
+  `server/internal/place` alone and installed beside the confiner
+  under its form, confined as any action is: it unpacks or cuts what
+  the asset service brought, told it as data, refuses an entry that
+  leads out of the directory it unpacks into, and runs no shell
+  (`TestThePlacerIsPlaceAlone`,
+  `TestAnEntryThatLeadsOutOfItsDirectoryIsRefused`). Held by: `TestTheConfinerIsConfineAlone`,
   `TestAnActionWritesItsOwnRootAndNothingAboveIt`,
   `TestNothingAnActionStartedOutlivesIt`,
   `TestAnActionReachesNoSocketAboveItsRoot`,
@@ -879,6 +885,7 @@ mise run docs:serve       # serve the TechDocs site on http://localhost:8000
 | `server/internal/image` | An image's reference, read by Docker's own parser, and what the container runtime says an image is started with (`Started`) |
 | `server/internal/testservice` | What a service for tests is held to, for the daemon and the runner |
 | `server/internal/confine` | How a worker starts and confines an action (`frontseat-action`) |
+| `server/internal/place` | How a fetch unpacks or cuts what it downloaded (`frontseat-place`) |
 | `server/internal/exec/here` | A command made ready to run where the daemon is, with the grid's tools: a fix, and what publishes |
 | `server/internal/plain` | Text and names that every reader reads alike: the one reader of a name from outside, a host (`Hostname`), its origin (`OriginOf`, `Ruled`), a path, a program, a parameter, a secret |
 | `server/internal/records` | A directory of records, each written whole and read strictly: the control plane's workspaces and credentials, the sandbox service's sandboxes, a workspace's manifest (`Write`) |

@@ -393,6 +393,11 @@ func boxed(root, artifacts string) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("installing the confiner, frontseat-action: %w", err)
 	}
+	// What a fetch's command runs: the daemon names it by its form, as
+	// it does the confiner, and no test is told where it is.
+	if _, err := box.InstallPlacer(installing, root); err != nil {
+		return nil, fmt.Errorf("installing what a fetch runs, frontseat-place: %w", err)
+	}
 	if err := box.Give(installing, tag); err != nil {
 		return nil, fmt.Errorf("handing the box to the stack: %w", err)
 	}

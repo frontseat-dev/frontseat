@@ -60,9 +60,10 @@ COPY --from=scheduler /app/bb_scheduler /usr/local/bin/
 COPY --from=worker /app/bb_worker /usr/local/bin/
 COPY --from=assets /app/bb_remote_asset /usr/local/bin/
 # Of the box's programs, those the stack runs: the control plane and init,
-# the runner pool, and the confiner its installer installs. The daemon and
-# the command line run in a workspace's sandbox, of the box itself.
-COPY --from=box /opt/frontseat/bin/frontseat-local /opt/frontseat/bin/frontseat-runner /opt/frontseat/bin/frontseat-action /opt/frontseat/bin/
+# the runner pool, and the confiner and frontseat-place its installer
+# installs. The daemon and the command line run in a workspace's sandbox,
+# of the box itself.
+COPY --from=box /opt/frontseat/bin/frontseat-local /opt/frontseat/bin/frontseat-runner /opt/frontseat/bin/frontseat-action /opt/frontseat/bin/frontseat-place /opt/frontseat/bin/
 COPY rootfs/ /
 # What the image was built with, for its services to read where a flag is
 # given: the box a workspace runs, and the workers' architecture as the
