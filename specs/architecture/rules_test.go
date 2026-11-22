@@ -208,7 +208,10 @@ var policies = []policy{
 	// It serves the sandbox service beneath the plane to the test alone,
 	// and says how the plane's owner is known as the SDK's clients take it.
 	{"server/testsupport/controlplanetest", []string{"server/internal/controlplane", "server/internal/backstage", "server/internal/source", "server/internal/forge", "server/sandbox", "server/testsupport/**", "sdk/go/api/**", "sdk/go"}},
-	{"server/cmd/frontseatd", []string{"server/internal/build", "server/internal/source", "server/internal/httpserver", "server/telemetry", "local/ports"}},
+	// The daemon: a thin main over the package that is it, which reads
+	// its flags and serves the build API over what it is told.
+	{"server/cmd/frontseatd", []string{"server/internal/daemon"}},
+	{"server/internal/daemon", []string{"server/internal/build", "server/internal/source", "server/internal/httpserver", "server/telemetry", "local/ports"}},
 	// The local stack's control plane: the control plane, told what the
 	// stack is by the stack's own package.
 	{"server/cmd/frontseat-local", []string{"server/internal/controlplane", "server/internal/backstage", "server/internal/source", "server/internal/forge", "server/internal/httpserver", "server/internal/secretfile", "server/telemetry", "local", "local/ports", "local/stack", "local/box"}},

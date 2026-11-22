@@ -1,6 +1,8 @@
-package main
+package daemon
 
 import (
+	"errors"
+	"flag"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -223,17 +225,73 @@ func TestWhatIsNoFlagIsRefused(t *testing.T) {
 	}
 }
 
+// The daemon's flags are its own: what the grid's client library
+// registers with the process's flags, as its logging's -v and
+// -logtostderr, is there and is no flag of the daemon's, refused before
+// the daemon does anything. The control is a flag of the daemon's, taken.
+func TestAFlagALibraryRegisteredIsNoneOfTheDaemons(t *testing.T) {
+	for _, name := range []string{"v", "logtostderr", "log_dir"} {
+		if flag.CommandLine.Lookup(name) == nil {
+			t.Fatalf("the process's flags hold no -%s: the library's flags are not what this test takes them for", name)
+		}
+		said, err := asked(t, "-"+name+"=2")
+		if !errors.Is(err, ErrUsage) || !strings.Contains(said, "flag provided but not defined: -"+name) {
+			t.Errorf("-%s: %v, saying %q; want it refused as no flag", name, err, said)
+		}
+	}
+	if _, err := asked(t, "--version"); err != nil {
+		t.Errorf("a flag of the daemon's: %v", err)
+	}
+}
+
+// A daemon asked wrongly, by a flag that is none of its own or by what
+// follows its flags, says so with its flags on standard error, as the
+// flag package does for every program here, and Run returns ErrUsage,
+// which its main ends with status 2 for. Asked for its flags, it is told
+// them and does nothing.
+func TestADaemonAskedWronglySaysItsFlags(t *testing.T) {
+	for name, args := range map[string][]string{
+		"no flag of its own":     {"--no-such-flag"},
+		"what follows the flags": {"--grid-tls", "true"},
+	} {
+		said, err := asked(t, args...)
+		if !errors.Is(err, ErrUsage) || !strings.Contains(said, "-workspace") {
+			t.Errorf("%s: %v, saying %q; want ErrUsage and the daemon's flags", name, err, said)
+		}
+	}
+	said, err := asked(t, "--help")
+	if err != nil || !strings.Contains(said, "-workspace") {
+		t.Errorf("--help: %v, saying %q; want the daemon's flags and nothing done", err, said)
+	}
+}
+
+// asked runs the daemon with args and returns what it said on standard
+// error.
+func asked(t *testing.T, args ...string) (string, error) {
+	t.Helper()
+	file, err := os.CreateTemp(t.TempDir(), "stderr")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+	stderr := os.Stderr
+	os.Stderr = file
+	err = Run(t.Context(), args, Release{Version: "1.4.0"})
+	os.Stderr = stderr
+	said, readErr := os.ReadFile(file.Name())
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	return string(said), err
+}
+
 // The daemon says which release it is, as the release that built it
-// wrote it in; one no release built says the version every other build
-// is given.
+// wrote it in; one no release built says its version alone.
 func TestTheDaemonSaysWhichReleaseItIs(t *testing.T) {
-	if said := released(); said != "frontseatd 0.0.0-dev" {
+	if said := (Release{Version: "0.0.0-dev"}).String(); said != "frontseatd 0.0.0-dev" {
 		t.Errorf("a daemon no release built said %q", said)
 	}
-	before, was := version, commit
-	version, commit = "1.4.0", "0123abcd"
-	t.Cleanup(func() { version, commit = before, was })
-	if said := released(); said != "frontseatd 1.4.0 (0123abcd)" {
+	if said := (Release{Version: "1.4.0", Commit: "0123abcd"}).String(); said != "frontseatd 1.4.0 (0123abcd)" {
 		t.Errorf("a released daemon said %q", said)
 	}
 }

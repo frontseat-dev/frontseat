@@ -663,9 +663,9 @@ the change that fixes it.
   `specs/cmd/gate`); a `main` anywhere else is refused by
   `TestEveryPublicPackageIsInAnSDKOrOnTheList`. *Target*: each is a thin
   `main` over a package of its module's, as `cli/cmd/frontseat` is over
-  `cli/internal/cmd`; `specs/cmd/gate`, `specs/cmd/prepare-modules`,
-  `server/cmd/frontseatd` and `server/cmd/frontseat-local` are not yet,
-  and nothing checks it.
+  `cli/internal/cmd` and `server/cmd/frontseatd` over
+  `server/internal/daemon`; `specs/cmd/gate`, `specs/cmd/prepare-modules`
+  and `server/cmd/frontseat-local` are not yet, and nothing checks it.
 - Every path of this repository a file names is there
   (`TestEveryPathAFileNamesIsThere`); nothing is reserved, as a package
   that declares nothing or a directory of a README alone
