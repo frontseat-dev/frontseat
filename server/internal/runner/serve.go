@@ -195,11 +195,11 @@ var form = regexp.MustCompile("^[0-9a-f]{64}$")
 func unlinked(root, dir string) error {
 	real, err := filepath.EvalSymlinks(root)
 	if err != nil {
-		return status.Errorf(codes.InvalidArgument, "the action's input root: %v", err)
+		return status.Errorf(codes.InvalidArgument, "the action's input root: %v", cause(err))
 	}
 	reached, err := filepath.EvalSymlinks(dir)
 	if err != nil {
-		return status.Errorf(codes.InvalidArgument, "where the action runs: %v", err)
+		return status.Errorf(codes.InvalidArgument, "where the action runs: %v", cause(err))
 	}
 	rel, err := filepath.Rel(root, dir)
 	if err != nil || reached != filepath.Join(real, rel) {
