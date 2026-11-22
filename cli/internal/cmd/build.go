@@ -28,7 +28,12 @@ var buildCmd = &cobra.Command{
 
 ` + targets + `
 
-The command follows the build to its end and exits with its exit code.`,
+The command follows the build to its end and exits with its exit code.
+
+The builds of the workspace are read and stopped with the commands
+beneath: build list, describe, events, actions, logs and cancel. An
+entity named list, describe, events, actions, logs or cancel is written
+with its kind, component:list.`,
 	Example: `  frontseat build
   frontseat build gateway --only lint
   frontseat build --fix //cli:go.format`,

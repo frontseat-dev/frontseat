@@ -24,7 +24,9 @@ printed:
   //services/greeter:go.run/greeter
 
 Everything after the program is given to the program, with or without
---; a flag of this command is written before the program. The command
+--; a flag of this command is written before the program. A program
+named list, describe, logs or cancel is written in full, as it is
+printed. The command
 prints the build, then what the program prints, and exits with the
 program's exit code. Interrupted, or where it can follow the program no
 longer, it stops the program.`,

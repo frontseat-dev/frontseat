@@ -182,10 +182,10 @@ func TestAnInterruptedRunStopsItsProgram(t *testing.T) {
 	stoppedTheRunItMade(t, l)
 }
 
-// runs lists the programs the daemon has run.
-func TestRunsListsThePrograms(t *testing.T) {
+// run list lists the programs the daemon has run.
+func TestRunListListsThePrograms(t *testing.T) {
 	l := &programs{}
-	printed, code, err := running(t, context.Background(), l, "runs")
+	printed, code, err := running(t, context.Background(), l, "run", "list")
 	if err != nil || code != 0 {
 		t.Fatalf("exit %d, %v", code, err)
 	}
@@ -195,19 +195,19 @@ func TestRunsListsThePrograms(t *testing.T) {
 	}
 }
 
-// One cancel stops a build or a run of a program, by its id, as builds
-// and runs list them; an id that is neither is refused before the
-// daemon is asked. The verb is the API's: there is no other spelling of
-// it, and no runs cancel.
-func TestCancelStopsABuildOrARunByItsID(t *testing.T) {
+// A run is stopped by run cancel and a build by build cancel, each by
+// its id, as run list and build list list them. The verb is the API's,
+// beneath the noun it is of: there is no cancel of its own, and no
+// other spelling.
+func TestARunAndABuildAreEachCancelledByTheirOwnCommand(t *testing.T) {
 	l := &programs{}
-	if _, code, err := running(t, context.Background(), l, "cancel", "run_2"); err != nil || code != 0 || len(l.stopped) != 1 || l.stopped[0] != "run_2" || len(l.halted) != 0 {
-		t.Errorf("cancel of a run: %v, cancelled runs %v and builds %v", err, l.stopped, l.halted)
+	if _, code, err := running(t, context.Background(), l, "run", "cancel", "run_2"); err != nil || code != 0 || len(l.stopped) != 1 || l.stopped[0] != "run_2" || len(l.halted) != 0 {
+		t.Errorf("run cancel: %v, cancelled runs %v and builds %v", err, l.stopped, l.halted)
 	}
-	if _, code, err := running(t, context.Background(), l, "cancel", "build_7"); err != nil || code != 0 || len(l.halted) != 1 || l.halted[0] != "build_7" || len(l.stopped) != 1 {
-		t.Errorf("cancel of a build: %v, cancelled runs %v and builds %v", err, l.stopped, l.halted)
+	if _, code, err := running(t, context.Background(), l, "build", "cancel", "build_7"); err != nil || code != 0 || len(l.halted) != 1 || l.halted[0] != "build_7" || len(l.stopped) != 1 {
+		t.Errorf("build cancel: %v, cancelled runs %v and builds %v", err, l.stopped, l.halted)
 	}
-	for _, args := range [][]string{{"cancel", "rel_1"}, {"cancel", "7"}, {"runs", "cancel", "run_2"}, {"runs", "stop", "run_2"}, {"cancel"}} {
+	for _, args := range [][]string{{"cancel", "run_2"}, {"cancel", "build_7"}, {"runs", "cancel", "run_2"}, {"run", "cancel"}, {"build", "cancel"}} {
 		if _, _, err := running(t, context.Background(), l, args...); err == nil {
 			t.Errorf("%v was taken", args)
 		}
