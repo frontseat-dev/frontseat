@@ -60,4 +60,5 @@ const (
 	ReleaseSucceeded  = buildv1.Release_STATE_SUCCEEDED
 	ReleaseUnpushed   = buildv1.Release_STATE_UNPUSHED
 	ReleaseFailed     = buildv1.Release_STATE_FAILED
+	ReleaseCancelled  = buildv1.Release_STATE_CANCELLED
 )

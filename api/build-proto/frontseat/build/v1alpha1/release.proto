@@ -102,6 +102,33 @@ service ReleaseService {
   rpc WaitRelease(WaitReleaseRequest) returns (WaitReleaseResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
+
+  // ListReleases returns the releases the daemon remembers, newest first,
+  // a page at a time: the one being made, and the twelve newest that
+  // have ended. A page token names a position in that list: where a
+  // release is made or forgotten between two pages, the next page may
+  // repeat one or leave one out.
+  //
+  // ### Errors
+  // - INVALID_ARGUMENT: the page token is not one this call gave
+  //   (PAGE_TOKEN_INVALID).
+  rpc ListReleases(ListReleasesRequest) returns (ListReleasesResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // CancelRelease stops a release that has not begun tagging: its build
+  // is cancelled, and nothing is tagged. It returns at once, with the
+  // release as it is then, as CancelBuild and CancelRun do; WaitRelease
+  // ends with STATE_CANCELLED once its build has stopped. Cancelling one
+  // that has ended succeeds and changes nothing.
+  //
+  // ### Errors
+  // - NOT_FOUND: no release has that id (RELEASE_NOT_FOUND).
+  // - FAILED_PRECONDITION: it is tagging, pushing or publishing, and is
+  //   carried through (RELEASE_NOT_CANCELLABLE).
+  rpc CancelRelease(CancelReleaseRequest) returns (CancelReleaseResponse) {
+    option idempotency_level = IDEMPOTENT;
+  }
 }
 
 // PlanReleaseRequest names what to release.
@@ -305,6 +332,9 @@ message Release {
     // what was. Where the build fails, no unit is tagged. Where a
     // publish fails, its unit says which, and its tags stay pushed.
     STATE_FAILED = 7;
+    // STATE_CANCELLED: CancelRelease stopped it before it began tagging;
+    // nothing of it is tagged.
+    STATE_CANCELLED = 8;
   }
 }
 
@@ -381,6 +411,36 @@ message WaitReleaseRequest {
 
 // WaitReleaseResponse is the release, ended.
 message WaitReleaseResponse {
+  // Release is the release.
+  Release release = 1;
+}
+
+// ListReleasesRequest asks for a page of the releases a daemon remembers.
+message ListReleasesRequest {
+  // `page_size` is the most releases to return; zero is a hundred, and
+  // more than a thousand is a thousand.
+  int32 page_size = 1;
+  // `page_token` is the next_page_token of the page before; empty for the
+  // first page.
+  string page_token = 2;
+}
+
+// ListReleasesResponse is a page of releases, newest first.
+message ListReleasesResponse {
+  // Releases are the releases.
+  repeated Release releases = 1;
+  // `next_page_token` asks for the page after this one; empty on the last.
+  string next_page_token = 2;
+}
+
+// CancelReleaseRequest names the release to stop.
+message CancelReleaseRequest {
+  // `release_id` is the release's id.
+  string release_id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+// CancelReleaseResponse is the release as it was when it was cancelled.
+message CancelReleaseResponse {
   // Release is the release.
   Release release = 1;
 }

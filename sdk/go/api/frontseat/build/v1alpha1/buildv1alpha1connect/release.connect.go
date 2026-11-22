@@ -60,6 +60,12 @@ const (
 	ReleaseServiceDescribeReleaseProcedure = "/frontseat.build.v1alpha1.ReleaseService/DescribeRelease"
 	// ReleaseServiceWaitReleaseProcedure is the procedure name of the ReleaseService's WaitRelease RPC.
 	ReleaseServiceWaitReleaseProcedure = "/frontseat.build.v1alpha1.ReleaseService/WaitRelease"
+	// ReleaseServiceListReleasesProcedure is the procedure name of the ReleaseService's ListReleases
+	// RPC.
+	ReleaseServiceListReleasesProcedure = "/frontseat.build.v1alpha1.ReleaseService/ListReleases"
+	// ReleaseServiceCancelReleaseProcedure is the procedure name of the ReleaseService's CancelRelease
+	// RPC.
+	ReleaseServiceCancelReleaseProcedure = "/frontseat.build.v1alpha1.ReleaseService/CancelRelease"
 )
 
 var (
@@ -92,6 +98,22 @@ var (
 			Schema:           v1alpha1.File_frontseat_build_v1alpha1_release_proto.Services().ByName("ReleaseService").Methods().ByName("WaitRelease"),
 			Procedure:        ReleaseServiceWaitReleaseProcedure,
 			IdempotencyLevel: connect.IdempotencyNoSideEffects,
+		}
+	})
+	releaseServiceListReleasesSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType:       connect.StreamTypeUnary,
+			Schema:           v1alpha1.File_frontseat_build_v1alpha1_release_proto.Services().ByName("ReleaseService").Methods().ByName("ListReleases"),
+			Procedure:        ReleaseServiceListReleasesProcedure,
+			IdempotencyLevel: connect.IdempotencyNoSideEffects,
+		}
+	})
+	releaseServiceCancelReleaseSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType:       connect.StreamTypeUnary,
+			Schema:           v1alpha1.File_frontseat_build_v1alpha1_release_proto.Services().ByName("ReleaseService").Methods().ByName("CancelRelease"),
+			Procedure:        ReleaseServiceCancelReleaseProcedure,
+			IdempotencyLevel: connect.IdempotencyIdempotent,
 		}
 	})
 )
@@ -157,6 +179,27 @@ type ReleaseServiceClient interface {
 	// ### Errors
 	// - NOT_FOUND: no release has that id (RELEASE_NOT_FOUND).
 	WaitRelease(context.Context, *v1alpha1.WaitReleaseRequest) (*v1alpha1.WaitReleaseResponse, error)
+	// ListReleases returns the releases the daemon remembers, newest first,
+	// a page at a time: the one being made, and the twelve newest that
+	// have ended. A page token names a position in that list: where a
+	// release is made or forgotten between two pages, the next page may
+	// repeat one or leave one out.
+	//
+	// ### Errors
+	// - INVALID_ARGUMENT: the page token is not one this call gave
+	//   (PAGE_TOKEN_INVALID).
+	ListReleases(context.Context, *v1alpha1.ListReleasesRequest) (*v1alpha1.ListReleasesResponse, error)
+	// CancelRelease stops a release that has not begun tagging: its build
+	// is cancelled, and nothing is tagged. It returns at once, with the
+	// release as it is then, as CancelBuild and CancelRun do; WaitRelease
+	// ends with STATE_CANCELLED once its build has stopped. Cancelling one
+	// that has ended succeeds and changes nothing.
+	//
+	// ### Errors
+	// - NOT_FOUND: no release has that id (RELEASE_NOT_FOUND).
+	// - FAILED_PRECONDITION: it is tagging, pushing or publishing, and is
+	//   carried through (RELEASE_NOT_CANCELLABLE).
+	CancelRelease(context.Context, *v1alpha1.CancelReleaseRequest) (*v1alpha1.CancelReleaseResponse, error)
 }
 
 // NewReleaseServiceClient constructs a client for the frontseat.build.v1alpha1.ReleaseService
@@ -227,6 +270,27 @@ type ReleaseServiceHandler interface {
 	// ### Errors
 	// - NOT_FOUND: no release has that id (RELEASE_NOT_FOUND).
 	WaitRelease(context.Context, *v1alpha1.WaitReleaseRequest) (*v1alpha1.WaitReleaseResponse, error)
+	// ListReleases returns the releases the daemon remembers, newest first,
+	// a page at a time: the one being made, and the twelve newest that
+	// have ended. A page token names a position in that list: where a
+	// release is made or forgotten between two pages, the next page may
+	// repeat one or leave one out.
+	//
+	// ### Errors
+	// - INVALID_ARGUMENT: the page token is not one this call gave
+	//   (PAGE_TOKEN_INVALID).
+	ListReleases(context.Context, *v1alpha1.ListReleasesRequest) (*v1alpha1.ListReleasesResponse, error)
+	// CancelRelease stops a release that has not begun tagging: its build
+	// is cancelled, and nothing is tagged. It returns at once, with the
+	// release as it is then, as CancelBuild and CancelRun do; WaitRelease
+	// ends with STATE_CANCELLED once its build has stopped. Cancelling one
+	// that has ended succeeds and changes nothing.
+	//
+	// ### Errors
+	// - NOT_FOUND: no release has that id (RELEASE_NOT_FOUND).
+	// - FAILED_PRECONDITION: it is tagging, pushing or publishing, and is
+	//   carried through (RELEASE_NOT_CANCELLABLE).
+	CancelRelease(context.Context, *v1alpha1.CancelReleaseRequest) (*v1alpha1.CancelReleaseResponse, error)
 }
 
 // RegisterReleaseServiceHandler registers svc as the frontseat.build.v1alpha1.ReleaseService
@@ -238,6 +302,8 @@ func RegisterReleaseServiceHandler(server *connect.Server, svc ReleaseServiceHan
 		connect.Method{Spec: releaseServiceCreateReleaseSpec(), Handler: adapter.createRelease},
 		connect.Method{Spec: releaseServiceDescribeReleaseSpec(), Handler: adapter.describeRelease},
 		connect.Method{Spec: releaseServiceWaitReleaseSpec(), Handler: adapter.waitRelease},
+		connect.Method{Spec: releaseServiceListReleasesSpec(), Handler: adapter.listReleases},
+		connect.Method{Spec: releaseServiceCancelReleaseSpec(), Handler: adapter.cancelRelease},
 	)
 }
 
@@ -258,6 +324,14 @@ func (UnimplementedReleaseServiceHandler) DescribeRelease(context.Context, *v1al
 
 func (UnimplementedReleaseServiceHandler) WaitRelease(context.Context, *v1alpha1.WaitReleaseRequest) (*v1alpha1.WaitReleaseResponse, error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, "frontseat.build.v1alpha1.ReleaseService.WaitRelease is not implemented")
+}
+
+func (UnimplementedReleaseServiceHandler) ListReleases(context.Context, *v1alpha1.ListReleasesRequest) (*v1alpha1.ListReleasesResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "frontseat.build.v1alpha1.ReleaseService.ListReleases is not implemented")
+}
+
+func (UnimplementedReleaseServiceHandler) CancelRelease(context.Context, *v1alpha1.CancelReleaseRequest) (*v1alpha1.CancelReleaseResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "frontseat.build.v1alpha1.ReleaseService.CancelRelease is not implemented")
 }
 
 type releaseServiceClient struct {
@@ -291,6 +365,22 @@ func (c *releaseServiceClient) DescribeRelease(ctx context.Context, req *v1alpha
 func (c *releaseServiceClient) WaitRelease(ctx context.Context, req *v1alpha1.WaitReleaseRequest) (*v1alpha1.WaitReleaseResponse, error) {
 	var res v1alpha1.WaitReleaseResponse
 	if err := c.client.CallUnary(ctx, releaseServiceWaitReleaseSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *releaseServiceClient) ListReleases(ctx context.Context, req *v1alpha1.ListReleasesRequest) (*v1alpha1.ListReleasesResponse, error) {
+	var res v1alpha1.ListReleasesResponse
+	if err := c.client.CallUnary(ctx, releaseServiceListReleasesSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *releaseServiceClient) CancelRelease(ctx context.Context, req *v1alpha1.CancelReleaseRequest) (*v1alpha1.CancelReleaseResponse, error) {
+	var res v1alpha1.CancelReleaseResponse
+	if err := c.client.CallUnary(ctx, releaseServiceCancelReleaseSpec(), req, &res); err != nil {
 		return nil, err
 	}
 	return &res, nil
@@ -340,6 +430,30 @@ func (h releaseServiceHandler) waitRelease(ctx context.Context, _ connect.Spec, 
 		return err
 	}
 	res, err := h.svc.WaitRelease(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h releaseServiceHandler) listReleases(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1alpha1.ListReleasesRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.ListReleases(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h releaseServiceHandler) cancelRelease(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1alpha1.CancelReleaseRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.CancelRelease(ctx, &req)
 	if err != nil {
 		return err
 	}
