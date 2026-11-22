@@ -11,6 +11,7 @@ would not make the mistake.
 
 | The mistake | The check |
 |---|---|
+| A workspace's sandbox was let through to a forge for a publisher no box ships, kept after publishing moved to actions; a release from a workspace then tagged, pushed and failed to publish, and making it again did not finish it. | What a workspace cannot serve is refused by name before anything is built or tagged (`TestAReleaseFromAWorkspaceThatWouldPublishIsRefusedBeforeItBuilds`); a rule that names a program is written with a spec that runs that program through it. |
 | A test of one feature imported another feature's test support or a server driver, and passed while the architecture test failed. | Cross-feature setup goes through the public API or the SDK; run `go test -race ./specs/architecture/` before a long runtime proof, and add no import exception for a test. |
 | A server released what its handlers use after joining only its accept loop, or after closing connections without joining their handlers. | Close admission, cancel request contexts, then join every admitted handler, hijacked requests and SSH sessions included; test a blocked cleanup, an unfinished handshake and a running command. |
 | Repeated port-zero reverse forwards leaked listeners, and one editor's disconnect could close another's reused port. | Test cancellation, disconnect and shutdown with one and with several forwards, and a released port reused on another connection. |

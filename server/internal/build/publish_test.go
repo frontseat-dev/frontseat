@@ -7,8 +7,11 @@ import (
 	"strings"
 	"testing"
 
+	connect "connectrpc.com/connect/v2"
+	"github.com/frontseat-dev/frontseat/sdk/go"
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/exec"
+	"github.com/frontseat-dev/frontseat/server/internal/refusal"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testpins"
 )
 
@@ -26,7 +29,7 @@ func (bringing) Materialize(_ context.Context, held exec.Held, into string) erro
 // told to, printing its token.
 const publisher = `out="$1/$(echo "$2" | tr / _)"; tag="$2"; notes="$4"; shift 2; { echo "$tag"; for each in "$@"; do echo "${each##*/}"; done; echo "token=${RELEASE_TOKEN-unset} other=${OTHER_TOKEN-unset} home=${HOME##*/}"; echo "notes=$(cat "$notes")"; ls; cat checksums.txt; } > "$out"; if [ -n "$FAILS" ]; then echo "refused $RELEASE_TOKEN"; exit 3; fi`
 
-// publishingSource writes, into a remote of releasingClients, greet
+// publishingSource writes, into a remote of releasingRemote, greet
 // with what it ships and an action that publishes it, into a directory.
 func publishingSource(t *testing.T, into string, fails bool, atRoot bool) func(remote string) {
 	failing := ""
@@ -79,14 +82,14 @@ func TestAReleasePublishesWhatItShippedWhereTheDaemonIs(t *testing.T) {
 	into := t.TempDir()
 	t.Setenv("RELEASE_TOKEN", "a-token-of-this-tests")
 	t.Setenv("OTHER_TOKEN", "another-of-this-tests")
-	c, clone := releasingClients(t, bringing{}, "release/1.0", publishingSource(t, into, false, false))
+	c, clone, remote := givenACheckoutWith(t, bringing{}, "release/1.0", publishingSource(t, into, false, false), 3)
 	c.daemon.releases.graph.runs.given = []string{"RELEASE_TOKEN"}
 	// A build is of everything, and publishes nothing.
 	if ended := wait(t, c.runs, create(t, c.runs).GetId()); ended.GetExitCode().GetCode() != 0 || readAt(t, into, "greet_v1.0.0") != "" {
 		t.Fatalf("a build ended %s, and published %q", ended.GetExitCode().GetName(), readAt(t, into, "greet_v1.0.0"))
 	}
 	refusal := ""
-	if pointed, err := c.runs.CreateBuild(context.Background(), &buildv1.CreateBuildRequest{Targets: []string{"//services/greet:custom.publish/release"}}); err != nil {
+	if pointed, err := c.runs.CreateBuild(context.Background(), &buildv1.CreateBuildRequest{Targets: []string{"//greet:custom.publish/release"}}); err != nil {
 		refusal = err.Error()
 	} else if ended := wait(t, c.runs, pointed.GetBuild().GetId()); ended.GetExitCode().GetCode() != 0 {
 		refusal = ended.GetFailure()
@@ -96,7 +99,7 @@ func TestAReleasePublishesWhatItShippedWhereTheDaemonIs(t *testing.T) {
 	}
 	s, release := releasedAlone(t, c, "greet")
 	published := release.GetUnits()[0].GetPublished()
-	if len(published) != 1 || published[0].GetLabel() != "//services/greet:custom.publish/release" || published[0].GetFailure() != "" {
+	if len(published) != 1 || published[0].GetLabel() != "//greet:custom.publish/release" || published[0].GetFailure() != "" {
 		t.Errorf("the unit says it was published as %v", published)
 	}
 	got := strings.Split(strings.TrimSpace(readAt(t, into, "greet_v1.0.0")), "\n")
@@ -119,8 +122,8 @@ func TestAReleasePublishesWhatItShippedWhereTheDaemonIs(t *testing.T) {
 			t.Errorf("the sums do not hold %s as the release lists it:\n%s", artifact.GetName(), rest)
 		}
 	}
-	if tagsOf(t, remoteOf(t, clone)) != "greet/v1.0.0" {
-		t.Errorf("the remote has the tags %q", tagsOf(t, remoteOf(t, clone)))
+	if tagsOf(t, remote) != "greet/v1.0.0" {
+		t.Errorf("the remote has the tags %q", tagsOf(t, remote))
 	}
 	// log has nothing that publishes: its release is as it ever was.
 	if plain := releaseEnded(t, s, releaseBegun(t, s, "log").GetId()); plain.GetState() != buildv1.Release_STATE_SUCCEEDED || len(plain.GetUnits()[0].GetPublished()) != 0 || readAt(t, into, "log_v1.0.0") != "" {
@@ -135,11 +138,11 @@ func TestAPublishThatFailsFailsTheReleaseAndItsTagsStay(t *testing.T) {
 	into := t.TempDir()
 	t.Setenv("RELEASE_TOKEN", "a-token-of-this-tests")
 	t.Setenv("FAILS", "yes")
-	c, clone := releasingClients(t, bringing{}, "release/1.0", publishingSource(t, into, true, false))
+	c, _, remote := givenACheckoutWith(t, bringing{}, "release/1.0", publishingSource(t, into, true, false), 3)
 	c.daemon.releases.graph.runs.given = []string{"RELEASE_TOKEN", "FAILS"}
 	s := &releaseService{graph: c.daemon.releases.graph, releases: c.daemon.releases}
 	release := releaseEnded(t, s, releaseBegun(t, s, "greet").GetId())
-	if release.GetState() != buildv1.Release_STATE_FAILED || !strings.Contains(release.GetFailure(), "//services/greet:custom.publish/release of greet could not be published; every tag is pushed") {
+	if release.GetState() != buildv1.Release_STATE_FAILED || !strings.Contains(release.GetFailure(), "//greet:custom.publish/release of greet could not be published; every tag is pushed") {
 		t.Fatalf("the release ended %v (%s)", release.GetState(), release.GetFailure())
 	}
 	published := release.GetUnits()[0].GetPublished()
@@ -149,8 +152,8 @@ func TestAPublishThatFailsFailsTheReleaseAndItsTagsStay(t *testing.T) {
 	if whole := release.String(); strings.Contains(whole, "a-token-of-this-tests") {
 		t.Errorf("the release repeats the token: %s", whole)
 	}
-	if tagsOf(t, remoteOf(t, clone)) != "greet/v1.0.0" {
-		t.Errorf("the remote has the tags %q, want the release's tag still", tagsOf(t, remoteOf(t, clone)))
+	if tagsOf(t, remote) != "greet/v1.0.0" {
+		t.Errorf("the remote has the tags %q, want the release's tag still", tagsOf(t, remote))
 	}
 }
 
@@ -159,7 +162,7 @@ func TestAPublishThatFailsFailsTheReleaseAndItsTagsStay(t *testing.T) {
 // with its own artifacts and under its own tag.
 func TestAPublishNoEntityOwnsPublishesEachUnitOfItsRepository(t *testing.T) {
 	into := t.TempDir()
-	c, _ := releasingClients(t, bringing{}, "release/1.0", publishingSource(t, into, false, true))
+	c, _, _ := givenACheckoutWith(t, bringing{}, "release/1.0", publishingSource(t, into, false, true), 3)
 	s := &releaseService{graph: c.daemon.releases.graph, releases: c.daemon.releases}
 	release := releaseEnded(t, s, releaseBegun(t, s, "greet", "log").GetId())
 	if release.GetState() != buildv1.Release_STATE_SUCCEEDED || len(release.GetUnits()) != 2 {
@@ -173,7 +176,7 @@ func TestAPublishNoEntityOwnsPublishesEachUnitOfItsRepository(t *testing.T) {
 		}
 	}
 	for _, unit := range release.GetUnits() {
-		if len(unit.GetPublished()) != 1 || unit.GetPublished()[0].GetLabel() != "//services:custom.publish/release" || unit.GetPublished()[0].GetFailure() != "" {
+		if len(unit.GetPublished()) != 1 || unit.GetPublished()[0].GetLabel() != "//:custom.publish/release" || unit.GetPublished()[0].GetFailure() != "" {
 			t.Errorf("%s says it was published as %v", unit.GetEntity().GetName(), unit.GetPublished())
 		}
 	}
@@ -189,13 +192,13 @@ func TestAnArtifactAPublishCannotBeGivenFailsTheReleaseBeforeItTags(t *testing.T
 			write(t, remote, "greet/catalog-info.yaml", "apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata:\n  name: greet\nspec:\n  type: library\n  lifecycle: production\n  owner: team\n  frontseat:\n    actions:\n      pack:\n        command: [tool, pack]\n        outputs: [out/checksums.txt]\n        package: true\n"+publishes)
 		}
 	}
-	c, clone := releasingClients(t, bringing{}, "release/1.0", source("      release:\n        command: [sh, -c, 'exit 0']\n        publish: true\n"))
+	c, clone, _ := givenACheckoutWith(t, bringing{}, "release/1.0", source("      release:\n        command: [sh, -c, 'exit 0']\n        publish: true\n"), 3)
 	s := &releaseService{graph: c.daemon.releases.graph, releases: c.daemon.releases}
 	release := releaseEnded(t, s, releaseBegun(t, s, "greet").GetId())
-	if release.GetState() != buildv1.Release_STATE_FAILED || !strings.Contains(release.GetFailure(), "//services/greet:custom.pack left what cannot be published: an artifact is named checksums.txt") || !strings.Contains(release.GetFailure(), "nothing is tagged") || tagsOf(t, clone) != "" {
+	if release.GetState() != buildv1.Release_STATE_FAILED || !strings.Contains(release.GetFailure(), "//greet:custom.pack left what cannot be published: an artifact is named checksums.txt") || !strings.Contains(release.GetFailure(), "nothing is tagged") || tagsOf(t, clone) != "" {
 		t.Errorf("the release ended %v (%s) with the tags %q", release.GetState(), release.GetFailure(), tagsOf(t, clone))
 	}
-	control, _ := releasingClients(t, bringing{}, "release/1.0", source(""))
+	control, _, _ := givenACheckoutWith(t, bringing{}, "release/1.0", source(""), 3)
 	if _, shipped := releasedAlone(t, control, "greet"); len(shipped.GetUnits()[0].GetArtifacts()) != 1 {
 		t.Errorf("the control shipped %v", shipped.GetUnits()[0].GetArtifacts())
 	}
@@ -217,7 +220,7 @@ func TestTheGitHubPluginsPublishIsRunByARelease(t *testing.T) {
 			write(t, remote, "frontseat.yaml", "plugins:\n  go: {}\n  backstage: {}\n  release: {}\n"+plugins)
 		}
 	}
-	c, clone := releasingWith(t, bringing{}, "release/1.0", listing("  github: {}\n", true), 4)
+	c, _, remote := givenACheckoutWith(t, bringing{}, "release/1.0", listing("  github: {}\n", true), 4)
 	if ended := wait(t, c.runs, create(t, c.runs).GetId()); ended.GetExitCode().GetCode() != 0 {
 		t.Fatalf("a build ended %s (%s)", ended.GetExitCode().GetName(), ended.GetFailure())
 	}
@@ -227,18 +230,52 @@ func TestTheGitHubPluginsPublishIsRunByARelease(t *testing.T) {
 		t.Fatalf("the release ended %v (%s) with %v", release.GetState(), release.GetFailure(), release.GetUnits())
 	}
 	published := release.GetUnits()[0].GetPublished()
-	if len(published) != 1 || published[0].GetLabel() != "//services:github.publish/release" || !strings.Contains(published[0].GetFailure(), "gh") {
+	if len(published) != 1 || published[0].GetLabel() != "//:github.publish/release" || !strings.Contains(published[0].GetFailure(), "gh") {
 		t.Errorf("the unit says it was published as %v", published)
 	}
-	if tagsOf(t, remoteOf(t, clone)) != "greet/v1.0.0" {
-		t.Errorf("the remote has the tags %q", tagsOf(t, remoteOf(t, clone)))
+	if tagsOf(t, remote) != "greet/v1.0.0" {
+		t.Errorf("the remote has the tags %q", tagsOf(t, remote))
 	}
-	unpinned, bare := releasingWith(t, bringing{}, "release/1.0", listing("  github: {}\n", false), 4)
+	unpinned, bare, _ := givenACheckoutWith(t, bringing{}, "release/1.0", listing("  github: {}\n", false), 4)
 	if ended := wait(t, unpinned.runs, create(t, unpinned.runs).GetId()); ended.GetExitCode().GetCode() == 0 || !strings.Contains(ended.GetFailure(), "pins no gh") || tagsOf(t, bare) != "" {
 		t.Errorf("a build of a repository that pins no gh ended %s (%s), with the tags %q", ended.GetExitCode().GetName(), ended.GetFailure(), tagsOf(t, bare))
 	}
-	control, _ := releasingClients(t, bringing{}, "release/1.0", listing("", false))
+	control, _, _ := givenACheckoutWith(t, bringing{}, "release/1.0", listing("", false), 3)
 	if _, plain := releasedAlone(t, control, "greet"); len(plain.GetUnits()[0].GetPublished()) != 0 {
 		t.Errorf("without the plugin the unit says it was published as %v", plain.GetUnits()[0].GetPublished())
+	}
+}
+
+// A release from a workspace whose plan something publishes is refused
+// by name, before anything is built or tagged: what publishes runs where
+// the daemon is, a workspace's sandbox, which reaches no forge. A release
+// there of a unit nothing publishes is still made, and so is the first
+// release from a checkout given the daemon, which publishes: the
+// controls.
+func TestAReleaseFromAWorkspaceThatWouldPublishIsRefusedBeforeItBuilds(t *testing.T) {
+	into := t.TempDir()
+	c, clone := releasingClients(t, bringing{}, "release/1.0", publishingSource(t, into, false, false))
+	s := &releaseService{graph: c.daemon.releases.graph, releases: c.daemon.releases}
+	ctx := context.Background()
+	planned, err := s.PlanRelease(ctx, releaseOf("greet"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = s.CreateRelease(ctx, &buildv1.CreateReleaseRequest{Entities: releaseOf("greet").GetEntities(), Etag: planned.GetPlan().GetEtag()})
+	if reason, domain := frontseat.Reason(err); connect.CodeOf(err) != connect.CodeUnimplemented || reason != "PUBLISH_NOT_SERVED" || domain != refusal.Build || !strings.Contains(err.Error(), "//services/greet:custom.publish/release publishes") {
+		t.Errorf("a release from a workspace that would publish: %v (%s, %s), want UNIMPLEMENTED, PUBLISH_NOT_SERVED, naming what publishes", err, reason, domain)
+	}
+	if listed, err := c.runs.ListBuilds(ctx, &buildv1.ListBuildsRequest{}); err != nil || len(listed.GetBuilds()) != 0 {
+		t.Errorf("the refused release built %v (%v)", listed.GetBuilds(), err)
+	}
+	if tagsOf(t, clone) != "" || readAt(t, into, "greet_v1.0.0") != "" {
+		t.Errorf("the refused release left the tags %q and published %q", tagsOf(t, clone), readAt(t, into, "greet_v1.0.0"))
+	}
+	if _, plain := releasedAlone(t, c, "log"); len(plain.GetUnits()[0].GetPublished()) != 0 || tagsOf(t, remoteOf(t, clone)) != "log/v1.0.0" {
+		t.Errorf("a release from the workspace of what nothing publishes was published as %v, with the tags %q", plain.GetUnits()[0].GetPublished(), tagsOf(t, remoteOf(t, clone)))
+	}
+	given, _, _ := givenACheckoutWith(t, bringing{}, "release/1.0", publishingSource(t, into, false, false), 3)
+	if _, published := releasedAlone(t, given, "greet"); len(published.GetUnits()[0].GetPublished()) != 1 || readAt(t, into, "greet_v1.0.0") == "" {
+		t.Errorf("a release from a checkout given the daemon was published as %v", published.GetUnits()[0].GetPublished())
 	}
 }

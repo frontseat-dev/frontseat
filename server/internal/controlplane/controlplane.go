@@ -56,7 +56,6 @@ import (
 	"github.com/frontseat-dev/frontseat/server/internal/backstage"
 	"github.com/frontseat-dev/frontseat/server/internal/controlplane/identity"
 	"github.com/frontseat-dev/frontseat/server/internal/controlplane/internal/ownertoken"
-	"github.com/frontseat-dev/frontseat/server/internal/forge"
 	"github.com/frontseat-dev/frontseat/server/internal/page"
 	"github.com/frontseat-dev/frontseat/server/internal/records"
 	"github.com/frontseat-dev/frontseat/server/internal/refusal"
@@ -95,9 +94,6 @@ type Config struct {
 	// Fetching is what the version control system says of a repository
 	// fetched from a sandbox; with none, no workspace fetches one.
 	Fetching vcs.Fetching
-	// Releasing is what a forge asks of whoever publishes a release to
-	// it; with none, no workspace is let through to publish one.
-	Releasing forge.Releasing
 	// Entities resolves the entities a workspace is asked for to the
 	// repositories and directories that hold them: the Backstage catalog
 	// its operator gives it. With none, a workspace asked for by entity

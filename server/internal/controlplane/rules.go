@@ -15,7 +15,6 @@ import (
 	"github.com/frontseat-dev/frontseat/local/ports"
 	sandboxv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/sandbox/v1alpha1"
 	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
-	"github.com/frontseat-dev/frontseat/server/internal/forge"
 	"github.com/frontseat-dev/frontseat/server/internal/plain"
 	"github.com/frontseat-dev/frontseat/server/internal/source/told"
 	"github.com/frontseat-dev/frontseat/server/internal/source/vcs"
@@ -275,32 +274,6 @@ func (s *service) sandbox(ctx context.Context, name, owner string, spec *workspa
 		out.Egress.Rules = append(out.Egress.Rules, rule)
 		ruled[host] = true
 	}
-	// A workspace made to push may publish the releases of the
-	// repositories it pushes to, and of no other: its sandbox is let
-	// through for what their forge asks of a release, by the program
-	// that asks it. Where the forge is asked at the host its
-	// repositories are fetched from, it is the rule there is for that
-	// host that lets it through, for both programs: a host has one rule.
-	if spec.GetPush() && s.Releasing != nil {
-		for _, host := range order {
-			for _, repository := range paths[host] {
-				if !pushed[host+repository] {
-					continue
-				}
-				asked, known := s.Releasing.Releases(origins[host].Address(), repository)
-				if !known {
-					continue
-				}
-				for _, reached := range asked {
-					at, err := s.publishing(ctx, out, owner, origins[host], repository, reached)
-					if err != nil {
-						return nil, err
-					}
-					ruled[at] = true
-				}
-			}
-		}
-	}
 	// The grid and its asset service, for the daemon and what it starts.
 	for _, address := range s.Grid.Hosts {
 		if address == "" || ruled[address] {
@@ -441,75 +414,4 @@ func reaches(made *workspacev1.WorkspaceSpec, was told.Resolved, wanted *workspa
 		}
 	}
 	return ""
-}
-
-// publishing lets a sandbox through for what a forge asks, at one of its
-// hosts, of a release of a repository: by the program that publishes,
-// for the requests named, with its owner's credential for that host
-// where one is kept. What a forge says is held as what a version
-// control system says is, before any of it is kept: a host by its name,
-// reached over http or https, and requests that read, make or change,
-// each of a path written plainly, a part of which may be any one part.
-func (s *service) publishing(ctx context.Context, out *sandboxv1.SandboxSpec, owner string, home plain.Origin, repository string, reached forge.Host) (string, error) {
-	at, _, err := fetched(reached.Origin + "/a")
-	if err != nil || at.Address() != reached.Origin {
-		return "", fmt.Errorf("the forge says a release of %s is published at %q, which is no host reached over http or https by its name", repository, reached.Origin)
-	}
-	if len(reached.Requests) == 0 {
-		return "", fmt.Errorf("the forge says publishing a release of %s asks nothing of %s", repository, reached.Origin)
-	}
-	for _, asked := range reached.Requests {
-		if (asked.Method != "GET" && asked.Method != "POST" && asked.Method != "PATCH") || !plain.Asked(asked.Path) {
-			return "", fmt.Errorf("the forge says publishing a release of %s asks %s %q, which is no request of a release", repository, asked.Method, asked.Path)
-		}
-	}
-	if !plain.Absolute(forge.Program) {
-		return "", fmt.Errorf("the program that publishes is %q, which is no one program's path", forge.Program)
-	}
-	var rule *sandboxv1.EgressRule
-	for _, each := range out.Egress.Rules {
-		if each.GetHost() == at.Rule() {
-			rule = each
-		}
-	}
-	// A host has one rule. Where the forge is asked at the host its
-	// repository is fetched from, that rule lets it through. A host
-	// something else is fetched from is another matter: its rule is
-	// that fetch's, with whatever credential the person gave for it,
-	// and a release is not asked through it.
-	if rule != nil && at.Rule() != home.Rule() {
-		return "", malformed("a release of %s is published at %s, which a repository of this workspace is fetched from: a workspace is not asked for both", repository, at.Host())
-	}
-	if rule == nil {
-		rule = &sandboxv1.EgressRule{Host: at.Rule()}
-		out.Egress.Rules = append(out.Egress.Rules, rule)
-		// The credential is the one its owner gave for the host the
-		// repository is fetched from, as it is kept for this host.
-		// Another's is never asked after.
-		said, err := s.Sandboxes.DescribeCredential(ctx, &sandboxv1.DescribeCredentialRequest{Name: besideID(owner, home.Rule(), at.Rule())})
-		switch connect.CodeOf(err) {
-		case connect.CodeNotFound, connect.CodeUnimplemented:
-		default:
-			if err != nil {
-				return "", err
-			}
-			if kept := said.GetCredential(); kept != nil {
-				if kept.GetHost() != at.Rule() {
-					return "", fmt.Errorf("the sandbox service says the credential for %s is for another host", at.Host())
-				}
-				rule.Credential = kept.GetName()
-			}
-		}
-	}
-	if !slices.Contains(rule.Programs, forge.Program) {
-		rule.Programs = append(rule.Programs, forge.Program)
-	}
-	for _, asked := range reached.Requests {
-		if !slices.ContainsFunc(rule.Requests, func(r *sandboxv1.EgressRequest) bool {
-			return r.GetMethod() == asked.Method && r.GetPath() == asked.Path && len(r.GetQuery()) == 0
-		}) {
-			rule.Requests = append(rule.Requests, &sandboxv1.EgressRequest{Method: asked.Method, Path: asked.Path})
-		}
-	}
-	return at.Host(), nil
 }
