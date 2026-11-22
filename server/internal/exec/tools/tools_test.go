@@ -19,6 +19,7 @@ import (
 	"github.com/frontseat-dev/frontseat/server/internal/exec"
 	"github.com/frontseat-dev/frontseat/server/internal/exec/reapi/reapitest"
 	"github.com/frontseat-dev/frontseat/server/internal/exec/tools"
+	"github.com/frontseat-dev/frontseat/server/testsupport/testbox"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testgrid"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testpins"
 )
@@ -178,9 +179,7 @@ var named = map[string][]string{"naming no tool": nil, "naming a tool": {"go"}}
 // writes there.
 func TestAnActionIsConfinedInTheWorkersImage(t *testing.T) {
 	testrequired.Stack(t)
-	if _, err := osexec.LookPath("docker"); err != nil {
-		t.Skip("no container runtime")
-	}
+	testbox.Runtime(t)
 	p := provisioner(t)
 	const script = `echo ran > ran; if (: > /tmp/escaped) 2>/dev/null; then echo escaped; else echo held; fi`
 	action := used(t, context.Background(), p, rooted(t, p, "/bin/sh", "-c", script), "", nil, false, nil)
@@ -820,9 +819,7 @@ func TestNothingAnActionIsGivenReachesWhatStartsOrConfinesIt(t *testing.T) {
 // path reads as an option is run as a file by the workers' own shell.
 func TestTheWorkersConfinerIsOfTheDaemonsFormAndRunsAScriptAsAFile(t *testing.T) {
 	testrequired.Stack(t)
-	if _, err := osexec.LookPath("docker"); err != nil {
-		t.Skip("no container runtime")
-	}
+	testbox.Runtime(t)
 	bb := confiner(t)
 	workers := strings.TrimPrefix(testgrid.Platform()["container-image"], "docker://")
 	out, err := osexec.Command("docker", "run", "--rm", "-v", bb+":/bb:ro", "--entrypoint", confine.Confiner, workers, "form").CombinedOutput()
