@@ -255,8 +255,8 @@ func BenchmarkResolve(b *testing.B) {
 // and three thousand references; 4.3–4.7 ms and 640 allocations for
 // ten modules that each name four hundred shared fetches from three
 // actions, twelve thousand references. Before references were looked
-// up, when each was searched for among the repository's actions, an
-// independent review measured that second shape at 134 ms and 103 MB,
+// up, when each was searched for among the repository's actions, that
+// second shape was measured at 134 ms and 103 MB,
 // and four times the fetches at 2.0 s: the budget holds the shape that
 // multiplies. The time budgets leave the tenfold room for scheduler
 // noise that the budgets beside them do; the allocations are held close.
