@@ -48,3 +48,23 @@ func TestTheFirstOfAGroupIsNeededByTheRest(t *testing.T) {
 		}
 	}
 }
+
+// The workspace says which Bazel builds it where a version is given, and
+// says nothing of one where none is.
+func TestABazelWorkspaceSaysTheVersionItIsGiven(t *testing.T) {
+	shape := testworkload.Shape{Modules: 2, Group: 2}
+	given := t.TempDir()
+	if err := testworkload.Bazel(given, shape, "8.4.2", nil); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := os.ReadFile(filepath.Join(given, ".bazelversion")); err != nil || string(got) != "8.4.2\n" {
+		t.Errorf("a workspace given 8.4.2 says %q, err %v; want %q", got, err, "8.4.2\n")
+	}
+	none := t.TempDir()
+	if err := testworkload.Bazel(none, shape, "", nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(none, ".bazelversion")); !os.IsNotExist(err) {
+		t.Errorf("a workspace given no version has a .bazelversion, err %v; want none", err)
+	}
+}
