@@ -148,7 +148,7 @@ impl Plugin for Example {
                 .at_line("bad/manifest", 3)
                 .help("Repair it."));
         }
-        repo.read(root)?;
+        repo.read(&frontseat_plugin::repository::join(root, "manifest"))?;
         Ok(Analysis::default())
     }
     fn arrange(

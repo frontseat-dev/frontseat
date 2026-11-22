@@ -299,6 +299,12 @@ mod tests {
             "ABI.md does not say once which ABI it is"
         );
         assert_eq!(document, sdk);
+    }
+
+    // A number said twice is said by neither, and one said once is read.
+    #[test]
+    fn a_number_is_read_where_it_is_said_once() {
         assert_eq!(number_after("is ABI 7. is ABI 8.", "is ABI "), None);
+        assert_eq!(number_after("is ABI 7.", "is ABI "), Some(7));
     }
 }

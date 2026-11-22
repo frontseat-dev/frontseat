@@ -89,33 +89,46 @@ impl Files {
     }
 
     /// Reads a directory on disk, such as `testdata/valid`, into memory:
-    /// each file beneath it, by its path relative to it. A link is not
-    /// followed: one to a file is read as nothing, and one to a
+    /// each file beneath it, by its path relative to it. A link is read
+    /// as the host reads one: as the file it leads to, where that is a
+    /// file within the directory read, and as nothing otherwise; one to a
     /// directory is not entered. A name that is not UTF-8 is an error,
     /// since a repository's paths are text.
     pub fn from_dir(dir: impl AsRef<Path>) -> std::io::Result<Self> {
-        fn walk(dir: &Path, beneath: &str, files: &mut Files) -> std::io::Result<()> {
+        fn walk(root: &Path, dir: &Path, beneath: &str, files: &mut Files) -> std::io::Result<()> {
             for entry in std::fs::read_dir(dir)? {
                 let entry = entry?;
                 let name = entry.file_name().into_string().map_err(|_| {
+                    let place = if beneath.is_empty() {
+                        "at the top of the directory read".to_string()
+                    } else {
+                        format!("in {beneath}")
+                    };
                     std::io::Error::new(
                         std::io::ErrorKind::InvalidData,
-                        "a file's name is not UTF-8",
+                        format!("a file's name {place} is not UTF-8"),
                     )
                 })?;
                 let relative = frontseat_plugin::repository::join(beneath, &name);
                 // The entry's own kind, which follows no link.
                 let kind = entry.file_type()?;
                 if kind.is_dir() {
-                    walk(&entry.path(), &relative, files)?;
+                    walk(root, &entry.path(), &relative, files)?;
                 } else if kind.is_file() {
                     files.0.insert(relative, std::fs::read(entry.path())?);
+                } else if kind.is_symlink() {
+                    if let Ok(target) = std::fs::canonicalize(entry.path()) {
+                        if target.starts_with(root) && target.is_file() {
+                            files.0.insert(relative, std::fs::read(&target)?);
+                        }
+                    }
                 }
             }
             Ok(())
         }
+        let root = std::fs::canonicalize(dir.as_ref())?;
         let mut files = Files::new();
-        walk(dir.as_ref(), "", &mut files)?;
+        walk(&root, &root, "", &mut files)?;
         Ok(files)
     }
 }
@@ -138,11 +151,13 @@ pub enum Read {
 /// read, and fails when it is told to. A read or a listing that fails is
 /// not recorded, as the host records none.
 ///
-/// The real host tells a module nothing of a read it could not serve,
-/// and fails the call the read was made in, whatever the plugin does
-/// after. So does a call asked through [`TestPlugin`]: a plugin that
-/// reads past a failure, taking it for a file that is not there, is
-/// answered with the failure all the same.
+/// The real host fails the call a read it could not serve was made in,
+/// whatever the plugin does after, and tells the module nothing of it.
+/// A call asked through [`TestPlugin`] fails with it too; the plugin is
+/// told of it here, as an error, so a plugin that reads past a failure,
+/// taking it for a file that is not there, is answered with the failure
+/// all the same, and code of the plugin's may run that would not run in
+/// the host.
 #[derive(Default)]
 pub struct TestHost {
     files: Files,
@@ -204,7 +219,7 @@ impl TestHost {
     }
 
     /// Notes the first failure of a call, which the call ends with, and
-    /// returns it for the plugin to be told.
+    /// returns it, which the plugin is told here and not in the host.
     fn fail(&self, error: Error) -> Error {
         self.failed
             .borrow_mut()
@@ -216,6 +231,30 @@ impl TestHost {
 impl Host for TestHost {
     fn read(&self, path: &str) -> Result<Option<Vec<u8>>, Error> {
         self.failing(&self.reads_failing, path)?;
+        // The host reads a file of the repository, and fails the call for
+        // a path that leaves it and for a directory: neither is a file
+        // that is not there.
+        let Some(within) = frontseat_plugin::repository::resolve("", path) else {
+            return Err(self.fail(
+                Error::new(
+                    Code::InvalidArgument,
+                    "read-outside-repository",
+                    "a read's path leaves the repository",
+                )
+                .help("Read a file by its path relative to the repository's root."),
+            ));
+        };
+        let directory = format!("{within}/");
+        if within.is_empty() || self.files.0.keys().any(|file| file.starts_with(&directory)) {
+            return Err(self.fail(
+                Error::new(
+                    Code::InvalidArgument,
+                    "read-of-directory",
+                    "a read's path is a directory, not a file",
+                )
+                .help("Read a file; list a directory's files with a glob."),
+            ));
+        }
         let found = self.files.0.get(path).cloned();
         self.reads.borrow_mut().push(Read::File {
             path: path.into(),
@@ -296,11 +335,50 @@ impl TestContext {
 /// What the plugin answered, decoded as the host decodes it: the
 /// response, or the refusal read back by the SDK's own decoder
 /// ([`Error::from_status`]), its reason as its author wrote it.
+///
+/// An answer not looked at is a warning, which the gate fails on:
+///
+/// ```compile_fail
+/// #![deny(unused_must_use)]
+/// # use frontseat_plugin::prelude::*;
+/// # use frontseat_plugin_test::{TestHost, TestPlugin};
+/// # struct Empty;
+/// # impl Plugin for Empty {
+/// #     fn describe(&self) -> Description {
+/// #         Description { name: "empty".into(), ..Default::default() }
+/// #     }
+/// # }
+/// let plugin = TestPlugin::new(Empty);
+/// let context = plugin.context(Profile::Development);
+/// plugin.analyze(&TestHost::empty(), &context, &[""]);
+/// ```
+///
+/// and one looked at is none:
+///
+/// ```
+/// #![deny(unused_must_use)]
+/// # use frontseat_plugin::prelude::*;
+/// # use frontseat_plugin_test::{TestHost, TestPlugin};
+/// # struct Empty;
+/// # impl Plugin for Empty {
+/// #     fn describe(&self) -> Description {
+/// #         Description { name: "empty".into(), ..Default::default() }
+/// #     }
+/// # }
+/// let plugin = TestPlugin::new(Empty);
+/// let context = plugin.context(Profile::Development);
+/// plugin.analyze(&TestHost::empty(), &context, &[""]).answered();
+/// ```
 #[derive(Debug)]
 #[must_use = "an answer is checked with answered(), refused() or unsupported()"]
 pub struct Answer<T> {
     /// The response, or the refusal.
     pub result: Result<T, Error>,
+    /// The method it answers.
+    method: String,
+    /// Whether the call failed for what the host could not serve, and
+    /// not as the plugin answered.
+    host_failed: bool,
 }
 
 impl<T> Answer<T> {
@@ -310,6 +388,10 @@ impl<T> Answer<T> {
     pub fn answered(self) -> T {
         match self.result {
             Ok(response) => response,
+            Err(refusal) if self.host_failed => panic!(
+                "the host could not serve what the plugin read, {:?} for the reason {}: {refusal}",
+                refusal.code, refusal.reason
+            ),
             Err(refusal) => panic!(
                 "the plugin refused, {:?} for the reason {}: {refusal}",
                 refusal.code, refusal.reason
@@ -333,15 +415,29 @@ impl<T> Answer<T> {
         }
     }
 
-    /// Panics unless the call was answered `UNIMPLEMENTED`.
+    /// Panics unless the call was answered as the host reads a method
+    /// unserved: `UNIMPLEMENTED`, for the method's own reason or the
+    /// SDK's `unknown-method`. `UNIMPLEMENTED` for another reason is a
+    /// failure of the call, as the host reads it.
     #[track_caller]
     pub fn unsupported(self) {
+        // The reason the host reads as the method unserved, of each
+        // method a plugin may leave (server/internal/pluginhost/error.go).
+        let reason = match self.method.as_str() {
+            "Report" => "report-not-served",
+            "Reconcile" => "reconcile-not-served",
+            "Service" => "service-not-served",
+            "Branch" => "branching-strategy-not-served",
+            "Version" => "versioning-strategy-not-served",
+            _ => "unknown-method",
+        };
         match self.result {
             Ok(_) => panic!("the plugin answered, and was to say it serves no such call"),
-            Err(refusal) => assert_eq!(
-                refusal.code,
-                Code::Unimplemented,
-                "refused, and not as unsupported: {refusal:?}"
+            Err(refusal) => assert!(
+                refusal.code == Code::Unimplemented
+                    && (refusal.reason == reason || refusal.reason == "unknown-method"),
+                "refused, and not as {} unserved, which is UNIMPLEMENTED for the reason {reason}: {refusal:?}",
+                self.method
             ),
         }
     }
@@ -380,9 +476,13 @@ impl<P: Plugin> TestPlugin<P> {
         if let Some(failure) = host.failed.take() {
             return Answer {
                 result: Err(failure),
+                method: method.into(),
+                host_failed: true,
             };
         }
         Answer {
+            method: method.into(),
+            host_failed: false,
             result: match reply.result.expect("the plugin replied with something") {
                 wire::reply::Result::Response(bytes) => {
                     Ok(Response::decode(bytes.as_slice()).expect("the plugin's response decodes"))
@@ -615,15 +715,48 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn a_directory_is_read_without_following_its_links() {
-        let dir =
+        let top =
             std::env::temp_dir().join(format!("frontseat-plugin-test-{}", std::process::id()));
+        // One left by a run that panicked is not this run's.
+        let _ = std::fs::remove_dir_all(&top);
+        let dir = top.join("read");
         std::fs::create_dir_all(dir.join("app")).unwrap();
         std::fs::write(dir.join("app/Makefile"), "test:\n").unwrap();
+        std::fs::write(top.join("outside"), "secret\n").unwrap();
         std::os::unix::fs::symlink(&dir, dir.join("app/again")).unwrap();
         std::os::unix::fs::symlink(dir.join("app/Makefile"), dir.join("linked")).unwrap();
+        std::os::unix::fs::symlink(top.join("outside"), dir.join("out")).unwrap();
         let read = Files::from_dir(&dir);
-        std::fs::remove_dir_all(&dir).unwrap();
-        assert_eq!(read.unwrap(), Files::new().with("app/Makefile", "test:\n"));
+        std::fs::remove_dir_all(&top).unwrap();
+        assert_eq!(
+            read.unwrap(),
+            Files::new()
+                .with("app/Makefile", "test:\n")
+                .with("linked", "test:\n")
+        );
+    }
+
+    /// A name that is not UTF-8, which Linux allows, is an error that
+    /// says where it is and not what it is.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn a_name_that_is_not_text_is_an_error() {
+        use std::os::unix::ffi::OsStrExt;
+        let top =
+            std::env::temp_dir().join(format!("frontseat-plugin-test-name-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&top);
+        std::fs::create_dir_all(top.join("app")).unwrap();
+        std::fs::write(
+            top.join("app")
+                .join(std::ffi::OsStr::from_bytes(b"\xffname")),
+            "",
+        )
+        .unwrap();
+        let read = Files::from_dir(&top);
+        std::fs::remove_dir_all(&top).unwrap();
+        let error = read.unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::InvalidData);
+        assert_eq!(error.to_string(), "a file's name in app is not UTF-8");
     }
 
     struct Manifests;

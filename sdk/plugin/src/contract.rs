@@ -188,7 +188,7 @@ impl Error {
     /// meant to say would be lost. In its place goes an `INTERNAL`
     /// failure for the reason `invalid-failure`, which says the rule
     /// broken and the message the plugin wrote.
-    pub fn into_status(self, plugin: &str) -> crate::google::rpc::Status {
+    pub fn into_status(self, plugin: &str) -> crate::Status {
         use crate::frontseat::r#type::v1alpha1::{Diagnostic, SourceLocation};
         use crate::google::rpc::{ErrorInfo, Status};
         use prost::Message;
@@ -243,7 +243,7 @@ impl Error {
     /// message without where it is or what to do. A status with no
     /// details of a plugin's failure is read as far as it goes: its code,
     /// its message, and the reason its `ErrorInfo` says, if it has one.
-    pub fn from_status(status: crate::google::rpc::Status) -> Self {
+    pub fn from_status(status: crate::Status) -> Self {
         use crate::frontseat::r#type::v1alpha1::Diagnostic;
         use crate::google::rpc::ErrorInfo;
         use prost::Message;

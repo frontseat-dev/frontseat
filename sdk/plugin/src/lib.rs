@@ -1,8 +1,9 @@
 #![doc = include_str!("../README.md")]
 
 /// The guest half of the ABI and the dispatch of a call to a plugin:
-/// what [`serve!`] exports from a module, and what `frontseat-plugin-test`
-/// asks a plugin through. A plugin does not call it.
+/// what [`serve!`] exports from a module (built for wasm32 alone, so not
+/// shown here), and what `frontseat-plugin-test` asks a plugin through.
+/// A plugin does not call it.
 pub mod abi;
 
 /// The contract's types, generated. A plugin reaches them through the
@@ -30,7 +31,7 @@ pub mod google {
     }
 }
 
-pub use google::rpc::Code;
+pub use google::rpc::{Code, Status};
 
 pub mod checksum;
 pub mod diagnostics;
@@ -98,7 +99,7 @@ macro_rules! serve {
     ($plugin:expr) => {
         /// The plugin, for a test of it on the machine that builds it:
         /// there it is no module, and is asked through
-        /// `frontseat_plugin::abi::dispatch` with a host the test supplies.
+        /// `frontseat-plugin-test`'s `TestPlugin`.
         #[cfg(not(target_arch = "wasm32"))]
         pub fn served() -> impl $crate::Plugin {
             $plugin
