@@ -8,6 +8,13 @@ use frontseat_plugin::repository::join;
 
 pub(super) struct GoPlugin;
 
+/// The options a repository or an entity sets, by name: each is said
+/// here once, where it is declared and where it is read.
+pub(super) const TEST_TIMEOUT: &str = "test-timeout";
+pub(super) const TEST_SHARDS: &str = "test-shards";
+pub(super) const TAGS: &str = "tags";
+pub(super) const VERSION: &str = "version";
+
 impl Plugin for GoPlugin {
     fn describe(&self) -> Description {
         Description {
@@ -18,23 +25,26 @@ impl Plugin for GoPlugin {
                 .map(str::to_string)
                 .to_vec(),
             options: vec![
-                // How long a module's tests may run, as the go command writes
-                // a duration.
+                // How long each action that runs tests may take, a
+                // package's tests or one shard of them, as the go
+                // command writes a duration: every test program is
+                // started with it, and 0 is no limit, as it is the go
+                // command's.
                 PluginOption {
-                    name: "test-timeout",
+                    name: TEST_TIMEOUT,
                     default: Value::String("10m".into()),
                     entity_settable: true,
                 },
                 // Into how many actions a package's tests are cut at most,
                 // each running a share of them.
                 PluginOption {
-                    name: "test-shards",
+                    name: TEST_SHARDS,
                     default: Value::Int(1),
                     entity_settable: true,
                 },
                 // The build tags a module is linted, compiled and tested with.
                 PluginOption {
-                    name: "tags",
+                    name: TAGS,
                     default: Value::StringList(Vec::new()),
                     entity_settable: true,
                 },
@@ -44,7 +54,7 @@ impl Plugin for GoPlugin {
                 // it is set to when the program is linked: version, tag,
                 // commit or unit.
                 PluginOption {
-                    name: "version",
+                    name: VERSION,
                     default: Value::StringList(Vec::new()),
                     entity_settable: true,
                 },
