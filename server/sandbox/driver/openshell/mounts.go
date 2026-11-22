@@ -3,6 +3,7 @@ package openshell
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -74,12 +75,18 @@ func beneath(source, subpath string) (string, error) {
 	at := source
 	for _, step := range strings.Split(subpath, string(filepath.Separator)) {
 		at = filepath.Join(at, step)
+		// What is said of a step names no path: the subpath and the
+		// volume's source are the caller's, and either may hold a token.
 		info, err := os.Lstat(at)
+		var unread *fs.PathError
+		if errors.As(err, &unread) {
+			return "", fmt.Errorf("a step of it cannot be read: %w", unread.Err)
+		}
 		if err != nil {
 			return "", err
 		}
 		if !info.IsDir() {
-			return "", fmt.Errorf("%s is no directory: a subpath is reached through directories alone", at)
+			return "", errors.New("a step of it is no directory: a subpath is reached through directories alone")
 		}
 	}
 	return at, nil

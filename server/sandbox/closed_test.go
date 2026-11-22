@@ -287,8 +287,9 @@ func TestWhatASandboxMayReachIsAskedOfTheDriverRuleByRule(t *testing.T) {
 // A refusal of the sandbox service repeats nothing of what it refused:
 // an id, a name, a selector, a rule's credential, a container's name, an
 // image and a volume's subpath are each the caller's to write, and any
-// may hold a token. The control is the same sandbox asked for with each
-// written as one is, which is made.
+// may hold a token, as may a volume's name, which a driver that does
+// not give its kind refuses. The control is the sandbox each refusal
+// changes, asked for as it is, which is made.
 func TestARefusalOfASandboxRepeatsNothingItRefused(t *testing.T) {
 	const refusedValue = "V4lue_of adas"
 	_, client := overClosed(t)
@@ -309,6 +310,9 @@ func TestARefusalOfASandboxRepeatsNothingItRefused(t *testing.T) {
 		}),
 		"a container's name that is none": asked(func(s *sandboxv1.SandboxSpec) {
 			s.Containers = []*sandboxv1.Container{{Name: refusedValue, Image: "box"}}
+		}),
+		"a volume of a kind the driver does not give": asked(func(s *sandboxv1.SandboxSpec) {
+			s.Volumes = []*sandboxv1.Volume{{Name: refusedValue, Kind: sandboxv1.Volume_KIND_HOST, Source: "/srv", Path: "/srv"}}
 		}),
 		"a volume's subpath that climbs": asked(func(s *sandboxv1.SandboxSpec) {
 			s.Volumes = []*sandboxv1.Volume{{Name: refusedValue, Kind: sandboxv1.Volume_KIND_HOST, Source: "/srv", Path: "/srv", Subpath: "../" + refusedValue}}

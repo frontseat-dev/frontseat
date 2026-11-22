@@ -19,7 +19,9 @@ func (u *Unsupported) Error() string {
 }
 
 // Admit checks a sandbox against what a driver can enforce. A sandbox
-// that asks for more is refused: it is never run weaker.
+// that asks for more is refused: it is never run weaker. A refusal names
+// what was asked for by its kind and never by what the caller wrote, a
+// volume's name among it, which may hold a token.
 func Admit(d Driver, s Sandbox) error {
 	c := d.Capabilities()
 	refuse := func(capability string) error {
@@ -59,10 +61,10 @@ func Admit(d Driver, s Sandbox) error {
 	}
 	for _, v := range volumes {
 		if !slices.Contains(c.Volumes, v.Kind) {
-			return refuse(fmt.Sprintf("the volume %q", v.Name))
+			return refuse("a volume of a kind it does not give")
 		}
 		if v.Subpath != "" && !c.VolumeSubpaths {
-			return refuse(fmt.Sprintf("a subpath of the volume %q", v.Name))
+			return refuse("a volume's subpath")
 		}
 	}
 	if s.DiskBytes != 0 && !c.DiskSize {
