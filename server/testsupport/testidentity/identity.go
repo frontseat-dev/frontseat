@@ -31,7 +31,7 @@ func Key() ssh.Signer {
 }
 
 // Authorized is what a workspace is made with so that Key opens a shell
-// in it (frontseat.Spec's AuthorizedKey).
+// in it (frontseat.WorkspaceSpec's AuthorizedKey).
 func Authorized() string {
 	return strings.TrimSpace(string(ssh.MarshalAuthorizedKey(Key().PublicKey())))
 }

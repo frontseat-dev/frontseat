@@ -69,7 +69,7 @@ func TestRetainedWorkspaceCleansALostCreationReplyAndKeepsItsNeighbour(t *testin
 	var failures []string
 	probe := *spec
 	probe.WithT = NewGomega(func(message string, _ ...int) { failures = append(failures, message) }).(*WithT)
-	probe.inASandboxOfItsOwn(making{Server: front.URL, Spec: frontseat.Spec{
+	probe.inASandboxOfItsOwn(making{Server: front.URL, WorkspaceSpec: frontseat.WorkspaceSpec{
 		Name: name, Entities: entitiesForRetainedTool(),
 	}})
 	spec.Expect(lost.Load()).To(BeTrue(), "the control plane must accept creation before the reply is lost")

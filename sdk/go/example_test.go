@@ -39,15 +39,15 @@ func ExampleClient_Open() {
 	ctx := context.Background()
 
 	fs := frontseat.New(server.URL)
-	opened, err := fs.Open(ctx, frontseat.Spec{
+	opened, err := fs.Open(ctx, frontseat.WorkspaceSpec{
 		Repositories: []frontseat.Repository{{Remote: "https://forge.example/acme/services.git", Ref: "main"}},
 	})
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	fmt.Println(opened.Workspace.Name(), opened.How == frontseat.Made)
-	for _, repository := range opened.Held.GetStatus().GetRepositories() {
+	fmt.Println(opened.Workspace.Name(), opened.Outcome == frontseat.OpenOutcomeCreated)
+	for _, repository := range opened.Status.GetStatus().GetRepositories() {
 		fmt.Println(repository.GetName(), repository.GetRemote())
 	}
 	// Output:

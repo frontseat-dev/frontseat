@@ -26,7 +26,7 @@ func TestAWorkspaceGivenNoNameIsAskedNothing(t *testing.T) {
 	_, described := unnamed.Describe(ctx)
 	_, built := unnamed.Build(ctx, BuildRequest{})
 	_, shell := unnamed.Shell(ctx)
-	for what, err := range map[string]error{"describing": described, "building": built, "a shell": shell, "adding": unnamed.Add(ctx, Spec{}), "ending": unnamed.Delete(ctx)} {
+	for what, err := range map[string]error{"describing": described, "building": built, "a shell": shell, "adding": unnamed.Add(ctx, WorkspaceSpec{}), "ending": unnamed.Delete(ctx)} {
 		if !errors.Is(err, ErrWorkspaceUnnamed) || errors.Is(err, ErrHere) {
 			t.Errorf("%s in a workspace given no name: %v, want it said that none was given", what, err)
 		}

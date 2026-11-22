@@ -51,7 +51,7 @@ func TestInsideAWorkspaceItsSourceIsFixedAndItIsFilledFromOutside(t *testing.T) 
 	defer cancel()
 	// chain is in the repository its sandbox was made to reach: one in
 	// another is beyond it, which is said when the sandbox is made.
-	spec.Expect(workspace.sdk().Add(adding, frontseat.Spec{Entities: []string{"chain"}})).To(Succeed())
+	spec.Expect(workspace.sdk().Add(adding, frontseat.WorkspaceSpec{Entities: []string{"chain"}})).To(Succeed())
 	after := spec.describedAt(ctx, workspace)
 	spec.Expect(after.GetSpec().GetEntities()).To(HaveLen(2))
 	spec.Expect(after.GetStatus().GetState()).To(Equal(workspacev1.WorkspaceStatus_STATE_READY))

@@ -87,11 +87,11 @@ func (p *plane) DescribeWorkspace(_ context.Context, asked *workspacev1.Describe
 
 // here is the workspace of a repository at a branch, asked for with a
 // key.
-var here = Spec{Repositories: []Repository{{Remote: "https://forge.example/acme/code.git", Ref: "main"}}, Author: Author{Name: "Someone", Email: "someone@forge.example"},
+var here = WorkspaceSpec{Repositories: []Repository{{Remote: "https://forge.example/acme/code.git", Ref: "main"}}, Author: Author{Name: "Someone", Email: "someone@forge.example"},
 	AuthorizedKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl test"}
 
 // pushing is here, pushing or not.
-func pushing(push bool) Spec {
+func pushing(push bool) WorkspaceSpec {
 	s := here
 	s.Push = push
 	return s
@@ -135,14 +135,14 @@ func TestAWorkspaceIsAskedForByWhatItIsToHold(t *testing.T) {
 func TestHowAWorkspaceCameToBeOpenedIsTheControlPlanesWord(t *testing.T) {
 	for name, c := range map[string]struct {
 		answers *workspacev1.CreateWorkspaceResponse
-		how     How
+		how     OpenOutcome
 		pushes  bool
 	}{
-		"made now":                         {&workspacev1.CreateWorkspaceResponse{Workspace: there(workspacev1.WorkspaceStatus_STATE_STARTING, false), Created: true}, Made, false},
-		"there, as it was left":            {&workspacev1.CreateWorkspaceResponse{Workspace: there(workspacev1.WorkspaceStatus_STATE_READY, false)}, Left, false},
-		"there and paused":                 {&workspacev1.CreateWorkspaceResponse{Workspace: there(workspacev1.WorkspaceStatus_STATE_PAUSED, false)}, Left, false},
-		"there, and holding nothing yet":   {&workspacev1.CreateWorkspaceResponse{Workspace: there(workspacev1.WorkspaceStatus_STATE_POPULATING, false)}, Filled, false},
-		"there and pushing, asked plainly": {&workspacev1.CreateWorkspaceResponse{Workspace: there(workspacev1.WorkspaceStatus_STATE_READY, true)}, Left, true},
+		"made now":                         {&workspacev1.CreateWorkspaceResponse{Workspace: there(workspacev1.WorkspaceStatus_STATE_STARTING, false), Created: true}, OpenOutcomeCreated, false},
+		"there, as it was left":            {&workspacev1.CreateWorkspaceResponse{Workspace: there(workspacev1.WorkspaceStatus_STATE_READY, false)}, OpenOutcomeExisting, false},
+		"there and paused":                 {&workspacev1.CreateWorkspaceResponse{Workspace: there(workspacev1.WorkspaceStatus_STATE_PAUSED, false)}, OpenOutcomeExisting, false},
+		"there, and holding nothing yet":   {&workspacev1.CreateWorkspaceResponse{Workspace: there(workspacev1.WorkspaceStatus_STATE_POPULATING, false)}, OpenOutcomeFilled, false},
+		"there and pushing, asked plainly": {&workspacev1.CreateWorkspaceResponse{Workspace: there(workspacev1.WorkspaceStatus_STATE_READY, true)}, OpenOutcomeExisting, true},
 	} {
 		p := &plane{answers: c.answers, holds: []string{here.Repositories[0].Remote}}
 		opened, err := New(served(t, p)).Open(context.Background(), pushing(false))
@@ -150,9 +150,9 @@ func TestHowAWorkspaceCameToBeOpenedIsTheControlPlanesWord(t *testing.T) {
 			t.Errorf("%s: %v", name, err)
 			continue
 		}
-		held := opened.Held.GetStatus().GetRepositories()
-		if opened.How != c.how || opened.Held.GetSpec().GetPush() != c.pushes || opened.Workspace.Name() != "a-workspace" || len(held) != 1 || held[0].GetName() != "code" {
-			t.Errorf("%s: opened %q as %v, pushing %v, holding %v", name, opened.Workspace.Name(), opened.How, opened.Held.GetSpec().GetPush(), held)
+		held := opened.Status.GetStatus().GetRepositories()
+		if opened.Outcome != c.how || opened.Status.GetSpec().GetPush() != c.pushes || opened.Workspace.Name() != "a-workspace" || len(held) != 1 || held[0].GetName() != "code" {
+			t.Errorf("%s: opened %q as %v, pushing %v, holding %v", name, opened.Workspace.Name(), opened.Outcome, opened.Status.GetSpec().GetPush(), held)
 		}
 	}
 }
@@ -182,7 +182,7 @@ func TestAWorkspaceOpenedByItsNameIsAskedForAsItWasMade(t *testing.T) {
 	}
 	p := &plane{answers: &workspacev1.CreateWorkspaceResponse{Workspace: there(workspacev1.WorkspaceStatus_STATE_READY, true)}, kept: kept}
 	fs := New(served(t, p))
-	if _, err := fs.Open(context.Background(), Spec{Name: "a-workspace", AuthorizedKey: "key"}); err != nil {
+	if _, err := fs.Open(context.Background(), WorkspaceSpec{Name: "a-workspace", AuthorizedKey: "key"}); err != nil {
 		t.Fatal(err)
 	}
 	want := proto.Clone(kept).(*workspacev1.WorkspaceSpec)
@@ -190,13 +190,23 @@ func TestAWorkspaceOpenedByItsNameIsAskedForAsItWasMade(t *testing.T) {
 	if got := p.created[0]; got.GetName() != "a-workspace" || !proto.Equal(got.GetSpec(), want) {
 		t.Errorf("opened by its name as %q %v, want %v", got.GetName(), got.GetSpec(), want)
 	}
-	if _, err := fs.Open(context.Background(), Spec{Name: "another"}); connect.CodeOf(err) != connect.CodeNotFound || len(p.created) != 1 {
+	if _, err := fs.Open(context.Background(), WorkspaceSpec{Name: "another"}); connect.CodeOf(err) != connect.CodeNotFound || len(p.created) != 1 {
 		t.Errorf("a workspace there is none of, opened by its name: %v, asked for %d times", err, len(p.created))
 	}
-	if _, err := fs.Open(context.Background(), Spec{Name: "a-workspace", Whole: true}); err != nil {
+	if _, err := fs.Open(context.Background(), WorkspaceSpec{Name: "a-workspace", Whole: true}); err != nil {
 		t.Fatal(err)
 	}
 	if got := p.created[1].GetSpec(); !proto.Equal(got, &workspacev1.WorkspaceSpec{Whole: true}) {
 		t.Errorf("a spec that says more was asked for as %v", got)
+	}
+}
+
+// An outcome says itself in a person's words, and the zero outcome is
+// none of the three a workspace that was opened has.
+func TestAnOpenOutcomeSaysItself(t *testing.T) {
+	for outcome, want := range map[OpenOutcome]string{OpenOutcomeCreated: "made", OpenOutcomeFilled: "filled", OpenOutcomeExisting: "as it was left", OpenOutcomeUnspecified: "unspecified"} {
+		if got := outcome.String(); got != want {
+			t.Errorf("%d says %q, want %q", outcome, got, want)
+		}
 	}
 }

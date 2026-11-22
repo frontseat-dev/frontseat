@@ -23,10 +23,10 @@ import (
 	"github.com/frontseat-dev/frontseat/sdk/go/internal/transport"
 )
 
-// Spec is what a workspace holds and how it is made. Its source is in
+// WorkspaceSpec is what a workspace holds and how it is made. Its source is in
 // its sandbox, cloned there by its daemon: no directory of the caller's
 // machine is given to it.
-type Spec struct {
+type WorkspaceSpec struct {
 	// Name names the workspace; empty for the name the control plane
 	// gives what is asked for.
 	Name string
@@ -87,7 +87,7 @@ type Author struct {
 }
 
 // proto is the spec as the API carries it.
-func (s Spec) proto() (*workspacev1.WorkspaceSpec, error) {
+func (s WorkspaceSpec) proto() (*workspacev1.WorkspaceSpec, error) {
 	spec := &workspacev1.WorkspaceSpec{Whole: s.Whole, Push: s.Push, Image: s.Image, AuthorizedKey: s.AuthorizedKey}
 	for _, r := range s.Repositories {
 		spec.Repositories = append(spec.Repositories, &workspacev1.RepositorySource{Remote: r.Remote, Ref: r.Ref})
@@ -121,30 +121,47 @@ func refs(typed []string) ([]*typev1.EntityRef, error) {
 	return out, nil
 }
 
-// How is how a workspace came to be the one opened.
-type How int
+// OpenOutcome is how a workspace came to be the one Open returned.
+type OpenOutcome int
 
 const (
-	// Left is a workspace that was there, and is as it was left.
-	Left How = iota
-	// Made is a workspace that was made now.
-	Made
-	// Filled is a workspace that was there and held nothing yet, whose
-	// daemon cloned now.
-	Filled
+	// OpenOutcomeUnspecified is no outcome: Open returned no workspace.
+	OpenOutcomeUnspecified OpenOutcome = iota
+	// OpenOutcomeExisting is a workspace that was there, and is as it was
+	// left.
+	OpenOutcomeExisting
+	// OpenOutcomeCreated is a workspace that was made now.
+	OpenOutcomeCreated
+	// OpenOutcomeFilled is a workspace that was there and held nothing
+	// yet, whose daemon cloned now.
+	OpenOutcomeFilled
 )
 
-// Opened is a workspace that was opened, or as much of one as there is
-// where opening failed.
-type Opened struct {
+// String says the outcome in a person's words: "made", "filled", "as it
+// was left".
+func (o OpenOutcome) String() string {
+	switch o {
+	case OpenOutcomeExisting:
+		return "as it was left"
+	case OpenOutcomeCreated:
+		return "made"
+	case OpenOutcomeFilled:
+		return "filled"
+	}
+	return "unspecified"
+}
+
+// OpenResult is a workspace that was opened, or as much of one as there
+// is where opening failed.
+type OpenResult struct {
 	// Workspace is the workspace; nil only where the control plane never
 	// said which it is.
 	Workspace *Workspace
-	// How says how it came to be the one opened.
-	How How
-	// Held is the workspace as the control plane last said it was: once
+	// Outcome says how it came to be the one opened.
+	Outcome OpenOutcome
+	// Status is the workspace as the control plane last said it was: once
 	// it could be worked in, or when opening it failed.
-	Held *workspacev1.Workspace
+	Status *workspacev1.Workspace
 }
 
 // Workspaces lists the workspaces the control plane keeps for the
@@ -165,39 +182,39 @@ func (c *Client) Workspaces(ctx context.Context) ([]*workspacev1.Workspace, erro
 //
 // It ends nothing, whatever fails: a workspace that is there may hold
 // work, and one that could not be opened is named in what is returned.
-func (c *Client) Open(ctx context.Context, spec Spec) (Opened, error) {
+func (c *Client) Open(ctx context.Context, spec WorkspaceSpec) (OpenResult, error) {
 	api := c.workspaces()
 	wanted, err := spec.proto()
 	if err != nil {
-		return Opened{}, err
+		return OpenResult{}, err
 	}
 	if spec.Name != "" && proto.Equal(wanted, &workspacev1.WorkspaceSpec{AuthorizedKey: spec.AuthorizedKey}) {
 		// Asked for again as it is, it is the one there is.
 		there, err := api.DescribeWorkspace(ctx, &workspacev1.DescribeWorkspaceRequest{Name: spec.Name})
 		if err != nil {
-			return Opened{}, err
+			return OpenResult{}, err
 		}
 		wanted = proto.Clone(there.GetWorkspace().GetSpec()).(*workspacev1.WorkspaceSpec)
 		wanted.AuthorizedKey = spec.AuthorizedKey
 	}
 	said, err := api.CreateWorkspace(ctx, &workspacev1.CreateWorkspaceRequest{Name: spec.Name, Spec: wanted})
 	if err != nil {
-		return Opened{}, err
+		return OpenResult{}, err
 	}
 	first := said.GetWorkspace()
-	opened := Opened{Workspace: c.Workspace(first.GetName()), Held: first}
+	opened := OpenResult{Workspace: c.Workspace(first.GetName()), Outcome: OpenOutcomeExisting, Status: first}
 	switch state := first.GetStatus().GetState(); {
 	case said.GetCreated():
-		opened.How = Made
+		opened.Outcome = OpenOutcomeCreated
 	case state != workspacev1.WorkspaceStatus_STATE_READY && state != workspacev1.WorkspaceStatus_STATE_PAUSED:
-		opened.How = Filled
+		opened.Outcome = OpenOutcomeFilled
 	}
 	last, err := api.WaitWorkspace(ctx, &workspacev1.WaitWorkspaceRequest{Name: first.GetName()})
 	if err != nil {
 		return opened, err
 	}
-	opened.Held = last.GetWorkspace()
-	return opened, ready(first.GetName(), opened.Held)
+	opened.Status = last.GetWorkspace()
+	return opened, ready(first.GetName(), opened.Status)
 }
 
 // Workspace is a workspace the control plane keeps, by its name. Nothing
@@ -284,7 +301,7 @@ func (w *Workspace) Describe(ctx context.Context) (*workspacev1.Workspace, error
 // Add has the workspace hold more: what more names is added to what it
 // was asked for, and it is waited for until it can be worked in again.
 // Only the source more names is read of it.
-func (w *Workspace) Add(ctx context.Context, more Spec) error {
+func (w *Workspace) Add(ctx context.Context, more WorkspaceSpec) error {
 	if err := w.named(); err != nil {
 		return err
 	}
@@ -370,7 +387,7 @@ func (w *Workspace) Delete(ctx context.Context) error {
 
 // Shell returns a connection to the workspace's shell, through the
 // control plane that keeps it: what an SSH client speaks over, logging
-// in with a key the workspace was made to let in (Spec.AuthorizedKey).
+// in with a key the workspace was made to let in (WorkspaceSpec.AuthorizedKey).
 // The connection lasts as long as the context.
 func (w *Workspace) Shell(ctx context.Context) (net.Conn, error) {
 	if err := w.named(); err != nil {

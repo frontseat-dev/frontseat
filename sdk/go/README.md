@@ -40,7 +40,7 @@ func main() {
 
 	// The workspace of a repository and a branch: a new one, or the one
 	// there is, as it was left.
-	opened, err := fs.Open(ctx, frontseat.Spec{
+	opened, err := fs.Open(ctx, frontseat.WorkspaceSpec{
 		Repositories: []frontseat.Repository{{Remote: "https://forge.example/acme/services.git", Ref: "main"}},
 	})
 	if err != nil {

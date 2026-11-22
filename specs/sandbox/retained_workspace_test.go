@@ -79,7 +79,7 @@ func TestRetainedWorkspacesAreIsolatedAndReconstructAfterRestart(t *testing.T) {
 	// Reopen waits for the workspace daemon. ResumeSandbox alone starts
 	// its sandbox and can return before the build API is listening.
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	reopened, _, err := made(ctx, making{Server: first.Server, Spec: frontseat.Spec{Name: first.Workspace, AuthorizedKey: testidentity.Authorized()}})
+	reopened, _, err := made(ctx, making{Server: first.Server, WorkspaceSpec: frontseat.WorkspaceSpec{Name: first.Workspace, AuthorizedKey: testidentity.Authorized()}})
 	cancel()
 	spec.Expect(err).NotTo(HaveOccurred())
 	spec.Expect(reopened).To(Equal(first.reached))

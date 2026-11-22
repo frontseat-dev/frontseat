@@ -82,7 +82,7 @@ func TestTheStackMakesAWorkspaceWithNothingStartedByHand(t *testing.T) {
 	owner := stackOwner(t)
 	checkout := helloModule(t)
 
-	made, _ := madeWorkspace(t, frontseat.New(stack, owner), frontseat.Spec{Image: image, Repositories: cloned(t, checkout)})
+	made, _ := madeWorkspace(t, frontseat.New(stack, owner), frontseat.WorkspaceSpec{Image: image, Repositories: cloned(t, checkout)})
 	run, labels := buildIn(t, made)
 	if run.GetExitCode().GetName() != "SUCCESS" || run.GetCounts().GetPassed() == 0 {
 		t.Fatalf("the build ended %s with %d actions passed (%s), want SUCCESS", run.GetExitCode().GetName(), run.GetCounts().GetPassed(), labels)

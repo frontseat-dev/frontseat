@@ -45,7 +45,7 @@ func TestAShellIsReachedThroughTheCommandLineWithTheOwnersToken(t *testing.T) {
 	testgrid.InSandbox(t)
 	image := testbox.Image(t)
 	owner := stackOwner(t)
-	made, _ := madeWorkspace(t, frontseat.New(stack, owner), frontseat.Spec{Image: image, Repositories: cloned(t, helloModule(t))})
+	made, _ := madeWorkspace(t, frontseat.New(stack, owner), frontseat.WorkspaceSpec{Image: image, Repositories: cloned(t, helloModule(t))})
 
 	command := filepath.Join(t.TempDir(), "frontseat")
 	if out, err := exec.Command("go", "build", "-o", command, "github.com/frontseat-dev/frontseat/cli/cmd/frontseat").CombinedOutput(); err != nil {
