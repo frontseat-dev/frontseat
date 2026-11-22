@@ -65,11 +65,14 @@ type Workspace struct {
 	changed chan struct{}
 }
 
-// broughtWithin is how long one repository may take to be brought. A
-// version control system that fetches over a network waits for its
-// remote without a limit of its own, and one that accepts a connection
-// and answers nothing would leave the workspace being populated for
-// ever, which refuses every later source.
+// broughtWithin is how long one repository may take to be brought,
+// whole: the clone or the widening from its start to its end, however
+// it is getting on. A version control system that fetches over a
+// network waits for its remote without a limit of its own, and one that
+// accepts a connection and answers nothing would leave the workspace
+// being populated for ever, which refuses every later source. A
+// repository that takes longer, though it is still arriving, is not
+// brought.
 const broughtWithin = 30 * time.Minute
 
 // Open returns the workspace in a directory: a mounted checkout, or what
@@ -89,6 +92,14 @@ func Open(root string, mounted bool, system vcs.System) (*Workspace, error) {
 	recorded, found, err := manifest.Read(root, system.Revision)
 	if err != nil {
 		return nil, fmt.Errorf("the workspace's manifest: %w", err)
+	}
+	// Nothing is brought while a workspace is opened: what a daemon that
+	// ended left unfinished is cleared, so that it is brought anew.
+	if err := manifest.Settle(root); err != nil {
+		return nil, fmt.Errorf("the workspace's manifest: %w", err)
+	}
+	if err := populate.Settle(root, recorded.Repositories); err != nil {
+		return nil, err
 	}
 	if found && len(recorded.Repositories) > 0 {
 		w.manifest, w.state = recorded, Ready
@@ -308,7 +319,9 @@ func (w *Workspace) set(state State, message string) {
 // that of two asked at once, one is refused; the generation is the one
 // it holds once it starts. Each repository is brought within a bound,
 // and none once the workspace is closed: either ends the pass as a
-// failure that says so.
+// failure that says so. A source told once the workspace is closed is
+// held at its generation and failed, so that whoever reads it back reads
+// that generation refused because the daemon stopped.
 func (w *Workspace) Populate(generation int64, checkouts []record.Checkout, located []record.Located) error {
 	if w.mounted {
 		return errMounted
@@ -376,13 +389,13 @@ func (w *Workspace) Populate(generation int64, checkouts []record.Checkout, loca
 					held[at] = widened
 				}
 			}
-			// What ended it is said, and not what its version control
-			// system said of being stopped.
+			// Where it was stopped, what stopped it is said, and not what
+			// its version control system said of being stopped; any other
+			// failure is said as its own.
 			switch {
-			case err == nil:
-			case w.bringing.Err() != nil:
+			case errors.Is(err, context.Canceled) && w.bringing.Err() != nil:
 				err = fmt.Errorf("the repository %s: %w", c.Name, errClosed)
-			case ctx.Err() != nil:
+			case errors.Is(err, context.DeadlineExceeded):
 				err = fmt.Errorf("the repository %s was not brought within %s", c.Name, w.within)
 			}
 			done()
@@ -393,7 +406,7 @@ func (w *Workspace) Populate(generation int64, checkouts []record.Checkout, loca
 				w.manifest.Repositories = held
 				recorded := w.manifest
 				w.mu.Unlock()
-				if kept := manifest.Write(w.root, recorded); kept != nil {
+				if kept := w.record(recorded); kept != nil {
 					err = errors.Join(err, kept)
 				}
 				fail(err)
@@ -413,7 +426,7 @@ func (w *Workspace) Populate(generation int64, checkouts []record.Checkout, loca
 		}
 		recorded := w.manifest
 		w.mu.Unlock()
-		if err := manifest.Write(w.root, recorded); err != nil {
+		if err := w.record(recorded); err != nil {
 			fail(err)
 			return
 		}
@@ -422,6 +435,15 @@ func (w *Workspace) Populate(generation int64, checkouts []record.Checkout, loca
 		w.mu.Unlock()
 	}()
 	return nil
+}
+
+// record keeps the manifest, and clears what said the repositories it
+// records were being cloned: once recorded, they are finished.
+func (w *Workspace) record(m manifest.Manifest) error {
+	if err := manifest.Write(w.root, m); err != nil {
+		return err
+	}
+	return populate.Settle(w.root, m.Repositories)
 }
 
 // errPopulating is a source told while another is being brought: it is
