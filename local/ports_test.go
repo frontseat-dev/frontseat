@@ -11,8 +11,9 @@ import (
 	"github.com/frontseat-dev/frontseat/local/ports"
 )
 
-// listens is where each file of the stack's image says it listens on a port
-// local/ports holds: the text it is said in, with the port's number.
+// listens is where each file that cannot read local/ports, of the stack's
+// image and the box's Dockerfile, says a port it holds, to listen on it
+// or to dial it: the text it is said in, with the port's number.
 var listens = []struct {
 	file string
 	text string
@@ -23,6 +24,14 @@ var listens = []struct {
 	{"image/rootfs/etc/frontseat/bb/frontend.jsonnet", "listenAddresses: [':%d']", ports.Grid},
 	{"image/rootfs/etc/frontseat/bb/assets.jsonnet", "listenAddresses: [':%d']", ports.Assets},
 	{"image/rootfs/etc/unbound/unbound.conf", "\tport: %d\n", ports.Resolver},
+	{"image/rootfs/etc/s6-overlay/s6-rc.d/controlplane/run", "--public http://127.0.0.1:%d ", ports.ControlPlane},
+	{"image/rootfs/etc/s6-overlay/s6-rc.d/controlplane/run", "--openshell https://127.0.0.1:%d ", ports.OpenShell},
+	{"image/rootfs/etc/s6-overlay/s6-rc.d/controlplane/run", "--grid host.openshell.internal:%d\n", ports.Grid},
+	{"image/rootfs/etc/s6-overlay/s6-rc.d/pool/run", "--gateway https://127.0.0.1:%d ", ports.OpenShell},
+	{"image/rootfs/etc/s6-overlay/s6-rc.d/services/run", "--gateway https://127.0.0.1:%d ", ports.OpenShell},
+	{"box.Dockerfile", `"--listen", "0.0.0.0:%d"`, ports.Daemon},
+	{"box.Dockerfile", `"--source", "0.0.0.0:%d"`, ports.Source},
+	{"box.Dockerfile", `"--shell", "0.0.0.0:%d"`, ports.Shell},
 }
 
 // listeningElsewhere returns each file of the image that does not say its port as
@@ -41,8 +50,9 @@ func listeningElsewhere(read func(file string) ([]byte, error)) ([]string, error
 	return out, nil
 }
 
-// The stack's one container listens where local/ports says, each port
-// said once there and held here in the files that cannot read it.
+// The stack's one container and a box listen, and are dialled, where
+// local/ports says, each port said once there and held here in the
+// files that cannot read it.
 func TestTheStacksImageListensWhereThePortsAreSaid(t *testing.T) {
 	wrong, err := listeningElsewhere(os.ReadFile)
 	if err != nil {
@@ -64,6 +74,20 @@ func TestTheStacksImageListensWhereThePortsAreSaid(t *testing.T) {
 	}
 	if !slices.Equal(moved, []string{listens[2].file}) {
 		t.Errorf("a moved grid port was found in %v, want %s", moved, listens[2].file)
+	}
+	// And a box's: its daemon told to serve its source API elsewhere.
+	moved, err = listeningElsewhere(func(file string) ([]byte, error) {
+		content, err := os.ReadFile(file)
+		if file == "box.Dockerfile" {
+			content = []byte(strings.ReplaceAll(string(content), strconv.Itoa(ports.Source), "9999"))
+		}
+		return content, err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(moved, []string{"box.Dockerfile"}) {
+		t.Errorf("a moved source port of a box was found in %v, want box.Dockerfile", moved)
 	}
 }
 
