@@ -1,3 +1,4 @@
+use crate::plugin;
 use frontseat_plugin::prelude::*;
 use frontseat_plugin::repository::{beneath, join, literal, NOT_FIXTURES};
 
@@ -51,7 +52,7 @@ pub(super) struct Tested {
 /// hold tests, since every Go file is read once here: see
 /// `crate::programs`.
 pub(super) fn input_sets(repo: &Repository, root: &str) -> Result<Read, Error> {
-    let tags = repo.string_list("tags")?;
+    let tags = repo.string_list(plugin::TAGS)?;
     // The go the repository pins, by its minor version: "1.27.3" is 27.
     let go_minor = repo
         .tool_version("go")

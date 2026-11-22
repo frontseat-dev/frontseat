@@ -1,5 +1,6 @@
 //! Reference Go plugin: discovers modules and declares Go tool actions.
 mod actions;
+mod duration;
 mod inputs;
 mod manifest;
 mod plugin;
