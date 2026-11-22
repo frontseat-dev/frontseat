@@ -137,7 +137,7 @@ func TestAModuleWithALockFetchesEachModuleTheLockHoldsOnItsOwn(t *testing.T) {
 	}
 	for i, w := range want {
 		fetch := actions[i]
-		if fetch.GetName() != w.name || !fetch.GetFetch() || !fetch.GetShared() {
+		if fetch.GetName() != w.name || fetch.GetSharedFetch() == nil {
 			t.Fatalf("action %d is %v, want the shared fetch %s", i, fetch, w.name)
 		}
 		if got := strings.Join(fetch.GetCommand().GetArguments(), " "); got != w.command {
@@ -147,7 +147,7 @@ func TestAModuleWithALockFetchesEachModuleTheLockHoldsOnItsOwn(t *testing.T) {
 			t.Errorf("%s reads %v of the project, want nothing", w.name, fetch.GetInputs())
 		}
 		told := map[string]string{}
-		for _, file := range fetch.GetFiles() {
+		for _, file := range fetch.GetSharedFetch().GetFiles() {
 			told[file.GetPath()] = string(file.GetContent())
 		}
 		if told["go.sum"] != w.sum || told["go.mod"] != "module fetch.invalid\n\ngo 1.21\n" || len(told) != 2 {
@@ -184,7 +184,7 @@ func TestAModuleWithNoLockFetchesNothing(t *testing.T) {
 	}
 	for _, action := range got.GetAnalyses()[0].GetProjects()[0].GetActions() {
 		for _, input := range action.GetInputs() {
-			if action.GetFetch() || input.GetOutput() != "" {
+			if action.GetFetch() != nil || action.GetSharedFetch() != nil || input.GetOutput() != "" {
 				t.Errorf("%s fetches or reads a fetch, and the module has no lock", action.GetName())
 			}
 		}
@@ -215,11 +215,11 @@ func TestWhatAnActionReadsOfOthersIsOneThingOfItsProject(t *testing.T) {
 		return &pluginv1.AnalyzeResponse{Analyses: []*pluginv1.Analysis{{Projects: []*pluginv1.Project{{Root: "a", Name: "a", Kind: "go-module", Manifest: "a/go.mod",
 			InputSets: []*pluginv1.InputSet{{Name: "sources", Inputs: []*pluginv1.Input{pluginhost.SourceInput("**/*.go")}}},
 			Actions: []*pluginv1.Action{
-				{Name: "fetch", Command: &pluginv1.Command{Arguments: []string{"true"}}, Fetch: true, Outputs: []*pluginv1.Output{{Path: "~/go/pkg/mod/"}}},
-				{Name: "fetch/example.com/dep@v1.0.0", Command: &pluginv1.Command{Arguments: []string{"true"}}, Fetch: true, Shared: true, Outputs: []*pluginv1.Output{{Path: "~/go/pkg/mod/example.com/dep@v1.0.0/"}}},
-				{Name: "test", Command: &pluginv1.Command{Arguments: []string{"true"}}, Test: true},
-				{Name: "both", Command: &pluginv1.Command{Arguments: []string{"true"}}, Outputs: []*pluginv1.Output{{Path: "test"}}},
-				{Name: "compile", Command: &pluginv1.Command{Arguments: []string{"true"}}, Inputs: translated},
+				{Name: "fetch", Command: &pluginv1.Command{Arguments: []string{"true"}}, Kind: &pluginv1.Action_Fetch{Fetch: &pluginv1.Fetch{}}, Outputs: []*pluginv1.Output{{Path: "~/go/pkg/mod/"}}},
+				{Name: "fetch/example.com/dep@v1.0.0", Command: &pluginv1.Command{Arguments: []string{"true"}}, Kind: &pluginv1.Action_SharedFetch{SharedFetch: &pluginv1.SharedFetch{}}, Outputs: []*pluginv1.Output{{Path: "~/go/pkg/mod/example.com/dep@v1.0.0/"}}},
+				{Name: "test", Command: &pluginv1.Command{Arguments: []string{"true"}}, Kind: &pluginv1.Action_Test{Test: &pluginv1.Test{}}},
+				{Name: "both", Command: &pluginv1.Command{Arguments: []string{"true"}}, Outputs: []*pluginv1.Output{{Path: "test"}}, Kind: &pluginv1.Action_Build{Build: &pluginv1.Build{}}},
+				{Name: "compile", Command: &pluginv1.Command{Arguments: []string{"true"}}, Inputs: translated, Kind: &pluginv1.Action_Build{Build: &pluginv1.Build{}}},
 			}}}}}}
 	}
 	for _, allowed := range [][]string{{":fetch"}, {":fetch/example.com/dep@v1.0.0"}, {":~/go/pkg/mod/"}, {"=sources", ":fetch", ":~/go/pkg/mod/example.com/dep@v1.0.0/"}} {
@@ -389,7 +389,7 @@ func TestAModuleBuiltForAnotherABIIsRefusedByItsNumber(t *testing.T) {
 	if _, err := loadModule(t, speaking(pluginhost.MaxABI)); err == nil || !strings.Contains(err.Error(), "Describe: the module answered nothing") {
 		t.Errorf("ABI %d: err = %v, want it asked what it is, and answering nothing", pluginhost.MaxABI, err)
 	}
-	if got := load(t).Description.GetAbi(); got != pluginhost.MaxABI {
+	if got := load(t).ABI; got != pluginhost.MaxABI {
 		t.Errorf("the SDK's plugin says ABI %d, want %d", got, pluginhost.MaxABI)
 	}
 }
@@ -523,7 +523,7 @@ func sharded(t *testing.T, shards int64, source files) ([]string, error) {
 	}
 	var tests []string
 	for _, action := range got.GetAnalyses()[0].GetProjects()[0].GetActions() {
-		if action.GetTest() {
+		if action.GetTest() != nil {
 			tests = append(tests, action.GetName())
 		}
 	}

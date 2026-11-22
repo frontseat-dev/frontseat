@@ -19,7 +19,9 @@ func TestAPartsPathIsHeldAsAnOutputsIs(t *testing.T) {
 	if err := pluginhost.CheckAnalysis("cargo", roots, cutting()); err != nil {
 		t.Fatalf("control refused: %v", err)
 	}
-	part := func(a *pluginv1.AnalyzeResponse, i int) *pluginv1.Part { return lastAction(a).Downloads[0].Parts[i] }
+	part := func(a *pluginv1.AnalyzeResponse, i int) *pluginv1.Part {
+		return lastAction(a).GetSharedFetch().Downloads[0].Parts[i]
+	}
 	for name, change := range map[string]func(*pluginv1.AnalyzeResponse){
 		"a part whose path holds a NUL, which no argument of a command can":      func(a *pluginv1.AnalyzeResponse) { part(a, 0).Path = "~/.cache/apk/busybox/con\x00trol.tar.gz" },
 		"a part whose path is not clean (a/../b)":                                func(a *pluginv1.AnalyzeResponse) { part(a, 0).Path = "~/.cache/apk/other/../busybox/control.tar.gz" },
@@ -42,9 +44,7 @@ func TestASharedFetchThatRunsNothingIsHeldToItsFiles(t *testing.T) {
 		a := sound()
 		p := a.GetAnalyses()[0].GetProjects()[0]
 		p.Actions = append(p.Actions, &pluginv1.Action{
-			Name: "fetch/packages.wolfi.dev/os/wolfi-signing.rsa.pub", Shared: true, Fetch: true,
-			Files:   []*pluginv1.File{{Path: "~/.cache/keys/wolfi.rsa.pub/locked.etag", Content: []byte("key")}},
-			Outputs: []*pluginv1.Output{{Path: "~/.cache/keys/wolfi.rsa.pub/"}},
+			Name: "fetch/packages.wolfi.dev/os/wolfi-signing.rsa.pub", Kind: &pluginv1.Action_SharedFetch{SharedFetch: &pluginv1.SharedFetch{Files: []*pluginv1.File{{Path: "~/.cache/keys/wolfi.rsa.pub/locked.etag", Content: []byte("key")}}}}, Outputs: []*pluginv1.Output{{Path: "~/.cache/keys/wolfi.rsa.pub/"}},
 		})
 		p.Actions[1].Inputs = append(p.Actions[1].Inputs, pluginhosttest.OutputInput("fetch/packages.wolfi.dev/os/wolfi-signing.rsa.pub"))
 		return a
@@ -61,7 +61,7 @@ func TestASharedFetchThatRunsNothingIsHeldToItsFiles(t *testing.T) {
 		// Its files in its own directory are no output of a shared action
 		// (outputs are of the home alone), so they are left nowhere.
 		"only files of its own directory, which it cannot leave": func(a *pluginv1.AnalyzeResponse) {
-			fetch(a).Files = []*pluginv1.File{{Path: "key.rsa.pub", Content: []byte("key")}}
+			fetch(a).GetSharedFetch().Files = []*pluginv1.File{{Path: "key.rsa.pub", Content: []byte("key")}}
 		},
 		// It runs nothing, so a tool is installed for nothing.
 		"tools, with nothing to run them": func(a *pluginv1.AnalyzeResponse) { fetch(a).Tools = []string{"apko"} },

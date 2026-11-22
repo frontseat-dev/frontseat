@@ -51,7 +51,7 @@ type Runner struct {
 func (r Runner) Run(ctx context.Context, snapshot *source.Snapshot, action plan.Action) (changes []source.Change, err error) {
 	ctx, span := telemetry.Start(ctx, "fix")
 	defer func() { telemetry.End(span, err) }()
-	command := action.Declared.GetFix()
+	command := action.Declared.GetCheck().GetFix()
 	if len(command.GetArguments()) == 0 {
 		return nil, fmt.Errorf("%s has no fix", action.Label)
 	}
@@ -249,7 +249,7 @@ func (r Runner) changed(ctx context.Context, snapshot *source.Snapshot, action p
 // that its rewrite patterns select, sorted. It is what two actions of a
 // run must not share.
 func Changeable(ctx context.Context, snapshot *source.Snapshot, action plan.Action) ([]string, error) {
-	if len(action.Rewrites()) == 0 || action.Declared.GetFix() == nil || !action.IsCheck() {
+	if len(action.Rewrites()) == 0 || action.Declared.GetCheck().GetFix() == nil || !action.IsCheck() {
 		return nil, nil
 	}
 	given, err := snapshot.Select(ctx, action.Repository, action.Sources)

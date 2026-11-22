@@ -23,7 +23,7 @@ func TestWorkspaceFilesAndArrangedFilesAboveTheProject(t *testing.T) {
 			ProjectRoot:    "crates/hello",
 			Sources:        []pattern.Group{{Directory: "crates/hello", Patterns: []string{"**"}}},
 			WorkspaceFiles: workspaceFiles,
-			Declared:       &pluginv1.Action{Name: "compile", Command: &pluginv1.Command{Arguments: []string{"cargo", "build"}}},
+			Declared:       &pluginv1.Action{Name: "compile", Command: &pluginv1.Command{Arguments: []string{"cargo", "build"}}, Kind: &pluginv1.Action_Build{Build: &pluginv1.Build{}}},
 		}
 		for _, path := range arranged {
 			a.Arranged = append(a.Arranged, plan.Arranged{Path: path, Content: []byte("narrowed")})

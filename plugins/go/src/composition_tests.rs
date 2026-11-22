@@ -94,7 +94,7 @@ fn served_plugin_composes_manifest_inputs_and_profile_actions() {
             ]
         );
         let fetch = &project.actions[0];
-        assert!(fetch.shared && fetch.fetch && fetch.inputs.is_empty());
+        assert!(fetch.as_shared_fetch().is_some() && fetch.inputs.is_empty());
         assert_eq!(
             fetch.command.as_ref().unwrap().arguments,
             ["go", "mod", "download", "-x", "example.com/dep@v1.0.0"]
@@ -102,6 +102,8 @@ fn served_plugin_composes_manifest_inputs_and_profile_actions() {
         // It is told the module's own lines of the lock, and nothing of
         // the project.
         let told: Vec<_> = fetch
+            .as_shared_fetch()
+            .unwrap()
             .files
             .iter()
             .map(|file| {
@@ -136,7 +138,7 @@ fn served_plugin_composes_manifest_inputs_and_profile_actions() {
         // A program reads what the compile left, and nothing of a fetch.
         let program = project.actions.last().unwrap();
         assert_eq!(program.inputs, [Input::output("compile")]);
-        assert!(program.program);
+        assert!(program.is_program());
         for built in &project.actions[1..5] {
             assert!(
                 built
@@ -146,7 +148,7 @@ fn served_plugin_composes_manifest_inputs_and_profile_actions() {
                 built.name,
                 built.inputs
             );
-            assert!(!built.shared, "{}", built.name);
+            assert!(built.as_shared_fetch().is_none(), "{}", built.name);
         }
         assert_eq!(
             project.actions[3]
@@ -158,7 +160,7 @@ fn served_plugin_composes_manifest_inputs_and_profile_actions() {
             profile == Profile::Development
         );
         let build = &project.actions[4];
-        assert!(!build.test);
+        assert!(build.as_test().is_none());
         assert_eq!(
             build.command.as_ref().unwrap().arguments,
             [
@@ -189,14 +191,22 @@ fn served_plugin_composes_manifest_inputs_and_profile_actions() {
         // The third has nothing to do on a worker, where the go command
         // builds it no program: its one file is named for another system.
         let other = &project.actions[7];
-        assert!(other.test && other.idle_without_inputs);
+        assert!(
+            other.as_test().is_some()
+                && other.as_test().is_some_and(|test| test.idle_without_inputs)
+        );
         assert_eq!(other.inputs[0], Input::output("_tests/0/other.test"));
         // A test runs its own program in its package's directory, and
         // reads that program, what stands beside its package and its
         // fixtures: nothing of a fetch, and nothing of another package.
         let (own, ledger) = (&project.actions[5], &project.actions[6]);
-        assert!(own.test && ledger.test);
-        assert!(own.idle_without_inputs && ledger.idle_without_inputs);
+        assert!(own.as_test().is_some() && ledger.as_test().is_some());
+        assert!(
+            own.as_test().is_some_and(|test| test.idle_without_inputs)
+                && ledger
+                    .as_test()
+                    .is_some_and(|test| test.idle_without_inputs)
+        );
         let command = own.command.as_ref().unwrap();
         assert_eq!(
             (command.arguments.as_slice(), command.directory.as_str()),
@@ -260,14 +270,20 @@ fn served_plugin_composes_manifest_inputs_and_profile_actions() {
                 Some(frontseat_plugin::wire::input::Kind::Dependency(_))
             )) && ledger.outputs.is_empty()
         );
-        assert!(project.actions[1].check && project.actions[2].check);
-        assert_eq!(project.actions[2].rewrites, ["**/*.go"]);
+        assert!(project.actions[1].as_check().is_some() && project.actions[2].as_check().is_some());
+        assert_eq!(project.actions[2].as_check().unwrap().rewrites, ["**/*.go"]);
         assert_eq!(
             project.actions[2].command.as_ref().unwrap().arguments,
             ["gofmt", "-l", "."]
         );
         assert_eq!(
-            project.actions[2].fix.as_ref().unwrap().arguments,
+            project.actions[2]
+                .as_check()
+                .unwrap()
+                .fix
+                .as_ref()
+                .unwrap()
+                .arguments,
             ["gofmt", "-w", "."]
         );
         // What it read: the module's go.mod and go.sum and its Go files,
@@ -408,7 +424,7 @@ fn served_plugin_packages_each_program_for_each_platform_it_ships_for() {
         plugin.analyze(&host, context, &["app"]).answered().analyses[0].projects[0]
             .actions
             .iter()
-            .filter(|action| action.package)
+            .filter(|action| action.is_package())
             .cloned()
             .collect()
     };
@@ -444,7 +460,7 @@ fn served_plugin_packages_each_program_for_each_platform_it_ships_for() {
     assert_eq!(command.environment["GOOS"], "linux");
     assert_eq!(command.environment["GOARCH"], "amd64");
     assert_eq!(command.environment["CGO_ENABLED"], "0");
-    assert!(linux.versioned && !linux.test && !linux.check);
+    assert!(linux.versioned && linux.as_test().is_none() && linux.as_check().is_none());
     assert_eq!(
         linux
             .outputs

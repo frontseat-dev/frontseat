@@ -38,13 +38,13 @@ func ownedFixture(t *testing.T) Evaluation {
 	generated := plan.GeneratedSource{Directory: "pkg", Patterns: []string{"*.pb.go"}, Producer: label}
 	action := plan.Action{
 		Label: label, Repository: "", ProjectRoot: "pkg",
-		Declared: &pluginv1.Action{Name: "build", Command: &pluginv1.Command{Arguments: []string{"tool"}, Environment: map[string]string{"A": "original"}}, Files: []*pluginv1.File{{Path: "config", Content: []byte("payload")}}}, Context: ctx,
+		Declared: &pluginv1.Action{Name: "build", Command: &pluginv1.Command{Arguments: []string{"tool"}, Environment: map[string]string{"A": "original"}}, Kind: &pluginv1.Action_SharedFetch{SharedFetch: &pluginv1.SharedFetch{Files: []*pluginv1.File{{Path: "config", Content: []byte("payload")}}}}}, Context: ctx,
 		Sources: []pattern.Group{{Directory: "pkg", Patterns: []string{"*.go"}, Generated: selection}}, IdleWithout: []plan.Read{{From: label, Output: "out"}}, Environment: map[string]string{"GIVEN": "original"}, References: []plan.Reference{{Reference: model.Reference{Path: "pkg", Rest: "build", Written: ":build"}}}, Reads: []plan.Read{{From: label, Output: "out"}},
 		Needs: []model.Label{label}, ArtifactOnly: []model.Label{label}, Artifacts: []plan.ArtifactInput{{Source: generated, Patterns: []string{"*.go"}, Generated: selection}},
 		GeneratedSources: []plan.GeneratedSource{generated}, WorkspaceFiles: []string{"go.work"}, Handed: []plan.Handed{{Patterns: []string{"*.go"}, Generated: selection, Artifacts: []plan.Read{{From: label, Output: "install", Optional: true}}}}, Arranged: []plan.Arranged{{Path: "go.work", Content: []byte("workspace")}},
 		InStep: &plan.InStep{File: "catalog-info.yaml", Fixed: []byte("rewrite"), Entities: []plan.Described{{Entity: ref, Says: []entity.Ref{other}, Should: []entity.Ref{ref}}}},
 		Beside: &plan.Beside{Sandbox: []byte("sandbox"), Environment: map[string]string{"URL": "original"}, TestNeeds: []model.Label{label}, Programs: map[string]plan.Action{
-			"server": {Label: label, Context: ctx, Declared: &pluginv1.Action{Command: &pluginv1.Command{Arguments: []string{"server"}}}, Sources: []pattern.Group{{Patterns: []string{"config"}}}, Handed: []plan.Handed{{Artifacts: []plan.Read{{From: label, Output: "program"}}}}, Arranged: []plan.Arranged{{Path: "config", Content: []byte("service")}}},
+			"server": {Label: label, Context: ctx, Declared: &pluginv1.Action{Command: &pluginv1.Command{Arguments: []string{"server"}}, Kind: &pluginv1.Action_Build{Build: &pluginv1.Build{}}}, Sources: []pattern.Group{{Patterns: []string{"config"}}}, Handed: []plan.Handed{{Artifacts: []plan.Read{{From: label, Output: "program"}}}}, Arranged: []plan.Arranged{{Path: "config", Content: []byte("service")}}},
 		}},
 	}
 	projects := []graph.Project{{Root: "pkg", Plugin: "go", Name: "root", Platforms: []string{"linux/amd64"}, Options: []config.Option{{Name: "tags", Value: ctx.Options["tags"]}}, Provides: []graph.Provide{{Coordinate: model.Coordinate{Ecosystem: "go", Name: "root"}, Sources: []string{"*.go"}, Generated: selection, Artifacts: []graph.Produced{{Action: "build", Output: "install", Optional: true}}}}, Requires: []graph.Requirement{{Coordinate: model.Coordinate{Ecosystem: "go", Name: "other"}}}}}
@@ -94,7 +94,7 @@ func ownedFingerprint(t *testing.T, e Evaluation) []byte {
 func TestRetainedOwnedNestedPayloadsDoNotAlias(t *testing.T) {
 	mutations := map[string]func(*Evaluation){
 		"command map":                func(e *Evaluation) { e.Actions[0].Declared.Command.Environment["A"] = "changed" },
-		"declared file bytes":        func(e *Evaluation) { e.Actions[0].Declared.Files[0].Content[0] = 'X' },
+		"declared file bytes":        func(e *Evaluation) { e.Actions[0].Declared.GetSharedFetch().Files[0].Content[0] = 'X' },
 		"context nested option":      func(e *Evaluation) { e.Actions[0].Context.Options["tags"].GetStringListValue().Values[0] = "changed" },
 		"references":                 func(e *Evaluation) { e.Actions[0].References[0].Rest = "changed" },
 		"reads":                      func(e *Evaluation) { e.Actions[0].Reads[0].Output = "changed" },

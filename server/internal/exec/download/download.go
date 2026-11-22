@@ -5,7 +5,7 @@
 // puts the content in the grid's store and remembers the answer by URL
 // and checksum, so every repository and daemon of the grid shares one
 // download. A daemon asks it for what a shared fetch declares
-// (Action.downloads) and places the answer in the fetch's root, where
+// (SharedFetch.downloads) and places the answer in the fetch's root, where
 // the fetch unpacks it with no network (Unpacking).
 //
 // Where a lock holds no checksum of the whole of a download, only of

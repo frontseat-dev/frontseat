@@ -212,12 +212,14 @@ fn fetch(entry: &Entry) -> Action {
         .env("GOFLAGS", "-modcacherw")
         .env("GOSUMDB", "off")
         .env("GOWORK", "off");
-    Action {
-        command: Some(command),
-        files: told(entry),
-        tools: vec!["go".into()],
-        ..Action::fetch(format!("{name}/{}", entry.module), kept(entry))
-    }
+    told(entry).into_iter().fold(
+        Action {
+            command: Some(command),
+            tools: vec!["go".into()],
+            ..Action::shared_fetch(format!("{name}/{}", entry.module), kept(entry))
+        },
+        Action::file,
+    )
 }
 
 pub(super) fn actions(
@@ -598,8 +600,7 @@ fn tests(
                 .chain([Input::source(join(&literal(directory), "testdata/**"))])
                 .chain(fetched.iter().map(Input::output))
                 .collect();
-                test.idle_without_inputs = true;
-                pieces.push(test);
+                pieces.push(test.idle_without_inputs());
             }
         }
         actions.push(build);
@@ -804,7 +805,10 @@ mod tests {
             "{:?}",
             handed(&above)
         );
-        let test = actions.iter().find(|action| action.test).unwrap();
+        let test = actions
+            .iter()
+            .find(|action| action.as_test().is_some())
+            .unwrap();
         assert!(test.inputs.contains(&Input::source("**")));
         assert!(test.inputs.contains(&Input::source("!nested/**")));
         assert!(test.inputs.contains(&Input::source("!pkg/**")));
@@ -835,7 +839,7 @@ mod tests {
         let all = answered(&repo, &tested).unwrap();
         let said: Vec<(&str, &str)> = all
             .iter()
-            .filter(|action| action.test)
+            .filter(|action| action.as_test().is_some())
             .map(|action| {
                 let arguments = &action.command.as_ref().unwrap().arguments;
                 (
@@ -1004,7 +1008,10 @@ mod tests {
         // The control: names the go command takes.
         for directory in ["c++", "a~b", "yaml.v3", "Upper", ""] {
             let all = answered(directory).unwrap();
-            assert!(all.iter().any(|action| action.test), "{directory}");
+            assert!(
+                all.iter().any(|action| action.as_test().is_some()),
+                "{directory}"
+            );
         }
     }
 
@@ -1046,11 +1053,18 @@ mod tests {
                 ("_tests/0/ledger.test", true)
             ]
         );
-        assert!(!build.idle_without_inputs);
-        let tests: Vec<_> = all.iter().filter(|action| action.test).collect();
+        assert!(!build.as_test().is_some_and(|test| test.idle_without_inputs));
+        let tests: Vec<_> = all
+            .iter()
+            .filter(|action| action.as_test().is_some())
+            .collect();
         assert_eq!(tests.len(), 2);
         for test in tests {
-            assert!(test.idle_without_inputs, "{}", test.name);
+            assert!(
+                test.as_test().is_some_and(|test| test.idle_without_inputs),
+                "{}",
+                test.name
+            );
         }
     }
 

@@ -125,7 +125,7 @@ func of(ctx context.Context, snapshot *source.Snapshot, action plan.Action, prov
 			Files: within,
 		}
 	}
-	written := make(map[string]exec.Written, len(action.Arranged)+len(action.Declared.GetFiles()))
+	written := make(map[string]exec.Written, len(action.Arranged)+len(action.Declared.GetSharedFetch().GetFiles()))
 	for _, file := range action.Arranged {
 		// Above the project, a file is written for the workspace, and
 		// never in place of a workspace file the action reads: nothing
@@ -136,7 +136,7 @@ func of(ctx context.Context, snapshot *source.Snapshot, action plan.Action, prov
 		written[path.Join(repository, file.Path)] = exec.Written{Content: file.Content, Executable: file.Executable}
 	}
 	// A shared action's files are its own, in its directory or its home.
-	for _, file := range action.Declared.GetFiles() {
+	for _, file := range action.Declared.GetSharedFetch().GetFiles() {
 		at, _, err := Sits(repository, action.ProjectRoot, "", file.GetPath())
 		if err != nil {
 			return exec.Action{}, err
@@ -152,15 +152,15 @@ func of(ctx context.Context, snapshot *source.Snapshot, action plan.Action, prov
 	}
 	command := action.Declared.GetCommand()
 	arguments, environment := command.GetArguments(), command.GetEnvironment()
-	held := make(map[string]exec.Held, len(left)+len(action.Declared.GetDownloads()))
+	held := make(map[string]exec.Held, len(left)+len(action.Declared.GetSharedFetch().GetDownloads()))
 	for at, each := range left {
 		held[at] = each
 	}
 	// What a shared fetch downloads is brought by the asset service and
 	// placed in the root by digest, beside the home; the command unpacks
 	// each where the fetch says, and reaches nothing.
-	fetch := action.Declared.GetFetch()
-	if declared := action.Declared.GetDownloads(); len(declared) > 0 {
+	fetch := action.Declared.GetFetch() != nil || action.Declared.GetSharedFetch() != nil
+	if declared := action.Declared.GetSharedFetch().GetDownloads(); len(declared) > 0 {
 		if downloads == nil {
 			return exec.Action{}, fmt.Errorf("%s downloads, and the daemon was given no asset service to download with (--assets)", action.Label)
 		}

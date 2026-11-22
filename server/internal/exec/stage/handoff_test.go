@@ -49,7 +49,7 @@ func TestHandedSourcesCannotOverwriteAtOneDestination(t *testing.T) {
 	snapshot := sourcetest.Taken(t, map[string]string{"left/own.txt": "left", "right/own.txt": "right"})
 	for _, destination := range []string{".deps/shared", ".deps/./shared", ".deps/other"} {
 		action := plan.Action{
-			Declared: &pluginv1.Action{Command: &pluginv1.Command{Arguments: []string{"cmp", ".deps/shared/own.txt", ".deps/other/own.txt"}}},
+			Declared: &pluginv1.Action{Command: &pluginv1.Command{Arguments: []string{"cmp", ".deps/shared/own.txt", ".deps/other/own.txt"}}, Kind: &pluginv1.Action_Build{Build: &pluginv1.Build{}}},
 			Handed: []plan.Handed{
 				{Root: "left", Patterns: []string{"own.txt"}, Into: ".deps/shared"},
 				{Root: "right", Patterns: []string{"own.txt"}, Into: destination},
@@ -73,7 +73,7 @@ func TestNothingWrittenStandsInPlaceOfASourceFile(t *testing.T) {
 	for _, at := range []string{"go.mod", "go.work"} {
 		action := plan.Action{
 			Sources:  []pattern.Group{{Patterns: []string{"go.mod"}}},
-			Declared: &pluginv1.Action{Command: &pluginv1.Command{Arguments: []string{"true"}}},
+			Declared: &pluginv1.Action{Command: &pluginv1.Command{Arguments: []string{"true"}}, Kind: &pluginv1.Action_Build{Build: &pluginv1.Build{}}},
 			Arranged: []plan.Arranged{{Path: at, Content: []byte("go 1.21\n")}},
 		}
 		_, err := Of(t.Context(), snapshot, action, installed(), nil, nil)
@@ -112,10 +112,7 @@ func TestADownloadingFetchIsGivenWhatWasFetchedAndUnpacksItOffline(t *testing.T)
 	sum := strings.Repeat("8f", 32)
 	action := plan.Action{
 		Declared: &pluginv1.Action{
-			Name: "fetch/itoa@1.0.18", Shared: true, Fetch: true,
-			Downloads: []*pluginv1.Download{{Url: "https://static.crates.io/crates/itoa/1.0.18/download", Sha256: sum, Into: "~/.cargo/vendor/"}},
-			Files:     []*pluginv1.File{{Path: "~/.cargo/vendor/itoa-1.0.18/.cargo-checksum.json", Content: []byte("{}")}},
-			Outputs:   []*pluginv1.Output{{Path: "~/.cargo/vendor/itoa-1.0.18/"}},
+			Name: "fetch/itoa@1.0.18", Kind: &pluginv1.Action_SharedFetch{SharedFetch: &pluginv1.SharedFetch{Files: []*pluginv1.File{{Path: "~/.cargo/vendor/itoa-1.0.18/.cargo-checksum.json", Content: []byte("{}")}}, Downloads: []*pluginv1.Download{{Url: "https://static.crates.io/crates/itoa/1.0.18/download", Sha256: sum, Into: "~/.cargo/vendor/"}}}}, Outputs: []*pluginv1.Output{{Path: "~/.cargo/vendor/itoa-1.0.18/"}},
 		},
 	}
 	service, staged := fetching(t, snapshot, action)
@@ -168,12 +165,10 @@ func TestAFetchThatCutsPartsIsGivenTheWholeUncheckedAndChecksEachPartOffline(t *
 	within := "~/.cache/dev.chainguard.go-apk/https%3A%2F%2Fpackages.wolfi.dev%2Fos/aarch64/busybox-1.37.0-r50/"
 	action := plan.Action{
 		Declared: &pluginv1.Action{
-			Name: "fetch/packages.wolfi.dev/os/aarch64/busybox-1.37.0-r50", Shared: true, Fetch: true,
-			Downloads: []*pluginv1.Download{{Url: address, Parts: []*pluginv1.Part{
+			Name: "fetch/packages.wolfi.dev/os/aarch64/busybox-1.37.0-r50", Kind: &pluginv1.Action_SharedFetch{SharedFetch: &pluginv1.SharedFetch{Downloads: []*pluginv1.Download{{Url: address, Parts: []*pluginv1.Part{
 				{Offset: 647, Length: 982, Sha1: control, Path: within + control + ".ctl.tar.gz"},
 				{Offset: 1629, Length: 1301, Sha256: data, Path: within + data + ".dat.tar.gz"},
-			}}},
-			Outputs: []*pluginv1.Output{{Path: within}},
+			}}}}}, Outputs: []*pluginv1.Output{{Path: within}},
 		},
 	}
 	service, staged := fetching(t, snapshot, action)
@@ -212,9 +207,7 @@ func TestAFetchOfWhatItsLockHoldsWholeLeavesItsFilesAndReachesNothing(t *testing
 	const within = "~/.cache/dev.chainguard.go-apk/https%3A%2F%2Fpackages.wolfi.dev%2F/os/wolfi-signing.rsa.pub/"
 	action := plan.Action{
 		Declared: &pluginv1.Action{
-			Name: "fetch/packages.wolfi.dev/os/wolfi-signing.rsa.pub", Shared: true, Fetch: true,
-			Files:   []*pluginv1.File{{Path: within + "locked.etag", Content: []byte("key")}},
-			Outputs: []*pluginv1.Output{{Path: within}},
+			Name: "fetch/packages.wolfi.dev/os/wolfi-signing.rsa.pub", Kind: &pluginv1.Action_SharedFetch{SharedFetch: &pluginv1.SharedFetch{Files: []*pluginv1.File{{Path: within + "locked.etag", Content: []byte("key")}}}}, Outputs: []*pluginv1.Output{{Path: within}},
 		},
 	}
 	provisioner := installed()

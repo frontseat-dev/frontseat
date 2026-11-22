@@ -4,8 +4,8 @@
 mod fixture;
 
 use frontseat_plugin::{
-    Action, Analysis, Code, Command, Coordinate, Description, Error, File, Handed, Input, InputSet,
-    Origin, Output, Plugin, Produced, Project, Provide, Repository, Requirement,
+    Action, ActionKind, Analysis, Code, Command, Coordinate, Description, Error, File, Handed,
+    Input, InputSet, Origin, Output, Plugin, Produced, Project, Provide, Repository, Requirement,
 };
 
 struct RuntimeInputs;
@@ -32,7 +32,11 @@ fn action(name: &str, arguments: &[&str], inputs: Vec<Input>, output: Option<&st
                 optional: false,
             })
             .collect(),
-        test: name == "test",
+        kind: Some(if name == "test" {
+            ActionKind::Test(Default::default())
+        } else {
+            ActionKind::Build(Default::default())
+        }),
         ..Default::default()
     }
 }

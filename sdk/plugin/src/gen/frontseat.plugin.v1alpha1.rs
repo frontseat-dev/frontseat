@@ -338,16 +338,11 @@ pub mod option {
         }
     }
 }
-/// DescribeRequest asks a plugin what it is.
+/// DescribeRequest asks a plugin what it is. The ABI a module speaks is
+/// said once, by its export frontseat_abi (ABI.md), which the host reads
+/// before it asks this.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct DescribeRequest {
-    /// Host_abi_min is the oldest ABI the host speaks.
-    #[prost(uint32, tag = "1")]
-    pub host_abi_min: u32,
-    /// Host_abi_max is the newest ABI the host speaks.
-    #[prost(uint32, tag = "2")]
-    pub host_abi_max: u32,
-}
+pub struct DescribeRequest {}
 /// DescribeResponse is what a plugin is.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DescribeResponse {
@@ -355,10 +350,6 @@ pub struct DescribeResponse {
     /// single hyphens. It qualifies every action the plugin declares.
     #[prost(string, tag = "1")]
     pub name: ::prost::alloc::string::String,
-    /// Abi is the ABI the module speaks. The host refuses a module outside
-    /// the range it sent.
-    #[prost(uint32, tag = "3")]
-    pub abi: u32,
     /// Interests are patterns of the files it reads, relative to a
     /// repository, in the pattern language host.proto says. The host calls
     /// Analyze only for a directory that holds a file they select.
@@ -684,7 +675,7 @@ pub struct Action {
     /// Name is its name within the project, lower-case words of \[a-z0-9\]
     /// joined by single hyphens. Plugins use the same names for the same
     /// things, since a run can be asked for only the actions of one name:
-    /// lint, compile, test. A shared action's name is that, a slash, and
+    /// lint, compile, test. A shared fetch's name is that, a slash, and
     /// what it is of, in letters, digits and "._~+@-/":
     /// fetch/github.com/spf13/cobra@v1.8.1.
     ///
@@ -709,133 +700,21 @@ pub struct Action {
     #[prost(string, tag = "1")]
     pub name: ::prost::alloc::string::String,
     /// Command is what it runs.
-    #[prost(message, optional, tag = "4")]
+    #[prost(message, optional, tag = "2")]
     pub command: ::core::option::Option<Command>,
     /// Inputs are the one list of what this action reads. Their kinds are
     /// explicit: a source pattern never selects an output or an input set.
     /// The host infers ordering from produced inputs and dependency artifacts;
     /// there are no ordering-only edges.
-    #[prost(message, repeated, tag = "29")]
+    #[prost(message, repeated, tag = "3")]
     pub inputs: ::prost::alloc::vec::Vec<Input>,
     /// Outputs are what it writes.
-    #[prost(message, repeated, tag = "7")]
+    #[prost(message, repeated, tag = "4")]
     pub outputs: ::prost::alloc::vec::Vec<Output>,
     /// Tools are the tools it runs with, by name, at the versions the
     /// repository pins.
-    #[prost(string, repeated, tag = "8")]
+    #[prost(string, repeated, tag = "5")]
     pub tools: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
-    /// Test says it runs tests: where it fails, a test failed, and the
-    /// build is not broken.
-    #[prost(bool, tag = "16")]
-    pub test: bool,
-    /// Fetch says it fetches what its project requires from outside the
-    /// workspace, with the ecosystem's own tool, from the project's lock.
-    /// It is the one kind of action that reaches outside its sandbox: the
-    /// worker points its tool at the proxy. It reads what it is given and
-    /// nothing else, so that only a change to the lock fetches again.
-    #[prost(bool, tag = "17")]
-    pub fetch: bool,
-    /// Check says it checks the source and writes nothing: it fails on
-    /// what it finds, by its exit code or by the findings the plugin reads
-    /// from what it printed (Report), and passes otherwise. On the grid,
-    /// and so in CI, that is all a check is.
-    #[prost(bool, tag = "19")]
-    pub check: bool,
-    /// Fix is the command that puts right what the check finds, such as
-    /// gofmt -w where the check is gofmt -l. It never runs on the grid: a
-    /// run asked to fix runs it where the checkout is, in the daemon's own
-    /// sandbox, over a copy of the check's inputs, with the same tools the
-    /// check runs with; the host compares the copy with what the run read
-    /// and writes each difference over that, through the snapshot, which
-    /// refuses a file that has changed since. The check then runs on the
-    /// grid over what was written. Absent, the check has no fix.
-    #[prost(message, optional, tag = "21")]
-    pub fix: ::core::option::Option<Command>,
-    /// Rewrites are patterns over the check's inputs, relative to its
-    /// project, of the files its fix may change: what the host compares
-    /// after the fix has run. One that differs is a replacement, one that
-    /// is gone a deletion, and one that is new, and that the check's inputs
-    /// would have selected, a creation.
-    #[prost(string, repeated, tag = "20")]
-    pub rewrites: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
-    /// Shared says the action belongs to no project: it is a fetch of one
-    /// thing a lock holds, the same whichever project of the repository
-    /// locks it alike. It reads no source, is handed nothing and needs
-    /// nothing; it runs in a directory of its own with its tools and its
-    /// files alone, so a run of the repository runs it once, and its label
-    /// is the repository's, not the project's. Two projects that declare a
-    /// shared action of one name differently are refused, naming both.
-    /// Only a fetch may be shared.
-    #[prost(bool, tag = "22")]
-    pub shared: bool,
-    /// Files are written into the action's directory before it runs, by
-    /// path relative to it, or into its home ("~/..."): what a shared fetch
-    /// is told of the lock entry it fetches, or writes beside what it
-    /// downloads. They are part of what the action is. Only a shared action
-    /// declares them; a project's action reads its project's files. A
-    /// shared fetch of something its lock holds whole, as an apk lock holds
-    /// a signing key, has files and outputs and neither a command nor
-    /// downloads: it reaches nothing, and its files are what it leaves.
-    #[prost(message, repeated, tag = "23")]
-    pub files: ::prost::alloc::vec::Vec<File>,
-    /// Downloads are what a shared fetch brings from outside without
-    /// running a tool: each a URL and what the lock holds of what it serves.
-    /// Where the lock holds the sha256 of the whole of it, the host fetches
-    /// it through the grid's asset service, which checks the sha256 before
-    /// it keeps anything, and keeps it by URL and sha256 for every
-    /// repository and daemon of the grid; the action then unpacks what was
-    /// fetched, a gzipped tar, as a crate or an npm package is. Where the
-    /// lock holds checksums of parts of it and none of the whole, as an apk
-    /// lock does, the asset service fetches it unchecked, and the action
-    /// cuts each part out and checks it, leaving nothing where one is not
-    /// what the lock says. Either way the action has no network. A shared
-    /// fetch with downloads has no command, and only a shared fetch has
-    /// downloads.
-    #[prost(message, repeated, tag = "24")]
-    pub downloads: ::prost::alloc::vec::Vec<Download>,
-    /// Program says the action is a program to run, and no step of a
-    /// build: no build runs it, and a run (RunService of the build API)
-    /// runs it and nothing else. Its command is the program and what it is
-    /// given first; whoever runs it gives the rest. It runs where the
-    /// daemon is, in the daemon's own sandbox, in its project's directory
-    /// there, until it ends or is stopped. What it reads is what its inputs
-    /// name of what other actions left (the output inputs "compile" and
-    /// "~/go/bin/"), brought from the grid: a run builds those first, as
-    /// any build does. Its
-    /// program is named by where one of them left it, beneath the project
-    /// or in the action's home ("~/go/bin/greeter"), never a program of
-    /// the system's.
-    ///
-    /// It is named "run/" and what it runs, in letters, digits and "._-":
-    /// run/greeter. It leaves nothing, is no test, check, fetch or shared
-    /// action, and has no fix.
-    ///
-    /// A Component's service for tests (spec.frontseat.service.program)
-    /// prepares declared source, input sets, generated inputs and pinned
-    /// tools through the ordinary action preparation path. A bare
-    /// executable must resolve inside those prepared mise installations.
-    /// RunService in the daemon still accepts artifact-only programs and
-    /// refuses source and tools. Ports, readiness, endpoints and API
-    /// bindings belong to the catalog's service. The program's environment
-    /// is its command's: what runs is the command.
-    #[prost(bool, tag = "27")]
-    pub program: bool,
-    /// Idle_without_inputs says the action has nothing to do where one
-    /// output of another action that it reads was not left: an output its
-    /// action may pass without leaving (Output.optional). It is then not
-    /// run, ends as idle, which fails nothing, and what waits for it goes
-    /// on. Without this, such an action runs and finds nothing there.
-    ///
-    /// It is for work whose tool decides, on the worker, whether there is
-    /// any: a test of a Go package runs the test program the go command
-    /// built for it, and is idle where the go command built none, as for a
-    /// package whose tests are for another system. A plugin then does not
-    /// have to foretell what its tool will leave. An action that says so
-    /// and reads, by itself, no output another action may pass without
-    /// leaving is refused, as is one that says it leaves something: an
-    /// action that may not run leaves nothing another can count on.
-    #[prost(bool, tag = "28")]
-    pub idle_without_inputs: bool,
     /// Versioned says the action is given the version of the release it is
     /// built for, to write into what it makes: a program's own answer to
     /// --version, a package's version, an image's label. Each tool has its
@@ -863,65 +742,218 @@ pub struct Action {
     /// that does not say it is versioned, one the host does not fill or
     /// that does not close, and one anywhere but an argument or a value of
     /// the environment, are refused. A versioned action names at least one.
-    /// A fetch, a shared action and a program to run are never versioned.
+    /// A fetch, a shared fetch, a program and what publishes are never
+    /// versioned: what publishes is filled whether or not it says so.
     ///
     /// What is filled in is data: give it to a tool as an argument or a
     /// value of its own, never inside text a shell reads as a program.
-    #[prost(bool, tag = "30")]
+    #[prost(bool, tag = "6")]
     pub versioned: bool,
-    /// Package says the action makes what its project ships: a program for
-    /// a platform, a package, a module, an archive, as its tool makes it.
-    /// Each file it leaves is an artifact of the release that builds it,
-    /// known by its own name, as the tool wrote it, with what the grid
-    /// holds of it: its sha256 and its size.
-    ///
-    /// What a release builds is what a production build builds, so a
-    /// package that costs what a development build should not pay, as a
-    /// program made for every platform does, is declared for the
-    /// production profile alone, and is tried without a release by a
-    /// production build pointed at it.
-    ///
-    /// It leaves at least one thing, each a file it is sure to leave, and
-    /// is no test, check, fetch, shared action or program to run. Plugins
-    /// name it "package", or "package", a slash and what it is of, as
-    /// "package/linux-amd64", where nothing of their tool's has a name for
-    /// it already.
-    #[prost(bool, tag = "31")]
-    pub package: bool,
-    /// Publish says the action publishes what a release shipped: it runs
-    /// its tool's own way of sending a release somewhere, a forge's command
-    /// line, a registry's client, and nothing of frontseat's speaks for it.
-    ///
-    /// It is no step of a build: no build runs it, and nothing reads what
-    /// it leaves, which is nothing. A release runs it, once every tag of
-    /// the release is pushed, where the daemon is and never on the grid,
-    /// with its tools as the repository pins them, and never from a cache:
-    /// what it does is done outside, each time.
-    ///
-    /// It is run for a unit that moves: the one that owns its project,
-    /// or, where no entity owns its project, as at a repository's root,
-    /// each unit of its repository that moves, one at a time. It is given
-    /// that unit's artifacts, each file a package of the unit left, brought
-    /// from the grid into one directory, with a file of their sha256s
-    /// beside them where there are any, checksums.txt. It is ended after
-    /// thirty minutes. Its command names what it is given as a
-    /// versioned action names the version, and is filled the same way,
-    /// with those and with:
-    ///
-    ///    - {frontseat.artifacts}, as an argument by itself: each of those
-    ///      files, an argument each, in the order of their names;
-    ///    - {frontseat.notes}: a file that holds the unit's release notes;
-    ///    - {frontseat.remote}: where the unit's repository was brought
-    ///      from, as its version control system names it;
-    ///    - {frontseat.prerelease}: "true" where the release is a
-    ///      prerelease, "false" where it is not.
-    ///
-    /// It passes or fails by its exit code, and the release says which,
-    /// with what it printed; one that fails does not stop another.
-    #[prost(message, optional, tag = "32")]
-    pub publish: ::core::option::Option<Publish>,
+    /// Kind is what the action is to a build, and is required: the host
+    /// refuses an action that says none. What only one kind of action says,
+    /// it says in its kind.
+    #[prost(oneof = "action::Kind", tags = "7, 8, 9, 10, 11, 12, 13, 14")]
+    pub kind: ::core::option::Option<action::Kind>,
 }
-/// Publish is what an action that publishes is given of where it runs.
+/// Nested message and enum types in `Action`.
+pub mod action {
+    /// Kind is what the action is to a build, and is required: the host
+    /// refuses an action that says none. What only one kind of action says,
+    /// it says in its kind.
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Kind {
+        /// Build is an ordinary step of a build: it makes what other actions
+        /// read, and fails the build where it fails.
+        #[prost(message, tag = "7")]
+        Build(super::Build),
+        /// Test runs tests.
+        #[prost(message, tag = "8")]
+        Test(super::Test),
+        /// Check checks the source.
+        #[prost(message, tag = "9")]
+        Check(super::Check),
+        /// Fetch fetches what its project requires from outside.
+        #[prost(message, tag = "10")]
+        Fetch(super::Fetch),
+        /// Shared_fetch fetches one thing a lock holds, for every project of
+        /// the repository that locks it alike.
+        #[prost(message, tag = "11")]
+        SharedFetch(super::SharedFetch),
+        /// Program is a program to run, and no step of a build.
+        #[prost(message, tag = "12")]
+        Program(super::Program),
+        /// Package makes what its project ships.
+        #[prost(message, tag = "13")]
+        Package(super::Package),
+        /// Publish publishes what a release shipped.
+        #[prost(message, tag = "14")]
+        Publish(super::Publish),
+    }
+}
+/// Build is the kind of an ordinary step of a build. It says nothing more.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct Build {}
+/// Test is the kind of an action that runs tests: where it fails, a test
+/// failed, and the build is not broken.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct Test {
+    /// Idle_without_inputs says the test has nothing to do where one
+    /// output of another action that it reads was not left: an output its
+    /// action may pass without leaving (Output.optional). It is then not
+    /// run, ends as idle, which fails nothing, and what waits for it goes
+    /// on. Without this, such a test runs and finds nothing there.
+    ///
+    /// It is for work whose tool decides, on the worker, whether there is
+    /// any: a test of a Go package runs the test program the go command
+    /// built for it, and is idle where the go command built none, as for a
+    /// package whose tests are for another system. A plugin then does not
+    /// have to foretell what its tool will leave. A test that says so
+    /// and reads, by itself, no output another action may pass without
+    /// leaving is refused, as is one that says it leaves something: an
+    /// action that may not run leaves nothing another can count on.
+    #[prost(bool, tag = "1")]
+    pub idle_without_inputs: bool,
+}
+/// Check is the kind of an action that checks the source and writes
+/// nothing: it fails on what it finds, by its exit code or by the
+/// findings the plugin reads from what it printed (Report), and passes
+/// otherwise. On the grid, and so in CI, that is all a check is.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Check {
+    /// Fix is the command that puts right what the check finds, such as
+    /// gofmt -w where the check is gofmt -l. It never runs on the grid: a
+    /// run asked to fix runs it where the checkout is, in the daemon's own
+    /// sandbox, over a copy of the check's inputs, with the same tools the
+    /// check runs with; the host compares the copy with what the run read
+    /// and writes each difference over that, through the snapshot, which
+    /// refuses a file that has changed since. The check then runs on the
+    /// grid over what was written. Absent, the check has no fix.
+    #[prost(message, optional, tag = "1")]
+    pub fix: ::core::option::Option<Command>,
+    /// Rewrites are patterns over the check's inputs, relative to its
+    /// project, of the files its fix may change: what the host compares
+    /// after the fix has run. One that differs is a replacement, one that
+    /// is gone a deletion, and one that is new, and that the check's inputs
+    /// would have selected, a creation. A check has rewrites where it has
+    /// a fix, and none where it has none.
+    #[prost(string, repeated, tag = "2")]
+    pub rewrites: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// Fetch is the kind of an action that fetches what its project requires
+/// from outside the workspace, with the ecosystem's own tool, from the
+/// project's lock. It is the one kind of action, with a shared fetch,
+/// that reaches outside its sandbox: the worker points its tool at the
+/// proxy. It reads what it is given and nothing else, so that only a
+/// change to the lock fetches again.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct Fetch {}
+/// SharedFetch is the kind of a fetch that belongs to no project: a fetch
+/// of one thing a lock holds, the same whichever project of the
+/// repository locks it alike. It reads no source, is handed nothing and
+/// needs nothing; it runs in a directory of its own with its tools and
+/// its files alone, so a run of the repository runs it once, and its
+/// label is the repository's, not the project's. Two projects that
+/// declare a shared fetch of one name differently are refused, naming
+/// both.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SharedFetch {
+    /// Files are written into the action's directory before it runs, by
+    /// path relative to it, or into its home ("~/..."): what it is told of
+    /// the lock entry it fetches, or writes beside what it downloads. They
+    /// are part of what the action is. A shared fetch of something its lock
+    /// holds whole, as an apk lock holds a signing key, has files and
+    /// outputs and neither a command nor downloads: it reaches nothing, and
+    /// its files are what it leaves.
+    #[prost(message, repeated, tag = "1")]
+    pub files: ::prost::alloc::vec::Vec<File>,
+    /// Downloads are what it brings from outside without running a tool:
+    /// each a URL and what the lock holds of what it serves. Where the lock
+    /// holds the sha256 of the whole of it, the host fetches it through the
+    /// grid's asset service, which checks the sha256 before it keeps
+    /// anything, and keeps it by URL and sha256 for every repository and
+    /// daemon of the grid; the action then unpacks what was fetched, a
+    /// gzipped tar, as a crate or an npm package is. Where the lock holds
+    /// checksums of parts of it and none of the whole, as an apk lock does,
+    /// the asset service fetches it unchecked, and the action cuts each
+    /// part out and checks it, leaving nothing where one is not what the
+    /// lock says. Either way the action has no network. A shared fetch with
+    /// downloads has no command.
+    #[prost(message, repeated, tag = "2")]
+    pub downloads: ::prost::alloc::vec::Vec<Download>,
+}
+/// Program is the kind of a program to run, and no step of a build: no
+/// build runs it, and a run (RunService of the build API) runs it and
+/// nothing else. Its command is the program and what it is given first;
+/// whoever runs it gives the rest. It runs where the daemon is, in the
+/// daemon's own sandbox, in its project's directory there, until it ends
+/// or is stopped. What it reads is what its inputs name of what other
+/// actions left (the output inputs "compile" and "~/go/bin/"), brought
+/// from the grid: a run builds those first, as any build does. Its
+/// program is named by where one of them left it, beneath the project or
+/// in the action's home ("~/go/bin/greeter"), never a program of the
+/// system's.
+///
+/// It is named "run/" and what it runs, in letters, digits and "._-":
+/// run/greeter. It leaves nothing.
+///
+/// A Component's service for tests (spec.frontseat.service.program)
+/// prepares declared source, input sets, generated inputs and pinned
+/// tools through the ordinary action preparation path. A bare executable
+/// must resolve inside those prepared mise installations. RunService in
+/// the daemon still accepts artifact-only programs and refuses source and
+/// tools. Ports, readiness, endpoints and API bindings belong to the
+/// catalog's service. The program's environment is its command's: what
+/// runs is the command.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct Program {}
+/// Package is the kind of an action that makes what its project ships: a
+/// program for a platform, a package, a module, an archive, as its tool
+/// makes it. Each file it leaves is an artifact of the release that
+/// builds it, known by its own name, as the tool wrote it, with what the
+/// grid holds of it: its sha256 and its size.
+///
+/// What a release builds is what a production build builds, so a package
+/// that costs what a development build should not pay, as a program made
+/// for every platform does, is declared for the production profile alone,
+/// and is tried without a release by a production build pointed at it.
+///
+/// It leaves at least one thing, each a file it is sure to leave. Plugins
+/// name it "package", or "package", a slash and what it is of, as
+/// "package/linux-amd64", where nothing of their tool's has a name for it
+/// already.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct Package {}
+/// Publish is the kind of an action that publishes what a release
+/// shipped: it runs its tool's own way of sending a release somewhere, a
+/// forge's command line, a registry's client, and nothing of frontseat's
+/// speaks for it.
+///
+/// It is no step of a build: no build runs it, and nothing reads what it
+/// leaves, which is nothing. A release runs it, once every tag of the
+/// release is pushed, where the daemon is and never on the grid, with its
+/// tools as the repository pins them, and never from a cache: what it
+/// does is done outside, each time.
+///
+/// It is run for a unit that moves: the one that owns its project, or,
+/// where no entity owns its project, as at a repository's root, each unit
+/// of its repository that moves, one at a time. It is given that unit's
+/// artifacts, each file a package of the unit left, brought from the grid
+/// into one directory, with a file of their sha256s beside them where
+/// there are any, checksums.txt. It is ended after thirty minutes. Its
+/// command names what it is given as a versioned action names the
+/// version, and is filled the same way, with those and with:
+///
+///    - {frontseat.artifacts}, as an argument by itself: each of those
+///      files, an argument each, in the order of their names;
+///    - {frontseat.notes}: a file that holds the unit's release notes;
+///    - {frontseat.remote}: where the unit's repository was brought
+///      from, as its version control system names it;
+///    - {frontseat.prerelease}: "true" where the release is a
+///      prerelease, "false" where it is not.
+///
+/// It passes or fails by its exit code, and the release says which, with
+/// what it printed; one that fails does not stop another. It reads
+/// nothing, since it is given its unit's artifacts.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct Publish {
     /// Environment names the variables of where the daemon runs that the

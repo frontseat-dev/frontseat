@@ -23,8 +23,8 @@ import (
 
 // The plugin ABIs this host loads.
 const (
-	MinABI = 24
-	MaxABI = 24
+	MinABI = 25
+	MaxABI = 25
 )
 
 // memoryLimitPages bounds a module's memory, in 64 KiB pages: 256 MiB.
@@ -72,6 +72,9 @@ type Plugin struct {
 	Description *pluginv1.DescribeResponse
 	// Digest is the SHA-256 of the module's bytes.
 	Digest string
+	// ABI is the plugin ABI the module speaks, as its export
+	// frontseat_abi says: the one place it is said.
+	ABI uint32
 
 	rt       wazero.Runtime
 	compiled wazero.CompiledModule
@@ -140,8 +143,9 @@ func (h *Host) Load(ctx context.Context, module []byte) (*Plugin, error) {
 		_ = compiled.Close(ctx)
 		return nil, fmt.Errorf("pluginhost: %s speaks plugin ABI %d, and this host loads %d to %d: build it against an SDK of an ABI this host loads", digest[:12], v, MinABI, MaxABI)
 	}
+	p.ABI = uint32(got[0])
 	description := &pluginv1.DescribeResponse{}
-	if _, err := p.Call(ctx, nil, "Describe", &pluginv1.DescribeRequest{HostAbiMin: MinABI, HostAbiMax: MaxABI}, description); err != nil {
+	if _, err := p.Call(ctx, nil, "Describe", &pluginv1.DescribeRequest{}, description); err != nil {
 		_ = compiled.Close(ctx)
 		return nil, err
 	}

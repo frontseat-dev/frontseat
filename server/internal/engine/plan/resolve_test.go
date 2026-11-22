@@ -24,7 +24,7 @@ func leaving(path, plugin, name string, outputs []string, reads ...Reference) Ac
 
 func sharedLeaving(path, plugin, name string, outputs ...string) Action {
 	action := leaving(path, plugin, name, outputs)
-	action.Declared.Shared = true
+	action.Declared.Kind = &pluginv1.Action_SharedFetch{SharedFetch: &pluginv1.SharedFetch{}}
 	return action
 }
 
@@ -57,7 +57,7 @@ func TestAReferenceResolvesToOneReadAndOneNeed(t *testing.T) {
 	write := leaving("lab/a", "custom", "write", []string{"made/", "spare/"})
 	compile := leaving("lab/a", "go", "compile", []string{"~/go/bin/"})
 	fetch := leaving("lab", "go", "fetch/x.com/m@v1", []string{"~/go/pkg/mod/x.com/m@v1/"})
-	fetch.Declared.Shared = true
+	fetch.Declared.Kind = &pluginv1.Action_SharedFetch{SharedFetch: &pluginv1.SharedFetch{}}
 	read := leaving("lab/a", "custom", "read", nil,
 		catalogRef("lab/a", ":made/"), catalogRef("lab/a", ":made/"), catalogRef("lab/a", ":spare/"),
 		catalogRef("lab/a", ":go.compile"), catalogRef("lab/a", ":~/go/bin/"))
@@ -239,7 +239,7 @@ func resolving(b *testing.B, baseline []Action) {
 func BenchmarkResolve(b *testing.B) {
 	baseline := make([]Action, 0, 3001)
 	baseline = append(baseline, leaving("lab", "go", "fetch/x.com/m@v1", []string{"~/go/pkg/mod/x.com/m@v1/"}))
-	baseline[0].Declared.Shared = true
+	baseline[0].Declared.Kind = &pluginv1.Action_SharedFetch{SharedFetch: &pluginv1.SharedFetch{}}
 	for i := range 1000 {
 		at := fmt.Sprintf("lab/module-%04d", i)
 		baseline = append(baseline,

@@ -331,13 +331,11 @@ func (x *Option) GetEntitySettable() bool {
 	return false
 }
 
-// DescribeRequest asks a plugin what it is.
+// DescribeRequest asks a plugin what it is. The ABI a module speaks is
+// said once, by its export frontseat_abi (ABI.md), which the host reads
+// before it asks this.
 type DescribeRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Host_abi_min is the oldest ABI the host speaks.
-	HostAbiMin uint32 `protobuf:"varint,1,opt,name=host_abi_min,json=hostAbiMin,proto3" json:"host_abi_min,omitempty"`
-	// Host_abi_max is the newest ABI the host speaks.
-	HostAbiMax    uint32 `protobuf:"varint,2,opt,name=host_abi_max,json=hostAbiMax,proto3" json:"host_abi_max,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -372,29 +370,12 @@ func (*DescribeRequest) Descriptor() ([]byte, []int) {
 	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *DescribeRequest) GetHostAbiMin() uint32 {
-	if x != nil {
-		return x.HostAbiMin
-	}
-	return 0
-}
-
-func (x *DescribeRequest) GetHostAbiMax() uint32 {
-	if x != nil {
-		return x.HostAbiMax
-	}
-	return 0
-}
-
 // DescribeResponse is what a plugin is.
 type DescribeResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Name is the plugin's name, lower-case words of [a-z0-9] joined by
 	// single hyphens. It qualifies every action the plugin declares.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// Abi is the ABI the module speaks. The host refuses a module outside
-	// the range it sent.
-	Abi uint32 `protobuf:"varint,3,opt,name=abi,proto3" json:"abi,omitempty"`
 	// Interests are patterns of the files it reads, relative to a
 	// repository, in the pattern language host.proto says. The host calls
 	// Analyze only for a directory that holds a file they select.
@@ -452,13 +433,6 @@ func (x *DescribeResponse) GetName() string {
 		return x.Name
 	}
 	return ""
-}
-
-func (x *DescribeResponse) GetAbi() uint32 {
-	if x != nil {
-		return x.Abi
-	}
-	return 0
 }
 
 func (x *DescribeResponse) GetInterests() []string {
@@ -1664,7 +1638,7 @@ type Action struct {
 	// Name is its name within the project, lower-case words of [a-z0-9]
 	// joined by single hyphens. Plugins use the same names for the same
 	// things, since a run can be asked for only the actions of one name:
-	// lint, compile, test. A shared action's name is that, a slash, and
+	// lint, compile, test. A shared fetch's name is that, a slash, and
 	// what it is of, in letters, digits and "._~+@-/":
 	// fetch/github.com/spf13/cobra@v1.8.1.
 	//
@@ -1688,119 +1662,17 @@ type Action struct {
 	// hyphens: publish/github. Only one that publishes is named so.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Command is what it runs.
-	Command *Command `protobuf:"bytes,4,opt,name=command,proto3" json:"command,omitempty"`
+	Command *Command `protobuf:"bytes,2,opt,name=command,proto3" json:"command,omitempty"`
 	// Inputs are the one list of what this action reads. Their kinds are
 	// explicit: a source pattern never selects an output or an input set.
 	// The host infers ordering from produced inputs and dependency artifacts;
 	// there are no ordering-only edges.
-	Inputs []*Input `protobuf:"bytes,29,rep,name=inputs,proto3" json:"inputs,omitempty"`
+	Inputs []*Input `protobuf:"bytes,3,rep,name=inputs,proto3" json:"inputs,omitempty"`
 	// Outputs are what it writes.
-	Outputs []*Output `protobuf:"bytes,7,rep,name=outputs,proto3" json:"outputs,omitempty"`
+	Outputs []*Output `protobuf:"bytes,4,rep,name=outputs,proto3" json:"outputs,omitempty"`
 	// Tools are the tools it runs with, by name, at the versions the
 	// repository pins.
-	Tools []string `protobuf:"bytes,8,rep,name=tools,proto3" json:"tools,omitempty"`
-	// Test says it runs tests: where it fails, a test failed, and the
-	// build is not broken.
-	Test bool `protobuf:"varint,16,opt,name=test,proto3" json:"test,omitempty"`
-	// Fetch says it fetches what its project requires from outside the
-	// workspace, with the ecosystem's own tool, from the project's lock.
-	// It is the one kind of action that reaches outside its sandbox: the
-	// worker points its tool at the proxy. It reads what it is given and
-	// nothing else, so that only a change to the lock fetches again.
-	Fetch bool `protobuf:"varint,17,opt,name=fetch,proto3" json:"fetch,omitempty"`
-	// Check says it checks the source and writes nothing: it fails on
-	// what it finds, by its exit code or by the findings the plugin reads
-	// from what it printed (Report), and passes otherwise. On the grid,
-	// and so in CI, that is all a check is.
-	Check bool `protobuf:"varint,19,opt,name=check,proto3" json:"check,omitempty"`
-	// Fix is the command that puts right what the check finds, such as
-	// gofmt -w where the check is gofmt -l. It never runs on the grid: a
-	// run asked to fix runs it where the checkout is, in the daemon's own
-	// sandbox, over a copy of the check's inputs, with the same tools the
-	// check runs with; the host compares the copy with what the run read
-	// and writes each difference over that, through the snapshot, which
-	// refuses a file that has changed since. The check then runs on the
-	// grid over what was written. Absent, the check has no fix.
-	Fix *Command `protobuf:"bytes,21,opt,name=fix,proto3" json:"fix,omitempty"`
-	// Rewrites are patterns over the check's inputs, relative to its
-	// project, of the files its fix may change: what the host compares
-	// after the fix has run. One that differs is a replacement, one that
-	// is gone a deletion, and one that is new, and that the check's inputs
-	// would have selected, a creation.
-	Rewrites []string `protobuf:"bytes,20,rep,name=rewrites,proto3" json:"rewrites,omitempty"`
-	// Shared says the action belongs to no project: it is a fetch of one
-	// thing a lock holds, the same whichever project of the repository
-	// locks it alike. It reads no source, is handed nothing and needs
-	// nothing; it runs in a directory of its own with its tools and its
-	// files alone, so a run of the repository runs it once, and its label
-	// is the repository's, not the project's. Two projects that declare a
-	// shared action of one name differently are refused, naming both.
-	// Only a fetch may be shared.
-	Shared bool `protobuf:"varint,22,opt,name=shared,proto3" json:"shared,omitempty"`
-	// Files are written into the action's directory before it runs, by
-	// path relative to it, or into its home ("~/..."): what a shared fetch
-	// is told of the lock entry it fetches, or writes beside what it
-	// downloads. They are part of what the action is. Only a shared action
-	// declares them; a project's action reads its project's files. A
-	// shared fetch of something its lock holds whole, as an apk lock holds
-	// a signing key, has files and outputs and neither a command nor
-	// downloads: it reaches nothing, and its files are what it leaves.
-	Files []*File `protobuf:"bytes,23,rep,name=files,proto3" json:"files,omitempty"`
-	// Downloads are what a shared fetch brings from outside without
-	// running a tool: each a URL and what the lock holds of what it serves.
-	// Where the lock holds the sha256 of the whole of it, the host fetches
-	// it through the grid's asset service, which checks the sha256 before
-	// it keeps anything, and keeps it by URL and sha256 for every
-	// repository and daemon of the grid; the action then unpacks what was
-	// fetched, a gzipped tar, as a crate or an npm package is. Where the
-	// lock holds checksums of parts of it and none of the whole, as an apk
-	// lock does, the asset service fetches it unchecked, and the action
-	// cuts each part out and checks it, leaving nothing where one is not
-	// what the lock says. Either way the action has no network. A shared
-	// fetch with downloads has no command, and only a shared fetch has
-	// downloads.
-	Downloads []*Download `protobuf:"bytes,24,rep,name=downloads,proto3" json:"downloads,omitempty"`
-	// Program says the action is a program to run, and no step of a
-	// build: no build runs it, and a run (RunService of the build API)
-	// runs it and nothing else. Its command is the program and what it is
-	// given first; whoever runs it gives the rest. It runs where the
-	// daemon is, in the daemon's own sandbox, in its project's directory
-	// there, until it ends or is stopped. What it reads is what its inputs
-	// name of what other actions left (the output inputs "compile" and
-	// "~/go/bin/"), brought from the grid: a run builds those first, as
-	// any build does. Its
-	// program is named by where one of them left it, beneath the project
-	// or in the action's home ("~/go/bin/greeter"), never a program of
-	// the system's.
-	//
-	// It is named "run/" and what it runs, in letters, digits and "._-":
-	// run/greeter. It leaves nothing, is no test, check, fetch or shared
-	// action, and has no fix.
-	//
-	// A Component's service for tests (spec.frontseat.service.program)
-	// prepares declared source, input sets, generated inputs and pinned
-	// tools through the ordinary action preparation path. A bare
-	// executable must resolve inside those prepared mise installations.
-	// RunService in the daemon still accepts artifact-only programs and
-	// refuses source and tools. Ports, readiness, endpoints and API
-	// bindings belong to the catalog's service. The program's environment
-	// is its command's: what runs is the command.
-	Program bool `protobuf:"varint,27,opt,name=program,proto3" json:"program,omitempty"`
-	// Idle_without_inputs says the action has nothing to do where one
-	// output of another action that it reads was not left: an output its
-	// action may pass without leaving (Output.optional). It is then not
-	// run, ends as idle, which fails nothing, and what waits for it goes
-	// on. Without this, such an action runs and finds nothing there.
-	//
-	// It is for work whose tool decides, on the worker, whether there is
-	// any: a test of a Go package runs the test program the go command
-	// built for it, and is idle where the go command built none, as for a
-	// package whose tests are for another system. A plugin then does not
-	// have to foretell what its tool will leave. An action that says so
-	// and reads, by itself, no output another action may pass without
-	// leaving is refused, as is one that says it leaves something: an
-	// action that may not run leaves nothing another can count on.
-	IdleWithoutInputs bool `protobuf:"varint,28,opt,name=idle_without_inputs,json=idleWithoutInputs,proto3" json:"idle_without_inputs,omitempty"`
+	Tools []string `protobuf:"bytes,5,rep,name=tools,proto3" json:"tools,omitempty"`
 	// Versioned says the action is given the version of the release it is
 	// built for, to write into what it makes: a program's own answer to
 	// --version, a package's version, an image's label. Each tool has its
@@ -1828,60 +1700,27 @@ type Action struct {
 	// that does not say it is versioned, one the host does not fill or
 	// that does not close, and one anywhere but an argument or a value of
 	// the environment, are refused. A versioned action names at least one.
-	// A fetch, a shared action and a program to run are never versioned.
+	// A fetch, a shared fetch, a program and what publishes are never
+	// versioned: what publishes is filled whether or not it says so.
 	//
 	// What is filled in is data: give it to a tool as an argument or a
 	// value of its own, never inside text a shell reads as a program.
-	Versioned bool `protobuf:"varint,30,opt,name=versioned,proto3" json:"versioned,omitempty"`
-	// Package says the action makes what its project ships: a program for
-	// a platform, a package, a module, an archive, as its tool makes it.
-	// Each file it leaves is an artifact of the release that builds it,
-	// known by its own name, as the tool wrote it, with what the grid
-	// holds of it: its sha256 and its size.
+	Versioned bool `protobuf:"varint,6,opt,name=versioned,proto3" json:"versioned,omitempty"`
+	// Kind is what the action is to a build, and is required: the host
+	// refuses an action that says none. What only one kind of action says,
+	// it says in its kind.
 	//
-	// What a release builds is what a production build builds, so a
-	// package that costs what a development build should not pay, as a
-	// program made for every platform does, is declared for the
-	// production profile alone, and is tried without a release by a
-	// production build pointed at it.
+	// Types that are valid to be assigned to Kind:
 	//
-	// It leaves at least one thing, each a file it is sure to leave, and
-	// is no test, check, fetch, shared action or program to run. Plugins
-	// name it "package", or "package", a slash and what it is of, as
-	// "package/linux-amd64", where nothing of their tool's has a name for
-	// it already.
-	Package bool `protobuf:"varint,31,opt,name=package,proto3" json:"package,omitempty"`
-	// Publish says the action publishes what a release shipped: it runs
-	// its tool's own way of sending a release somewhere, a forge's command
-	// line, a registry's client, and nothing of frontseat's speaks for it.
-	//
-	// It is no step of a build: no build runs it, and nothing reads what
-	// it leaves, which is nothing. A release runs it, once every tag of
-	// the release is pushed, where the daemon is and never on the grid,
-	// with its tools as the repository pins them, and never from a cache:
-	// what it does is done outside, each time.
-	//
-	// It is run for a unit that moves: the one that owns its project,
-	// or, where no entity owns its project, as at a repository's root,
-	// each unit of its repository that moves, one at a time. It is given
-	// that unit's artifacts, each file a package of the unit left, brought
-	// from the grid into one directory, with a file of their sha256s
-	// beside them where there are any, checksums.txt. It is ended after
-	// thirty minutes. Its command names what it is given as a
-	// versioned action names the version, and is filled the same way,
-	// with those and with:
-	//
-	//   - {frontseat.artifacts}, as an argument by itself: each of those
-	//     files, an argument each, in the order of their names;
-	//   - {frontseat.notes}: a file that holds the unit's release notes;
-	//   - {frontseat.remote}: where the unit's repository was brought
-	//     from, as its version control system names it;
-	//   - {frontseat.prerelease}: "true" where the release is a
-	//     prerelease, "false" where it is not.
-	//
-	// It passes or fails by its exit code, and the release says which,
-	// with what it printed; one that fails does not stop another.
-	Publish       *Publish `protobuf:"bytes,32,opt,name=publish,proto3" json:"publish,omitempty"`
+	//	*Action_Build
+	//	*Action_Test
+	//	*Action_Check
+	//	*Action_Fetch
+	//	*Action_SharedFetch
+	//	*Action_Program
+	//	*Action_Package
+	//	*Action_Publish
+	Kind          isAction_Kind `protobuf_oneof:"kind"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1951,76 +1790,6 @@ func (x *Action) GetTools() []string {
 	return nil
 }
 
-func (x *Action) GetTest() bool {
-	if x != nil {
-		return x.Test
-	}
-	return false
-}
-
-func (x *Action) GetFetch() bool {
-	if x != nil {
-		return x.Fetch
-	}
-	return false
-}
-
-func (x *Action) GetCheck() bool {
-	if x != nil {
-		return x.Check
-	}
-	return false
-}
-
-func (x *Action) GetFix() *Command {
-	if x != nil {
-		return x.Fix
-	}
-	return nil
-}
-
-func (x *Action) GetRewrites() []string {
-	if x != nil {
-		return x.Rewrites
-	}
-	return nil
-}
-
-func (x *Action) GetShared() bool {
-	if x != nil {
-		return x.Shared
-	}
-	return false
-}
-
-func (x *Action) GetFiles() []*File {
-	if x != nil {
-		return x.Files
-	}
-	return nil
-}
-
-func (x *Action) GetDownloads() []*Download {
-	if x != nil {
-		return x.Downloads
-	}
-	return nil
-}
-
-func (x *Action) GetProgram() bool {
-	if x != nil {
-		return x.Program
-	}
-	return false
-}
-
-func (x *Action) GetIdleWithoutInputs() bool {
-	if x != nil {
-		return x.IdleWithoutInputs
-	}
-	return false
-}
-
 func (x *Action) GetVersioned() bool {
 	if x != nil {
 		return x.Versioned
@@ -2028,21 +1797,576 @@ func (x *Action) GetVersioned() bool {
 	return false
 }
 
-func (x *Action) GetPackage() bool {
+func (x *Action) GetKind() isAction_Kind {
 	if x != nil {
-		return x.Package
-	}
-	return false
-}
-
-func (x *Action) GetPublish() *Publish {
-	if x != nil {
-		return x.Publish
+		return x.Kind
 	}
 	return nil
 }
 
-// Publish is what an action that publishes is given of where it runs.
+func (x *Action) GetBuild() *Build {
+	if x != nil {
+		if x, ok := x.Kind.(*Action_Build); ok {
+			return x.Build
+		}
+	}
+	return nil
+}
+
+func (x *Action) GetTest() *Test {
+	if x != nil {
+		if x, ok := x.Kind.(*Action_Test); ok {
+			return x.Test
+		}
+	}
+	return nil
+}
+
+func (x *Action) GetCheck() *Check {
+	if x != nil {
+		if x, ok := x.Kind.(*Action_Check); ok {
+			return x.Check
+		}
+	}
+	return nil
+}
+
+func (x *Action) GetFetch() *Fetch {
+	if x != nil {
+		if x, ok := x.Kind.(*Action_Fetch); ok {
+			return x.Fetch
+		}
+	}
+	return nil
+}
+
+func (x *Action) GetSharedFetch() *SharedFetch {
+	if x != nil {
+		if x, ok := x.Kind.(*Action_SharedFetch); ok {
+			return x.SharedFetch
+		}
+	}
+	return nil
+}
+
+func (x *Action) GetProgram() *Program {
+	if x != nil {
+		if x, ok := x.Kind.(*Action_Program); ok {
+			return x.Program
+		}
+	}
+	return nil
+}
+
+func (x *Action) GetPackage() *Package {
+	if x != nil {
+		if x, ok := x.Kind.(*Action_Package); ok {
+			return x.Package
+		}
+	}
+	return nil
+}
+
+func (x *Action) GetPublish() *Publish {
+	if x != nil {
+		if x, ok := x.Kind.(*Action_Publish); ok {
+			return x.Publish
+		}
+	}
+	return nil
+}
+
+type isAction_Kind interface {
+	isAction_Kind()
+}
+
+type Action_Build struct {
+	// Build is an ordinary step of a build: it makes what other actions
+	// read, and fails the build where it fails.
+	Build *Build `protobuf:"bytes,7,opt,name=build,proto3,oneof"`
+}
+
+type Action_Test struct {
+	// Test runs tests.
+	Test *Test `protobuf:"bytes,8,opt,name=test,proto3,oneof"`
+}
+
+type Action_Check struct {
+	// Check checks the source.
+	Check *Check `protobuf:"bytes,9,opt,name=check,proto3,oneof"`
+}
+
+type Action_Fetch struct {
+	// Fetch fetches what its project requires from outside.
+	Fetch *Fetch `protobuf:"bytes,10,opt,name=fetch,proto3,oneof"`
+}
+
+type Action_SharedFetch struct {
+	// Shared_fetch fetches one thing a lock holds, for every project of
+	// the repository that locks it alike.
+	SharedFetch *SharedFetch `protobuf:"bytes,11,opt,name=shared_fetch,json=sharedFetch,proto3,oneof"`
+}
+
+type Action_Program struct {
+	// Program is a program to run, and no step of a build.
+	Program *Program `protobuf:"bytes,12,opt,name=program,proto3,oneof"`
+}
+
+type Action_Package struct {
+	// Package makes what its project ships.
+	Package *Package `protobuf:"bytes,13,opt,name=package,proto3,oneof"`
+}
+
+type Action_Publish struct {
+	// Publish publishes what a release shipped.
+	Publish *Publish `protobuf:"bytes,14,opt,name=publish,proto3,oneof"`
+}
+
+func (*Action_Build) isAction_Kind() {}
+
+func (*Action_Test) isAction_Kind() {}
+
+func (*Action_Check) isAction_Kind() {}
+
+func (*Action_Fetch) isAction_Kind() {}
+
+func (*Action_SharedFetch) isAction_Kind() {}
+
+func (*Action_Program) isAction_Kind() {}
+
+func (*Action_Package) isAction_Kind() {}
+
+func (*Action_Publish) isAction_Kind() {}
+
+// Build is the kind of an ordinary step of a build. It says nothing more.
+type Build struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Build) Reset() {
+	*x = Build{}
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Build) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Build) ProtoMessage() {}
+
+func (x *Build) ProtoReflect() protoreflect.Message {
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Build.ProtoReflect.Descriptor instead.
+func (*Build) Descriptor() ([]byte, []int) {
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{22}
+}
+
+// Test is the kind of an action that runs tests: where it fails, a test
+// failed, and the build is not broken.
+type Test struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Idle_without_inputs says the test has nothing to do where one
+	// output of another action that it reads was not left: an output its
+	// action may pass without leaving (Output.optional). It is then not
+	// run, ends as idle, which fails nothing, and what waits for it goes
+	// on. Without this, such a test runs and finds nothing there.
+	//
+	// It is for work whose tool decides, on the worker, whether there is
+	// any: a test of a Go package runs the test program the go command
+	// built for it, and is idle where the go command built none, as for a
+	// package whose tests are for another system. A plugin then does not
+	// have to foretell what its tool will leave. A test that says so
+	// and reads, by itself, no output another action may pass without
+	// leaving is refused, as is one that says it leaves something: an
+	// action that may not run leaves nothing another can count on.
+	IdleWithoutInputs bool `protobuf:"varint,1,opt,name=idle_without_inputs,json=idleWithoutInputs,proto3" json:"idle_without_inputs,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *Test) Reset() {
+	*x = Test{}
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Test) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Test) ProtoMessage() {}
+
+func (x *Test) ProtoReflect() protoreflect.Message {
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Test.ProtoReflect.Descriptor instead.
+func (*Test) Descriptor() ([]byte, []int) {
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *Test) GetIdleWithoutInputs() bool {
+	if x != nil {
+		return x.IdleWithoutInputs
+	}
+	return false
+}
+
+// Check is the kind of an action that checks the source and writes
+// nothing: it fails on what it finds, by its exit code or by the
+// findings the plugin reads from what it printed (Report), and passes
+// otherwise. On the grid, and so in CI, that is all a check is.
+type Check struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Fix is the command that puts right what the check finds, such as
+	// gofmt -w where the check is gofmt -l. It never runs on the grid: a
+	// run asked to fix runs it where the checkout is, in the daemon's own
+	// sandbox, over a copy of the check's inputs, with the same tools the
+	// check runs with; the host compares the copy with what the run read
+	// and writes each difference over that, through the snapshot, which
+	// refuses a file that has changed since. The check then runs on the
+	// grid over what was written. Absent, the check has no fix.
+	Fix *Command `protobuf:"bytes,1,opt,name=fix,proto3" json:"fix,omitempty"`
+	// Rewrites are patterns over the check's inputs, relative to its
+	// project, of the files its fix may change: what the host compares
+	// after the fix has run. One that differs is a replacement, one that
+	// is gone a deletion, and one that is new, and that the check's inputs
+	// would have selected, a creation. A check has rewrites where it has
+	// a fix, and none where it has none.
+	Rewrites      []string `protobuf:"bytes,2,rep,name=rewrites,proto3" json:"rewrites,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Check) Reset() {
+	*x = Check{}
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Check) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Check) ProtoMessage() {}
+
+func (x *Check) ProtoReflect() protoreflect.Message {
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Check.ProtoReflect.Descriptor instead.
+func (*Check) Descriptor() ([]byte, []int) {
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *Check) GetFix() *Command {
+	if x != nil {
+		return x.Fix
+	}
+	return nil
+}
+
+func (x *Check) GetRewrites() []string {
+	if x != nil {
+		return x.Rewrites
+	}
+	return nil
+}
+
+// Fetch is the kind of an action that fetches what its project requires
+// from outside the workspace, with the ecosystem's own tool, from the
+// project's lock. It is the one kind of action, with a shared fetch,
+// that reaches outside its sandbox: the worker points its tool at the
+// proxy. It reads what it is given and nothing else, so that only a
+// change to the lock fetches again.
+type Fetch struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Fetch) Reset() {
+	*x = Fetch{}
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Fetch) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Fetch) ProtoMessage() {}
+
+func (x *Fetch) ProtoReflect() protoreflect.Message {
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Fetch.ProtoReflect.Descriptor instead.
+func (*Fetch) Descriptor() ([]byte, []int) {
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{25}
+}
+
+// SharedFetch is the kind of a fetch that belongs to no project: a fetch
+// of one thing a lock holds, the same whichever project of the
+// repository locks it alike. It reads no source, is handed nothing and
+// needs nothing; it runs in a directory of its own with its tools and
+// its files alone, so a run of the repository runs it once, and its
+// label is the repository's, not the project's. Two projects that
+// declare a shared fetch of one name differently are refused, naming
+// both.
+type SharedFetch struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Files are written into the action's directory before it runs, by
+	// path relative to it, or into its home ("~/..."): what it is told of
+	// the lock entry it fetches, or writes beside what it downloads. They
+	// are part of what the action is. A shared fetch of something its lock
+	// holds whole, as an apk lock holds a signing key, has files and
+	// outputs and neither a command nor downloads: it reaches nothing, and
+	// its files are what it leaves.
+	Files []*File `protobuf:"bytes,1,rep,name=files,proto3" json:"files,omitempty"`
+	// Downloads are what it brings from outside without running a tool:
+	// each a URL and what the lock holds of what it serves. Where the lock
+	// holds the sha256 of the whole of it, the host fetches it through the
+	// grid's asset service, which checks the sha256 before it keeps
+	// anything, and keeps it by URL and sha256 for every repository and
+	// daemon of the grid; the action then unpacks what was fetched, a
+	// gzipped tar, as a crate or an npm package is. Where the lock holds
+	// checksums of parts of it and none of the whole, as an apk lock does,
+	// the asset service fetches it unchecked, and the action cuts each
+	// part out and checks it, leaving nothing where one is not what the
+	// lock says. Either way the action has no network. A shared fetch with
+	// downloads has no command.
+	Downloads     []*Download `protobuf:"bytes,2,rep,name=downloads,proto3" json:"downloads,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SharedFetch) Reset() {
+	*x = SharedFetch{}
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SharedFetch) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SharedFetch) ProtoMessage() {}
+
+func (x *SharedFetch) ProtoReflect() protoreflect.Message {
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SharedFetch.ProtoReflect.Descriptor instead.
+func (*SharedFetch) Descriptor() ([]byte, []int) {
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *SharedFetch) GetFiles() []*File {
+	if x != nil {
+		return x.Files
+	}
+	return nil
+}
+
+func (x *SharedFetch) GetDownloads() []*Download {
+	if x != nil {
+		return x.Downloads
+	}
+	return nil
+}
+
+// Program is the kind of a program to run, and no step of a build: no
+// build runs it, and a run (RunService of the build API) runs it and
+// nothing else. Its command is the program and what it is given first;
+// whoever runs it gives the rest. It runs where the daemon is, in the
+// daemon's own sandbox, in its project's directory there, until it ends
+// or is stopped. What it reads is what its inputs name of what other
+// actions left (the output inputs "compile" and "~/go/bin/"), brought
+// from the grid: a run builds those first, as any build does. Its
+// program is named by where one of them left it, beneath the project or
+// in the action's home ("~/go/bin/greeter"), never a program of the
+// system's.
+//
+// It is named "run/" and what it runs, in letters, digits and "._-":
+// run/greeter. It leaves nothing.
+//
+// A Component's service for tests (spec.frontseat.service.program)
+// prepares declared source, input sets, generated inputs and pinned
+// tools through the ordinary action preparation path. A bare executable
+// must resolve inside those prepared mise installations. RunService in
+// the daemon still accepts artifact-only programs and refuses source and
+// tools. Ports, readiness, endpoints and API bindings belong to the
+// catalog's service. The program's environment is its command's: what
+// runs is the command.
+type Program struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Program) Reset() {
+	*x = Program{}
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Program) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Program) ProtoMessage() {}
+
+func (x *Program) ProtoReflect() protoreflect.Message {
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Program.ProtoReflect.Descriptor instead.
+func (*Program) Descriptor() ([]byte, []int) {
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{27}
+}
+
+// Package is the kind of an action that makes what its project ships: a
+// program for a platform, a package, a module, an archive, as its tool
+// makes it. Each file it leaves is an artifact of the release that
+// builds it, known by its own name, as the tool wrote it, with what the
+// grid holds of it: its sha256 and its size.
+//
+// What a release builds is what a production build builds, so a package
+// that costs what a development build should not pay, as a program made
+// for every platform does, is declared for the production profile alone,
+// and is tried without a release by a production build pointed at it.
+//
+// It leaves at least one thing, each a file it is sure to leave. Plugins
+// name it "package", or "package", a slash and what it is of, as
+// "package/linux-amd64", where nothing of their tool's has a name for it
+// already.
+type Package struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Package) Reset() {
+	*x = Package{}
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Package) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Package) ProtoMessage() {}
+
+func (x *Package) ProtoReflect() protoreflect.Message {
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Package.ProtoReflect.Descriptor instead.
+func (*Package) Descriptor() ([]byte, []int) {
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{28}
+}
+
+// Publish is the kind of an action that publishes what a release
+// shipped: it runs its tool's own way of sending a release somewhere, a
+// forge's command line, a registry's client, and nothing of frontseat's
+// speaks for it.
+//
+// It is no step of a build: no build runs it, and nothing reads what it
+// leaves, which is nothing. A release runs it, once every tag of the
+// release is pushed, where the daemon is and never on the grid, with its
+// tools as the repository pins them, and never from a cache: what it
+// does is done outside, each time.
+//
+// It is run for a unit that moves: the one that owns its project, or,
+// where no entity owns its project, as at a repository's root, each unit
+// of its repository that moves, one at a time. It is given that unit's
+// artifacts, each file a package of the unit left, brought from the grid
+// into one directory, with a file of their sha256s beside them where
+// there are any, checksums.txt. It is ended after thirty minutes. Its
+// command names what it is given as a versioned action names the
+// version, and is filled the same way, with those and with:
+//
+//   - {frontseat.artifacts}, as an argument by itself: each of those
+//     files, an argument each, in the order of their names;
+//   - {frontseat.notes}: a file that holds the unit's release notes;
+//   - {frontseat.remote}: where the unit's repository was brought
+//     from, as its version control system names it;
+//   - {frontseat.prerelease}: "true" where the release is a
+//     prerelease, "false" where it is not.
+//
+// It passes or fails by its exit code, and the release says which, with
+// what it printed; one that fails does not stop another. It reads
+// nothing, since it is given its unit's artifacts.
 type Publish struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Environment names the variables of where the daemon runs that the
@@ -2057,7 +2381,7 @@ type Publish struct {
 
 func (x *Publish) Reset() {
 	*x = Publish{}
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[22]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2069,7 +2393,7 @@ func (x *Publish) String() string {
 func (*Publish) ProtoMessage() {}
 
 func (x *Publish) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[22]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2082,7 +2406,7 @@ func (x *Publish) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Publish.ProtoReflect.Descriptor instead.
 func (*Publish) Descriptor() ([]byte, []int) {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{22}
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *Publish) GetEnvironment() []string {
@@ -2111,7 +2435,7 @@ type Input struct {
 
 func (x *Input) Reset() {
 	*x = Input{}
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[23]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2123,7 +2447,7 @@ func (x *Input) String() string {
 func (*Input) ProtoMessage() {}
 
 func (x *Input) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[23]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2136,7 +2460,7 @@ func (x *Input) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Input.ProtoReflect.Descriptor instead.
 func (*Input) Descriptor() ([]byte, []int) {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{23}
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *Input) GetKind() isInput_Kind {
@@ -2245,7 +2569,7 @@ type DependencyInput struct {
 
 func (x *DependencyInput) Reset() {
 	*x = DependencyInput{}
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[24]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2257,7 +2581,7 @@ func (x *DependencyInput) String() string {
 func (*DependencyInput) ProtoMessage() {}
 
 func (x *DependencyInput) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[24]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2270,7 +2594,7 @@ func (x *DependencyInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DependencyInput.ProtoReflect.Descriptor instead.
 func (*DependencyInput) Descriptor() ([]byte, []int) {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{24}
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *DependencyInput) GetSelection() isDependencyInput_Selection {
@@ -2350,7 +2674,7 @@ type Download struct {
 
 func (x *Download) Reset() {
 	*x = Download{}
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[25]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2362,7 +2686,7 @@ func (x *Download) String() string {
 func (*Download) ProtoMessage() {}
 
 func (x *Download) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[25]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2375,7 +2699,7 @@ func (x *Download) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Download.ProtoReflect.Descriptor instead.
 func (*Download) Descriptor() ([]byte, []int) {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{25}
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *Download) GetUrl() string {
@@ -2429,7 +2753,7 @@ type Part struct {
 
 func (x *Part) Reset() {
 	*x = Part{}
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[26]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2441,7 +2765,7 @@ func (x *Part) String() string {
 func (*Part) ProtoMessage() {}
 
 func (x *Part) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[26]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2454,7 +2778,7 @@ func (x *Part) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Part.ProtoReflect.Descriptor instead.
 func (*Part) Descriptor() ([]byte, []int) {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{26}
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *Part) GetOffset() uint64 {
@@ -2514,7 +2838,7 @@ type ReportRequest struct {
 
 func (x *ReportRequest) Reset() {
 	*x = ReportRequest{}
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[27]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2526,7 +2850,7 @@ func (x *ReportRequest) String() string {
 func (*ReportRequest) ProtoMessage() {}
 
 func (x *ReportRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[27]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2539,7 +2863,7 @@ func (x *ReportRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReportRequest.ProtoReflect.Descriptor instead.
 func (*ReportRequest) Descriptor() ([]byte, []int) {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{27}
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *ReportRequest) GetContext() *Context {
@@ -2598,7 +2922,7 @@ type ReportResponse struct {
 
 func (x *ReportResponse) Reset() {
 	*x = ReportResponse{}
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[28]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2610,7 +2934,7 @@ func (x *ReportResponse) String() string {
 func (*ReportResponse) ProtoMessage() {}
 
 func (x *ReportResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[28]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2623,7 +2947,7 @@ func (x *ReportResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReportResponse.ProtoReflect.Descriptor instead.
 func (*ReportResponse) Descriptor() ([]byte, []int) {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{28}
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *ReportResponse) GetDiagnostics() []*v1alpha1.Diagnostic {
@@ -2654,7 +2978,7 @@ type Command struct {
 
 func (x *Command) Reset() {
 	*x = Command{}
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[29]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2666,7 +2990,7 @@ func (x *Command) String() string {
 func (*Command) ProtoMessage() {}
 
 func (x *Command) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[29]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2679,7 +3003,7 @@ func (x *Command) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Command.ProtoReflect.Descriptor instead.
 func (*Command) Descriptor() ([]byte, []int) {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{29}
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *Command) GetArguments() []string {
@@ -2724,7 +3048,7 @@ type Output struct {
 
 func (x *Output) Reset() {
 	*x = Output{}
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[30]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2736,7 +3060,7 @@ func (x *Output) String() string {
 func (*Output) ProtoMessage() {}
 
 func (x *Output) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[30]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2749,7 +3073,7 @@ func (x *Output) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Output.ProtoReflect.Descriptor instead.
 func (*Output) Descriptor() ([]byte, []int) {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{30}
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *Output) GetPath() string {
@@ -2786,7 +3110,7 @@ type InputSet struct {
 
 func (x *InputSet) Reset() {
 	*x = InputSet{}
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[31]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2798,7 +3122,7 @@ func (x *InputSet) String() string {
 func (*InputSet) ProtoMessage() {}
 
 func (x *InputSet) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[31]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2811,7 +3135,7 @@ func (x *InputSet) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InputSet.ProtoReflect.Descriptor instead.
 func (*InputSet) Descriptor() ([]byte, []int) {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{31}
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *InputSet) GetName() string {
@@ -2858,7 +3182,7 @@ type File struct {
 
 func (x *File) Reset() {
 	*x = File{}
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[32]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2870,7 +3194,7 @@ func (x *File) String() string {
 func (*File) ProtoMessage() {}
 
 func (x *File) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[32]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2883,7 +3207,7 @@ func (x *File) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use File.ProtoReflect.Descriptor instead.
 func (*File) Descriptor() ([]byte, []int) {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{32}
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *File) GetPath() string {
@@ -2924,7 +3248,7 @@ type ReconcileRequest struct {
 
 func (x *ReconcileRequest) Reset() {
 	*x = ReconcileRequest{}
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[33]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2936,7 +3260,7 @@ func (x *ReconcileRequest) String() string {
 func (*ReconcileRequest) ProtoMessage() {}
 
 func (x *ReconcileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[33]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2949,7 +3273,7 @@ func (x *ReconcileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReconcileRequest.ProtoReflect.Descriptor instead.
 func (*ReconcileRequest) Descriptor() ([]byte, []int) {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{33}
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *ReconcileRequest) GetContext() *Context {
@@ -2992,7 +3316,7 @@ type Resolved struct {
 
 func (x *Resolved) Reset() {
 	*x = Resolved{}
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[34]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3004,7 +3328,7 @@ func (x *Resolved) String() string {
 func (*Resolved) ProtoMessage() {}
 
 func (x *Resolved) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[34]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3017,7 +3341,7 @@ func (x *Resolved) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Resolved.ProtoReflect.Descriptor instead.
 func (*Resolved) Descriptor() ([]byte, []int) {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{34}
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *Resolved) GetRef() *v1alpha1.EntityRef {
@@ -3061,7 +3385,7 @@ type ReconcileResponse struct {
 
 func (x *ReconcileResponse) Reset() {
 	*x = ReconcileResponse{}
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[35]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3073,7 +3397,7 @@ func (x *ReconcileResponse) String() string {
 func (*ReconcileResponse) ProtoMessage() {}
 
 func (x *ReconcileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[35]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3086,7 +3410,7 @@ func (x *ReconcileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReconcileResponse.ProtoReflect.Descriptor instead.
 func (*ReconcileResponse) Descriptor() ([]byte, []int) {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{35}
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *ReconcileResponse) GetEdits() []*Edit {
@@ -3118,7 +3442,7 @@ type Edit struct {
 
 func (x *Edit) Reset() {
 	*x = Edit{}
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[36]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3130,7 +3454,7 @@ func (x *Edit) String() string {
 func (*Edit) ProtoMessage() {}
 
 func (x *Edit) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[36]
+	mi := &file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3143,7 +3467,7 @@ func (x *Edit) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Edit.ProtoReflect.Descriptor instead.
 func (*Edit) Descriptor() ([]byte, []int) {
-	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{36}
+	return file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *Edit) GetPath() string {
@@ -3201,15 +3525,10 @@ const file_frontseat_plugin_v1alpha1_plugin_proto_rawDesc = "" +
 	"\vKIND_STRING\x10\x01\x12\r\n" +
 	"\tKIND_BOOL\x10\x02\x12\f\n" +
 	"\bKIND_INT\x10\x03\x12\x14\n" +
-	"\x10KIND_STRING_LIST\x10\x04\"U\n" +
-	"\x0fDescribeRequest\x12 \n" +
-	"\fhost_abi_min\x18\x01 \x01(\rR\n" +
-	"hostAbiMin\x12 \n" +
-	"\fhost_abi_max\x18\x02 \x01(\rR\n" +
-	"hostAbiMax\"\x9f\x02\n" +
+	"\x10KIND_STRING_LIST\x10\x04\"\x11\n" +
+	"\x0fDescribeRequest\"\x8d\x02\n" +
 	"\x10DescribeResponse\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\x12\x10\n" +
-	"\x03abi\x18\x03 \x01(\rR\x03abi\x12\x1c\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1c\n" +
 	"\tinterests\x18\x05 \x03(\tR\tinterests\x12;\n" +
 	"\aoptions\x18\x06 \x03(\v2!.frontseat.plugin.v1alpha1.OptionR\aoptions\x12+\n" +
 	"\x11generates_sources\x18\a \x01(\bR\x10generatesSources\x12A\n" +
@@ -3291,26 +3610,36 @@ const file_frontseat_plugin_v1alpha1_plugin_proto_rawDesc = "" +
 	"\aversion\x18\x06 \x01(\tR\aversion\"0\n" +
 	"\x06Origin\x12\x12\n" +
 	"\x04path\x18\x01 \x01(\tR\x04path\x12\x12\n" +
-	"\x04line\x18\x02 \x01(\x05R\x04line\"\xcb\x05\n" +
+	"\x04line\x18\x02 \x01(\x05R\x04line\"\xff\x05\n" +
 	"\x06Action\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12<\n" +
-	"\acommand\x18\x04 \x01(\v2\".frontseat.plugin.v1alpha1.CommandR\acommand\x128\n" +
-	"\x06inputs\x18\x1d \x03(\v2 .frontseat.plugin.v1alpha1.InputR\x06inputs\x12;\n" +
-	"\aoutputs\x18\a \x03(\v2!.frontseat.plugin.v1alpha1.OutputR\aoutputs\x12\x14\n" +
-	"\x05tools\x18\b \x03(\tR\x05tools\x12\x12\n" +
-	"\x04test\x18\x10 \x01(\bR\x04test\x12\x14\n" +
-	"\x05fetch\x18\x11 \x01(\bR\x05fetch\x12\x14\n" +
-	"\x05check\x18\x13 \x01(\bR\x05check\x124\n" +
-	"\x03fix\x18\x15 \x01(\v2\".frontseat.plugin.v1alpha1.CommandR\x03fix\x12\x1a\n" +
-	"\brewrites\x18\x14 \x03(\tR\brewrites\x12\x16\n" +
-	"\x06shared\x18\x16 \x01(\bR\x06shared\x125\n" +
-	"\x05files\x18\x17 \x03(\v2\x1f.frontseat.plugin.v1alpha1.FileR\x05files\x12A\n" +
-	"\tdownloads\x18\x18 \x03(\v2#.frontseat.plugin.v1alpha1.DownloadR\tdownloads\x12\x18\n" +
-	"\aprogram\x18\x1b \x01(\bR\aprogram\x12.\n" +
-	"\x13idle_without_inputs\x18\x1c \x01(\bR\x11idleWithoutInputs\x12\x1c\n" +
-	"\tversioned\x18\x1e \x01(\bR\tversioned\x12\x18\n" +
-	"\apackage\x18\x1f \x01(\bR\apackage\x12<\n" +
-	"\apublish\x18  \x01(\v2\".frontseat.plugin.v1alpha1.PublishR\apublish\"+\n" +
+	"\acommand\x18\x02 \x01(\v2\".frontseat.plugin.v1alpha1.CommandR\acommand\x128\n" +
+	"\x06inputs\x18\x03 \x03(\v2 .frontseat.plugin.v1alpha1.InputR\x06inputs\x12;\n" +
+	"\aoutputs\x18\x04 \x03(\v2!.frontseat.plugin.v1alpha1.OutputR\aoutputs\x12\x14\n" +
+	"\x05tools\x18\x05 \x03(\tR\x05tools\x12\x1c\n" +
+	"\tversioned\x18\x06 \x01(\bR\tversioned\x128\n" +
+	"\x05build\x18\a \x01(\v2 .frontseat.plugin.v1alpha1.BuildH\x00R\x05build\x125\n" +
+	"\x04test\x18\b \x01(\v2\x1f.frontseat.plugin.v1alpha1.TestH\x00R\x04test\x128\n" +
+	"\x05check\x18\t \x01(\v2 .frontseat.plugin.v1alpha1.CheckH\x00R\x05check\x128\n" +
+	"\x05fetch\x18\n" +
+	" \x01(\v2 .frontseat.plugin.v1alpha1.FetchH\x00R\x05fetch\x12K\n" +
+	"\fshared_fetch\x18\v \x01(\v2&.frontseat.plugin.v1alpha1.SharedFetchH\x00R\vsharedFetch\x12>\n" +
+	"\aprogram\x18\f \x01(\v2\".frontseat.plugin.v1alpha1.ProgramH\x00R\aprogram\x12>\n" +
+	"\apackage\x18\r \x01(\v2\".frontseat.plugin.v1alpha1.PackageH\x00R\apackage\x12>\n" +
+	"\apublish\x18\x0e \x01(\v2\".frontseat.plugin.v1alpha1.PublishH\x00R\apublishB\x06\n" +
+	"\x04kind\"\a\n" +
+	"\x05Build\"6\n" +
+	"\x04Test\x12.\n" +
+	"\x13idle_without_inputs\x18\x01 \x01(\bR\x11idleWithoutInputs\"Y\n" +
+	"\x05Check\x124\n" +
+	"\x03fix\x18\x01 \x01(\v2\".frontseat.plugin.v1alpha1.CommandR\x03fix\x12\x1a\n" +
+	"\brewrites\x18\x02 \x03(\tR\brewrites\"\a\n" +
+	"\x05Fetch\"\x87\x01\n" +
+	"\vSharedFetch\x125\n" +
+	"\x05files\x18\x01 \x03(\v2\x1f.frontseat.plugin.v1alpha1.FileR\x05files\x12A\n" +
+	"\tdownloads\x18\x02 \x03(\v2#.frontseat.plugin.v1alpha1.DownloadR\tdownloads\"\t\n" +
+	"\aProgram\"\t\n" +
+	"\aPackage\"+\n" +
 	"\aPublish\x12 \n" +
 	"\venvironment\x18\x01 \x03(\tR\venvironment\"\xb0\x01\n" +
 	"\x05Input\x12\x18\n" +
@@ -3413,7 +3742,7 @@ func file_frontseat_plugin_v1alpha1_plugin_proto_rawDescGZIP() []byte {
 }
 
 var file_frontseat_plugin_v1alpha1_plugin_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes = make([]protoimpl.MessageInfo, 40)
+var file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes = make([]protoimpl.MessageInfo, 47)
 var file_frontseat_plugin_v1alpha1_plugin_proto_goTypes = []any{
 	(Profile)(0),                 // 0: frontseat.plugin.v1alpha1.Profile
 	(Option_Kind)(0),             // 1: frontseat.plugin.v1alpha1.Option.Kind
@@ -3439,106 +3768,120 @@ var file_frontseat_plugin_v1alpha1_plugin_proto_goTypes = []any{
 	(*Requirement)(nil),          // 21: frontseat.plugin.v1alpha1.Requirement
 	(*Origin)(nil),               // 22: frontseat.plugin.v1alpha1.Origin
 	(*Action)(nil),               // 23: frontseat.plugin.v1alpha1.Action
-	(*Publish)(nil),              // 24: frontseat.plugin.v1alpha1.Publish
-	(*Input)(nil),                // 25: frontseat.plugin.v1alpha1.Input
-	(*DependencyInput)(nil),      // 26: frontseat.plugin.v1alpha1.DependencyInput
-	(*Download)(nil),             // 27: frontseat.plugin.v1alpha1.Download
-	(*Part)(nil),                 // 28: frontseat.plugin.v1alpha1.Part
-	(*ReportRequest)(nil),        // 29: frontseat.plugin.v1alpha1.ReportRequest
-	(*ReportResponse)(nil),       // 30: frontseat.plugin.v1alpha1.ReportResponse
-	(*Command)(nil),              // 31: frontseat.plugin.v1alpha1.Command
-	(*Output)(nil),               // 32: frontseat.plugin.v1alpha1.Output
-	(*InputSet)(nil),             // 33: frontseat.plugin.v1alpha1.InputSet
-	(*File)(nil),                 // 34: frontseat.plugin.v1alpha1.File
-	(*ReconcileRequest)(nil),     // 35: frontseat.plugin.v1alpha1.ReconcileRequest
-	(*Resolved)(nil),             // 36: frontseat.plugin.v1alpha1.Resolved
-	(*ReconcileResponse)(nil),    // 37: frontseat.plugin.v1alpha1.ReconcileResponse
-	(*Edit)(nil),                 // 38: frontseat.plugin.v1alpha1.Edit
-	nil,                          // 39: frontseat.plugin.v1alpha1.Context.OptionsEntry
-	nil,                          // 40: frontseat.plugin.v1alpha1.Context.ToolsEntry
-	nil,                          // 41: frontseat.plugin.v1alpha1.Command.EnvironmentEntry
-	(*v1alpha1.OptionValue)(nil), // 42: frontseat.type.v1alpha1.OptionValue
-	(*ReleaseRoles)(nil),         // 43: frontseat.plugin.v1alpha1.ReleaseRoles
-	(*v1alpha1.Service)(nil),     // 44: frontseat.type.v1alpha1.Service
-	(*v1alpha1.EntityRef)(nil),   // 45: frontseat.type.v1alpha1.EntityRef
-	(*v1alpha1.Diagnostic)(nil),  // 46: frontseat.type.v1alpha1.Diagnostic
-	(*BranchRequest)(nil),        // 47: frontseat.plugin.v1alpha1.BranchRequest
-	(*VersionRequest)(nil),       // 48: frontseat.plugin.v1alpha1.VersionRequest
-	(*BranchResponse)(nil),       // 49: frontseat.plugin.v1alpha1.BranchResponse
-	(*VersionResponse)(nil),      // 50: frontseat.plugin.v1alpha1.VersionResponse
+	(*Build)(nil),                // 24: frontseat.plugin.v1alpha1.Build
+	(*Test)(nil),                 // 25: frontseat.plugin.v1alpha1.Test
+	(*Check)(nil),                // 26: frontseat.plugin.v1alpha1.Check
+	(*Fetch)(nil),                // 27: frontseat.plugin.v1alpha1.Fetch
+	(*SharedFetch)(nil),          // 28: frontseat.plugin.v1alpha1.SharedFetch
+	(*Program)(nil),              // 29: frontseat.plugin.v1alpha1.Program
+	(*Package)(nil),              // 30: frontseat.plugin.v1alpha1.Package
+	(*Publish)(nil),              // 31: frontseat.plugin.v1alpha1.Publish
+	(*Input)(nil),                // 32: frontseat.plugin.v1alpha1.Input
+	(*DependencyInput)(nil),      // 33: frontseat.plugin.v1alpha1.DependencyInput
+	(*Download)(nil),             // 34: frontseat.plugin.v1alpha1.Download
+	(*Part)(nil),                 // 35: frontseat.plugin.v1alpha1.Part
+	(*ReportRequest)(nil),        // 36: frontseat.plugin.v1alpha1.ReportRequest
+	(*ReportResponse)(nil),       // 37: frontseat.plugin.v1alpha1.ReportResponse
+	(*Command)(nil),              // 38: frontseat.plugin.v1alpha1.Command
+	(*Output)(nil),               // 39: frontseat.plugin.v1alpha1.Output
+	(*InputSet)(nil),             // 40: frontseat.plugin.v1alpha1.InputSet
+	(*File)(nil),                 // 41: frontseat.plugin.v1alpha1.File
+	(*ReconcileRequest)(nil),     // 42: frontseat.plugin.v1alpha1.ReconcileRequest
+	(*Resolved)(nil),             // 43: frontseat.plugin.v1alpha1.Resolved
+	(*ReconcileResponse)(nil),    // 44: frontseat.plugin.v1alpha1.ReconcileResponse
+	(*Edit)(nil),                 // 45: frontseat.plugin.v1alpha1.Edit
+	nil,                          // 46: frontseat.plugin.v1alpha1.Context.OptionsEntry
+	nil,                          // 47: frontseat.plugin.v1alpha1.Context.ToolsEntry
+	nil,                          // 48: frontseat.plugin.v1alpha1.Command.EnvironmentEntry
+	(*v1alpha1.OptionValue)(nil), // 49: frontseat.type.v1alpha1.OptionValue
+	(*ReleaseRoles)(nil),         // 50: frontseat.plugin.v1alpha1.ReleaseRoles
+	(*v1alpha1.Service)(nil),     // 51: frontseat.type.v1alpha1.Service
+	(*v1alpha1.EntityRef)(nil),   // 52: frontseat.type.v1alpha1.EntityRef
+	(*v1alpha1.Diagnostic)(nil),  // 53: frontseat.type.v1alpha1.Diagnostic
+	(*BranchRequest)(nil),        // 54: frontseat.plugin.v1alpha1.BranchRequest
+	(*VersionRequest)(nil),       // 55: frontseat.plugin.v1alpha1.VersionRequest
+	(*BranchResponse)(nil),       // 56: frontseat.plugin.v1alpha1.BranchResponse
+	(*VersionResponse)(nil),      // 57: frontseat.plugin.v1alpha1.VersionResponse
 }
 var file_frontseat_plugin_v1alpha1_plugin_proto_depIdxs = []int32{
-	39, // 0: frontseat.plugin.v1alpha1.Context.options:type_name -> frontseat.plugin.v1alpha1.Context.OptionsEntry
-	40, // 1: frontseat.plugin.v1alpha1.Context.tools:type_name -> frontseat.plugin.v1alpha1.Context.ToolsEntry
+	46, // 0: frontseat.plugin.v1alpha1.Context.options:type_name -> frontseat.plugin.v1alpha1.Context.OptionsEntry
+	47, // 1: frontseat.plugin.v1alpha1.Context.tools:type_name -> frontseat.plugin.v1alpha1.Context.ToolsEntry
 	0,  // 2: frontseat.plugin.v1alpha1.Context.profile:type_name -> frontseat.plugin.v1alpha1.Profile
 	1,  // 3: frontseat.plugin.v1alpha1.Option.kind:type_name -> frontseat.plugin.v1alpha1.Option.Kind
-	42, // 4: frontseat.plugin.v1alpha1.Option.default:type_name -> frontseat.type.v1alpha1.OptionValue
+	49, // 4: frontseat.plugin.v1alpha1.Option.default:type_name -> frontseat.type.v1alpha1.OptionValue
 	3,  // 5: frontseat.plugin.v1alpha1.DescribeResponse.options:type_name -> frontseat.plugin.v1alpha1.Option
-	43, // 6: frontseat.plugin.v1alpha1.DescribeResponse.release:type_name -> frontseat.plugin.v1alpha1.ReleaseRoles
-	44, // 7: frontseat.plugin.v1alpha1.ServiceRequest.written:type_name -> frontseat.type.v1alpha1.Service
-	44, // 8: frontseat.plugin.v1alpha1.ServiceResponse.service:type_name -> frontseat.type.v1alpha1.Service
+	50, // 6: frontseat.plugin.v1alpha1.DescribeResponse.release:type_name -> frontseat.plugin.v1alpha1.ReleaseRoles
+	51, // 7: frontseat.plugin.v1alpha1.ServiceRequest.written:type_name -> frontseat.type.v1alpha1.Service
+	51, // 8: frontseat.plugin.v1alpha1.ServiceResponse.service:type_name -> frontseat.type.v1alpha1.Service
 	2,  // 9: frontseat.plugin.v1alpha1.AnalyzeRequest.context:type_name -> frontseat.plugin.v1alpha1.Context
 	10, // 10: frontseat.plugin.v1alpha1.AnalyzeResponse.analyses:type_name -> frontseat.plugin.v1alpha1.Analysis
 	16, // 11: frontseat.plugin.v1alpha1.Analysis.projects:type_name -> frontseat.plugin.v1alpha1.Project
 	11, // 12: frontseat.plugin.v1alpha1.Analysis.entities:type_name -> frontseat.plugin.v1alpha1.Entity
-	45, // 13: frontseat.plugin.v1alpha1.Entity.ref:type_name -> frontseat.type.v1alpha1.EntityRef
+	52, // 13: frontseat.plugin.v1alpha1.Entity.ref:type_name -> frontseat.type.v1alpha1.EntityRef
 	12, // 14: frontseat.plugin.v1alpha1.Entity.relations:type_name -> frontseat.plugin.v1alpha1.EntityRelation
-	45, // 15: frontseat.plugin.v1alpha1.EntityRelation.target:type_name -> frontseat.type.v1alpha1.EntityRef
+	52, // 15: frontseat.plugin.v1alpha1.EntityRelation.target:type_name -> frontseat.type.v1alpha1.EntityRef
 	2,  // 16: frontseat.plugin.v1alpha1.ArrangeRequest.context:type_name -> frontseat.plugin.v1alpha1.Context
 	14, // 17: frontseat.plugin.v1alpha1.ArrangeRequest.handed:type_name -> frontseat.plugin.v1alpha1.Handed
 	18, // 18: frontseat.plugin.v1alpha1.Handed.coordinate:type_name -> frontseat.plugin.v1alpha1.Coordinate
-	34, // 19: frontseat.plugin.v1alpha1.ArrangeResponse.files:type_name -> frontseat.plugin.v1alpha1.File
+	41, // 19: frontseat.plugin.v1alpha1.ArrangeResponse.files:type_name -> frontseat.plugin.v1alpha1.File
 	19, // 20: frontseat.plugin.v1alpha1.Project.provides:type_name -> frontseat.plugin.v1alpha1.Provide
 	21, // 21: frontseat.plugin.v1alpha1.Project.requires:type_name -> frontseat.plugin.v1alpha1.Requirement
 	23, // 22: frontseat.plugin.v1alpha1.Project.actions:type_name -> frontseat.plugin.v1alpha1.Action
-	33, // 23: frontseat.plugin.v1alpha1.Project.input_sets:type_name -> frontseat.plugin.v1alpha1.InputSet
+	40, // 23: frontseat.plugin.v1alpha1.Project.input_sets:type_name -> frontseat.plugin.v1alpha1.InputSet
 	17, // 24: frontseat.plugin.v1alpha1.Project.generated_sources:type_name -> frontseat.plugin.v1alpha1.GeneratedSource
 	18, // 25: frontseat.plugin.v1alpha1.Provide.coordinate:type_name -> frontseat.plugin.v1alpha1.Coordinate
 	20, // 26: frontseat.plugin.v1alpha1.Provide.artifacts:type_name -> frontseat.plugin.v1alpha1.Produced
 	18, // 27: frontseat.plugin.v1alpha1.Requirement.coordinate:type_name -> frontseat.plugin.v1alpha1.Coordinate
 	22, // 28: frontseat.plugin.v1alpha1.Requirement.origin:type_name -> frontseat.plugin.v1alpha1.Origin
-	31, // 29: frontseat.plugin.v1alpha1.Action.command:type_name -> frontseat.plugin.v1alpha1.Command
-	25, // 30: frontseat.plugin.v1alpha1.Action.inputs:type_name -> frontseat.plugin.v1alpha1.Input
-	32, // 31: frontseat.plugin.v1alpha1.Action.outputs:type_name -> frontseat.plugin.v1alpha1.Output
-	31, // 32: frontseat.plugin.v1alpha1.Action.fix:type_name -> frontseat.plugin.v1alpha1.Command
-	34, // 33: frontseat.plugin.v1alpha1.Action.files:type_name -> frontseat.plugin.v1alpha1.File
-	27, // 34: frontseat.plugin.v1alpha1.Action.downloads:type_name -> frontseat.plugin.v1alpha1.Download
-	24, // 35: frontseat.plugin.v1alpha1.Action.publish:type_name -> frontseat.plugin.v1alpha1.Publish
-	26, // 36: frontseat.plugin.v1alpha1.Input.dependency:type_name -> frontseat.plugin.v1alpha1.DependencyInput
-	18, // 37: frontseat.plugin.v1alpha1.DependencyInput.coordinate:type_name -> frontseat.plugin.v1alpha1.Coordinate
-	28, // 38: frontseat.plugin.v1alpha1.Download.parts:type_name -> frontseat.plugin.v1alpha1.Part
-	2,  // 39: frontseat.plugin.v1alpha1.ReportRequest.context:type_name -> frontseat.plugin.v1alpha1.Context
-	46, // 40: frontseat.plugin.v1alpha1.ReportResponse.diagnostics:type_name -> frontseat.type.v1alpha1.Diagnostic
-	41, // 41: frontseat.plugin.v1alpha1.Command.environment:type_name -> frontseat.plugin.v1alpha1.Command.EnvironmentEntry
-	25, // 42: frontseat.plugin.v1alpha1.InputSet.inputs:type_name -> frontseat.plugin.v1alpha1.Input
-	2,  // 43: frontseat.plugin.v1alpha1.ReconcileRequest.context:type_name -> frontseat.plugin.v1alpha1.Context
-	36, // 44: frontseat.plugin.v1alpha1.ReconcileRequest.entities:type_name -> frontseat.plugin.v1alpha1.Resolved
-	45, // 45: frontseat.plugin.v1alpha1.Resolved.ref:type_name -> frontseat.type.v1alpha1.EntityRef
-	45, // 46: frontseat.plugin.v1alpha1.Resolved.depends_on:type_name -> frontseat.type.v1alpha1.EntityRef
-	45, // 47: frontseat.plugin.v1alpha1.Resolved.dependency_of:type_name -> frontseat.type.v1alpha1.EntityRef
-	38, // 48: frontseat.plugin.v1alpha1.ReconcileResponse.edits:type_name -> frontseat.plugin.v1alpha1.Edit
-	42, // 49: frontseat.plugin.v1alpha1.Context.OptionsEntry.value:type_name -> frontseat.type.v1alpha1.OptionValue
-	4,  // 50: frontseat.plugin.v1alpha1.PluginService.Describe:input_type -> frontseat.plugin.v1alpha1.DescribeRequest
-	8,  // 51: frontseat.plugin.v1alpha1.PluginService.Analyze:input_type -> frontseat.plugin.v1alpha1.AnalyzeRequest
-	13, // 52: frontseat.plugin.v1alpha1.PluginService.Arrange:input_type -> frontseat.plugin.v1alpha1.ArrangeRequest
-	29, // 53: frontseat.plugin.v1alpha1.PluginService.Report:input_type -> frontseat.plugin.v1alpha1.ReportRequest
-	35, // 54: frontseat.plugin.v1alpha1.PluginService.Reconcile:input_type -> frontseat.plugin.v1alpha1.ReconcileRequest
-	6,  // 55: frontseat.plugin.v1alpha1.PluginService.Service:input_type -> frontseat.plugin.v1alpha1.ServiceRequest
-	47, // 56: frontseat.plugin.v1alpha1.PluginService.Branch:input_type -> frontseat.plugin.v1alpha1.BranchRequest
-	48, // 57: frontseat.plugin.v1alpha1.PluginService.Version:input_type -> frontseat.plugin.v1alpha1.VersionRequest
-	5,  // 58: frontseat.plugin.v1alpha1.PluginService.Describe:output_type -> frontseat.plugin.v1alpha1.DescribeResponse
-	9,  // 59: frontseat.plugin.v1alpha1.PluginService.Analyze:output_type -> frontseat.plugin.v1alpha1.AnalyzeResponse
-	15, // 60: frontseat.plugin.v1alpha1.PluginService.Arrange:output_type -> frontseat.plugin.v1alpha1.ArrangeResponse
-	30, // 61: frontseat.plugin.v1alpha1.PluginService.Report:output_type -> frontseat.plugin.v1alpha1.ReportResponse
-	37, // 62: frontseat.plugin.v1alpha1.PluginService.Reconcile:output_type -> frontseat.plugin.v1alpha1.ReconcileResponse
-	7,  // 63: frontseat.plugin.v1alpha1.PluginService.Service:output_type -> frontseat.plugin.v1alpha1.ServiceResponse
-	49, // 64: frontseat.plugin.v1alpha1.PluginService.Branch:output_type -> frontseat.plugin.v1alpha1.BranchResponse
-	50, // 65: frontseat.plugin.v1alpha1.PluginService.Version:output_type -> frontseat.plugin.v1alpha1.VersionResponse
-	58, // [58:66] is the sub-list for method output_type
-	50, // [50:58] is the sub-list for method input_type
-	50, // [50:50] is the sub-list for extension type_name
-	50, // [50:50] is the sub-list for extension extendee
-	0,  // [0:50] is the sub-list for field type_name
+	38, // 29: frontseat.plugin.v1alpha1.Action.command:type_name -> frontseat.plugin.v1alpha1.Command
+	32, // 30: frontseat.plugin.v1alpha1.Action.inputs:type_name -> frontseat.plugin.v1alpha1.Input
+	39, // 31: frontseat.plugin.v1alpha1.Action.outputs:type_name -> frontseat.plugin.v1alpha1.Output
+	24, // 32: frontseat.plugin.v1alpha1.Action.build:type_name -> frontseat.plugin.v1alpha1.Build
+	25, // 33: frontseat.plugin.v1alpha1.Action.test:type_name -> frontseat.plugin.v1alpha1.Test
+	26, // 34: frontseat.plugin.v1alpha1.Action.check:type_name -> frontseat.plugin.v1alpha1.Check
+	27, // 35: frontseat.plugin.v1alpha1.Action.fetch:type_name -> frontseat.plugin.v1alpha1.Fetch
+	28, // 36: frontseat.plugin.v1alpha1.Action.shared_fetch:type_name -> frontseat.plugin.v1alpha1.SharedFetch
+	29, // 37: frontseat.plugin.v1alpha1.Action.program:type_name -> frontseat.plugin.v1alpha1.Program
+	30, // 38: frontseat.plugin.v1alpha1.Action.package:type_name -> frontseat.plugin.v1alpha1.Package
+	31, // 39: frontseat.plugin.v1alpha1.Action.publish:type_name -> frontseat.plugin.v1alpha1.Publish
+	38, // 40: frontseat.plugin.v1alpha1.Check.fix:type_name -> frontseat.plugin.v1alpha1.Command
+	41, // 41: frontseat.plugin.v1alpha1.SharedFetch.files:type_name -> frontseat.plugin.v1alpha1.File
+	34, // 42: frontseat.plugin.v1alpha1.SharedFetch.downloads:type_name -> frontseat.plugin.v1alpha1.Download
+	33, // 43: frontseat.plugin.v1alpha1.Input.dependency:type_name -> frontseat.plugin.v1alpha1.DependencyInput
+	18, // 44: frontseat.plugin.v1alpha1.DependencyInput.coordinate:type_name -> frontseat.plugin.v1alpha1.Coordinate
+	35, // 45: frontseat.plugin.v1alpha1.Download.parts:type_name -> frontseat.plugin.v1alpha1.Part
+	2,  // 46: frontseat.plugin.v1alpha1.ReportRequest.context:type_name -> frontseat.plugin.v1alpha1.Context
+	53, // 47: frontseat.plugin.v1alpha1.ReportResponse.diagnostics:type_name -> frontseat.type.v1alpha1.Diagnostic
+	48, // 48: frontseat.plugin.v1alpha1.Command.environment:type_name -> frontseat.plugin.v1alpha1.Command.EnvironmentEntry
+	32, // 49: frontseat.plugin.v1alpha1.InputSet.inputs:type_name -> frontseat.plugin.v1alpha1.Input
+	2,  // 50: frontseat.plugin.v1alpha1.ReconcileRequest.context:type_name -> frontseat.plugin.v1alpha1.Context
+	43, // 51: frontseat.plugin.v1alpha1.ReconcileRequest.entities:type_name -> frontseat.plugin.v1alpha1.Resolved
+	52, // 52: frontseat.plugin.v1alpha1.Resolved.ref:type_name -> frontseat.type.v1alpha1.EntityRef
+	52, // 53: frontseat.plugin.v1alpha1.Resolved.depends_on:type_name -> frontseat.type.v1alpha1.EntityRef
+	52, // 54: frontseat.plugin.v1alpha1.Resolved.dependency_of:type_name -> frontseat.type.v1alpha1.EntityRef
+	45, // 55: frontseat.plugin.v1alpha1.ReconcileResponse.edits:type_name -> frontseat.plugin.v1alpha1.Edit
+	49, // 56: frontseat.plugin.v1alpha1.Context.OptionsEntry.value:type_name -> frontseat.type.v1alpha1.OptionValue
+	4,  // 57: frontseat.plugin.v1alpha1.PluginService.Describe:input_type -> frontseat.plugin.v1alpha1.DescribeRequest
+	8,  // 58: frontseat.plugin.v1alpha1.PluginService.Analyze:input_type -> frontseat.plugin.v1alpha1.AnalyzeRequest
+	13, // 59: frontseat.plugin.v1alpha1.PluginService.Arrange:input_type -> frontseat.plugin.v1alpha1.ArrangeRequest
+	36, // 60: frontseat.plugin.v1alpha1.PluginService.Report:input_type -> frontseat.plugin.v1alpha1.ReportRequest
+	42, // 61: frontseat.plugin.v1alpha1.PluginService.Reconcile:input_type -> frontseat.plugin.v1alpha1.ReconcileRequest
+	6,  // 62: frontseat.plugin.v1alpha1.PluginService.Service:input_type -> frontseat.plugin.v1alpha1.ServiceRequest
+	54, // 63: frontseat.plugin.v1alpha1.PluginService.Branch:input_type -> frontseat.plugin.v1alpha1.BranchRequest
+	55, // 64: frontseat.plugin.v1alpha1.PluginService.Version:input_type -> frontseat.plugin.v1alpha1.VersionRequest
+	5,  // 65: frontseat.plugin.v1alpha1.PluginService.Describe:output_type -> frontseat.plugin.v1alpha1.DescribeResponse
+	9,  // 66: frontseat.plugin.v1alpha1.PluginService.Analyze:output_type -> frontseat.plugin.v1alpha1.AnalyzeResponse
+	15, // 67: frontseat.plugin.v1alpha1.PluginService.Arrange:output_type -> frontseat.plugin.v1alpha1.ArrangeResponse
+	37, // 68: frontseat.plugin.v1alpha1.PluginService.Report:output_type -> frontseat.plugin.v1alpha1.ReportResponse
+	44, // 69: frontseat.plugin.v1alpha1.PluginService.Reconcile:output_type -> frontseat.plugin.v1alpha1.ReconcileResponse
+	7,  // 70: frontseat.plugin.v1alpha1.PluginService.Service:output_type -> frontseat.plugin.v1alpha1.ServiceResponse
+	56, // 71: frontseat.plugin.v1alpha1.PluginService.Branch:output_type -> frontseat.plugin.v1alpha1.BranchResponse
+	57, // 72: frontseat.plugin.v1alpha1.PluginService.Version:output_type -> frontseat.plugin.v1alpha1.VersionResponse
+	65, // [65:73] is the sub-list for method output_type
+	57, // [57:65] is the sub-list for method input_type
+	57, // [57:57] is the sub-list for extension type_name
+	57, // [57:57] is the sub-list for extension extendee
+	0,  // [0:57] is the sub-list for field type_name
 }
 
 func init() { file_frontseat_plugin_v1alpha1_plugin_proto_init() }
@@ -3547,13 +3890,23 @@ func file_frontseat_plugin_v1alpha1_plugin_proto_init() {
 		return
 	}
 	file_frontseat_plugin_v1alpha1_release_proto_init()
-	file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[23].OneofWrappers = []any{
+	file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[21].OneofWrappers = []any{
+		(*Action_Build)(nil),
+		(*Action_Test)(nil),
+		(*Action_Check)(nil),
+		(*Action_Fetch)(nil),
+		(*Action_SharedFetch)(nil),
+		(*Action_Program)(nil),
+		(*Action_Package)(nil),
+		(*Action_Publish)(nil),
+	}
+	file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[30].OneofWrappers = []any{
 		(*Input_Source)(nil),
 		(*Input_InputSet)(nil),
 		(*Input_Output)(nil),
 		(*Input_Dependency)(nil),
 	}
-	file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[24].OneofWrappers = []any{
+	file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[31].OneofWrappers = []any{
 		(*DependencyInput_All)(nil),
 		(*DependencyInput_Coordinate)(nil),
 	}
@@ -3563,7 +3916,7 @@ func file_frontseat_plugin_v1alpha1_plugin_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_frontseat_plugin_v1alpha1_plugin_proto_rawDesc), len(file_frontseat_plugin_v1alpha1_plugin_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   40,
+			NumMessages:   47,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

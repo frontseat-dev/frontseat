@@ -32,7 +32,7 @@ so each crate of crates.io the package depends on, as `Cargo.lock` lists
 it, is a shared fetch of its own, `fetch/<name>@<version>`, the same for
 every package of the repository that locks it: it downloads the crate's
 archive from `https://static.crates.io/crates/<name>/<version>/download`
-by the lock's sha256 (`Action.downloads`; the host asks the grid's asset
+by the lock's sha256 (`SharedFetch.downloads`; the host asks the grid's asset
 service, which fetches through the proxy and checks the sha256) and
 unpacks it into `~/.cargo/vendor/<name>-<version>/`, beside the
 `.cargo-checksum.json` cargo's directory source reads, which names the

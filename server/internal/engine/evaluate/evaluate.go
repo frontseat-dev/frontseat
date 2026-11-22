@@ -83,7 +83,7 @@ func (out *Evaluation) share(repository, plugin, root string, declared *pluginv1
 	label := model.Label{Path: repository, Plugin: plugin, Name: declared.GetName()}
 	// Its directory is its repository's, where the repository's tool
 	// pins are staged: a file of its own there would stand in their place.
-	for _, file := range declared.GetFiles() {
+	for _, file := range declared.GetSharedFetch().GetFiles() {
 		if slices.Contains(pins.Files, path.Clean(file.GetPath())) {
 			return &model.Mistake{Message: fmt.Sprintf("plugin %s: %s is given %s, which is where the repository's tool pins are", plugin, label, path.Clean(file.GetPath()))}
 		}
@@ -697,14 +697,29 @@ func custom(repository string, own config.Action) (plan.Action, error) {
 			Name:      own.Name,
 			Command:   &pluginv1.Command{Arguments: own.Command},
 			Tools:     own.Tools,
-			Check:     own.Check,
-			Rewrites:  own.Rewrites,
 			Versioned: own.Versioned,
-			Package:   own.Package,
+			Kind:      &pluginv1.Action_Build{Build: &pluginv1.Build{}},
 		},
 	}
-	if len(own.Fix) > 0 {
-		action.Declared.Fix = &pluginv1.Command{Arguments: own.Fix}
+	// What a check says of its fix, only a check says: one that is not
+	// says it in vain, and is refused by the line that wrote it.
+	switch {
+	case own.Check:
+		check := &pluginv1.Check{Rewrites: own.Rewrites}
+		if len(own.Fix) > 0 {
+			check.Fix = &pluginv1.Command{Arguments: own.Fix}
+		}
+		action.Declared.Kind = &pluginv1.Action_Check{Check: check}
+	case len(own.Fix) > 0:
+		return plan.Action{}, &model.Mistake{File: own.File, Message: what + " has a fix, and is not a check"}
+	case len(own.Rewrites) > 0:
+		return plan.Action{}, &model.Mistake{File: own.File, Message: what + " says what it may change, and is not a check"}
+	}
+	if own.Package {
+		if own.Check || own.Program || own.Publish {
+			return plan.Action{}, &model.Mistake{File: own.File, Message: what + " is a package, and is a check, a program or what publishes: an action is of one kind"}
+		}
+		action.Declared.Kind = &pluginv1.Action_Package{Package: &pluginv1.Package{}}
 	}
 	if err := pluginhost.CheckRewrites(what, own.Rewrites); err != nil {
 		return plan.Action{}, &model.Mistake{File: own.File, Message: err.Error()}
@@ -719,9 +734,12 @@ func custom(repository string, own config.Action) (plan.Action, error) {
 		action.Declared.Outputs = append(action.Declared.Outputs, &pluginv1.Output{Path: output})
 	}
 	if own.Program {
+		if own.Check || own.Publish {
+			return plan.Action{}, &model.Mistake{File: own.File, Message: what + " is a program, and is a check or what publishes: an action is of one kind"}
+		}
 		action.Label.Name = "run/" + own.Name
 		action.Declared.Name = action.Label.Name
-		action.Declared.Program = true
+		action.Declared.Kind = &pluginv1.Action_Program{Program: &pluginv1.Program{}}
 		if err := pluginhost.CheckProgram(action.Declared); err != nil {
 			return plan.Action{}, &model.Mistake{File: own.File, Message: err.Error()}
 		}
@@ -733,7 +751,10 @@ func custom(repository string, own config.Action) (plan.Action, error) {
 		}
 		action.Label.Name = "publish/" + own.Name
 		action.Declared.Name = action.Label.Name
-		action.Declared.Publish = &pluginv1.Publish{Environment: own.Environment}
+		if own.Check {
+			return plan.Action{}, &model.Mistake{File: own.File, Message: what + " publishes, and is a check: an action is of one kind"}
+		}
+		action.Declared.Kind = &pluginv1.Action_Publish{Publish: &pluginv1.Publish{Environment: own.Environment}}
 		if err := pluginhost.CheckPublish(what, action.Declared); err != nil {
 			return plan.Action{}, &model.Mistake{File: own.File, Message: err.Error()}
 		}
@@ -907,7 +928,7 @@ func analyze(ctx context.Context, view repositoryView, plugin *pluginhost.Plugin
 				}
 				out.Projects = append(out.Projects, found)
 				for _, declared := range project.GetActions() {
-					if declared.GetShared() {
+					if declared.GetSharedFetch() != nil {
 						if err := out.share(view.repository, name, project.GetRoot(), declared); err != nil {
 							return err
 						}

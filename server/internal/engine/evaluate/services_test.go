@@ -260,7 +260,7 @@ func serviceCatalog(t *testing.T, consumer entity.Ref, descriptors []catalog.Des
 			out.Entities = append(out.Entities, record.Located{Ref: entity.Ref, Repository: entity.Repository, Root: root})
 			if entity.Ref == consumer {
 				out.Actions = append(out.Actions, plan.Action{Label: model.Label{Path: root, Plugin: "go", Name: "test"},
-					Declared: &pluginv1.Action{Name: "test", Test: true}})
+					Declared: &pluginv1.Action{Name: "test", Kind: &pluginv1.Action_Test{Test: &pluginv1.Test{}}}})
 			}
 		}
 	}

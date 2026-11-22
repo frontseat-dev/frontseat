@@ -109,7 +109,7 @@ func moduleThat(t *testing.T, otherwise []byte, printed string, asked []byte) []
 // given, which leave the address it gives.
 func moduleGiving(t *testing.T, alloc, otherwise []byte, printed string, asked []byte) []byte {
 	t.Helper()
-	description, err := proto.Marshal(&pluginv1.DescribeResponse{Name: "hand", Abi: pluginhost.MaxABI})
+	description, err := proto.Marshal(&pluginv1.DescribeResponse{Name: "hand"})
 	if err != nil {
 		t.Fatal(err)
 	}

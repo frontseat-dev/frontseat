@@ -9,30 +9,13 @@ import (
 	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
 )
 
-// A plugin that says it speaks an ABI outside what this host loads is
-// refused, by number: the contract it was built for is not this one. The
-// control is each end of the range.
-func TestAPluginOfAnotherABIIsRefused(t *testing.T) {
-	for _, abi := range []uint32{MinABI, MaxABI} {
-		if err := checkDescription(&pluginv1.DescribeResponse{Name: "tool", Abi: abi}); err != nil {
-			t.Errorf("ABI %d was refused: %v", abi, err)
-		}
-	}
-	for _, abi := range []uint32{0, MinABI - 1, MaxABI + 1} {
-		err := checkDescription(&pluginv1.DescribeResponse{Name: "tool", Abi: abi})
-		if err == nil || !strings.Contains(err.Error(), "says it speaks ABI") {
-			t.Errorf("ABI %d: err = %v, want it refused by number", abi, err)
-		}
-	}
-}
-
 // A plugin's interests are patterns of the contract's language
 // (host.proto), each of files beneath the repository's root: one that is
 // no pattern, or reaches out of the repository, is refused. The control
 // is a plugin whose interests select and exclude as the language allows.
 func TestAPluginWhoseInterestsAreNoPatternsIsRefused(t *testing.T) {
 	described := func(interests ...string) *pluginv1.DescribeResponse {
-		return &pluginv1.DescribeResponse{Name: "tool", Abi: MinABI, Interests: interests}
+		return &pluginv1.DescribeResponse{Name: "tool", Interests: interests}
 	}
 	if err := checkDescription(described("**/go.mod", "*.{go,s}", "[a-z]?.txt", "!**/testdata/**", `\!name`)); err != nil {
 		t.Fatalf("a plugin with sound interests was refused: %v", err)
@@ -48,7 +31,7 @@ func TestAPluginWhoseInterestsAreNoPatternsIsRefused(t *testing.T) {
 // plugin whose declarations do not hold together is not loaded.
 func TestAPluginWhoseOptionsDoNotHoldTogetherIsRefused(t *testing.T) {
 	described := func(options ...*pluginv1.Option) *pluginv1.DescribeResponse {
-		return &pluginv1.DescribeResponse{Name: "tool", Abi: MinABI, Options: options}
+		return &pluginv1.DescribeResponse{Name: "tool", Options: options}
 	}
 	list := &typev1.OptionValue{Value: &typev1.OptionValue_StringListValue{StringListValue: &typev1.OptionValue_StringList{Values: []string{"a", "b"}}}}
 	sound := []*pluginv1.Option{
@@ -127,7 +110,7 @@ func TestRewritePatternsAreHeldToTheProject(t *testing.T) {
 // a program the host did not give it.
 func TestAFixCannotSetWhatTheHostSets(t *testing.T) {
 	sound := func(env map[string]string) *pluginv1.Action {
-		return &pluginv1.Action{Name: "format", Check: true, Rewrites: []string{"**/*.go"}, Fix: &pluginv1.Command{Arguments: []string{"gofmt", "-w", "."}, Environment: env}}
+		return &pluginv1.Action{Name: "format", Kind: &pluginv1.Action_Check{Check: &pluginv1.Check{Fix: &pluginv1.Command{Arguments: []string{"gofmt", "-w", "."}, Environment: env}, Rewrites: []string{"**/*.go"}}}}
 	}
 	if err := CheckFix("the action format", sound(map[string]string{"GOFLAGS": "-mod=mod"})); err != nil {
 		t.Fatalf("a fix with an environment of its own was refused: %v", err)
@@ -145,10 +128,10 @@ func TestAFixCannotSetWhatTheHostSets(t *testing.T) {
 // twice and a name that is none are refused.
 func TestWhatAPluginSaysItServesOfReleasingIsHeldToWhatIsServed(t *testing.T) {
 	sound := &pluginv1.ReleaseRoles{Branchings: []string{"release-flow"}, Versionings: []string{"conventional-commits"}}
-	if err := checkDescription(&pluginv1.DescribeResponse{Name: "tool", Abi: MaxABI, Release: sound}); err != nil {
+	if err := checkDescription(&pluginv1.DescribeResponse{Name: "tool", Release: sound}); err != nil {
 		t.Fatalf("a branching and a versioning strategy were refused, so this test proves nothing: %v", err)
 	}
-	if err := checkDescription(&pluginv1.DescribeResponse{Name: "tool", Abi: MaxABI}); err != nil {
+	if err := checkDescription(&pluginv1.DescribeResponse{Name: "tool"}); err != nil {
 		t.Fatalf("a plugin with no release role was refused: %v", err)
 	}
 	for name, c := range map[string]struct {
@@ -162,7 +145,7 @@ func TestWhatAPluginSaysItServesOfReleasingIsHeldToWhatIsServed(t *testing.T) {
 		"a branching in upper case": {&pluginv1.ReleaseRoles{Branchings: []string{"Release-Flow"}}, "lower-case"},
 		"a versioning with a colon": {&pluginv1.ReleaseRoles{Versionings: []string{"release:plans"}}, "lower-case"},
 	} {
-		err := checkDescription(&pluginv1.DescribeResponse{Name: "tool", Abi: MaxABI, Release: c.roles})
+		err := checkDescription(&pluginv1.DescribeResponse{Name: "tool", Release: c.roles})
 		if err == nil || !strings.Contains(err.Error(), c.says) {
 			t.Errorf("%s: what a plugin says it serves of releasing was taken, or refused for another reason: %v", name, err)
 		}
@@ -173,7 +156,7 @@ func TestWhatAPluginSaysItServesOfReleasingIsHeldToWhatIsServed(t *testing.T) {
 // is none, or said twice, is refused, beside two that are different.
 func TestTheNamesAPluginStartsAreNamesEachSaidOnce(t *testing.T) {
 	described := func(services ...string) *pluginv1.DescribeResponse {
-		return &pluginv1.DescribeResponse{Name: "p", Abi: MaxABI, Services: services}
+		return &pluginv1.DescribeResponse{Name: "p", Services: services}
 	}
 	if err := checkDescription(described("postgres", "timescale-db")); err != nil {
 		t.Fatalf("two names, each once: %v", err)

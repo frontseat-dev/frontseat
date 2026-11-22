@@ -87,16 +87,15 @@ func testRuntimes(out *Evaluation, configured map[string][]config.TestRuntime, p
 				}
 			}
 		}
-		// A name the action's own command sets, or its fix's, cannot be
-		// given as written as well: said here, whether or not the build
-		// fixes, and of the file that wrote it.
+		// A name the action's own command sets cannot be given as written
+		// as well: said here, and of the file that wrote it. A test has no
+		// fix: only a check has one.
 		// Asked without sorting, since most are given none of them: the
 		// first by name is the one said.
 		twice := ""
 		for name := range setting.Environment {
 			_, command := action.Declared.GetCommand().GetEnvironment()[name]
-			_, fix := action.Declared.GetFix().GetEnvironment()[name]
-			if (command || fix) && (twice == "" || name < twice) {
+			if command && (twice == "" || name < twice) {
 				twice = name
 			}
 		}

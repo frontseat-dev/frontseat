@@ -16,7 +16,7 @@ import (
 func TestRetainedProgramAllNestedPayloadsAreOwned(t *testing.T) {
 	mutations := map[string]func(*plan.Action){
 		"command environment":      func(a *plan.Action) { a.Declared.Command.Environment["A"] = "mutated" },
-		"declared file":            func(a *plan.Action) { a.Declared.Files[0].Content[0] ^= 1 },
+		"declared file":            func(a *plan.Action) { a.Declared.GetSharedFetch().Files[0].Content[0] ^= 1 },
 		"declared unknown":         func(a *plan.Action) { a.Declared.ProtoReflect().GetUnknown()[2] ^= 1 },
 		"context unknown":          func(a *plan.Action) { a.Context.ProtoReflect().GetUnknown()[2] ^= 1 },
 		"context nested option":    func(a *plan.Action) { a.Context.Options["tags"].GetStringListValue().Values[0] = "mutated" },

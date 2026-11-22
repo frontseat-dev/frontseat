@@ -35,7 +35,10 @@ func TestATestIsToldWhereItsRepositoryIs(t *testing.T) {
 		{"server", "internal/pluginhost", "../../.."},
 	} {
 		for _, test := range []bool{true, false} {
-			action := plan.Action{ProjectRoot: at.project, Declared: &pluginv1.Action{Test: test, Command: &pluginv1.Command{Arguments: []string{"true"}, Directory: at.directory}}}
+			action := plan.Action{ProjectRoot: at.project, Declared: &pluginv1.Action{Kind: &pluginv1.Action_Build{Build: &pluginv1.Build{}}, Command: &pluginv1.Command{Arguments: []string{"true"}, Directory: at.directory}}}
+			if test {
+				action.Declared.Kind = &pluginv1.Action_Test{Test: &pluginv1.Test{}}
+			}
 			told, is := toldOf(t, snapshot, action)
 			switch {
 			case test && told != at.want:
@@ -58,7 +61,7 @@ func TestATestOfAnotherRepositoryIsToldWhereThatRepositoryIs(t *testing.T) {
 		t.Fatal(err)
 	}
 	for repository, want := range map[string]string{"other": "..", "": ".."} {
-		action := plan.Action{Repository: repository, ProjectRoot: "lib", Declared: &pluginv1.Action{Test: true, Command: &pluginv1.Command{Arguments: []string{"true"}}}}
+		action := plan.Action{Repository: repository, ProjectRoot: "lib", Declared: &pluginv1.Action{Kind: &pluginv1.Action_Test{Test: &pluginv1.Test{}}, Command: &pluginv1.Command{Arguments: []string{"true"}}}}
 		if told, _ := toldOf(t, snapshot, action); told != want {
 			t.Errorf("a test of lib in the repository %q is told %q, want %q", repository, told, want)
 		}
@@ -83,7 +86,7 @@ func TestATestsRepositoryIsSaidByNothingElse(t *testing.T) {
 				return nil
 			},
 		} {
-			action := plan.Action{Declared: &pluginv1.Action{Test: true, Command: &pluginv1.Command{Arguments: []string{"true"}}}}
+			action := plan.Action{Declared: &pluginv1.Action{Kind: &pluginv1.Action_Test{Test: &pluginv1.Test{}}, Command: &pluginv1.Command{Arguments: []string{"true"}}}}
 			exported := given(&action)
 			_, err := of(t.Context(), snapshot, action, installed(), nil, nil, false, exported)
 			switch {

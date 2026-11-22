@@ -45,30 +45,26 @@ fn archive(c: &Crate) -> String {
 /// tool: the host fetches through the asset service and unpacks.
 fn fetch(c: &Crate) -> Action {
     let unpacked = format!("~/.cargo/vendor/{}-{}/", c.name, c.version);
-    Action {
-        downloads: vec![Download {
-            url: archive(c),
-            sha256: c.checksum.clone(),
-            into: "~/.cargo/vendor/".into(),
-            ..Default::default()
-        }],
-        files: vec![
-            File {
-                path: format!("{unpacked}.cargo-checksum.json"),
-                content: format!("{{\"files\":{{}},\"package\":\"{}\"}}", c.checksum).into_bytes(),
-                executable: false,
-            },
-            File {
-                path: "~/.cargo/config.toml".into(),
-                content: VENDORED.to_vec(),
-                executable: false,
-            },
-        ],
-        ..Action::fetch(
-            format!("fetch/{}@{}", c.name, c.version),
-            [unpacked.clone(), "~/.cargo/config.toml".into()],
-        )
-    }
+    Action::shared_fetch(
+        format!("fetch/{}@{}", c.name, c.version),
+        [unpacked.clone(), "~/.cargo/config.toml".into()],
+    )
+    .download(Download {
+        url: archive(c),
+        sha256: c.checksum.clone(),
+        into: "~/.cargo/vendor/".into(),
+        ..Default::default()
+    })
+    .file(File {
+        path: format!("{unpacked}.cargo-checksum.json"),
+        content: format!("{{\"files\":{{}},\"package\":\"{}\"}}", c.checksum).into_bytes(),
+        executable: false,
+    })
+    .file(File {
+        path: "~/.cargo/config.toml".into(),
+        content: VENDORED.to_vec(),
+        executable: false,
+    })
 }
 
 /// A cargo command, as every action runs one: over the package in its
@@ -106,13 +102,11 @@ pub(super) fn actions(
             // handed on: the one action that reaches the registry,
             // through the proxy. A package of path dependencies alone
             // fetches nothing.
-            let whole = Action {
-                fetch: true,
-                ..Action::new("fetch", cargo(&["fetch", "--locked", "--config", REPLACE]))
-                    .tool(RUST)
-                    .inputs([Input::set("package"), Input::dependencies("{root}")])
-                    .output(Output::optional("~/.cargo/"))
-            };
+            let whole = Action::new("fetch", cargo(&["fetch", "--locked", "--config", REPLACE]))
+                .tool(RUST)
+                .inputs([Input::set("package"), Input::dependencies("{root}")])
+                .output(Output::optional("~/.cargo/"))
+                .fetch();
             (vec![whole], vec!["--config", REPLACE])
         }
     };

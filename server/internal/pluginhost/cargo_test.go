@@ -22,8 +22,8 @@ func cargoFixture(t *testing.T) conformance.Fixture {
 	without := &pluginv1.Context{Profile: pluginv1.Profile_PROFILE_DEVELOPMENT, Options: options}
 	narrowed := "[workspace]\nmembers = [\"greet\", \"hello\"]\nresolver = \"2\"\n\n[workspace.dependencies]\nitoa = \"1\"\n\n[workspace.package]\nedition = \"2021\"\nversion = \"0.1.0\"\n"
 	return conformance.Fixture{
-		Description: &pluginv1.DescribeResponse{Name: "cargo", Abi: 24, Interests: []string{"**/Cargo.toml", "**/Cargo.lock", "**/*.rs", "**/.cargo/config.toml", "**/rustfmt.toml", "**/.rustfmt.toml", "**/clippy.toml", "**/.clippy.toml", "!**/target/**", "!**/testdata/**"}, Options: []*pluginv1.Option{{Name: "wasm", Kind: pluginv1.Option_KIND_BOOL, Default: &typev1.OptionValue{Value: &typev1.OptionValue_BoolValue{BoolValue: false}}, EntitySettable: true}}},
-		Name:        "cargo", Source: fixtureSource(t, "cargo", "valid"),
+		ABI: 25, Description: &pluginv1.DescribeResponse{Name: "cargo", Interests: []string{"**/Cargo.toml", "**/Cargo.lock", "**/*.rs", "**/.cargo/config.toml", "**/rustfmt.toml", "**/.rustfmt.toml", "**/clippy.toml", "**/.clippy.toml", "!**/target/**", "!**/testdata/**"}, Options: []*pluginv1.Option{{Name: "wasm", Kind: pluginv1.Option_KIND_BOOL, Default: &typev1.OptionValue{Value: &typev1.OptionValue_BoolValue{BoolValue: false}}, EntitySettable: true}}},
+		Name: "cargo", Source: fixtureSource(t, "cargo", "valid"),
 		Absent: files{}, Malformed: fixtureSource(t, "cargo", "malformed"), ErrorCode: "INVALID_TOML",
 		Projects: []*pluginv1.Project{{
 			Root: "hello", Name: "hello", Kind: "cargo-package", Manifest: "hello/Cargo.toml",
@@ -66,14 +66,12 @@ func cargoFixture(t *testing.T) conformance.Fixture {
 func expectedCargoActions() []*pluginv1.Action {
 	fetch := func(name, version, checksum string) *pluginv1.Action {
 		return &pluginv1.Action{
-			Name:      "fetch/" + name + "@" + version,
-			Downloads: []*pluginv1.Download{{Url: "https://static.crates.io/crates/" + name + "/" + version + "/download", Sha256: checksum, Into: "~/.cargo/vendor/"}},
-			Files: []*pluginv1.File{
+			Name: "fetch/" + name + "@" + version,
+			Kind: &pluginv1.Action_SharedFetch{SharedFetch: &pluginv1.SharedFetch{Files: []*pluginv1.File{
 				{Path: "~/.cargo/vendor/" + name + "-" + version + "/.cargo-checksum.json", Content: []byte(`{"files":{},"package":"` + checksum + `"}`)},
 				{Path: "~/.cargo/config.toml", Content: []byte("[source.crates-io]\nreplace-with = \"vendored\"\n\n[source.vendored]\ndirectory = \".cargo/vendor\"\n")},
-			},
+			}, Downloads: []*pluginv1.Download{{Url: "https://static.crates.io/crates/" + name + "/" + version + "/download", Sha256: checksum, Into: "~/.cargo/vendor/"}}}},
 			Outputs: []*pluginv1.Output{{Path: "~/.cargo/vendor/" + name + "-" + version + "/"}, {Path: "~/.cargo/config.toml"}},
-			Fetch:   true, Shared: true,
 		}
 	}
 	cfgIf := fetch("cfg-if", "1.0.0", "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd")
@@ -82,17 +80,19 @@ func expectedCargoActions() []*pluginv1.Action {
 		return &pluginv1.Action{
 			Name:    name,
 			Command: &pluginv1.Command{Arguments: append([]string{"cargo"}, args...), Environment: map[string]string{"CARGO_TARGET_DIR": "target", "CARGO_INCREMENTAL": "0"}},
-			Inputs:  append([]*pluginv1.Input{pluginhost.SetInput("package"), pluginhosttest.OutputInput(cfgIf.Name), pluginhosttest.OutputInput(itoa.Name)}, pluginhosttest.AllDependencies("{root}")), Tools: []string{"rust"},
+			Inputs:  append([]*pluginv1.Input{pluginhost.SetInput("package"), pluginhosttest.OutputInput(cfgIf.Name), pluginhosttest.OutputInput(itoa.Name)}, pluginhosttest.AllDependencies("{root}")), Tools: []string{"rust"}, Kind: &pluginv1.Action_Build{Build: &pluginv1.Build{}},
 		}
 	}
 	compile := action("compile", "build", "--locked", "--offline")
 	test := action("test", "test", "--locked", "--offline")
-	test.Test = true
+	test.Kind = &pluginv1.Action_Test{Test: &pluginv1.Test{}}
 	lint := action("lint", "clippy", "--locked", "--offline", "--all-targets", "--message-format", "short", "--", "-D", "warnings")
-	lint.Check = true
+	lint.Kind = &pluginv1.Action_Check{Check: &pluginv1.Check{}}
 	format := action("format", "fmt", "--", "--check")
-	format.Check, format.Inputs = true, []*pluginv1.Input{pluginhost.SetInput("package"), pluginhosttest.AllDependencies("{root}")}
-	format.Fix = &pluginv1.Command{Arguments: []string{"cargo", "fmt"}, Environment: map[string]string{"CARGO_TARGET_DIR": "target", "CARGO_INCREMENTAL": "0"}}
-	format.Rewrites = []string{"**/*.rs"}
+	format.Inputs = []*pluginv1.Input{pluginhost.SetInput("package"), pluginhosttest.AllDependencies("{root}")}
+	format.Kind = &pluginv1.Action_Check{Check: &pluginv1.Check{
+		Fix:      &pluginv1.Command{Arguments: []string{"cargo", "fmt"}, Environment: map[string]string{"CARGO_TARGET_DIR": "target", "CARGO_INCREMENTAL": "0"}},
+		Rewrites: []string{"**/*.rs"},
+	}}
 	return []*pluginv1.Action{cfgIf, itoa, compile, test, lint, format}
 }

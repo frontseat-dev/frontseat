@@ -6,7 +6,7 @@
 // there until the program ends or it is stopped.
 //
 // What can be run is said by a plugin, from its ecosystem's own
-// files: an action that says it is a program (Action.program of the
+// files: an action of the kind Program (Action.kind of the
 // plugin contract). Nobody writes one. No build runs such an action, and a
 // run runs nothing else.
 //
