@@ -19,8 +19,8 @@ import (
 )
 
 // Service is how an entity is started for the tests of the components
-// that depend on it: spec.frontseat.service in its catalog file. A
-// Resource says what it is, as a name a plugin of the repository claims,
+// that depend on it: spec.frontseat.test-service in its catalog file. A
+// Resource says its type, as a name a plugin of the repository claims,
 // and that plugin says the whole of it: what is written beside the name
 // is kept, and the rest is the plugin's. What is started is what the
 // plugin answered, held to what a service is (server/internal/testservice).
@@ -36,14 +36,14 @@ type Service struct {
 	// Repository locates its declared program.
 	Repository string
 	// Program selects a program action (Action.program), exclusively of
-	// As.
+	// Type.
 	Program string
-	// As is what it is: "container" for an image written out here, or
+	// Type is what it is: "container" for an image written out here, or
 	// what another plugin starts, such as "postgres".
-	As string
+	Type string
 	// Said is what is said of it, in the one shape a service has: what
-	// was written beside As, as it is read here; and, once the plugin
-	// that claims As has answered, the whole of it.
+	// was written beside Type, as it is read here; and, once the plugin
+	// that claims Type has answered, the whole of it.
 	Said *typev1.Service
 }
 
@@ -56,7 +56,7 @@ func (service Service) Mistake(err error) error {
 // serviceValues is what each key of a service takes, as a mistake says
 // it; a key it does not hold is refused, with the keys it holds.
 var serviceValues = map[string]string{
-	"as":            "a name: what a plugin of the repository starts",
+	"type":          "a name: what a plugin of the repository starts",
 	"endpoints":     "names, each with an address of {host} and one of its ports",
 	"program":       "an action reference naming one program",
 	"apis":          "provided API references, each with a port and exports",
@@ -97,7 +97,7 @@ type ready struct {
 	command *[]string
 }
 
-// readReady reads service.ready: a list of checks, each a map of port,
+// readReady reads test-service.ready: a list of checks, each a map of port,
 // http and command, an HTTP answer a map of port, path and body. Which
 // of them a check is, and that it is one, is for whoever reads them.
 func readReady(node *yaml.Node) ([]ready, bool) {
@@ -138,7 +138,7 @@ func readReady(node *yaml.Node) ([]ready, bool) {
 	return out, true
 }
 
-// readAPI reads one entry of service.apis: the port an API is served
+// readAPI reads one entry of test-service.apis: the port an API is served
 // on, and what a test that consumes it is told.
 func readAPI(node *yaml.Node) (*typev1.ServiceApi, bool) {
 	if node.Kind != yaml.MappingNode {
@@ -175,7 +175,7 @@ func apiOf(written, namespace string) (entity.Ref, error) {
 	return ref, err
 }
 
-// readService reads spec.frontseat.service of one catalog document into
+// readService reads spec.frontseat.test-service of one catalog document into
 // the shape a service has, each key into the field that holds it. This
 // is the one place a service is turned from what a file holds: text is
 // what was written as text, a number the shape cannot hold is refused by
@@ -191,20 +191,20 @@ func readService(file, directory string, ref entity.Ref, node *yaml.Node) (Servi
 		return mistake(node.Line, "only a Resource or Component is started as a service")
 	}
 	if node.Kind != yaml.MappingNode {
-		return mistake(node.Line, "service is a map: what it is, and what is written of it")
+		return mistake(node.Line, "test-service is a map: what it is, and what is written of it")
 	}
 	service := Service{File: file, Directory: directory, Line: node.Line, Entity: ref, Said: &typev1.Service{}}
 	said := service.Said
 	for i := 0; i+1 < len(node.Content); i += 2 {
 		key, val := node.Content[i], node.Content[i+1]
 		if _, taken := serviceValues[key.Value]; !taken {
-			return mistake(key.Line, "service takes no key %s; it takes %s", key.Value, strings.Join(slices.Sorted(maps.Keys(serviceValues)), ", "))
+			return mistake(key.Line, "test-service takes no key %s; it takes %s", key.Value, strings.Join(slices.Sorted(maps.Keys(serviceValues)), ", "))
 		}
 		// Nothing among what is written is null: a list that held one
 		// would be read without it, and what is started would not be
 		// what was written.
 		if within := nullWithin(val); within != nil {
-			return mistake(within.Line, "service.%s holds a null: say what it is, or leave it out", key.Value)
+			return mistake(within.Line, "test-service.%s holds a null: say what it is, or leave it out", key.Value)
 		}
 		var (
 			checks []ready
@@ -215,9 +215,9 @@ func readService(file, directory string, ref entity.Ref, node *yaml.Node) (Servi
 			read, nothing = true, false
 		)
 		switch written := !null(val); key.Value {
-		case "as":
+		case "type":
 			if written {
-				service.As, read = text(val)
+				service.Type, read = text(val)
 			}
 		case "program":
 			if written {
@@ -288,10 +288,10 @@ func readService(file, directory string, ref entity.Ref, node *yaml.Node) (Servi
 			nothing = len(checks) == 0
 		}
 		if !read {
-			return mistake(key.Line, "service.%s is not %s", key.Value, serviceValues[key.Value])
+			return mistake(key.Line, "test-service.%s is not %s", key.Value, serviceValues[key.Value])
 		}
 		if nothing {
-			return mistake(key.Line, "service.%s is written and says nothing: leave it out, and it is its plugin's to say", key.Value)
+			return mistake(key.Line, "test-service.%s is written and says nothing: leave it out, and it is its plugin's to say", key.Value)
 		}
 		// A name is held where it is written, so that its refusal says
 		// its own line: what a service's shape is held to again
@@ -310,9 +310,9 @@ func readService(file, directory string, ref entity.Ref, node *yaml.Node) (Servi
 				api, err := apiOf(name.Value, ref.Namespace)
 				switch _, twice := apis[api.String()]; {
 				case err != nil:
-					held = errors.New("service.apis: an API is named as a reference is written: a name, api:<name> or api:<namespace>/<name>, read in the entity's namespace")
+					held = errors.New("test-service.apis: an API is named as a reference is written: a name, api:<name> or api:<namespace>/<name>, read in the entity's namespace")
 				case twice:
-					held = errors.New("service.apis names one API twice")
+					held = errors.New("test-service.apis names one API twice")
 				default:
 					apis[api.String()] = said.Apis[name.Value]
 				}
@@ -337,24 +337,24 @@ func readService(file, directory string, ref entity.Ref, node *yaml.Node) (Servi
 			case kinds[2] && !kinds[0] && !kinds[1]:
 				check.Check = &typev1.ServiceReady_Command{Command: &typev1.ServiceCommandReady{Arguments: *c.command}}
 			default:
-				return mistake(key.Line, "service.ready[%d] is one of port, http or command", n)
+				return mistake(key.Line, "test-service.ready[%d] is one of port, http or command", n)
 			}
 			said.Ready = append(said.Ready, check)
 		}
 	}
 	// Who says how it is started is named: nothing is started by a form
 	// of its own.
-	if service.As == "" && service.Program == "" {
-		return mistake(node.Line, "service does not say what it is: write as: container for an image written out here, or the name of what a plugin of the repository starts")
+	if service.Type == "" && service.Program == "" {
+		return mistake(node.Line, "test-service does not say what it is: write type: container for an image written out here, or the name of what a plugin of the repository starts")
 	}
-	if service.As != "" && service.Program != "" {
-		return mistake(node.Line, "service selects either as or program, never both")
+	if service.Type != "" && service.Program != "" {
+		return mistake(node.Line, "test-service selects either type or program, never both")
 	}
 	if ref.Kind == entity.KindComponent && service.Program == "" {
 		return mistake(node.Line, "only a Resource is started from an image; a Component selects a program")
 	}
 	if ref.Kind == entity.KindComponent && len(said.Exports) > 0 {
-		return mistake(node.Line, "a Component exports through each provided API in service.apis")
+		return mistake(node.Line, "a Component exports through each provided API in test-service.apis")
 	}
 	if ref.Kind == "resource" && len(said.Apis) > 0 {
 		return mistake(node.Line, "a Resource provides no APIs")

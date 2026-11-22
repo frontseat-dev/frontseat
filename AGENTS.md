@@ -259,7 +259,7 @@ the change that fixes it.
   `TestEveryAPIsDefinitionIsThere`.
 - A Component's `providesApis` and `consumesApis` are written by hand.
   Once a Component that provides an API has a service
-  (`spec.frontseat.service`), each Component that consumes it is given
+  (`spec.frontseat.test-service`), each Component that consumes it is given
   that provider as a service for its tests; an API with more than one
   provider that has one is refused
   (`server/internal/engine/evaluate/services.go`).

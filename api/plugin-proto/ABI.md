@@ -230,7 +230,7 @@ messages. The SDK's constructors build each kind.
 
 A plugin may say how a service is started for a test. It says in
 `Describe` the names it answers for (`services`), as a catalog entity
-names what its service is: `spec.frontseat.service.as`. The host asks
+names what its service is: `spec.frontseat.test-service.type`. The host asks
 `Service` of the plugin of the repository that claims the name, with the
 name and what the entity's file wrote beside it, and is answered the
 whole service: an image from outside, its arguments, the ports it serves
@@ -450,7 +450,7 @@ say is a program, as the Go plugin does for each directory that says
 - **Refused by name**: dependency inputs. What runs is the command, and
   its environment is the command's; ports, readiness, endpoints and
   exports are a service's, said in the catalog
-  (`spec.frontseat.service`).
+  (`spec.frontseat.test-service`).
 
 ## Tests in pieces
 

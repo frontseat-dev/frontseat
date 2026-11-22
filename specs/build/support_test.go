@@ -2375,7 +2375,7 @@ spec:
   providesApis: [api:default/orders, api:default/orders-admin]
   dependsOn: [resource:default/greeter]
   frontseat:
-    service:
+    test-service:
       program: ":go.run/orders"
       ports: {http: 8080, admin: 9000}
       ready: [{http: {port: http, path: /, body: hello}}, {http: {port: admin, path: /, body: private}}]
@@ -2476,7 +2476,7 @@ spec:
   type: database
   owner: team
   frontseat:
-    service:
+    test-service:
 `+service)
 	workspace.write("svc/go.mod", "module example.com/svc\n\ngo 1.27\n")
 	workspace.write("svc/run_test.go", fmt.Sprintf("package svc\n\nimport \"testing\"\n\nfunc TestOfThisRun(t *testing.T) { t.Log(%q) }\n", fmt.Sprint(time.Now().UnixNano())))

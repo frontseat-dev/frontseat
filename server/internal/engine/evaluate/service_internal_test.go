@@ -37,9 +37,9 @@ func TestANameTwoPluginsOfARepositoryServiceIsRefused(t *testing.T) {
 // is asked, with what the repository's plugins do service, or that none
 // does.
 func TestAServiceAsWhatNoPluginStartsNamesWhatIs(t *testing.T) {
-	written := config.Service{File: "catalog-info.yaml", Line: 9, Entity: entity.New("resource", "default", "db"), As: "mainframe"}
+	written := config.Service{File: "catalog-info.yaml", Line: 9, Entity: entity.New("resource", "default", "db"), Type: "mainframe"}
 	_, err := startedAs(t.Context(), &Answers{}, map[string]*pluginhost.Plugin{"postgres": starting("postgres", "postgres"), "container": starting("container", "container")}, written, &Evaluation{})
-	if err == nil || !strings.Contains(err.Error(), "started as mainframe, which no plugin of the repository starts: container, postgres") {
+	if err == nil || !strings.Contains(err.Error(), "is of type mainframe, which no plugin of the repository starts: container, postgres") {
 		t.Fatalf("got %v", err)
 	}
 	_, err = startedAs(t.Context(), &Answers{}, nil, written, &Evaluation{})

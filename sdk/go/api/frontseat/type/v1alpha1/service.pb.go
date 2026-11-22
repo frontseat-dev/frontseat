@@ -28,7 +28,7 @@ const (
 
 // Service is how something a test needs is started beside it: the one
 // shape of it, for whoever says it and whoever starts it. A catalog
-// entity writes it (spec.frontseat.service), a plugin answers it
+// entity writes it (spec.frontseat.test-service), a plugin answers it
 // (PluginService.Service), and a worker's runner is told it
 // (frontseat.runner.v1alpha1). In its arguments, its environment, the
 // arguments of a command it is ready by, what it exports and its

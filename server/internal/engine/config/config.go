@@ -293,8 +293,8 @@ func Read(ctx context.Context, name string, files Reader) (*Repository, error) {
 			if frontseat != nil && frontseat.Kind == yaml.MappingNode {
 				for i := 0; i+1 < len(frontseat.Content); i += 2 {
 					key := frontseat.Content[i]
-					if key.Value != "actions" && key.Value != "plugins" && key.Value != "service" && key.Value != "release" && key.Value != "test" && key.Value != "generated" && key.Value != "platforms" {
-						return nil, &model.Mistake{File: r.origin(file), Message: fmt.Sprintf("line %d: spec.frontseat takes no key %s; it takes actions, generated, platforms, plugins, release, service and test", key.Line, key.Value)}
+					if key.Value != "actions" && key.Value != "plugins" && key.Value != "test-service" && key.Value != "release" && key.Value != "test" && key.Value != "generated" && key.Value != "platforms" {
+						return nil, &model.Mistake{File: r.origin(file), Message: fmt.Sprintf("line %d: spec.frontseat takes no key %s; it takes actions, generated, platforms, plugins, release, test and test-service", key.Line, key.Value)}
 					}
 				}
 			}
@@ -350,7 +350,7 @@ func Read(ctx context.Context, name string, files Reader) (*Repository, error) {
 				}
 				r.platforms = append(r.platforms, shipped{file: r.origin(file), directory: directory, platforms: read})
 			}
-			if node := yamlnode.Child(frontseat, "service"); node != nil {
+			if node := yamlnode.Child(frontseat, "test-service"); node != nil {
 				service, err := readService(r.origin(file), directory, ref, node)
 				if err != nil {
 					return nil, err

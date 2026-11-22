@@ -61,8 +61,8 @@ reads it is listed:
 | Plugin | What listing it turns on |
 |---|---|
 | `backstage` | Catalog files: without it no `catalog-info.yaml` is read into entities. |
-| `container` | A service written `as: container`. |
-| `postgres` | A service written `as: postgres`. |
+| `container` | A test service written `type: container`. |
+| `postgres` | A test service written `type: postgres`. |
 | `release` | Releases: a repository that does not list it releases nothing, and says so. Its strategies are the defaults of `versioning` and `branching`. |
 | `go`, `cargo`, `npm`, `jest`, `buf`, `apko`, `github` | The projects and actions of their ecosystems, as each plugin's README says. |
 
@@ -95,8 +95,8 @@ Frontseat reads the ones below and leaves the rest alone.
 | `kind`, `metadata.name`, `metadata.namespace` | The entity's reference, read one way for every key of `spec.frontseat`. A kind Backstage defines is spelled as Backstage spells it (`Component`, `API`, `Resource`, `System`, `Domain`, `Group`, `User`, `Location`): `component` is refused. An entity that says `spec.frontseat` has a name. The namespace is `default` where none is written. |
 | a Component's directory | A Component owns the projects beneath the directory of its catalog file. |
 | `spec.system`, `spec.domain` | What an entity is released with (see `release`). |
-| `spec.providesApis`, `spec.consumesApis` | A Component that consumes an API is given the Component that provides it as a service for its tests, where the provider has a `service`. |
-| `spec.dependsOn` | Each entry names its kind: `component:<name>` or `resource:<name>`. A Component's dependencies on Components are kept in step with its source by Frontseat. A `resource:` entry, written by hand, gives the Component's tests that Resource's `service`. |
+| `spec.providesApis`, `spec.consumesApis` | A Component that consumes an API is given the Component that provides it as a service for its tests, where the provider has a `test-service`. |
+| `spec.dependsOn` | Each entry names its kind: `component:<name>` or `resource:<name>`. A Component's dependencies on Components are kept in step with its source by Frontseat. A `resource:` entry, written by hand, gives the Component's tests that Resource's `test-service`. |
 
 A reference is written as Backstage writes one,
 `[<kind>:][<namespace>/]<name>`, and is read in the namespace of the
@@ -114,7 +114,7 @@ alias or a merge key.
 | `test` | Component | map | What the Component's tests are given beyond their own package. |
 | `generated` | Component | list | Which Component generates a directory of this one. |
 | `actions` | any entity | map | Actions written by hand, for the catalog file's directory. |
-| `service` | Resource, Component | map | How the entity is started beside a test that depends on it. |
+| `test-service` | Resource, Component | map | How the entity is started beside a test that depends on it. |
 | `release` | Domain, System, Component | map | How the entity is versioned and tagged. |
 
 ### What a value reaches
@@ -125,7 +125,7 @@ A key is inherited in one of three ways, and in no other.
 |---|---|---|
 | By directory | `plugins`, `platforms` | The value holds for the catalog file's directory and every directory beneath it. The nearest file above a directory wins, whole: a nearer `platforms` replaces the list, and a nearer option replaces that option. For an option, the order is the Component's catalog file, then `frontseat.yaml`, then the plugin's default. It is said once for a directory. |
 | By group | `release`, except `grouping` | A Component takes each setting it does not say from its System, then from the System's Domain, then the default. `grouping` is each entity's own. |
-| Not inherited | `test`, `generated`, `actions`, `service`, `release.grouping` | The value is the entity's alone. |
+| Not inherited | `test`, `generated`, `actions`, `test-service`, `release.grouping` | The value is the entity's alone. |
 
 ### `plugins`
 
@@ -319,16 +319,16 @@ spec:
         inherit-environment: [GH_TOKEN]
 ```
 
-### `service`
+### `test-service`
 
 How an entity is started beside the tests of the Components that
-depend on it. A Resource is started as what a plugin starts (`as`); a
+depend on it, and nowhere else. A Resource is started as what a plugin starts (`type`); a
 Component is started as one of its own programs (`program`). Exactly
 one of the two is written.
 
 | Key | Said by | Type | Default | Meaning |
 |---|---|---|---|---|
-| `as` | Resource | text | | What starts it, a name a listed plugin claims: `container` for the image written here, or `postgres`. The plugin says every key that is left out. |
+| `type` | Resource | text | | What starts it, a name a listed plugin claims: `container` for the image written here, or `postgres`. The plugin says every key that is left out. |
 | `program` | Component, Resource | text | | The program action that is the service, as `:go.run/orders`. It takes no `image` and no `arguments`. |
 | `image` | Resource | text | the plugin's | The image, named with its registry and digest. |
 | `arguments` | Resource | list of text | the plugin's | The image's arguments. `{host}`, `{port.<name>}` (a port of its own) and `{<resource>.port.<name>}` (a port of a Resource it depends on, by that Resource's name) are filled in. |
@@ -357,8 +357,8 @@ spec:
   type: database
   owner: team
   frontseat:
-    service:
-      as: container
+    test-service:
+      type: container
       image: registry.example.com/team/redis@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec
       arguments: [--port, "{port.redis}"]
       environment: {MODE: test}
@@ -380,8 +380,8 @@ spec:
   type: database
   owner: team
   frontseat:
-    service:
-      as: postgres
+    test-service:
+      type: postgres
 ```
 
 ```yaml
@@ -397,7 +397,7 @@ spec:
   providesApis: [orders-api]
   dependsOn: [resource:db]
   frontseat:
-    service:
+    test-service:
       program: ":go.run/orders"
       ports: {http: 8080}
       ready:

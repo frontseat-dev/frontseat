@@ -545,7 +545,7 @@ message Action {
   // run/greeter. It leaves nothing, is no test, check, fetch or shared
   // action, and has no fix.
   //
-  // A Component's service for tests (spec.frontseat.service.program)
+  // A Component's service for tests (spec.frontseat.test-service.program)
   // prepares declared source, input sets, generated inputs and pinned
   // tools through the ordinary action preparation path. A bare
   // executable must resolve inside those prepared mise installations.

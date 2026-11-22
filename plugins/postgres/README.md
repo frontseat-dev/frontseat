@@ -1,7 +1,7 @@
 # Postgres plugin
 
 Starts PostgreSQL as a service for the tests of a component that
-depends on a Resource whose `spec.frontseat.service` says `as: postgres`.
+depends on a Resource whose `spec.frontseat.test-service` says `type: postgres`.
 With nothing more written, a test is given PostgreSQL 17 (the official
 Alpine image, by digest), ready when `pg_isready` says so over the
 network, reached at its endpoint `sql` (`{host}:{port.sql}`, in
@@ -14,7 +14,7 @@ socket's directory (`/var/lib/postgresql`, `/var/run/postgresql`)
 alone. Another `image` written is told its user by a `user` written
 beside it; what it writes is the same on every official image.
 
-Whatever is written beside `as` is kept, whole, and the rest is said to
+Whatever is written beside `type` is kept, whole, and the rest is said to
 fit it: another `image`; a `ports: {sql: …}` the server is then told to
 listen on; an `environment` whose `POSTGRES_USER`, `POSTGRES_PASSWORD` and
 `POSTGRES_DB` readiness and the exports follow; `exports` of other names;

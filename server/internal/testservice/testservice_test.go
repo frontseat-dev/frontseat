@@ -30,18 +30,18 @@ func TestWhatAServiceCannotBeIsRefusedByItsKey(t *testing.T) {
 		t.Fatalf("a service that is whole was refused: %v", err)
 	}
 	for says, change := range map[string]func(*typev1.Service){
-		"service.image":              func(l *typev1.Service) { l.Image = "--label=x@sha256:" + strings.Repeat("a", 64) },
+		"test-service.image":         func(l *typev1.Service) { l.Image = "--label=x@sha256:" + strings.Repeat("a", 64) },
 		"does not name its registry": func(l *typev1.Service) { l.Image = strings.TrimPrefix(image, "docker.io/library/") },
-		"service names no port": func(l *typev1.Service) {
+		"test-service names no port": func(l *typev1.Service) {
 			l.Ports, l.Ready = nil, []*typev1.ServiceReady{{Check: &typev1.ServiceReady_Command{Command: &typev1.ServiceCommandReady{Arguments: []string{"true"}}}}}
 		},
-		"service.ports: a port is a number from 1 to 65535":                                                func(l *typev1.Service) { l.Ports["http"] = 0 },
-		"a port is a number from 1 to 65535":                                                               func(l *typev1.Service) { l.Ports["http"] = 65536 },
-		"service.ports: a port is named in lower-case letters, digits and dashes, beginning with a letter": func(l *typev1.Service) { l.Ports["HTTP"] = 80 },
-		"says nothing of when it is ready":                                                                 func(l *typev1.Service) { l.Ready = nil },
-		"is one of port, http or command":                                                                  func(l *typev1.Service) { l.Ready = []*typev1.ServiceReady{{}} },
-		"a port it does not name":                                                                          func(l *typev1.Service) { l.Ready = []*typev1.ServiceReady{{Check: &typev1.ServiceReady_Port{}}} },
-		"service.ready[0] names a port it does not serve": func(l *typev1.Service) {
+		"test-service.ports: a port is a number from 1 to 65535":                                                func(l *typev1.Service) { l.Ports["http"] = 0 },
+		"a port is a number from 1 to 65535":                                                                    func(l *typev1.Service) { l.Ports["http"] = 65536 },
+		"test-service.ports: a port is named in lower-case letters, digits and dashes, beginning with a letter": func(l *typev1.Service) { l.Ports["HTTP"] = 80 },
+		"says nothing of when it is ready":                                                                      func(l *typev1.Service) { l.Ready = nil },
+		"is one of port, http or command":                                                                       func(l *typev1.Service) { l.Ready = []*typev1.ServiceReady{{}} },
+		"a port it does not name":                                                                               func(l *typev1.Service) { l.Ready = []*typev1.ServiceReady{{Check: &typev1.ServiceReady_Port{}}} },
+		"test-service.ready[0] names a port it does not serve": func(l *typev1.Service) {
 			l.Ready = []*typev1.ServiceReady{{Check: &typev1.ServiceReady_Port{Port: "sql"}}}
 		},
 		"at no port or path":      func(l *typev1.Service) { l.Ready[0].GetHttp().Path = "@evil.example/" },
@@ -49,15 +49,15 @@ func TestWhatAServiceCannotBeIsRefusedByItsKey(t *testing.T) {
 		"a command that names nothing": func(l *typev1.Service) {
 			l.Ready = []*typev1.ServiceReady{{Check: &typev1.ServiceReady_Command{Command: &typev1.ServiceCommandReady{}}}}
 		},
-		"service.ready-timeout is a length": func(l *typev1.Service) { l.Timeout = durationpb.New(-1 * time.Second) },
-		"more than the hour":                func(l *typev1.Service) { l.Timeout = durationpb.New(3601 * time.Second) },
-		"service.exports: a name the shell can export is letters, digits and underscores": func(l *typev1.Service) { l.Exports = map[string]string{"LD-PRELOAD": "x"} },
+		"test-service.ready-timeout is a length": func(l *typev1.Service) { l.Timeout = durationpb.New(-1 * time.Second) },
+		"more than the hour":                     func(l *typev1.Service) { l.Timeout = durationpb.New(3601 * time.Second) },
+		"test-service.exports: a name the shell can export is letters, digits and underscores": func(l *typev1.Service) { l.Exports = map[string]string{"LD-PRELOAD": "x"} },
 		// What it starts with is named as what it exports is: each of
 		// these would reach the runtime as --env <name>=<value>.
-		"service.environment: a name the shell can export is letters":  func(l *typev1.Service) { l.Environment = map[string]string{"": "x"} },
-		"service.environment: a name the shell can export is letters,": func(l *typev1.Service) { l.Environment = map[string]string{"A=B": "x"} },
-		"service.environment: a name the shell can export is":          func(l *typev1.Service) { l.Environment = map[string]string{"A B": "x"} },
-		"service.environment: a name the shell can export":             func(l *typev1.Service) { l.Environment = map[string]string{"A\nB": "x"} },
+		"test-service.environment: a name the shell can export is letters":  func(l *typev1.Service) { l.Environment = map[string]string{"": "x"} },
+		"test-service.environment: a name the shell can export is letters,": func(l *typev1.Service) { l.Environment = map[string]string{"A=B": "x"} },
+		"test-service.environment: a name the shell can export is":          func(l *typev1.Service) { l.Environment = map[string]string{"A B": "x"} },
+		"test-service.environment: a name the shell can export":             func(l *typev1.Service) { l.Environment = map[string]string{"A\nB": "x"} },
 	} {
 		l := whole()
 		change(l)
@@ -72,12 +72,12 @@ func TestWhatAServiceCannotBeIsRefusedByItsKey(t *testing.T) {
 		says   string
 		change func(*typev1.Service)
 	}{
-		{"0", "service.user:", func(l *typev1.Service) { l.User = "0" }},
-		{"postgres", "service.user:", func(l *typev1.Service) { l.User = "postgres" }},
-		{"-1", "service.user:", func(l *typev1.Service) { l.User = "-1" }},
-		{"/", "service.writable:", func(l *typev1.Service) { l.Writable = []string{"/"} }},
-		{"var/lib", "service.writable:", func(l *typev1.Service) { l.Writable = []string{"var/lib"} }},
-		{"/var/../etc", "service.writable:", func(l *typev1.Service) { l.Writable = []string{"/var/../etc"} }},
+		{"0", "test-service.user:", func(l *typev1.Service) { l.User = "0" }},
+		{"postgres", "test-service.user:", func(l *typev1.Service) { l.User = "postgres" }},
+		{"-1", "test-service.user:", func(l *typev1.Service) { l.User = "-1" }},
+		{"/", "test-service.writable:", func(l *typev1.Service) { l.Writable = []string{"/"} }},
+		{"var/lib", "test-service.writable:", func(l *typev1.Service) { l.Writable = []string{"var/lib"} }},
+		{"/var/../etc", "test-service.writable:", func(l *typev1.Service) { l.Writable = []string{"/var/../etc"} }},
 	} {
 		l := whole()
 		refused.change(l)
@@ -142,7 +142,7 @@ func TestWhatAServiceRefusesIsNotRepeated(t *testing.T) {
 	} {
 		l := whole()
 		change(l)
-		if err := testservice.Check(l); err == nil || !strings.HasPrefix(err.Error(), "service.") || strings.Contains(err.Error(), "SECRET") || strings.Contains(err.Error(), "5346738") {
+		if err := testservice.Check(l); err == nil || !strings.HasPrefix(err.Error(), "test-service.") || strings.Contains(err.Error(), "SECRET") || strings.Contains(err.Error(), "5346738") {
 			t.Errorf("%s: want it refused by its key and not repeated, got %v", name, err)
 		}
 	}
@@ -154,7 +154,7 @@ func TestWhichEndpointIsRefusedDoesNotChangeBetweenChecks(t *testing.T) {
 	for range 50 {
 		l := whole()
 		l.Endpoints = map[string]string{"zeta": "{host}", "alpha": "{port.http}", "mid": "{host}:{port.http}:{port.other}"}
-		if err := testservice.Check(l); err == nil || !strings.Contains(err.Error(), "service.endpoints: alpha does not say {host}") {
+		if err := testservice.Check(l); err == nil || !strings.Contains(err.Error(), "test-service.endpoints: alpha does not say {host}") {
 			t.Fatalf("the endpoint refused: %v", err)
 		}
 	}

@@ -23,7 +23,7 @@ import (
 const digest = "docker.io/library/busybox:1.37@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec"
 
 func resource(namespace, name string, ports map[string]int32) config.Service {
-	return config.Service{File: "catalog-info.yaml", Entity: entity.New("resource", namespace, name), As: "container", Said: &typev1.Service{
+	return config.Service{File: "catalog-info.yaml", Entity: entity.New("resource", namespace, name), Type: "container", Said: &typev1.Service{
 		Image: digest, Ports: ports, Ready: []*typev1.ServiceReady{{Check: &typev1.ServiceReady_Port{Port: first(ports)}}},
 	}}
 }

@@ -218,7 +218,7 @@ pub struct Description {
     /// "conventional-commits".
     pub versionings: Vec<String>,
     /// The names of the services it says how to start for a test, as an
-    /// entity's service names what it is (`spec.frontseat.service.as`),
+    /// entity's service names what it is (`spec.frontseat.test-service.type`),
     /// lower-case `[a-z0-9-]`: "postgres". The host asks
     /// [`Plugin::service`] for each.
     pub services: Vec<String>,

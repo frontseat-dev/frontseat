@@ -9,7 +9,7 @@ import (
 
 // A test's services are written by hand: a Component's dependsOn names
 // the Resources its tests need, and a Resource says how it is started
-// in spec.frontseat.service. Each test action of the component runs in a
+// in spec.frontseat.test-service. Each test action of the component runs in a
 // runner sandbox of its own, its services beside it on a network that
 // holds a loopback and nothing else, and is given what they export.
 // A test's services / A component's tests reach the service its Resource starts.
@@ -90,7 +90,7 @@ func TestAnExportThatIsNoNameTheShellCanExportIsRefusedByName(t *testing.T) {
 	dashed := strings.Replace(greeterService, "GREETER_ADDR:", "GREETER-ADDR:", 1)
 	workspace := spec.greeterWorkspace(greeterComponent(true), greeterResource(dashed))
 
-	spec.Expect(workspace.build().says()).To(ContainSubstring("service.exports: a name the shell can export is letters, digits and underscores, beginning with no digit"))
+	spec.Expect(workspace.build().says()).To(ContainSubstring("test-service.exports: a name the shell can export is letters, digits and underscores, beginning with no digit"))
 }
 
 // A test's services / An image named without its registry is refused by name.
@@ -112,7 +112,7 @@ func TestAKeyServiceDoesNotTakeIsRefusedByName(t *testing.T) {
 	privileged := greeterService + "      privileged: true\n"
 	workspace := spec.greeterWorkspace(greeterComponent(true), greeterResource(privileged))
 
-	spec.Expect(workspace.build().says()).To(ContainSubstring("service takes no key privileged"))
+	spec.Expect(workspace.build().says()).To(ContainSubstring("test-service takes no key privileged"))
 }
 
 // A test's services / A Resource started as postgres is a database its component's tests reach, with nothing more written.
@@ -120,7 +120,7 @@ func TestAResourceStartedAsPostgresIsADatabaseItsComponentSTestsReachWithNothing
 	t.Parallel()
 	spec := newScenario(t)
 
-	workspace := spec.databaseWorkspace("      as: postgres\n")
+	workspace := spec.databaseWorkspace("      type: postgres\n")
 
 	build := workspace.build()
 
@@ -132,7 +132,7 @@ func TestWhatIsWrittenBesideAsIsKeptTheTestsAreToldWhatTheResourceExportsAndNotW
 	t.Parallel()
 	spec := newScenario(t)
 
-	workspace := spec.databaseWorkspace("      as: postgres\n      exports: {DATABASE: \"{host}:{port.sql}\"}\n")
+	workspace := spec.databaseWorkspace("      type: postgres\n      exports: {DATABASE: \"{host}:{port.sql}\"}\n")
 
 	build := workspace.build()
 
@@ -146,7 +146,7 @@ func TestAPortWrittenBesideAsIsThePortTheDatabaseServesOn(t *testing.T) {
 	t.Parallel()
 	spec := newScenario(t)
 
-	workspace := spec.databaseWorkspace("      as: postgres\n      ports: {sql: 6543}\n      exports: {DATABASE: \"{host}:6543\"}\n")
+	workspace := spec.databaseWorkspace("      type: postgres\n      ports: {sql: 6543}\n      exports: {DATABASE: \"{host}:6543\"}\n")
 
 	build := workspace.build()
 
@@ -158,11 +158,11 @@ func TestWhatAPluginCannotMakeFitWhatIsWrittenIsRefusedWhereItIsWritten(t *testi
 	t.Parallel()
 	spec := newScenario(t)
 
-	workspace := spec.databaseWorkspace("      as: postgres\n      environment: {TZ: UTC}\n")
+	workspace := spec.databaseWorkspace("      type: postgres\n      environment: {TZ: UTC}\n")
 
 	spec.Expect(workspace.build().says()).To(And(
 		ContainSubstring("catalog-info.yaml"),
-		ContainSubstring("resource:default/db, started as postgres: the environment written gives PostgreSQL no POSTGRES_PASSWORD"),
+		ContainSubstring("resource:default/db, of type postgres: the environment written gives PostgreSQL no POSTGRES_PASSWORD"),
 	))
 }
 
@@ -171,10 +171,10 @@ func TestAServiceThatDoesNotSayWhatItIsStartedAsIsRefused(t *testing.T) {
 	t.Parallel()
 	spec := newScenario(t)
 
-	bare := strings.Replace(greeterService, "      as: container\n", "", 1)
+	bare := strings.Replace(greeterService, "      type: container\n", "", 1)
 	workspace := spec.greeterWorkspace(greeterComponent(true), greeterResource(bare))
 
-	spec.Expect(workspace.build().says()).To(ContainSubstring("service does not say what it is: write as: container"))
+	spec.Expect(workspace.build().says()).To(ContainSubstring("test-service does not say what it is: write type: container"))
 }
 
 // A test's services / A service as something no plugin of the repository starts is refused by name, with what is started.
@@ -182,10 +182,10 @@ func TestAServiceAsSomethingNoPluginOfTheRepositoryStartsIsRefusedByNameWithWhat
 	t.Parallel()
 	spec := newScenario(t)
 
-	unknown := strings.Replace(greeterService, "as: container", "as: mainframe", 1)
+	unknown := strings.Replace(greeterService, "type: container", "type: mainframe", 1)
 	workspace := spec.greeterWorkspace(greeterComponent(true), greeterResource(unknown))
 
-	spec.Expect(workspace.build().says()).To(ContainSubstring("started as mainframe, which no plugin of the repository starts: container, postgres"))
+	spec.Expect(workspace.build().says()).To(ContainSubstring("is of type mainframe, which no plugin of the repository starts: container, postgres"))
 }
 
 // A test's services / Only a Resource is started.
@@ -193,7 +193,7 @@ func TestOnlyAResourceIsStarted(t *testing.T) {
 	t.Parallel()
 	spec := newScenario(t)
 
-	component := strings.Replace(greeterComponent(true), "  owner: team\n", "  owner: team\n  frontseat:\n    service:\n      as: container\n      image: x\n", 1)
+	component := strings.Replace(greeterComponent(true), "  owner: team\n", "  owner: team\n  frontseat:\n    test-service:\n      type: container\n      image: x\n", 1)
 	workspace := spec.greeterWorkspace(component, greeterResource(greeterService))
 
 	spec.Expect(workspace.build().says()).To(ContainSubstring("only a Resource is started"))
@@ -208,11 +208,11 @@ func TestAResourceThatSaysLaunchIsRefusedByNameTheSameSaidAsServiceIsStarted(t *
 	t.Parallel()
 	spec := newScenario(t)
 
-	launched := strings.Replace(greeterResource(greeterService), "    service:\n", "    launch:\n", 1)
+	launched := strings.Replace(greeterResource(greeterService), "    test-service:\n", "    launch:\n", 1)
 	refused := spec.greeterWorkspace(greeterComponent(true), launched).build()
 	spec.Expect(refused.says()).To(And(
 		ContainSubstring("catalog-info.yaml"),
-		ContainSubstring("spec.frontseat takes no key launch; it takes actions, generated, platforms, plugins, release, service and test"),
+		ContainSubstring("spec.frontseat takes no key launch; it takes actions, generated, platforms, plugins, release, test and test-service"),
 	))
 	spec.Expect(refused.actions()).To(BeEmpty())
 
@@ -268,7 +268,7 @@ var endpointTest = strings.NewReplacer(
 `).Replace(greeterTest)
 
 // The service: busybox answering whoever connects with hello.
-const greeterService = `      as: container
+const greeterService = `      type: container
       image: docker.io/library/busybox:1.37@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec
       arguments: [nc, -lk, -p, "7000", -e, echo, hello]
       ports: {greet: 7000}
@@ -299,6 +299,6 @@ spec:
   type: service
   owner: team
   frontseat:
-    service:
+    test-service:
 ` + service
 }

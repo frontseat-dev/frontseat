@@ -44,7 +44,7 @@ func claimants(repository string, selected []*pluginhost.Plugin) (map[string]*pl
 // host fails the call, what it says is of what it was told alone, and
 // the same question is answered once and kept.
 func startedAs(ctx context.Context, answers asking, claimed map[string]*pluginhost.Plugin, written config.Service, out *Evaluation) (config.Service, error) {
-	plugin := claimed[written.As]
+	plugin := claimed[written.Type]
 	if plugin == nil {
 		names := make([]string, 0, len(claimed))
 		for as := range claimed {
@@ -55,13 +55,13 @@ func startedAs(ctx context.Context, answers asking, claimed map[string]*pluginho
 		if len(names) > 0 {
 			known = strings.Join(names, ", ")
 		}
-		return config.Service{}, written.Mistake(fmt.Errorf("%s is started as %s, which no plugin of the repository starts: %s", written.Entity, written.As, known))
+		return config.Service{}, written.Mistake(fmt.Errorf("%s is of type %s, which no plugin of the repository starts: %s", written.Entity, written.Type, known))
 	}
 	// A plugin is told only what could be a service.
 	if err := testservice.Shaped(written.Said); err != nil {
 		return config.Service{}, written.Mistake(err)
 	}
-	request := &pluginv1.ServiceRequest{Name: written.As, Written: written.Said}
+	request := &pluginv1.ServiceRequest{Name: written.Type, Written: written.Said}
 	response := &pluginv1.ServiceResponse{}
 	again, err := answers.askAlone(ctx, plugin, "Service", request, response)
 	if err != nil {
@@ -70,7 +70,7 @@ func startedAs(ctx context.Context, answers asking, claimed map[string]*pluginho
 		// no file. Anything else is the plugin's own failure.
 		var said *pluginhost.Error
 		if errors.As(err, &said) && said.Status.GetCode() == int32(codes.InvalidArgument) {
-			return config.Service{}, &model.Mistake{File: written.File, Message: fmt.Sprintf("line %d: %s, started as %s: %s", written.Line, written.Entity, written.As, said.Error()), Cause: said}
+			return config.Service{}, &model.Mistake{File: written.File, Message: fmt.Sprintf("line %d: %s, of type %s: %s", written.Line, written.Entity, written.Type, said.Error()), Cause: said}
 		}
 		return config.Service{}, fmt.Errorf("plugin %s, asked how %s is started: %w", plugin.Description.GetName(), written.Entity, err)
 	}
@@ -86,7 +86,7 @@ func startedAs(ctx context.Context, answers asking, claimed map[string]*pluginho
 		// more than was written, that it is the plugin's saying, since
 		// what is wrong may be the plugin's own.
 		if !proto.Equal(l.Said, written.Said) {
-			err = fmt.Errorf("as the plugin %s says %s is started: %w", plugin.Description.GetName(), written.As, err)
+			err = fmt.Errorf("as the plugin %s says a service of type %s is started: %w", plugin.Description.GetName(), written.Type, err)
 		}
 		return config.Service{}, l.Mistake(err)
 	}

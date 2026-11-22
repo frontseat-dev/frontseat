@@ -18,7 +18,7 @@ func TestAnEntityIsReadOneWayForEveryKey(t *testing.T) {
 	}
 	keys := map[string]struct{ kind, frontseat string }{
 		"release":   {"Component", "    release: {tag: \"{unit}@{version}\"}\n"},
-		"service":   {"Resource", "    service: {as: postgres}\n"},
+		"service":   {"Resource", "    test-service: {type: postgres}\n"},
 		"test":      {"Component", "    test: {tools: [buf]}\n"},
 		"platforms": {"Component", "    platforms: [linux/amd64]\n"},
 		"plugins":   {"Component", "    plugins: {go: {test-shards: 2}}\n"},

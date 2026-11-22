@@ -25,7 +25,7 @@ spec:
         tools: [caddy]
         command: [caddy, run, --config, primary.json]
         inputs: [primary.json]
-    service:
+    test-service:
       program: ":custom.serve"
       ports: {http: 8080}
       ready: [{port: http}]

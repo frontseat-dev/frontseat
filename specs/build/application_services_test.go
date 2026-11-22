@@ -78,7 +78,7 @@ spec:
   owner: team
   dependsOn: [resource:default/` + item.dependency + `]
   frontseat:
-    service:
+    test-service:
       program: "//orders:go.run/orders"
       ports: {http: 8080}
       ready: [{http: {port: http, path: /, body: ` + item.body + `}}]
@@ -137,7 +137,7 @@ spec:
         command: [caddy, run, --config, caddy.json]
         tools: [caddy]
         inputs: [caddy.json]
-    service:
+    test-service:
       program: ":custom.serve"
       ports: {http: 8080}
       ready: [{http: {port: http, path: /, body: hello}}]
