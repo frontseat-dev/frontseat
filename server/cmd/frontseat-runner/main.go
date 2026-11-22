@@ -59,7 +59,7 @@ func main() {
 	flag.StringVar(&config.Gateway, "gateway", "", "the OpenShell gateway that makes every sandbox, as a URL")
 	flag.StringVar(&config.Identity, "identity", "", "the directory holding what the gateway is known by and knows this program by: ca.crt, tls.crt and tls.key")
 	flag.StringVar(&config.Runtime, "runtime", "", "the command line of the gateway's container runtime (podman), asked what an image is started with")
-	flag.StringVar(&config.BB, "bb", "", "the directory bb_runner and the confiners are in, as the container runtime sees it")
+	flag.StringVar(&config.BB, "bb", "", "the directory the runner and the confiners are in, as the container runtime sees it")
 	flag.Var(given, "registry", "a registry an image may come from and the proxy's address for it, as registry=proxy; give it once for each; without any, images are pulled from their registries")
 	flag.StringVar(&config.State, "state", "", "the directory it keeps what is its own in: the sandbox service's records and the socket it is asked on")
 	flag.Parse()

@@ -3,7 +3,7 @@ package runner
 import (
 	"context"
 	"errors"
-	"fmt"
+	"io/fs"
 	"net"
 	"os"
 	"os/exec"
@@ -78,7 +78,7 @@ func (r *Confined) CheckReadiness(_ context.Context, request *bbrunner.CheckRead
 		return nil, err
 	}
 	if _, err := os.Lstat(at); err != nil {
-		return nil, status.Errorf(codes.Internal, "%s is not in the build directory: %v", request.GetPath(), err)
+		return nil, status.Errorf(codes.Internal, "the path is not in the build directory: %v", cause(err))
 	}
 	return &emptypb.Empty{}, nil
 }
@@ -178,7 +178,7 @@ func confined(confiners string, arguments []string, dir, root string) error {
 	up := arguments[2]
 	for _, step := range strings.Split(up, "/") {
 		if step != ".." && step != "." {
-			return fmt.Errorf("the way up to the action's root is %q: it is .. or . alone", up)
+			return errors.New("the way up to the action's root is not .. or . alone: it is not run")
 		}
 	}
 	if filepath.Join(dir, up) != root {
@@ -219,9 +219,19 @@ func within(dir, path string) (string, error) {
 		return dir, nil
 	}
 	if !filepath.IsLocal(path) {
-		return "", status.Errorf(codes.InvalidArgument, "%q is no path beneath its directory", path)
+		return "", status.Error(codes.InvalidArgument, "a path the request names is not beneath its directory")
 	}
 	return filepath.Join(dir, path), nil
+}
+
+// cause is why the system refused a path, without the path: a client of
+// the grid wrote it, and a refusal does not repeat it.
+func cause(err error) error {
+	var at *fs.PathError
+	if errors.As(err, &at) {
+		return at.Err
+	}
+	return err
 }
 
 // output opens an output file of the action's, made anew in the build
@@ -233,7 +243,7 @@ func (r *Confined) output(path string) (*os.File, error) {
 	}
 	file, err := os.OpenFile(at, os.O_WRONLY|os.O_CREATE|os.O_EXCL|os.O_APPEND|syscall.O_NOFOLLOW, 0o666)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "opening %s: %v", path, err)
+		return nil, status.Errorf(codes.InvalidArgument, "opening an output file of the action's: %v", cause(err))
 	}
 	return file, nil
 }

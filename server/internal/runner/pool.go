@@ -32,7 +32,7 @@ type sandboxes interface {
 // anew each time it starts, and a sandbox holds the mount it was made
 // with: so a slot whose mount is not the one its sandbox holds has its
 // sandbox made anew, and so has one whose sandbox failed or is gone
-// (its bb_runner ended). What goes wrong with one slot is said, and the
+// (its runner ended). What goes wrong with one slot is said, and the
 // slot is tried again; the others are kept meanwhile.
 type Pool struct {
 	// Sandboxes is the driver that makes them.
@@ -67,8 +67,8 @@ type Pool struct {
 	Every, Wait time.Duration
 }
 
-// label marks a sandbox the pool made, with its slot: what is the pool's
-// to delete.
+// slotLabel marks a sandbox the pool made, with its slot: what is the
+// pool's to delete.
 const slotLabel = "frontseat.dev/runner-slot"
 
 // idOf is a slot's sandbox's id.
@@ -296,13 +296,23 @@ func (p Pool) gone(ctx context.Context, slot int) error {
 	if err := p.Sandboxes.Delete(ctx, id); err != nil && !errors.Is(err, driver.ErrNotFound) {
 		return err
 	}
+	// What the driver last failed to answer with, where the waiting was
+	// not what ended the asking: it is said, and not taken for a sandbox
+	// still held.
+	var failed error
 	for {
 		_, err := p.Sandboxes.Observe(ctx, id)
 		if errors.Is(err, driver.ErrNotFound) {
 			return nil
 		}
+		if ctx.Err() == nil {
+			failed = err
+		}
 		select {
 		case <-ctx.Done():
+			if failed != nil {
+				return fmt.Errorf("its sandbox deleted could not be asked after for %s: %w", p.Wait, failed)
+			}
 			return fmt.Errorf("its sandbox deleted was still held after %s", p.Wait)
 		case <-time.After(200 * time.Millisecond):
 		}

@@ -284,6 +284,31 @@ func TestADeletionIsWaitedOnNoLongerThanThePoolSays(t *testing.T) {
 	}
 }
 
+// unanswering is a driver that deletes nothing and cannot say what it
+// holds.
+type unanswering struct{ stuck }
+
+var errUnanswered = errors.New("the gateway answers nothing")
+
+func (unanswering) Observe(context.Context, string) (driver.Sandbox, error) {
+	return driver.Sandbox{}, errUnanswered
+}
+
+// A driver that cannot say whether a deleted sandbox is gone is not
+// taken for one that still holds it: what it failed with is said. The
+// control is the driver that holds it still, which is said to.
+func TestADriverThatCannotSayASandboxIsGoneIsSaidSo(t *testing.T) {
+	d := &held{by: map[string]driver.Sandbox{"runner-1": {ID: "runner-1"}}}
+	for name, sandboxes := range map[string]sandboxes{"unanswering": unanswering{stuck{d}}, "holding": stuck{d}} {
+		p := pool(sandboxes, mounted("/var/lib/frontseat/worker", map[int]string{1: "101"}))
+		p.Wait = 50 * time.Millisecond
+		_, err := p.keepSlot(t.Context(), 1, "", false)
+		if said := errors.Is(err, errUnanswered); err == nil || said != (name == "unanswering") {
+			t.Errorf("a driver %s: %v", name, err)
+		}
+	}
+}
+
 // A slot's runner is given to the worker once, by what Hand does, at an
 // endpoint beside the slots' directories and in none of them: until then
 // the worker finds no runner, and what was at the endpoint before is

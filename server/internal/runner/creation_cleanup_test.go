@@ -17,17 +17,17 @@ import (
 	"github.com/frontseat-dev/frontseat/server/testsupport/testbox"
 )
 
-// delayedReviewDelivery models a lost answer from a transport that has already
+// delayedDelivery models a lost answer from a transport that has already
 // accepted the original message, but delivers it after a later request. The
 // caller's cancellation cannot recall a message that the transport has accepted.
-type delayedReviewDelivery struct {
+type delayedDelivery struct {
 	sandboxv1alpha1connect.SandboxServiceClient
 	delay    bool
 	release  chan struct{}
 	finished chan error
 }
 
-func (c *delayedReviewDelivery) CreateSandbox(ctx context.Context, req *sandboxv1.CreateSandboxRequest) (*sandboxv1.CreateSandboxResponse, error) {
+func (c *delayedDelivery) CreateSandbox(ctx context.Context, req *sandboxv1.CreateSandboxRequest) (*sandboxv1.CreateSandboxResponse, error) {
 	if c.delay {
 		c.delay = false
 		go func() {
@@ -42,10 +42,10 @@ func (c *delayedReviewDelivery) CreateSandbox(ctx context.Context, req *sandboxv
 	return c.SandboxServiceClient.CreateSandbox(ctx, req)
 }
 
-func TestReviewAnOriginalCreateDeliveredAfterCleanupCannotRecreate(t *testing.T) {
+func TestAnOriginalCreateDeliveredAfterCleanupCannotRecreate(t *testing.T) {
 	image := testbox.Plain(t)
 	r, client := runtimeSandboxes(t)
-	transport := &delayedReviewDelivery{SandboxServiceClient: client, release: make(chan struct{}), finished: make(chan error, 1)}
+	transport := &delayedDelivery{SandboxServiceClient: client, release: make(chan struct{}), finished: make(chan error, 1)}
 	r.sandboxes = transport
 	a := runtimeAttempt(t, r)
 	ctx, cancel := context.WithCancel(t.Context())
@@ -86,20 +86,20 @@ func TestReviewAnOriginalCreateDeliveredAfterCleanupCannotRecreate(t *testing.T)
 	}
 }
 
-type sweepReviewClient struct {
+type sweepingClient struct {
 	sandboxv1alpha1connect.SandboxServiceClient
 	deleted []string
 	refuse  bool
 }
 
-func (c *sweepReviewClient) ListSandboxes(context.Context, *sandboxv1.ListSandboxesRequest) (*sandboxv1.ListSandboxesResponse, error) {
+func (c *sweepingClient) ListSandboxes(context.Context, *sandboxv1.ListSandboxesRequest) (*sandboxv1.ListSandboxesResponse, error) {
 	return &sandboxv1.ListSandboxesResponse{Sandboxes: []*sandboxv1.Sandbox{
 		{Id: "provider", Spec: &sandboxv1.SandboxSpec{Labels: map[string]string{label: "1", "dev.frontseat.runner-order": "000"}}},
 		{Id: "consumer", Spec: &sandboxv1.SandboxSpec{Labels: map[string]string{label: "1", "dev.frontseat.runner-order": "001"}}},
 	}}, nil
 }
 
-func (c *sweepReviewClient) DeleteSandbox(_ context.Context, req *sandboxv1.DeleteSandboxRequest) (*sandboxv1.DeleteSandboxResponse, error) {
+func (c *sweepingClient) DeleteSandbox(_ context.Context, req *sandboxv1.DeleteSandboxRequest) (*sandboxv1.DeleteSandboxResponse, error) {
 	c.deleted = append(c.deleted, req.SandboxId)
 	if c.refuse && req.SandboxId == "consumer" {
 		return nil, connect.NewError(connect.CodeUnavailable, "consumer still running")
@@ -107,8 +107,8 @@ func (c *sweepReviewClient) DeleteSandbox(_ context.Context, req *sandboxv1.Dele
 	return &sandboxv1.DeleteSandboxResponse{}, nil
 }
 
-func TestReviewRestartCleanupKeepsDependenciesOfAnUndeletedConsumer(t *testing.T) {
-	c := &sweepReviewClient{refuse: true}
+func TestRestartCleanupKeepsDependenciesOfAnUndeletedConsumer(t *testing.T) {
+	c := &sweepingClient{refuse: true}
 	r := &runner{sandboxes: c, own: t.TempDir()}
 	owned := filepath.Join(r.own, strings.Repeat("a", 32))
 	keep := filepath.Join(r.own, "keep")
@@ -141,13 +141,13 @@ func TestReviewRestartCleanupKeepsDependenciesOfAnUndeletedConsumer(t *testing.T
 	}
 }
 
-type inventoryReviewClient struct {
+type inventoryClient struct {
 	sandboxv1alpha1connect.SandboxServiceClient
 	entered chan struct{}
 	once    sync.Once
 }
 
-func (c *inventoryReviewClient) ListSandboxes(ctx context.Context, req *sandboxv1.ListSandboxesRequest) (*sandboxv1.ListSandboxesResponse, error) {
+func (c *inventoryClient) ListSandboxes(ctx context.Context, req *sandboxv1.ListSandboxesRequest) (*sandboxv1.ListSandboxesResponse, error) {
 	c.once.Do(func() { close(c.entered) })
 	return c.SandboxServiceClient.ListSandboxes(ctx, req)
 }
@@ -176,7 +176,7 @@ func TestCleanupJoinsAnAlreadyAdmittedCreation(t *testing.T) {
 		})
 	})
 	a := runtimeAttempt(t, r)
-	inventory := &inventoryReviewClient{SandboxServiceClient: client, entered: make(chan struct{})}
+	inventory := &inventoryClient{SandboxServiceClient: client, entered: make(chan struct{})}
 	r.sandboxes = inventory
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
