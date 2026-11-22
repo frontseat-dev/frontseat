@@ -1,7 +1,14 @@
 package pluginhost
 
 import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/frontseat-dev/frontseat/server/testsupport/testmodule"
 
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
@@ -130,6 +137,91 @@ func TestPluginErrorBindingDoesNotMutateSharedDetails(t *testing.T) {
 		}
 		if !proto.Equal(s, before) {
 			t.Fatal("binding mutated the original status")
+		}
+	}
+}
+
+// TestTheSDKRefusesTheFailuresTheHostRefuses holds the host and the
+// Rust SDK to one table of failures (the testkit's, which
+// sdk/plugin-test/tests/failures.rs runs too): what a plugin's author
+// may write as a failure, each encoded here as the SDK encodes one. The
+// host accepts each the table says is accepted and refuses each other,
+// and the SDK refuses the same before it encodes one, so that an author
+// hears of it from the SDK and the testkit, in words about the failure.
+func TestTheSDKRefusesTheFailuresTheHostRefuses(t *testing.T) {
+	root, err := testmodule.Root()
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(root, "sdk", "plugin-test", "testdata", "failures.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cases []struct {
+		Case     string `json:"case"`
+		Code     int32  `json:"code"`
+		Reason   string `json:"reason"`
+		Message  string `json:"message"`
+		Path     string `json:"path"`
+		Line     int32  `json:"line"`
+		Accepted bool   `json:"accepted"`
+	}
+	if err := json.Unmarshal(raw, &cases); err != nil {
+		t.Fatal(err)
+	}
+	accepted := 0
+	for _, c := range cases {
+		// As Error::into_status encodes one (sdk/plugin/src/contract.rs).
+		message := c.Message
+		if c.Line > 0 {
+			message = fmt.Sprintf("line %d: %s", c.Line, message)
+		}
+		finding := &typev1.Diagnostic{RuleId: "go/" + c.Reason, Message: c.Message}
+		if c.Path != "" {
+			message = c.Path + ": " + message
+			finding.SourceLocation = &typev1.SourceLocation{Path: c.Path, Line: c.Line}
+		}
+		reason := strings.ReplaceAll(strings.ToUpper(c.Reason), "-", "_")
+		_, err := readError("go", &statuspb.Status{Code: c.Code, Message: message, Details: []*anypb.Any{
+			errorDetail(t, &errdetails.ErrorInfo{Reason: reason, Domain: "go.plugins.frontseat.dev"}),
+			errorDetail(t, finding),
+		}})
+		if (err == nil) != c.Accepted {
+			t.Errorf("%s: the host says %v, and the table that it is accepted: %v", c.Case, err, c.Accepted)
+		}
+		if c.Accepted {
+			accepted++
+		}
+	}
+	if accepted == 0 || accepted == len(cases) {
+		t.Fatalf("the table holds %d cases, %d accepted: it proves nothing without both", len(cases), accepted)
+	}
+}
+
+// Each rule a failure is held to has a refusal of its own, which says
+// the rule and repeats nothing of what was refused.
+func TestARefusedFailureSaysTheRuleItBroke(t *testing.T) {
+	failure := func(reason, domain, rule, message, path string) *statuspb.Status {
+		return &statuspb.Status{Code: int32(codes.FailedPrecondition), Message: "it is wrong", Details: []*anypb.Any{
+			errorDetail(t, &errdetails.ErrorInfo{Reason: reason, Domain: domain}),
+			errorDetail(t, &typev1.Diagnostic{RuleId: rule, Message: message, SourceLocation: &typev1.SourceLocation{Path: path}}),
+		}}
+	}
+	const domain = "go.plugins.frontseat.dev"
+	if _, err := readError("go", failure("INVALID_MANIFEST", domain, "go/invalid-manifest", "it is wrong", "go.mod")); err != nil {
+		t.Fatalf("the control was refused: %v", err)
+	}
+	for rule, refused := range map[string]*statuspb.Status{
+		"reason is not UPPER_SNAKE_CASE":              failure("Secret Words", domain, "go/secret-words", "it is wrong", "go.mod"),
+		"domain is not go.plugins.frontseat.dev":      failure("INVALID_MANIFEST", "secret.example.com", "go/invalid-manifest", "it is wrong", "go.mod"),
+		"a rule that is not go/<reason>":              failure("INVALID_MANIFEST", domain, "secret/invalid-manifest", "it is wrong", "go.mod"),
+		"not its ErrorInfo reason in lower case":      failure("INVALID_MANIFEST", domain, "go/secret-words", "it is wrong", "go.mod"),
+		"diagnostic has no message":                   failure("INVALID_MANIFEST", domain, "go/invalid-manifest", "", "go.mod"),
+		"a path that is not a file of the repository": failure("INVALID_MANIFEST", domain, "go/invalid-manifest", "it is wrong", "/secret/words"),
+	} {
+		_, err := readError("go", refused)
+		if err == nil || !strings.Contains(err.Error(), rule) || strings.Contains(strings.ToLower(err.Error()), "secret") {
+			t.Errorf("want a refusal that says %q and nothing of what was refused, got %v", rule, err)
 		}
 	}
 }

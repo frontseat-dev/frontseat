@@ -423,8 +423,7 @@ func speaking(abi uint32) []byte {
 }
 
 // handWritten is a wasm module of the type, function, memory, export and
-// code sections given, each left out where it is nil. Every section is
-// shorter than 128 bytes, so each length is one byte.
+// code sections given, each left out where it is nil.
 func handWritten(types, functions, memory, exports, code []byte) []byte {
 	module := []byte{0, 'a', 's', 'm', 1, 0, 0, 0}
 	for _, s := range []struct {
@@ -434,10 +433,7 @@ func handWritten(types, functions, memory, exports, code []byte) []byte {
 		if s.body == nil {
 			continue
 		}
-		if len(s.body) >= 128 {
-			panic("a section of 128 bytes or more takes more than one byte of length")
-		}
-		module = append(append(module, s.id, byte(len(s.body))), s.body...)
+		module = append(append(module, s.id), counted(s.body)...)
 	}
 	return module
 }
