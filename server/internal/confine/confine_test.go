@@ -781,7 +781,7 @@ func TestWhatDoesNotAnswerInTimeOrCannotBeRunByAnyoneIsReplaced(t *testing.T) {
 // gone says whether a process has ended, waiting a moment for what
 // reaps it: one that is no more, or one that has ended and is only not
 // reaped yet (a zombie), as it stays where nothing reaps orphans, as
-// under a runner whose first process is bb_runner. Where the system says
+// under a runner whose first process reaps none. Where the system says
 // a process's state (/proc), that is asked; elsewhere, whether it is.
 func gone(pid int) bool {
 	for range 50 {
@@ -933,5 +933,26 @@ func TestAGroupIsKilledWholeWhereASignalToAGroupIsRefused(t *testing.T) {
 			_ = syscall.Kill(background, syscall.SIGKILL)
 			t.Errorf("refused %v: the process the group's leader started in the background was left", refused)
 		}
+	}
+}
+
+// A refusal says what was refused and why, never the value: the spec
+// and the way up are written by any client of the grid, and a value may
+// hold a token. The controls are the daemon's spec and a way up, which
+// TestASpecThatIsNotWhatTheDaemonWritesIsRefused and
+// TestTheWayUpToTheRootGoesUpAlone see taken.
+func TestARefusalRepeatsNothingTheConfinerWasTold(t *testing.T) {
+	const marked = "tok3n"
+	if _, err := read(encoded(t, valid())); err != nil {
+		t.Fatalf("the daemon's spec is refused: %v", err)
+	}
+	spec := valid()
+	spec.Home = "../" + marked
+	if _, err := read(encoded(t, spec)); err == nil || strings.Contains(err.Error(), marked) {
+		t.Errorf("a spec that names a directory out of the root: %v", err)
+	}
+	t.Chdir(t.TempDir())
+	if err := Main([]string{encoded(t, valid()), "../" + marked, "/bin/true"}); err == nil || strings.Contains(err.Error(), marked) {
+		t.Errorf("a way up that is none: %v", err)
 	}
 }

@@ -6,7 +6,7 @@
 //
 // What it is told is data, never a script: a Spec, the way from the
 // directory the action runs in to its root, and the command. The program
-// is the worker's own, at Confiner, beside bb_runner: nothing an action is
+// is the worker's own, at Confiner, beside the runner: nothing an action is
 // handed starts it. Each form of it is installed under its own name, so
 // that the daemons of several checkouts share one grid, each finding its
 // own. It finds the root, makes the action's home and temporary directory
@@ -29,8 +29,9 @@
 //
 // Nothing of what an action is to be given is in the environment of what
 // starts it: the action's environment is in the spec, set by the program
-// just before the command runs. What it is started with is the worker's
-// own (its configured variables), which it passes on.
+// just before the command runs. What it is started with is what the
+// request gave, which any client of the grid may write, and which it
+// passes on.
 //
 // # Form
 //
