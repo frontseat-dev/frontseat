@@ -13,7 +13,6 @@ import (
 	"os"
 	"strings"
 
-	"connectrpc.com/connect/v2"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
@@ -133,7 +132,9 @@ Without it, it asks the workspace last opened.
 
 Inside a workspace's sandbox, a command asks that workspace's daemon,
 on the loopback, to build, run and release, and no control plane: there
-the workspace's source is fixed, and the workspace commands are refused.`,
+the workspace's source is fixed, and the workspace commands are refused.
+
+` + exitCodes,
 	// A mistake in how a command is written is said once, by main, and
 	// the usage is asked for with --help.
 	SilenceUsage:  true,
@@ -141,16 +142,14 @@ the workspace's source is fixed, and the workspace commands are refused.`,
 }
 
 // Execute runs the command the arguments name, and returns the exit code
-// it ends with, or why it could not run.
+// it ends with, and why it failed where it did (Failed says it).
 func Execute(ctx context.Context, args []string) (int, error) {
 	exitCode = 0
 	fresh(rootCmd, ctx)
 	rootCmd.SetArgs(args)
 	if err := rootCmd.ExecuteContext(ctx); err != nil {
-		if connect.CodeOf(err) == connect.CodeUnavailable {
-			return 0, fmt.Errorf("%w\n%s", err, unanswered())
-		}
-		return 0, err
+		code, _ := Failed(ctx, err)
+		return code, err
 	}
 	return exitCode, nil
 }

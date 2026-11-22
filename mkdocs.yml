@@ -8,6 +8,7 @@ edit_uri: edit/main/docs/
 nav:
   - Home: index.md
   - Configuration reference: configuration.md
+  - The command line: command-line.md
 
 plugins:
   - techdocs-core
