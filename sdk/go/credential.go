@@ -45,10 +45,18 @@ func (cs *Credentials) Delete(ctx context.Context, host string) error {
 	return err
 }
 
-// List lists the caller's credentials by host, without their secrets.
-func (cs *Credentials) List(ctx context.Context) ([]*credentialv1.Credential, error) {
-	return Listed(func(token string) ([]*credentialv1.Credential, string, error) {
+// List lists the caller's credentials by host, without their secrets:
+// each one's Secret is empty.
+func (cs *Credentials) List(ctx context.Context) ([]Credential, error) {
+	var out []Credential
+	for each, err := range paged(func(token string) ([]*credentialv1.Credential, string, error) {
 		page, err := cs.api.ListCredentials(ctx, &credentialv1.ListCredentialsRequest{PageToken: token})
 		return page.GetCredentials(), page.GetNextPageToken(), err
-	})
+	}) {
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, Credential{Host: each.GetHost(), Username: each.GetUsername()})
+	}
+	return out, nil
 }

@@ -131,7 +131,7 @@ func TestTheLocalBuildMakesAWorkspaceAndBuildsIt(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		left, err := frontseat.New("http://"+address, frontseat.WithToken(strings.TrimSpace(string(raw)))).Workspaces(ctx)
+		left, err := frontseat.Collect(frontseat.New("http://"+address, frontseat.WithToken(strings.TrimSpace(string(raw)))).Workspaces(ctx))
 		if err != nil || len(left) != 0 {
 			t.Errorf("after its workspace was deleted the server holds %d workspaces, %v", len(left), err)
 			for _, each := range left {

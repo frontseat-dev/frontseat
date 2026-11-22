@@ -326,7 +326,7 @@ func frontseatInASandbox(t *testing.T, shape testworkload.Shape) tool {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
 		after := frontseat.New(second.URL, served.Owner)
-		listed, err := after.Workspaces(ctx)
+		listed, err := frontseat.Collect(after.Workspaces(ctx))
 		if err != nil {
 			t.Errorf("listing the comparison's private workspaces for cleanup: %v", err)
 		} else {

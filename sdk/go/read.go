@@ -50,25 +50,59 @@ func each[T any](stream Receiver[T]) iter.Seq2[T, error] {
 // Listed gathers every item a List call answers, page after page, in the
 // order the call lists them. Page is the call: given the token of the
 // page to ask for, empty for the first, it answers that page's items
-// and the token of the next, empty after the last.
+// and the token of the next, empty after the last. Where a page fails,
+// it is nil, with the error.
 func Listed[T any](page func(token string) ([]T, string, error)) ([]T, error) {
+	all, err := Collect(paged(page))
+	if err != nil {
+		return nil, err
+	}
+	return all, nil
+}
+
+// Collect gathers what a sequence the SDK hands back yields, in order:
+// every item of a list, every line of a log. Where it ends with an
+// error, it is the items that came before, with the error.
+func Collect[T any](seq iter.Seq2[T, error]) ([]T, error) {
 	var all []T
-	token := ""
-	asked := map[string]bool{}
-	for {
-		asked[token] = true
-		items, next, err := page(token)
+	for item, err := range seq {
 		if err != nil {
-			return nil, err
+			return all, err
 		}
-		all = append(all, items...)
-		if next == "" {
-			return all, nil
+		all = append(all, item)
+	}
+	return all, nil
+}
+
+// paged hands the items a List call answers one at a time, asking for
+// each page as the one before is read through, to the last; where a
+// page fails, the error, last. Page is the call, as Listed takes it.
+func paged[T any](page func(token string) ([]T, string, error)) iter.Seq2[T, error] {
+	return func(yield func(T, error) bool) {
+		var none T
+		token := ""
+		asked := map[string]bool{}
+		for {
+			asked[token] = true
+			items, next, err := page(token)
+			if err != nil {
+				yield(none, err)
+				return
+			}
+			for _, item := range items {
+				if !yield(item, nil) {
+					return
+				}
+			}
+			if next == "" {
+				return
+			}
+			if asked[next] {
+				yield(none, errors.New("the server answered a page with its own token, and would be asked for it again and again"))
+				return
+			}
+			token = next
 		}
-		if asked[next] {
-			return nil, errors.New("the server answered a page with its own token, and would be asked for it again and again")
-		}
-		token = next
 	}
 }
 

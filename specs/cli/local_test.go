@@ -78,7 +78,7 @@ func buildIn(t *testing.T, w *frontseat.Workspace) (*buildv1.Build, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	actions, err := built.Actions(ctx)
+	actions, err := frontseat.Collect(built.Actions(ctx))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +86,7 @@ func buildIn(t *testing.T, w *frontseat.Workspace) (*buildv1.Build, string) {
 	for _, a := range actions {
 		labels = append(labels, a.GetLabel())
 		if a.GetOutcome() != buildv1.Outcome_OUTCOME_PASSED {
-			logs, err := built.Logs(ctx, a.GetLabel())
+			logs, err := frontseat.Collect(built.Logs(ctx, a.GetLabel()))
 			t.Logf("%s %v %s: %v (%v)", a.GetLabel(), a.GetOutcome(), a.GetMessage(), logs, err)
 		}
 	}
@@ -275,7 +275,7 @@ func TestAWorkspaceOpenedByEntityClonesWhatItsBackstageSays(t *testing.T) {
 	if reason, _ := frontseat.Reason(err); connect.CodeOf(err) != connect.CodeUnimplemented || reason != "ENTITIES_NOT_SERVED" {
 		t.Errorf("opened by entity without a Backstage: %v (%s), want it refused UNIMPLEMENTED, ENTITIES_NOT_SERVED", err, reason)
 	}
-	if listed, err := refusing.Workspaces(ctx); err != nil || len(listed) != 0 {
+	if listed, err := frontseat.Collect(refusing.Workspaces(ctx)); err != nil || len(listed) != 0 {
 		t.Errorf("what was refused left %d workspaces (%v)", len(listed), err)
 	}
 
