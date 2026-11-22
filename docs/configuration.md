@@ -12,21 +12,27 @@ Two more files are read where they are: `mise.toml` pins the tools that
 Frontseat does not see.
 
 Both files are read strictly. A key that is not listed here, a key
-written twice, a value of another type or an anchor is a mistake: it
-names the file and the line, nothing is built, and nothing is guessed.
-Text is written as text: a value that YAML reads as a number or a
-switch, such as `70` or `true`, is quoted where text is asked for.
+written twice or a value of another type is a mistake, and so is an
+anchor, an alias or a merge key in `frontseat.yaml` or under
+`spec.frontseat`: it names the file and the line, nothing is built, and
+nothing is guessed. Text is written as text: a value that YAML reads as
+a number or a switch, such as `70` or `true`, is quoted where text is
+asked for.
 
 Every example on this page is read by Frontseat's own reader in its
-tests, so each is one that is accepted.
+tests, beside a `frontseat.yaml` that lists `go` and `backstage`, so
+each is one that reader accepts. What a plugin's option takes is held
+to what the plugin declares when the repository is built, which those
+tests do not do; the tables of options and defaults are prose.
 
 ## `frontseat.yaml`
 
-One YAML document with one key.
+One YAML document with one key. A file that is empty, or `{}`, lists
+no plugin.
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `plugins` | map of plugin name to its options | none | The plugins that build the repository, in the order written. A plugin with no options is written `name: {}`. |
+| `plugins` | map of plugin name to its options | none | The plugins that build the repository, in the order written. A plugin with no options is written `name: {}`, or `name:` with nothing after it. |
 | `plugins.<name>.<option>` | as the plugin declares it | the plugin's | An option of that plugin, for the whole repository. |
 
 ```yaml
@@ -47,6 +53,19 @@ plugins:
 A plugin that is not listed does nothing in the repository. An option a
 plugin does not take is refused with the options it takes.
 
+### What a plugin turns on
+
+Some of what this page describes is read only where the plugin that
+reads it is listed:
+
+| Plugin | What listing it turns on |
+|---|---|
+| `backstage` | Catalog files: without it no `catalog-info.yaml` is read into entities. |
+| `container` | A service written `as: container`. |
+| `postgres` | A service written `as: postgres`. |
+| `release` | Releases: a repository that does not list it releases nothing, and says so. Its strategies are the defaults of `versioning` and `branching`. |
+| `go`, `cargo`, `npm`, `jest`, `buf`, `apko`, `github` | The projects and actions of their ecosystems, as each plugin's README says. |
+
 ### Plugin options
 
 An option is text, a switch (`true` or `false`), a whole number or a
@@ -54,7 +73,7 @@ list of text. A list replaces the whole list it overrides.
 
 | Plugin | Option | Type | Default | Meaning |
 |---|---|---|---|---|
-| `go` | `test-timeout` | text, a Go duration | `"10m"` | How long a module's tests may run. |
+| `go` | `test-timeout` | text, a Go duration | `"10m"` | How long each test action may run, as the go command's `-timeout` reads it. |
 | `go` | `test-shards` | whole number, 1 or more | `1` | Into how many actions a package's tests are cut at most. |
 | `go` | `tags` | list of text | `[]` | The build tags a module is linted, compiled and tested with. |
 | `go` | `version` | list of `<package>.<variable>=<what>` | `[]` | The string variables a program says its version by. `<what>` is `version`, `tag`, `commit` or `unit`, of the release the program is linked for. |
@@ -290,19 +309,21 @@ one of the two is written.
 | `as` | Resource | text | | What starts it, a name a listed plugin claims: `container` for the image written here, or `postgres`. The plugin says every key that is left out. |
 | `program` | Component, Resource | text | | The program action that is the service, as `:go.run/orders`. It takes no `image` and no `args`. |
 | `image` | Resource | text | the plugin's | The image, named with its registry and digest. |
-| `args` | Resource | list of text | the plugin's | The image's arguments. `{host}` and `{port.<name>}` are filled in. |
-| `env` | both | map of name to text | `{}` | Variables it is started with. |
+| `args` | Resource | list of text | the plugin's | The image's arguments. `{host}`, `{port.<name>}` (a port of its own) and `{<resource>.port.<name>}` (a port of a Resource it depends on, by that Resource's name) are filled in. |
+| `env` | both | map of name to text | `{}` | Variables it is started with, filled in as `args` is. |
 | `ports` | both | map of name to whole number | the plugin's | The ports it listens on, 1 to 65535, each under a name of lower-case letters, digits and dashes. At least one. |
-| `ready` | both | list of checks | the plugin's | When it is ready. At least one check, each one of `port: <name>`, `http: {port, path, body}` (`body` a regular expression) or `command: [...]`. |
+| `ready` | both | list of checks | the plugin's | When it is ready. At least one check, each one of `port: <name>`, `http: {port, path, body}` (`body` a regular expression) or `command: [...]`, whose arguments are filled in as `args` is. |
 | `timeout` | both | whole number of seconds | `120` | How long it is given to be ready. At most `3600`. |
 | `exports` | Resource | map of name to text | the plugin's | Variables each test given the service is told, with `{host}` and `{port.<name>}` filled in. |
 | `apis` | Component | map of API to `{port, exports}` | | For each API the Component provides, written in full as `api:<namespace>/<name>`: the port it is served on, and the variables a test that consumes that API is told. |
-| `endpoints` | both | map of name to text | `{}` | Addresses a test reads from `FRONTSEAT_ENDPOINTS`, each `{host}` with one `{port.<name>}`. |
+| `endpoints` | both | map of name to text | `{}` | Addresses a test reads from `FRONTSEAT_ENDPOINTS`, each `{host}` with one `{port.<name>}`. That variable is a JSON object of each service the test is given, by its entity reference, holding its endpoints filled in: `{"resource:default/cache": {"redis": "127.0.0.1:41001"}}`. |
 | `user` | both | text | the sandbox's own | The user it runs as, by number and quoted, never `"0"`. |
 | `writable` | both | list of text | `[]` | The directories of its image it writes, each an absolute path, at most 32. |
 
 A key is written with a value or left out: an empty value and a null
-are refused.
+are refused. The image below is named as an image must be, by its
+registry and digest; the digest is an example's, and a copy names its
+own image.
 
 ```yaml
 # cache/catalog-info.yaml
@@ -316,7 +337,7 @@ spec:
   frontseat:
     service:
       as: container
-      image: docker.io/library/redis:7@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec
+      image: registry.example.com/team/redis@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec
       args: [--port, "{port.redis}"]
       env: {MODE: test}
       ports: {redis: 6379}
@@ -367,7 +388,8 @@ spec:
 
 ### `release`
 
-A unit gets one version and one tag. A Component is a unit alone, or
+A unit gets one version and one tag, where the repository lists the
+`release` plugin. A Component is a unit alone, or
 is released with its System or its Domain where that group is synced.
 
 | Key | Type | Default | Meaning |
