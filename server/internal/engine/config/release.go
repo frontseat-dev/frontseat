@@ -1,8 +1,11 @@
 package config
 
 import (
+	"errors"
 	"fmt"
+	"maps"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -47,11 +50,20 @@ const (
 	GroupingIndependent = "independent"
 )
 
-// releaseKeys are the settings read; any other is refused.
+// KindDomain and KindSystem are the kinds of the groups a Component is
+// released with, as a reference writes a kind.
+const (
+	KindDomain = "domain"
+	KindSystem = "system"
+)
+
+// releaseKeys are the settings read; any other is refused, with
+// releaseSettings, which names them.
 var (
-	releaseKeys = map[string]bool{ReleaseGrouping: true, ReleaseTag: true, ReleaseInitial: true, ReleaseVersioning: true, ReleaseBranching: true, ReleasePrerelease: true, ReleasePrereleaseTag: true}
-	strategy    = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*:[a-z0-9][a-z0-9-]*$`)
-	placeholder = regexp.MustCompile(`\{[^{}]*\}`)
+	releaseKeys     = map[string]bool{ReleaseGrouping: true, ReleaseTag: true, ReleaseInitial: true, ReleaseVersioning: true, ReleaseBranching: true, ReleasePrerelease: true, ReleasePrereleaseTag: true}
+	releaseSettings = strings.Join(slices.Sorted(maps.Keys(releaseKeys)), ", ")
+	strategy        = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*:[a-z0-9][a-z0-9-]*$`)
+	placeholder     = regexp.MustCompile(`\{[^{}]*\}`)
 )
 
 // readRelease reads spec.frontseat.release of one document of a catalog
@@ -63,7 +75,7 @@ func readRelease(file string, document, node *yaml.Node) (Release, error) {
 		return Release{}, &model.Mistake{File: file, Message: fmt.Sprintf(format, a...) + fmt.Sprintf(" (line %d)", line)}
 	}
 	if node.Kind != yaml.MappingNode {
-		return mistake(node.Line, "spec.frontseat.release is a map of settings: %s", keysOf(releaseKeys))
+		return mistake(node.Line, "spec.frontseat.release is a map of settings: %s", releaseSettings)
 	}
 	// The entity is named as the catalog names it, in the grammar every
 	// entity reference has: what that refuses is refused here, as it is.
@@ -80,16 +92,22 @@ func readRelease(file string, document, node *yaml.Node) (Release, error) {
 	if kind == "" || name == "" {
 		return mistake(node.Line, "spec.frontseat.release is said by an entity, which has a kind and a name")
 	}
-	entity := entity.New(kind, namespace, name)
-	if err := entity.Validate(); err != nil {
-		return mistake(node.Line, "spec.frontseat.release is said by an entity whose name is none: %v", err)
+	ref := entity.New(kind, namespace, name)
+	if ref.Validate() != nil {
+		return mistake(node.Line, "spec.frontseat.release is said by an entity whose name is none: a kind, namespace and name are each of letters and digits, with dashes, dots or underscores between them")
 	}
-	out := Release{File: file, Entity: entity, Settings: map[string]string{}}
+	// What is released is a Component, alone or with its group, and a
+	// group is a System or a Domain: on any other kind a setting would
+	// be read and never used.
+	if !slices.Contains([]string{KindDomain, KindSystem, entity.KindComponent}, ref.Kind) {
+		return mistake(node.Line, "spec.frontseat.release is said by a Domain, a System or a Component")
+	}
+	out := Release{File: file, Entity: ref, Settings: map[string]string{}}
 	for i := 0; i+1 < len(node.Content); i += 2 {
 		key, said := node.Content[i], node.Content[i+1]
 		switch {
 		case !releaseKeys[key.Value]:
-			return mistake(key.Line, "spec.frontseat.release.%s is no release setting; it takes %s", key.Value, keysOf(releaseKeys))
+			return mistake(key.Line, "spec.frontseat.release.%s is no release setting; it takes %s", key.Value, releaseSettings)
 		case key.Value == ReleasePrereleaseTag && said.Kind == yaml.ScalarNode && said.ShortTag() == "!!bool":
 			// Whether a prerelease is tagged is true or false, as the
 			// YAML reader reads them, and is kept as it reads it.
@@ -108,23 +126,23 @@ func readRelease(file string, document, node *yaml.Node) (Release, error) {
 		switch key.Value {
 		case ReleaseGrouping:
 			if value != GroupingSynced && value != GroupingIndependent {
-				return mistake(said.Line, "spec.frontseat.release.grouping must be synced or independent, and is %q", value)
+				return mistake(said.Line, "spec.frontseat.release.grouping must be synced or independent")
 			}
 		case ReleaseTag:
 			if err := Tag(value); err != nil {
-				return mistake(said.Line, "spec.frontseat.release.tag %s %v", value, err)
+				return mistake(said.Line, "spec.frontseat.release.tag %v", err)
 			}
 		case ReleaseInitial:
 			version, err := semver.StrictNewVersion(value)
 			if err != nil {
-				return mistake(said.Line, "spec.frontseat.release.initial: %s is no semantic version", value)
+				return mistake(said.Line, "spec.frontseat.release.initial is no semantic version: it is a major, a minor and a patch, as 0.1.0")
 			}
 			if version.Prerelease() != "" || version.Metadata() != "" {
-				return mistake(said.Line, "spec.frontseat.release.initial: %s is a major, a minor and a patch, and nothing after them", value)
+				return mistake(said.Line, "spec.frontseat.release.initial is a major, a minor and a patch, and nothing after them")
 			}
 		case ReleaseVersioning, ReleaseBranching:
 			if !strategy.MatchString(value) {
-				return mistake(said.Line, "spec.frontseat.release.%s %s must be <plugin>:<name>", key.Value, value)
+				return mistake(said.Line, "spec.frontseat.release.%s must be <plugin>:<name>", key.Value)
 			}
 		case ReleasePrerelease:
 			// Read as far as it can be before there is a branch and a
@@ -133,10 +151,11 @@ func readRelease(file string, document, node *yaml.Node) (Release, error) {
 			// A branch and a commit may each be written in digits alone,
 			// and begin with a zero: a form that makes either a part of
 			// its own is no prerelease for those, and is refused for all.
-			for _, sample := range [][2]string{{"main", "0123abcdef0123abcdef0123abcdef0123abcdef"}, {"007", "0123456789012345678901234567890123456789"}} {
-				if _, err := Prerelease(value, sample[0], sample[1], 1795256100); err != nil {
-					return mistake(said.Line, "spec.frontseat.release.prerelease %v: a branch or a commit written in digits is a number, which begins with no zero; join it to another part with a dash", err)
-				}
+			if _, err := Prerelease(value, "main", "0123abcdef0123abcdef0123abcdef0123abcdef", 1795256100); err != nil {
+				return mistake(said.Line, "spec.frontseat.release.prerelease %v", err)
+			}
+			if _, err := Prerelease(value, "007", "0123456789012345678901234567890123456789", 1795256100); err != nil {
+				return mistake(said.Line, "spec.frontseat.release.prerelease %v: a branch or a commit written in digits is a number, which begins with no zero; join it to another part with a dash", err)
 			}
 		}
 		out.Settings[key.Value] = value
@@ -150,11 +169,11 @@ func readRelease(file string, document, node *yaml.Node) (Release, error) {
 // of the tag itself, when a release is planned.
 func Tag(pattern string) error {
 	if strings.Count(pattern, "{version}") != 1 {
-		return fmt.Errorf("must hold {version} once")
+		return errors.New("must hold {version} once")
 	}
 	for _, named := range placeholder.FindAllString(pattern, -1) {
 		if named != "{version}" && named != "{unit}" {
-			return fmt.Errorf("names %s; a tag names {unit} and {version} and nothing else", named)
+			return errors.New("names something other than {unit} and {version}, which are all a tag names")
 		}
 	}
 	return nil
@@ -182,7 +201,7 @@ var prereleaseFilled = []string{"{branch}", "{timestamp}", "{epoch}", "{sha}"}
 // The time is the commit's and never the clock's: a commit has one
 // prerelease wherever it is planned. What the form names beside these,
 // and what it spells that is no prerelease of a semantic version, is
-// refused, by the form and what it spelled.
+// refused, by what a form takes and never by what was written.
 func Prerelease(form, branch, revision string, committed int64) (string, error) {
 	for _, named := range placeholder.FindAllString(form, -1) {
 		known := false
@@ -190,7 +209,7 @@ func Prerelease(form, branch, revision string, committed int64) (string, error) 
 			known = known || each == named
 		}
 		if !known {
-			return "", fmt.Errorf("%q names %s, which is not filled: it takes %s", form, named, strings.Join(prereleaseFilled, ", "))
+			return "", fmt.Errorf("names what is not filled: it takes %s", strings.Join(prereleaseFilled, ", "))
 		}
 	}
 	cleaned := strings.Map(func(r rune) rune {
@@ -220,7 +239,7 @@ func Prerelease(form, branch, revision string, committed int64) (string, error) 
 	// with no zero before it, and nothing after a plus.
 	version, err := semver.StrictNewVersion("0.0.0-" + spelled)
 	if err != nil || version.Prerelease() != spelled || version.Metadata() != "" {
-		return "", fmt.Errorf("%q spells %q for %s, which is no prerelease of a semantic version", form, spelled, branch)
+		return "", errors.New("spells what is no prerelease of a semantic version, whose parts are letters, digits and dashes joined by dots, a part of digits alone beginning with no zero")
 	}
 	return spelled, nil
 }

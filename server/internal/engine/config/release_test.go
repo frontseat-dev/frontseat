@@ -57,25 +57,25 @@ func TestAMistakeInHowAnEntityIsReleasedNamesTheSetting(t *testing.T) {
 		"      dependencies: {minor: patch}\n":         "services/greet/catalog-info.yaml: spec.frontseat.release.dependencies is no release setting",
 		"      grouping: locked\n":                     "spec.frontseat.release.grouping must be synced or independent",
 		"      grouping: Synced\n":                     "spec.frontseat.release.grouping must be synced or independent",
-		"      tag: '{unit}'\n":                        "spec.frontseat.release.tag {unit} must hold {version} once",
+		"      tag: '{unit}'\n":                        "spec.frontseat.release.tag must hold {version} once",
 		"      tag: '{version}-{version}'\n":           "must hold {version} once",
-		"      tag: '{name}/v{version}'\n":             "names {name}",
-		"      initial: '1.0'\n":                       "spec.frontseat.release.initial: 1.0 is no semantic version",
+		"      tag: '{name}/v{version}'\n":             "spec.frontseat.release.tag names something other than {unit} and {version}",
+		"      initial: '1.0'\n":                       "spec.frontseat.release.initial is no semantic version",
 		"      initial: 1.0.0-rc.1\n":                  "is a major, a minor and a patch, and nothing after them",
 		"      initial: 1.0.0+build\n":                 "is a major, a minor and a patch, and nothing after them",
 		"      initial: v1.0.0\n":                      "is no semantic version",
 		"      initial: 1.0\n":                         "spec.frontseat.release.initial is text",
 		"      initial: [1.0.0]\n":                     "spec.frontseat.release.initial is text",
-		"      versioning: conventional-commits\n":     "spec.frontseat.release.versioning conventional-commits must be <plugin>:<name>",
-		"      branching: 'release:'\n":                "spec.frontseat.release.branching release: must be <plugin>:<name>",
+		"      versioning: conventional-commits\n":     "spec.frontseat.release.versioning must be <plugin>:<name>",
+		"      branching: 'release:'\n":                "spec.frontseat.release.branching must be <plugin>:<name>",
 		"      branching: 'Release:flow'\n":            "must be <plugin>:<name>",
-		"      prerelease: '{branch}-{date}'\n":        `spec.frontseat.release.prerelease "{branch}-{date}" names {date}, which is not filled: it takes {branch}, {timestamp}, {epoch}, {sha}`,
-		"      prerelease: '{branch}..{sha}'\n":        `spec.frontseat.release.prerelease "{branch}..{sha}" spells "main..0123abc" for main, which is no prerelease of a semantic version`,
-		"      prerelease: '{branch}+{sha}'\n":         "which is no prerelease of a semantic version",
-		"      prerelease: '0{epoch}'\n":               "which is no prerelease of a semantic version",
-		"      prerelease: ''\n":                       "which is no prerelease of a semantic version",
-		"      prerelease: '{branch}.{sha}'\n":         `spells "007.0123456" for 007, which is no prerelease of a semantic version: a branch or a commit written in digits is a number`,
-		"      prerelease: '{branch}.{timestamp}'\n":   `spells "007.20261121101500" for 007, which is no prerelease of a semantic version`,
+		"      prerelease: '{branch}-{date}'\n":        "spec.frontseat.release.prerelease names what is not filled: it takes {branch}, {timestamp}, {epoch}, {sha} (line",
+		"      prerelease: '{branch}..{sha}'\n":        "spec.frontseat.release.prerelease spells what is no prerelease of a semantic version",
+		"      prerelease: '{branch}+{sha}'\n":         "spells what is no prerelease of a semantic version",
+		"      prerelease: '0{epoch}'\n":               "spells what is no prerelease of a semantic version",
+		"      prerelease: ''\n":                       "spells what is no prerelease of a semantic version",
+		"      prerelease: '{branch}.{sha}'\n":         "spells what is no prerelease of a semantic version, whose parts are letters, digits and dashes joined by dots, a part of digits alone beginning with no zero: a branch or a commit written in digits is a number",
+		"      prerelease: '{branch}.{timestamp}'\n":   "spells what is no prerelease of a semantic version",
 		"      prerelease-tag: 'yes'\n":                "spec.frontseat.release.prerelease-tag is true or false",
 		"      prerelease-tag: 'true'\n":               "spec.frontseat.release.prerelease-tag is true or false",
 		"      prerelease-tag: 1\n":                    "spec.frontseat.release.prerelease-tag is true or false",
@@ -102,8 +102,48 @@ func TestWhoSaysHowItIsReleasedIsNamedAsEveryEntityIs(t *testing.T) {
 		t.Fatalf("an entity written in upper case is %v, %v", read.Releases(), err)
 	}
 	for _, c := range [][2]string{{"\u212Aelvin", "default"}, {"greet", "De\u212A"}, {"a b", "default"}} {
-		if _, err := config.Read(context.Background(), "services", file(c[0], c[1])); err == nil || !strings.Contains(err.Error(), "an entity whose name is none") {
+		if _, err := config.Read(context.Background(), "services", file(c[0], c[1])); err == nil || !strings.Contains(err.Error(), "an entity whose name is none: a kind, namespace and name are") || strings.Contains(err.Error(), "component:") {
 			t.Errorf("%q in %q says how it is released: %v", c[0], c[1], err)
+		}
+	}
+}
+
+// What is refused of how an entity is released is not repeated: a
+// refusal says the setting, its line and what the setting takes.
+func TestARefusedReleaseSettingIsNotRepeated(t *testing.T) {
+	for _, lines := range []string{
+		"      grouping: secret\n",
+		"      tag: 'secret-{version}-{secret}'\n",
+		"      initial: secret\n",
+		"      initial: 1.0.0-secret\n",
+		"      versioning: secret\n",
+		"      branching: secret\n",
+		"      prerelease: 'secret-{secret}'\n",
+		"      prerelease: 'secret..{sha}'\n",
+	} {
+		_, err := config.Read(context.Background(), "services", released("Component", lines))
+		if err == nil || !strings.Contains(err.Error(), "spec.frontseat.release.") || !strings.Contains(err.Error(), "(line 9)") || strings.Contains(err.Error(), "secret") {
+			t.Errorf("%q: want it refused by its setting and line, and not repeated, got %v", lines, err)
+		}
+	}
+	if _, err := config.Read(context.Background(), "services", released("Component", "      grouping: independent\n      tag: 'secret-{version}'\n      initial: 1.0.0\n      prerelease: 'secret-{sha}'\n")); err != nil {
+		t.Errorf("control, settings that are sound: %v", err)
+	}
+}
+
+// How an entity is released is said by what is released: a Domain, a
+// System or a Component. On any other kind it would be read and never
+// used, and is refused.
+func TestHowAnEntityIsReleasedIsSaidByWhatIsReleased(t *testing.T) {
+	for _, kind := range []string{"Domain", "System", "Component"} {
+		if _, err := config.Read(context.Background(), "services", released(kind, "      initial: 1.0.0\n")); err != nil {
+			t.Errorf("control, a %s says how it is released: %v", kind, err)
+		}
+	}
+	for _, kind := range []string{"API", "Resource", "Location", "Group"} {
+		_, err := config.Read(context.Background(), "services", released(kind, "      initial: 1.0.0\n"))
+		if err == nil || !strings.Contains(err.Error(), "spec.frontseat.release is said by a Domain, a System or a Component (line 9)") {
+			t.Errorf("a %s says how it is released: %v", kind, err)
 		}
 	}
 }

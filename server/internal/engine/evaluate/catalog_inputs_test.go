@@ -36,13 +36,13 @@ func TestCatalogInputsAreSourceOrWhatAnotherActionLeft(t *testing.T) {
 		t.Errorf("nothing written read as %+v, %v", read, err)
 	}
 	for input, says := range map[string]string{
-		"../go.mod":       `the action report holds "../go.mod", which is not a pattern of files beneath the project`,
-		"/../etc/passwd":  `the action report holds "/../etc/passwd", which is not a pattern of files beneath the repository's root`,
-		"/":               `the action report holds "/", which is not a pattern of files beneath the repository's root`,
-		"src/[":           `the action report holds "src/[", which is not a pattern of files beneath the project`,
-		"":                `the action report holds "", which is not a pattern of files beneath the project`,
-		"!":               `the action report holds "!", which is not a pattern of files beneath the project`,
-		"=sources":        `the action report names the input set "sources", which the project does not declare`,
+		"../go.mod":       `the action report: its input 2 is not a pattern of files beneath the project`,
+		"/../etc/passwd":  `the action report: its input 2 is not a pattern of files beneath the repository's root`,
+		"/":               `the action report: its input 2 is not a pattern of files beneath the repository's root`,
+		"src/[":           `the action report: its input 2 is not a pattern of files beneath the project`,
+		"":                `the action report: its input 2 is not a pattern of files beneath the project`,
+		"!":               `the action report: its input 2 is not a pattern of files beneath the project`,
+		"=sources":        `the action report: its input 2 names an input set, which a catalog file declares none of`,
 		":":               `the action report: the input ":" names nothing after the colon`,
 		"//lab/chain":     `the action report: the input "//lab/chain" names a project and nothing of it`,
 		"://lab/lib:made": `the action report: the input "://lab/lib:made" names another project after a colon`,

@@ -68,7 +68,7 @@ func TestWhatIsNoPlatformIsRefusedWhereItIsSaid(t *testing.T) {
 		"[Linux/amd64]":              "holds what is no platform",
 		"[linux/amd64/v3]":           "holds what is no platform",
 		"[linux/amd64, 7]":           "holds what is no platform",
-		"[linux/amd64, linux/amd64]": "spec.frontseat.platforms names linux/amd64 twice",
+		"[linux/amd64, linux/amd64]": "spec.frontseat.platforms names a platform twice",
 	} {
 		_, err := config.Read(context.Background(), "services", shipping(written, "", ""))
 		if err == nil || !strings.Contains(err.Error(), says) || !strings.Contains(err.Error(), "services/catalog-info.yaml") {

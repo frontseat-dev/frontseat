@@ -304,4 +304,25 @@ mod tests {
         let custom = json!({"apiVersion": "example.com/v1", "kind": "Template", "metadata": {"name": "app"}});
         assert!(read(custom).is_ok(), "a custom kind needs no specification");
     }
+
+    fn component(spec: Value) -> Value {
+        json!({"apiVersion": "backstage.io/v1alpha1", "kind": "Component", "metadata": {"name": "app"}, "spec": spec})
+    }
+
+    /// A dependency names its kind, as Backstage reads one: a bare entry
+    /// is refused, saying how one is written and nothing of the entry.
+    /// The control is the same entry with its kind.
+    #[test]
+    fn a_dependency_that_names_no_kind_is_told_how_one_is_written() {
+        let spec = |entry: &str| json!({"type": "service", "lifecycle": "production", "owner": "team", "dependsOn": [entry]});
+        assert!(read(component(spec("component:ledger"))).is_ok());
+        assert!(read(component(spec("resource:other/ledger"))).is_ok());
+        let refused = read(component(spec("ledger"))).expect_err("a bare dependency");
+        let said = format!("{refused:?}");
+        assert!(
+            said.contains("spec.dependsOn: an entry names no kind: write its kind before it, as component:<name> or resource:<name>"),
+            "{said}"
+        );
+        assert!(!said.contains("ledger"), "{said}");
+    }
 }

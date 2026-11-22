@@ -22,9 +22,15 @@ func TestAnImageIsNamedByItsRegistryAndDigest(t *testing.T) {
 		"library/busybox@" + digest:           "does not name its registry",
 		"docker.io/library/busybox:1.37":      "not named by its digest",
 		"Docker.io/Library/busybox@" + digest: "not an image's reference",
+		"registry.example/Token@" + digest:    "not an image's reference",
 	} {
-		if _, err := image.Read(written); err == nil || !strings.Contains(err.Error(), says) {
+		_, err := image.Read(written)
+		if err == nil || !strings.Contains(err.Error(), says) {
 			t.Errorf("%q: %v, want it refused as %q", written, err, says)
+		}
+		// A refusal does not repeat the name: one may hold a credential.
+		if err != nil && written != "" && (strings.Contains(err.Error(), written) || strings.Contains(err.Error(), "Token")) {
+			t.Errorf("%q is repeated by its refusal: %v", written, err)
 		}
 	}
 }

@@ -376,7 +376,7 @@ func TestATagHoldsTheVersionExactlyOnce(t *testing.T) {
 
 	_, refusal := workspace.planning(spec.releaseOf("greet"))
 
-	spec.Expect(refusal).To(BeRefusedSaying("spec.frontseat.release.tag {unit} must hold {version} once"))
+	spec.Expect(refusal).To(BeRefusedSaying("spec.frontseat.release.tag must hold {version} once"))
 }
 
 // Releases / How settings resolve / Two units of one repository whose tags are spelled alike are refused by name.
@@ -400,7 +400,7 @@ func TestAFirstVersionIsASemanticVersion(t *testing.T) {
 
 	_, refusal := workspace.planning(spec.releaseOf("greet"))
 
-	spec.Expect(refusal).To(BeRefusedSaying("spec.frontseat.release.initial: 1.0 is no semantic version"))
+	spec.Expect(refusal).To(BeRefusedSaying("spec.frontseat.release.initial is no semantic version"))
 }
 
 // Releases / Releasing / A release tags each unit that moves, at the commit it was planned from.

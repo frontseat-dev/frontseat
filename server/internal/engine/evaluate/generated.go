@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/frontseat-dev/frontseat/sdk/go/entity"
+	"github.com/frontseat-dev/frontseat/server/internal/engine/catalog"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/config"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/graph"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/plan"
@@ -75,7 +76,7 @@ func checkGenerationDiscovery(ctx context.Context, src Source, out Evaluation) e
 		files, found := catalogs[claim.Repository]
 		if !found {
 			var err error
-			files, err = src.Within(ctx, claim.Repository, "", []string{"catalog-info.yaml", "**/catalog-info.yaml"})
+			files, err = src.Within(ctx, claim.Repository, "", []string{catalog.File, "**/" + catalog.File})
 			if err != nil {
 				return err
 			}

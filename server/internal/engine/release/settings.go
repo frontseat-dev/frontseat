@@ -2,6 +2,8 @@ package release
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
 	"strings"
 
@@ -106,8 +108,8 @@ func (r *Resolved) Of(ref entity.Ref) (Settings, bool) {
 func (r *Resolved) Members(unit entity.Ref) []entity.Ref { return r.members[unit] }
 
 const (
-	kindSystem = "system"
-	kindDomain = "domain"
+	kindSystem = config.KindSystem
+	kindDomain = config.KindDomain
 )
 
 // Resolve says how each entity of a workspace is released. A setting is
@@ -181,7 +183,7 @@ func Resolve(w Workspace) (*Resolved, error) {
 	// A member of a synced group is released as its group is: it says
 	// nothing of its own but its grouping.
 	member := func(ref, unit entity.Ref) error {
-		for key := range said[ref].Settings {
+		for _, key := range slices.Sorted(maps.Keys(said[ref].Settings)) {
 			if key != config.ReleaseGrouping {
 				return &model.Mistake{File: said[ref].File, Message: fmt.Sprintf("%s versions with %s, which says how it is released: spec.frontseat.release.%s is the group's to say", ref.Name, unit.Name, key)}
 			}
@@ -243,7 +245,7 @@ func Resolve(w Workspace) (*Resolved, error) {
 					return nil, err
 				}
 				s := out.settings[domain]
-				s.SetBy = copied(s.SetBy)
+				s.SetBy = maps.Clone(s.SetBy)
 				out.settings[ref] = s
 				continue
 			}
@@ -280,7 +282,7 @@ func Resolve(w Workspace) (*Resolved, error) {
 				return nil, err
 			}
 			s := out.settings[system]
-			s.SetBy = copied(s.SetBy)
+			s.SetBy = maps.Clone(s.SetBy)
 			if says {
 				s.SetBy[config.ReleaseGrouping] = ref
 			}
@@ -369,12 +371,4 @@ func (r *Resolved) tagsApart() error {
 		seen[at] = ref
 	}
 	return nil
-}
-
-func copied(m map[string]entity.Ref) map[string]entity.Ref {
-	out := make(map[string]entity.Ref, len(m))
-	for k, v := range m {
-		out[k] = v
-	}
-	return out
 }
