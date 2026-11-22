@@ -209,12 +209,13 @@ func TestAPackageRustfmtWouldChangeFailsItsFormatCheckNamesTheFileAndIsLeftAsItW
 	spec.Expect(workspace.file("hello/src/main.rs")).To(Equal(unformatted[:len(unformatted)-1]))
 }
 
-// Cargo packages / A library built as a dynamic library is also built for wasm32-wasip1 where the repository pins its standard library.
-func TestALibraryBuiltAsADynamicLibraryIsAlsoBuiltForWasm32Wasip1WhereTheRepositoryPinsItsStandardLibrary(t *testing.T) {
+// Cargo packages / A library built as a dynamic library is also built for wasm32-wasip1 where the repository says so, and pins its standard library.
+func TestALibraryBuiltAsADynamicLibraryIsAlsoBuiltForWasm32Wasip1WhereTheRepositorySaysSo(t *testing.T) {
 	t.Parallel()
 	spec := newScenario(t)
 
 	workspace := spec.cargoWorkspace()
+	workspace.write("frontseat.yaml", "plugins:\n  cargo:\n    wasm: true\n")
 	workspace.write("Cargo.toml", "[workspace]\nresolver = \"2\"\nmembers = [\"greet\", \"hello\", \"module\"]\n\n[workspace.package]\nedition = \"2021\"\nversion = \"0.1.0\"\n\n[workspace.dependencies]\nitoa = \"1\"\n")
 	workspace.write("module/Cargo.toml", "[package]\nname = \"my-module\"\nedition.workspace = true\nversion.workspace = true\n\n[lib]\ncrate-type = [\"cdylib\"]\n\n[dependencies]\ngreet = { path = \"../greet\" }\n")
 	workspace.write("module/src/lib.rs", "#[no_mangle]\npub extern \"C\" fn greet_len() -> u32 {\n    greet::greeting(1).len() as u32\n}\n")
