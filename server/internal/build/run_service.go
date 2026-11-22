@@ -3,7 +3,6 @@ package build
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	connect "connectrpc.com/connect/v2"
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
@@ -59,7 +58,7 @@ func (s *runService) CreateRun(ctx context.Context, request *buildv1.CreateRunRe
 func (s *runService) find(id string) (*programRun, error) {
 	found, err := s.programs.get(id)
 	if err != nil {
-		return nil, refuse(connect.CodeNotFound, "RUN_NOT_FOUND", fmt.Sprintf("no run has the id %q", id))
+		return nil, refuse(connect.CodeNotFound, "RUN_NOT_FOUND", "no run has the id asked for")
 	}
 	return found, nil
 }

@@ -89,6 +89,10 @@ type clients struct {
 	runs   buildv1alpha1connect.BuildServiceClient
 	source sourcev1alpha1connect.SourceServiceClient
 	graph  buildv1alpha1connect.GraphServiceClient
+	// programs is the run service's: the programs a workspace runs.
+	programs buildv1alpha1connect.RunServiceClient
+	// releases is the release service's.
+	releases buildv1alpha1connect.ReleaseServiceClient
 }
 
 // serve serves the build API over a workspace's directory.
@@ -127,7 +131,7 @@ func serveFirst(t testing.TB, config configuration, plugins int) clients {
 	t.Cleanup(told.Close)
 	api := connect.NewClient(connecthttp.NewTransport(srv.Client(), srv.URL))
 	source := sourcev1alpha1connect.NewSourceServiceClient(connect.NewClient(connecthttp.NewTransport(told.Client(), told.URL)))
-	return clients{daemon: served, runs: buildv1alpha1connect.NewBuildServiceClient(api), source: source, graph: buildv1alpha1connect.NewGraphServiceClient(api)}
+	return clients{daemon: served, runs: buildv1alpha1connect.NewBuildServiceClient(api), source: source, graph: buildv1alpha1connect.NewGraphServiceClient(api), programs: buildv1alpha1connect.NewRunServiceClient(api), releases: buildv1alpha1connect.NewReleaseServiceClient(api)}
 }
 
 // write writes a file of a workspace, named by its path beneath root

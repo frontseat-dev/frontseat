@@ -55,7 +55,7 @@ func (s *releaseService) CreateRelease(ctx context.Context, request *buildv1.Cre
 func (s *releaseService) find(id string) (*made, error) {
 	found, err := s.releases.get(id)
 	if err != nil {
-		return nil, failedRPC(fmt.Errorf("no release has the id %q", id), codes.NotFound, "RELEASE_NOT_FOUND")
+		return nil, failedRPC(errors.New("no release has the id asked for"), codes.NotFound, "RELEASE_NOT_FOUND")
 	}
 	return found, nil
 }

@@ -64,6 +64,8 @@ func TestAFixRefusesWhatItIsGivenTwice(t *testing.T) {
 		{"the check's own", map[string]string{"FROM_CHECK": "configured"}, "is given it twice"},
 		{"what runs it sets", map[string]string{"HOME": "/elsewhere"}, "sets HOME itself"},
 		{"no name of a variable", map[string]string{"NOT A NAME": "x"}, "no name of a variable"},
+		// A refusal never repeats what it refused: a name may hold a value.
+		{"a name that holds a value", map[string]string{"NAME=v4lue": "x"}, "no name of a variable"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			action := plan.Action{Label: model.Label{Plugin: "fixture", Name: "test"}, Sources: []pattern.Group{{Patterns: []string{"*.txt"}}}, Environment: tc.given,
@@ -80,6 +82,9 @@ func TestAFixRefusesWhatItIsGivenTwice(t *testing.T) {
 			}
 			if err == nil || !strings.Contains(err.Error(), tc.refused) {
 				t.Fatalf("given %v, the fix ran: %+v, %v; want a refusal saying %q", tc.given, changes, err, tc.refused)
+			}
+			if strings.Contains(err.Error(), "v4lue") {
+				t.Fatalf("the refusal repeats what it refused: %v", err)
 			}
 		})
 	}

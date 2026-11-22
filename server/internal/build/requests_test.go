@@ -70,8 +70,24 @@ func TestRunsAreListedAPageAtATime(t *testing.T) {
 	if reason, _ := frontseat.Reason(err); connect.CodeOf(err) != connect.CodeInvalidArgument || reason != refusal.PageTokenInvalid {
 		t.Errorf("a token no list gave: %v (%s); want it refused by name", err, reason)
 	}
-	_, err = c.runs.DescribeBuild(context.Background(), &buildv1.DescribeBuildRequest{BuildId: "build_none"})
-	if reason, domain := frontseat.Reason(err); connect.CodeOf(err) != connect.CodeNotFound || reason != "BUILD_NOT_FOUND" || domain != refusal.Build {
-		t.Errorf("a run no one made: %v (%s, %s); want it refused by name", err, reason, domain)
+	_, err = c.runs.DescribeBuild(context.Background(), &buildv1.DescribeBuildRequest{BuildId: "build_v4lue"})
+	if reason, domain := frontseat.Reason(err); connect.CodeOf(err) != connect.CodeNotFound || reason != "BUILD_NOT_FOUND" || domain != refusal.Build || strings.Contains(err.Error(), "v4lue") {
+		t.Errorf("a run no one made: %v (%s, %s); want it refused by name, without the id asked for", err, reason, domain)
+	}
+	// The control: a run that was made is found, and so is its action.
+	if _, err := logsOf(c.runs, made[0], "//hello:go.lint"); err != nil {
+		t.Fatalf("what a run made printed: %v", err)
+	}
+	_, err = logsOf(c.runs, made[0], "//v4lue:compile")
+	if reason, _ := frontseat.Reason(err); connect.CodeOf(err) != connect.CodeNotFound || reason != "ACTION_NOT_FOUND" || strings.Contains(err.Error(), "v4lue") {
+		t.Errorf("an action the run has not: %v (%s); want it refused by name, without the label asked for", err, reason)
+	}
+	_, err = c.programs.DescribeRun(context.Background(), &buildv1.DescribeRunRequest{RunId: "run_v4lue"})
+	if reason, _ := frontseat.Reason(err); connect.CodeOf(err) != connect.CodeNotFound || reason != "RUN_NOT_FOUND" || strings.Contains(err.Error(), "v4lue") {
+		t.Errorf("a program run no one made: %v (%s); want it refused by name, without the id asked for", err, reason)
+	}
+	_, err = c.releases.DescribeRelease(context.Background(), &buildv1.DescribeReleaseRequest{ReleaseId: "release_v4lue"})
+	if reason, _ := frontseat.Reason(err); connect.CodeOf(err) != connect.CodeNotFound || reason != "RELEASE_NOT_FOUND" || strings.Contains(err.Error(), "v4lue") {
+		t.Errorf("a release no one made: %v (%s); want it refused by name, without the id asked for", err, reason)
 	}
 }

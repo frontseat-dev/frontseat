@@ -57,7 +57,7 @@ func (s *buildService) CreateBuild(ctx context.Context, req *buildv1.CreateBuild
 func (s *buildService) find(id string) (*run, error) {
 	r, err := s.runs.get(id)
 	if errors.Is(err, errNotFound) {
-		return nil, refuse(connect.CodeNotFound, "BUILD_NOT_FOUND", fmt.Sprintf("no build has the id %q", id))
+		return nil, refuse(connect.CodeNotFound, "BUILD_NOT_FOUND", "no build has the id asked for")
 	}
 	return r, err
 }
@@ -196,7 +196,7 @@ func (s *buildService) logs(ctx context.Context, req *buildv1.StreamBuildLogsReq
 		}
 		return sending.flush()
 	}
-	return refuse(connect.CodeNotFound, "ACTION_NOT_FOUND", fmt.Sprintf("the run has no action %q", req.GetLabel()))
+	return refuse(connect.CodeNotFound, "ACTION_NOT_FOUND", "the run has no action of the label asked for")
 }
 
 // parts gathers lines into parts and sends each as it fills.

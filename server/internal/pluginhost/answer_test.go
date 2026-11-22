@@ -510,6 +510,43 @@ func TestADownloadCutIntoPartsIsHeldToTheContract(t *testing.T) {
 	}
 }
 
+// A refusal never repeats what it refused: an address or a name a
+// plugin wrote may hold a value. The answers refused here are refused
+// for that value alone; the sound answers beside them are not.
+func TestARefusedDownloadOrNameIsNotRepeated(t *testing.T) {
+	roots := []string{"services"}
+	for _, sound := range []func() *pluginv1.AnalyzeResponse{downloading, running} {
+		if err := pluginhost.CheckAnalysis("go", roots, sound()); err != nil {
+			t.Fatalf("a sound answer was refused, so this test proves nothing: %v", err)
+		}
+	}
+	for name, c := range map[string]struct {
+		sound  func() *pluginv1.AnalyzeResponse
+		change func(*pluginv1.Action)
+	}{
+		"a download with a user and a password": {downloading, func(a *pluginv1.Action) {
+			a.Downloads[0].Url = "https://me:v4lue@static.crates.io/crates/itoa/1.0.18/download"
+		}},
+		"a download with a value as its user": {downloading, func(a *pluginv1.Action) {
+			a.Downloads[0].Url = "https://v4lue@static.crates.io/crates/itoa/1.0.18/download"
+		}},
+		"a download that is no address": {downloading, func(a *pluginv1.Action) { a.Downloads[0].Url = "::v4lue" }},
+		"a download with a value as its query": {downloading, func(a *pluginv1.Action) {
+			a.Downloads[0].Url = "https://static.crates.io/crates/itoa/1.0.18/download?sig=v4lue"
+		}},
+		"a program given a name with a value": {running, func(a *pluginv1.Action) {
+			a.Command.Environment["NAME=v4lue"] = "y"
+		}},
+	} {
+		a := c.sound()
+		c.change(lastAction(a))
+		err := pluginhost.CheckAnalysis("go", roots, a)
+		if err == nil || strings.Contains(err.Error(), "v4lue") {
+			t.Errorf("%s: %v; want it refused without what it holds", name, err)
+		}
+	}
+}
+
 // running is a sound answer with a program: what the compile left,
 // run as it is.
 func running() *pluginv1.AnalyzeResponse {

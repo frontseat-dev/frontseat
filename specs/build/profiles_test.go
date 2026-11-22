@@ -66,7 +66,7 @@ func TestAProfileNobodyDefinedIsRefusedByName(t *testing.T) {
 
 	_, refusal := spec.workspaceOf("gateway").ask(withProfile("staging"))
 
-	spec.Expect(refusal).To(BeRefusedSaying("there is no profile staging"))
+	spec.Expect(refusal).To(BeRefusedSaying("there is no profile of the name asked for"))
 }
 
 // Profiles / Each profile compiles in its own way.

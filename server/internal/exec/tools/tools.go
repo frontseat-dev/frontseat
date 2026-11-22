@@ -139,7 +139,8 @@ func sets(name string) bool {
 func Within(label string, within map[string]string, mise []string, own ...map[string]string) error {
 	for _, name := range sortedNames(within) {
 		if !testservice.Exportable(name) {
-			return fmt.Errorf("%s must be given %q, which is no name of a variable", label, name)
+			// What was written may hold a value: it is not repeated.
+			return fmt.Errorf("%s must be given what is no name of a variable", label)
 		}
 		if sets(name) {
 			return fmt.Errorf("%s must be given %s as it is, and what runs and confines it sets %s itself", label, name, name)

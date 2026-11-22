@@ -942,8 +942,16 @@ func checkDownloads(n string, downloads []*pluginv1.Download, outputs []*pluginv
 	cut := 0
 	for _, download := range downloads {
 		address, err := url.Parse(download.GetUrl())
+		// What is refused for a user, a query or a fragment, or for
+		// being no address, may hold a value, and is not repeated.
 		switch {
-		case err != nil || address.Scheme != "https" || address.Host == "" || address.User != nil || address.Fragment != "" || address.RawQuery != "" || address.ForceQuery:
+		case err != nil:
+			return fmt.Errorf("the shared action %q downloads what is no address", n)
+		case address.User != nil:
+			return fmt.Errorf("the shared action %q downloads from %s with a user written in its address, which is not a plain public https address", n, address.Host)
+		case address.Fragment != "" || address.RawQuery != "" || address.ForceQuery:
+			return fmt.Errorf("the shared action %q downloads from %s with a query or a fragment, which is not a plain public https address", n, address.Host)
+		case address.Scheme != "https" || address.Host == "":
 			return fmt.Errorf("the shared action %q downloads %q, which is not a plain public https address", n, download.GetUrl())
 		case strings.ContainsAny(download.GetUrl(), "%?#\\") || address.Path == "" || address.Path != path.Clean(address.Path) || strings.Contains(address.Path+"/", "/../") || strings.Contains(address.Path+"/", "/./"):
 			return fmt.Errorf("the shared action %q downloads %q, whose path is not plain: no escape, no \".\" or \"..\" step, no slash twice", n, download.GetUrl())
@@ -1174,7 +1182,7 @@ func checkProgram(action *pluginv1.Action) error {
 	for name := range action.GetCommand().GetEnvironment() {
 		switch {
 		case !testservice.Exportable(name):
-			return fmt.Errorf("the action %q is a program to run that sets %q, which is no name of a variable", n, name)
+			return fmt.Errorf("the action %q is a program to run that sets what is no name of a variable", n)
 		case hostSets(name):
 			return fmt.Errorf("the action %q is a program to run that sets %s, which the host sets", n, name)
 		}

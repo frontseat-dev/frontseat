@@ -242,7 +242,7 @@ var profiles = map[string]pluginv1.Profile{
 }
 
 // errNoProfile is a profile nobody defined.
-var errNoProfile = errors.New("the profiles are development and production")
+var errNoProfile = errors.New("there is no profile of the name asked for: the profiles are development and production")
 
 // profileOf returns the profile a run builds with, by name, and what it
 // is at its base: the one asked for, or development where none is.
@@ -252,7 +252,7 @@ func profileOf(asked string) (string, pluginv1.Profile, error) {
 	}
 	base, defined := profiles[asked]
 	if !defined {
-		return "", 0, fmt.Errorf("there is no profile %s: %w", asked, errNoProfile)
+		return "", 0, errNoProfile
 	}
 	return asked, base, nil
 }
