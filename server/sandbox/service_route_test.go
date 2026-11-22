@@ -145,7 +145,7 @@ func TestASandboxWhoseCreationReplyWasLostIsCleanedUp(t *testing.T) {
 // The image and proxy are the already-used PostgreSQL plugin's pinned image.
 // Here it supplies gosu; no database or credentials are created by the route
 // proof. Both the fixture service and its consumers run as nobody.
-const serviceImage = "localhost:8081/dockerhub/library/postgres@sha256:3540c0362c809df084ffac0ae69fe794515f9de92692f02178bcdce0ef0302ac"
+const serviceImage = "docker.io/library/postgres@sha256:3540c0362c809df084ffac0ae69fe794515f9de92692f02178bcdce0ef0302ac"
 
 type serviceRoutes struct {
 	t          *testing.T
