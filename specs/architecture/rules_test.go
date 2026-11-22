@@ -136,7 +136,7 @@ var policies = []policy{
 	{"server/internal/wire", []string{"sdk/go/api/**", "server/internal/pluginapi/**", "server/internal/model"}},
 	{"server/internal/pattern", []string{}},
 	{"server/internal/pins", []string{}},
-	{"server/internal/pluginhost", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/pluginapi/**", "server/telemetry", "server/internal/pattern", "server/internal/testservice"}},
+	{"server/internal/pluginhost", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/pluginapi/**", "server/telemetry", "server/internal/pattern", "server/internal/plain", "server/internal/testservice"}},
 	{"server/internal/pluginhost/conformance", []string{"sdk/go/api/**", "server/internal/pluginapi/**", "server/internal/pluginhost"}},
 	{"server/internal/engine/evaluate", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/pluginapi/**", "server/telemetry", "server/internal/engine/catalog", "server/internal/engine/config", "server/internal/engine/evaluate", "server/internal/engine/graph", "server/internal/engine/internal/yamlnode", "server/internal/engine/plan", "server/internal/engine/source", "server/internal/model", "server/internal/wire", "server/internal/pins", "server/internal/pluginhost", "server/internal/pattern", "server/internal/source/record", "server/internal/testservice", "server/internal/runnerapi/**"}},
 	{"server/internal/engine/catalog", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/pluginapi/**"}},

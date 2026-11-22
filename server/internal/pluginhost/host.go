@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/frontseat-dev/frontseat/server/internal/plain"
 	"github.com/frontseat-dev/frontseat/server/telemetry"
 	"go.opentelemetry.io/otel/attribute"
 	"io"
@@ -142,7 +143,7 @@ func (h *Host) Load(ctx context.Context, module []byte) (*Plugin, error) {
 	description := &pluginv1.DescribeResponse{}
 	if _, err := p.Call(ctx, nil, "Describe", &pluginv1.DescribeRequest{HostAbiMin: MinABI, HostAbiMax: MaxABI}, description); err != nil {
 		_ = compiled.Close(ctx)
-		return nil, fmt.Errorf("pluginhost: %s, asked what it is: %w", digest[:12], err)
+		return nil, err
 	}
 	if err := checkDescription(description); err != nil {
 		_ = compiled.Close(ctx)
@@ -187,15 +188,11 @@ func (p *printed) Write(b []byte) (int, error) {
 	return written, nil
 }
 
-// said is what was kept, as an error says it: text of one piece, with
-// nothing in it that a terminal acts on.
+// said is what was kept, as an error says it: text of one piece and of
+// as many lines as the module printed, with nothing in it that a
+// terminal acts on.
 func (p *printed) said() string {
-	text := strings.Map(func(r rune) rune {
-		if r < 0x20 && r != '\n' && r != '\t' || r == 0x7f {
-			return -1
-		}
-		return r
-	}, strings.ToValidUTF8(string(p.end), "\uFFFD"))
+	text := plain.Shown(string(p.end))
 	text = strings.TrimSpace(text)
 	switch {
 	case text == "":
@@ -219,8 +216,9 @@ func (p *Plugin) named() string {
 func (p *Plugin) Close(ctx context.Context) error { return p.compiled.Close(ctx) }
 
 // ErrUnsupported is what a plugin's answer is where the plugin does not
-// serve the method: UNIMPLEMENTED, for the reason <METHOD>_NOT_SERVED
-// or, of a method its SDK does not know, UNKNOWN_METHOD. UNIMPLEMENTED
+// serve the method: UNIMPLEMENTED, for the method's own reason (Report's
+// is REPORT_NOT_SERVED, Branch's BRANCHING_STRATEGY_NOT_SERVED) or, of a
+// method its SDK does not know, UNKNOWN_METHOD. UNIMPLEMENTED
 // for another reason is of what the method was asked about, which the
 // plugin does not build yet, and is a failure of the call.
 var ErrUnsupported = errors.New("pluginhost: the plugin does not serve the method")
@@ -260,28 +258,37 @@ func (p *Plugin) Call(ctx context.Context, src Source, method string, request, r
 	ctx = context.WithValue(ctx, callKey{}, state)
 
 	stderr := &printed{}
+	// A module is ended where its caller has gone, and is told nothing
+	// of a read the host could not serve: neither is the module's bug,
+	// whatever the module did after. This holds of every step a module
+	// runs in: where it starts, where it gives memory and where it
+	// answers.
+	stopped := func(err error) error {
+		switch {
+		case ctx.Err() != nil:
+			return unanswered("its caller gave the call up: %w", context.Cause(ctx))
+		case state.err != nil:
+			return unanswered("the host could not serve what the plugin read: %w", state.err)
+		}
+		return unanswered("the module trapped, which is a bug in the plugin: %w; %s", err, stderr.said())
+	}
 	instance, err := p.instantiate(ctx, stderr)
 	if err != nil {
-		return nil, unanswered("%w", err)
+		return nil, stopped(err)
 	}
 	defer instance.Close(context.WithoutCancel(ctx))
 	alloc, free, call := instance.ExportedFunction("frontseat_alloc"), instance.ExportedFunction("frontseat_free"), instance.ExportedFunction("frontseat_call")
 
 	ptr, err := writeInto(ctx, instance, alloc, envelope)
-	if err != nil {
+	switch {
+	case errors.Is(err, errNoMemory):
 		return nil, unanswered("%w", err)
+	case err != nil:
+		return nil, stopped(err)
 	}
 	packed, err := call.Call(ctx, uint64(ptr), uint64(len(envelope)))
-	// A module is ended where its caller has gone, and is told nothing
-	// of a read the host could not serve: neither is the module's bug,
-	// whatever the module did after.
-	switch {
-	case ctx.Err() != nil:
-		return nil, unanswered("its caller gave the call up: %w", context.Cause(ctx))
-	case state.err != nil:
-		return nil, unanswered("the host could not serve what the plugin read: %w", state.err)
-	case err != nil:
-		return nil, unanswered("the module trapped, which is a bug in the plugin: %w; %s", err, stderr.said())
+	if err != nil || ctx.Err() != nil || state.err != nil {
+		return nil, stopped(err)
 	}
 	_, _ = free.Call(ctx, uint64(ptr), uint64(len(envelope)))
 	rptr, rsize := uint32(packed[0]>>32), uint32(packed[0])
@@ -311,6 +318,10 @@ func (p *Plugin) Call(ctx context.Context, src Source, method string, request, r
 	}
 }
 
+// errNoMemory is a module that ran and gave nothing to write a call
+// into.
+var errNoMemory = errors.New("the module gave no memory to write to")
+
 func writeInto(ctx context.Context, m api.Module, alloc api.Function, b []byte) (uint32, error) {
 	if len(b) == 0 {
 		return 0, nil
@@ -321,7 +332,7 @@ func writeInto(ctx context.Context, m api.Module, alloc api.Function, b []byte) 
 	}
 	ptr := uint32(got[0])
 	if ptr == 0 || !m.Memory().Write(ptr, b) {
-		return 0, errors.New("the module gave no memory to write to")
+		return 0, errNoMemory
 	}
 	return ptr, nil
 }
