@@ -95,6 +95,9 @@ const (
 	// ReasonReleaseInvalid: what a release is asked for cannot be
 	// released.
 	ReasonReleaseInvalid = "RELEASE_INVALID"
+	// ReasonReleaseNotCancellable: a release is tagging, pushing or
+	// publishing, and is carried through.
+	ReasonReleaseNotCancellable = "RELEASE_NOT_CANCELLABLE"
 	// ReasonReleaseNotFound: no release has the id.
 	ReasonReleaseNotFound = "RELEASE_NOT_FOUND"
 	// ReasonReleaseNotServed: the workspace's daemon releases nothing.

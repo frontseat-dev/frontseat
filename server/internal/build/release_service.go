@@ -83,6 +83,30 @@ func (s *releaseService) WaitRelease(ctx context.Context, request *buildv1.WaitR
 	}
 }
 
+// ListReleases returns the releases the daemon remembers, newest first,
+// a page at a time.
+func (s *releaseService) ListReleases(_ context.Context, request *buildv1.ListReleasesRequest) (*buildv1.ListReleasesResponse, error) {
+	listed, next, err := paged(s.releases.list(), request.GetPageSize(), request.GetPageToken())
+	if err != nil {
+		return nil, err
+	}
+	return &buildv1.ListReleasesResponse{Releases: listed, NextPageToken: next}, nil
+}
+
+// CancelRelease stops a release that has not begun tagging, and returns
+// at once, as CancelBuild and CancelRun do; WaitRelease ends when it has
+// stopped.
+func (s *releaseService) CancelRelease(_ context.Context, request *buildv1.CancelReleaseRequest) (*buildv1.CancelReleaseResponse, error) {
+	found, err := s.find(request.GetReleaseId())
+	if err != nil {
+		return nil, err
+	}
+	if !found.stop() {
+		return nil, failedRPC(fmt.Errorf("the release %s is tagging, pushing or publishing, and is carried through", request.GetReleaseId()), codes.FailedPrecondition, "RELEASE_NOT_CANCELLABLE")
+	}
+	return &buildv1.CancelReleaseResponse{Release: found.snapshot()}, nil
+}
+
 // releaseFailure is a failure to plan, as whoever asked hears of it: a
 // request refused for what it asks, a strategy's answer the plugin
 // contract does not let it give, a mistake in what the workspace says,

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	connect "connectrpc.com/connect/v2"
+	"github.com/frontseat-dev/frontseat/sdk/go"
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/entity"
@@ -367,5 +368,58 @@ func TestAReleasePushesItsTagsAndSaysWhichItCouldNot(t *testing.T) {
 	}
 	if at := commits.Git(t, remote, "rev-parse", "log/v1.0.0^{commit}"); at != head {
 		t.Errorf("the release made again left the remote's log/v1.0.0 at %s, want %s", at, head)
+	}
+}
+
+// A release that has not begun tagging is cancelled: CancelRelease
+// returns at once, its build is cancelled, it ends cancelled, and
+// nothing is tagged; cancelled again, it changes nothing. One that is
+// tagging, pushing or publishing is carried through, and one no daemon
+// made is not found. The releases a daemon remembers are listed newest
+// first. The control is a release nothing cancels, which tags
+// (TestAReleaseBuildsThenTagsWhatMoves).
+func TestAReleaseIsCancelledBeforeItTagsAndTheReleasesAreListed(t *testing.T) {
+	s, _, clone := releasingDaemon(t, scripted{hang: true})
+	ctx := context.Background()
+	going := releaseBegun(t, s, "greet")
+	if listed, err := s.ListReleases(ctx, &buildv1.ListReleasesRequest{}); err != nil || len(listed.GetReleases()) != 1 || listed.GetReleases()[0].GetId() != going.GetId() {
+		t.Fatalf("the releases listed while one is made: %v, %v", listed.GetReleases(), err)
+	}
+	if _, err := s.CancelRelease(ctx, &buildv1.CancelReleaseRequest{ReleaseId: going.GetId()}); err != nil {
+		t.Fatal(err)
+	}
+	cancelled := releaseEnded(t, s, going.GetId())
+	if cancelled.GetState() != frontseat.ReleaseCancelled || tagsOf(t, clone) != "" {
+		t.Errorf("a cancelled release ended %v (%s) with the tags %q", cancelled.GetState(), cancelled.GetFailure(), tagsOf(t, clone))
+	}
+	if again, err := s.CancelRelease(ctx, &buildv1.CancelReleaseRequest{ReleaseId: going.GetId()}); err != nil || again.GetRelease().GetState() != frontseat.ReleaseCancelled {
+		t.Errorf("a release that has ended, cancelled again: %v, %v", again.GetRelease().GetState(), err)
+	}
+	if _, err := s.CancelRelease(ctx, &buildv1.CancelReleaseRequest{ReleaseId: "rel_none"}); connect.CodeOf(err) != connect.CodeNotFound {
+		t.Errorf("a release no daemon made, cancelled: %v", err)
+	}
+
+	// One that has begun pushing is carried through.
+	pushing := &made{lasting: lasting[*buildv1.Release]{state: &buildv1.Release{Id: "rel_pushing", State: buildv1.Release_STATE_PUSHING}, ended: make(chan struct{})}}
+	s.releases.mu.Lock()
+	s.releases.made = append(s.releases.made, pushing)
+	s.releases.mu.Unlock()
+	_, err := s.CancelRelease(ctx, &buildv1.CancelReleaseRequest{ReleaseId: "rel_pushing"})
+	if reason, _ := frontseat.Reason(err); connect.CodeOf(err) != connect.CodeFailedPrecondition || reason != frontseat.ReasonReleaseNotCancellable {
+		t.Errorf("a release that is pushing, cancelled: %v", err)
+	}
+	if pushing.snapshot().GetState() != buildv1.Release_STATE_PUSHING {
+		t.Errorf("a release that is pushing is %v after it was refused cancelling", pushing.snapshot().GetState())
+	}
+	s.releases.mu.Lock()
+	s.releases.made = s.releases.made[:len(s.releases.made)-1]
+	s.releases.mu.Unlock()
+
+	listed, err := s.ListReleases(ctx, &buildv1.ListReleasesRequest{})
+	if err != nil || len(listed.GetReleases()) != 1 || listed.GetReleases()[0].GetState() != frontseat.ReleaseCancelled {
+		t.Errorf("the releases listed: %v, %v", listed.GetReleases(), err)
+	}
+	if _, err := s.ListReleases(ctx, &buildv1.ListReleasesRequest{PageToken: "no token"}); connect.CodeOf(err) != connect.CodeInvalidArgument {
+		t.Errorf("a page token no list gave: %v", err)
 	}
 }

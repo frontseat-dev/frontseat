@@ -57,6 +57,59 @@ type made struct {
 	lasting[*buildv1.Release]
 	// etag is the plan's.
 	etag string
+	// build is the production build made with it, nil where it builds
+	// nothing; cancelled says CancelRelease stopped it, under mu.
+	build     *run
+	cancelled bool
+}
+
+// cancelling has a release stop before it begins tagging, and says
+// whether it will: one that has ended changes nothing and is as good as
+// stopped; one that tags, pushes or publishes already is carried
+// through.
+func (m *made) cancelling() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.over() {
+		return true
+	}
+	if m.state.GetState() != buildv1.Release_STATE_BUILDING {
+		return false
+	}
+	m.cancelled = true
+	return true
+}
+
+// stop stops a release that has not begun tagging, by cancelling its
+// build, and says whether it is stopped; carrying it out then ends it
+// cancelled.
+func (m *made) stop() bool {
+	if !m.cancelling() {
+		return false
+	}
+	if m.build != nil && !m.over() {
+		m.build.cancel()
+	}
+	return true
+}
+
+// stopped is whether CancelRelease stopped the release.
+func (m *made) stopped() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.cancelled
+}
+
+// tagging moves a release on to tagging, where it was not cancelled
+// first, and says whether it did.
+func (m *made) tagging() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.cancelled {
+		return false
+	}
+	m.state.State = buildv1.Release_STATE_TAGGING
+	return true
 }
 
 func newReleases(graph *graphService) *releases {
@@ -84,6 +137,17 @@ func (rs *releases) get(id string) (*made, error) {
 		}
 	}
 	return nil, errReleaseNotFound
+}
+
+// list is the releases remembered, newest first.
+func (rs *releases) list() []*buildv1.Release {
+	rs.mu.Lock()
+	defer rs.mu.Unlock()
+	out := make([]*buildv1.Release, 0, len(rs.made))
+	for i := len(rs.made) - 1; i >= 0; i-- {
+		out = append(out, rs.made[i].snapshot())
+	}
+	return out
 }
 
 // refusedRelease is a release refused before it began, with the status
@@ -185,6 +249,7 @@ func (rs *releases) create(ctx context.Context, request *buildv1.CreateReleaseRe
 			return nil, err
 		}
 		m.state.BuildId = built.snapshot().GetId()
+		m.build = built
 	}
 	rs.made = remembered(append(rs.made, m))
 	rs.joined.Add(1)
@@ -278,6 +343,10 @@ func (rs *releases) carryOut(m *made, planned *release.Planned, built *run) {
 			fail("the daemon ended before its units were built; nothing is tagged")
 			return
 		}
+		if m.stopped() {
+			end(buildv1.Release_STATE_CANCELLED, "")
+			return
+		}
 		if ran := built.snapshot(); ran.GetExitCode() != exitSuccess {
 			fail("the production build %s ended %s; nothing is tagged", ran.GetId(), bazelName(ran.GetExitCode()))
 			return
@@ -322,7 +391,10 @@ func (rs *releases) carryOut(m *made, planned *release.Planned, built *run) {
 			}
 		}
 	}
-	m.change(func(r *buildv1.Release) { r.State = buildv1.Release_STATE_TAGGING })
+	if !m.tagging() {
+		end(buildv1.Release_STATE_CANCELLED, "")
+		return
+	}
 	// What was built is what is tagged: each repository is still the
 	// commit it was planned from, with nothing uncommitted. A change that
 	// was made and undone while the build ran is not seen here.
