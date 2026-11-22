@@ -28,18 +28,28 @@ func kept(id string) (name, variable string) {
 	return "fs-cred-" + digest[:40], "FRONTSEAT_CRED_" + strings.ToUpper(digest[:40])
 }
 
-// sent reads where a credential is sent, or a rule lets a sandbox
-// reach: a host's name and a port, over https, or over http where it is
-// written so (plain.Ruled). An address is refused in any spelling of
-// one, so that a rule is always of a name and what the name resolves to
-// is the gateway's to check: it refuses the loopback, link-local and
-// unspecified addresses, and lets a name resolve to a private one.
-func sent(host string) (plain.Origin, error) {
-	at, ok := plain.Ruled(host)
-	if !ok {
-		return plain.Origin{}, errors.New("openshell: a host is named by its name and a port: a sandbox is let reach a name, never an address")
+// sent holds where a credential is sent, or a rule lets a sandbox
+// reach, to a host's name and a port, over https or over http, as the
+// gateway is told it: whoever made the endpoint, it is read again here.
+// An address is refused in any spelling of one, so that a rule is always
+// of a name and what the name resolves to is the gateway's to check: it
+// refuses the loopback, link-local and unspecified addresses, and lets a
+// name resolve to a private one.
+func sent(host driver.Endpoint) (plain.Origin, error) {
+	scheme := "https"
+	if host.Clear {
+		scheme = "http"
+	}
+	at, ok := plain.OriginOf(scheme, host.Name, strconv.Itoa(host.Port))
+	if !ok || at.Name != host.Name {
+		return plain.Origin{}, errors.New("openshell: a host is named by its name, in small letters, and a port: a sandbox is let reach a name, never an address")
 	}
 	return at, nil
+}
+
+// endpointOf is an origin as the driver port says it.
+func endpointOf(at plain.Origin) driver.Endpoint {
+	return driver.Endpoint{Name: at.Name, Port: at.Port, Clear: at.Scheme == "http"}
 }
 
 // Credential keeps a credential for a host at the gateway, under an id,
@@ -50,7 +60,7 @@ func sent(host string) (plain.Origin, error) {
 // was kept for, encrypted or not (the package says what is not held). A
 // credential is never moved to another host: a sandbox let through with
 // it would send the new secret where the old one went.
-func (d *Driver) Credential(ctx context.Context, id, host, user, secret string) error {
+func (d *Driver) Credential(ctx context.Context, id string, host driver.Endpoint, user, secret string) error {
 	if d.config.Identity == "" {
 		return &driver.Unsupported{Driver: d.Name(), Capability: "a credential kept by a gateway that asks no one who they are"}
 	}
@@ -65,7 +75,7 @@ func (d *Driver) Credential(ctx context.Context, id, host, user, secret string) 
 	case errors.Is(err, driver.ErrNotFound):
 	case err != nil:
 		return err
-	case there != at.Rule():
+	case there != host:
 		return fmt.Errorf("%w: openshell: the credential %s is kept for another host: let go of it first", driver.ErrInvalid, id)
 	}
 	if !plain.Secret(secret) {
@@ -158,17 +168,17 @@ type fetched struct {
 // finds its stand-in under. What the gateway holds is read as anything
 // from outside is: a credential is said to be kept only where this
 // server kept it under the id, for a host it can say.
-func (d *Driver) Kept(ctx context.Context, id string) (string, string, string, error) {
+func (d *Driver) Kept(ctx context.Context, id string) (driver.Endpoint, string, string, error) {
 	if !driver.CredentialID(id) {
-		return "", "", "", fmt.Errorf("%w: openshell: a credential is asked for by what is no credential's id", driver.ErrInvalid)
+		return driver.Endpoint{}, "", "", fmt.Errorf("%w: openshell: a credential is asked for by what is no credential's id", driver.ErrInvalid)
 	}
 	provider, variable := kept(id)
 	held, err := d.gateway.Providers().Get(ctx, d.config.Workspace, provider)
 	if client.IsNotFound(err) {
-		return "", "", "", driver.ErrNotFound
+		return driver.Endpoint{}, "", "", driver.ErrNotFound
 	}
 	if err != nil {
-		return "", "", "", fmt.Errorf("openshell: asking after the credential %s: %w", id, err)
+		return driver.Endpoint{}, "", "", fmt.Errorf("openshell: asking after the credential %s: %w", id, err)
 	}
 	sentTo, err := url.Parse(held.Spec.Config["sent"])
 	var at plain.Origin
@@ -177,9 +187,9 @@ func (d *Driver) Kept(ctx context.Context, id string) (string, string, string, e
 		at, ok = plain.OriginOf(sentTo.Scheme, sentTo.Hostname(), sentTo.Port())
 	}
 	if !ok || at.URL() != held.Spec.Config["sent"] || held.Spec.Config["id"] != id || !plain.Username(held.Spec.Config["username"]) {
-		return "", "", "", fmt.Errorf("openshell: what the gateway keeps as the credential %s was not kept by this server under it", id)
+		return driver.Endpoint{}, "", "", fmt.Errorf("openshell: what the gateway keeps as the credential %s was not kept by this server under it", id)
 	}
-	return at.Rule(), held.Spec.Config["username"], variable, nil
+	return endpointOf(at), held.Spec.Config["username"], variable, nil
 }
 
 // ruled reads a sandbox's rules into what its fetches came to: for each
@@ -243,7 +253,7 @@ func (d *Driver) ruled(ctx context.Context, record driver.Sandbox) (fetched, err
 			} else if err != nil {
 				return fetched{}, err
 			}
-			if host != reached.Rule() {
+			if host != rule.Host {
 				return fetched{}, fmt.Errorf("%w: openshell: the credential %s is kept for another host than %s, whose rule attaches it", driver.ErrInvalid, id, at)
 			}
 			provider, _ := kept(id)

@@ -125,7 +125,12 @@ func pool(arguments []string) int {
 		fmt.Fprintln(os.Stderr, "frontseat-runner pool:", err)
 		return 1
 	}
-	p := runner.Pool{Image: *image, BB: *bb, Slots: *slots, Count: *count, Egress: *egress, Hosts: strings.Fields(string(read))}
+	hosts, err := runner.EgressHosts(string(read))
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "frontseat-runner pool:", err)
+		return 1
+	}
+	p := runner.Pool{Image: *image, BB: *bb, Slots: *slots, Count: *count, Egress: *egress, Hosts: hosts}
 	if err := runner.KeepPool(ctx, *gateway, *identity, p); err != nil {
 		fmt.Fprintln(os.Stderr, "frontseat-runner pool:", err)
 		return 1

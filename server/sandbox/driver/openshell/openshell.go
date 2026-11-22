@@ -12,7 +12,6 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -225,18 +224,6 @@ func (d *Driver) Apply(ctx context.Context, record driver.Sandbox) (driver.Sandb
 		}
 		labels[identity] = record.ID
 		template := &client.SandboxTemplate{Image: record.Image}
-		// A size is a limit, written as the gateway's own command line
-		// writes one: thousandths of a processor, and bytes.
-		limits := map[string]any{}
-		if record.MilliCPUs > 0 {
-			limits["cpu"] = strconv.Itoa(record.MilliCPUs) + "m"
-		}
-		if record.MemoryBytes > 0 {
-			limits["memory"] = strconv.FormatInt(record.MemoryBytes, 10)
-		}
-		if len(limits) > 0 {
-			template.Resources = map[string]any{"limits": limits}
-		}
 		bound, err := mounts(d.config.Compute, record.Volumes)
 		if err != nil {
 			return driver.Sandbox{}, err
@@ -443,27 +430,6 @@ func observed(held *client.Sandbox) driver.Sandbox {
 	return out
 }
 
-func (d *Driver) List(ctx context.Context, labels map[string]string) ([]driver.Sandbox, error) {
-	var selector []string
-	for k, v := range labels {
-		selector = append(selector, k+"="+v)
-	}
-	sort.Strings(selector)
-	listed, err := d.gateway.Sandboxes().ListAll(ctx, d.config.Workspace, client.ListOptions{LabelSelector: strings.Join(selector, ",")})
-	if err != nil {
-		return nil, fmt.Errorf("openshell: listing sandboxes: %w", err)
-	}
-	var out []driver.Sandbox
-	for _, held := range listed {
-		// Only what this driver made: what else the gateway holds is not ours.
-		if held.Labels[identity] == "" || named(held.Labels[identity]) != held.Name {
-			continue
-		}
-		out = append(out, observed(held))
-	}
-	return out, nil
-}
-
 func (d *Driver) Delete(ctx context.Context, id string) error {
 	name := named(id)
 	// Only what this driver made, of this id, is its to end.
@@ -495,16 +461,6 @@ func (d *Driver) Delete(ctx context.Context, id string) error {
 		case <-time.After(100 * time.Millisecond):
 		}
 	}
-}
-
-// Logs is refused: what a sandbox prints goes to its container, which
-// the compute driver under the gateway holds, and the gateway hands back
-// its supervisor's account of the sandbox and none of its own output.
-func (d *Driver) Logs(ctx context.Context, id string, fromLine int64) (io.ReadCloser, error) {
-	if _, err := d.find(ctx, id); err != nil {
-		return nil, err
-	}
-	return nil, &driver.Unsupported{Driver: d.Name(), Capability: "what a sandbox printed"}
 }
 
 func (d *Driver) Dial(ctx context.Context, id string, port int) (net.Conn, error) {

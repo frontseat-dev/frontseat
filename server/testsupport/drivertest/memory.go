@@ -3,9 +3,7 @@ package drivertest
 import (
 	"context"
 	"fmt"
-	"io"
 	"net"
-	"strings"
 	"sync"
 
 	"github.com/frontseat-dev/frontseat/server/sandbox/driver"
@@ -79,13 +77,11 @@ func (*Memory) Name() string { return "memory" }
 func (d *Memory) Capabilities() driver.Capabilities {
 	return driver.Capabilities{
 		PauseKeepsDisk:  true,
-		Output:          true,
 		EgressOpen:      true,
 		EgressAllowList: d.ruled,
 		EgressRules:     d.ruled,
 		Volumes:         []driver.VolumeKind{driver.Ephemeral},
 		// It keeps no disk, and so takes any size asked for.
-		DiskSize: true,
 	}
 }
 
@@ -151,7 +147,8 @@ func (d *Memory) Observe(_ context.Context, id string) (driver.Sandbox, error) {
 	return observed(held), nil
 }
 
-// List implements driver.Driver.
+// List returns the sandboxes that carry labels, those that are ending
+// among them: what a test asks of what the driver holds.
 func (d *Memory) List(_ context.Context, labels map[string]string) ([]driver.Sandbox, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -188,14 +185,6 @@ func (d *Memory) Delete(_ context.Context, id string) error {
 		delete(d.sandboxes, id)
 	}
 	return nil
-}
-
-// Logs implements driver.Driver.
-func (d *Memory) Logs(ctx context.Context, id string, _ int64) (io.ReadCloser, error) {
-	if _, err := d.Observe(ctx, id); err != nil {
-		return nil, err
-	}
-	return io.NopCloser(strings.NewReader("started " + id + "\n")), nil
 }
 
 // Dial implements driver.Driver.

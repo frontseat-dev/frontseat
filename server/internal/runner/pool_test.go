@@ -105,7 +105,7 @@ func keptOver(t *testing.T, d sandboxes, asked *[]string, ids map[int]string, ke
 
 func pool(sandboxes sandboxes, mounted func(string) (string, bool, error)) Pool {
 	return Pool{Sandboxes: sandboxes, Image: "runner@sha256:" + strings.Repeat("a", 64), BB: "/s/bb", Slots: "/var/lib/frontseat/worker", Count: 3, Egress: 1,
-		Hosts: []string{"github.com:443"}, Mounted: mounted, Every: time.Hour, Wait: time.Second}
+		Hosts: []driver.Endpoint{{Name: "github.com", Port: 443}}, Mounted: mounted, Every: time.Hour, Wait: time.Second}
 }
 
 // Each slot whose build directory the worker has mounted has a sandbox
@@ -144,7 +144,7 @@ func TestASlotsSandboxReachesWhatItsKindMayAndHoldsItsOwnDirectory(t *testing.T)
 	if !offline.Egress.Block || offline.Egress.Listed {
 		t.Errorf("an offline slot's egress is %+v, want blocked", offline.Egress)
 	}
-	if egress.Egress.Block || !egress.Egress.Listed || len(egress.Egress.Rules) != 1 || egress.Egress.Rules[0].Host != "github.com:443" {
+	if egress.Egress.Block || !egress.Egress.Listed || len(egress.Egress.Rules) != 1 || egress.Egress.Rules[0].Host.String() != "github.com:443" {
 		t.Errorf("an egress slot's egress is %+v, want github.com:443 alone", egress.Egress)
 	}
 	for _, record := range []driver.Sandbox{offline, egress} {

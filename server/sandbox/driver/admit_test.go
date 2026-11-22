@@ -3,7 +3,6 @@ package driver
 import (
 	"context"
 	"errors"
-	"io"
 	"net"
 	"testing"
 )
@@ -15,14 +14,8 @@ func (f fake) Capabilities() Capabilities { return f.caps }
 func (fake) Apply(context.Context, Sandbox) (Sandbox, error) {
 	return Sandbox{}, nil
 }
-func (fake) Observe(context.Context, string) (Sandbox, error) { return Sandbox{}, ErrNotFound }
-func (fake) List(context.Context, map[string]string) ([]Sandbox, error) {
-	return nil, nil
-}
-func (fake) Delete(context.Context, string) error { return nil }
-func (fake) Logs(context.Context, string, int64) (io.ReadCloser, error) {
-	return nil, nil
-}
+func (fake) Observe(context.Context, string) (Sandbox, error)    { return Sandbox{}, ErrNotFound }
+func (fake) Delete(context.Context, string) error                { return nil }
 func (fake) Dial(context.Context, string, int) (net.Conn, error) { return nil, nil }
 
 func TestASandboxAskingForMoreThanTheDriverEnforcesIsRefused(t *testing.T) {
@@ -35,7 +28,6 @@ func TestASandboxAskingForMoreThanTheDriverEnforcesIsRefused(t *testing.T) {
 		{"blocked egress", Sandbox{Egress: Egress{Block: true}}, "blocked egress"},
 		{"a pause", Sandbox{Paused: true}, "pause"},
 		{"a host volume", Sandbox{Volumes: []Volume{{Name: "work", Kind: Host}}}, "a volume of a kind it does not give"},
-		{"a disk size", Sandbox{DiskBytes: 1 << 30}, "a disk size"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -48,8 +40,8 @@ func TestASandboxAskingForMoreThanTheDriverEnforcesIsRefused(t *testing.T) {
 }
 
 func TestASandboxWithinWhatTheDriverEnforcesIsAdmitted(t *testing.T) {
-	d := fake{caps: Capabilities{EgressBlock: true, Volumes: []VolumeKind{Ephemeral, Host}, DiskSize: true}}
-	ask := Sandbox{Egress: Egress{Block: true}, Volumes: []Volume{{Name: "work", Kind: Host}}, DiskBytes: 1 << 30}
+	d := fake{caps: Capabilities{EgressBlock: true, Volumes: []VolumeKind{Ephemeral, Host}}}
+	ask := Sandbox{Egress: Egress{Block: true}, Volumes: []Volume{{Name: "work", Kind: Host}}}
 	if err := Admit(d, ask); err != nil {
 		t.Errorf("Admit = %v, want it admitted", err)
 	}
@@ -65,7 +57,7 @@ func TestASandboxThatReachesAnythingIsRefusedByADriverThatLetsNothingBeReachedUn
 		t.Errorf("Admit = %v, want it refused for a sandbox that reaches anything", err)
 	}
 	for name, ask := range map[string]Sandbox{
-		"one that names its hosts": {Egress: Egress{Listed: true, Rules: []Rule{{Host: "example.com"}}}},
+		"one that names its hosts": {Egress: Egress{Listed: true, Rules: []Rule{{Host: Endpoint{Name: "example.com", Port: 443}}}}},
 		"one that reaches nothing": {Egress: Egress{Block: true}},
 	} {
 		if err := Admit(closed, ask); err != nil {

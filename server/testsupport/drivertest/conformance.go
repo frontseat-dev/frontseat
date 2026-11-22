@@ -3,7 +3,6 @@ package drivertest
 import (
 	"context"
 	"errors"
-	"io"
 	"slices"
 	"testing"
 	"time"
@@ -40,19 +39,8 @@ func Conforms(t *testing.T, d driver.Driver, template driver.Sandbox) {
 		if err != nil || again.State != driver.Running {
 			t.Errorf("the second Apply = %+v, %v; want the sandbox as it was, running", again, err)
 		}
-		if listed, _ := d.List(ctx, record.Labels); len(listed) != 1 {
-			t.Errorf("%d sandboxes carry the labels after applying twice, want 1", len(listed))
-		}
-	})
-
-	t.Run("a sandbox is found by its labels", func(t *testing.T) {
-		record := made(t, "listed")
-		listed, err := d.List(ctx, record.Labels)
-		if err != nil || len(listed) != 1 || listed[0].ID != record.ID {
-			t.Errorf("List = %+v, %v; want %s alone", listed, err, record.ID)
-		}
-		if other, _ := d.List(ctx, map[string]string{"conformance": "nothing-carries-this"}); len(other) != 0 {
-			t.Errorf("List by a label nothing carries = %+v, want none", other)
+		if got, err := d.Observe(ctx, record.ID); err != nil || got.ID != record.ID || got.State != driver.Running {
+			t.Errorf("Observe after applying twice = %+v, %v; want %s running", got, err, record.ID)
 		}
 	})
 
@@ -92,33 +80,6 @@ func Conforms(t *testing.T, d driver.Driver, template driver.Sandbox) {
 		}
 	})
 
-	t.Run("a sandbox's own output is read, or refused by name", func(t *testing.T) {
-		record := made(t, "logged")
-		if !d.Capabilities().Output {
-			var refused *driver.Unsupported
-			if _, err := d.Logs(ctx, record.ID, 0); !errors.As(err, &refused) {
-				t.Fatalf("Logs = %v, want it refused by a driver that reads no output", err)
-			}
-			return
-		}
-		deadline := time.Now().Add(30 * time.Second)
-		for {
-			logs, err := d.Logs(ctx, record.ID, 0)
-			if err != nil {
-				t.Fatalf("Logs: %v", err)
-			}
-			out, _ := io.ReadAll(logs)
-			_ = logs.Close()
-			if len(out) > 0 {
-				return
-			}
-			if time.Now().After(deadline) {
-				t.Fatal("the sandbox printed nothing")
-			}
-			time.Sleep(50 * time.Millisecond)
-		}
-	})
-
 	t.Run("a paused sandbox is kept and runs again", func(t *testing.T) {
 		if !d.Capabilities().PauseKeepsDisk {
 			t.Skip("the driver does not pause")
@@ -144,9 +105,6 @@ func Conforms(t *testing.T, d driver.Driver, template driver.Sandbox) {
 		if _, err := d.Observe(ctx, record.ID); !errors.Is(err, driver.ErrNotFound) {
 			t.Errorf("Observe after Delete = %v, want ErrNotFound", err)
 		}
-		if listed, err := d.List(ctx, record.Labels); err != nil || len(listed) != 0 {
-			t.Errorf("List after Delete = %+v, %v; want nothing", listed, err)
-		}
 		if err := d.Delete(ctx, record.ID); err != nil {
 			t.Errorf("deleting it again = %v, want nil", err)
 		}
@@ -165,12 +123,12 @@ func Conforms(t *testing.T, d driver.Driver, template driver.Sandbox) {
 		}
 		if !caps.EgressAllowList {
 			asks["an egress allow list"] = func(s *driver.Sandbox) {
-				s.Egress = driver.Egress{Listed: true, Rules: []driver.Rule{{Host: "example.com"}}}
+				s.Egress = driver.Egress{Listed: true, Rules: []driver.Rule{{Host: driver.Endpoint{Name: "example.com", Port: 443}}}}
 			}
 		}
 		if !caps.EgressRules {
 			asks["a host held to the programs and the requests a rule names"] = func(s *driver.Sandbox) {
-				s.Egress = driver.Egress{Listed: true, Rules: []driver.Rule{{Host: "example.com", Programs: []string{"/usr/bin/git"}}}}
+				s.Egress = driver.Egress{Listed: true, Rules: []driver.Rule{{Host: driver.Endpoint{Name: "example.com", Port: 443}, Programs: []string{"/usr/bin/git"}}}}
 			}
 		}
 		if !caps.Containers {
@@ -220,10 +178,6 @@ func Lingering(t *testing.T, d driver.Driver, template driver.Sandbox, linger fu
 		if err != nil || got.ID != record.ID || got.State != driver.Ending {
 			t.Fatalf("Observe, Delete asked %s, = %+v, %v; want %s ending", asked, got, err, record.ID)
 		}
-		listed, err := d.List(ctx, record.Labels)
-		if err != nil || len(listed) != 1 || listed[0].ID != record.ID || listed[0].State != driver.Ending {
-			t.Errorf("List, Delete asked %s, = %+v, %v; want %s alone, ending", asked, listed, err, record.ID)
-		}
 	}
 	if _, err := d.Apply(ctx, record); !errors.Is(err, driver.ErrEnding) {
 		t.Errorf("Apply of one that is ending = %v, want ErrEnding", err)
@@ -241,9 +195,6 @@ func Lingering(t *testing.T, d driver.Driver, template driver.Sandbox, linger fu
 	}
 	if _, err := d.Observe(ctx, record.ID); !errors.Is(err, driver.ErrNotFound) {
 		t.Errorf("Observe once it is gone = %v, want ErrNotFound", err)
-	}
-	if listed, err := d.List(ctx, record.Labels); err != nil || len(listed) != 0 {
-		t.Errorf("List once it is gone = %+v, %v; want nothing", listed, err)
 	}
 }
 
@@ -284,4 +235,15 @@ func Await(t testing.TB, d driver.Driver, id string, want driver.State) {
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
+}
+
+// Endpoint is a host as the driver port takes it, read as the sandbox
+// API writes it: what a test names a rule's host or a credential's by.
+func Endpoint(t testing.TB, written string) driver.Endpoint {
+	t.Helper()
+	at, err := driver.ParseEndpoint(written)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return at
 }

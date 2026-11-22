@@ -2,7 +2,6 @@ package sandbox_test
 
 import (
 	"context"
-	"io"
 	"net"
 	"reflect"
 	"strings"
@@ -27,24 +26,25 @@ type closed struct {
 	inUse map[string]bool
 }
 
-func (c *closed) Credential(_ context.Context, id, host, username, secret string) error {
+func (c *closed) Credential(_ context.Context, id string, host driver.Endpoint, username, secret string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.kept == nil {
 		c.kept = map[string][3]string{}
 	}
-	c.kept[id] = [3]string{host, username, secret}
+	c.kept[id] = [3]string{host.String(), username, secret}
 	return nil
 }
 
-func (c *closed) Kept(_ context.Context, id string) (string, string, string, error) {
+func (c *closed) Kept(_ context.Context, id string) (driver.Endpoint, string, string, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	kept, ok := c.kept[id]
 	if !ok {
-		return "", "", "", driver.ErrNotFound
+		return driver.Endpoint{}, "", "", driver.ErrNotFound
 	}
-	return kept[0], "someone", "A_STAND_IN", nil
+	host, err := driver.ParseEndpoint(kept[0])
+	return host, "someone", "A_STAND_IN", err
 }
 
 func (c *closed) Forget(_ context.Context, id string) error {
@@ -79,15 +79,13 @@ func (c *closed) Observe(_ context.Context, id string) (driver.Sandbox, error) {
 	}
 	return driver.Sandbox{}, driver.ErrNotFound
 }
-func (c *closed) List(context.Context, map[string]string) ([]driver.Sandbox, error) { return nil, nil }
 func (c *closed) Delete(_ context.Context, id string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	delete(c.asked, id)
 	return nil
 }
-func (*closed) Logs(context.Context, string, int64) (io.ReadCloser, error) { return nil, nil }
-func (*closed) Dial(context.Context, string, int) (net.Conn, error)        { return nil, driver.ErrNotFound }
+func (*closed) Dial(context.Context, string, int) (net.Conn, error) { return nil, driver.ErrNotFound }
 
 // overClosed serves the sandbox API over a driver that lets nothing be
 // reached unnamed, and returns the driver and a client of it.
@@ -119,7 +117,7 @@ func TestUnderADriverThatLetsNothingBeReachedUnnamedASandboxReachesWhatItLists(t
 
 	made := madeReaching(t, client, &sandboxv1.Egress{Rules: []*sandboxv1.EgressRule{{Host: "forge.example:443"}}})
 	asked := d.asked[made.GetId()]
-	if !asked.Egress.Listed || asked.Egress.Block || len(asked.Egress.Rules) != 1 || asked.Egress.Rules[0].Host != "forge.example:443" {
+	if !asked.Egress.Listed || asked.Egress.Block || len(asked.Egress.Rules) != 1 || asked.Egress.Rules[0].Host.String() != "forge.example:443" {
 		t.Errorf("the driver was asked for %+v, want only the host the spec lists", asked.Egress)
 	}
 
@@ -162,8 +160,8 @@ func TestACredentialIsKeptByTheDriverAndAFetchIsAskedOfIt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if d.kept["adas-forge"] != [3]string{"forge.example", "someone", "a-made-up-secret"} {
-		t.Errorf("the driver keeps %v under the id, want what was given", d.kept["adas-forge"])
+	if d.kept["adas-forge"] != [3]string{"forge.example:443", "someone", "a-made-up-secret"} {
+		t.Errorf("the driver keeps %v under the id, want what was given, the host with its port", d.kept["adas-forge"])
 	}
 	if strings.Contains(said.String(), "a-made-up-secret") {
 		t.Error("the secret was said back")
@@ -236,10 +234,11 @@ func TestWhatASandboxMayReachIsAskedOfTheDriverRuleByRule(t *testing.T) {
 		{Host: grid, Programs: daemon},
 		{Host: catalog},
 	}})
+	// Each host is asked for as the driver port reads it, port and all.
 	want := []driver.Rule{
-		{Host: forge, Programs: fetcher, CredentialID: "adas-forge", Requests: []driver.Request{{Method: "GET", Path: refs, Query: service}, {Method: "POST", Path: pack}}},
-		{Host: grid, Programs: daemon},
-		{Host: catalog},
+		{Host: driver.Endpoint{Name: "forge.example", Port: 443}, Programs: fetcher, CredentialID: "adas-forge", Requests: []driver.Request{{Method: "GET", Path: refs, Query: service}, {Method: "POST", Path: pack}}},
+		{Host: driver.Endpoint{Name: "grid.example", Port: 8980}, Programs: daemon},
+		{Host: driver.Endpoint{Name: "catalog.example", Port: 80, Clear: true}},
 	}
 	if got := d.asked[made.GetId()].Egress.Rules; !reflect.DeepEqual(got, want) {
 		t.Errorf("the driver was asked for the rules\n%+v\nwant\n%+v", got, want)
@@ -252,6 +251,8 @@ func TestWhatASandboxMayReachIsAskedOfTheDriverRuleByRule(t *testing.T) {
 		"a request of no method":    {Host: "forge.example", Requests: []*sandboxv1.EgressRequest{{Path: "/a"}}},
 		"a request of no path":      {Host: "forge.example", Requests: []*sandboxv1.EgressRequest{{Method: "GET"}}},
 		"a program that is no path": {Host: "forge.example", Programs: []string{""}},
+		"a host that is an address": {Host: "192.0.2.7"},
+		"a host of no port":         {Host: "forge.example:"},
 	} {
 		_, err := client.CreateSandbox(ctx, &sandboxv1.CreateSandboxRequest{Spec: &sandboxv1.SandboxSpec{Image: "box", Egress: &sandboxv1.Egress{Rules: []*sandboxv1.EgressRule{rule}}}})
 		if connect.CodeOf(err) != connect.CodeInvalidArgument {
@@ -268,7 +269,7 @@ func TestWhatASandboxMayReachIsAskedOfTheDriverRuleByRule(t *testing.T) {
 		t.Fatal(err)
 	}
 	described, err := client.DescribeCredential(ctx, &sandboxv1.DescribeCredentialRequest{Name: "beas-forge"})
-	if err != nil || described.GetCredential().GetName() != "beas-forge" || described.GetCredential().GetHost() != "forge.example" || described.GetCredential().GetUsername() != "someone" || described.GetCredential().GetVariable() != "A_STAND_IN" {
+	if err != nil || described.GetCredential().GetName() != "beas-forge" || described.GetCredential().GetHost() != "forge.example:443" || described.GetCredential().GetUsername() != "someone" || described.GetCredential().GetVariable() != "A_STAND_IN" {
 		t.Errorf("the credential is described as %v (%v)", described, err)
 	}
 	if strings.Contains(described.String(), "a-made-up-secret") {

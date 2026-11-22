@@ -67,8 +67,5 @@ func Admit(d Driver, s Sandbox) error {
 			return refuse("a volume's subpath")
 		}
 	}
-	if s.DiskBytes != 0 && !c.DiskSize {
-		return refuse("a disk size")
-	}
 	return nil
 }
