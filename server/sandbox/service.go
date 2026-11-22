@@ -798,10 +798,15 @@ func (s *service) ExecSandbox(ctx context.Context, req *sandboxv1.ExecSandboxReq
 			return nil, refuse(connect.CodeInvalidArgument, "TIMEOUT_INVALID", "a timeout is more than nothing")
 		}
 	}
-	ctx, cancel := context.WithTimeout(ctx, timeout)
+	within, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	exit, output, _, err := execer.Exec(ctx, req.GetSandboxId(), container, req.GetArguments(), execOutput)
-	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+	exit, output, _, err := execer.Exec(within, req.GetSandboxId(), container, req.GetArguments(), execOutput)
+	// A caller who stopped waiting, by a deadline of their own or by
+	// going away, is told that: the command did not run past its timeout.
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+	if errors.Is(within.Err(), context.DeadlineExceeded) {
 		return nil, refuse(connect.CodeDeadlineExceeded, "COMMAND_TIMED_OUT", fmt.Sprintf("the command ran past %s, and was ended", timeout))
 	}
 	if err != nil {
