@@ -188,7 +188,11 @@ func found(name string, env []string, data string, withTools bool) (string, erro
 // taken as it is on the disk, any link on the way followed: mise names
 // a tool's tree by where the tree is, and the daemon by the link it made.
 func beneath(directory, at string) bool {
-	if _, err := exec.Within(directory, at); err == nil {
+	led, err := filepath.EvalSymlinks(at)
+	if err != nil {
+		return false
+	}
+	if exec.Holds(directory, led) == nil {
 		return true
 	}
 	// A directory of links to trees: beneath one of them is beneath it.
@@ -197,7 +201,7 @@ func beneath(directory, at string) bool {
 		return false
 	}
 	for _, entry := range entries {
-		if _, err := exec.Within(filepath.Join(directory, entry.Name()), at); err == nil {
+		if exec.Holds(filepath.Join(directory, entry.Name()), led) == nil {
 			return true
 		}
 	}
