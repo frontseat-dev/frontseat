@@ -36,9 +36,27 @@ func words(name string) []string {
 	return out
 }
 
+// ofAnOccasion reports whether a word of a name is an occasion's
+// (anOccasion): the word itself, however it is cased, several of it
+// (Reviews) or one of several (Review2, POC2), and a word in capitals
+// that ends in one, since a name's article joins an acronym after it
+// (APOC, APIPOC).
+func ofAnOccasion(word string) bool {
+	word = strings.TrimRight(word, "0123456789")
+	lower := strings.TrimSuffix(strings.ToLower(word), "s")
+	if slices.Contains(anOccasion, lower) {
+		return true
+	}
+	if word != strings.ToUpper(word) {
+		return false
+	}
+	return slices.ContainsFunc(anOccasion, func(occasion string) bool { return strings.HasSuffix(lower, occasion) })
+}
+
 // occasionedTests returns each test, benchmark, fuzz test and example a
 // Go test file declares that is named for an occasion (anOccasion), a
-// word of its name being one.
+// word of its name being one, or two of them where the second is the one
+// capital an occasion is spelled to end in (PoC).
 func occasionedTests(name string, source []byte) ([]string, error) {
 	parsed, err := parser.ParseFile(token.NewFileSet(), name, source, parser.SkipObjectResolution)
 	if err != nil {
@@ -54,8 +72,12 @@ func occasionedTests(name string, source []byte) ([]string, error) {
 		if !strings.HasPrefix(name, "Test") && !strings.HasPrefix(name, "Benchmark") && !strings.HasPrefix(name, "Fuzz") && !strings.HasPrefix(name, "Example") {
 			continue
 		}
-		for _, word := range words(name) {
-			if slices.Contains(anOccasion, strings.ToLower(word)) {
+		in := words(name)
+		for i, word := range in {
+			if i+1 < len(in) && len(in[i+1]) == 1 {
+				word += in[i+1]
+			}
+			if ofAnOccasion(in[i]) || ofAnOccasion(word) {
 				out = append(out, name)
 				break
 			}
@@ -99,6 +121,16 @@ func Test_review_by_underscores(t *testing.T)              {}
 func BenchmarkReviewOfParts(b *testing.B)                  {}
 func FuzzThePOC(f *testing.F)                              {}
 func ExampleReview()                                       {}
+func TestAPOCIsKept(t *testing.T)                          {}
+func TestServicePoCRejects(t *testing.T)                   {}
+func TestReview2Parts(t *testing.T)                        {}
+func TestPOC2(t *testing.T)                                {}
+func TestAReviewsList(t *testing.T)                        {}
+func TestProofsHold(t *testing.T)                          {}
+func TestAPIPOCThing(t *testing.T)                         {}
+func TestTheRepoCIsBuilt(t *testing.T)                     {}
+func TestAnEPOCHIsRead(t *testing.T)                       {}
+func TestPocketsHoldThem(t *testing.T)                     {}
 func TestAReviewerIsNamed(t *testing.T)                    {}
 func TestProofreadingIsASubject(t *testing.T)              {}
 func TestAPocketHoldsIt(t *testing.T)                      {}
@@ -113,7 +145,7 @@ func (s) TestReviewOfAMethod() {}
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"TestReviewAPartIsHeld", "TestMiseServicePOCRejectsAWrongChecksum", "TestProductionReviewSpellings", "TestAProofIsKept", "Test_review_by_underscores", "BenchmarkReviewOfParts", "FuzzThePOC", "ExampleReview"}
+	want := []string{"TestReviewAPartIsHeld", "TestMiseServicePOCRejectsAWrongChecksum", "TestProductionReviewSpellings", "TestAProofIsKept", "Test_review_by_underscores", "BenchmarkReviewOfParts", "FuzzThePOC", "ExampleReview", "TestAPOCIsKept", "TestServicePoCRejects", "TestReview2Parts", "TestPOC2", "TestAReviewsList", "TestProofsHold", "TestAPIPOCThing"}
 	if !slices.Equal(got, want) {
 		t.Errorf("found %q named for an occasion, want %q", got, want)
 	}
