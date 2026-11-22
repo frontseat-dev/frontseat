@@ -71,12 +71,11 @@ func Same(ctx context.Context, repository Known, reads []Read) (bool, error) {
 				now.Digest = ""
 			}
 		case "glob":
-			patterns := strings.Split(read.Argument, between)
-			paths, err := repository.Glob(ctx, read.Directory, patterns)
+			paths, err := repository.Glob(ctx, read.Directory, strings.Split(read.Argument, between))
 			if err != nil {
 				return false, err
 			}
-			now = globbed(read.Directory, patterns, paths)
+			now = globbed(read.Directory, read.Argument, paths)
 		default:
 			return false, fmt.Errorf("pluginhost: a call read through %q, which is no import", read.Import)
 		}
@@ -116,7 +115,7 @@ func (r *Recorder) Glob(ctx context.Context, directory string, patterns []string
 	if err != nil {
 		return nil, err
 	}
-	r.note(globbed(directory, patterns, paths))
+	r.note(globbed(directory, strings.Join(patterns, between), paths))
 	return paths, nil
 }
 
@@ -149,10 +148,11 @@ func was(imp, argument string, content []byte, found bool) Read {
 }
 
 // globbed is one listing, as it is recorded: the patterns it was asked
-// with beneath a literal directory, and the paths they selected. A
-// listing is always found, of no paths where none matched.
-func globbed(directory string, patterns, paths []string) Read {
-	read := was("glob", strings.Join(patterns, between), []byte(strings.Join(paths, between)), true)
+// with beneath a literal directory, joined as a read's argument holds
+// them, and the paths they selected. A listing is always found, of no
+// paths where none matched.
+func globbed(directory, patterns string, paths []string) Read {
+	read := was("glob", patterns, []byte(strings.Join(paths, between)), true)
 	read.Directory = directory
 	return read
 }
@@ -241,7 +241,7 @@ func serveImports(ctx context.Context, rt wazero.Runtime) error {
 			if err != nil {
 				return nil, err
 			}
-			s.reads = append(s.reads, globbed(req.GetDirectory(), req.GetPatterns(), paths))
+			s.reads = append(s.reads, globbed(req.GetDirectory(), strings.Join(req.GetPatterns(), between), paths))
 			return &pluginv1.GlobResponse{Paths: paths}, nil
 		})
 	_, err := b.Instantiate(ctx)
