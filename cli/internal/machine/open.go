@@ -13,9 +13,9 @@ import (
 // read with: git, the default.
 func Checkout() vcs.Checkout { return git.System{} }
 
-// Open is the workspace of a checkout of this machine to open: the one
+// OpenOptions is the workspace of a checkout of this machine to open: the one
 // of the repository and branch it is of.
-type Open struct {
+type OpenOptions struct {
 	// Name names the workspace; empty for the name the control plane
 	// gives a repository and a branch.
 	Name string
@@ -29,12 +29,12 @@ type Open struct {
 	Push bool
 }
 
-// Opened is the workspace of a checkout that was opened, or as much of
-// one as there is (frontseat.OpenResult), where the checkout stands, which
-// says what the workspace is of and what of the checkout it does not
-// hold, and the workspace's name for the checkout's repository, which
-// is the directory it is in.
-type Opened struct {
+// CheckoutOpened is the workspace of a checkout that was opened, or as
+// much of one as there is (frontseat.OpenResult), where the checkout
+// stands, which says what the workspace is of and what of the checkout
+// it does not hold, and the workspace's name for the checkout's
+// repository, which is the directory it is in.
+type CheckoutOpened struct {
 	frontseat.OpenResult
 	Standing   vcs.Standing
 	Repository string
@@ -46,14 +46,14 @@ type Opened struct {
 // does not hold, the workspace does not either. What the workspace holds
 // is read, and not taken on its name's word: a workspace of the name
 // that holds other source is not this one, and is refused, named.
-func OpenCheckout(ctx context.Context, fs *frontseat.Client, o Open, checkout vcs.Checkout) (Opened, error) {
+func OpenCheckout(ctx context.Context, fs *frontseat.Client, o OpenOptions, checkout vcs.Checkout) (CheckoutOpened, error) {
 	standing, err := checkout.Standing(ctx, o.Directory)
 	if err != nil {
-		return Opened{}, err
+		return CheckoutOpened{}, err
 	}
 	key, err := AuthorizedKey()
 	if err != nil {
-		return Opened{Standing: standing}, err
+		return CheckoutOpened{Standing: standing}, err
 	}
 	opened, err := fs.Open(ctx, frontseat.WorkspaceSpec{
 		Name:          o.Name,
@@ -63,7 +63,7 @@ func OpenCheckout(ctx context.Context, fs *frontseat.Client, o Open, checkout vc
 		Push:          o.Push,
 		AuthorizedKey: key,
 	})
-	out := Opened{OpenResult: opened, Standing: standing}
+	out := CheckoutOpened{OpenResult: opened, Standing: standing}
 	if err != nil {
 		return out, err
 	}

@@ -78,7 +78,7 @@ func (s standing) Same(one, other string) bool {
 func TestACheckoutsWorkspaceIsAskedForWithThisMachinesKey(t *testing.T) {
 	plane := &plane{asked: make(chan *workspacev1.CreateWorkspaceRequest, 1)}
 	here := standing{at: vcs.Standing{Remote: "https://forge.example/acme/code.git", Branch: "main", Author: vcs.Author{Name: "Someone", Email: "someone@forge.example"}}}
-	opened, err := OpenCheckout(context.Background(), serve(t, plane), Open{}, here)
+	opened, err := OpenCheckout(context.Background(), serve(t, plane), OpenOptions{}, here)
 	if err == nil || !strings.Contains(err.Error(), "the test makes no workspace") {
 		t.Fatalf("opening: %v, want the control plane's own answer", err)
 	}
@@ -108,7 +108,7 @@ func TestTheCheckoutSaysWhetherTheWorkspaceHoldsItsRepository(t *testing.T) {
 	var compared [][2]string
 	held := "https://forge.example/acme/code"
 	here := standing{at: vcs.Standing{Remote: held + ".git", Branch: "main"}, compared: &compared}
-	opened, err := OpenCheckout(context.Background(), serve(t, &plane{asked: make(chan *workspacev1.CreateWorkspaceRequest, 1), holds: held}), Open{}, here)
+	opened, err := OpenCheckout(context.Background(), serve(t, &plane{asked: make(chan *workspacev1.CreateWorkspaceRequest, 1), holds: held}), OpenOptions{}, here)
 	if err != nil || opened.Repository != "code" {
 		t.Fatalf("opened %q: %v; want the repository the checkout says is its own", opened.Repository, err)
 	}
@@ -124,7 +124,7 @@ func TestTheCheckoutSaysWhetherTheWorkspaceHoldsItsRepository(t *testing.T) {
 func TestAWorkspaceThatHoldsOtherSourceIsRefusedAndNamed(t *testing.T) {
 	here := standing{at: vcs.Standing{Remote: "https://forge.example/acme/code.git", Branch: "main"}}
 	other := &plane{asked: make(chan *workspacev1.CreateWorkspaceRequest, 1), holds: "https://forge.example/acme/another.git"}
-	opened, err := OpenCheckout(context.Background(), serve(t, other), Open{}, here)
+	opened, err := OpenCheckout(context.Background(), serve(t, other), OpenOptions{}, here)
 	if err == nil || !strings.Contains(err.Error(), "other source") || opened.Workspace.Name() != "code-main" {
 		t.Errorf("a workspace that holds other source: %v, want it refused and named", err)
 	}
