@@ -714,8 +714,14 @@ the change that fixes it.
   (`server/internal/refusal`), and every reason a server gives is named
   in the contract of the call that gives it, which a client reads it by
   (`frontseat.Reason`), never by the message. Held by:
-  `TestEveryReasonAServerGivesIsNamedInItsContract`, its control
-  `TestAReasonNoContractNamesIsFound`.
+  `TestEveryReasonAServerGivesIsNamedInItsContract`, which holds a
+  reason to the contract of its domain, and
+  `TestEveryReasonACallGivesIsNamedInThatCallsContract`, which holds it
+  to what the contract says of the call, where the source says which
+  call gives it; their controls `TestAReasonNoContractNamesIsFound` and
+  `TestAReasonItsCallsContractDoesNotNameIsFound`. Not held: a reason
+  given through a value or a method several types have, and one lost
+  where a service says on what another refused.
 - A call or a field may be served by an enterprise server alone, or only
   where the operator has configured what serves it; its comment in the
   contract says so. A server that does not serve it refuses it by name,
@@ -741,8 +747,10 @@ the change that fixes it.
   resource, identifying fields are required, a List pages, no `reserved`,
   every message reached by a call, one failure shape, times and lengths
   of time, a contract imports only shared types, a Create can be sent
-  again, and a handler in the server for every call; each with a
-  fixture it refuses and one it allows.
+  again, every field of a message no request carries is `OUTPUT_ONLY`,
+  and a handler in the server for every call; each with a fixture it
+  refuses and one it allows. Not held: a field the server sets in a
+  message a request does carry, which a reviewer reads.
 
 ## Security
 
