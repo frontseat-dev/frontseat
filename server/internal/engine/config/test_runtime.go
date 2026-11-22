@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/frontseat-dev/frontseat/sdk/go/entity"
-	"github.com/frontseat-dev/frontseat/server/internal/engine/internal/yamlnode"
 	"github.com/frontseat-dev/frontseat/server/internal/model"
 	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/testservice"
@@ -23,15 +22,14 @@ type TestRuntime struct {
 	Environment     map[string]string
 }
 
-func readTestRuntime(file, directory string, document, node *yaml.Node) (TestRuntime, error) {
+func readTestRuntime(file, directory string, ref entity.Ref, node *yaml.Node) (TestRuntime, error) {
 	wrong := func(line int, format string, args ...any) (TestRuntime, error) {
 		return TestRuntime{}, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: ", line) + fmt.Sprintf(format, args...)}
 	}
 	if node.Kind != yaml.MappingNode {
 		return wrong(node.Line, "spec.frontseat.test is a map of inputs, tools and environment")
 	}
-	ref, err := componentOf(document, node, "spec.frontseat.test")
-	if err != nil {
+	if err := componentOnly(ref, node, "spec.frontseat.test"); err != nil {
 		return TestRuntime{}, &model.Mistake{File: file, Message: err.Error()}
 	}
 	out := TestRuntime{File: file, Directory: directory, Entity: ref}
@@ -75,28 +73,4 @@ func readTestRuntime(file, directory string, document, node *yaml.Node) (TestRun
 		}
 	}
 	return out, nil
-}
-
-// componentOf is the Component a catalog document is, for what is said of
-// it under a key that only a Component says: refused where the document
-// is no Component or names none.
-func componentOf(document, node *yaml.Node, key string) (entity.Ref, error) {
-	kind := yamlnode.Child(document, "kind")
-	metadata := yamlnode.Child(document, "metadata")
-	name, namespace := yamlnode.Child(metadata, "name"), yamlnode.Child(metadata, "namespace")
-	if kind == nil || kind.ShortTag() != "!!str" || kind.Value != "Component" {
-		return entity.Ref{}, fmt.Errorf("line %d: %s belongs to a Component", node.Line, key)
-	}
-	if name == nil || name.ShortTag() != "!!str" || namespace != nil && namespace.ShortTag() != "!!str" {
-		return entity.Ref{}, fmt.Errorf("line %d: %s requires a Component with a text name and namespace", node.Line, key)
-	}
-	space := ""
-	if namespace != nil {
-		space = namespace.Value
-	}
-	ref := entity.New(kind.Value, space, name.Value)
-	if err := ref.Validate(); err != nil {
-		return entity.Ref{}, fmt.Errorf("line %d: %s: %v", node.Line, key, err)
-	}
-	return ref, nil
 }

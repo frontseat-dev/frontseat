@@ -432,7 +432,7 @@ func routedFiller(of entity.Ref, services map[entity.Ref]config.Service, routes 
 			}
 			parts := address.FindStringSubmatch(token)
 			name, port := parts[1], parts[2]
-			if !exporting && (name == "" || name == services[of].Name) {
+			if !exporting && (name == "" || name == services[of].Entity.Name) {
 				if value, found := services[of].Said.GetPorts()[port]; found {
 					return strconv.Itoa(int(value))
 				}
@@ -440,7 +440,7 @@ func routedFiller(of entity.Ref, services map[entity.Ref]config.Service, routes 
 				var matches []int32
 				for _, route := range routes {
 					for ref, id := range names {
-						if route.Service == id && route.Port == port && ((exporting && ref == of && (name == "" || name == services[of].Name)) || (!exporting && services[ref].Name == name)) {
+						if route.Service == id && route.Port == port && ((exporting && ref == of && (name == "" || name == services[of].Entity.Name)) || (!exporting && services[ref].Entity.Name == name)) {
 							matches = append(matches, route.LocalPort)
 						}
 					}

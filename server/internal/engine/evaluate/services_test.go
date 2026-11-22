@@ -23,7 +23,7 @@ import (
 const digest = "docker.io/library/busybox:1.37@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec"
 
 func resource(namespace, name string, ports map[string]int32) config.Service {
-	return config.Service{File: "catalog-info.yaml", Namespace: namespace, Name: name, As: "container", Said: &typev1.Service{
+	return config.Service{File: "catalog-info.yaml", Entity: entity.New("resource", namespace, name), As: "container", Said: &typev1.Service{
 		Image: digest, Ports: ports, Ready: []*typev1.ServiceReady{{Check: &typev1.ServiceReady_Port{Port: first(ports)}}},
 	}}
 }
@@ -41,7 +41,7 @@ func TestAnAPIConsumersServicesComeFromItsProvider(t *testing.T) {
 	db := resource("default", "orders-db", map[string]int32{"sql": 5432})
 	db.Said.Exports = map[string]string{"DATABASE": "{host}:{port.sql}"}
 	app := resource("default", "orders-service", map[string]int32{"http": 8080})
-	app.Kind = "component"
+	app.Entity.Kind = "component"
 	app.Said.Apis = map[string]*typev1.ServiceApi{api.String(): {Port: "http", Exports: map[string]string{"ORDERS_URL": "http://{host}:{port.http}"}}}
 	started := map[entity.Ref]config.Service{provider: app, database: db}
 	for _, directResource := range []bool{true, false} {
@@ -212,7 +212,7 @@ func TestRecursiveAPIProvidersHaveDirectBindingsAndRejectStartupCycles(t *testin
 		l := resource(item.ref.Namespace, item.ref.Name, map[string]int32{"serve": item.port})
 		l.Said.Exports = map[string]string{item.export: "{host}:{port.serve}"}
 		if item.ref.Kind == "component" {
-			l.Kind = "component"
+			l.Entity.Kind = "component"
 			api := internal
 			if item.ref == proxy {
 				api = public
@@ -401,7 +401,7 @@ func TestATestIsToldWhereItReachesEachServiceAndNoMore(t *testing.T) {
 	given := func(endpoints bool) map[entity.Ref]config.Service {
 		db := resource("default", "orders-db", map[string]int32{"sql": 5432})
 		app := resource("default", "orders-service", map[string]int32{"http": 8080, "admin": 9000})
-		app.Kind = "component"
+		app.Entity.Kind = "component"
 		app.Said.Apis = map[string]*typev1.ServiceApi{api.String(): {Port: "http", Exports: map[string]string{"ORDERS_URL": "http://{host}:{port.http}"}}}
 		if endpoints {
 			db.Said.Endpoints = map[string]string{"sql": "postgres://{host}:{port.sql}/orders"}

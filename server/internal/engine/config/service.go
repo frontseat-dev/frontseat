@@ -14,7 +14,6 @@ import (
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/entity"
 
-	"github.com/frontseat-dev/frontseat/server/internal/engine/internal/yamlnode"
 	"github.com/frontseat-dev/frontseat/server/internal/model"
 	"github.com/frontseat-dev/frontseat/server/internal/testservice"
 )
@@ -32,10 +31,10 @@ type Service struct {
 	// Line where in the file it is written.
 	File, Directory string
 	Line            int
-	// Namespace and Name are the entity's.
-	Namespace, Name string
-	// Kind owns the runtime; Repository locates its declared program.
-	Kind, Repository string
+	// Entity is the entity it is said by, a Resource or a Component.
+	Entity entity.Ref
+	// Repository locates its declared program.
+	Repository string
 	// Program selects a program action (Action.program), exclusively of
 	// As.
 	Program string
@@ -46,15 +45,6 @@ type Service struct {
 	// was written beside As, as it is read here; and, once the plugin
 	// that claims As has answered, the whole of it.
 	Said *typev1.Service
-}
-
-// Ref is the entity's reference, as a catalog writes it.
-func (service Service) Ref() string {
-	kind := service.Kind
-	if kind == "" {
-		kind = "resource"
-	}
-	return kind + ":" + service.Namespace + "/" + service.Name
 }
 
 // Mistake is a mistake in what is said of the service, where it is
@@ -193,25 +183,17 @@ func apiOf(written, namespace string) (entity.Ref, error) {
 // shape can hold wrongly is refused by the one check of it
 // (testservice.Shaped). A key written to say nothing is refused: what is
 // written is kept by the plugin as it is, and nothing cannot be kept.
-func readService(file, directory string, document, node *yaml.Node) (Service, error) {
+func readService(file, directory string, ref entity.Ref, node *yaml.Node) (Service, error) {
 	mistake := func(line int, format string, a ...any) (Service, error) {
 		return Service{}, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: ", line) + fmt.Sprintf(format, a...)}
 	}
-	kind := yamlnode.Child(document, "kind")
-	if kind == nil || (kind.Value != "Resource" && kind.Value != "Component") {
+	if ref.Kind != "resource" && ref.Kind != entity.KindComponent {
 		return mistake(node.Line, "only a Resource or Component is started as a service")
 	}
 	if node.Kind != yaml.MappingNode {
 		return mistake(node.Line, "service is a map: what it is, and what is written of it")
 	}
-	service := Service{File: file, Directory: directory, Line: node.Line, Kind: strings.ToLower(kind.Value), Namespace: "default", Said: &typev1.Service{}}
-	if name := yamlnode.Child(yamlnode.Child(document, "metadata"), "name"); name != nil {
-		service.Name = name.Value
-	}
-	if ns := yamlnode.Child(yamlnode.Child(document, "metadata"), "namespace"); ns != nil && ns.Value != "" {
-		service.Namespace = strings.ToLower(ns.Value)
-	}
-	service.Name = strings.ToLower(service.Name)
+	service := Service{File: file, Directory: directory, Line: node.Line, Entity: ref, Said: &typev1.Service{}}
 	said := service.Said
 	for i := 0; i+1 < len(node.Content); i += 2 {
 		key, val := node.Content[i], node.Content[i+1]
@@ -320,14 +302,14 @@ func readService(file, directory string, document, node *yaml.Node) (Service, er
 			case "apis":
 				// Written as every reference of the file is, held in full:
 				// two spellings of one API are one API written twice.
-				ref, err := apiOf(name.Value, service.Namespace)
-				switch _, twice := apis[ref.String()]; {
+				api, err := apiOf(name.Value, ref.Namespace)
+				switch _, twice := apis[api.String()]; {
 				case err != nil:
 					held = errors.New("service.apis: an API is named as a reference is written: a name, api:<name> or api:<namespace>/<name>, read in the entity's namespace")
 				case twice:
 					held = errors.New("service.apis names one API twice")
 				default:
-					apis[ref.String()] = said.Apis[name.Value]
+					apis[api.String()] = said.Apis[name.Value]
 				}
 			}
 			if held != nil {
@@ -363,13 +345,13 @@ func readService(file, directory string, document, node *yaml.Node) (Service, er
 	if service.As != "" && service.Program != "" {
 		return mistake(node.Line, "service selects either as or program, never both")
 	}
-	if service.Kind == "component" && service.Program == "" {
+	if ref.Kind == entity.KindComponent && service.Program == "" {
 		return mistake(node.Line, "only a Resource is started from an image; a Component selects a program")
 	}
-	if service.Kind == "component" && len(said.Exports) > 0 {
+	if ref.Kind == entity.KindComponent && len(said.Exports) > 0 {
 		return mistake(node.Line, "a Component exports through each provided API in service.apis")
 	}
-	if service.Kind == "resource" && len(said.Apis) > 0 {
+	if ref.Kind == "resource" && len(said.Apis) > 0 {
 		return mistake(node.Line, "a Resource provides no APIs")
 	}
 	if service.Program != "" {

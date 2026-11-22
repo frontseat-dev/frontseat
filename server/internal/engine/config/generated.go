@@ -41,14 +41,14 @@ type Generated struct {
 func (r *Repository) Generated() []Generated { return r.generated }
 
 // readGenerated reads spec.frontseat.generated of one catalog document.
-func readGenerated(file, directory string, document, node *yaml.Node) ([]Generated, error) {
+func readGenerated(file, directory string, component entity.Ref, node *yaml.Node) ([]Generated, error) {
 	wrong := func(line int, format string, args ...any) ([]Generated, error) {
 		return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: ", line) + fmt.Sprintf(format, args...)}
 	}
-	component, err := componentOf(document, node, "spec.frontseat.generated")
-	if err != nil {
+	if err := componentOnly(component, node, "spec.frontseat.generated"); err != nil {
 		return nil, &model.Mistake{File: file, Message: err.Error()}
 	}
+	var err error
 	if node.Kind != yaml.SequenceNode || len(node.Content) == 0 {
 		return wrong(node.Line, "spec.frontseat.generated is a list, each entry a directory and the Component that generates it (by)")
 	}

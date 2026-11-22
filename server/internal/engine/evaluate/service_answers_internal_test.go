@@ -10,6 +10,7 @@ import (
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testmodule"
 
+	"github.com/frontseat-dev/frontseat/sdk/go/entity"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/config"
 	"github.com/frontseat-dev/frontseat/server/internal/pluginhost"
 )
@@ -40,7 +41,7 @@ func TestWhatAServiceCannotSayIsRefusedWhoeverBuiltIt(t *testing.T) {
 	claimed := map[string]*pluginhost.Plugin{"container": loadedPlugin(t, "container")}
 	valid := func() config.Service {
 		return config.Service{
-			File: "catalog-info.yaml", Line: 9, Namespace: "default", Name: "greeter", As: "container",
+			File: "catalog-info.yaml", Line: 9, Entity: entity.New("resource", "default", "greeter"), As: "container",
 			Said: &typev1.Service{
 				Image: "docker.io/library/busybox:1.37@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec",
 				Ports: map[string]int32{"greet": 7000},
@@ -81,7 +82,7 @@ func TestHowSomethingIsStartedIsAskedOnce(t *testing.T) {
 	claimed := map[string]*pluginhost.Plugin{"postgres": loadedPlugin(t, "postgres")}
 	answers := &Answers{}
 	written := func() config.Service {
-		return config.Service{File: "catalog-info.yaml", Line: 9, Namespace: "default", Name: "db", As: "postgres", Said: &typev1.Service{}}
+		return config.Service{File: "catalog-info.yaml", Line: 9, Entity: entity.New("resource", "default", "db"), As: "postgres", Said: &typev1.Service{}}
 	}
 	first, second := &Evaluation{}, &Evaluation{}
 	one, err := startedAs(t.Context(), answers, claimed, written(), first)
