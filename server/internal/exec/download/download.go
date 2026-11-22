@@ -37,7 +37,6 @@ import (
 	"net/netip"
 	neturl "net/url"
 	"regexp"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -61,10 +60,10 @@ type Config struct {
 	Address string
 	// Instance is the instance name asked of, the grid's.
 	Instance string
-	// Rewrites map a regular expression over a public URL to the proxy's
-	// address for it, with $1 and so on for what the expression captured.
-	// The first, in the order of the expressions, that matches is taken.
-	Rewrites map[string]string
+	// Rewrites say which proxy stands in for a public URL. The first
+	// that matches, in the order given, is taken: a rule for some of a
+	// site is given before the rule for the rest of it.
+	Rewrites []Rewrite
 	// Access is how the asset service is asked, which is how its grid is.
 	Access access.Config
 }
@@ -110,7 +109,14 @@ var _ Fetcher = (*Client)(nil)
 // named is a sha256 in hex, as the grid names content.
 var named = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
-// rewrite is one rule: the proxy's address for what an expression names.
+// Rewrite is one rule, as it is given: a regular expression over a
+// public URL, and the proxy's address for what it matches, with $1 and
+// so on for what the expression captured.
+type Rewrite struct {
+	From, To string
+}
+
+// rewrite is one rule, compiled.
 type rewrite struct {
 	from *regexp.Regexp
 	to   string
@@ -145,20 +151,15 @@ func Dial(ctx context.Context, config Config) (*Client, error) {
 	return &Client{conn: conn, service: remoteasset.NewFetchClient(conn), instance: config.Instance, rewrites: rules, access: config.Access, address: config.Address, shaken: shaken}, nil
 }
 
-// rules compiles the rewrites, in the order of their expressions.
-func rules(rewrites map[string]string) ([]rewrite, error) {
-	expressions := make([]string, 0, len(rewrites))
-	for expression := range rewrites {
-		expressions = append(expressions, expression)
-	}
-	sort.Strings(expressions)
-	out := make([]rewrite, 0, len(expressions))
-	for _, expression := range expressions {
-		from, err := regexp.Compile(expression)
+// rules compiles the rewrites, in the order given.
+func rules(rewrites []Rewrite) ([]rewrite, error) {
+	out := make([]rewrite, 0, len(rewrites))
+	for _, each := range rewrites {
+		from, err := regexp.Compile(each.From)
 		if err != nil {
-			return nil, fmt.Errorf("the download rewrite %q: %w", expression, err)
+			return nil, fmt.Errorf("the download rewrite %q: %w", each.From, err)
 		}
-		out = append(out, rewrite{from: from, to: rewrites[expression]})
+		out = append(out, rewrite{from: from, to: each.To})
 	}
 	return out, nil
 }
@@ -268,7 +269,9 @@ func (c *Client) ask(ctx context.Context, url, proxied, sum, key string, forgott
 
 // proxied returns the address a URL is asked of the service by: the
 // proxy's for it, by the first rule that matches it, or, where no rule
-// does, the URL itself where it is a public site's (public).
+// does, the URL itself where it is a public site's (public). A URL that
+// is refused is not repeated: it may hold a user's password, or a token
+// among what it asks for.
 func (c *Client) proxied(url string) (string, error) {
 	for _, rule := range c.rewrites {
 		if rule.from.MatchString(url) {
@@ -276,7 +279,7 @@ func (c *Client) proxied(url string) (string, error) {
 		}
 	}
 	if err := public(url); err != nil {
-		return "", fmt.Errorf("%s: no proxy of the grid's stands in for it, and it is not downloaded as it is: %w", url, err)
+		return "", fmt.Errorf("a download's address, not repeated here: no proxy of the grid's stands in for it, and it is not downloaded as it is: %w", err)
 	}
 	return url, nil
 }
@@ -288,7 +291,7 @@ func public(raw string) error {
 	parsed, err := neturl.Parse(raw)
 	switch {
 	case err != nil:
-		return err
+		return fmt.Errorf("it is no URL")
 	case parsed.Scheme != "https":
 		return fmt.Errorf("it is not https")
 	case parsed.User != nil:
@@ -300,11 +303,11 @@ func public(raw string) error {
 	// dot), and is not checked as it will be reached.
 	for _, r := range host {
 		if !(r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || r == '.' || r == '-') {
-			return fmt.Errorf("%q is no plain name", parsed.Hostname())
+			return fmt.Errorf("its host is no plain name")
 		}
 	}
 	if _, err := netip.ParseAddr(host); err == nil || host == "" || !strings.Contains(host, ".") || host == "localhost" || strings.HasSuffix(host, ".localhost") || strings.HasSuffix(host, ".internal") {
-		return fmt.Errorf("%q is no public site's name", parsed.Hostname())
+		return fmt.Errorf("its host is no public site's name")
 	}
 	return nil
 }

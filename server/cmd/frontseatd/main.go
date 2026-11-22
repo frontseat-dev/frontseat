@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -76,7 +77,7 @@ func run() error {
 	gridToken := flag.String("grid-token", "", "a file holding the bearer token the grid admits this daemon by, a JSON Web Token: read again for every call, so whoever was given the token replaces the file, whole and by a rename, when it is renewed; sent to the grid and to its asset service (--assets), and only where --grid-ca names the authorities they are known by: the system's are chosen by the environment")
 	assets := flag.String("assets", "", "the address of the grid's asset service, host:port, which fetches what a shared fetch downloads; with --grid-token it is told the token too")
 	var rewrites modules
-	flag.Var(&rewrites, "rewrite", "which proxy of the grid's stands in for a public site a download names, as a regular expression over the download's URL, a space, and the proxy's address, with $1 and so on; give it once for each")
+	flag.Var(&rewrites, "rewrite", "which proxy of the grid's stands in for a public site a download names, as a regular expression over the download's URL, a space, and the proxy's address, with $1 and so on; give it once for each: the first that matches a download, in the order given, is taken")
 	var given modules
 	flag.Var(&given, "publish-environment", "a variable of where the daemon runs that what publishes a release may be given, by its name, as GH_TOKEN: how a forge's or a registry's own tool is handed its token; give it once for each (default: none, and what publishes is given nothing of where the daemon runs)")
 	var properties modules
@@ -128,7 +129,7 @@ func run() error {
 		return err
 	}
 	platform, err := platformOf(properties)
-	var rewritten map[string]string
+	var rewritten []build.Rewrite
 	if err == nil {
 		rewritten, err = rewritesOf(rewrites)
 	}
@@ -153,7 +154,7 @@ func run() error {
 // the daemon could not ask so: found at the start, and not at the first
 // action. The asset service is only ever the one --assets names, and is
 // asked as the grid is, its token included.
-func gridOf(address, instance, assets string, rewrites map[string]string, tls bool, authorities, token string) (build.Grid, error) {
+func gridOf(address, instance, assets string, rewrites []build.Rewrite, tls bool, authorities, token string) (build.Grid, error) {
 	grid := build.Grid{Address: address, Instance: instance, Assets: assets, Rewrites: rewrites, TLS: tls, Authorities: authorities, Token: token}
 	return grid, grid.Check()
 }
@@ -234,14 +235,12 @@ func serveShell(address, directory, authorized string) (func(), error) {
 
 // rewritesOf reads which proxy stands in for each public site a download
 // names, from the --rewrite flags: a regular expression, a space and the
-// proxy's address, which holds none. A pattern given twice is refused,
+// proxy's address, which holds none, kept in the order given: the first
+// that matches a download is taken. A pattern given twice is refused,
 // and so is one that is no regular expression, at the start rather than
 // at the first download.
-func rewritesOf(given []string) (map[string]string, error) {
-	if len(given) == 0 {
-		return nil, nil
-	}
-	rewrites := map[string]string{}
+func rewritesOf(given []string) ([]build.Rewrite, error) {
+	var rewrites []build.Rewrite
 	for _, each := range given {
 		space := strings.LastIndex(each, " ")
 		if space <= 0 || space == len(each)-1 {
@@ -251,10 +250,10 @@ func rewritesOf(given []string) (map[string]string, error) {
 		if _, err := regexp.Compile(pattern); err != nil {
 			return nil, fmt.Errorf("--rewrite: %w", err)
 		}
-		if _, twice := rewrites[pattern]; twice {
+		if slices.ContainsFunc(rewrites, func(earlier build.Rewrite) bool { return earlier.From == pattern }) {
 			return nil, fmt.Errorf("--rewrite gives %s twice", pattern)
 		}
-		rewrites[pattern] = address
+		rewrites = append(rewrites, build.Rewrite{From: pattern, To: address})
 	}
 	return rewrites, nil
 }

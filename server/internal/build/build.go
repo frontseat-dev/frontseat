@@ -12,6 +12,10 @@ import (
 	"github.com/frontseat-dev/frontseat/server/telemetry"
 )
 
+// Rewrite is one rule of which proxy stands in for a public site a
+// download names (download.Rewrite).
+type Rewrite = download.Rewrite
+
 // Grid names the standard Remote Execution API used for this daemon's
 // actions, and the grid's asset service, which fetches what a shared
 // fetch downloads: its address, and which proxy of the grid's stands in
@@ -22,7 +26,8 @@ type Grid struct {
 	Address  string
 	Instance string
 	Assets   string
-	Rewrites map[string]string
+	// Rewrites are taken in the order given: the first that matches.
+	Rewrites []Rewrite
 	// TLS asks the grid and its asset service over TLS, known by the
 	// system's authorities; Authorities names a PEM file of the
 	// authorities they are known by instead. Token names a file holding
