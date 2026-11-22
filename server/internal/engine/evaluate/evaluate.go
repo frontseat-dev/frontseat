@@ -144,6 +144,9 @@ func evaluate(ctx context.Context, src Source, plugins []*pluginhost.Plugin, ans
 	answers.begin()
 	// The tools each repository pins, as a plugin is told of them.
 	pinned := map[string]map[string]string{}
+	// The labels of the actions catalog files declare: a label is one
+	// action's.
+	declared := map[model.Label]bool{}
 	for _, repository := range src.Repositories() {
 		view := repositoryView{source: src, repository: repository}
 		configured, pins, err := answers.said(ctx, view)
@@ -198,6 +201,13 @@ func evaluate(ctx context.Context, src Source, plugins []*pluginhost.Plugin, ans
 			if err != nil {
 				return out, err
 			}
+			// Two documents that declare one action are refused before
+			// anything is resolved: a need would be met by whichever was
+			// read last, and one of the two never run.
+			if declared[action.Label] {
+				return out, &model.Mistake{File: own.File, Message: fmt.Sprintf("%s is declared by more than one document: an action has one declaration", action.Label)}
+			}
+			declared[action.Label] = true
 			out.Actions = append(out.Actions, action)
 		}
 		out.Releases = append(out.Releases, configured.Releases()...)

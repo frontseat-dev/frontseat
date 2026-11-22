@@ -3,7 +3,9 @@ package evaluate
 import (
 	"context"
 	"fmt"
+	"maps"
 	"path"
+	"slices"
 	"strings"
 
 	"github.com/frontseat-dev/frontseat/sdk/go/entity"
@@ -127,8 +129,8 @@ func checkGenerationDiscovery(ctx context.Context, src Source, out Evaluation) e
 // be its own Component's to give: a directory of a Component nested in
 // it is that Component's.
 func consented(out Evaluation, said map[string][]config.Generated) error {
-	for repository, consents := range said {
-		for _, consent := range consents {
+	for _, repository := range slices.Sorted(maps.Keys(said)) {
+		for _, consent := range said[repository] {
 			owner, found := graph.Owner(out.Entities, path.Join(repository, consent.Directory))
 			if !found || owner.Repository != repository || owner.Ref != consent.Entity {
 				whose := "no Component's"

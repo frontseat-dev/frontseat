@@ -55,6 +55,12 @@ func services(out *Evaluation, services map[entity.Ref]config.Service) error {
 	if err != nil {
 		return err
 	}
+	// The catalog file each entity is written in: where a mistake in
+	// what a component's tests are given is said.
+	files := map[entity.Ref]string{}
+	for _, node := range out.Catalog.Nodes(nil) {
+		files[node.Ref] = path.Join(node.Repository, node.Manifest)
+	}
 	made := map[entity.Ref]*plan.Beside{}
 	for i := range out.Actions {
 		action := &out.Actions[i]
@@ -68,7 +74,7 @@ func services(out *Evaluation, services map[entity.Ref]config.Service) error {
 		beside, done := made[owner.Ref]
 		if !done {
 			var err error
-			if beside, err = besideOf(owner.Ref, declared, services, apis); err != nil {
+			if beside, err = besideOf(owner.Ref, files[owner.Ref], declared, services, apis); err != nil {
 				return err
 			}
 			made[owner.Ref] = beside
@@ -173,9 +179,6 @@ func servicePrograms(out *Evaluation, services map[entity.Ref]config.Service) (m
 	programs := map[entity.Ref]plan.Action{}
 	byLabel := map[string]plan.Action{}
 	for _, action := range out.Actions {
-		if _, exists := byLabel[action.Label.String()]; exists {
-			return nil, &model.Mistake{Message: fmt.Sprintf("action %s is declared more than once", action.Label)}
-		}
 		byLabel[action.Label.String()] = action
 	}
 	provided := map[entity.Ref]map[string]bool{}
@@ -191,7 +194,7 @@ func servicePrograms(out *Evaluation, services map[entity.Ref]config.Service) (m
 	}
 	for _, ref := range slices.SortedFunc(maps.Keys(services), func(a, b entity.Ref) int { return strings.Compare(a.String(), b.String()) }) {
 		l := services[ref]
-		for api := range l.Said.GetApis() {
+		for _, api := range slices.Sorted(maps.Keys(l.Said.GetApis())) {
 			if ref.Kind != "component" || !provided[ref][api] {
 				return nil, l.Mistake(fmt.Errorf("%s maps API %s, which it does not provide", ref, api))
 			}
@@ -218,13 +221,15 @@ func servicePrograms(out *Evaluation, services map[entity.Ref]config.Service) (m
 
 // besideOf derives one independent network for every service and grants only
 // the immediate consumer's endpoints. Equal listening ports do not collide.
-func besideOf(component entity.Ref, declared map[entity.Ref][]entity.Ref, services map[entity.Ref]config.Service, apis apiEdges) (*plan.Beside, error) {
+// What is wrong in what a catalog file says is that file's mistake: the
+// component's own, written in file, or a service's.
+func besideOf(component entity.Ref, file string, declared map[entity.Ref][]entity.Ref, services map[entity.Ref]config.Service, apis apiEdges) (*plan.Beside, error) {
 	order, err := startOrder(component, declared, services)
 	if err != nil || len(order) == 0 {
 		return nil, err
 	}
 	if len(order) > 32 {
-		return nil, fmt.Errorf("%s needs more than 32 runtime services", component)
+		return nil, &model.Mistake{File: file, Message: fmt.Sprintf("%s needs more than 32 runtime services", component)}
 	}
 	names := map[entity.Ref]string{}
 	for i, ref := range order {
@@ -235,7 +240,7 @@ func besideOf(component entity.Ref, declared map[entity.Ref][]entity.Ref, servic
 		l := services[ref]
 		routes, bindings, _, err := directRoutes(ref, declared, services, apis, names)
 		if err != nil {
-			return nil, l.Mistake(err)
+			return nil, err
 		}
 		said := proto.Clone(l.Said).(*typev1.Service)
 		said.Exports, said.Endpoints = nil, nil
@@ -284,7 +289,7 @@ func besideOf(component entity.Ref, declared map[entity.Ref][]entity.Ref, servic
 	// every service it is given an endpoint of, by its entity; no export
 	// is named so, whether or not there are endpoints to tell.
 	if _, exported := environment[EndpointsVariable]; exported {
-		return nil, fmt.Errorf("%s is given %s by an export, and it is where a test is told its services' endpoints", component, EndpointsVariable)
+		return nil, &model.Mistake{File: file, Message: fmt.Sprintf("%s is given %s by an export, and it is where a test is told its services' endpoints", component, EndpointsVariable)}
 	}
 	if len(endpoints) > 0 {
 		told, err := json.Marshal(endpoints)
@@ -309,7 +314,8 @@ const EndpointsVariable = "FRONTSEAT_ENDPOINTS"
 // directRoutes maps a dependency's port to a free consumer loopback port, then
 // renders only that edge's exports and endpoints. API identity is retained
 // in every grant. A Component's endpoint is rendered only where its port
-// is granted by an API the consumer consumes.
+// is granted by an API the consumer consumes. Whatever it refuses is the
+// mistake of the catalog file of the service that cannot be granted.
 func directRoutes(consumer entity.Ref, declared map[entity.Ref][]entity.Ref, services map[entity.Ref]config.Service, apis apiEdges, names map[entity.Ref]string) ([]*runnerv1.RunnerRoute, map[string]string, map[string]map[string]string, error) {
 	held := map[int32]bool{}
 	for _, port := range services[consumer].Said.GetPorts() {
@@ -382,7 +388,7 @@ func directRoutes(consumer entity.Ref, declared map[entity.Ref][]entity.Ref, ser
 				}
 				local, err := grant(ref, binding.GetPort(), api)
 				if err != nil {
-					return nil, nil, nil, err
+					return nil, nil, nil, l.Mistake(err)
 				}
 				fill := func(value string) (string, error) {
 					return strings.ReplaceAll(strings.ReplaceAll(value, "{host}", "127.0.0.1"), "{port."+binding.GetPort()+"}", strconv.Itoa(int(local))), nil
@@ -390,7 +396,8 @@ func directRoutes(consumer entity.Ref, declared map[entity.Ref][]entity.Ref, ser
 				if err := bind(ref, binding.GetExports(), fill); err != nil {
 					return nil, nil, nil, l.Mistake(err)
 				}
-				for name, value := range l.Said.GetEndpoints() {
+				for _, name := range slices.Sorted(maps.Keys(l.Said.GetEndpoints())) {
+					value := l.Said.GetEndpoints()[name]
 					if port, err := testservice.EndpointPort(name, value); err != nil {
 						return nil, nil, nil, l.Mistake(err)
 					} else if port == binding.GetPort() {
@@ -402,15 +409,15 @@ func directRoutes(consumer entity.Ref, declared map[entity.Ref][]entity.Ref, ser
 		} else {
 			for _, port := range slices.Sorted(maps.Keys(l.Said.GetPorts())) {
 				if _, err := grant(ref, port, ""); err != nil {
-					return nil, nil, nil, err
+					return nil, nil, nil, l.Mistake(err)
 				}
 			}
 			fill := routedFiller(ref, services, routes, names, true)
 			if err := bind(ref, l.Said.GetExports(), fill); err != nil {
 				return nil, nil, nil, l.Mistake(err)
 			}
-			for name, value := range l.Said.GetEndpoints() {
-				filled, err := fill(value)
+			for _, name := range slices.Sorted(maps.Keys(l.Said.GetEndpoints())) {
+				filled, err := fill(l.Said.GetEndpoints()[name])
 				if err != nil {
 					return nil, nil, nil, l.Mistake(err)
 				}
