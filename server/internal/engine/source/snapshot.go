@@ -84,6 +84,11 @@ type held struct {
 type kept struct {
 	looked looked
 	held   held
+	// settled is whether the file had settled when what it held was
+	// read: the moment its times are told in had passed, so that any
+	// write since shows in how it looks. What was read sooner is held to
+	// by reading again, and never by the look alone.
+	settled bool
 }
 
 // Changed is a file that is not what it was when the run began, or not
@@ -738,7 +743,10 @@ func (s *Snapshot) once(t *taken, repository, name, key string, when knew, read 
 		if !asked {
 			known, asked = s.keeper.kept(at, when.was)
 		}
-		if asked {
+		// What was read before the file had settled is not gone by as
+		// the file looks: written again within the moment its times are
+		// told in, it looks the same. It is read again, below.
+		if asked && known.settled {
 			if !s.keep(t, key, when, &known) {
 				return held{}, false, errAgain
 			}
@@ -769,6 +777,10 @@ func (s *Snapshot) once(t *taken, repository, name, key string, when knew, read 
 		return held{}, false, err
 	}
 	now := look(info)
+	// Whether the file has settled is asked before any of it is read: a
+	// write from here on then shows in how it looks, which is looked at
+	// again once it has been read.
+	settled := s.keeper.settled(now)
 	switch {
 	case when.listed:
 		if !info.Mode().IsRegular() || now != when.was {
@@ -789,7 +801,7 @@ func (s *Snapshot) once(t *taken, repository, name, key string, when knew, read 
 		// What the daemon knew the file held when it looked as it does.
 		known, asked = s.keeper.kept(at, now)
 	}
-	if read == nil && asked {
+	if read == nil && asked && known.settled {
 		if !s.keep(t, key, when, &known) {
 			return held{}, false, errAgain
 		}
@@ -814,7 +826,7 @@ func (s *Snapshot) once(t *taken, repository, name, key string, when knew, read 
 	if after, err := file.Stat(); err != nil || look(after) != now {
 		return held{}, false, &Changed{Repository: repository, Path: key}
 	}
-	found := kept{looked: now, held: held{hash: sum, size: size, executable: info.Mode()&0o100 != 0}}
+	found := kept{looked: now, settled: settled, held: held{hash: sum, size: size, executable: info.Mode()&0o100 != 0}}
 	if mine && when.known.held != found.held {
 		// Whatever was known of it is not so, for the next run either.
 		s.keeper.forget(at)

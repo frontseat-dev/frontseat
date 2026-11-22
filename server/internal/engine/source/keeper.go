@@ -21,11 +21,14 @@ import (
 // size cannot afford, and Bazel and Buck2 go by the same.
 //
 // A file written again within the moment its times are told in looks
-// as it did, where its size is the same. So what a file held is not
-// kept while the file has only just been written: for twenty
-// milliseconds, or for two seconds where its times are told in whole
-// seconds. The run after reads it again, and by then a change to it
-// shows. Git holds its index to the same ("racily clean" entries), and
+// as it did, where its size is the same: Linux before 6.13 tells them
+// in the kernel's ticks, a few milliseconds. So what a file held is
+// gone by its look only where it was read once the file had settled:
+// twenty milliseconds after it was last written or changed, or two
+// seconds where its times are told in whole seconds. What was read
+// sooner is not kept for the run after, which reads the file again,
+// and the run that read it reads it again whenever it is asked, until
+// it has settled: by then a change to it shows. Git holds its index to the same ("racily clean" entries), and
 // Bazel waits the moment out at the end of a build
 // (TimestampGranularityMonitor).
 type Keeper struct {
@@ -89,17 +92,24 @@ func (k *Keeper) kept(at string, as looked) (kept, bool) {
 	return known, true
 }
 
-// keep records what a file held, and how it looked; or lets go of what
-// was known of it, where it has only just been written.
-func (k *Keeper) keep(at string, found kept) {
+// settled reports whether a file that looks so has settled by now: the
+// moment its times are told in has passed since it was last written or
+// changed, so that a write from now on shows in how it looks.
+func (k *Keeper) settled(as looked) bool {
 	now := time.Now
 	if k.now != nil {
 		now = k.now
 	}
-	since := now().UnixNano() - newest(found.looked)
+	return now().UnixNano()-newest(as) >= int64(settles(as))
+}
+
+// keep records what a file held, and how it looked; or lets go of what
+// was known of it, where it was read before it had settled, which
+// whoever read it says: it is so of the moment before the read.
+func (k *Keeper) keep(at string, found kept) {
 	k.mu.Lock()
 	defer k.mu.Unlock()
-	if since < int64(settles(found.looked)) {
+	if !found.settled {
 		delete(k.files, at)
 		return
 	}
