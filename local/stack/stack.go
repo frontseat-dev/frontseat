@@ -220,15 +220,11 @@ func (s Stack) layOut(ctx context.Context) error {
 	if err != nil {
 		return errors.New("reading the owner's token the control plane minted failed")
 	}
-	config := os.Getenv("XDG_CONFIG_HOME")
-	if config == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return err
-		}
-		config = filepath.Join(home, ".config")
+	config, err := local.ConfigRoot()
+	if err != nil {
+		return err
 	}
-	kept := filepath.Join(config, "frontseat", "local")
+	kept := filepath.Join(config, "local")
 	if err := os.MkdirAll(kept, 0o700); err != nil {
 		return err
 	}

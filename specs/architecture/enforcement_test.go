@@ -246,13 +246,17 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		{"server/internal/controlplane/controlplane.go", "local", false},
 		{"local/local.go", "server/internal/controlplane", false},
 		// The ports are said once, and read by what opens, serves or asks
-		// them, which reads nothing else of the stack for them.
+		// them, which reads nothing else of the stack for them; the command
+		// line reads where it keeps what it keeps of the stack too.
 		{"server/internal/controlplane/rules.go", "local/ports", true},
 		{"server/cmd/frontseatd/main.go", "local/ports", true},
 		{"server/cmd/frontseatd/main.go", "local", false},
 		{"cli/internal/machine/token.go", "local/ports", true},
-		{"cli/internal/machine/token.go", "local", false},
 		{"cli/internal/machine/token.go", "sdk/go/bearer", true},
+		// The command line reads where it keeps what it keeps as the stack
+		// lays the owner's token out there: one rule, local.ConfigRoot.
+		{"cli/internal/machine/context.go", "local", true},
+		{"cli/internal/cmd/root.go", "local", false},
 		{"cli/internal/machine/token.go", "sdk/go/internal/transport", false},
 		{"server/internal/driver/container/container_test.go", "local/ports", true},
 		{"server/internal/driver/container/container_test.go", "local", false},

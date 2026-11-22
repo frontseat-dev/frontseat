@@ -9,6 +9,8 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+
+	"github.com/frontseat-dev/frontseat/local"
 )
 
 // Context is the workspace last opened, and the control plane that keeps
@@ -19,25 +21,12 @@ type Context struct {
 	Workspace string `json:"workspace"`
 }
 
-// root is the one directory the command line keeps what it keeps in, on
-// every system: frontseat in the configuration directory of the XDG
-// base directory specification ($XDG_CONFIG_HOME, else ~/.config). The
-// context (frontseat/context.json), this machine's key for its
-// sandboxes (frontseat/id_ed25519) and the local stack's owner's token,
-// which the stack lays out (frontseat/local/token), are there, and
-// nothing of the command line's is anywhere else.
-func root() (string, error) {
-	// A relative directory is ignored, as the specification says.
-	config := os.Getenv("XDG_CONFIG_HOME")
-	if !filepath.IsAbs(config) {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return "", err
-		}
-		config = filepath.Join(home, ".config")
-	}
-	return filepath.Join(config, "frontseat"), nil
-}
+// root is the one directory the command line keeps what it keeps in
+// (local.ConfigRoot): the context (frontseat/context.json), this
+// machine's key for its sandboxes (frontseat/id_ed25519) and the local
+// stack's owner's token, which the stack lays out (frontseat/local/token),
+// are there, and nothing of the command line's is anywhere else.
+func root() (string, error) { return local.ConfigRoot() }
 
 // beneath is the path of a file kept beneath the root.
 func beneath(name ...string) (string, error) {
