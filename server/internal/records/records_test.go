@@ -147,3 +147,34 @@ func TestWhatIsNoRecordsFileIsNotListed(t *testing.T) {
 		t.Errorf("the records are %v, %v, want the one kept alone", names, err)
 	}
 }
+
+// What a Write left beside a file and never moved into place is
+// removed; the file, and what is beside it of another name, are kept.
+func TestWhatAWriteLeftUnfinishedBesideAFileIsRemoved(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "kept.yaml")
+	if err := records.Write(file, []byte("whole\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{".kept.yaml1234", ".kept.yaml", ".kept.yaml.old", "kept.yaml1234", ".other.yaml99"} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte("left\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := records.Settle(file); err != nil {
+		t.Fatal(err)
+	}
+
+	entries, err := os.ReadDir(dir)
+	var names []string
+	for _, entry := range entries {
+		names = append(names, entry.Name())
+	}
+	if want := []string{".kept.yaml", ".kept.yaml.old", ".other.yaml99", "kept.yaml", "kept.yaml1234"}; err != nil || !slices.Equal(names, want) {
+		t.Errorf("beside the file are %v (%v), want %v", names, err, want)
+	}
+	if err := records.Settle(filepath.Join(dir, "gone", "kept.yaml")); err != nil {
+		t.Errorf("settling a file of no directory: %v", err)
+	}
+}

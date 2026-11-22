@@ -139,6 +139,34 @@ func Write(file string, content []byte, mode os.FileMode) error {
 	return synced(dir)
 }
 
+// Settle removes what a Write of the file left beside it and never moved
+// into place, in a process that ended between the two: a regular file
+// of the name Write gives one, a dot, the file's name and digits. It is
+// called where nothing is writing the file; the file itself, and
+// whatever else is beside it, are kept.
+func Settle(file string) error {
+	dir, prefix := filepath.Dir(file), "."+filepath.Base(file)
+	entries, err := os.ReadDir(dir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		rest, ok := strings.CutPrefix(entry.Name(), prefix)
+		if !ok || rest == "" || strings.Trim(rest, "0123456789") != "" || !entry.Type().IsRegular() {
+			continue
+		}
+		// Its own to delete: a file of the name Write makes one beside the
+		// file by, which only an unfinished Write leaves.
+		if err := os.Remove(filepath.Join(dir, entry.Name())); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // synced syncs a directory, so that what it names is on the disk.
 func synced(dir string) error {
 	opened, err := os.Open(dir)
