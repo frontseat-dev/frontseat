@@ -1,7 +1,6 @@
 package build
 
-// Tests written by an independent review of fe67226..f74db45. Each
-// "Review…" test states a defect and fails because of it; each has a
+// What a daemon holds of its runs, from inside: each refusal has a
 // control beside it that passes.
 
 import (

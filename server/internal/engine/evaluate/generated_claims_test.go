@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestReviewGeneratedClaimInvalidatesMissingFileRead(t *testing.T) {
+func TestAGeneratedClaimInvalidatesAMissingFileRead(t *testing.T) {
 	src := &counted{files: map[string]string{}}
 	original := repositoryView{source: src}
 	recorder := &pluginhost.Recorder{Source: original}
@@ -25,7 +25,7 @@ func TestReviewGeneratedClaimInvalidatesMissingFileRead(t *testing.T) {
 	}
 }
 
-func TestReviewGeneratedAuthorityCannotCoverEntityConfiguration(t *testing.T) {
+func TestGeneratedAuthorityCannotCoverEntityConfiguration(t *testing.T) {
 	src := &counted{files: map[string]string{"frontseat.yaml": "plugins: {}\n", "gen/catalog-info.yaml": componentFile}}
 	configured, _, err := new(Answers).said(t.Context(), repositoryView{source: src})
 	if err != nil || len(configured.Actions()) != 1 {

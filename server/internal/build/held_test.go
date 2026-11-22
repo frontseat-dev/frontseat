@@ -1,7 +1,6 @@
 package build
 
-// Tests written by an independent review of fe67226..f74db45, through
-// the API.
+// What a daemon holds of its runs, through the API.
 
 import (
 	"bytes"
