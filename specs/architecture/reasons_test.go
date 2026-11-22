@@ -397,14 +397,15 @@ func handlerStretches(sources map[string][]byte) (map[string][]stretch, error) {
 	return out, nil
 }
 
-// aCall is how a call is named in a comment: one of the verbs, and what
-// it is of.
-var aCall = regexp.MustCompile(`\b(?:` + strings.Join(verbs, "|") + `)[A-Z][A-Za-z]*\b`)
+// asForACall is how a comment says a call refuses as another does: "as
+// for PlanRelease". A call named for any other purpose lends it nothing.
+var asForACall = regexp.MustCompile(`\bas for ((?:` + strings.Join(verbs, "|") + `)[A-Z][A-Za-z]*)\b`)
 
 // namedBy is what the contract says of a call's refusals: the comment of
 // the call, that of its service, the header of its file, which names
-// what every call of the file refuses by, and the comments of the calls
-// of its package that those name, as "as for PlanRelease" does.
+// what every call of the file refuses by, and the Errors of the calls of
+// its package that it says it refuses as, by "as for PlanRelease", and
+// those that theirs say so of in turn.
 func namedBy(c contract, m protoreflect.MethodDescriptor) string {
 	comment := func(d protoreflect.Descriptor) string {
 		return d.ParentFile().SourceLocations().ByDescriptor(d).LeadingComments
@@ -413,25 +414,32 @@ func namedBy(c contract, m protoreflect.MethodDescriptor) string {
 	header := func(f protoreflect.FileDescriptor) string {
 		return f.SourceLocations().ByPath(protoreflect.SourcePath{12}).LeadingComments
 	}
-	seen := map[protoreflect.FullName]bool{}
-	var said strings.Builder
-	var read func(protoreflect.MethodDescriptor)
-	read = func(m protoreflect.MethodDescriptor) {
-		if seen[m.FullName()] {
-			return
+	// errorsOf is the Errors block of a call's comment, where it has one.
+	errorsOf := func(said string) string {
+		if at := strings.Index(said, "### Errors"); at >= 0 {
+			return said[at:]
 		}
-		seen[m.FullName()] = true
-		own := comment(m)
-		said.WriteString(own + comment(m.Parent()) + header(m.ParentFile()))
-		for _, name := range aCall.FindAllString(own, -1) {
+		return ""
+	}
+	seen := map[protoreflect.FullName]bool{m.FullName(): true}
+	var said strings.Builder
+	var follow func(string)
+	follow = func(own string) {
+		for _, as := range asForACall.FindAllStringSubmatch(own, -1) {
 			for _, other := range c.methods() {
-				if string(other.Name()) == name && other.ParentFile().Package() == m.ParentFile().Package() {
-					read(other)
+				if string(other.Name()) != as[1] || other.ParentFile().Package() != m.ParentFile().Package() || seen[other.FullName()] {
+					continue
 				}
+				seen[other.FullName()] = true
+				theirs := errorsOf(comment(other))
+				said.WriteString(theirs)
+				follow(theirs)
 			}
 		}
 	}
-	read(m)
+	own := comment(m)
+	said.WriteString(own + comment(m.Parent()) + header(m.ParentFile()))
+	follow(own)
 	return said.String()
 }
 
@@ -563,9 +571,11 @@ func TestEveryReasonACallGivesIsNamedInThatCallsContract(t *testing.T) {
 
 // TestAReasonItsCallsContractDoesNotNameIsFound is the control: a reason
 // a handler gives, itself or through what it calls, is allowed where the
-// call's own comment names it, where the comment of a call it says it is
-// as names it, and where the file's header does; it is refused where
-// only another call's comment names it. A method of the same name on
+// call's own comment names it, where the Errors of a call it says it
+// refuses as ("as for WaitThing") name it, and where the file's header
+// does; it is refused where only another call's comment names it, the
+// call naming that one for another purpose or the reason being outside
+// that one's Errors. A method of the same name on
 // another type is not the handler's, and what it gives is not held to
 // the call. A reason on the list of those a call never gives is allowed,
 // and one listed that the call does not reach is said.
@@ -575,13 +585,15 @@ func TestAReasonItsCallsContractDoesNotNameIsFound(t *testing.T) {
 		never                  map[string]string
 		want                   int
 	}{
-		"each in its own call's comment": {"", "// - NOT_FOUND: no thing (THING_NOT_FOUND).", "// - ABORTED: ending (THING_ENDING).", nil, 0},
-		"one in another call's alone":    {"", "// DescribeThing returns a thing.", "// - ABORTED: ending (THING_ENDING), or no thing (THING_NOT_FOUND).", nil, 1},
-		"one in the call it is said as":  {"", "// - NOT_FOUND: as for WaitThing.", "// - ABORTED: ending (THING_ENDING), or no thing (THING_NOT_FOUND).", nil, 0},
-		"one in the file's header":       {"// Every call refuses a thing that is gone by THING_NOT_FOUND.\n", "// DescribeThing returns a thing.", "// - ABORTED: ending (THING_ENDING).", nil, 0},
-		"one the call never gives":       {"", "// DescribeThing returns a thing.", "// - ABORTED: ending (THING_ENDING).", map[string]string{"THING_NOT_FOUND": "the fixture says so"}, 0},
-		"one listed and not reached":     {"", "// - NOT_FOUND: no thing (THING_NOT_FOUND).", "// - ABORTED: ending (THING_ENDING).", map[string]string{"THING_BUSY": "the fixture says so"}, 1},
-		"one listed and named after all": {"", "// - NOT_FOUND: no thing (THING_NOT_FOUND).", "// - ABORTED: ending (THING_ENDING).", map[string]string{"THING_NOT_FOUND": "the fixture says so"}, 1},
+		"each in its own call's comment":                   {"", "// - NOT_FOUND: no thing (THING_NOT_FOUND).", "// - ABORTED: ending (THING_ENDING).", nil, 0},
+		"one in another call's alone":                      {"", "// DescribeThing returns a thing.", "// - ABORTED: ending (THING_ENDING), or no thing (THING_NOT_FOUND).", nil, 1},
+		"one in the call it is said as":                    {"", "// - NOT_FOUND: as for WaitThing.", "// ### Errors\n  // - ABORTED: ending (THING_ENDING), or no thing (THING_NOT_FOUND).", nil, 0},
+		"one in a call it merely names":                    {"", "// It is gone when WaitThing says so.", "// ### Errors\n  // - ABORTED: ending (THING_ENDING), or no thing (THING_NOT_FOUND).", nil, 1},
+		"one outside the Errors of the call it is said as": {"", "// - NOT_FOUND: as for WaitThing.", "// WaitThing ends with no thing (THING_NOT_FOUND).\n  // ### Errors\n  // - ABORTED: ending (THING_ENDING).", nil, 1},
+		"one in the file's header":                         {"// Every call refuses a thing that is gone by THING_NOT_FOUND.\n", "// DescribeThing returns a thing.", "// - ABORTED: ending (THING_ENDING).", nil, 0},
+		"one the call never gives":                         {"", "// DescribeThing returns a thing.", "// - ABORTED: ending (THING_ENDING).", map[string]string{"THING_NOT_FOUND": "the fixture says so"}, 0},
+		"one listed and not reached":                       {"", "// - NOT_FOUND: no thing (THING_NOT_FOUND).", "// - ABORTED: ending (THING_ENDING).", map[string]string{"THING_BUSY": "the fixture says so"}, 1},
+		"one listed and named after all":                   {"", "// - NOT_FOUND: no thing (THING_NOT_FOUND).", "// - ABORTED: ending (THING_ENDING).", map[string]string{"THING_NOT_FOUND": "the fixture says so"}, 1},
 	} {
 		c2 := protoFixture(t, map[string]string{"fixture/called/v1/x.proto": c.header + `syntax = "proto3";
 package fixture.called.v1;
