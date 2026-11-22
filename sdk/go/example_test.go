@@ -2,6 +2,7 @@ package frontseat_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -123,14 +124,16 @@ func ExampleWorkspace_Release() {
 
 // What a server refuses by name is read by its reason, which each call's
 // contract lists, and never by its message, which is for a person.
-func ExampleReason() {
+func ExampleError() {
 	server := standIn()
 	defer server.Close()
 
 	ws := frontseat.New(server.URL).Workspace("services-main")
 	_, err := ws.Build(context.Background(), frontseat.BuildRequest{Profile: "nightly"})
-	reason, domain := frontseat.Reason(err)
-	fmt.Println(connect.CodeOf(err), reason, domain)
+	var refused *frontseat.Error
+	if errors.As(err, &refused) && refused.Reason == frontseat.ReasonProfileUnknown {
+		fmt.Println(refused.Code, refused.Reason, refused.Domain)
+	}
 	// Output: invalid_argument PROFILE_UNKNOWN build.frontseat.dev
 }
 
