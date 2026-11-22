@@ -456,17 +456,22 @@ func wanted(spec *sandboxv1.SandboxSpec) (out driver.Sandbox, err error) {
 	default:
 		return driver.Sandbox{}, fmt.Errorf("the egress mode %d is none this server knows", spec.GetEgress().GetMode())
 	}
-	// A rule is passed on as it was given: what its host, its programs
-	// and its requests may be is the driver's to hold, which knows what
-	// it can enforce; that each is there at all is held here.
+	// A rule's host is read as the driver port reads one, a name and a
+	// port; what its programs and its requests may be is the driver's to
+	// hold, which knows what it can enforce; that each is there at all is
+	// held here.
 	for _, rule := range spec.GetEgress().GetRules() {
 		if rule.GetHost() == "" {
 			return driver.Sandbox{}, errors.New("a rule names no host")
 		}
+		host, err := driver.ParseEndpoint(rule.GetHost())
+		if err != nil {
+			return driver.Sandbox{}, fmt.Errorf("a rule's host: %w", err)
+		}
 		if name := rule.GetCredential(); name != "" && !driver.CredentialID(name) {
 			return driver.Sandbox{}, errors.New("a rule names a credential by what is no credential's name")
 		}
-		asked := driver.Rule{Host: rule.GetHost(), Programs: rule.GetPrograms(), CredentialID: rule.GetCredential()}
+		asked := driver.Rule{Host: host, Programs: rule.GetPrograms(), CredentialID: rule.GetCredential()}
 		for _, program := range rule.GetPrograms() {
 			if program == "" {
 				return driver.Sandbox{}, errors.New("a rule names a program by no path")
@@ -951,15 +956,19 @@ func (s *Server) SetCredential(ctx context.Context, req *sandboxv1.SetCredential
 	if err != nil {
 		return nil, err
 	}
-	if err := keeps.Credential(ctx, given.GetName(), given.GetHost(), given.GetUsername(), given.GetSecret()); err != nil {
-		return nil, said(err)
-	}
-	// What is said back is what is kept, as DescribeCredential says it.
-	host, username, variable, err := keeps.Kept(ctx, given.GetName())
+	host, err := driver.ParseEndpoint(given.GetHost())
 	if err != nil {
 		return nil, said(err)
 	}
-	return &sandboxv1.SetCredentialResponse{Credential: &sandboxv1.Credential{Name: given.GetName(), Host: host, Username: username, Variable: variable}}, nil
+	if err := keeps.Credential(ctx, given.GetName(), host, given.GetUsername(), given.GetSecret()); err != nil {
+		return nil, said(err)
+	}
+	// What is said back is what is kept, as DescribeCredential says it.
+	kept, username, variable, err := keeps.Kept(ctx, given.GetName())
+	if err != nil {
+		return nil, said(err)
+	}
+	return &sandboxv1.SetCredentialResponse{Credential: &sandboxv1.Credential{Name: given.GetName(), Host: kept.String(), Username: username, Variable: variable}}, nil
 }
 
 // DescribeCredential says what the driver keeps under an id, and never
@@ -979,7 +988,7 @@ func (s *Server) DescribeCredential(ctx context.Context, req *sandboxv1.Describe
 	if err != nil {
 		return nil, said(err)
 	}
-	return &sandboxv1.DescribeCredentialResponse{Credential: &sandboxv1.Credential{Name: req.GetName(), Host: host, Username: username, Variable: variable}}, nil
+	return &sandboxv1.DescribeCredentialResponse{Credential: &sandboxv1.Credential{Name: req.GetName(), Host: host.String(), Username: username, Variable: variable}}, nil
 }
 
 // DeleteCredential has the driver let go of the credential under an id.

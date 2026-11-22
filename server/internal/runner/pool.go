@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -49,8 +50,9 @@ type Pool struct {
 	// Count is how many slots there are, numbered from one, and Egress
 	// how many of the last of them reach Hosts.
 	Count, Egress int
-	// Hosts are what an egress slot reaches, each a name and a port.
-	Hosts []string
+	// Hosts are what an egress slot reaches, each a name and a port
+	// (EgressHosts).
+	Hosts []driver.Endpoint
 	// Mounted says what is mounted at a slot's build directory, by an id
 	// the kernel never gives another mount, or that nothing is.
 	Mounted func(path string) (id string, is bool, err error)
@@ -100,6 +102,20 @@ func (p Pool) Record(slot int) driver.Sandbox {
 		}
 	}
 	return record
+}
+
+// EgressHosts reads what an egress slot reaches, as the stack's file
+// lists it: each a name and a port, apart by white space.
+func EgressHosts(listed string) ([]driver.Endpoint, error) {
+	var out []driver.Endpoint
+	for _, written := range strings.Fields(listed) {
+		host, err := driver.ParseEndpoint(written)
+		if err != nil {
+			return nil, fmt.Errorf("an egress slot's host: %w", err)
+		}
+		out = append(out, host)
+	}
+	return out, nil
 }
 
 // temporary is a slot's temporary directory on the gateway's host.

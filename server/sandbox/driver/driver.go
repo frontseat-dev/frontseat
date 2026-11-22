@@ -3,9 +3,12 @@ package driver
 import (
 	"context"
 	"errors"
-	"io"
+	"fmt"
 	"net"
 	"regexp"
+	"strconv"
+
+	"github.com/frontseat-dev/frontseat/server/internal/plain"
 )
 
 // Driver makes sandboxes on one provider.
@@ -23,9 +26,6 @@ type Driver interface {
 	// was ended and that the provider still holds is Ending, never
 	// ErrNotFound.
 	Observe(ctx context.Context, id string) (Sandbox, error)
-	// List returns the sandboxes that carry labels, those that are
-	// Ending among them.
-	List(ctx context.Context, labels map[string]string) ([]Sandbox, error)
 	// Delete ends the sandbox, and succeeds only once the provider holds
 	// it no more: one that is not gone when Delete returns is an error,
 	// and Delete is asked again until it succeeds. Meanwhile the sandbox
@@ -33,8 +33,6 @@ type Driver interface {
 	// provider left it where it gave the ending up, which may be with
 	// less than it had. Deleting one that is gone succeeds.
 	Delete(ctx context.Context, id string) error
-	// Logs returns the sandbox's own output from a line.
-	Logs(ctx context.Context, id string, fromLine int64) (io.ReadCloser, error)
 	// Dial connects to a port inside the sandbox. It is the one transport
 	// a driver must supply: the daemon's build API, its source API and
 	// the shell are each reached through it.
@@ -65,24 +63,57 @@ var ErrInUse = errors.New("driver: a sandbox is still let through with the crede
 // sandbox whose rule for that host names the id is let through with it,
 // and never holds it.
 type Credentialed interface {
-	// Credential keeps a credential for a host, a name and a port, under
-	// an id, in place of the one it held under the id for the same host;
-	// one held under the id for another host is ErrInvalid. The host is
-	// written with "http://" before it where it is reached over http.
-	// What a driver holds is the host and the port the credential goes
+	// Credential keeps a credential for a host under an id, in place of
+	// the one it held under the id for the same host; one held under the
+	// id for another host is ErrInvalid. What a driver holds is the host and the port the credential goes
 	// to, and the requests it goes with; that a request to a host kept
 	// for https is encrypted is held only where the driver says so. The
 	// OpenShell driver does not: see its package.
-	Credential(ctx context.Context, id, host, username, secret string) error
+	Credential(ctx context.Context, id string, host Endpoint, username, secret string) error
 	// Forget lets go of the credential under an id; one it holds none
 	// under is no error, and one a sandbox is still let through with is
 	// ErrInUse.
 	Forget(ctx context.Context, id string) error
-	// Kept says the host the credential under an id is for, written as
-	// Credential takes it, who it is of, and the variable a sandbox let
-	// through with it finds its stand-in under; ErrNotFound where none is
-	// kept under the id.
-	Kept(ctx context.Context, id string) (host, username, variable string, err error)
+	// Kept says the host the credential under an id is for, who it is
+	// of, and the variable a sandbox let through with it finds its
+	// stand-in under; ErrNotFound where none is kept under the id.
+	Kept(ctx context.Context, id string) (host Endpoint, username, variable string, err error)
+}
+
+// Endpoint is where a sandbox is let reach, or a credential is sent: a
+// host's name, never an address, and a port, reached over https, or over
+// http, unencrypted, where Clear says so.
+type Endpoint struct {
+	// Name is the host's name, in small letters.
+	Name string
+	// Port is its port.
+	Port int
+	// Clear is whether it is reached over http rather than https.
+	Clear bool
+}
+
+// ParseEndpoint reads an endpoint as the sandbox API writes one: a
+// name, or a name and a port, over https, with "https://" before it or
+// not; or the same after "http://", over http. A port left out is the
+// scheme's own. Anything else, as an address, a user, a path or a port
+// that is none, is ErrInvalid, and the error does not repeat what was
+// written.
+func ParseEndpoint(written string) (Endpoint, error) {
+	at, ok := plain.Ruled(written)
+	if !ok {
+		return Endpoint{}, fmt.Errorf("%w: a host is a name and a port, written plainly, with no user, path or address", ErrInvalid)
+	}
+	return Endpoint{Name: at.Name, Port: at.Port, Clear: at.Scheme == "http"}, nil
+}
+
+// String is the endpoint as ParseEndpoint reads it, port and all:
+// name:port, or http://name:port where it is reached over http.
+func (h Endpoint) String() string {
+	at := net.JoinHostPort(h.Name, strconv.Itoa(h.Port))
+	if h.Clear {
+		return "http://" + at
+	}
+	return at
 }
 
 // credentialID is a credential's id: lower-case letters, digits and
@@ -114,10 +145,6 @@ type Sandbox struct {
 	Environment map[string]string
 	// Labels are for finding it.
 	Labels map[string]string
-	// MilliCPUs, MemoryBytes and DiskBytes are its size.
-	MilliCPUs   int
-	MemoryBytes int64
-	DiskBytes   int64
 	// Egress is what it may reach.
 	Egress Egress
 	// Ports are the ports of it to make reachable.
@@ -164,9 +191,8 @@ type Egress struct {
 
 // Rule is one host a sandbox may reach, and how far.
 type Rule struct {
-	// Host is the host, a name and a port, written with "http://" before
-	// it where it is reached unencrypted.
-	Host string
+	// Host is the host, by its endpoint.
+	Host Endpoint
 	// Programs are the programs the rule is for, each by its whole path;
 	// none for any program.
 	Programs []string
@@ -218,9 +244,6 @@ type SandboxContainer struct {
 	Arguments []string
 	// Environment is the environment its first process starts with.
 	Environment map[string]string
-	// MilliCPUs and MemoryBytes are its size.
-	MilliCPUs   int
-	MemoryBytes int64
 	// Volumes are the volumes mounted in it.
 	Volumes []Volume
 }
@@ -254,8 +277,6 @@ type Capabilities struct {
 	// Credentials is whether it keeps a credential outside its sandboxes
 	// for what a sandbox fetches: whether it is Credentialed.
 	Credentials bool
-	// Output is whether what a sandbox printed can be read.
-	Output bool
 	// EgressOpen is whether a sandbox of its may reach anything: one that
 	// names neither a block nor the hosts it may reach.
 	EgressOpen bool
@@ -272,6 +293,4 @@ type Capabilities struct {
 	Containers bool
 	// VolumeSubpaths is whether it can mount one directory of a volume.
 	VolumeSubpaths bool
-	// DiskSize is whether it gives a sandbox the size of disk asked for.
-	DiskSize bool
 }

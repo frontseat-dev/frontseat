@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -52,7 +51,6 @@ var _ driver.Execer = Driver{}
 func (Driver) Capabilities() driver.Capabilities {
 	return driver.Capabilities{
 		PauseKeepsDisk: true,
-		Output:         true,
 		EgressOpen:     true,
 		EgressBlock:    true,
 		Volumes:        []driver.VolumeKind{driver.Ephemeral, driver.Host},
@@ -168,7 +166,7 @@ func runArguments(s driver.Sandbox) ([]string, error) {
 	for k, v := range s.Labels {
 		args = append(args, "--label", k+"="+v)
 	}
-	args = append(args, sized(s.Environment, s.MilliCPUs, s.MemoryBytes)...)
+	args = append(args, environed(s.Environment)...)
 	for _, port := range s.Ports {
 		args = append(args, "--publish", "127.0.0.1::"+strconv.Itoa(port))
 	}
@@ -193,7 +191,7 @@ func runArguments(s driver.Sandbox) ([]string, error) {
 // sandbox's network, with nothing more than its image gives it.
 func furtherArguments(id string, c driver.SandboxContainer) ([]string, error) {
 	args := []string{"run", "--detach", "--name", further(id, c.Name), "--label", ofLabel + "=" + id, "--network", "container:" + id}
-	args = append(args, sized(c.Environment, c.MilliCPUs, c.MemoryBytes)...)
+	args = append(args, environed(c.Environment)...)
 	mounts, err := mounted(c.Volumes)
 	if err != nil {
 		return nil, err
@@ -203,16 +201,11 @@ func furtherArguments(id string, c driver.SandboxContainer) ([]string, error) {
 	return append(args, c.Arguments...), nil
 }
 
-func sized(environment map[string]string, milliCPUs int, memory int64) []string {
+// environed is how a container is given its environment.
+func environed(environment map[string]string) []string {
 	var args []string
 	for k, v := range environment {
 		args = append(args, "--env", k+"="+v)
-	}
-	if milliCPUs > 0 {
-		args = append(args, "--cpus", strconv.FormatFloat(float64(milliCPUs)/1000, 'f', 3, 64))
-	}
-	if memory > 0 {
-		args = append(args, "--memory", strconv.FormatInt(memory, 10))
 	}
 	return args
 }
@@ -465,30 +458,6 @@ func (l *limited) Write(p []byte) (int, error) {
 	return l.buf.Write(p)
 }
 
-// List implements driver.Driver.
-func (d Driver) List(ctx context.Context, labels map[string]string) ([]driver.Sandbox, error) {
-	args := []string{"ps", "--all", "--format", "{{.Names}}", "--filter", "label=" + sandboxLabel + "=1"}
-	for k, v := range labels {
-		args = append(args, "--filter", "label="+k+"="+v)
-	}
-	out, err := docker(ctx, args...)
-	if err != nil {
-		return nil, err
-	}
-	var found []driver.Sandbox
-	for _, id := range strings.Fields(string(out)) {
-		s, err := d.Observe(ctx, id)
-		if errors.Is(err, driver.ErrNotFound) {
-			continue
-		}
-		if err != nil {
-			return nil, err
-		}
-		found = append(found, s)
-	}
-	return found, nil
-}
-
 // Delete implements driver.Driver.
 func (Driver) Delete(ctx context.Context, id string) error {
 	// The runtime holds every container on the machine. One that does
@@ -516,19 +485,6 @@ func (Driver) Delete(ctx context.Context, id string) error {
 		return nil
 	}
 	return err
-}
-
-// Logs implements driver.Driver.
-func (Driver) Logs(ctx context.Context, id string, fromLine int64) (io.ReadCloser, error) {
-	out, err := docker(ctx, "logs", id)
-	if err != nil {
-		return nil, err
-	}
-	for ; fromLine > 0 && len(out) > 0; fromLine-- {
-		_, rest, _ := bytes.Cut(out, []byte("\n"))
-		out = rest
-	}
-	return io.NopCloser(bytes.NewReader(out)), nil
 }
 
 // Dial implements driver.Driver: a sandbox's port is published on the

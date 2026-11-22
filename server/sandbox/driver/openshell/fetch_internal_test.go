@@ -10,6 +10,7 @@ import (
 	client "github.com/ai-openshell/sdk-go/openshell/v1"
 
 	"github.com/frontseat-dev/frontseat/server/sandbox/driver"
+	"github.com/frontseat-dev/frontseat/server/testsupport/drivertest"
 )
 
 // A credential is kept under a name of its id: two ids are two
@@ -64,9 +65,9 @@ func by(policy *client.SandboxPolicy, host string, port uint32) string {
 func TestEachHostIsReachedAsItsRuleSays(t *testing.T) {
 	d := &Driver{config: Config{Workspace: "default"}}
 	record := driver.Sandbox{Egress: driver.Egress{Listed: true, Rules: []driver.Rule{
-		{Host: "grid.example:8980", Programs: []string{"/opt/a/daemon"}},
-		{Host: "listed.example"},
-		{Host: "http://forge.example", Programs: []string{"/usr/bin/a-fetcher"}, Requests: []driver.Request{
+		{Host: drivertest.Endpoint(t, "grid.example:8980"), Programs: []string{"/opt/a/daemon"}},
+		{Host: drivertest.Endpoint(t, "listed.example")},
+		{Host: drivertest.Endpoint(t, "http://forge.example"), Programs: []string{"/usr/bin/a-fetcher"}, Requests: []driver.Request{
 			{Method: "GET", Path: "/acme/code/refs", Query: map[string]string{"service": "a-fetch"}},
 			{Method: "POST", Path: "/acme/code/a-fetch"},
 		}},
@@ -123,23 +124,23 @@ func TestWhatARuleSaysIsHeld(t *testing.T) {
 	d := &Driver{config: Config{Workspace: "default"}}
 	get := []driver.Request{{Method: "GET", Path: "/acme/code/refs"}}
 	for name, rules := range map[string][]driver.Rule{
-		"an address":                      {{Host: "192.0.2.7"}},
-		"no port that is one":             {{Host: "forge.example:0"}},
-		"a host named twice":              {{Host: "forge.example"}, {Host: "forge.example:443"}},
-		"any program":                     {{Host: "forge.example", Programs: []string{"/**"}}},
-		"a program by its name":           {{Host: "forge.example", Programs: []string{"git"}}},
-		"a program by a path that climbs": {{Host: "forge.example", Programs: []string{"/usr/bin/../bin/git"}}},
-		"another method":                  {{Host: "forge.example", Requests: []driver.Request{{Method: "CONNECT", Path: "/a"}}}},
-		"a path that climbs":              {{Host: "forge.example", Requests: []driver.Request{{Method: "GET", Path: "/acme/../other"}}}},
-		"a path that climbs unseen":       {{Host: "forge.example", Requests: []driver.Request{{Method: "GET", Path: "/acme/%2e%2e/other"}}}},
-		"a pattern of many parts":         {{Host: "forge.example", Requests: []driver.Request{{Method: "GET", Path: "/acme/**"}}}},
-		"a pattern within a part":         {{Host: "forge.example", Requests: []driver.Request{{Method: "GET", Path: "/acme/rel*"}}}},
-		"a pattern of what a part is":     {{Host: "forge.example", Requests: []driver.Request{{Method: "GET", Path: "/acme/?"}}}},
-		"any first part":                  {{Host: "forge.example", Requests: []driver.Request{{Method: "GET", Path: "/*/code"}}}},
-		"any part and nothing else":       {{Host: "forge.example", Requests: []driver.Request{{Method: "GET", Path: "/*"}}}},
-		"a path that is not one":          {{Host: "forge.example", Requests: []driver.Request{{Method: "GET", Path: "acme/code"}}}},
-		"a parameter of any value":        {{Host: "forge.example", Requests: []driver.Request{{Method: "GET", Path: "/a", Query: map[string]string{"service": "*"}}}}},
-		"a credential to anything asked":  {{Host: "forge.example", CredentialID: "ada-forge"}},
+		"an address":                      {{Host: driver.Endpoint{Name: "192.0.2.7", Port: 443}}},
+		"no port that is one":             {{Host: driver.Endpoint{Name: "forge.example"}}},
+		"a host named twice":              {{Host: drivertest.Endpoint(t, "forge.example")}, {Host: drivertest.Endpoint(t, "forge.example:443")}},
+		"any program":                     {{Host: drivertest.Endpoint(t, "forge.example"), Programs: []string{"/**"}}},
+		"a program by its name":           {{Host: drivertest.Endpoint(t, "forge.example"), Programs: []string{"git"}}},
+		"a program by a path that climbs": {{Host: drivertest.Endpoint(t, "forge.example"), Programs: []string{"/usr/bin/../bin/git"}}},
+		"another method":                  {{Host: drivertest.Endpoint(t, "forge.example"), Requests: []driver.Request{{Method: "CONNECT", Path: "/a"}}}},
+		"a path that climbs":              {{Host: drivertest.Endpoint(t, "forge.example"), Requests: []driver.Request{{Method: "GET", Path: "/acme/../other"}}}},
+		"a path that climbs unseen":       {{Host: drivertest.Endpoint(t, "forge.example"), Requests: []driver.Request{{Method: "GET", Path: "/acme/%2e%2e/other"}}}},
+		"a pattern of many parts":         {{Host: drivertest.Endpoint(t, "forge.example"), Requests: []driver.Request{{Method: "GET", Path: "/acme/**"}}}},
+		"a pattern within a part":         {{Host: drivertest.Endpoint(t, "forge.example"), Requests: []driver.Request{{Method: "GET", Path: "/acme/rel*"}}}},
+		"a pattern of what a part is":     {{Host: drivertest.Endpoint(t, "forge.example"), Requests: []driver.Request{{Method: "GET", Path: "/acme/?"}}}},
+		"any first part":                  {{Host: drivertest.Endpoint(t, "forge.example"), Requests: []driver.Request{{Method: "GET", Path: "/*/code"}}}},
+		"any part and nothing else":       {{Host: drivertest.Endpoint(t, "forge.example"), Requests: []driver.Request{{Method: "GET", Path: "/*"}}}},
+		"a path that is not one":          {{Host: drivertest.Endpoint(t, "forge.example"), Requests: []driver.Request{{Method: "GET", Path: "acme/code"}}}},
+		"a parameter of any value":        {{Host: drivertest.Endpoint(t, "forge.example"), Requests: []driver.Request{{Method: "GET", Path: "/a", Query: map[string]string{"service": "*"}}}}},
+		"a credential to anything asked":  {{Host: drivertest.Endpoint(t, "forge.example"), CredentialID: "ada-forge"}},
 	} {
 		if _, err := d.ruled(context.Background(), driver.Sandbox{Egress: driver.Egress{Listed: true, Rules: rules}}); !errors.Is(err, driver.ErrInvalid) {
 			t.Errorf("%s: %v, want it refused as not well formed", name, err)
@@ -149,11 +150,11 @@ func TestWhatARuleSaysIsHeld(t *testing.T) {
 	// parameter are the asker's to write, and any may hold a token.
 	const refusedValue = "v4lue of adas"
 	for name, rule := range map[string]driver.Rule{
-		"a host":      {Host: refusedValue + "@forge.example"},
-		"a program":   {Host: "forge.example", Programs: []string{refusedValue}},
-		"a path":      {Host: "forge.example", Requests: []driver.Request{{Method: "GET", Path: "/" + refusedValue}}},
-		"a method":    {Host: "forge.example", Requests: []driver.Request{{Method: refusedValue, Path: "/a"}}},
-		"a parameter": {Host: "forge.example", Requests: []driver.Request{{Method: "GET", Path: "/a", Query: map[string]string{"token": refusedValue}}}},
+		"a host":      {Host: driver.Endpoint{Name: refusedValue + "@forge.example", Port: 443}},
+		"a program":   {Host: drivertest.Endpoint(t, "forge.example"), Programs: []string{refusedValue}},
+		"a path":      {Host: drivertest.Endpoint(t, "forge.example"), Requests: []driver.Request{{Method: "GET", Path: "/" + refusedValue}}},
+		"a method":    {Host: drivertest.Endpoint(t, "forge.example"), Requests: []driver.Request{{Method: refusedValue, Path: "/a"}}},
+		"a parameter": {Host: drivertest.Endpoint(t, "forge.example"), Requests: []driver.Request{{Method: "GET", Path: "/a", Query: map[string]string{"token": refusedValue}}}},
 	} {
 		_, err := d.ruled(context.Background(), driver.Sandbox{Egress: driver.Egress{Listed: true, Rules: []driver.Rule{rule}}})
 		if !errors.Is(err, driver.ErrInvalid) {
@@ -162,7 +163,7 @@ func TestWhatARuleSaysIsHeld(t *testing.T) {
 			t.Errorf("the refusal of %s repeats what it refused: %v", name, err)
 		}
 	}
-	if _, err := d.ruled(context.Background(), driver.Sandbox{Egress: driver.Egress{Listed: true, Rules: []driver.Rule{{Host: "forge.example", Requests: get}}}}); err != nil {
+	if _, err := d.ruled(context.Background(), driver.Sandbox{Egress: driver.Egress{Listed: true, Rules: []driver.Rule{{Host: drivertest.Endpoint(t, "forge.example"), Requests: get}}}}); err != nil {
 		t.Errorf("a rule of one request was refused: %v", err)
 	}
 	// A part that is any one part is let through, after a part that is
@@ -170,11 +171,11 @@ func TestWhatARuleSaysIsHeld(t *testing.T) {
 	// is not known when the rule is written. It is asked of the gateway
 	// as it is written, which reads it as one part and no more.
 	anyPart := []driver.Request{{Method: "PATCH", Path: "/repos/acme/code/releases/*"}, {Method: "POST", Path: "/repos/acme/code/releases/*/assets"}}
-	ruled, err := d.ruled(context.Background(), driver.Sandbox{Egress: driver.Egress{Listed: true, Rules: []driver.Rule{{Host: "forge.example", Requests: anyPart}}}})
+	ruled, err := d.ruled(context.Background(), driver.Sandbox{Egress: driver.Egress{Listed: true, Rules: []driver.Rule{{Host: drivertest.Endpoint(t, "forge.example"), Requests: anyPart}}}})
 	if err != nil {
 		t.Fatalf("a request of any one part was refused: %v", err)
 	}
-	policy, err := d.policy(driver.Sandbox{Egress: driver.Egress{Listed: true, Rules: []driver.Rule{{Host: "forge.example", Requests: anyPart}}}}, ruled)
+	policy, err := d.policy(driver.Sandbox{Egress: driver.Egress{Listed: true, Rules: []driver.Rule{{Host: drivertest.Endpoint(t, "forge.example"), Requests: anyPart}}}}, ruled)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -102,7 +102,7 @@ func box(t *testing.T, name string) driver.Sandbox {
 		// What a test adds to its environment, a credential's stand-in
 		// among it, is added here.
 		Environment: map[string]string{},
-		Egress:      driver.Egress{Listed: true, Rules: []driver.Rule{{Host: grid.Address}, {Host: grid.Assets}}},
+		Egress:      driver.Egress{Listed: true, Rules: []driver.Rule{{Host: drivertest.Endpoint(t, grid.Address)}, {Host: drivertest.Endpoint(t, grid.Assets)}}},
 	})
 }
 
@@ -217,7 +217,7 @@ func TestASandboxReachesWhatItNamesAndNothingElse(t *testing.T) {
 	d := driven(t)
 	named, unnamed := answering(t), answering(t)
 	record := box(t, "frontseat-openshell-reach")
-	record.Egress.Rules = append(record.Egress.Rules, driver.Rule{Host: named})
+	record.Egress.Rules = append(record.Egress.Rules, driver.Rule{Host: drivertest.Endpoint(t, named)})
 	running(t, d, record)
 	asked := func(host string) (int, string) {
 		t.Helper()
@@ -275,9 +275,6 @@ func TestACallersLabelDoesNotStandInForASandboxsId(t *testing.T) {
 	if _, err := d.Observe(ctx, record.ID); !errors.Is(err, driver.ErrNotFound) {
 		t.Fatalf("the sandbox outlived its ending: %v", err)
 	}
-	if left, err := d.List(ctx, map[string]string{"probe": record.ID}); err != nil || len(left) != 0 {
-		t.Fatalf("the gateway still holds it: %+v, %v", left, err)
-	}
 }
 
 // Two ids the gateway would name alike are not one sandbox: the second
@@ -310,51 +307,6 @@ func TestTwoIdsOfOneNameAreNotOneSandbox(t *testing.T) {
 	}
 }
 
-// What the gateway cannot hold a sandbox to is refused by name, beside
-// a size it can.
-func TestWhatCannotBeSizedIsRefusedByName(t *testing.T) {
-	testrequired.Stack(t)
-	d := driven(t)
-	ctx := context.Background()
-	for what, change := range map[string]func(*driver.Sandbox){
-		"a disk size": func(s *driver.Sandbox) { s.DiskBytes = 1 << 30 },
-	} {
-		record := box(t, "frontseat-openshell-sized")
-		change(&record)
-		var refused *driver.Unsupported
-		if _, err := d.Apply(ctx, record); !errors.As(err, &refused) || refused.Capability != what {
-			_ = d.Delete(ctx, record.ID)
-			t.Errorf("asking for %s: %v, want it refused for that", what, err)
-		}
-	}
-	sized := box(t, "frontseat-openshell-sized")
-	sized.MilliCPUs, sized.MemoryBytes = 1500, 1<<30
-	running(t, d, sized)
-	// The limits are the sandbox's own, as the container runtime the
-	// gateway made it with says them: what runs in it may not read its
-	// control group, which is the policy's doing. The workload is held to
-	// them (its supervisor is too, with Podman's driver, and is not with
-	// Docker's); another run's sandbox is no part of it.
-	listed, err := containersOf(ctx, gatewayClient(t), sized.ID)
-	if err != nil || len(listed) < 2 {
-		t.Fatalf("the sandbox is run in %v (%v), want its workload and its supervisor", listed, err)
-	}
-	workloads := 0
-	for _, name := range listed {
-		if supervisor(name) {
-			continue
-		}
-		workloads++
-		out, err := testgateway.Runtime(ctx, "inspect", "--format", "{{.HostConfig.NanoCpus}} {{.HostConfig.Memory}}", name)
-		if err != nil || strings.TrimSpace(string(out)) != "1500000000 1073741824" {
-			t.Errorf("the workload %s is held to %q (%v), want one and a half processors and a gibibyte", name, out, err)
-		}
-	}
-	if workloads != 1 {
-		t.Errorf("the sandbox is run in %v: %d workloads, want one", listed, workloads)
-	}
-}
-
 // A sandbox fetches a repository that asks a password, which only the
 // gateway holds: the sandbox is given a stand-in, the forge is given
 // the password, and nothing in the sandbox holds it. It fetches that
@@ -373,15 +325,15 @@ func TestASandboxFetchesAPrivateRepositoryAndNeverHoldsItsPassword(t *testing.T)
 	id := testrun.ID(t, "fetch")
 	t.Cleanup(func() { _ = d.Forget(context.Background(), id) })
 	// A credential replaces the one before: a wrong one first.
-	if err := d.Credential(ctx, id, at, "someone", "not-the-password"); err != nil {
+	if err := d.Credential(ctx, id, drivertest.Endpoint(t, at), "someone", "not-the-password"); err != nil {
 		t.Fatal(err)
 	}
-	if err := d.Credential(ctx, id, at, "someone", password); err != nil {
+	if err := d.Credential(ctx, id, drivertest.Endpoint(t, at), "someone", password); err != nil {
 		t.Fatal(err)
 	}
 	// It is never moved to another host, which a sandbox let through with
 	// it would send the new secret to; the control is the one above.
-	if err := d.Credential(ctx, id, "elsewhere.example", "someone", password); !errors.Is(err, driver.ErrInvalid) {
+	if err := d.Credential(ctx, id, drivertest.Endpoint(t, "elsewhere.example"), "someone", password); !errors.Is(err, driver.ErrInvalid) {
 		t.Errorf("a credential moved to another host: %v, want it refused", err)
 	}
 	record := box(t, "frontseat-openshell-fetch")
@@ -478,7 +430,7 @@ func TestASandboxPushesToTheRepositoryItIsLetAndToNoOther(t *testing.T) {
 	forge := testforge.ServeGuarded(t, root, "someone", password)
 	id := testrun.ID(t, "push")
 	t.Cleanup(func() { _ = d.Forget(context.Background(), id) })
-	if err := d.Credential(ctx, id, forge, "someone", password); err != nil {
+	if err := d.Credential(ctx, id, drivertest.Endpoint(t, forge), "someone", password); err != nil {
 		t.Fatal(err)
 	}
 	record := box(t, "frontseat-openshell-push")
@@ -534,7 +486,7 @@ func TestASandboxReachesWhatItsRulesSayAndNoMore(t *testing.T) {
 	// A rule that asks for a credential where none is kept makes no
 	// sandbox: it is refused, by name.
 	rule := driver.Rule{
-		Host:     forge,
+		Host:     drivertest.Endpoint(t, forge),
 		Programs: []string{"/usr/bin/git"},
 		Requests: []driver.Request{
 			{Method: "GET", Path: "/code/info/refs", Query: map[string]string{"service": "git-upload-pack"}},
@@ -556,12 +508,12 @@ func TestASandboxReachesWhatItsRulesSayAndNoMore(t *testing.T) {
 	// A host is named by one rule.
 	twice := box(t, "frontseat-openshell-twice")
 	t.Cleanup(func() { _ = d.Delete(context.Background(), twice.ID) })
-	twice.Egress.Rules = []driver.Rule{{Host: "forge.example"}, {Host: "forge.example:443", Programs: []string{"/usr/bin/git"}}}
+	twice.Egress.Rules = []driver.Rule{{Host: drivertest.Endpoint(t, "forge.example")}, {Host: drivertest.Endpoint(t, "forge.example:443"), Programs: []string{"/usr/bin/git"}}}
 	if _, err := d.Apply(ctx, twice); !errors.Is(err, driver.ErrInvalid) {
 		t.Fatalf("one host named by two rules: %v, want it refused", err)
 	}
 
-	if err := d.Credential(ctx, id, forge, "someone", password); err != nil {
+	if err := d.Credential(ctx, id, drivertest.Endpoint(t, forge), "someone", password); err != nil {
 		t.Fatal(err)
 	}
 	_, username, variable, err := d.Kept(ctx, id)
@@ -638,7 +590,7 @@ func TestTheGatewayAnswersNoOneWithoutItsCertificate(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer d.Close()
-	if _, err := d.List(ctx, nil); err != nil {
+	if err := d.Answers(ctx); err != nil {
 		t.Errorf("with its certificate the gateway did not answer: %v", err)
 	}
 }
@@ -662,7 +614,7 @@ func TestTheGatewayStillSendsACredentialInTheClearWhereASandboxAsks(t *testing.T
 	at := strings.TrimPrefix(forge, "http://")
 	id := testrun.ID(t, "clear")
 	t.Cleanup(func() { _ = d.Forget(context.Background(), id) })
-	if err := d.Credential(ctx, id, at, "someone", password); err != nil {
+	if err := d.Credential(ctx, id, drivertest.Endpoint(t, at), "someone", password); err != nil {
 		t.Fatal(err)
 	}
 	record := box(t, "frontseat-openshell-clear")
@@ -707,7 +659,7 @@ func TestACredentialTheGatewayHoldsForElsewhereIsNotBound(t *testing.T) {
 	const host = "http://planted.example:8080"
 	id := testrun.ID(t, "planted")
 	t.Cleanup(func() { _ = d.Forget(context.Background(), id) })
-	if err := d.Credential(ctx, id, host, "someone", "a-made-up-secret"); err != nil {
+	if err := d.Credential(ctx, id, drivertest.Endpoint(t, host), "someone", "a-made-up-secret"); err != nil {
 		t.Fatal(err)
 	}
 	// Whoever may write at the gateway says it was kept for elsewhere.
@@ -730,7 +682,7 @@ func TestACredentialTheGatewayHoldsForElsewhereIsNotBound(t *testing.T) {
 		t.Fatalf("%d credentials were kept under the id, want one", changed)
 	}
 	record := box(t, "frontseat-openshell-planted")
-	record.Egress.Rules = append(record.Egress.Rules, driver.Rule{Host: host, Programs: fetching{}.Programs(), Requests: (fetching{}.Requests("/acme/code")), CredentialID: id})
+	record.Egress.Rules = append(record.Egress.Rules, driver.Rule{Host: drivertest.Endpoint(t, host), Programs: fetching{}.Programs(), Requests: (fetching{}.Requests("/acme/code")), CredentialID: id})
 	t.Cleanup(func() { _ = d.Delete(context.Background(), record.ID) })
 	if _, err := d.Apply(ctx, record); err == nil || !strings.Contains(err.Error(), "kept for another host") {
 		t.Errorf("a sandbox was let through with a credential kept for elsewhere: %v", err)
@@ -772,7 +724,7 @@ func TestADriverSaysWhetherItsGatewayAnswersIt(t *testing.T) {
 // it has one, which git is told to present by the sandbox's environment.
 func fetches(t *testing.T, d *openshell.Driver, record *driver.Sandbox, forge string, credential string, repositories []string, pushed ...string) {
 	t.Helper()
-	rule := driver.Rule{Host: forge, Programs: fetching{}.Programs(), CredentialID: credential}
+	rule := driver.Rule{Host: drivertest.Endpoint(t, forge), Programs: fetching{}.Programs(), CredentialID: credential}
 	for _, repository := range repositories {
 		rule.Requests = append(rule.Requests, (fetching{}.Requests(repository))...)
 		if slices.Contains(pushed, repository) {
