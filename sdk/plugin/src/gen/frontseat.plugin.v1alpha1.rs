@@ -27,9 +27,9 @@ pub mod reply {
         Response(::prost::alloc::vec::Vec<u8>),
         /// Error says the call failed, with ErrorInfo and shared Diagnostic details.
         /// A method the plugin does not serve uses UNIMPLEMENTED, for the
-        /// reason <METHOD>_NOT_SERVED in its ErrorInfo, the method's name in
-        /// capitals. UNIMPLEMENTED for another reason is a failure of the
-        /// call, of something the method was asked about.
+        /// method's own reason in its ErrorInfo, as PluginService names it.
+        /// UNIMPLEMENTED for another reason is a failure of the call, of
+        /// something the method was asked about.
         /// Additional details use standard google.rpc error-detail messages only;
         /// custom message types and nested Status messages are refused. Every detail
         /// must be valid for both protobuf and JSON clients.
@@ -518,10 +518,12 @@ pub struct Project {
     /// Root is its directory, relative to the repository.
     #[prost(string, tag = "1")]
     pub root: ::prost::alloc::string::String,
-    /// Kind is what it is in its ecosystem, e.g. "go-module".
+    /// Kind is what it is in its ecosystem, e.g. "go-module": a name, of at
+    /// most 256 bytes.
     #[prost(string, tag = "2")]
     pub kind: ::prost::alloc::string::String,
-    /// Name is its name in its ecosystem.
+    /// Name is its name in its ecosystem: one line of printable text, of at
+    /// most 256 bytes, never empty, at the repository's root too.
     #[prost(string, tag = "3")]
     pub name: ::prost::alloc::string::String,
     /// Manifest is the file it was found from, relative to the repository.
@@ -682,9 +684,9 @@ pub struct Action {
     /// Name is its name within the project, lower-case words of \[a-z0-9\]
     /// joined by single hyphens. Plugins use the same names for the same
     /// things, since a run can be asked for only the actions of one name:
-    /// lint, compile, test. A shared
-    /// action's name is that, a slash, and what it is of, in letters,
-    /// digits and "._~+@-/": fetch/github.com/spf13/cobra@v1.8.1.
+    /// lint, compile, test. A shared action's name is that, a slash, and
+    /// what it is of, in letters, digits and "._~+@-/":
+    /// fetch/github.com/spf13/cobra@v1.8.1.
     ///
     /// A project's tests may be several actions, each a piece of them the
     /// project's tool tests by itself: a test is named "test", or "test", a
@@ -702,8 +704,8 @@ pub struct Action {
     /// points at its shards.
     ///
     /// An action that publishes is named "publish", a slash and what it
-    /// publishes to, a name as the first sentence says one:
-    /// publish/github. Only one that publishes is named so.
+    /// publishes to, in lower-case words of \[a-z0-9\] joined by single
+    /// hyphens: publish/github. Only one that publishes is named so.
     #[prost(string, tag = "1")]
     pub name: ::prost::alloc::string::String,
     /// Command is what it runs.

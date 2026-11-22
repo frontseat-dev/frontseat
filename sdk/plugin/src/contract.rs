@@ -75,7 +75,9 @@ impl Error {
     /// What is valid, and the plugin does not build yet: `UNIMPLEMENTED`,
     /// for the reason `<what>-not-served`, as every server of frontseat
     /// refuses what it does not serve. A client tells it from a file that
-    /// is wrong by its code.
+    /// is wrong by its code. `what` names what was asked about, never a
+    /// method: answered to Report, `report` would say the plugin serves
+    /// no Report, and its findings would be lost without a word.
     ///
     /// ```
     /// # use frontseat_plugin::{Code, Error};

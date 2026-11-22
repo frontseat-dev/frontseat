@@ -37,6 +37,18 @@ func (e *Error) GRPCStatus() *status.Status { return status.FromProto(e.Status) 
 // know.
 const unknownMethod = "UNKNOWN_METHOD"
 
+// notServed is the reason a plugin gives for each method it may leave
+// unserved, as the contract names it: the method's name in capitals,
+// and for a release strategy's two methods the kind of strategy. Every
+// plugin serves Describe, Analyze and Arrange.
+var notServed = map[string]string{
+	"Report":    "REPORT_NOT_SERVED",
+	"Reconcile": "RECONCILE_NOT_SERVED",
+	"Service":   "SERVICE_NOT_SERVED",
+	"Branch":    "BRANCHING_STRATEGY_NOT_SERVED",
+	"Version":   "VERSIONING_STRATEGY_NOT_SERVED",
+}
+
 // Is reports a failure as ErrUnsupported where it says the plugin does
 // not serve the method it was asked: UNIMPLEMENTED for the method's own
 // reason. UNIMPLEMENTED for any other reason is of something the method
@@ -45,7 +57,8 @@ func (e *Error) Is(target error) bool {
 	if target != ErrUnsupported || e.Status.GetCode() != int32(codes.Unimplemented) {
 		return false
 	}
-	return e.Reason == unknownMethod || e.method != "" && e.Reason == strings.ToUpper(e.method)+"_NOT_SERVED"
+	reason, leaves := notServed[e.method]
+	return e.Reason == unknownMethod || leaves && e.Reason == reason
 }
 
 var errorReason = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)

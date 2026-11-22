@@ -66,10 +66,16 @@ and patterns when deciding whether a previously computed answer still holds.
 2. It writes it into the module and calls `frontseat_call`.
 3. The module answers with a `Reply`: the response or a `google.rpc.Status`
    failure. A method it does not serve returns `UNIMPLEMENTED` for the
-   reason `<METHOD>_NOT_SERVED`, the method's name in capitals
-   (`REPORT_NOT_SERVED`); the Rust SDK answers a method it does not know
-   `UNIMPLEMENTED` for the reason `UNKNOWN_METHOD`, which the host reads
-   alike.
+   method's own reason: `REPORT_NOT_SERVED`, `RECONCILE_NOT_SERVED` and
+   `SERVICE_NOT_SERVED`, the method's name in capitals;
+   `BRANCHING_STRATEGY_NOT_SERVED` for `Branch` and
+   `VERSIONING_STRATEGY_NOT_SERVED` for `Version`, the kind of strategy.
+   The same reason answers a strategy or a service the plugin does not
+   claim. Every plugin serves `Describe`, `Analyze` and `Arrange`; asked
+   to arrange actions it declares no arrangement for, it answers
+   `INVALID_ARGUMENT` for the reason `UNSUPPORTED_ARRANGEMENT`. The Rust
+   SDK answers a method it does not know `UNIMPLEMENTED` for the reason
+   `UNKNOWN_METHOD`, which the host reads alike.
 
 The methods are `Describe`, `Analyze`, `Arrange`, `Report`, `Reconcile`,
 `Service`, `Branch` and `Version`. `Report` is
