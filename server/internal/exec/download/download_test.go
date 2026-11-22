@@ -242,6 +242,54 @@ func TestARefusedDownloadsAddressIsNotRepeated(t *testing.T) {
 	}
 }
 
+// A download a rule proxies is not repeated when the asset service
+// refuses it, nor the proxy's address for it, nor when the asker gives
+// up: it is said by its site alone. A URL that carries a user is refused
+// before any rule is tried, even one written to match it. The control is
+// the same download with no user, asked by the proxy's address.
+func TestAProxiedDownloadsAddressIsNotRepeated(t *testing.T) {
+	const tok3n = "https://static.crates.io/crates/tok3n/1.0.0/download"
+	broad := []download.Rewrite{{From: `^https://(?:[^/]*@)?static\.crates\.io/crates/([^/]+)/([^/]+)/download$`, To: "http://artifacts:8080/api/cargo/crates/api/v1/crates/$1/$2/download"}}
+	refused := "http://artifacts:8080/api/cargo/crates/api/v1/crates/tok3n/1.0.0/download"
+	s := &service{
+		by:     map[string]*remoteexecution.Digest{proxied: {Hash: sum, SizeBytes: 1}},
+		refuse: map[string]*status.Status{refused: {Code: int32(codes.NotFound), Message: "no such crate"}},
+	}
+	client := serve(t, s, broad)
+	ended, end := context.WithCancel(t.Context())
+	end()
+	for name, ask := range map[string]struct {
+		ctx context.Context
+		url string
+	}{
+		"refused by the service": {t.Context(), tok3n},
+		"given up on":            {ended, tok3n},
+		"a user a rule matches":  {t.Context(), "https://me:s3cret@static.crates.io/crates/itoa/1.0.18/download"},
+	} {
+		_, err := client.Fetch(ask.ctx, ask.url, sum)
+		if err == nil {
+			t.Errorf("%s: answered", name)
+			continue
+		}
+		for _, held := range []string{"tok3n", "s3cret", "artifacts:8080"} {
+			if strings.Contains(err.Error(), held) {
+				t.Errorf("%s: the error repeats what it was asked: %v", name, err)
+			}
+		}
+		if !strings.Contains(err.Error(), "https://static.crates.io") {
+			t.Errorf("%s: %v, want the download said by its site", name, err)
+		}
+	}
+	for _, request := range s.requests() {
+		if strings.Contains(request.GetUris()[0], "itoa") {
+			t.Errorf("a URL that carries a user was asked as %s", request.GetUris()[0])
+		}
+	}
+	if _, err := client.Fetch(t.Context(), public, sum); err != nil {
+		t.Errorf("the same download with no user: %v", err)
+	}
+}
+
 // A public site's URL no rule maps is asked of the service as it is: no
 // proxy is needed to download. The control is a URL a rule maps, asked by
 // the proxy's address.
