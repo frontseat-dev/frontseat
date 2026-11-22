@@ -394,7 +394,7 @@ func (w *Workspace) Shell(ctx context.Context) (net.Conn, error) {
 	if err := w.named(); err != nil {
 		return nil, err
 	}
-	return transport.Tunnel(ctx, w.client.server+"/workspaces/"+url.PathEscape(w.name)+"/shell", w.client.reach)
+	return transport.Tunnel(ctx, w.client.Server()+"/workspaces/"+url.PathEscape(w.name)+"/shell", w.client.reach)
 }
 
 // at is the connection to the workspace's daemon: the Client's own for

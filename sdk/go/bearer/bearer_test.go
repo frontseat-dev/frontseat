@@ -27,7 +27,7 @@ func TestATokenGoesToItsOriginAloneAndNoRedirectIsFollowed(t *testing.T) {
 		}
 	}))
 	t.Cleanup(origin.Close)
-	client := bearer.Client(nil, "a-token", origin.URL)
+	client := bearer.NewClient(nil, "a-token", mustParse(t, origin.URL))
 	for _, at := range []string{origin.URL + "/here", origin.URL + "/away", other.URL + "/there"} {
 		response, err := client.Get(at)
 		if err != nil {
@@ -68,7 +68,7 @@ func (a *asked) RoundTrip(r *http.Request) (*http.Response, error) {
 func TestATokenIsNotPresentedInClearToAnotherMachine(t *testing.T) {
 	for _, origin := range []string{"http://frontseat.example", "http://frontseat.example:7700", "http://192.0.2.1:7700", "http://localhost.example"} {
 		over := &asked{}
-		response, err := bearer.Client(&http.Client{Transport: over}, "a-token", origin).Get(origin + "/here")
+		response, err := bearer.NewClient(&http.Client{Transport: over}, "a-token", mustParse(t, origin)).Get(origin + "/here")
 		if err == nil {
 			response.Body.Close()
 		}
@@ -89,7 +89,7 @@ func TestATokenIsNotPresentedInClearToAnotherMachine(t *testing.T) {
 	}
 	for _, origin := range []string{"https://frontseat.example", "http://127.0.0.1:7700", "http://localhost:7700", "http://[::1]:7700"} {
 		over := &asked{}
-		response, err := bearer.Client(&http.Client{Transport: over}, "a-token", origin).Get(origin + "/here")
+		response, err := bearer.NewClient(&http.Client{Transport: over}, "a-token", mustParse(t, origin)).Get(origin + "/here")
 		if err != nil {
 			t.Errorf("the control: a request to %s: %v", origin, err)
 			continue
@@ -99,4 +99,14 @@ func TestATokenIsNotPresentedInClearToAnotherMachine(t *testing.T) {
 			t.Errorf("the control: %s was presented %q, want the token", origin, over.presented)
 		}
 	}
+}
+
+// mustParse is an origin a test writes, as a URL.
+func mustParse(t *testing.T, origin string) *url.URL {
+	t.Helper()
+	at, err := url.Parse(origin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return at
 }

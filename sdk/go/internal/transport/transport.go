@@ -37,7 +37,7 @@ func New(endpoint string, reach Reach, interceptors ...connect.ClientInterceptor
 	if over == nil {
 		over = &http.Client{Transport: traced{}}
 	}
-	connected := connecthttp.NewTransport(bearer.Client(over, reach.Token, reach.Origin), endpoint)
+	connected := connecthttp.NewTransport(bearer.NewClient(over, reach.Token, parsed(reach.Origin)), endpoint)
 	if reach.Token != "" && inClear(endpoint, reach.Origin) {
 		return connect.NewClient(connected, slices.Concat(interceptors, []connect.ClientInterceptor{refusedInClear})...)
 	}
@@ -52,7 +52,7 @@ func inClear(endpoint, origin string) bool {
 		return false
 	}
 	of, err := url.Parse(origin)
-	return err == nil && bearer.Of(at, of) && !bearer.Private(at)
+	return err == nil && bearer.SameOrigin(at, of) && !bearer.Private(at)
 }
 
 // refusedInClear refuses every call: its token would go in clear.
@@ -73,4 +73,13 @@ func (traced) RoundTrip(r *http.Request) (*http.Response, error) {
 	carried := r.Clone(r.Context())
 	propagation.TraceContext{}.Inject(carried.Context(), propagation.HeaderCarrier(carried.Header))
 	return http.DefaultTransport.RoundTrip(carried)
+}
+
+// parsed is an origin as a URL; nil where it is none.
+func parsed(origin string) *url.URL {
+	at, err := url.Parse(origin)
+	if err != nil {
+		return nil
+	}
+	return at
 }

@@ -61,7 +61,7 @@ func server() (*frontseat.Client, error) {
 	if token != "" {
 		options = append(options, frontseat.WithToken(token))
 	}
-	return frontseat.New(at, options...), nil
+	return frontseat.New(at, options...)
 }
 
 // asked is the workspace a command asks: inside a workspace's sandbox,
@@ -73,7 +73,11 @@ func asked() (*frontseat.Workspace, error) {
 		if workspaceFlag != "" {
 			return nil, errors.New("inside a workspace's sandbox the command line asks this workspace's daemon, and no other workspace: --workspace is given outside")
 		}
-		return frontseat.New(here, instrumented).Here(), nil
+		daemon, err := frontseat.New(here, instrumented)
+		if err != nil {
+			return nil, err
+		}
+		return daemon.Here(), nil
 	}
 	fs, err := server()
 	if err != nil {

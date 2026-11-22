@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -112,6 +113,11 @@ func held() (string, error) {
 // origin of the address given and to no other, following no redirect:
 // the SDK's own way (sdk/go/bearer), since the token may be the person's
 // at this machine.
+// An origin that is no URL is presented nothing.
 func Client(token, origin string) *http.Client {
-	return bearer.Client(nil, token, origin)
+	at, err := url.Parse(origin)
+	if err != nil {
+		at = nil
+	}
+	return bearer.NewClient(nil, token, at)
 }

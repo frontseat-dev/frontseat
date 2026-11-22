@@ -20,28 +20,28 @@ import (
 // token in clear to another machine. It names no address and no token.
 var ErrInClear = errors.New("a token is presented over TLS (https, wss), or to this machine (localhost, a loopback address), and the server is neither: the request was not made")
 
-// Client returns an HTTP client that presents a token with every request
-// to an origin, its scheme, host and port, and with no other, and that
-// follows no redirect. The client given is not changed; nil is Go's own.
-// With no token, it is the client given, as it is: there is nothing to
-// present, and it follows redirects as that client does.
-// An origin that is no URL with a host is presented nothing, and a
-// request to an origin that is not private (Private) fails with
-// ErrInClear before anything is sent.
-func Client(over *http.Client, token, origin string) *http.Client {
-	if over == nil {
-		over = http.DefaultClient
+// NewClient returns an HTTP client that presents a token with every
+// request to an origin, its scheme, host and port, and with no other,
+// and that follows no redirect. The base client is not changed; nil is
+// Go's own. With no token, it is the base client, as it is: there is
+// nothing to present, and it follows redirects as that client does. An
+// origin that is nil or has no host is presented nothing, and a request
+// to an origin that is not private (Private) fails with ErrInClear
+// before anything is sent.
+func NewClient(base *http.Client, token string, origin *url.URL) *http.Client {
+	if base == nil {
+		base = http.DefaultClient
 	}
 	if token == "" {
-		return over
+		return base
 	}
-	bearing := *over
-	next := over.Transport
+	bearing := *base
+	next := base.Transport
 	if next == nil {
 		next = http.DefaultTransport
 	}
-	at, err := url.Parse(origin)
-	if err != nil || at.Host == "" {
+	at := origin
+	if at != nil && at.Host == "" {
 		at = nil
 	}
 	bearing.Transport = presenting{next: next, token: token, origin: at}
@@ -61,7 +61,7 @@ type presenting struct {
 }
 
 func (p presenting) RoundTrip(r *http.Request) (*http.Response, error) {
-	if p.origin == nil || !Of(r.URL, p.origin) {
+	if p.origin == nil || !SameOrigin(r.URL, p.origin) {
 		return p.next.RoundTrip(r)
 	}
 	if !Private(r.URL) {
@@ -102,11 +102,11 @@ func Private(address *url.URL) bool {
 	return err == nil && at.IsLoopback()
 }
 
-// Of is whether an address is of an origin: the same scheme, host and
-// port, a WebSocket's address (ws, wss) being of the HTTP origin it is
-// opened over (http, https). An address or an origin with no host is of
-// none.
-func Of(address, origin *url.URL) bool {
+// SameOrigin is whether an address is of an origin: the same scheme,
+// host and port, a WebSocket's address (ws, wss) being of the HTTP
+// origin it is opened over (http, https). An address or an origin with
+// no host is of none.
+func SameOrigin(address, origin *url.URL) bool {
 	if address == nil || origin == nil || address.Host == "" || origin.Host == "" {
 		return false
 	}

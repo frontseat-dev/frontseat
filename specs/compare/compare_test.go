@@ -325,7 +325,10 @@ func frontseatInASandbox(t *testing.T, shape testworkload.Shape) tool {
 		// the plane still runs.
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
-		after := frontseat.New(second.URL, served.Owner)
+		after, err := frontseat.New(second.URL, served.Owner)
+		if err != nil {
+			t.Fatal(err)
+		}
 		listed, err := frontseat.Collect(after.Workspaces(ctx))
 		if err != nil {
 			t.Errorf("listing the comparison's private workspaces for cleanup: %v", err)
@@ -346,7 +349,11 @@ func frontseatInASandbox(t *testing.T, shape testworkload.Shape) tool {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
-	opened, err := frontseat.New(srv.URL, served.Owner).Open(ctx, frontseat.WorkspaceSpec{
+	fs, err := frontseat.New(srv.URL, served.Owner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	opened, err := fs.Open(ctx, frontseat.WorkspaceSpec{
 		Image:         testbox.Image(t),
 		Repositories:  []frontseat.Repository{{Remote: testforge.Serve(t, remotes) + "/" + repository, Ref: "main"}},
 		AuthorizedKey: testidentity.Authorized(),

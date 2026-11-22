@@ -99,11 +99,11 @@ func endingPlane(t *testing.T) (*ending, string) {
 // none, which is the control.
 func TestDeletingAWorkspaceReturnsWhenItIsGone(t *testing.T) {
 	plane, server := endingPlane(t)
-	if err := New(server).Workspace("another").Delete(t.Context()); connect.CodeOf(err) != connect.CodeNotFound {
+	if err := client(t, server).Workspace("another").Delete(t.Context()); connect.CodeOf(err) != connect.CodeNotFound {
 		t.Fatalf("a workspace there is none of was ended: %v", err)
 	}
 	ended := make(chan error, 1)
-	go func() { ended <- New(server).Workspace("there").Delete(t.Context()) }()
+	go func() { ended <- client(t, server).Workspace("there").Delete(t.Context()) }()
 	select {
 	case err := <-ended:
 		t.Fatalf("the workspace was said to be ended while it was still ending: %v", err)
@@ -133,7 +133,7 @@ func TestGivingUpWaitingDoesNotTakeTheEndingBack(t *testing.T) {
 	plane.why = "the gateway does not answer"
 	ctx, cancel := context.WithCancel(t.Context())
 	ended := make(chan error, 1)
-	go func() { ended <- New(server).Workspace("there").Delete(ctx) }()
+	go func() { ended <- client(t, server).Workspace("there").Delete(ctx) }()
 	// It gives up once it is waiting: after the workspace was asked to
 	// end, and the asking answered.
 	deadline := time.After(10 * time.Second)
@@ -168,7 +168,7 @@ func TestGivingUpWaitingDoesNotTakeTheEndingBack(t *testing.T) {
 func TestAWorkspaceMadeAgainByTheNameIsSaidToBeAnother(t *testing.T) {
 	plane, server := endingPlane(t)
 	plane.again = true
-	err := New(server).Workspace("there").Delete(t.Context())
+	err := client(t, server).Workspace("there").Delete(t.Context())
 	if err == nil || !strings.Contains(err.Error(), "there again, ready") {
 		t.Fatalf("a workspace made again by the name was answered %v", err)
 	}

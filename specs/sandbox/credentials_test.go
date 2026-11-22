@@ -51,7 +51,7 @@ func TestAWorkspaceClonesARepositoryThatAsksAPasswordWhichItsSandboxNeverHolds(t
 	// The spec's forge is asked over http, and the credential is given
 	// for that.
 	host := forge
-	credentials := frontseat.New(server, owned(server)).Credentials()
+	credentials := ownedClient(server).Credentials()
 	ctx := context.Background()
 
 	err := credentials.Set(ctx, frontseat.Credential{Host: host, Username: "someone", Secret: password})
@@ -121,7 +121,7 @@ func TestAWorkspaceMadeToPushPushesToItsRepositoryAndToNoOtherWithACredentialIts
 		spec.git(directory, "config", "http.receivepack", "true")
 	}
 	forge := testforge.ServeGuarded(spec.TB, root, "someone", password)
-	credentials := frontseat.New(server, owned(server)).Credentials()
+	credentials := ownedClient(server).Credentials()
 	err := credentials.Set(context.Background(), frontseat.Credential{Host: forge, Username: "someone", Secret: password})
 	spec.Expect(err).NotTo(HaveOccurred())
 	spec.Cleanup(func() {

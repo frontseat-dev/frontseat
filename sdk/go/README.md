@@ -36,7 +36,10 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fs := frontseat.New("http://127.0.0.1:7700", frontseat.WithToken(strings.TrimSpace(string(token))))
+	fs, err := frontseat.New("http://127.0.0.1:7700", frontseat.WithToken(strings.TrimSpace(string(token))))
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// The workspace of a repository and a branch: a new one, or the one
 	// there is, as it was left.
@@ -74,7 +77,7 @@ func main() {
 
 | From | What |
 |---|---|
-| `frontseat.New(server, options...)` | A `Client` of a control plane. Nothing is asked until a call is made. |
+| `frontseat.New(server, options...)` | A `Client` of a control plane, or why the address names none. Nothing is asked until a call is made. |
 | `Client.Open`, `Client.Workspace`, `Client.Workspaces` | A workspace made or opened, one by its name, and all of them. |
 | `Client.Credentials` | Your credentials for the hosts your workspaces fetch from and push to. The control plane keeps them outside every sandbox. |
 | `Workspace.Build`, `Workspace.Test` | A `Build`: `Events`, `Wait`, `Describe`, `Cancel`, `Actions`, `Logs`. |
@@ -106,7 +109,10 @@ contract's.
 `WithToken` presents a token with every request to the server the
 `Client` was made for, and to no other origin: not to an address a
 server answers with, and no redirect is followed with it. Name a control
-plane on another machine with `https`.
+plane on another machine with `https`: `New` refuses a `Client` that
+would present its token over http to another machine
+(`bearer.ErrInClear`), and an address that is more than a scheme, a host
+and a port.
 
 ## Errors
 
