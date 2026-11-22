@@ -148,6 +148,9 @@ func TestPluginErrorBindingDoesNotMutateSharedDetails(t *testing.T) {
 // host accepts each the table says is accepted and refuses each other,
 // and the SDK refuses the same before it encodes one, so that an author
 // hears of it from the SDK and the testkit, in words about the failure.
+// The two agree on the rules, row by row; the bytes the SDK sends are
+// built here by hand, and are held to the SDK's by the conformance of
+// the shipped plugins alone.
 func TestTheSDKRefusesTheFailuresTheHostRefuses(t *testing.T) {
 	root, err := testmodule.Root()
 	if err != nil {
