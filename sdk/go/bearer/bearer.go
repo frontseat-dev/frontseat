@@ -83,8 +83,10 @@ func Present(headers http.Header, token string) {
 
 // Private is whether what is sent to an address is read by no one on the
 // way: it is sent over TLS (https, wss), or to this machine, by the name
-// localhost or a loopback address. A token is presented to such an
-// address alone.
+// localhost or a loopback address. The name is taken as it is written:
+// localhost leads where this machine's resolver says, which is this
+// machine wherever it is set up as usual. A token is presented to such
+// an address alone.
 func Private(address *url.URL) bool {
 	if address == nil || address.Host == "" {
 		return false
