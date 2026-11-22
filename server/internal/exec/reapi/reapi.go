@@ -4,15 +4,14 @@
 // daemon reads back what the action printed and what it left.
 //
 // The grid is not frontseat's. Any service that speaks the protocol is
-// one, and a daemon speaks to the one it is given.
+// one, and a daemon speaks to the one it is given: it speaks only the
+// standard protocol, and what Buildbarn documents beyond it.
 package reapi
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/frontseat-dev/frontseat/server/telemetry"
-	"go.opentelemetry.io/otel/attribute"
 	"os"
 	"path"
 	"path/filepath"
@@ -27,6 +26,7 @@ import (
 	"github.com/bazelbuild/remote-apis-sdks/go/pkg/filemetadata"
 	"github.com/bazelbuild/remote-apis-sdks/go/pkg/uploadinfo"
 	repb "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
+	"go.opentelemetry.io/otel/attribute"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -36,6 +36,7 @@ import (
 	"github.com/frontseat-dev/frontseat/server/internal/confine"
 	"github.com/frontseat-dev/frontseat/server/internal/exec"
 	"github.com/frontseat-dev/frontseat/server/internal/exec/access"
+	"github.com/frontseat-dev/frontseat/server/telemetry"
 )
 
 // Config says which grid.
@@ -307,7 +308,7 @@ func (g *Grid) run(ctx context.Context, label string, action digest.Digest) (*re
 			return nil, false, fmt.Errorf("reapi: %s: %s: %w", label, said.Message(), exec.ErrNotKept)
 		}
 		if confiner, lacks := lacking(said); lacks {
-			return nil, false, fmt.Errorf("reapi: %s: the worker could not start %s, the frontseat-action every action of this daemon is started by, for something it did not find: where the worker has no confiner of this form, install it beside bb_runner (the local stack's action-installer, or `frontseat-action install /bb`); where it has, the directory the action runs in was not there: %w", label, confiner, said.Err())
+			return nil, false, fmt.Errorf("reapi: %s: the worker could not start %s, the frontseat-action every action of this daemon is started by, for something it did not find: where the worker has no confiner of this form, install it beside the runner (the local stack's installer, or `frontseat-action install /bb`); where it has, the directory the action runs in was not there: %w", label, confiner, said.Err())
 		}
 		// The call was answered: this is what the grid says became of the
 		// action where it ran, a worker's own refusal among it.
@@ -336,8 +337,8 @@ func executionError(err error) error {
 
 // lacking is the frontseat-action a worker could not start an action by
 // for something it did not find, where that is what the grid says:
-// bb_runner answers an argument that is not so, and names the program it
-// could not start and why. That is the confiner missing, or the directory
+// the runner answers an argument that is not so, and names the program it
+// could not start and why, as bb_runner does. That is the confiner missing, or the directory
 // the action runs in, which the process reports as the program's when it
 // cannot change to it; both are said, and neither is taken for the other.
 // Another failure to start a program, or to start this one, is not taken
@@ -632,6 +633,8 @@ func (g *Grid) Materialize(ctx context.Context, directory exec.Held, into string
 	if err == nil {
 		err = linksWithin(beside, links)
 	}
+	// What was brought beside is its own to delete: a directory made
+	// here, for this one tree, which nothing else names.
 	if err != nil {
 		os.RemoveAll(beside)
 		if status.Code(err) == codes.NotFound {

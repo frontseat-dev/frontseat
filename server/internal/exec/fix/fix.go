@@ -70,6 +70,8 @@ func (r Runner) Run(ctx context.Context, snapshot *source.Snapshot, action plan.
 	if err != nil {
 		return nil, err
 	}
+	// Its own to delete: a directory made here, for this fix, which
+	// nothing else names.
 	defer os.RemoveAll(copied)
 	root := filepath.Join(copied, "work")
 	// The inputs, as the run read them. What a generated source claims
@@ -164,7 +166,7 @@ func (r Runner) changed(ctx context.Context, snapshot *source.Snapshot, action p
 	}
 	// A file that is new is a creation where the check's inputs would
 	// have selected it: a fix creates within what its check reads.
-	given_ := func(file string) bool {
+	sourced := func(file string) bool {
 		return slices.ContainsFunc(action.Sources, func(group pattern.Group) bool { return group.Accepts(file) })
 	}
 	var changes []source.Change
@@ -224,7 +226,7 @@ func (r Runner) changed(ctx context.Context, snapshot *source.Snapshot, action p
 			return err
 		}
 		file := path.Join(action.ProjectRoot, filepath.ToSlash(rel))
-		if wasThere[file] || arranged[file] || !may(file) || !given_(file) {
+		if wasThere[file] || arranged[file] || !may(file) || !sourced(file) {
 			return nil
 		}
 		content, err := os.ReadFile(at)

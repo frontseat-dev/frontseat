@@ -11,14 +11,10 @@ import (
 	"github.com/frontseat-dev/frontseat/server/internal/exec/download"
 )
 
-// Review (2026-11-10). ABI.md says of a download cut into parts: "Where a
-// part is not what the lock says the action fails and leaves nothing",
-// and plugin.proto "leaving nothing where one is not what the lock says".
-// The command removes only the part that failed: a part cut and checked
-// before it stays where it was kept, with the directories made for both.
-// TestCuttingKeepsEachPart... looks only for the part that failed
-// (parts[len(parts)-2]), so it passes either way.
-func TestReviewCuttingLeavesNothingWhereAPartIsNotWhatTheLockSays(t *testing.T) {
+// Where a part of a download is not what the lock says, the action
+// fails and leaves nothing: neither that part, nor one cut and checked
+// before it, nor the directories made for either.
+func TestCuttingLeavesNothingWhereAPartIsNotWhatTheLockSays(t *testing.T) {
 	directory, whole := downloadedWhole(t)
 	sum := sha1.Sum(whole[10:25])
 	control := hex.EncodeToString(sum[:])

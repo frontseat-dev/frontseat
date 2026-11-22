@@ -2,16 +2,17 @@ package stage
 
 import (
 	"fmt"
-	runnerv1 "github.com/frontseat-dev/frontseat/server/internal/runnerapi/frontseat/runner/v1alpha1"
 	"maps"
 	"path"
 	"strings"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/frontseat-dev/frontseat/server/internal/confine"
 	"github.com/frontseat-dev/frontseat/server/internal/exec"
 	"github.com/frontseat-dev/frontseat/server/internal/image"
+	runnerv1 "github.com/frontseat-dev/frontseat/server/internal/runnerapi/frontseat/runner/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/testservice"
-	"google.golang.org/protobuf/proto"
 )
 
 // Runtimes places each separately prepared root below the reserved runtime
