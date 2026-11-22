@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	connect "connectrpc.com/connect/v2"
 	"google.golang.org/protobuf/proto"
@@ -66,12 +67,18 @@ func many(n int, line said) []said {
 	return all
 }
 
-// What an action printed is sent in parts of whole lines, none larger
-// than a part is meant to be unless it is one line, and all of them
-// together are what it printed: standard output, then standard error,
-// each line marked with which.
-func TestWhatAnActionPrintedIsSentInPartsOfWholeLines(t *testing.T) {
+// What an action printed is sent in parts of lines, none larger than a
+// part is meant to be unless it is one line, and all of them together
+// are what it printed: standard output, then standard error, each line
+// marked with which. A line longer than a part is sent as several, each
+// a part at most and cut between characters, every one but the last
+// saying it continues: what is held of a line is a part, however long
+// it is.
+func TestWhatAnActionPrintedIsSentInPartsOfLines(t *testing.T) {
 	long := strings.Repeat("x", 3*part)
+	// wide is a line of characters of two bytes, which a cut at a part's
+	// end would fall within were it not cut between them.
+	wide := "x" + strings.Repeat("é", part)
 	for name, printed := range map[string]struct {
 		out, err string
 		want     []said
@@ -85,8 +92,10 @@ func TestWhatAnActionPrintedIsSentInPartsOfWholeLines(t *testing.T) {
 		"many lines of nothing": {out: strings.Repeat("\n", 300_000), want: many(300_000, said{toOut, ""})},
 		"lines of one byte":     {out: strings.Repeat("x\n", 300_000), want: many(300_000, said{toOut, "x"})},
 		"a line longer than a part": {out: "before\n" + long + "\nafter\n",
-			want: []said{{toOut, "before"}, {toOut, long}, {toOut, "after"}}, parts: 3},
-		"a line longer than a part, with no end": {out: long, want: []said{{toOut, long}}, parts: 1},
+			want: []said{{toOut, "before"}, {toOut, long}, {toOut, "after"}}, parts: 5},
+		"a line longer than a part, with no end": {out: long, want: []said{{toOut, long}}, parts: 4},
+		"a line of characters cut between them":  {out: wide + "\n", want: []said{{toOut, wide}}},
+		"a line whose end a part falls within":   {out: strings.Repeat("x", part-1) + "\r\nafter\n", want: []said{{toOut, strings.Repeat("x", part-1)}, {toOut, "after"}}},
 		// Sixteen bytes are counted for what goes with a line's text.
 		"two lines that fill a part": {out: strings.Repeat("x", part/2-16) + "\n" + strings.Repeat("y", part/2-16) + "\n",
 			want: []said{{toOut, strings.Repeat("x", part/2-16)}, {toOut, strings.Repeat("y", part/2-16)}}, parts: 1},
@@ -106,7 +115,7 @@ func TestWhatAnActionPrintedIsSentInPartsOfWholeLines(t *testing.T) {
 			service, id := printedBy(t, printed.out, printed.err, printed.out, printed.err)
 			{
 				var got []said
-				parts := 0
+				parts, continuing := 0, false
 				err := service.logs(t.Context(), &buildv1.StreamBuildLogsRequest{BuildId: id, Label: "//a:b"}, func(sent *buildv1.StreamBuildLogsResponse) error {
 					parts++
 					if len(sent.GetLines()) == 0 {
@@ -119,7 +128,20 @@ func TestWhatAnActionPrintedIsSentInPartsOfWholeLines(t *testing.T) {
 						t.Errorf("part %d cannot be sent: %v", parts, err)
 					}
 					for _, line := range sent.GetLines() {
-						got = append(got, said{line.GetStream(), line.GetText()})
+						if len(line.GetText()) > part {
+							t.Errorf("part %d holds a line of %d bytes, more than a part", parts, len(line.GetText()))
+						}
+						if !utf8.ValidString(line.GetText()) || (utf8.ValidString(printed.out+printed.err) && strings.ContainsRune(line.GetText(), utf8.RuneError)) {
+							t.Errorf("part %d holds a line cut within a character", parts)
+						}
+						// A line that continues is joined to the next of
+						// its stream, which is what was printed.
+						if n := len(got); n > 0 && continuing {
+							got[n-1].text += line.GetText()
+						} else {
+							got = append(got, said{line.GetStream(), line.GetText()})
+						}
+						continuing = line.GetContinues()
 					}
 					return nil
 				})

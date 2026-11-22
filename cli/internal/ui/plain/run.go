@@ -9,8 +9,14 @@ import (
 )
 
 // Line writes a line a program printed, as it printed it, with
-// what a terminal would act on written as the bytes it is.
+// what a terminal would act on written as the bytes it is. A part of a
+// line that continues is written without its end, so that the parts of
+// a long line are written as the one line they are.
 func (p Printer) Line(line *typev1.LogLine) {
+	if line.GetContinues() {
+		fmt.Fprint(p.Out, shown(line.GetText()))
+		return
+	}
 	fmt.Fprintln(p.Out, shown(line.GetText()))
 }
 

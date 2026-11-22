@@ -200,3 +200,17 @@ func TestACachedActionAndABuildsFindingsAreSaid(t *testing.T) {
 		t.Errorf("printed %q, want what the build found", out.String())
 	}
 }
+
+// The parts of a line that continues are written as the one line they
+// are; the control is a line that does not continue, which ends where
+// it is written.
+func TestThePartsOfALongLineAreWrittenAsOneLine(t *testing.T) {
+	var out bytes.Buffer
+	p := plain.Printer{Out: &out}
+	for _, line := range []*typev1.LogLine{{Text: "a lo", Continues: true}, {Text: "ng li", Continues: true}, {Text: "ne"}, {Text: "next"}} {
+		p.Line(line)
+	}
+	if got := out.String(); got != "a long line\nnext\n" {
+		t.Errorf("the parts were written %q", got)
+	}
+}

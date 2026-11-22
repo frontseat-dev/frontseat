@@ -210,8 +210,14 @@ type LogLine struct {
 	Time *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=time,proto3" json:"time,omitempty"`
 	// Stream is where the line was written.
 	Stream LogStream `protobuf:"varint,2,opt,name=stream,proto3,enum=frontseat.type.v1alpha1.LogStream" json:"stream,omitempty"`
-	// Text is the line, without its newline.
-	Text          string `protobuf:"bytes,3,opt,name=text,proto3" json:"text,omitempty"`
+	// Text is the line, without its newline: or a part of it, where the
+	// line is longer than a server sends whole.
+	Text string `protobuf:"bytes,3,opt,name=text,proto3" json:"text,omitempty"`
+	// Continues says the line goes on in the next of the same stream: a
+	// line longer than a server sends whole is sent in parts, each but the
+	// last with continues set, and the parts together are the line. A
+	// part is cut between characters, never within one.
+	Continues     bool `protobuf:"varint,4,opt,name=continues,proto3" json:"continues,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -265,6 +271,13 @@ func (x *LogLine) GetText() string {
 		return x.Text
 	}
 	return ""
+}
+
+func (x *LogLine) GetContinues() bool {
+	if x != nil {
+		return x.Continues
+	}
+	return false
 }
 
 // EntityRef names an entity of the catalog by its kind, its namespace
@@ -344,11 +357,12 @@ var File_frontseat_type_v1alpha1_types_proto protoreflect.FileDescriptor
 
 const file_frontseat_type_v1alpha1_types_proto_rawDesc = "" +
 	"\n" +
-	"#frontseat/type/v1alpha1/types.proto\x12\x17frontseat.type.v1alpha1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x89\x01\n" +
+	"#frontseat/type/v1alpha1/types.proto\x12\x17frontseat.type.v1alpha1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa7\x01\n" +
 	"\aLogLine\x12.\n" +
 	"\x04time\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x04time\x12:\n" +
 	"\x06stream\x18\x02 \x01(\x0e2\".frontseat.type.v1alpha1.LogStreamR\x06stream\x12\x12\n" +
-	"\x04text\x18\x03 \x01(\tR\x04text\"Q\n" +
+	"\x04text\x18\x03 \x01(\tR\x04text\x12\x1c\n" +
+	"\tcontinues\x18\x04 \x01(\bR\tcontinues\"Q\n" +
 	"\tEntityRef\x12\x12\n" +
 	"\x04kind\x18\x01 \x01(\tR\x04kind\x12\x1c\n" +
 	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x12\x12\n" +

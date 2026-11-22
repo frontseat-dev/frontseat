@@ -4,8 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"connectrpc.com/connect/v2"
-
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/exec"
 )
@@ -47,17 +45,16 @@ func TestOutputThatIsNotTextIsReadWithWhatFollowsIt(t *testing.T) {
 	}
 }
 
-// OPEN. One line longer than a message of the API holds is a part of its
-// own, and no client reads it: the lines before it are read, and the
-// stream ends saying so. Dividing such a line is a change to the
-// platform's LogLine.
-func TestALineLongerThanAMessageEndsTheStreamAfterWhatCameBeforeIt(t *testing.T) {
-	lines, err := lintPrinted(t, "first\nsecond\n"+strings.Repeat("x", 5<<20)+"\nlast\n")
+// One line longer than a message of the API holds is read whole, with
+// the lines around it: it is sent in parts that say they continue.
+func TestALineLongerThanAMessageIsReadWithTheLinesAroundIt(t *testing.T) {
+	long := strings.Repeat("x", 5<<20)
+	lines, err := lintPrinted(t, "first\nsecond\n"+long+"\nlast\n")
 
-	if connect.CodeOf(err) != connect.CodeResourceExhausted {
-		t.Fatalf("the stream ended with %v; a line of five mebibytes is read now, and this test and what the plan says is open are to go", err)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if len(lines) != 2 || lines[0].GetText() != "first" || lines[1].GetText() != "second" {
-		t.Errorf("%d lines came before the stream ended, want the two before the long one", len(lines))
+	if len(lines) != 4 || lines[0].GetText() != "first" || lines[1].GetText() != "second" || lines[2].GetText() != long || lines[3].GetText() != "last" {
+		t.Errorf("%d lines were read, want the four printed, the third of five mebibytes", len(lines))
 	}
 }
