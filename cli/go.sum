@@ -212,8 +212,8 @@ github.com/envoyproxy/go-control-plane/ratelimit v0.1.0/go.mod h1:Wk+tMFAFbCXaJP
 github.com/envoyproxy/protoc-gen-validate v1.3.3/go.mod h1:TsndJ/ngyIdQRhMcVVGDDHINPLWB7C82oDArY51KfB0=
 github.com/felixge/httpsnoop v1.1.0 h1:3YtUj32ZZkqZtt3sZZsClsymw/QDuVfpNhoA31zeORc=
 github.com/felixge/httpsnoop v1.1.0/go.mod h1:Zqxgdd+1Rkcz8euOqdr7lqgCRJztwr5hp9vDSi5UZCE=
-github.com/frontseat-dev/ssh v0.4.4-0.20261107091341-0b7c6c4d028c h1:nBmU9yoTcbLC1yHm32PWZ0VBW0hcJ3i7mrYhjlJpXbU=
-github.com/frontseat-dev/ssh v0.4.4-0.20261107091341-0b7c6c4d028c/go.mod h1:gQj2dRvYjsPiGCK8lr5AvQwz781lFRqMAHZNpc6qN4s=
+github.com/frontseat-dev/ssh v0.4.4-0.20261107091341-205332a4a986 h1:Y56k0rIji3zRfR3cpLdriJTKbRZIx9x3M7UOu05AwoE=
+github.com/frontseat-dev/ssh v0.4.4-0.20261107091341-205332a4a986/go.mod h1:gQj2dRvYjsPiGCK8lr5AvQwz781lFRqMAHZNpc6qN4s=
 github.com/fsnotify/fsnotify v1.10.1/go.mod h1:TLheqan6HD6GBK6PrDWyDPBaEV8LspOxvPSjC+bVfgo=
 github.com/fxtlabs/primes v0.0.0-20150821004651-dad82d10a449/go.mod h1:i+vbdOOivRRh2j+WwBkjZXloGN/+KAqfKDwNfUJeugc=
 github.com/gliderlabs/ssh v0.3.8/go.mod h1:xYoytBv1sV0aL3CavoDuJIQNURXkkfPA/wxQ1pL1fAU=

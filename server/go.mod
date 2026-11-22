@@ -16,7 +16,7 @@ require (
 	github.com/distribution/reference v0.6.0
 	github.com/frontseat-dev/frontseat/local v0.0.0
 	github.com/frontseat-dev/frontseat/sdk/go v0.0.0
-	github.com/frontseat-dev/ssh v0.4.4-0.20261107091341-0b7c6c4d028c
+	github.com/frontseat-dev/ssh v0.4.4-0.20261107091341-205332a4a986
 	github.com/go-git/go-git/v5 v5.19.3
 	github.com/google/renameio/v2 v2.0.2
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.31.0
