@@ -2376,19 +2376,19 @@ const file_frontseat_build_v1alpha1_build_proto_rawDesc = "" +
 	"\x05Stage\x12\x15\n" +
 	"\x11STAGE_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10STAGE_EVALUATING\x10\x01\x12\x13\n" +
-	"\x0fSTAGE_EXECUTING\x10\x03\"\x96\x01\n" +
-	"\x06Counts\x12\x14\n" +
-	"\x05total\x18\x01 \x01(\x05R\x05total\x12\x16\n" +
-	"\x06passed\x18\x02 \x01(\x05R\x06passed\x12\x16\n" +
-	"\x06failed\x18\x03 \x01(\x05R\x06failed\x12\x18\n" +
-	"\askipped\x18\x04 \x01(\x05R\askipped\x12\x18\n" +
-	"\aerrored\x18\x05 \x01(\x05R\aerrored\x12\x12\n" +
-	"\x04idle\x18\x06 \x01(\x05R\x04idle\"\xa5\x01\n" +
-	"\x04Cost\x12)\n" +
-	"\x10actions_executed\x18\x01 \x01(\x05R\x0factionsExecuted\x12:\n" +
-	"\vworker_time\x18\x02 \x01(\v2\x19.google.protobuf.DurationR\n" +
-	"workerTime\x126\n" +
-	"\twall_time\x18\x03 \x01(\v2\x19.google.protobuf.DurationR\bwallTime\"\xf7\x06\n" +
+	"\x0fSTAGE_EXECUTING\x10\x03\"\xba\x01\n" +
+	"\x06Counts\x12\x1a\n" +
+	"\x05total\x18\x01 \x01(\x05B\x04\xe2A\x01\x03R\x05total\x12\x1c\n" +
+	"\x06passed\x18\x02 \x01(\x05B\x04\xe2A\x01\x03R\x06passed\x12\x1c\n" +
+	"\x06failed\x18\x03 \x01(\x05B\x04\xe2A\x01\x03R\x06failed\x12\x1e\n" +
+	"\askipped\x18\x04 \x01(\x05B\x04\xe2A\x01\x03R\askipped\x12\x1e\n" +
+	"\aerrored\x18\x05 \x01(\x05B\x04\xe2A\x01\x03R\aerrored\x12\x18\n" +
+	"\x04idle\x18\x06 \x01(\x05B\x04\xe2A\x01\x03R\x04idle\"\xb7\x01\n" +
+	"\x04Cost\x12/\n" +
+	"\x10actions_executed\x18\x01 \x01(\x05B\x04\xe2A\x01\x03R\x0factionsExecuted\x12@\n" +
+	"\vworker_time\x18\x02 \x01(\v2\x19.google.protobuf.DurationB\x04\xe2A\x01\x03R\n" +
+	"workerTime\x12<\n" +
+	"\twall_time\x18\x03 \x01(\v2\x19.google.protobuf.DurationB\x04\xe2A\x01\x03R\bwallTime\"\xf7\x06\n" +
 	"\fActionResult\x12\x1a\n" +
 	"\x05label\x18\x01 \x01(\tB\x04\xe2A\x01\x03R\x05label\x12@\n" +
 	"\x06entity\x18\x02 \x01(\v2\".frontseat.type.v1alpha1.EntityRefB\x04\xe2A\x01\x03R\x06entity\x12\x18\n" +
@@ -2470,43 +2470,42 @@ const file_frontseat_build_v1alpha1_build_proto_rawDesc = "" +
 	"\bbuild_id\x18\x01 \x01(\tB\x04\xe2A\x01\x02R\abuildId\x12\x1a\n" +
 	"\x05label\x18\x02 \x01(\tB\x04\xe2A\x01\x02R\x05label\"Q\n" +
 	"\x17StreamBuildLogsResponse\x126\n" +
-	"\x05lines\x18\x01 \x03(\v2 .frontseat.type.v1alpha1.LogLineR\x05lines\"\xb4\n" +
+	"\x05lines\x18\x01 \x03(\v2 .frontseat.type.v1alpha1.LogLineR\x05lines\"\xbe\v\n" +
 	"\n" +
+	"BuildEvent\x12 \n" +
+	"\bsequence\x18\x01 \x01(\x03B\x04\xe2A\x01\x03R\bsequence\x124\n" +
+	"\x04time\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\x04time\x12^\n" +
+	"\rstage_changed\x18\x03 \x01(\v21.frontseat.build.v1alpha1.BuildEvent.StageChangedB\x04\xe2A\x01\x03H\x00R\fstageChanged\x12N\n" +
+	"\aplanned\x18\x04 \x01(\v2,.frontseat.build.v1alpha1.BuildEvent.PlannedB\x04\xe2A\x01\x03H\x00R\aplanned\x12a\n" +
+	"\x0eaction_started\x18\x05 \x01(\v22.frontseat.build.v1alpha1.BuildEvent.ActionStartedB\x04\xe2A\x01\x03H\x00R\ractionStarted\x12d\n" +
+	"\x0faction_finished\x18\x06 \x01(\v23.frontseat.build.v1alpha1.BuildEvent.ActionFinishedB\x04\xe2A\x01\x03H\x00R\x0eactionFinished\x12N\n" +
+	"\apatched\x18\a \x01(\v2,.frontseat.build.v1alpha1.BuildEvent.PatchedB\x04\xe2A\x01\x03H\x00R\apatched\x12Q\n" +
+	"\bfinished\x18\b \x01(\v2-.frontseat.build.v1alpha1.BuildEvent.FinishedB\x04\xe2A\x01\x03H\x00R\bfinished\x12[\n" +
+	"\fstarted_over\x18\t \x01(\v20.frontseat.build.v1alpha1.BuildEvent.StartedOverB\x04\xe2A\x01\x03H\x00R\vstartedOver\x1aQ\n" +
+	"\fStageChanged\x12A\n" +
+	"\x05stage\x18\x01 \x01(\x0e2%.frontseat.build.v1alpha1.Build.StageB\x04\xe2A\x01\x03R\x05stage\x1ay\n" +
+	"\aPlanned\x12R\n" +
+	"\aactions\x18\x01 \x03(\v22.frontseat.build.v1alpha1.BuildEvent.PlannedActionB\x04\xe2A\x01\x03R\aactions\x12\x1a\n" +
+	"\x05roots\x18\x02 \x03(\tB\x04\xe2A\x01\x03R\x05roots\x1a\xa3\x01\n" +
+	"\rPlannedAction\x12\x1a\n" +
+	"\x05label\x18\x01 \x01(\tB\x04\xe2A\x01\x03R\x05label\x12@\n" +
+	"\x06entity\x18\x02 \x01(\v2\".frontseat.type.v1alpha1.EntityRefB\x04\xe2A\x01\x03R\x06entity\x12\x18\n" +
+	"\x04name\x18\x03 \x01(\tB\x04\xe2A\x01\x03R\x04name\x12\x1a\n" +
+	"\x05needs\x18\x04 \x03(\tB\x04\xe2A\x01\x03R\x05needs\x1a+\n" +
+	"\rActionStarted\x12\x1a\n" +
+	"\x05label\x18\x01 \x01(\tB\x04\xe2A\x01\x03R\x05label\x1aV\n" +
+	"\x0eActionFinished\x12D\n" +
+	"\x06result\x18\x01 \x01(\v2&.frontseat.build.v1alpha1.ActionResultB\x04\xe2A\x01\x03R\x06result\x1aK\n" +
+	"\aPatched\x12$\n" +
 	"\n" +
-	"BuildEvent\x12\x1a\n" +
-	"\bsequence\x18\x01 \x01(\x03R\bsequence\x12.\n" +
-	"\x04time\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x04time\x12X\n" +
-	"\rstage_changed\x18\x03 \x01(\v21.frontseat.build.v1alpha1.BuildEvent.StageChangedH\x00R\fstageChanged\x12H\n" +
-	"\aplanned\x18\x04 \x01(\v2,.frontseat.build.v1alpha1.BuildEvent.PlannedH\x00R\aplanned\x12[\n" +
-	"\x0eaction_started\x18\x05 \x01(\v22.frontseat.build.v1alpha1.BuildEvent.ActionStartedH\x00R\ractionStarted\x12^\n" +
-	"\x0faction_finished\x18\x06 \x01(\v23.frontseat.build.v1alpha1.BuildEvent.ActionFinishedH\x00R\x0eactionFinished\x12H\n" +
-	"\apatched\x18\a \x01(\v2,.frontseat.build.v1alpha1.BuildEvent.PatchedH\x00R\apatched\x12K\n" +
-	"\bfinished\x18\b \x01(\v2-.frontseat.build.v1alpha1.BuildEvent.FinishedH\x00R\bfinished\x12U\n" +
-	"\fstarted_over\x18\t \x01(\v20.frontseat.build.v1alpha1.BuildEvent.StartedOverH\x00R\vstartedOver\x1aK\n" +
-	"\fStageChanged\x12;\n" +
-	"\x05stage\x18\x01 \x01(\x0e2%.frontseat.build.v1alpha1.Build.StageR\x05stage\x1am\n" +
-	"\aPlanned\x12L\n" +
-	"\aactions\x18\x01 \x03(\v22.frontseat.build.v1alpha1.BuildEvent.PlannedActionR\aactions\x12\x14\n" +
-	"\x05roots\x18\x02 \x03(\tR\x05roots\x1a\x8b\x01\n" +
-	"\rPlannedAction\x12\x14\n" +
-	"\x05label\x18\x01 \x01(\tR\x05label\x12:\n" +
-	"\x06entity\x18\x02 \x01(\v2\".frontseat.type.v1alpha1.EntityRefR\x06entity\x12\x12\n" +
-	"\x04name\x18\x03 \x01(\tR\x04name\x12\x14\n" +
-	"\x05needs\x18\x04 \x03(\tR\x05needs\x1a%\n" +
-	"\rActionStarted\x12\x14\n" +
-	"\x05label\x18\x01 \x01(\tR\x05label\x1aP\n" +
-	"\x0eActionFinished\x12>\n" +
-	"\x06result\x18\x01 \x01(\v2&.frontseat.build.v1alpha1.ActionResultR\x06result\x1a?\n" +
-	"\aPatched\x12\x1e\n" +
-	"\n" +
-	"repository\x18\x01 \x01(\tR\n" +
-	"repository\x12\x14\n" +
-	"\x05paths\x18\x02 \x03(\tR\x05paths\x1a;\n" +
-	"\vStartedOver\x12\x14\n" +
-	"\x05label\x18\x01 \x01(\tR\x05label\x12\x16\n" +
-	"\x06reason\x18\x02 \x01(\tR\x06reason\x1aA\n" +
-	"\bFinished\x125\n" +
-	"\x05build\x18\x01 \x01(\v2\x1f.frontseat.build.v1alpha1.BuildR\x05buildB\a\n" +
+	"repository\x18\x01 \x01(\tB\x04\xe2A\x01\x03R\n" +
+	"repository\x12\x1a\n" +
+	"\x05paths\x18\x02 \x03(\tB\x04\xe2A\x01\x03R\x05paths\x1aG\n" +
+	"\vStartedOver\x12\x1a\n" +
+	"\x05label\x18\x01 \x01(\tB\x04\xe2A\x01\x03R\x05label\x12\x1c\n" +
+	"\x06reason\x18\x02 \x01(\tB\x04\xe2A\x01\x03R\x06reason\x1aG\n" +
+	"\bFinished\x12;\n" +
+	"\x05build\x18\x01 \x01(\v2\x1f.frontseat.build.v1alpha1.BuildB\x04\xe2A\x01\x03R\x05buildB\a\n" +
 	"\x05event\">\n" +
 	"\bExitCode\x12\x18\n" +
 	"\x04name\x18\x01 \x01(\tB\x04\xe2A\x01\x03R\x04name\x12\x18\n" +

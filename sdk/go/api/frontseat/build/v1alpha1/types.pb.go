@@ -11,6 +11,7 @@
 package buildv1alpha1
 
 import (
+	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -279,11 +280,11 @@ var File_frontseat_build_v1alpha1_types_proto protoreflect.FileDescriptor
 
 const file_frontseat_build_v1alpha1_types_proto_rawDesc = "" +
 	"\n" +
-	"$frontseat/build/v1alpha1/types.proto\x12\x18frontseat.build.v1alpha1\";\n" +
-	"\x06Digest\x12\x12\n" +
-	"\x04hash\x18\x01 \x01(\tR\x04hash\x12\x1d\n" +
+	"$frontseat/build/v1alpha1/types.proto\x12\x18frontseat.build.v1alpha1\x1a\x1fgoogle/api/field_behavior.proto\"G\n" +
+	"\x06Digest\x12\x18\n" +
+	"\x04hash\x18\x01 \x01(\tB\x04\xe2A\x01\x03R\x04hash\x12#\n" +
 	"\n" +
-	"size_bytes\x18\x02 \x01(\x03R\tsizeBytes*\x99\x01\n" +
+	"size_bytes\x18\x02 \x01(\x03B\x04\xe2A\x01\x03R\tsizeBytes*\x99\x01\n" +
 	"\aOutcome\x12\x17\n" +
 	"\x13OUTCOME_UNSPECIFIED\x10\x00\x12\x12\n" +
 	"\x0eOUTCOME_PASSED\x10\x01\x12\x12\n" +

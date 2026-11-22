@@ -199,12 +199,12 @@ message ProjectRequirement {
 message ProjectRef {
   // Repository is the workspace's name for its repository; empty where the
   // daemon was given one directory and cloned nothing.
-  string repository = 1;
+  string repository = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Root is its directory, relative to the repository; empty for the
   // repository's root.
-  string root = 2;
+  string root = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Plugin is the plugin that found the project.
-  string plugin = 3;
+  string plugin = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
 }
 
 // ProjectOption is one option a project is built with.

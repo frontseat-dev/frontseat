@@ -67,6 +67,7 @@ var apiRules = map[string]func(contract) []string{
 	"times and lengths of time":            times,
 	"a contract imports only shared types": importsShared,
 	"a Create can be sent again":           retried,
+	"what only the server sets says so":    outputs,
 }
 
 // contract is what the rules read: the files, the packages whose calls
@@ -300,14 +301,62 @@ func wrapsItsResource(c contract) []string {
 	return out
 }
 
-// required is whether a field is marked REQUIRED.
-func required(f protoreflect.FieldDescriptor) bool {
+// behaves is whether a field is marked with a behavior.
+func behaves(f protoreflect.FieldDescriptor, as annotations.FieldBehavior) bool {
 	options, ok := f.Options().(*descriptorpb.FieldOptions)
 	if !ok || options == nil {
 		return false
 	}
 	behaviors, _ := proto.GetExtension(options, annotations.E_FieldBehavior).([]annotations.FieldBehavior)
-	return slices.Contains(behaviors, annotations.FieldBehavior_REQUIRED)
+	return slices.Contains(behaviors, as)
+}
+
+// required is whether a field is marked REQUIRED.
+func required(f protoreflect.FieldDescriptor) bool {
+	return behaves(f, annotations.FieldBehavior_REQUIRED)
+}
+
+// outputs holds that a field only the server sets says so: a message of
+// the served packages that no request carries, whether itself or within
+// another, is the server's alone to write, and each of its fields is
+// OUTPUT_ONLY. A call's own response is left out: it is the answer, and
+// what it wraps says who sets it. It does not hold a message a request
+// does carry, where a field the server sets (a credential's variable)
+// stands beside those a caller gives: there nothing but its mark tells
+// the two apart, and a reviewer reads it. Nor does it hold the shared
+// types, which a plugin writes as well as a server.
+func outputs(c contract) []string {
+	asked := map[protoreflect.FullName]bool{}
+	var carried func(protoreflect.MessageDescriptor)
+	carried = func(m protoreflect.MessageDescriptor) {
+		if asked[m.FullName()] {
+			return
+		}
+		asked[m.FullName()] = true
+		for i := range m.Fields().Len() {
+			if within := m.Fields().Get(i).Message(); within != nil {
+				carried(within)
+			}
+		}
+	}
+	answers := map[protoreflect.FullName]bool{}
+	for _, m := range c.methods() {
+		carried(m.Input())
+		answers[m.Output().FullName()] = true
+	}
+	var out []string
+	c.held(func(d protoreflect.Descriptor) {
+		m, ok := d.(protoreflect.MessageDescriptor)
+		if !ok || !slices.Contains(c.served, m.ParentFile().Package()) || asked[m.FullName()] || answers[m.FullName()] {
+			return
+		}
+		for i := range m.Fields().Len() {
+			if f := m.Fields().Get(i); !behaves(f, annotations.FieldBehavior_OUTPUT_ONLY) {
+				out = append(out, fmt.Sprintf("%s is set by the server alone, no request carrying a %s, and is not OUTPUT_ONLY", f.FullName(), m.Name()))
+			}
+		}
+	})
+	return out
 }
 
 // identified holds that a call of one resource names it by a field that
@@ -611,10 +660,10 @@ import "google/protobuf/timestamp.proto";
 const thing = `
 message Thing {
   string id = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
-  State state = 2;
-  string failure = 3;
-  google.protobuf.Timestamp create_time = 4;
-  google.protobuf.Duration timeout = 5;
+  State state = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
+  string failure = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
+  google.protobuf.Timestamp create_time = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
+  google.protobuf.Duration timeout = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
   enum State {
     STATE_UNSPECIFIED = 0;
     STATE_FAILED = 1;
@@ -634,8 +683,10 @@ message DeleteThingRequest { string thing_id = 1 [(google.api.field_behavior) = 
 message DeleteThingResponse {}
 message StreamThingLogsRequest { string thing_id = 1 [(google.api.field_behavior) = REQUIRED]; }
 message StreamThingLogsResponse { repeated string lines = 1; }
-message CreateThingRequest { string request_id = 1; }
+message CreateThingRequest { string request_id = 1; ThingSpec spec = 2; }
 message CreateThingResponse { Thing thing = 1; }
+message ThingSpec { string image = 1; ThingPart part = 2; }
+message ThingPart { string name = 1; }
 service ThingService {
   rpc CreateThing(CreateThingRequest) returns (CreateThingResponse);
   rpc DescribeThing(DescribeThingRequest) returns (DescribeThingResponse);
@@ -737,6 +788,19 @@ service HoldingService { rpc SetHolding(SetHoldingRequest) returns (SetHoldingRe
 message CreateThingRequest { repeated string targets = 1; }
 message CreateThingResponse { Thing thing = 1; }
 `,
+		// A failure of a resource no request carries, which says nothing
+		// of who sets it, as WorkspaceStatus.failure did beside a build_uri
+		// that said so. The sound fixture's ThingSpec, which a request
+		// carries, says nothing and is allowed.
+		"what only the server sets says so": `
+message Thing {
+  string id = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
+  string failure = 2;
+}
+message DescribeThingRequest { string thing_id = 1 [(google.api.field_behavior) = REQUIRED]; }
+message DescribeThingResponse { Thing thing = 1; }
+service ThingService { rpc DescribeThing(DescribeThingRequest) returns (DescribeThingResponse); }
+`,
 		// A timeout in seconds, as Launch.timeout_seconds was, and a time
 		// named otherwise.
 		"times and lengths of time": `
@@ -799,44 +863,13 @@ func handled(c contract, sources map[string][]byte) []string {
 		if err != nil {
 			return []string{err.Error()}
 		}
-		imported := map[string]string{}
-		for _, spec := range f.Imports {
-			path, _ := strconv.Unquote(spec.Path.Value)
-			local := filepath.Base(path)
-			if spec.Name != nil {
-				local = spec.Name.Name
-			}
-			imported[local] = path
-		}
+		imported := importsOf(f)
 		for _, decl := range f.Decls {
-			fn, ok := decl.(*ast.FuncDecl)
-			if !ok || fn.Recv == nil {
-				continue
-			}
-			// Each parameter's type, once for each name it has.
-			var types []ast.Expr
-			for _, param := range fn.Type.Params.List {
-				for range max(1, len(param.Names)) {
-					types = append(types, param.Type)
+			if fn, ok := decl.(*ast.FuncDecl); ok {
+				if call := handles(fn, imported); call != "" {
+					declared[call] = true
 				}
 			}
-			if len(types) < 2 {
-				continue
-			}
-			second := types[1]
-			star, ok := second.(*ast.StarExpr)
-			if !ok {
-				continue
-			}
-			sel, ok := star.X.(*ast.SelectorExpr)
-			if !ok {
-				continue
-			}
-			pkg, ok := sel.X.(*ast.Ident)
-			if !ok || sel.Sel.Name != fn.Name.Name+"Request" {
-				continue
-			}
-			declared[imported[pkg.Name]+"."+fn.Name.Name] = true
 		}
 	}
 	var out []string
@@ -846,6 +879,52 @@ func handled(c contract, sources map[string][]byte) []string {
 		}
 	}
 	return out
+}
+
+// importsOf are a file's imports, by the name each is used under.
+func importsOf(f *ast.File) map[string]string {
+	imported := map[string]string{}
+	for _, spec := range f.Imports {
+		path, _ := strconv.Unquote(spec.Path.Value)
+		local := filepath.Base(path)
+		if spec.Name != nil {
+			local = spec.Name.Name
+		}
+		imported[local] = path
+	}
+	return imported
+}
+
+// handles is the call a method handles, as Connect calls one: a method
+// named for the call that takes its request second. It is the call as
+// its generated package and its name, and "" for what handles none.
+func handles(fn *ast.FuncDecl, imported map[string]string) string {
+	if fn.Recv == nil {
+		return ""
+	}
+	// Each parameter's type, once for each name it has.
+	var types []ast.Expr
+	for _, param := range fn.Type.Params.List {
+		for range max(1, len(param.Names)) {
+			types = append(types, param.Type)
+		}
+	}
+	if len(types) < 2 {
+		return ""
+	}
+	star, ok := types[1].(*ast.StarExpr)
+	if !ok {
+		return ""
+	}
+	sel, ok := star.X.(*ast.SelectorExpr)
+	if !ok {
+		return ""
+	}
+	pkg, ok := sel.X.(*ast.Ident)
+	if !ok || sel.Sel.Name != fn.Name.Name+"Request" {
+		return ""
+	}
+	return imported[pkg.Name] + "." + fn.Name.Name
 }
 
 // generatedPackage is the Go package the generated code of a served proto
