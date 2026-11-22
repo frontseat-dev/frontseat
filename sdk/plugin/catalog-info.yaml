@@ -10,7 +10,9 @@ spec:
   owner: jbadeau
   system: plugins
   frontseat:
-    # The generator's test reads the contracts, beyond its crate, and the
-    # Rust committed from them (src/gen), which it holds to what it writes.
+    # The generator's test reads the contracts, beyond its crate, the
+    # Rust committed from them (src/gen), which it holds to what it
+    # writes, and the ABI the SDK says it speaks (src/lib.rs), which it
+    # holds the contract's ABI document to.
     test:
-      inputs: [/api/**, src/gen/**]
+      inputs: [/api/**, src/gen/**, src/lib.rs]

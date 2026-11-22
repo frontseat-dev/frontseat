@@ -251,17 +251,54 @@ mod tests {
         assert!(refused.contains("a.rs, b.rs, stale.rs"), "{refused}");
     }
 
-    // The generator writes what the committed SDK holds now: the
-    // contracts and the SDK's committed Rust are read where the test is
-    // told its repository is (FRONTSEAT_TEST_SRCDIR), never by looking up
+    // Where the test is told its repository is (FRONTSEAT_TEST_SRCDIR):
+    // what it reads beyond its crate is read there, never by looking up
     // from its crate.
-    #[test]
-    fn the_committed_rust_is_what_is_generated() {
+    fn repository() -> std::path::PathBuf {
         let told = std::env::var("FRONTSEAT_TEST_SRCDIR").expect(
             "FRONTSEAT_TEST_SRCDIR is not set: a test is told where its repository is by what runs it (frontseat test, or a mise task)",
         );
-        let root = std::path::absolute(told).unwrap();
+        std::path::absolute(told).unwrap()
+    }
+
+    // The generator writes what the committed SDK holds now: the
+    // contracts and the SDK's committed Rust.
+    #[test]
+    fn the_committed_rust_is_what_is_generated() {
+        let root = repository();
         let written = generate(&root.join("api")).unwrap();
         assert_eq!(compare(&root.join("sdk/plugin/src/gen"), &written), Ok(()));
+    }
+
+    // The number after `before` in a text, once: none where it is not
+    // said, or said more than once.
+    fn number_after(text: &str, before: &str) -> Option<u32> {
+        let mut said = text.match_indices(before).map(|(at, lead)| {
+            let rest = &text[at + lead.len()..];
+            rest[..rest
+                .find(|c: char| !c.is_ascii_digit())
+                .unwrap_or(rest.len())]
+                .parse()
+        });
+        match (said.next(), said.next()) {
+            (Some(Ok(number)), None) => Some(number),
+            _ => None,
+        }
+    }
+
+    // The contract's ABI document says which ABI it is, and it is the
+    // one the SDK written from the contract speaks.
+    #[test]
+    fn the_abi_document_is_of_the_abi_the_sdk_speaks() {
+        let root = repository();
+        let read = |file: &str| fs::read_to_string(root.join(file)).unwrap();
+        let document = number_after(&read("api/plugin-proto/ABI.md"), "This document is ABI ");
+        let sdk = number_after(&read("sdk/plugin/src/lib.rs"), "pub const ABI: u32 = ");
+        assert!(
+            document.is_some(),
+            "ABI.md does not say once which ABI it is"
+        );
+        assert_eq!(document, sdk);
+        assert_eq!(number_after("is ABI 7. is ABI 8.", "is ABI "), None);
     }
 }

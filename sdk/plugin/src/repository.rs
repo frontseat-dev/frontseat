@@ -29,23 +29,21 @@ impl<'a> Repository<'a> {
         self.profile()?;
         for name in self.context.options.keys() {
             if !declared.iter().any(|option| option.name == name) {
-                return Err(Self::invalid_option(name, "a declared option name"));
+                return Err(Self::invalid_option(format!(
+                    "the plugin declares no option {name}"
+                )));
             }
         }
         for option in declared {
             let value = self.option(option.name)?;
-            if !matches!(
-                (option.kind(), value),
-                (Kind::String, Value::StringValue(_))
-                    | (Kind::Bool, Value::BoolValue(_))
-                    | (Kind::Int, Value::IntValue(_))
-                    | (Kind::StringList, Value::StringListValue(_))
-            ) {
-                return Err(Self::invalid_option(
-                    option.name,
-                    option.kind().as_str_name(),
-                ));
-            }
+            let kind = match option.kind() {
+                Kind::String if !matches!(value, Value::StringValue(_)) => "a string",
+                Kind::Bool if !matches!(value, Value::BoolValue(_)) => "a bool",
+                Kind::Int if !matches!(value, Value::IntValue(_)) => "an int",
+                Kind::StringList if !matches!(value, Value::StringListValue(_)) => "a string list",
+                _ => continue,
+            };
+            return Err(Self::not_of_kind(option.name, kind));
         }
         Ok(())
     }
@@ -83,23 +81,26 @@ impl<'a> Repository<'a> {
             .options
             .get(name)
             .and_then(|v| v.value.as_ref())
-            .ok_or_else(|| Self::invalid_option(name, "a declared value"))
+            .ok_or_else(|| Self::invalid_option(format!("option {name} was given no value")))
     }
 
-    fn invalid_option(name: &str, expected: &str) -> crate::Error {
-        crate::Error::new(
-            crate::Code::InvalidArgument,
-            "invalid-option",
-            format!("option {name} requires {expected}"),
-        )
-        .help("Supply every declared option with its declared kind.")
+    /// An option the call's context does not give as the plugin declares
+    /// it. The kinds are named as the contract names them: string, bool,
+    /// int, string list.
+    fn invalid_option(message: String) -> crate::Error {
+        crate::Error::new(crate::Code::InvalidArgument, "invalid-option", message)
+            .help("Give each option the plugin declares a value of the kind it declares, and no other option.")
+    }
+
+    fn not_of_kind(name: &str, kind: &str) -> crate::Error {
+        Self::invalid_option(format!("option {name} is not {kind}"))
     }
 
     /// Returns a string option, refusing a missing value or another kind.
     pub fn string(&self, name: &str) -> Result<&str, crate::Error> {
         match self.option(name)? {
             crate::option_value::Value::StringValue(value) => Ok(value),
-            _ => Err(Self::invalid_option(name, "a string")),
+            _ => Err(Self::not_of_kind(name, "a string")),
         }
     }
 
@@ -107,7 +108,7 @@ impl<'a> Repository<'a> {
     pub fn bool(&self, name: &str) -> Result<bool, crate::Error> {
         match self.option(name)? {
             crate::option_value::Value::BoolValue(value) => Ok(*value),
-            _ => Err(Self::invalid_option(name, "a boolean")),
+            _ => Err(Self::not_of_kind(name, "a bool")),
         }
     }
 
@@ -115,7 +116,7 @@ impl<'a> Repository<'a> {
     pub fn int(&self, name: &str) -> Result<i64, crate::Error> {
         match self.option(name)? {
             crate::option_value::Value::IntValue(value) => Ok(*value),
-            _ => Err(Self::invalid_option(name, "an integer")),
+            _ => Err(Self::not_of_kind(name, "an int")),
         }
     }
 
@@ -123,7 +124,7 @@ impl<'a> Repository<'a> {
     pub fn string_list(&self, name: &str) -> Result<&[String], crate::Error> {
         match self.option(name)? {
             crate::option_value::Value::StringListValue(value) => Ok(&value.values),
-            _ => Err(Self::invalid_option(name, "a string list")),
+            _ => Err(Self::not_of_kind(name, "a string list")),
         }
     }
 
@@ -200,6 +201,7 @@ pub const NOT_FIXTURES: &str = "!**/testdata/**";
 
 /// Joins a repository-relative directory and a relative file name.
 /// This preserves the names supplied by the caller; the host confines access.
+#[must_use]
 pub fn join(dir: &str, file: &str) -> String {
     if dir.is_empty() {
         file.into()
@@ -218,6 +220,7 @@ pub fn join(dir: &str, file: &str) -> String {
 /// assert_eq!(beneath("", "go.mod"), Some("go.mod"));
 /// assert_eq!(beneath("app", "application/go.mod"), None);
 /// ```
+#[must_use]
 pub fn beneath<'a>(directory: &str, path: &'a str) -> Option<&'a str> {
     if directory.is_empty() {
         return (!path.is_empty()).then_some(path);
@@ -236,6 +239,7 @@ pub fn beneath<'a>(directory: &str, path: &'a str) -> Option<&'a str> {
 /// assert_eq!(resolve("api", "../lib/./gen").as_deref(), Some("lib/gen"));
 /// assert_eq!(resolve("api", "../../gen"), None);
 /// ```
+#[must_use]
 pub fn resolve(directory: &str, relative: &str) -> Option<String> {
     if relative.starts_with('/') {
         return None;
@@ -256,6 +260,7 @@ pub fn resolve(directory: &str, relative: &str) -> Option<String> {
 /// Whether a path names a file beneath where it is relative to, written
 /// plainly: not empty, not absolute, and with no empty or ".." part.
 /// What a tool prints is named so before it is a finding of a file.
+#[must_use]
 pub fn plain(path: &str) -> bool {
     !path.is_empty()
         && !path.starts_with('/')
@@ -266,6 +271,7 @@ pub fn plain(path: &str) -> bool {
 /// name read from the disk is written as where a pattern is called for.
 /// A name is never a pattern; one that holds what a pattern reads, a
 /// `[` or a `*`, is written so that it is read as the name.
+#[must_use]
 pub fn literal(name: &str) -> String {
     let mut out = String::with_capacity(name.len());
     for (i, c) in name.chars().enumerate() {
