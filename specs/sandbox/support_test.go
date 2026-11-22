@@ -941,7 +941,6 @@ func (b *Build) retainedStages(c *testtelemetry.Collector, retained, planned, di
 		b.Expect(testtelemetry.RequireInt(b.TB, stages.evaluate, "asked")).To(BeZero())
 	}
 	again := testtelemetry.RequireInt(b.TB, stages.evaluate, "again")
-	b.Expect(again).To(BeNumerically(">=", 0))
 	if retained {
 		b.Expect(again).To(BeZero())
 	}

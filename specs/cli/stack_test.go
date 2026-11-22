@@ -99,29 +99,32 @@ func stackOwner(t *testing.T) frontseat.Option {
 // Whatever reaches the stack's endpoint from this machine runs nothing in
 // a sandbox: no call of the sandbox API is served there, to anyone, its
 // owner among them, so neither listing the sandboxes nor running a
-// command in one, as a probe did from this machine before (2026-11-16,
-// frontseat-probes/sandbox-reach), is answered. A call without the
-// owner's token is refused before anything is asked of it. The control
-// is the workspace API, which answers the owner and lists the workspaces
-// whose sandboxes the probe reached.
+// command in one is answered. A call without the owner's token is
+// refused before anything is asked of it. The control is the workspace
+// API, which answers the owner.
 func TestTheStacksEndpointRunsNothingInASandbox(t *testing.T) {
 	testrequired.Stack(t)
 	testgrid.InSandbox(t)
-	// Without a token first: what the probe did, before anything is read
-	// of what the stack laid out.
-	for _, name := range []string{"no token", "the owner's token"} {
+	// Without a token first, before anything is read of what the stack
+	// laid out: refused as from no one known. Then the owner, who is
+	// known, and is told there is no such call.
+	for _, each := range []struct {
+		name string
+		want connect.Code
+	}{{"no token", connect.CodeUnauthenticated}, {"the owner's token", connect.CodeUnimplemented}} {
+		name, want := each.name, each.want
 		var over []*http.Client
 		if name != "no token" {
 			over = append(over, testowner.Client(testowner.Token(t), stack))
 		}
 		sandboxes := testsandbox.Client(stack, over...)
 		listed, err := sandboxes.ListSandboxes(context.Background(), &sandboxv1.ListSandboxesRequest{PageSize: 1000})
-		if err == nil || (connect.CodeOf(err) != connect.CodeUnimplemented && connect.CodeOf(err) != connect.CodeUnauthenticated) {
-			t.Errorf("ListSandboxes at %s with %s: %d sandboxes, %v; want no such call", stack, name, len(listed.GetSandboxes()), err)
+		if connect.CodeOf(err) != want {
+			t.Errorf("ListSandboxes at %s with %s: %d sandboxes, %v; want it refused as %s", stack, name, len(listed.GetSandboxes()), err, want)
 		}
 		ran, err := sandboxes.ExecSandbox(context.Background(), &sandboxv1.ExecSandboxRequest{SandboxId: "sbx_000000000000", Arguments: []string{"true"}})
-		if err == nil || (connect.CodeOf(err) != connect.CodeUnimplemented && connect.CodeOf(err) != connect.CodeUnauthenticated) {
-			t.Errorf("ExecSandbox at %s with %s: %v, %v; want no such call", stack, name, ran, err)
+		if connect.CodeOf(err) != want {
+			t.Errorf("ExecSandbox at %s with %s: %v, %v; want it refused as %s", stack, name, ran, err, want)
 		}
 	}
 	if _, err := frontseat.New(stack).Workspaces(context.Background()); connect.CodeOf(err) != connect.CodeUnauthenticated {

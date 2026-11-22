@@ -117,8 +117,11 @@ func TestWhatIsNoWorkspaceIsNotMade(t *testing.T) {
 	ctx := context.Background()
 
 	workspaces := workspacesAt(server)
+	// A name a workspace could have, so that a sandbox made for what was
+	// refused would be found by it.
+	sourceless := aName()
 	for what, request := range map[string]*workspacev1.CreateWorkspaceRequest{
-		"nothing asked for":   {Name: aName(), Spec: &workspacev1.WorkspaceSpec{Image: image}},
+		"nothing asked for":   {Name: sourceless, Spec: &workspacev1.WorkspaceSpec{Image: image}},
 		"a name that is none": {Name: "Not A Name", Spec: &workspacev1.WorkspaceSpec{Repositories: spec.source(), Image: image}},
 		"a name that climbs":  {Name: "../elsewhere", Spec: &workspacev1.WorkspaceSpec{Repositories: spec.source(), Image: image}},
 		"a name with a slash": {Name: "a/b", Spec: &workspacev1.WorkspaceSpec{Repositories: spec.source(), Image: image}},
@@ -127,7 +130,7 @@ func TestWhatIsNoWorkspaceIsNotMade(t *testing.T) {
 		_, err := workspaces.CreateWorkspace(ctx, request)
 		spec.Expect(connect.CodeOf(err)).To(Equal(connect.CodeInvalidArgument), what)
 	}
-	spec.Expect(spec.sandboxesLabelled("frontseat.dev/workspace=not-a-name")).To(BeEmpty())
+	spec.Expect(spec.sandboxesOf(sourceless)).To(BeEmpty())
 }
 
 func (spec *scenario) asked(ctx context.Context, request *workspacev1.CreateWorkspaceRequest) *workspacev1.CreateWorkspaceResponse {

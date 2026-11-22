@@ -24,7 +24,8 @@ import (
 // only the go.mod of is fetched the same way, as go.metadata.
 //
 // A fetch is the one kind of action that reaches outside its sandbox,
-// and it asks the proxy, not the public registry. What it fetched is kept
+// and it asks where its tool asks by default, the ecosystem's own
+// registry: the worker tells an action of no proxy. What it fetched is kept
 // by the grid, and handed to the actions that build, which reach nothing.
 //
 // The lock decides. The tool checks what it fetched against it, and a
@@ -71,8 +72,8 @@ func TestAFetchBelongsToNoEntity(t *testing.T) {
 	spec.Expect(build.ownerOf("//lab/tool:go.compile")).To(Equal("component:default/tool"))
 }
 
-// What a project requires from outside / A fetch asks the proxy.
-func TestAFetchAsksTheProxy(t *testing.T) {
+// What a project requires from outside / A fetch asks the registry its tool names.
+func TestAFetchAsksTheRegistryItsToolNames(t *testing.T) {
 	t.Parallel()
 	spec := newScenario(t)
 
@@ -81,8 +82,8 @@ func TestAFetchAsksTheProxy(t *testing.T) {
 	spec.Expect(build.printed(cobraFetch)).To(ContainSubstring("# get " + testgrid.GoProxy + "/github.com/spf13/cobra/@v/v1.8.1.zip"))
 }
 
-// What a project requires from outside / A fetch asks nothing but the proxy.
-func TestAFetchAsksNothingButTheProxy(t *testing.T) {
+// What a project requires from outside / A fetch asks nothing but that registry.
+func TestAFetchAsksNothingButThatRegistry(t *testing.T) {
 	t.Parallel()
 	spec := newScenario(t)
 
