@@ -3,6 +3,7 @@ package build
 import (
 	"context"
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
+	"net"
 	"os"
 	"path/filepath"
 	"sort"
@@ -261,6 +262,64 @@ func TestMoreEntitiesAreAddedToAWorkspaceThatHoldsSome(t *testing.T) {
 	}
 	if labels := strings.Fields(planned(t, c)); len(labels) != 12 {
 		t.Errorf("a build plans %v, want the three actions of each of the four modules", labels)
+	}
+}
+
+// What brings a workspace's repositories ends with the daemon: with a
+// repository being cloned from a forge that accepts and never answers,
+// Close returns once the clone has stopped, and the workspace says why
+// it was not populated. The control is every test that populates a
+// workspace from a forge that answers, which is ready.
+func TestClosingADaemonEndsWhatIsBringingItsWorkspacesRepositories(t *testing.T) {
+	silent, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	accepted := make(chan net.Conn, 16)
+	go func() {
+		defer close(accepted)
+		for {
+			conn, err := silent.Accept()
+			if err != nil {
+				return
+			}
+			accepted <- conn
+		}
+	}()
+	t.Cleanup(func() {
+		_ = silent.Close()
+		for conn := range accepted {
+			_ = conn.Close()
+		}
+	})
+	c := serve(t, scripted{}, t.TempDir(), false)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	generation, err := c.set(ctx, &workspacev1.WorkspaceSpec{Repositories: []*workspacev1.RepositorySource{{Remote: "http://" + silent.Addr().String() + "/acme/code.git", Ref: "main"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case conn := <-accepted:
+		defer conn.Close()
+	case <-ctx.Done():
+		t.Fatal("the forge was not asked for the repository")
+	}
+
+	closed := make(chan struct{})
+	go func() { c.daemon.Close(); close(closed) }()
+	select {
+	case <-closed:
+	case <-ctx.Done():
+		t.Fatal("Close did not return: what brings the repository was not stopped")
+	}
+
+	said, err := c.source.WaitSource(ctx, &sourcev1.WaitSourceRequest{Generation: generation})
+	if err != nil {
+		t.Fatalf("the workspace did not settle once its daemon closed: %v", err)
+	}
+	if status := tell.Status(said.GetSource()); status.GetState() != workspacev1.WorkspaceStatus_STATE_FAILED || !strings.Contains(status.GetFailure(), "the daemon stopped") {
+		t.Errorf("the workspace is %v (%s), want failed, saying the daemon stopped", status.GetState(), status.GetFailure())
 	}
 }
 
