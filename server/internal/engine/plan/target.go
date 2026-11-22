@@ -161,7 +161,7 @@ func pointed(actions []Action, entities []record.Located, target string) ([]int,
 	// component, and a namespace left out is any, so a name a catalog
 	// put in a namespace of its own is found as it is typed; one that
 	// names several is refused.
-	typed, err := entity.Typed(target)
+	typed, err := entity.ParsePattern(target)
 	var ref entity.Ref
 	if err == nil {
 		held := make([]entity.Ref, 0, len(entities))
@@ -169,7 +169,7 @@ func pointed(actions []Action, entities []record.Located, target string) ([]int,
 			held = append(held, each.Ref)
 		}
 		var found bool
-		if ref, found, err = entity.Find(typed, held); err != nil {
+		if ref, found, err = typed.Find(held); err != nil {
 			return nil, &model.Mistake{Message: err.Error()}
 		} else if !found {
 			err = fmt.Errorf("no entity %s", target)

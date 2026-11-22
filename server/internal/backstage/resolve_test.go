@@ -114,11 +114,11 @@ func served(t *testing.T, documents string) (*Catalog, backstagetest.Served) {
 }
 
 // typed reads names as a person types them.
-func typed(t *testing.T, written ...string) []entity.Ref {
+func typed(t *testing.T, written ...string) []entity.Pattern {
 	t.Helper()
-	var out []entity.Ref
+	var out []entity.Pattern
 	for _, each := range written {
-		ref, err := entity.Typed(each)
+		ref, err := entity.ParsePattern(each)
 		if err != nil {
 			t.Fatal(err)
 		}

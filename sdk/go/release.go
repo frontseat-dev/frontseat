@@ -5,6 +5,7 @@ import (
 
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1/buildv1alpha1connect"
+	"github.com/frontseat-dev/frontseat/sdk/go/entity"
 )
 
 // Release is one release of a workspace, by its id: what moves is
@@ -37,9 +38,10 @@ func (r *Release) BuildID(ctx context.Context) (string, error) {
 
 // ReleaseRequest is a release to plan, or to make.
 type ReleaseRequest struct {
-	// Entities are what to release, each named as a person types one:
-	// greet, system:kiosk. Each is released with its unit.
-	Entities []string
+	// Entities are what to release, each as a person types one
+	// (entity.ParsePattern reads greet, system:kiosk). Each is released
+	// with its unit.
+	Entities []entity.Pattern
 	// Etag is the etag of the plan to release (ReleasePlan.Etag, as
 	// PlanRelease answered it): Release releases that plan and no other,
 	// and is refused without one. PlanRelease reads none.

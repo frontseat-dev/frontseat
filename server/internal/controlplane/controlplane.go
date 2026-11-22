@@ -116,7 +116,7 @@ type Config struct {
 // where each entity is among them. A refusal it gives by name is a
 // *backstage.Refused.
 type Entities interface {
-	Resolve(ctx context.Context, owner string, typed []entity.Ref) (backstage.Resolution, error)
+	Resolve(ctx context.Context, owner string, typed []entity.Pattern) (backstage.Resolution, error)
 }
 
 // Plane is a control plane that is serving.

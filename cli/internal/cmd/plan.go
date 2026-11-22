@@ -17,11 +17,11 @@ The last line is the plan's etag. ship --plan releases that plan.`,
   frontseat ship plan greet system:kiosk`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		w, err := releasing(args)
+		entities, w, err := releasing(args)
 		if err != nil {
 			return err
 		}
-		_, err = plan(cmd, w, args)
+		_, err = plan(cmd, w, entities)
 		return err
 	},
 }

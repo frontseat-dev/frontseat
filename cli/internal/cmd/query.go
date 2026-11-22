@@ -166,7 +166,7 @@ var errNoEntity = errors.New("the workspace holds no entity")
 // find is the one entity a person's name for it names; a name that names
 // several is refused, saying which.
 func (g graph) find(written string) (*buildv1.Entity, error) {
-	typed, err := entity.Typed(written)
+	typed, err := entity.ParsePattern(written)
 	if err != nil {
 		return nil, fmt.Errorf("%w %q: %v", errNoEntity, written, err)
 	}
@@ -177,7 +177,7 @@ func (g graph) find(written string) (*buildv1.Entity, error) {
 		refs = append(refs, ref)
 		held[ref] = e
 	}
-	one, found, err := entity.Find(typed, refs)
+	one, found, err := typed.Find(refs)
 	if err != nil {
 		return nil, err
 	}

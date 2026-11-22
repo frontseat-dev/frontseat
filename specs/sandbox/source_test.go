@@ -13,6 +13,7 @@ import (
 
 	"github.com/frontseat-dev/frontseat/sdk/go"
 	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
+	"github.com/frontseat-dev/frontseat/sdk/go/entity"
 )
 
 // A workspace has one writer of what it holds: the control plane, which
@@ -51,7 +52,7 @@ func TestInsideAWorkspaceItsSourceIsFixedAndItIsFilledFromOutside(t *testing.T) 
 	defer cancel()
 	// chain is in the repository its sandbox was made to reach: one in
 	// another is beyond it, which is said when the sandbox is made.
-	spec.Expect(workspace.sdk().Add(adding, frontseat.WorkspaceSpec{Entities: []string{"chain"}})).To(Succeed())
+	spec.Expect(workspace.sdk().Add(adding, frontseat.WorkspaceSpec{Entities: []entity.Pattern{{Kind: "component", Name: "chain"}}})).To(Succeed())
 	after := spec.describedAt(ctx, workspace)
 	spec.Expect(after.GetSpec().GetEntities()).To(HaveLen(2))
 	spec.Expect(after.GetStatus().GetState()).To(Equal(workspacev1.WorkspaceStatus_STATE_READY))

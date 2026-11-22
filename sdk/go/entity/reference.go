@@ -3,16 +3,17 @@
 // "component:default/gateway".
 //
 // A reference is read from text in two ways. Parse reads one that names
-// one entity: what it leaves out is filled in, a kind as a component and
-// a namespace as the default one, so "gateway" is
-// component:default/gateway. Typed reads one as a person types it to
-// find an entity: a namespace left out stays empty and stands for any,
-// so "gateway" finds the component of that name in whatever namespace
-// its catalog put it (Names, Find). The API takes entities as Typed
-// reads them, and answers with references in full.
+// one entity (a Ref): what it leaves out is filled in, a kind as a
+// component and a namespace as the default one, so "gateway" is
+// component:default/gateway. ParsePattern reads one as a person types
+// it to find an entity (a Pattern): a namespace left out stays empty and
+// stands for any, so "gateway" finds the component of that name in
+// whatever namespace its catalog put it (Pattern.Matches, Pattern.Find).
+// The API takes entities as patterns, and answers with references in
+// full.
 //
 // Proto and FromProto carry a reference to and from the API's message
-// for one.
+// for one, and PatternProto and PatternFromProto a pattern.
 package entity
 
 import (
@@ -27,10 +28,8 @@ const (
 	NamespaceDefault = "default"
 )
 
-// Ref names an entity by its kind, its namespace and its name. It is
-// written "component:default/gateway". One that Typed read may leave its
-// namespace empty, which stands for any; every other Ref is whole
-// (Whole).
+// Ref names an entity by its kind, its namespace and its name, each
+// said: it is written "component:default/gateway".
 type Ref struct {
 	// Kind is its kind, in lower case: "component", "system", "domain".
 	Kind string
@@ -105,6 +104,10 @@ func (r Ref) Validate() error {
 	return nil
 }
 
+// Whole is whether a reference says its kind, its namespace and its
+// name: one read from what another wrote may not.
+func (r Ref) Whole() bool { return r.Kind != "" && r.Namespace != "" && r.Name != "" }
+
 // String writes the reference in full: "component:default/gateway".
 func (r Ref) String() string {
 	return r.Kind + ":" + r.Namespace + "/" + r.Name
@@ -121,7 +124,7 @@ func (r Ref) Short() string {
 	if short.Namespace == NamespaceDefault {
 		short.Namespace = ""
 	}
-	return short.Written()
+	return Pattern(short).String()
 }
 
 // MarshalText writes the reference in full, for a file that holds one.

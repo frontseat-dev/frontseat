@@ -444,7 +444,7 @@ func (spec *scenario) inASandboxOfItsOwn(create making) *Workspace {
 func (spec *scenario) workspaceInASandboxOf(described string) *Workspace {
 	spec.Helper()
 	return spec.inASandboxOfItsOwn(making{WorkspaceSpec: frontseat.WorkspaceSpec{
-		Entities: []string{entity.New("", "", described).String()},
+		Entities: []entity.Pattern{entity.Pattern(entity.New("", "", described))},
 	}})
 }
 
@@ -878,8 +878,8 @@ func (spec *scenario) retainedTool(at string) *Workspace {
 	return w
 }
 
-func entitiesForRetainedTool() []string {
-	return []string{"component:default/tool"}
+func entitiesForRetainedTool() []entity.Pattern {
+	return []entity.Pattern{{Kind: "component", Namespace: "default", Name: "tool"}}
 }
 
 func (w *Workspace) observeRetained() *testtelemetry.Collector {

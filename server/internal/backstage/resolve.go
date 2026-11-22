@@ -83,7 +83,7 @@ type page struct {
 // Resolve returns the repositories that hold entities and the components
 // they depend on, each with the directories those entities govern, and
 // where each is. Each entity is named as a person typed it
-// (entity.Typed): a namespace left out is any, and a name that names
+// (entity.Pattern): a namespace left out is any, and a name that names
 // several is refused naming each. A system brings the components that
 // are part of it, and a group those it owns; a component brings those
 // it depends on, by the relations the catalog holds, and nothing else
@@ -91,17 +91,17 @@ type page struct {
 // refused: it brings no source.
 //
 // The owner is who asks; this catalog answers everyone alike.
-func (c *Catalog) Resolve(ctx context.Context, _ string, typed []entity.Ref) (Resolution, error) {
+func (c *Catalog) Resolve(ctx context.Context, _ string, typed []entity.Pattern) (Resolution, error) {
 	ctx, cancel := context.WithTimeout(ctx, c.limits.resolution)
 	defer cancel()
 	r := &resolving{catalog: c}
 	asked := make([]entity.Ref, 0, len(typed))
 	for i, ref := range typed {
-		if err := ref.ValidateTyped(); err != nil || (ref.Namespace != "" && ref.Validate() != nil) {
+		if err := ref.Validate(); err != nil {
 			return Resolution{}, refused(Invalid, "the entity asked for %s is no entity's name: one is a name, kind:name or kind:namespace/name", ordinal(i))
 		}
 		if ref.Whole() {
-			asked = append(asked, ref)
+			asked = append(asked, entity.Ref(ref))
 			continue
 		}
 		found, err := r.named(ctx, ref)
@@ -164,22 +164,22 @@ func (r *resolving) query(ctx context.Context, filter, what string) ([]entity.Re
 	}
 }
 
-// named is the one entity a typed reference names.
-func (r *resolving) named(ctx context.Context, typed entity.Ref) (entity.Ref, error) {
+// named is the one entity a pattern names.
+func (r *resolving) named(ctx context.Context, typed entity.Pattern) (entity.Ref, error) {
 	filter := "kind=" + typed.Kind + ",metadata.name=" + typed.Name
 	if typed.Namespace != "" {
 		filter += ",metadata.namespace=" + typed.Namespace
 	}
-	held, err := r.query(ctx, filter, typed.Written())
+	held, err := r.query(ctx, filter, typed.String())
 	if err != nil {
 		return entity.Ref{}, err
 	}
-	found, ok, err := entity.Find(typed, held)
+	found, ok, err := typed.Find(held)
 	if err != nil {
 		return entity.Ref{}, refused(Ambiguous, "%v", err)
 	}
 	if !ok {
-		return entity.Ref{}, refused(NotFound, "the catalog holds no %s", typed.Written())
+		return entity.Ref{}, refused(NotFound, "the catalog holds no %s", typed)
 	}
 	return found, nil
 }

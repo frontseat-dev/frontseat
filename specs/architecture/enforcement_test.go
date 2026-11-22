@@ -176,6 +176,9 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		{"specs/cli/local_test.go", "server/internal/controlplane", false},
 		{"specs/cli/local_test.go", "server/internal/source", false},
 		{"specs/cli/local_test.go", "local", false},
+		// The journey names entities as the SDK takes them.
+		{"specs/cli/local_test.go", "sdk/go/entity", true},
+		{"specs/cli/local_test.go", "sdk/go/internal/transport", false},
 		{"specs/compare/support_test.go", "server/testsupport/controlplanetest", true},
 		{"specs/compare/support_test.go", "server/internal/controlplane", false},
 		// The control plane is started beside it, by its own test support;

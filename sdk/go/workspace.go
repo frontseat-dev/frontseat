@@ -37,10 +37,11 @@ type WorkspaceSpec struct {
 	// Repositories are repositories for the daemon to clone.
 	Repositories []Repository
 	// Entities are entities whose source the workspace holds, each as a
-	// person types one: gateway, system:kiosk, component:default/gateway.
-	// The control plane resolves them through the Backstage catalog its
-	// operator gives it, and refuses them where it has none.
-	Entities []string
+	// person types one (entity.ParsePattern reads gateway, system:kiosk,
+	// component:default/gateway). The control plane resolves them through
+	// the Backstage catalog its operator gives it, and refuses them where
+	// it has none.
+	Entities []entity.Pattern
 	// Whole clones the entities' repositories whole, not only the
 	// directories the entities govern.
 	Whole bool
@@ -107,17 +108,16 @@ func (s WorkspaceSpec) proto() (*workspacev1.WorkspaceSpec, error) {
 	return spec, nil
 }
 
-// refs are entity references as a person types them, as the API
-// carries them: what each leaves out is left empty, for the control
-// plane to find among the entities its catalog holds.
-func refs(typed []string) ([]*typev1.EntityRef, error) {
+// refs are patterns as the API carries them: what each leaves out is
+// left empty, for the server to find among the entities it holds. One
+// that is no pattern is refused before anything is asked.
+func refs(patterns []entity.Pattern) ([]*typev1.EntityRef, error) {
 	var out []*typev1.EntityRef
-	for _, written := range typed {
-		ref, err := entity.Typed(written)
-		if err != nil {
-			return nil, err
+	for _, p := range patterns {
+		if err := p.Validate(); err != nil {
+			return nil, fmt.Errorf("%q names no entity: %w", p, err)
 		}
-		out = append(out, entity.Proto(ref))
+		out = append(out, entity.PatternProto(p))
 	}
 	return out, nil
 }

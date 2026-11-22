@@ -31,7 +31,7 @@ func answering(t *testing.T, answer http.HandlerFunc) (*Catalog, *httptest.Serve
 
 // resolvingGateway resolves gateway, by its whole name, through a catalog.
 func resolvingGateway(c *Catalog) error {
-	_, err := c.Resolve(context.Background(), "local", []entity.Ref{entity.New("component", "default", "gateway")})
+	_, err := c.Resolve(context.Background(), "local", []entity.Pattern{{Kind: "component", Namespace: "default", Name: "gateway"}})
 	return err
 }
 
