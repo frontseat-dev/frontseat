@@ -2,22 +2,23 @@ package run
 
 import (
 	"context"
+	"slices"
+	"testing"
+
 	"github.com/frontseat-dev/frontseat/server/internal/engine/plan"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/source"
 	"github.com/frontseat-dev/frontseat/server/internal/exec"
 	"github.com/frontseat-dev/frontseat/server/internal/exec/schedule"
 	"github.com/frontseat-dev/frontseat/server/internal/model"
 	"github.com/frontseat-dev/frontseat/server/internal/pattern"
-	"slices"
-	"testing"
 )
 
-type reviewListing struct {
+type listing struct {
 	exec.Executor
 	files map[string]exec.Held
 }
 
-func (l *reviewListing) List(context.Context, exec.Held) (map[string]exec.Held, error) {
+func (l *listing) List(context.Context, exec.Held) (map[string]exec.Held, error) {
 	return l.files, nil
 }
 
@@ -32,7 +33,7 @@ func everyFile(handed []schedule.Handed) map[string]exec.Held {
 	return files
 }
 
-func TestReviewGeneratedHandoffSelectsAndRemapsOnlyDeclaredFiles(t *testing.T) {
+func TestAGeneratedHandoffSelectsAndRemapsOnlyDeclaredFiles(t *testing.T) {
 	producer := model.Label{Path: "api", Plugin: "buf", Name: "generate"}
 	for _, tc := range []struct {
 		name, repository, root, into string
@@ -43,7 +44,7 @@ func TestReviewGeneratedHandoffSelectsAndRemapsOnlyDeclaredFiles(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			selected := exec.Held{Digest: exec.Digest{Hash: "selected", Size: 1}, Executable: true}
-			grid := &reviewListing{files: map[string]exec.Held{"pkg/a.pb.go": selected, "pkg/a_test.pb.go": {Digest: exec.Digest{Hash: "test", Size: 1}}}}
+			grid := &listing{files: map[string]exec.Held{"pkg/a.pb.go": selected, "pkg/a_test.pb.go": {Digest: exec.Digest{Hash: "test", Size: 1}}}}
 			runner := Runner{Answers: &exec.Remembering{Executor: grid}}
 			claim := plan.GeneratedSource{ProjectRoot: "api", Directory: "api/gen/go", Output: "out/", Producer: producer, Patterns: []string{"**/*.pb.go"}}
 			action := plan.Action{Repository: tc.repository, ProjectRoot: tc.root, ArtifactOnly: []model.Label{producer}, Artifacts: []plan.ArtifactInput{{Source: claim, Into: tc.into, Patterns: []string{"**/*.go", "!**/*_test.pb.go"}, Generated: []pattern.Selection{{{"**/*.go"}}}}}}
@@ -76,7 +77,7 @@ func TestNamingOneOutputOfAProducerHidesNoneOfItsGeneratedSource(t *testing.T) {
 	producer := model.Label{Path: "api", Plugin: "buf", Name: "generate"}
 	generated := exec.Held{Digest: exec.Digest{Hash: "generated", Size: 1}}
 	report := exec.Held{Directory: true, Digest: exec.Digest{Hash: "report", Size: 1}}
-	grid := &reviewListing{files: map[string]exec.Held{"pkg/a.pb.go": generated}}
+	grid := &listing{files: map[string]exec.Held{"pkg/a.pb.go": generated}}
 	runner := Runner{Answers: &exec.Remembering{Executor: grid}}
 	claim := plan.GeneratedSource{ProjectRoot: "api", Directory: "api/gen/go", Output: "out/", Producer: producer, Patterns: []string{"**/*.pb.go"}}
 	binding := plan.ArtifactInput{Source: claim, Into: ".", Patterns: []string{"**/*.go"}, Generated: []pattern.Selection{{{"**/*.go"}}}}
@@ -160,7 +161,7 @@ func TestAnActionIsHandedWhatItNamedAndNothingElse(t *testing.T) {
 func TestAClaimBeneathAModuleIsPlacedWhereItIsInTheModule(t *testing.T) {
 	producer := model.Label{Path: "api", Plugin: "buf", Name: "generate-lib"}
 	kept := exec.Held{Digest: exec.Digest{Hash: "kept", Size: 1}}
-	grid := &reviewListing{files: map[string]exec.Held{"hello/v1/hello.pb.go": kept, "skip/v1/skip.pb.go": {Digest: exec.Digest{Hash: "skipped", Size: 1}}}}
+	grid := &listing{files: map[string]exec.Held{"hello/v1/hello.pb.go": kept, "skip/v1/skip.pb.go": {Digest: exec.Digest{Hash: "skipped", Size: 1}}}}
 	runner := Runner{Answers: &exec.Remembering{Executor: grid}}
 	claim := plan.GeneratedSource{ProjectRoot: "api", Directory: "lib/gen", Output: ".gen-lib/lib/gen/", Producer: producer, Patterns: []string{"**/*.pb.go"}}
 	action := plan.Action{ProjectRoot: "lib", ArtifactOnly: []model.Label{producer}, Artifacts: []plan.ArtifactInput{{Source: claim, Into: ".", Within: "gen", Patterns: []string{"**/*.go", "!gen/skip/**"}, Generated: []pattern.Selection{{{"**/*.go"}}}}}}

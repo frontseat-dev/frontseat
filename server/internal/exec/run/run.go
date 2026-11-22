@@ -6,6 +6,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path"
+	"slices"
+	"sort"
+	"sync"
+	"time"
+
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/plan"
@@ -18,15 +29,6 @@ import (
 	"github.com/frontseat-dev/frontseat/server/internal/exec/tools"
 	"github.com/frontseat-dev/frontseat/server/internal/model"
 	"github.com/frontseat-dev/frontseat/server/telemetry"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
-	"google.golang.org/protobuf/types/known/durationpb"
-	"google.golang.org/protobuf/types/known/timestamppb"
-	"path"
-	"slices"
-	"sort"
-	"sync"
-	"time"
 )
 
 // owner is the entity that owns an action: none for a shared one, which
@@ -68,7 +70,7 @@ type Runner struct {
 	// Kept is the directory the daemon keeps tool trees in, for fixes,
 	// for as long as it runs.
 	Kept string
-	// Run is told of the program a run's build ends with, once all
+	// Deliver is told of the program a run's build ends with, once all
 	// it reads has been built: the action, and what the actions it needs
 	// left, by the path each sits at in the action's root. It brings
 	// that to where the daemon is. Nil, a run that is a build: it plans
@@ -465,7 +467,7 @@ func (runner Runner) run(ctx context.Context, events Events, snapshot *source.Sn
 		if err == nil {
 			proposals = record(events, action, changes)
 			var wrote []string
-			wrote, err = apply(events, snapshot, action, proposals)
+			wrote, err = apply(snapshot, action, proposals)
 			if len(wrote) > 0 {
 				events.Patched(action.Repository, wrote)
 			}
@@ -525,7 +527,7 @@ func (runner Runner) run(ctx context.Context, events Events, snapshot *source.Sn
 			drifted = record(events, action, changes)
 			if runner.Fix {
 				var wrote []string
-				wrote, err = apply(events, snapshot, action, drifted)
+				wrote, err = apply(snapshot, action, drifted)
 				if len(wrote) > 0 {
 					events.Patched(action.Repository, wrote)
 				}
@@ -609,7 +611,7 @@ func (runner Runner) run(ctx context.Context, events Events, snapshot *source.Sn
 	return result.GetOutcome(), left, err
 }
 
-// run ends a run's build: what the program reads of what other
+// deliver ends a run's build: what the program reads of what other
 // actions left is put together and handed to whoever runs it. The
 // program itself is not run here, and nothing of it is the grid's.
 func (runner Runner) deliver(ctx context.Context, events Events, snapshot *source.Snapshot, action plan.Action, handed []schedule.Handed, started time.Time) (buildv1.Outcome, map[string]exec.Held, error) {

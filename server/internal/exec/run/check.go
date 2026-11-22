@@ -101,7 +101,7 @@ func conflicting(ctx context.Context, snapshot *source.Snapshot, needed []plan.A
 // read, and says which files it wrote. It stops at the first change the
 // snapshot refuses, and says why: what was written before it stays
 // written, and is said to be.
-func apply(events Events, snapshot *source.Snapshot, action plan.Action, proposals []proposal) (wrote []string, err error) {
+func apply(snapshot *source.Snapshot, action plan.Action, proposals []proposal) (wrote []string, err error) {
 	for _, each := range proposals {
 		if err := snapshot.Apply(action.Repository, each.change); err != nil {
 			return wrote, err

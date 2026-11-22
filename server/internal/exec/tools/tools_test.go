@@ -26,7 +26,7 @@ import (
 
 // confiner is frontseat-action as this checkout builds it, for the grid's
 // workers' architecture, in a directory to give a container as its /bb,
-// as a worker holds it beside bb_runner.
+// as a worker holds it beside the runner.
 func confiner(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()

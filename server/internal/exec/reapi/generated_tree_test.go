@@ -4,16 +4,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/bazelbuild/remote-apis-sdks/go/pkg/digest"
-	repb "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
-	"github.com/frontseat-dev/frontseat/server/internal/exec"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/bazelbuild/remote-apis-sdks/go/pkg/digest"
+	repb "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
+
+	"github.com/frontseat-dev/frontseat/server/internal/exec"
 )
 
-func TestReviewGeneratedDirectoryListingRefusesMalformedContent(t *testing.T) {
+func TestAGeneratedDirectoryListingRefusesMalformedContent(t *testing.T) {
 	cases := map[string]*repb.Directory{
 		"traversal":            {Files: []*repb.FileNode{file("../escape", "x", false)}},
 		"duplicate":            {Files: []*repb.FileNode{file("x", "x", false), file("x", "y", false)}},

@@ -3,8 +3,9 @@ package run
 import (
 	"context"
 	"fmt"
-	runnerv1 "github.com/frontseat-dev/frontseat/server/internal/runnerapi/frontseat/runner/v1alpha1"
 	"slices"
+
+	"google.golang.org/protobuf/proto"
 
 	"github.com/frontseat-dev/frontseat/server/internal/engine/plan"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/source"
@@ -13,7 +14,7 @@ import (
 	"github.com/frontseat-dev/frontseat/server/internal/exec/stage"
 	"github.com/frontseat-dev/frontseat/server/internal/exec/tools"
 	"github.com/frontseat-dev/frontseat/server/internal/model"
-	"google.golang.org/protobuf/proto"
+	runnerv1 "github.com/frontseat-dev/frontseat/server/internal/runnerapi/frontseat/runner/v1alpha1"
 )
 
 // forNeeds prevents runtime-only artifacts from being handed to the consuming

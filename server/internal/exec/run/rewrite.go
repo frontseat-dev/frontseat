@@ -2,17 +2,19 @@ package run
 
 import (
 	"fmt"
-	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
-	"github.com/frontseat-dev/frontseat/sdk/go/entity"
-	"github.com/frontseat-dev/frontseat/server/internal/engine/plan"
-	"github.com/frontseat-dev/frontseat/server/internal/engine/source"
-	"google.golang.org/protobuf/types/known/durationpb"
-	"google.golang.org/protobuf/types/known/timestamppb"
 	"path"
 	"path/filepath"
 	"slices"
 	"strings"
 	"time"
+
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
+	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
+	"github.com/frontseat-dev/frontseat/sdk/go/entity"
+	"github.com/frontseat-dev/frontseat/server/internal/engine/plan"
+	"github.com/frontseat-dev/frontseat/server/internal/engine/source"
 )
 
 // inStep ends the host's action over an entity's catalog file, which the
