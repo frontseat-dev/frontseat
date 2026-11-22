@@ -24,6 +24,10 @@ func (k *keeper) SetCredential(_ context.Context, req *credentialv1.SetCredentia
 	return &credentialv1.SetCredentialResponse{}, nil
 }
 
+func (k *keeper) ListCredentials(context.Context, *credentialv1.ListCredentialsRequest) (*credentialv1.ListCredentialsResponse, error) {
+	return &credentialv1.ListCredentialsResponse{Credentials: []*credentialv1.Credential{{Host: "forge.example", Username: "someone"}, {Host: "http://forge.test:8080"}}}, nil
+}
+
 func (k *keeper) DeleteCredential(_ context.Context, req *credentialv1.DeleteCredentialRequest) (*credentialv1.DeleteCredentialResponse, error) {
 	k.forgot = append(k.forgot, req.GetHost())
 	return &credentialv1.DeleteCredentialResponse{}, nil
@@ -40,7 +44,7 @@ func TestACredentialIsReadFromStandardInputAndHandedToTheServer(t *testing.T) {
 	}
 
 	typed("a-made-up-secret\n")
-	printed, code, err := runAt(t, context.Background(), "", "workspace", "credential", "forge.example", "--username", "someone")
+	printed, code, err := runAt(t, context.Background(), "", "credential", "set", "forge.example", "--username", "someone")
 	if err != nil || code != 0 {
 		t.Fatalf("giving a credential ended %d, %v", code, err)
 	}
@@ -54,7 +58,7 @@ func TestACredentialIsReadFromStandardInputAndHandedToTheServer(t *testing.T) {
 	// No secret, or one of several lines, is not handed over.
 	for name, secret := range map[string]string{"nothing": "", "two lines": "one\ntwo\n"} {
 		typed(secret)
-		if _, _, err := runAt(t, context.Background(), "", "workspace", "credential", "forge.example"); err == nil || !strings.Contains(err.Error(), "one line") {
+		if _, _, err := runAt(t, context.Background(), "", "credential", "set", "forge.example"); err == nil || !strings.Contains(err.Error(), "one line") {
 			t.Errorf("%s on standard input: %v, want it refused", name, err)
 		}
 	}
@@ -63,13 +67,28 @@ func TestACredentialIsReadFromStandardInputAndHandedToTheServer(t *testing.T) {
 	}
 
 	// A secret is no argument.
-	if _, _, err := runAt(t, context.Background(), "", "workspace", "credential", "forge.example", "a-made-up-secret"); err == nil {
+	if _, _, err := runAt(t, context.Background(), "", "credential", "set", "forge.example", "a-made-up-secret"); err == nil {
 		t.Error("a secret given as an argument was taken")
 	}
 
-	// With --forget the server lets go of it, and nothing is read.
+	// credential delete has the server let go of it, and reads nothing.
 	typed("")
-	if _, code, err := runAt(t, context.Background(), "", "workspace", "credential", "forge.example", "--forget"); err != nil || code != 0 || len(k.forgot) != 1 || k.forgot[0] != "forge.example" {
+	if _, code, err := runAt(t, context.Background(), "", "credential", "delete", "forge.example"); err != nil || code != 0 || len(k.forgot) != 1 || k.forgot[0] != "forge.example" {
 		t.Errorf("letting go of a credential ended %d, %v, and the server forgot %v", code, err, k.forgot)
+	}
+}
+
+// credential list lists your credentials by host, and who each is of,
+// and no secret.
+func TestCredentialListListsYourCredentialsByHost(t *testing.T) {
+	serverAt(t, serving(t, func(api *connect.Server) { credentialv1alpha1connect.RegisterCredentialServiceHandler(api, &keeper{}) }))
+	printed, code, err := runAt(t, context.Background(), "", "credential", "list")
+	if err != nil || code != 0 || printed != "forge.example  someone\nhttp://forge.test:8080\n" {
+		t.Errorf("credential list printed %q, exit %d, %v", printed, code, err)
+	}
+	for _, args := range [][]string{{"workspace", "credential", "forge.example"}, {"credential", "forge.example"}, {"credential", "set", "forge.example", "--forget"}} {
+		if _, _, err := runAt(t, context.Background(), "", args...); err == nil {
+			t.Errorf("%v was taken", args)
+		}
 	}
 }

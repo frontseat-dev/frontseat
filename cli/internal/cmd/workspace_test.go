@@ -212,14 +212,12 @@ func TestWholeIsSaidOfTheEntitiesAddedAlone(t *testing.T) {
 }
 
 // Flags that say two things at once are refused, and neither is done:
-// a credential let go of and said to be someone's, an SSH client's
-// connection carried and its host printed, a host printed and a command
-// run. The controls are each alone.
+// an SSH client's connection carried and its host printed, a host
+// printed and a command run. The control is --config alone.
 func TestFlagsThatDoNotGoTogetherAreRefused(t *testing.T) {
 	k := &keeper{}
 	serverAt(t, serving(t, func(api *connect.Server) { credentialv1alpha1connect.RegisterCredentialServiceHandler(api, k) }))
 	for _, command := range [][]string{
-		{"workspace", "credential", "forge.example", "--forget", "--username", "someone"},
 		{"workspace", "ssh", "--stdio", "--config"},
 		{"workspace", "ssh", "--config", "--", "ls"},
 		{"workspace", "ssh", "--stdio", "--", "ls"},
@@ -231,9 +229,6 @@ func TestFlagsThatDoNotGoTogetherAreRefused(t *testing.T) {
 	}
 	if len(k.forgot)+len(k.given) != 0 {
 		t.Errorf("what was refused had the control plane forget %v and keep %v", k.forgot, k.given)
-	}
-	if _, _, err := runAt(t, context.Background(), "", "workspace", "credential", "forge.example", "--forget"); err != nil || len(k.forgot) != 1 {
-		t.Errorf("the control: --forget alone: %v, forgot %v", err, k.forgot)
 	}
 	if printed, _, err := runAt(t, context.Background(), "", "workspace", "ssh", "--config"); err != nil || !strings.HasPrefix(printed, "Host frontseat-workspace\n") {
 		t.Errorf("the control: --config alone printed %q (%v)", printed, err)
