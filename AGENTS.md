@@ -649,8 +649,9 @@ the change that fixes it.
 
 - A package or crate is named for what it is: no `util`, `common` or
   `helpers`. A test file is named for its subject, never for the
-  occasion it was written on (a review, a proof of concept, a proof):
-  `TestATestFileIsNamedForItsSubject`.
+  occasion it was written on (a review, a proof of concept, a proof),
+  and so is a test: `TestATestFileIsNamedForItsSubject`,
+  `TestATestIsNamedForItsSubject` (a Go test's name, word by word).
 - Test support for one package is `<package>test` beside it
   (`sourcetest`, `reapitest`, `plantest`, `toolstest`), as Go's
   `httptest`; test support shared across packages, and what starts a
