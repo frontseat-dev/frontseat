@@ -72,7 +72,7 @@ const (
 	// STATE_ENDING: it was deleted, and its provider has not finished
 	// removing it. Until it is gone, the only call it takes is
 	// DeleteSandbox, again.
-	Sandbox_STATE_ENDING Sandbox_State = 6
+	Sandbox_STATE_ENDING Sandbox_State = 5
 )
 
 // Enum value maps for Sandbox_State.
@@ -83,7 +83,7 @@ var (
 		2: "STATE_RUNNING",
 		3: "STATE_PAUSED",
 		4: "STATE_FAILED",
-		6: "STATE_ENDING",
+		5: "STATE_ENDING",
 	}
 	Sandbox_State_value = map[string]int32{
 		"STATE_UNSPECIFIED": 0,
@@ -91,7 +91,7 @@ var (
 		"STATE_RUNNING":     2,
 		"STATE_PAUSED":      3,
 		"STATE_FAILED":      4,
-		"STATE_ENDING":      6,
+		"STATE_ENDING":      5,
 	}
 )
 
@@ -192,7 +192,7 @@ const (
 	Volume_KIND_EPHEMERAL Volume_Kind = 1
 	// KIND_HOST: a directory of the provider's host, such as a
 	// developer's checkout on their own machine.
-	Volume_KIND_HOST Volume_Kind = 3
+	Volume_KIND_HOST Volume_Kind = 2
 )
 
 // Enum value maps for Volume_Kind.
@@ -200,12 +200,12 @@ var (
 	Volume_Kind_name = map[int32]string{
 		0: "KIND_UNSPECIFIED",
 		1: "KIND_EPHEMERAL",
-		3: "KIND_HOST",
+		2: "KIND_HOST",
 	}
 	Volume_Kind_value = map[string]int32{
 		"KIND_UNSPECIFIED": 0,
 		"KIND_EPHEMERAL":   1,
-		"KIND_HOST":        3,
+		"KIND_HOST":        2,
 	}
 )
 
@@ -246,14 +246,14 @@ type Sandbox struct {
 	// State is where it is.
 	State Sandbox_State `protobuf:"varint,3,opt,name=state,proto3,enum=frontseat.sandbox.v1alpha1.Sandbox_State" json:"state,omitempty"`
 	// Driver is the driver that made it.
-	Driver string `protobuf:"bytes,5,opt,name=driver,proto3" json:"driver,omitempty"`
+	Driver string `protobuf:"bytes,4,opt,name=driver,proto3" json:"driver,omitempty"`
 	// Endpoints are how its ports are reached.
-	Endpoints []*Endpoint `protobuf:"bytes,6,rep,name=endpoints,proto3" json:"endpoints,omitempty"`
+	Endpoints []*Endpoint `protobuf:"bytes,5,rep,name=endpoints,proto3" json:"endpoints,omitempty"`
 	// `create_time` is when it was made.
-	CreateTime *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=create_time,json=createTime,proto3" json:"create_time,omitempty"`
+	CreateTime *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=create_time,json=createTime,proto3" json:"create_time,omitempty"`
 	// Failure says, for a sandbox that failed, what its driver said of
 	// why; empty where it said nothing.
-	Failure       string `protobuf:"bytes,9,opt,name=failure,proto3" json:"failure,omitempty"`
+	Failure       string `protobuf:"bytes,7,opt,name=failure,proto3" json:"failure,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -348,39 +348,39 @@ type SandboxSpec struct {
 	// the wrapper, then the image's entrypoint and the arguments (or the
 	// image's own command), as one command line, as `tini --` is run before
 	// a command. Empty for none.
-	Wrapper []string `protobuf:"bytes,15,rep,name=wrapper,proto3" json:"wrapper,omitempty"`
+	Wrapper []string `protobuf:"bytes,3,rep,name=wrapper,proto3" json:"wrapper,omitempty"`
 	// `user_id` is the user its first process runs as, by number; zero
 	// for its image's own. No sandbox is asked to run as root.
-	UserId uint32 `protobuf:"varint,16,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	UserId uint32 `protobuf:"varint,4,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	// Writable are the directories of its image it may write, each an
 	// absolute path, beside its own temporary directory and what is
 	// mounted in it. Under a driver that does not restrict what a sandbox
 	// writes, they change nothing: the sandbox may write them as it may
 	// write the rest of its image.
-	Writable []string `protobuf:"bytes,17,rep,name=writable,proto3" json:"writable,omitempty"`
+	Writable []string `protobuf:"bytes,5,rep,name=writable,proto3" json:"writable,omitempty"`
 	// Environment is the environment its first process starts with.
-	Environment map[string]string `protobuf:"bytes,3,rep,name=environment,proto3" json:"environment,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Environment map[string]string `protobuf:"bytes,6,rep,name=environment,proto3" json:"environment,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// Egress is what it may reach: every sandbox says.
 	Egress *Egress `protobuf:"bytes,7,opt,name=egress,proto3" json:"egress,omitempty"`
 	// Ports are the ports of it to make reachable.
-	Ports []int32 `protobuf:"varint,9,rep,packed,name=ports,proto3" json:"ports,omitempty"`
+	Ports []int32 `protobuf:"varint,8,rep,packed,name=ports,proto3" json:"ports,omitempty"`
 	// Volumes are the volumes mounted in it.
-	Volumes []*Volume `protobuf:"bytes,10,rep,name=volumes,proto3" json:"volumes,omitempty"`
+	Volumes []*Volume `protobuf:"bytes,9,rep,name=volumes,proto3" json:"volumes,omitempty"`
 	// Labels are for finding it.
-	Labels map[string]string `protobuf:"bytes,11,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Labels map[string]string `protobuf:"bytes,10,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// Containers are its further containers, each with an image of its
 	// own, started after its first and before it is running, and ended
 	// with it. They share its network: its loopback, and with
 	// Egress.MODE_BLOCK nothing more, which is how a test reaches its
 	// services and nothing else.
-	Containers []*Container `protobuf:"bytes,12,rep,name=containers,proto3" json:"containers,omitempty"`
+	Containers []*Container `protobuf:"bytes,11,rep,name=containers,proto3" json:"containers,omitempty"`
 	// `before_containers` is a command run in its first container before
 	// any further container starts, as when the first has something to
 	// set up that the others need. It is given only with further
 	// containers. Where the command fails, CreateSandbox fails, INTERNAL
 	// with no reason, and no sandbox is made. A driver that cannot run it
 	// refuses the sandbox, and makes nothing.
-	BeforeContainers *StartupGate `protobuf:"bytes,14,opt,name=before_containers,json=beforeContainers,proto3" json:"before_containers,omitempty"`
+	BeforeContainers *StartupGate `protobuf:"bytes,12,opt,name=before_containers,json=beforeContainers,proto3" json:"before_containers,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -571,7 +571,7 @@ type Container struct {
 	// Environment is the environment its first process starts with.
 	Environment map[string]string `protobuf:"bytes,4,rep,name=environment,proto3" json:"environment,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// Volumes are the volumes mounted in it.
-	Volumes       []*Volume `protobuf:"bytes,6,rep,name=volumes,proto3" json:"volumes,omitempty"`
+	Volumes       []*Volume `protobuf:"bytes,5,rep,name=volumes,proto3" json:"volumes,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -653,7 +653,7 @@ type Egress struct {
 	// none. A driver that cannot limit a rule to its programs or its
 	// requests, or that keeps no credential, refuses a rule that asks for
 	// that (CAPABILITY_NOT_SERVED).
-	Rules         []*EgressRule `protobuf:"bytes,3,rep,name=rules,proto3" json:"rules,omitempty"`
+	Rules         []*EgressRule `protobuf:"bytes,2,rep,name=rules,proto3" json:"rules,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2201,34 +2201,34 @@ const file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tB\x04\xe2A\x01\x03R\x02id\x12A\n" +
 	"\x04spec\x18\x02 \x01(\v2'.frontseat.sandbox.v1alpha1.SandboxSpecB\x04\xe2A\x01\x03R\x04spec\x12E\n" +
 	"\x05state\x18\x03 \x01(\x0e2).frontseat.sandbox.v1alpha1.Sandbox.StateB\x04\xe2A\x01\x03R\x05state\x12\x1c\n" +
-	"\x06driver\x18\x05 \x01(\tB\x04\xe2A\x01\x03R\x06driver\x12H\n" +
-	"\tendpoints\x18\x06 \x03(\v2$.frontseat.sandbox.v1alpha1.EndpointB\x04\xe2A\x01\x03R\tendpoints\x12A\n" +
-	"\vcreate_time\x18\b \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\n" +
+	"\x06driver\x18\x04 \x01(\tB\x04\xe2A\x01\x03R\x06driver\x12H\n" +
+	"\tendpoints\x18\x05 \x03(\v2$.frontseat.sandbox.v1alpha1.EndpointB\x04\xe2A\x01\x03R\tendpoints\x12A\n" +
+	"\vcreate_time\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\n" +
 	"createTime\x12\x1e\n" +
-	"\afailure\x18\t \x01(\tB\x04\xe2A\x01\x03R\afailure\"{\n" +
+	"\afailure\x18\a \x01(\tB\x04\xe2A\x01\x03R\afailure\"{\n" +
 	"\x05State\x12\x15\n" +
 	"\x11STATE_UNSPECIFIED\x10\x00\x12\x12\n" +
 	"\x0eSTATE_STARTING\x10\x01\x12\x11\n" +
 	"\rSTATE_RUNNING\x10\x02\x12\x10\n" +
 	"\fSTATE_PAUSED\x10\x03\x12\x10\n" +
 	"\fSTATE_FAILED\x10\x04\x12\x10\n" +
-	"\fSTATE_ENDING\x10\x06\"\xed\x05\n" +
+	"\fSTATE_ENDING\x10\x05\"\xed\x05\n" +
 	"\vSandboxSpec\x12\x1a\n" +
 	"\x05image\x18\x01 \x01(\tB\x04\xe2A\x01\x02R\x05image\x12\x1c\n" +
 	"\targuments\x18\x02 \x03(\tR\targuments\x12\x18\n" +
-	"\awrapper\x18\x0f \x03(\tR\awrapper\x12\x17\n" +
-	"\auser_id\x18\x10 \x01(\rR\x06userId\x12\x1a\n" +
-	"\bwritable\x18\x11 \x03(\tR\bwritable\x12Z\n" +
-	"\venvironment\x18\x03 \x03(\v28.frontseat.sandbox.v1alpha1.SandboxSpec.EnvironmentEntryR\venvironment\x12@\n" +
+	"\awrapper\x18\x03 \x03(\tR\awrapper\x12\x17\n" +
+	"\auser_id\x18\x04 \x01(\rR\x06userId\x12\x1a\n" +
+	"\bwritable\x18\x05 \x03(\tR\bwritable\x12Z\n" +
+	"\venvironment\x18\x06 \x03(\v28.frontseat.sandbox.v1alpha1.SandboxSpec.EnvironmentEntryR\venvironment\x12@\n" +
 	"\x06egress\x18\a \x01(\v2\".frontseat.sandbox.v1alpha1.EgressB\x04\xe2A\x01\x02R\x06egress\x12\x14\n" +
-	"\x05ports\x18\t \x03(\x05R\x05ports\x12<\n" +
-	"\avolumes\x18\n" +
-	" \x03(\v2\".frontseat.sandbox.v1alpha1.VolumeR\avolumes\x12K\n" +
-	"\x06labels\x18\v \x03(\v23.frontseat.sandbox.v1alpha1.SandboxSpec.LabelsEntryR\x06labels\x12E\n" +
+	"\x05ports\x18\b \x03(\x05R\x05ports\x12<\n" +
+	"\avolumes\x18\t \x03(\v2\".frontseat.sandbox.v1alpha1.VolumeR\avolumes\x12K\n" +
+	"\x06labels\x18\n" +
+	" \x03(\v23.frontseat.sandbox.v1alpha1.SandboxSpec.LabelsEntryR\x06labels\x12E\n" +
 	"\n" +
-	"containers\x18\f \x03(\v2%.frontseat.sandbox.v1alpha1.ContainerR\n" +
+	"containers\x18\v \x03(\v2%.frontseat.sandbox.v1alpha1.ContainerR\n" +
 	"containers\x12T\n" +
-	"\x11before_containers\x18\x0e \x01(\v2'.frontseat.sandbox.v1alpha1.StartupGateR\x10beforeContainers\x1a>\n" +
+	"\x11before_containers\x18\f \x01(\v2'.frontseat.sandbox.v1alpha1.StartupGateR\x10beforeContainers\x1a>\n" +
 	"\x10EnvironmentEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a9\n" +
@@ -2243,13 +2243,13 @@ const file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDesc = "" +
 	"\x05image\x18\x02 \x01(\tB\x04\xe2A\x01\x02R\x05image\x12\x1c\n" +
 	"\targuments\x18\x03 \x03(\tR\targuments\x12X\n" +
 	"\venvironment\x18\x04 \x03(\v26.frontseat.sandbox.v1alpha1.Container.EnvironmentEntryR\venvironment\x12<\n" +
-	"\avolumes\x18\x06 \x03(\v2\".frontseat.sandbox.v1alpha1.VolumeR\avolumes\x1a>\n" +
+	"\avolumes\x18\x05 \x03(\v2\".frontseat.sandbox.v1alpha1.VolumeR\avolumes\x1a>\n" +
 	"\x10EnvironmentEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xe2\x01\n" +
 	"\x06Egress\x12A\n" +
 	"\x04mode\x18\x01 \x01(\x0e2'.frontseat.sandbox.v1alpha1.Egress.ModeB\x04\xe2A\x01\x02R\x04mode\x12<\n" +
-	"\x05rules\x18\x03 \x03(\v2&.frontseat.sandbox.v1alpha1.EgressRuleR\x05rules\"W\n" +
+	"\x05rules\x18\x02 \x03(\v2&.frontseat.sandbox.v1alpha1.EgressRuleR\x05rules\"W\n" +
 	"\x04Mode\x12\x14\n" +
 	"\x10MODE_UNSPECIFIED\x10\x00\x12\x12\n" +
 	"\x0eMODE_ALLOW_ALL\x10\x01\x12\x15\n" +
@@ -2282,7 +2282,7 @@ const file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDesc = "" +
 	"\x04Kind\x12\x14\n" +
 	"\x10KIND_UNSPECIFIED\x10\x00\x12\x12\n" +
 	"\x0eKIND_EPHEMERAL\x10\x01\x12\r\n" +
-	"\tKIND_HOST\x10\x03\"<\n" +
+	"\tKIND_HOST\x10\x02\"<\n" +
 	"\bEndpoint\x12\x18\n" +
 	"\x04port\x18\x01 \x01(\x05B\x04\xe2A\x01\x03R\x04port\x12\x16\n" +
 	"\x03uri\x18\x02 \x01(\tB\x04\xe2A\x01\x03R\x03uri\"x\n" +

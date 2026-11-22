@@ -63,26 +63,26 @@ message Entity {
   frontseat.type.v1alpha1.EntityRef ref = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Repository is the workspace's name for the repository its catalog
   // file is in.
-  string repository = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
+  string repository = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Roots are the directories it governs, relative to the repository.
-  repeated string roots = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
+  repeated string roots = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
   // `depends_on` are the entities it depends on, from what its projects
   // require of what others provide.
-  repeated frontseat.type.v1alpha1.EntityRef depends_on = 6 [(google.api.field_behavior) = OUTPUT_ONLY];
+  repeated frontseat.type.v1alpha1.EntityRef depends_on = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Manifest is the catalog file that describes it, relative to the
   // repository; empty for an entity no catalog file of the workspace
   // describes.
-  string manifest = 7 [(google.api.field_behavior) = OUTPUT_ONLY];
+  string manifest = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Relations are what its catalog file says it is related to, and what
   // other entities' catalog files say of it, except between two
   // Components: there dependsOn and dependencyOf are what depends_on
   // says, from what their projects require, and never what a catalog
   // file says. They are sorted by type and target.
-  repeated EntityRelation relations = 8 [(google.api.field_behavior) = OUTPUT_ONLY];
+  repeated EntityRelation relations = 6 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Release is how it is released, as its settings resolve: for an
   // entity that owns projects, and for a system or a domain, whose
   // settings its members inherit. Unset for any other.
-  EntityRelease release = 9 [(google.api.field_behavior) = OUTPUT_ONLY];
+  EntityRelease release = 7 [(google.api.field_behavior) = OUTPUT_ONLY];
 }
 
 // EntityRelease is how an entity is released: what it is released as, and
@@ -108,19 +108,19 @@ message EntityRelease {
   // `versioning_strategy` is the versioning strategy its unit's next
   // version is asked of, as "<plugin>:<name>":
   // "release:conventional-commits".
-  string versioning_strategy = 8 [(google.api.field_behavior) = OUTPUT_ONLY];
+  string versioning_strategy = 6 [(google.api.field_behavior) = OUTPUT_ONLY];
   // `branching_strategy` is the branching strategy that says what a branch
   // releases of it, as "<plugin>:<name>": "release:github-flow".
-  string branching_strategy = 9 [(google.api.field_behavior) = OUTPUT_ONLY];
+  string branching_strategy = 7 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Prerelease is how a prerelease of its unit is spelled after its
   // version's dash, where its branch releases one: "{branch}-{timestamp}"
   // names it by the branch and by when its commit was made.
-  string prerelease = 10 [(google.api.field_behavior) = OUTPUT_ONLY];
+  string prerelease = 8 [(google.api.field_behavior) = OUTPUT_ONLY];
   // `prerelease_tag` is whether a prerelease of its unit is tagged.
-  bool prerelease_tag = 11 [(google.api.field_behavior) = OUTPUT_ONLY];
+  bool prerelease_tag = 9 [(google.api.field_behavior) = OUTPUT_ONLY];
   // `set_by` says, for each setting, which entity set it; a setting no
   // level sets is the default, and is not listed.
-  repeated ReleaseSettingOrigin set_by = 7 [(google.api.field_behavior) = OUTPUT_ONLY];
+  repeated ReleaseSettingOrigin set_by = 10 [(google.api.field_behavior) = OUTPUT_ONLY];
 }
 
 // ReleaseSettingOrigin is where one release setting came from.
@@ -154,23 +154,23 @@ message Project {
   // found it.
   ProjectRef ref = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Kind is what it is in its ecosystem, e.g. "go-module".
-  string kind = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
+  string kind = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Name is its name in its ecosystem.
-  string name = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
+  string name = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Manifest is the file it was found from, relative to the repository.
-  string manifest = 6 [(google.api.field_behavior) = OUTPUT_ONLY];
+  string manifest = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Owner is the entity that owns it; unset for one no entity governs.
-  frontseat.type.v1alpha1.EntityRef owner = 7 [(google.api.field_behavior) = OUTPUT_ONLY];
+  frontseat.type.v1alpha1.EntityRef owner = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Options are the options it is built with: every option its plugin
   // takes, each with the value that holds for this project and where
   // that value comes from.
-  repeated ProjectOption options = 8 [(google.api.field_behavior) = OUTPUT_ONLY];
+  repeated ProjectOption options = 6 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Provides are what it can be required by, each written
   // "<ecosystem>:<name>".
-  repeated string provides = 9 [(google.api.field_behavior) = OUTPUT_ONLY];
+  repeated string provides = 7 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Requires are what it requires: what its ecosystem's own files say it
   // needs, each with where that is said and what provides it.
-  repeated ProjectRequirement requires = 10 [(google.api.field_behavior) = OUTPUT_ONLY];
+  repeated ProjectRequirement requires = 8 [(google.api.field_behavior) = OUTPUT_ONLY];
 }
 
 // ProjectRequirement is one thing a project requires. Nobody writes it:
@@ -179,16 +179,16 @@ message ProjectRequirement {
   // Coordinate is what is required, written "<ecosystem>:<name>".
   string coordinate = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Origin is where it is said: a file of a repository, and its line.
-  frontseat.type.v1alpha1.SourceLocation origin = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
+  frontseat.type.v1alpha1.SourceLocation origin = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
   // `provider_project` is the project of the workspace that provides it;
   // unset for what is provided from outside the workspace.
-  ProjectRef provider_project = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
+  ProjectRef provider_project = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Version is the version the project's own files resolve it to, as
   // its ecosystem spells it ("v1.9.1" for Go, "1.0.228" for Cargo), as
   // the plugin that found the project read it; empty where they say
   // none. Where provider_project is set, what is built is that
   // project's source, whatever this says.
-  string version = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
+  string version = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
 }
 
 // ProjectRef names one project: a repository, a directory and the plugin

@@ -199,14 +199,14 @@ message Sandbox {
   // State is where it is.
   State state = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Driver is the driver that made it.
-  string driver = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
+  string driver = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Endpoints are how its ports are reached.
-  repeated Endpoint endpoints = 6 [(google.api.field_behavior) = OUTPUT_ONLY];
+  repeated Endpoint endpoints = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
   // `create_time` is when it was made.
-  google.protobuf.Timestamp create_time = 8 [(google.api.field_behavior) = OUTPUT_ONLY];
+  google.protobuf.Timestamp create_time = 6 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Failure says, for a sandbox that failed, what its driver said of
   // why; empty where it said nothing.
-  string failure = 9 [(google.api.field_behavior) = OUTPUT_ONLY];
+  string failure = 7 [(google.api.field_behavior) = OUTPUT_ONLY];
 
   // State is where a sandbox is.
   enum State {
@@ -224,7 +224,7 @@ message Sandbox {
     // STATE_ENDING: it was deleted, and its provider has not finished
     // removing it. Until it is gone, the only call it takes is
     // DeleteSandbox, again.
-    STATE_ENDING = 6;
+    STATE_ENDING = 5;
   }
 }
 
@@ -238,39 +238,39 @@ message SandboxSpec {
   // the wrapper, then the image's entrypoint and the arguments (or the
   // image's own command), as one command line, as `tini --` is run before
   // a command. Empty for none.
-  repeated string wrapper = 15;
+  repeated string wrapper = 3;
   // `user_id` is the user its first process runs as, by number; zero
   // for its image's own. No sandbox is asked to run as root.
-  uint32 user_id = 16;
+  uint32 user_id = 4;
   // Writable are the directories of its image it may write, each an
   // absolute path, beside its own temporary directory and what is
   // mounted in it. Under a driver that does not restrict what a sandbox
   // writes, they change nothing: the sandbox may write them as it may
   // write the rest of its image.
-  repeated string writable = 17;
+  repeated string writable = 5;
   // Environment is the environment its first process starts with.
-  map<string, string> environment = 3;
+  map<string, string> environment = 6;
   // Egress is what it may reach: every sandbox says.
   Egress egress = 7 [(google.api.field_behavior) = REQUIRED];
   // Ports are the ports of it to make reachable.
-  repeated int32 ports = 9;
+  repeated int32 ports = 8;
   // Volumes are the volumes mounted in it.
-  repeated Volume volumes = 10;
+  repeated Volume volumes = 9;
   // Labels are for finding it.
-  map<string, string> labels = 11;
+  map<string, string> labels = 10;
   // Containers are its further containers, each with an image of its
   // own, started after its first and before it is running, and ended
   // with it. They share its network: its loopback, and with
   // Egress.MODE_BLOCK nothing more, which is how a test reaches its
   // services and nothing else.
-  repeated Container containers = 12;
+  repeated Container containers = 11;
   // `before_containers` is a command run in its first container before
   // any further container starts, as when the first has something to
   // set up that the others need. It is given only with further
   // containers. Where the command fails, CreateSandbox fails, INTERNAL
   // with no reason, and no sandbox is made. A driver that cannot run it
   // refuses the sandbox, and makes nothing.
-  StartupGate before_containers = 14;
+  StartupGate before_containers = 12;
 }
 
 // StartupGate is a command a sandbox's first container runs before its
@@ -297,7 +297,7 @@ message Container {
   // Environment is the environment its first process starts with.
   map<string, string> environment = 4;
   // Volumes are the volumes mounted in it.
-  repeated Volume volumes = 6;
+  repeated Volume volumes = 5;
 }
 
 // Egress is what a sandbox may reach.
@@ -311,7 +311,7 @@ message Egress {
   // none. A driver that cannot limit a rule to its programs or its
   // requests, or that keeps no credential, refuses a rule that asks for
   // that (CAPABILITY_NOT_SERVED).
-  repeated EgressRule rules = 3;
+  repeated EgressRule rules = 2;
 
   // Mode is the rule for what a sandbox may reach.
   enum Mode {
@@ -394,7 +394,7 @@ message Volume {
     KIND_EPHEMERAL = 1;
     // KIND_HOST: a directory of the provider's host, such as a
     // developer's checkout on their own machine.
-    KIND_HOST = 3;
+    KIND_HOST = 2;
   }
 }
 

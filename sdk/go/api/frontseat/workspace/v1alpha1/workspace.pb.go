@@ -244,25 +244,25 @@ type WorkspaceSpec struct {
 	Entities []*v1alpha1.EntityRef `protobuf:"bytes,2,rep,name=entities,proto3" json:"entities,omitempty"`
 	// `whole_repositories` has the daemon clone every file of the
 	// entities' repositories, not only the directories the entities own.
-	WholeRepositories bool `protobuf:"varint,4,opt,name=whole_repositories,json=wholeRepositories,proto3" json:"whole_repositories,omitempty"`
+	WholeRepositories bool `protobuf:"varint,3,opt,name=whole_repositories,json=wholeRepositories,proto3" json:"whole_repositories,omitempty"`
 	// Push lets it push to the repositories named, with the credential the
 	// control plane keeps for their hosts. It is set when the workspace is
 	// made, and cannot be changed.
-	Push bool `protobuf:"varint,5,opt,name=push,proto3" json:"push,omitempty"`
+	Push bool `protobuf:"varint,4,opt,name=push,proto3" json:"push,omitempty"`
 	// Author is the name and address its commits are made under; empty
 	// for none. It is set when the workspace is made, and cannot be
 	// changed.
-	Author *Author `protobuf:"bytes,6,opt,name=author,proto3" json:"author,omitempty"`
+	Author *Author `protobuf:"bytes,5,opt,name=author,proto3" json:"author,omitempty"`
 	// `authorized_key` is the SSH public key that may open its shell, on one
 	// line, as an SSH client writes its own public key file; empty for a
 	// workspace no one opens a shell in. It is set when the workspace is
 	// made, and cannot be changed: CreateWorkspace for a workspace that is
 	// there is refused with another key, and with none returns the
 	// workspace as it was made.
-	AuthorizedKey string `protobuf:"bytes,7,opt,name=authorized_key,json=authorizedKey,proto3" json:"authorized_key,omitempty"`
+	AuthorizedKey string `protobuf:"bytes,6,opt,name=authorized_key,json=authorizedKey,proto3" json:"authorized_key,omitempty"`
 	// Image is the image its sandbox runs; empty for the control plane's
 	// own. It is set when the workspace is made, and cannot be changed.
-	Image string `protobuf:"bytes,8,opt,name=image,proto3" json:"image,omitempty"`
+	Image string `protobuf:"bytes,7,opt,name=image,proto3" json:"image,omitempty"`
 	// Lifetime is how long it lasts from when it was made (its
 	// create_time), whether or not it is used. After that the control
 	// plane ends it as DeleteWorkspace would: it is meant for the
@@ -271,7 +271,7 @@ type WorkspaceSpec struct {
 	// CreateWorkspace for a workspace that is there is refused with
 	// another lifetime, and with none returns the workspace as it was
 	// made.
-	Lifetime      *durationpb.Duration `protobuf:"bytes,9,opt,name=lifetime,proto3" json:"lifetime,omitempty"`
+	Lifetime      *durationpb.Duration `protobuf:"bytes,8,opt,name=lifetime,proto3" json:"lifetime,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -433,12 +433,12 @@ type WorkspaceStatus struct {
 	// Empty until the workspace has a sandbox.
 	BuildUri string `protobuf:"bytes,3,opt,name=build_uri,json=buildUri,proto3" json:"build_uri,omitempty"`
 	// Repositories are the repositories it holds, as its daemon says.
-	Repositories []*Repository `protobuf:"bytes,5,rep,name=repositories,proto3" json:"repositories,omitempty"`
+	Repositories []*Repository `protobuf:"bytes,4,rep,name=repositories,proto3" json:"repositories,omitempty"`
 	// Entities are what the entities it was asked for resolved to, and the
 	// components they depend on: each entity, and the repository and
 	// directory that hold it. They were resolved once, when each was
 	// asked for, and are not resolved again.
-	Entities      []*LocatedEntity `protobuf:"bytes,6,rep,name=entities,proto3" json:"entities,omitempty"`
+	Entities      []*LocatedEntity `protobuf:"bytes,5,rep,name=entities,proto3" json:"entities,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1313,12 +1313,12 @@ const file_frontseat_workspace_v1alpha1_workspace_proto_rawDesc = "" +
 	"\rWorkspaceSpec\x12R\n" +
 	"\frepositories\x18\x01 \x03(\v2..frontseat.workspace.v1alpha1.RepositorySourceR\frepositories\x12>\n" +
 	"\bentities\x18\x02 \x03(\v2\".frontseat.type.v1alpha1.EntityRefR\bentities\x12-\n" +
-	"\x12whole_repositories\x18\x04 \x01(\bR\x11wholeRepositories\x12\x12\n" +
-	"\x04push\x18\x05 \x01(\bR\x04push\x12<\n" +
-	"\x06author\x18\x06 \x01(\v2$.frontseat.workspace.v1alpha1.AuthorR\x06author\x12%\n" +
-	"\x0eauthorized_key\x18\a \x01(\tR\rauthorizedKey\x12\x14\n" +
-	"\x05image\x18\b \x01(\tR\x05image\x125\n" +
-	"\blifetime\x18\t \x01(\v2\x19.google.protobuf.DurationR\blifetime\"2\n" +
+	"\x12whole_repositories\x18\x03 \x01(\bR\x11wholeRepositories\x12\x12\n" +
+	"\x04push\x18\x04 \x01(\bR\x04push\x12<\n" +
+	"\x06author\x18\x05 \x01(\v2$.frontseat.workspace.v1alpha1.AuthorR\x06author\x12%\n" +
+	"\x0eauthorized_key\x18\x06 \x01(\tR\rauthorizedKey\x12\x14\n" +
+	"\x05image\x18\a \x01(\tR\x05image\x125\n" +
+	"\blifetime\x18\b \x01(\v2\x19.google.protobuf.DurationR\blifetime\"2\n" +
 	"\x06Author\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05email\x18\x02 \x01(\tR\x05email\"\xda\x03\n" +
@@ -1326,8 +1326,8 @@ const file_frontseat_workspace_v1alpha1_workspace_proto_rawDesc = "" +
 	"\x05state\x18\x01 \x01(\x0e23.frontseat.workspace.v1alpha1.WorkspaceStatus.StateB\x04\xe2A\x01\x03R\x05state\x12\x1e\n" +
 	"\afailure\x18\x02 \x01(\tB\x04\xe2A\x01\x03R\afailure\x12!\n" +
 	"\tbuild_uri\x18\x03 \x01(\tB\x04\xe2A\x01\x03R\bbuildUri\x12R\n" +
-	"\frepositories\x18\x05 \x03(\v2(.frontseat.workspace.v1alpha1.RepositoryB\x04\xe2A\x01\x03R\frepositories\x12M\n" +
-	"\bentities\x18\x06 \x03(\v2+.frontseat.workspace.v1alpha1.LocatedEntityB\x04\xe2A\x01\x03R\bentities\"\x8f\x01\n" +
+	"\frepositories\x18\x04 \x03(\v2(.frontseat.workspace.v1alpha1.RepositoryB\x04\xe2A\x01\x03R\frepositories\x12M\n" +
+	"\bentities\x18\x05 \x03(\v2+.frontseat.workspace.v1alpha1.LocatedEntityB\x04\xe2A\x01\x03R\bentities\"\x8f\x01\n" +
 	"\x05State\x12\x15\n" +
 	"\x11STATE_UNSPECIFIED\x10\x00\x12\x12\n" +
 	"\x0eSTATE_STARTING\x10\x01\x12\x14\n" +

@@ -187,7 +187,7 @@ const (
 	// STAGE_EVALUATING: reading the source and asking the plugins.
 	Build_STAGE_EVALUATING Build_Stage = 1
 	// STAGE_EXECUTING: running actions.
-	Build_STAGE_EXECUTING Build_Stage = 3
+	Build_STAGE_EXECUTING Build_Stage = 2
 )
 
 // Enum value maps for Build_Stage.
@@ -195,12 +195,12 @@ var (
 	Build_Stage_name = map[int32]string{
 		0: "STAGE_UNSPECIFIED",
 		1: "STAGE_EVALUATING",
-		3: "STAGE_EXECUTING",
+		2: "STAGE_EXECUTING",
 	}
 	Build_Stage_value = map[string]int32{
 		"STAGE_UNSPECIFIED": 0,
 		"STAGE_EVALUATING":  1,
-		"STAGE_EXECUTING":   3,
+		"STAGE_EXECUTING":   2,
 	}
 )
 
@@ -295,35 +295,35 @@ type Build struct {
 	// Id is the build's id, "build_" and what the server chose.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// Targets are the targets asked for, as they were written.
-	Targets []string `protobuf:"bytes,3,rep,name=targets,proto3" json:"targets,omitempty"`
+	Targets []string `protobuf:"bytes,2,rep,name=targets,proto3" json:"targets,omitempty"`
 	// State is where the build is.
-	State Build_State `protobuf:"varint,5,opt,name=state,proto3,enum=frontseat.build.v1alpha1.Build_State" json:"state,omitempty"`
+	State Build_State `protobuf:"varint,3,opt,name=state,proto3,enum=frontseat.build.v1alpha1.Build_State" json:"state,omitempty"`
 	// Stage is what a running build is doing now.
-	Stage Build_Stage `protobuf:"varint,6,opt,name=stage,proto3,enum=frontseat.build.v1alpha1.Build_Stage" json:"stage,omitempty"`
+	Stage Build_Stage `protobuf:"varint,4,opt,name=stage,proto3,enum=frontseat.build.v1alpha1.Build_Stage" json:"stage,omitempty"`
 	// `exit_code` is how the build ended, by Bazel's names; unspecified
 	// until it has.
-	ExitCode ExitCode `protobuf:"varint,7,opt,name=exit_code,json=exitCode,proto3,enum=frontseat.build.v1alpha1.ExitCode" json:"exit_code,omitempty"`
+	ExitCode ExitCode `protobuf:"varint,5,opt,name=exit_code,json=exitCode,proto3,enum=frontseat.build.v1alpha1.ExitCode" json:"exit_code,omitempty"`
 	// Failure says, for a build that ended in an error no action explains,
 	// what went wrong. Describing a failed build still succeeds. Empty for a
 	// build that did not so fail.
-	Failure string `protobuf:"bytes,18,opt,name=failure,proto3" json:"failure,omitempty"`
+	Failure string `protobuf:"bytes,6,opt,name=failure,proto3" json:"failure,omitempty"`
 	// Diagnostics are what the source was found to say wrong, where that is
 	// the failure: each a rule, a message, a source location and what to
 	// do, as the plugin or the host that found it says them, so that a
 	// client reads the file and the rule without parsing the failure.
-	Diagnostics []*v1alpha1.Diagnostic `protobuf:"bytes,19,rep,name=diagnostics,proto3" json:"diagnostics,omitempty"`
+	Diagnostics []*v1alpha1.Diagnostic `protobuf:"bytes,7,rep,name=diagnostics,proto3" json:"diagnostics,omitempty"`
 	// `create_time` is when the build was made.
-	CreateTime *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=create_time,json=createTime,proto3" json:"create_time,omitempty"`
+	CreateTime *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=create_time,json=createTime,proto3" json:"create_time,omitempty"`
 	// `end_time` is when it ended; unset until it has.
-	EndTime *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=end_time,json=endTime,proto3" json:"end_time,omitempty"`
+	EndTime *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=end_time,json=endTime,proto3" json:"end_time,omitempty"`
 	// Counts are its actions by outcome, as they stand.
-	Counts *Counts `protobuf:"bytes,13,opt,name=counts,proto3" json:"counts,omitempty"`
+	Counts *Counts `protobuf:"bytes,10,opt,name=counts,proto3" json:"counts,omitempty"`
 	// Cost is what the build used.
-	Cost *Cost `protobuf:"bytes,15,opt,name=cost,proto3" json:"cost,omitempty"`
+	Cost *Cost `protobuf:"bytes,11,opt,name=cost,proto3" json:"cost,omitempty"`
 	// Profile is the profile the source was built with: never unspecified.
-	Profile v1alpha1.Profile `protobuf:"varint,17,opt,name=profile,proto3,enum=frontseat.type.v1alpha1.Profile" json:"profile,omitempty"`
+	Profile v1alpha1.Profile `protobuf:"varint,12,opt,name=profile,proto3,enum=frontseat.type.v1alpha1.Profile" json:"profile,omitempty"`
 	// `last_sequence` is the sequence of the build's latest event.
-	LastSequence  int64 `protobuf:"varint,16,opt,name=last_sequence,json=lastSequence,proto3" json:"last_sequence,omitempty"`
+	LastSequence  int64 `protobuf:"varint,13,opt,name=last_sequence,json=lastSequence,proto3" json:"last_sequence,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -648,25 +648,25 @@ type ActionResult struct {
 	Message string `protobuf:"bytes,7,opt,name=message,proto3" json:"message,omitempty"`
 	// `action_digest` is the action's digest on the grid: what a portal links
 	// to, and what two builds are compared by.
-	ActionDigest *Digest `protobuf:"bytes,9,opt,name=action_digest,json=actionDigest,proto3" json:"action_digest,omitempty"`
+	ActionDigest *Digest `protobuf:"bytes,8,opt,name=action_digest,json=actionDigest,proto3" json:"action_digest,omitempty"`
 	// `start_time` is when it started; unset for one answered from a cache.
-	StartTime *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=start_time,json=startTime,proto3" json:"start_time,omitempty"`
+	StartTime *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=start_time,json=startTime,proto3" json:"start_time,omitempty"`
 	// Duration is how long it took, as the build saw it.
-	Duration *durationpb.Duration `protobuf:"bytes,11,opt,name=duration,proto3" json:"duration,omitempty"`
+	Duration *durationpb.Duration `protobuf:"bytes,10,opt,name=duration,proto3" json:"duration,omitempty"`
 	// `worker_time` is how long a worker spent running it, as the worker
 	// says; unset for one no worker ran for this build. What a build cost its
 	// workers is the sum of these.
-	WorkerTime *durationpb.Duration `protobuf:"bytes,12,opt,name=worker_time,json=workerTime,proto3" json:"worker_time,omitempty"`
+	WorkerTime *durationpb.Duration `protobuf:"bytes,11,opt,name=worker_time,json=workerTime,proto3" json:"worker_time,omitempty"`
 	// Stdout is what it printed.
-	Stdout *Digest `protobuf:"bytes,13,opt,name=stdout,proto3" json:"stdout,omitempty"`
+	Stdout *Digest `protobuf:"bytes,12,opt,name=stdout,proto3" json:"stdout,omitempty"`
 	// Stderr is what it printed to standard error.
-	Stderr *Digest `protobuf:"bytes,14,opt,name=stderr,proto3" json:"stderr,omitempty"`
+	Stderr *Digest `protobuf:"bytes,13,opt,name=stderr,proto3" json:"stderr,omitempty"`
 	// Diagnostics are what a check found, as its plugin reports them: each
 	// a rule, a message, a source location and what to do.
-	Diagnostics []*v1alpha1.Diagnostic `protobuf:"bytes,15,rep,name=diagnostics,proto3" json:"diagnostics,omitempty"`
+	Diagnostics []*v1alpha1.Diagnostic `protobuf:"bytes,14,rep,name=diagnostics,proto3" json:"diagnostics,omitempty"`
 	// Rewrites are the changes to source a check proposed, and whether the
 	// build wrote them.
-	Rewrites      []*Rewrite `protobuf:"bytes,16,rep,name=rewrites,proto3" json:"rewrites,omitempty"`
+	Rewrites      []*Rewrite `protobuf:"bytes,15,rep,name=rewrites,proto3" json:"rewrites,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -904,25 +904,25 @@ type CreateBuildRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Targets select what to run it over, in the target grammar; empty is
 	// everything in the workspace.
-	Targets []string `protobuf:"bytes,2,rep,name=targets,proto3" json:"targets,omitempty"`
+	Targets []string `protobuf:"bytes,1,rep,name=targets,proto3" json:"targets,omitempty"`
 	// Fix asks that each check with a fix has it run where the checkout
 	// is, before the check, and what it changes written to the daemon's
 	// checkout; without it a check only reports, and fails the build.
-	Fix bool `protobuf:"varint,5,opt,name=fix,proto3" json:"fix,omitempty"`
+	Fix bool `protobuf:"varint,2,opt,name=fix,proto3" json:"fix,omitempty"`
 	// Profile is the profile the source is built with. Unspecified, it is
 	// PROFILE_DEVELOPMENT. A build may ask for PROFILE_PRODUCTION, to see
 	// that what will be released builds: a release builds with it.
-	Profile v1alpha1.Profile `protobuf:"varint,12,opt,name=profile,proto3,enum=frontseat.type.v1alpha1.Profile" json:"profile,omitempty"`
+	Profile v1alpha1.Profile `protobuf:"varint,3,opt,name=profile,proto3,enum=frontseat.type.v1alpha1.Profile" json:"profile,omitempty"`
 	// Only keeps the actions that have one of these names, such as
 	// "lint", of whatever the targets point at. Empty keeps every action.
 	// A name no action has fails the build, which says so in its failure.
-	Only []string `protobuf:"bytes,13,rep,name=only,proto3" json:"only,omitempty"`
+	Only []string `protobuf:"bytes,4,rep,name=only,proto3" json:"only,omitempty"`
 	// Tests keeps the actions that run tests, as the plugin that declared
 	// each says (its test flag), of whatever the targets point at, and
 	// what they need. Where they hold none, the build runs nothing and
 	// ends EXIT_CODE_NO_TESTS_FOUND, saying so in its failure, as Bazel
 	// ends `bazel test` with no test targets.
-	Tests bool `protobuf:"varint,15,opt,name=tests,proto3" json:"tests,omitempty"`
+	Tests bool `protobuf:"varint,5,opt,name=tests,proto3" json:"tests,omitempty"`
 	// `request_id` makes a retry return the build the first call made: a
 	// client that lost the answer sends the same request again with it.
 	// It is at most 128 bytes; a UUID serves. The daemon remembers the
@@ -931,7 +931,7 @@ type CreateBuildRequest struct {
 	// again since, starts another build. What is sent with it again is
 	// not compared with the first request. Empty, every call starts a
 	// build.
-	RequestId     string `protobuf:"bytes,14,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	RequestId     string `protobuf:"bytes,6,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1550,10 +1550,10 @@ type ListBuildActionsRequest struct {
 	BuildId string `protobuf:"bytes,1,opt,name=build_id,json=buildId,proto3" json:"build_id,omitempty"`
 	// `page_size` is the most actions to return; zero is a hundred, and more
 	// than a thousand is a thousand.
-	PageSize int32 `protobuf:"varint,3,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	PageSize int32 `protobuf:"varint,2,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
 	// `page_token` is the next_page_token of the page before; empty for the
 	// first page.
-	PageToken     string `protobuf:"bytes,4,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	PageToken     string `protobuf:"bytes,3,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2393,19 +2393,20 @@ const file_frontseat_build_v1alpha1_build_proto_rawDesc = "" +
 	"$frontseat/build/v1alpha1/build.proto\x12\x18frontseat.build.v1alpha1\x1a$frontseat/build/v1alpha1/types.proto\x1a(frontseat/type/v1alpha1/diagnostic.proto\x1a#frontseat/type/v1alpha1/types.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x98\a\n" +
 	"\x05Build\x12\x14\n" +
 	"\x02id\x18\x01 \x01(\tB\x04\xe2A\x01\x03R\x02id\x12\x1e\n" +
-	"\atargets\x18\x03 \x03(\tB\x04\xe2A\x01\x03R\atargets\x12A\n" +
-	"\x05state\x18\x05 \x01(\x0e2%.frontseat.build.v1alpha1.Build.StateB\x04\xe2A\x01\x03R\x05state\x12A\n" +
-	"\x05stage\x18\x06 \x01(\x0e2%.frontseat.build.v1alpha1.Build.StageB\x04\xe2A\x01\x03R\x05stage\x12E\n" +
-	"\texit_code\x18\a \x01(\x0e2\".frontseat.build.v1alpha1.ExitCodeB\x04\xe2A\x01\x03R\bexitCode\x12\x1e\n" +
-	"\afailure\x18\x12 \x01(\tB\x04\xe2A\x01\x03R\afailure\x12K\n" +
-	"\vdiagnostics\x18\x13 \x03(\v2#.frontseat.type.v1alpha1.DiagnosticB\x04\xe2A\x01\x03R\vdiagnostics\x12A\n" +
-	"\vcreate_time\x18\v \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\n" +
+	"\atargets\x18\x02 \x03(\tB\x04\xe2A\x01\x03R\atargets\x12A\n" +
+	"\x05state\x18\x03 \x01(\x0e2%.frontseat.build.v1alpha1.Build.StateB\x04\xe2A\x01\x03R\x05state\x12A\n" +
+	"\x05stage\x18\x04 \x01(\x0e2%.frontseat.build.v1alpha1.Build.StageB\x04\xe2A\x01\x03R\x05stage\x12E\n" +
+	"\texit_code\x18\x05 \x01(\x0e2\".frontseat.build.v1alpha1.ExitCodeB\x04\xe2A\x01\x03R\bexitCode\x12\x1e\n" +
+	"\afailure\x18\x06 \x01(\tB\x04\xe2A\x01\x03R\afailure\x12K\n" +
+	"\vdiagnostics\x18\a \x03(\v2#.frontseat.type.v1alpha1.DiagnosticB\x04\xe2A\x01\x03R\vdiagnostics\x12A\n" +
+	"\vcreate_time\x18\b \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\n" +
 	"createTime\x12;\n" +
-	"\bend_time\x18\f \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\aendTime\x12>\n" +
-	"\x06counts\x18\r \x01(\v2 .frontseat.build.v1alpha1.CountsB\x04\xe2A\x01\x03R\x06counts\x128\n" +
-	"\x04cost\x18\x0f \x01(\v2\x1e.frontseat.build.v1alpha1.CostB\x04\xe2A\x01\x03R\x04cost\x12@\n" +
-	"\aprofile\x18\x11 \x01(\x0e2 .frontseat.type.v1alpha1.ProfileB\x04\xe2A\x01\x03R\aprofile\x12)\n" +
-	"\rlast_sequence\x18\x10 \x01(\x03B\x04\xe2A\x01\x03R\flastSequence\"m\n" +
+	"\bend_time\x18\t \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\aendTime\x12>\n" +
+	"\x06counts\x18\n" +
+	" \x01(\v2 .frontseat.build.v1alpha1.CountsB\x04\xe2A\x01\x03R\x06counts\x128\n" +
+	"\x04cost\x18\v \x01(\v2\x1e.frontseat.build.v1alpha1.CostB\x04\xe2A\x01\x03R\x04cost\x12@\n" +
+	"\aprofile\x18\f \x01(\x0e2 .frontseat.type.v1alpha1.ProfileB\x04\xe2A\x01\x03R\aprofile\x12)\n" +
+	"\rlast_sequence\x18\r \x01(\x03B\x04\xe2A\x01\x03R\flastSequence\"m\n" +
 	"\x05State\x12\x15\n" +
 	"\x11STATE_UNSPECIFIED\x10\x00\x12\x11\n" +
 	"\rSTATE_RUNNING\x10\x01\x12\x13\n" +
@@ -2415,7 +2416,7 @@ const file_frontseat_build_v1alpha1_build_proto_rawDesc = "" +
 	"\x05Stage\x12\x15\n" +
 	"\x11STAGE_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10STAGE_EVALUATING\x10\x01\x12\x13\n" +
-	"\x0fSTAGE_EXECUTING\x10\x03\"\x82\x02\n" +
+	"\x0fSTAGE_EXECUTING\x10\x02\"\x82\x02\n" +
 	"\x06Counts\x12\x1a\n" +
 	"\x05total\x18\x01 \x01(\x05B\x04\xe2A\x01\x03R\x05total\x12\x1c\n" +
 	"\x06passed\x18\x02 \x01(\x05B\x04\xe2A\x01\x03R\x06passed\x12\x1c\n" +
@@ -2440,17 +2441,17 @@ const file_frontseat_build_v1alpha1_build_proto_rawDesc = "" +
 	"provenance\x12!\n" +
 	"\texit_code\x18\x06 \x01(\x05B\x04\xe2A\x01\x03R\bexitCode\x12\x1e\n" +
 	"\amessage\x18\a \x01(\tB\x04\xe2A\x01\x03R\amessage\x12K\n" +
-	"\raction_digest\x18\t \x01(\v2 .frontseat.build.v1alpha1.DigestB\x04\xe2A\x01\x03R\factionDigest\x12?\n" +
+	"\raction_digest\x18\b \x01(\v2 .frontseat.build.v1alpha1.DigestB\x04\xe2A\x01\x03R\factionDigest\x12?\n" +
 	"\n" +
-	"start_time\x18\n" +
-	" \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\tstartTime\x12;\n" +
-	"\bduration\x18\v \x01(\v2\x19.google.protobuf.DurationB\x04\xe2A\x01\x03R\bduration\x12@\n" +
-	"\vworker_time\x18\f \x01(\v2\x19.google.protobuf.DurationB\x04\xe2A\x01\x03R\n" +
+	"start_time\x18\t \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\tstartTime\x12;\n" +
+	"\bduration\x18\n" +
+	" \x01(\v2\x19.google.protobuf.DurationB\x04\xe2A\x01\x03R\bduration\x12@\n" +
+	"\vworker_time\x18\v \x01(\v2\x19.google.protobuf.DurationB\x04\xe2A\x01\x03R\n" +
 	"workerTime\x12>\n" +
-	"\x06stdout\x18\r \x01(\v2 .frontseat.build.v1alpha1.DigestB\x04\xe2A\x01\x03R\x06stdout\x12>\n" +
-	"\x06stderr\x18\x0e \x01(\v2 .frontseat.build.v1alpha1.DigestB\x04\xe2A\x01\x03R\x06stderr\x12K\n" +
-	"\vdiagnostics\x18\x0f \x03(\v2#.frontseat.type.v1alpha1.DiagnosticB\x04\xe2A\x01\x03R\vdiagnostics\x12C\n" +
-	"\brewrites\x18\x10 \x03(\v2!.frontseat.build.v1alpha1.RewriteB\x04\xe2A\x01\x03R\brewrites\"\x8f\x03\n" +
+	"\x06stdout\x18\f \x01(\v2 .frontseat.build.v1alpha1.DigestB\x04\xe2A\x01\x03R\x06stdout\x12>\n" +
+	"\x06stderr\x18\r \x01(\v2 .frontseat.build.v1alpha1.DigestB\x04\xe2A\x01\x03R\x06stderr\x12K\n" +
+	"\vdiagnostics\x18\x0e \x03(\v2#.frontseat.type.v1alpha1.DiagnosticB\x04\xe2A\x01\x03R\vdiagnostics\x12C\n" +
+	"\brewrites\x18\x0f \x03(\v2!.frontseat.build.v1alpha1.RewriteB\x04\xe2A\x01\x03R\brewrites\"\x8f\x03\n" +
 	"\aRewrite\x12I\n" +
 	"\blocation\x18\x01 \x01(\v2'.frontseat.type.v1alpha1.SourceLocationB\x04\xe2A\x01\x03R\blocation\x12@\n" +
 	"\x04kind\x18\x02 \x01(\x0e2&.frontseat.build.v1alpha1.Rewrite.KindB\x04\xe2A\x01\x03R\x04kind\x12@\n" +
@@ -2466,13 +2467,13 @@ const file_frontseat_build_v1alpha1_build_proto_rawDesc = "" +
 	"\vKIND_CREATE\x10\x02\x12\x0f\n" +
 	"\vKIND_DELETE\x10\x03\"\xc5\x01\n" +
 	"\x12CreateBuildRequest\x12\x18\n" +
-	"\atargets\x18\x02 \x03(\tR\atargets\x12\x10\n" +
-	"\x03fix\x18\x05 \x01(\bR\x03fix\x12:\n" +
-	"\aprofile\x18\f \x01(\x0e2 .frontseat.type.v1alpha1.ProfileR\aprofile\x12\x12\n" +
-	"\x04only\x18\r \x03(\tR\x04only\x12\x14\n" +
-	"\x05tests\x18\x0f \x01(\bR\x05tests\x12\x1d\n" +
+	"\atargets\x18\x01 \x03(\tR\atargets\x12\x10\n" +
+	"\x03fix\x18\x02 \x01(\bR\x03fix\x12:\n" +
+	"\aprofile\x18\x03 \x01(\x0e2 .frontseat.type.v1alpha1.ProfileR\aprofile\x12\x12\n" +
+	"\x04only\x18\x04 \x03(\tR\x04only\x12\x14\n" +
+	"\x05tests\x18\x05 \x01(\bR\x05tests\x12\x1d\n" +
 	"\n" +
-	"request_id\x18\x0e \x01(\tR\trequestId\"L\n" +
+	"request_id\x18\x06 \x01(\tR\trequestId\"L\n" +
 	"\x13CreateBuildResponse\x125\n" +
 	"\x05build\x18\x01 \x01(\v2\x1f.frontseat.build.v1alpha1.BuildR\x05build\"7\n" +
 	"\x14DescribeBuildRequest\x12\x1f\n" +
@@ -2501,9 +2502,9 @@ const file_frontseat_build_v1alpha1_build_proto_rawDesc = "" +
 	"\x06events\x18\x01 \x03(\v2$.frontseat.build.v1alpha1.BuildEventR\x06events\"v\n" +
 	"\x17ListBuildActionsRequest\x12\x1f\n" +
 	"\bbuild_id\x18\x01 \x01(\tB\x04\xe2A\x01\x02R\abuildId\x12\x1b\n" +
-	"\tpage_size\x18\x03 \x01(\x05R\bpageSize\x12\x1d\n" +
+	"\tpage_size\x18\x02 \x01(\x05R\bpageSize\x12\x1d\n" +
 	"\n" +
-	"page_token\x18\x04 \x01(\tR\tpageToken\"\x84\x01\n" +
+	"page_token\x18\x03 \x01(\tR\tpageToken\"\x84\x01\n" +
 	"\x18ListBuildActionsResponse\x12@\n" +
 	"\aactions\x18\x01 \x03(\v2&.frontseat.build.v1alpha1.ActionResultR\aactions\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"U\n" +
