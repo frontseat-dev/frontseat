@@ -370,7 +370,7 @@ spec:
         outputs: [made/]
       second:
         command: ["true"]
-        inputs: [":custom.first"]
+        needs: [":custom.first"]
 `)
 	client := serve(t, scripted{hang: true}, workspace, true).runs
 	run := create(t, client)

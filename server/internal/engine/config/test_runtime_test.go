@@ -15,16 +15,16 @@ func runtimeCatalog(body string) files {
 }
 
 func TestATestRuntimeDeclaresDataAndNeverAReplacementCommand(t *testing.T) {
-	read, err := config.Read(t.Context(), "repo", runtimeCatalog("      inputs: [fixtures/**, '//producer:out']\n      tools: [node]\n      environment: {MODE: test, EMPTY: ''}\n"))
+	read, err := config.Read(t.Context(), "repo", runtimeCatalog("      inputs: [fixtures/**]\n      needs: ['//producer:out']\n      tools: [node]\n      environment: {MODE: test, EMPTY: ''}\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	got := read.TestRuntimes()
-	if len(got) != 1 || got[0].Directory != "parent" || got[0].File != "repo/parent/catalog-info.yaml" || got[0].Entity.String() != "component:default/app" || len(got[0].Inputs) != 2 || len(got[0].Tools) != 1 || got[0].Environment["MODE"] != "test" {
+	if len(got) != 1 || got[0].Directory != "parent" || got[0].File != "repo/parent/catalog-info.yaml" || got[0].Entity.String() != "component:default/app" || len(got[0].Inputs) != 1 || len(got[0].Needs) != 1 || len(got[0].Tools) != 1 || got[0].Environment["MODE"] != "test" {
 		t.Fatalf("runtime declaration lost its origin or data: %+v", got)
 	}
 	for _, body := range []string{
-		"      command: [true]\n", "      needs: [compile]\n", "      shards: [first]\n",
+		"      command: [true]\n", "      waits: [compile]\n", "      shards: [first]\n",
 		"      inputs: fixture\n", "      inputs: [true]\n", "      inputs: [null]\n", "      inputs: ['']\n",
 		"      tools: [3]\n", "      tools: [null]\n", "      environment: []\n",
 		"      environment: {MODE: true}\n", "      environment: {MODE: null}\n", "      environment: {'BAD=NAME': text}\n",

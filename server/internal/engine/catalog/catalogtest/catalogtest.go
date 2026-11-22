@@ -25,10 +25,10 @@ func Component(name, frontseat string) string {
 const Cycle = `actions:
   first:
     command: ["true"]
-    inputs: [":custom.second"]
+    needs: [":custom.second"]
     outputs: ["one"]
   second:
     command: ["true"]
-    inputs: [":custom.first"]
+    needs: [":custom.first"]
     outputs: ["two"]
 `

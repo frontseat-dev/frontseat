@@ -150,9 +150,10 @@ type Action struct {
 	Command []string
 	// Tools are the tools it runs with, each pinned by the repository.
 	Tools []string
-	// Inputs are what it reads: patterns relative to Directory, and
-	// what other actions left, as ":what" or "//path:what".
-	Inputs []string
+	// Inputs are the patterns of what it reads, relative to Directory
+	// or "/…" from the repository's root; Needs what other actions left,
+	// as ":what" or "//path:what".
+	Inputs, Needs []string
 	// Check says it checks the source.
 	Check bool
 	// Program marks a program, never a finite build action.
@@ -418,6 +419,8 @@ func actions(file, directory string, node *yaml.Node) ([]Action, error) {
 				list = &action.Tools
 			case "inputs":
 				list = &action.Inputs
+			case "needs":
+				list = &action.Needs
 			case "outputs":
 				list = &action.Outputs
 			case "rewrites":
@@ -448,7 +451,7 @@ func actions(file, directory string, node *yaml.Node) ([]Action, error) {
 				}
 				continue
 			default:
-				return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: an action takes no key %s; it takes check, command, description, fix, inherit-environment, inputs, outputs, package, program, publish, rewrites, tools, versioned", key.Line, key.Value)}
+				return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: an action takes no key %s; it takes check, command, description, fix, inherit-environment, inputs, needs, outputs, package, program, publish, rewrites, tools, versioned", key.Line, key.Value)}
 			}
 			read, wrong := textList(value)
 			switch {

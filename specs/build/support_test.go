@@ -1390,7 +1390,8 @@ spec:
   owner: team
   frontseat:
     test:
-      inputs: [config.txt, '//fixture:data.txt']
+      inputs: [config.txt]
+      needs: ['//fixture:data.txt']
       tools: [go]
       environment: {FIXTURE: '../../fixture/data.txt', CONFIG: '../config.txt'}
 `)
@@ -1565,7 +1566,7 @@ func (spec *scenario) cargoWorkspace() *Workspace {
 func (spec *scenario) apkoWorkspace() *Workspace {
 	spec.Helper()
 	workspace := spec.fixtureWorkspace("apko", "plugins:\n  apko: {}\n  backstage: {}\n")
-	return workspace.write("app/catalog-info.yaml", "apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata:\n  name: app\nspec:\n  type: service\n  lifecycle: production\n  owner: team\n  frontseat:\n    actions:\n      layout:\n        command: [cat, oci/aarch64/oci-layout, oci/aarch64/index.json]\n        inputs: [\":apko.image-aarch64\"]\n")
+	return workspace.write("app/catalog-info.yaml", "apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata:\n  name: app\nspec:\n  type: service\n  lifecycle: production\n  owner: team\n  frontseat:\n    actions:\n      layout:\n        command: [cat, oci/aarch64/oci-layout, oci/aarch64/index.json]\n        needs: [\":apko.image-aarch64\"]\n")
 }
 
 // fixtureWorkspace is a plugin's fixture (plugins/<name>/testdata/valid)

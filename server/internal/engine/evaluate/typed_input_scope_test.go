@@ -24,12 +24,12 @@ func TestReviewTypedInputsKeepCatalogReferenceScope(t *testing.T) {
 		{"local prefix cannot become cross-project", "://producer:custom.make", false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			consumer, err := custom("", config.Action{Name: "read", Directory: "consumer", Command: []string{"true"}, Inputs: []string{tc.input}})
+			consumer, err := custom("", config.Action{Name: "read", Directory: "consumer", Command: []string{"true"}, Needs: []string{tc.input}})
 			if err == nil {
 				err = plan.Resolve([]plan.Action{producer, consumer})
 			}
 			if (err == nil) != tc.accepted {
-				t.Fatalf("input %q accepted=%v, want %v; resolved references=%+v; err=%v", tc.input, err == nil, tc.accepted, consumer.References, err)
+				t.Fatalf("need %q accepted=%v, want %v; resolved references=%+v; err=%v", tc.input, err == nil, tc.accepted, consumer.References, err)
 			}
 		})
 	}

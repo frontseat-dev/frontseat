@@ -226,8 +226,25 @@ func MakeAt(t testing.TB, dir, base string) Forge {
 	action := func(name, command, rest string) string {
 		return "      " + name + ":\n        command: " + command + "\n        tools: [go]\n" + rest
 	}
+	// inputs says what an action reads: its patterns under inputs, and
+	// what other actions left, written ":…" or "//…", under needs.
 	inputs := func(each ...string) string {
-		return "        inputs: [" + strings.Join(each, ", ") + "]\n"
+		var patterns, needs []string
+		for _, one := range each {
+			if written := strings.Trim(one, "\""); strings.HasPrefix(written, ":") || strings.HasPrefix(written, "//") {
+				needs = append(needs, one)
+			} else {
+				patterns = append(patterns, one)
+			}
+		}
+		out := ""
+		if len(patterns) > 0 {
+			out += "        inputs: [" + strings.Join(patterns, ", ") + "]\n"
+		}
+		if len(needs) > 0 {
+			out += "        needs: [" + strings.Join(needs, ", ") + "]\n"
+		}
+		return out
 	}
 	writes := inputs("go.mod", "\"write/**\"") + "        outputs: [made/]\n"
 	reads := func(more ...string) string {

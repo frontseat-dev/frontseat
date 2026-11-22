@@ -45,7 +45,8 @@ spec:
       # the repository's tool pins, which a fixture is pinned with; and
       # the plugins, by their crates, and their fixtures; and the
       # configuration reference, whose examples the configuration's
-      # reader is held to.
+      # reader is held to. What it needs of other actions: each plugin's
+      # wasm module, where its crate's wasm action leaves it.
       inputs:
         - /docs/configuration.md
         - /sdk/go/go.mod
@@ -55,6 +56,7 @@ spec:
         - /plugins/*/Cargo.toml
         - /plugins/*/testdata/**
         - /sdk/plugin-test/testdata/**
+      needs:
         - //plugins/apko:cargo.wasm
         - //plugins/backstage:cargo.wasm
         - //plugins/buf:cargo.wasm

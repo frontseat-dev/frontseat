@@ -683,7 +683,7 @@ const Custom = "custom"
 func custom(repository string, own config.Action) (plan.Action, error) {
 	at := path.Join(repository, own.Directory)
 	what := "the action " + own.Name
-	reading, err := readCatalogInputs(repository, own.Directory, own.File, what, own.Inputs)
+	reading, err := readCatalogInputs(repository, own.Directory, own.File, what, own.Inputs, own.Needs)
 	if err != nil {
 		return plan.Action{}, err
 	}
@@ -728,7 +728,7 @@ func custom(repository string, own config.Action) (plan.Action, error) {
 	}
 	if own.Publish {
 		// What it reads is nothing: it is given its unit's artifacts.
-		if len(own.Inputs) > 0 {
+		if len(own.Inputs) > 0 || len(own.Needs) > 0 {
 			return plan.Action{}, &model.Mistake{File: own.File, Message: what + " publishes and says what it reads: it is given its unit's artifacts, and reads nothing else"}
 		}
 		action.Label.Name = "publish/" + own.Name

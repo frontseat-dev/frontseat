@@ -6,9 +6,10 @@ import (
 )
 
 // Some actions read what another action left: a test reads what was
-// compiled, a package reads the binary. An action says so in its inputs,
-// the one list of what it reads, as a Bazel rule names a generated file
-// in its srcs. Beside the patterns of its source, an input may be:
+// compiled, a package reads the binary. An action says so in its needs,
+// beside the patterns of its source in its inputs, as moon names a
+// task's deps beside its inputs: each list holds one kind of thing. A
+// need may be:
 //
 //   - one output of an action of the same entity, after a colon,
 //     exactly as that action declares it: :made/ where write declares
@@ -21,7 +22,7 @@ import (
 //     repository beneath (it prints them //lab/chain:made/).
 //
 // A pattern never names what an action left: a pattern is of source.
-// Nobody says what an action waits for. An action needs what it reads,
+// Nobody says what an action waits for: what it needs is what it reads,
 // and runs when what it reads has been left; actions that read nothing of
 // each other run at the same time. What is named is one thing: a name
 // that is both an action and an output, or neither, an output that more

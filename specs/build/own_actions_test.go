@@ -16,7 +16,8 @@ import (
 //	        description: Check every dependency's licence
 //	        command: [license-check, --report, report.json]
 //	        tools: [license-check]
-//	        inputs: [go.mod, go.sum, licenses.toml, ":go.compile"]
+//	        inputs: [go.mod, go.sum, licenses.toml]
+//	        needs: [":go.compile"]
 //	        outputs: [report.json]
 //
 // It is an action like any other. It is named custom.<name>, after the
@@ -25,8 +26,9 @@ import (
 // network, and is answered from what the grid kept.
 //
 // This is the one place a person writes a command. Nobody writes what an
-// action waits for: it reads what it names in its inputs, and
-// needs_test.go describes how an input names what another action left.
+// action waits for: it reads the patterns of its inputs and what other
+// actions left that its needs name, and needs_test.go describes how a
+// need names what another action left.
 //
 // The specs use chain, an entity of the repository lab with three actions
 // of its own: write, read and report.
@@ -62,37 +64,25 @@ func TestAKeyAnActionDoesNotTakeIsRefusedByName(t *testing.T) {
 	spec.Expect(build.says()).To(ContainSubstring("an action takes no key comand"))
 }
 
-// An entity's own actions / An action says what it reads, and never what it waits for.
-func TestAnActionSaysWhatItReadsAndNeverWhatItWaitsFor(t *testing.T) {
+// An entity's own actions / An action's inputs are patterns, and what it needs of other actions is said apart.
+func TestAnActionSInputsArePatternsAndWhatItNeedsOfOtherActionsIsSaidApart(t *testing.T) {
 	t.Parallel()
 	spec := newScenario(t)
 
-	build := spec.chainWithActions(`      report:
-        command: [go, version]
-        tools: [go]
-        needs: [":go.compile"]
-`)
-
-	spec.Expect(build.says()).To(ContainSubstring("an action takes no key needs; it takes check, command, description, fix, inherit-environment, inputs, outputs, package, program, publish, rewrites, tools, versioned"))
-}
-
-// An entity's own actions / An action's inputs are patterns beneath the entity, or what another action left.
-func TestAnActionSInputsArePatternsBeneathTheEntityOrWhatAnotherActionLeft(t *testing.T) {
-	t.Parallel()
-	spec := newScenario(t)
-
-	refused := func(input, says string) {
+	refused := func(key, entry, says string) {
 		spec.Helper()
-		build := spec.chainWithActions("      report:\n        command: [go, version]\n        tools: [go]\n        inputs: [\"" + input + "\"]\n")
+		build := spec.chainWithActions("      report:\n        command: [go, version]\n        tools: [go]\n        " + key + ": [\"" + entry + "\"]\n")
 
-		spec.Expect(build.says()).To(ContainSubstring(says), input)
+		spec.Expect(build.says()).To(ContainSubstring(says), entry)
 	}
-	refused("../go.mod", `the action report: its input 1 is not a pattern of files beneath the project`)
-	refused("=sources", `the action report: its input 1 names an input set, which a catalog file declares none of`)
-	refused(":", `the action report: the input ":" names nothing after the colon`)
-	refused("//lab/chain", `the action report: the input "//lab/chain" names a project and nothing of it`)
-	// The control: a pattern beneath the entity, and what another
-	// action left.
+	refused("inputs", "../go.mod", `the action report: its input 1 is not a pattern of files beneath the project`)
+	refused("inputs", ":go.compile", `the action report: its input 1 names an action: what another action left is written under needs`)
+	refused("inputs", "//lab/chain:made/", `the action report: its input 1 names an action: what another action left is written under needs`)
+	refused("needs", "go.mod", `the action report: its need 1 names no action: a need is :<action> or //<path>:<action>`)
+	refused("needs", ":", `the action report: the input ":" names nothing after the colon`)
+	refused("needs", "//lab/chain", `the action report: the input "//lab/chain" names a project and nothing of it`)
+	// The control: chain's report, which needs what the Go plugin's
+	// compile left.
 	build := spec.workspaceOf("chain").build(of("//lab/chain:custom.report"))
 	spec.Expect(build.outcomeOf("//lab/chain:custom.report")).To(Equal("passed"))
 }

@@ -43,7 +43,7 @@ func testRuntimes(out *Evaluation, configured map[string][]config.TestRuntime, p
 			if _, twice := settings[key]; twice {
 				return &model.Mistake{File: written.File, Message: fmt.Sprintf("%s declares test runtime data twice", written.Entity)}
 			}
-			reading, err := readCatalogInputs(repository, written.Directory, written.File, "test.inputs", written.Inputs)
+			reading, err := readCatalogInputs(repository, written.Directory, written.File, "test", written.Inputs, written.Needs)
 			if err != nil {
 				return err
 			}

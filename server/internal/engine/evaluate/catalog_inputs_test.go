@@ -15,7 +15,7 @@ import (
 // input set is a project's, and a catalog file declares none. A mistake
 // names the file and what was being read, once.
 func TestCatalogInputsAreSourceOrWhatAnotherActionLeft(t *testing.T) {
-	read, err := readCatalogInputs("lab", "chain", "lab/chain/catalog-info.yaml", "the action report", []string{"src/**", ":go.fetch", "!src/skip/**", "//lib:made/"})
+	read, err := readCatalogInputs("lab", "chain", "lab/chain/catalog-info.yaml", "the action report", []string{"src/**", "!src/skip/**"}, []string{":go.fetch", "//lib:made/"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -32,25 +32,36 @@ func TestCatalogInputsAreSourceOrWhatAnotherActionLeft(t *testing.T) {
 	if !slices.Equal(written, []string{"lab/chain :go.fetch", "lab/lib //lib:made/"}) {
 		t.Errorf("references read as %v", written)
 	}
-	if read, err := readCatalogInputs("lab", "chain", "lab/chain/catalog-info.yaml", "the action report", nil); err != nil || read.source.Patterns != nil || read.references != nil {
+	if read, err := readCatalogInputs("lab", "chain", "lab/chain/catalog-info.yaml", "the action report", nil, nil); err != nil || read.source.Patterns != nil || read.references != nil {
 		t.Errorf("nothing written read as %+v, %v", read, err)
 	}
 	for input, says := range map[string]string{
-		"../go.mod":       `the action report: its input 2 is not a pattern of files beneath the project`,
-		"/../etc/passwd":  `the action report: its input 2 is not a pattern of files beneath the repository's root`,
-		"/":               `the action report: its input 2 is not a pattern of files beneath the repository's root`,
-		"src/[":           `the action report: its input 2 is not a pattern of files beneath the project`,
-		"":                `the action report: its input 2 is not a pattern of files beneath the project`,
-		"!":               `the action report: its input 2 is not a pattern of files beneath the project`,
-		"=sources":        `the action report: its input 2 names an input set, which a catalog file declares none of`,
+		"../go.mod":      `the action report: its input 2 is not a pattern of files beneath the project`,
+		"/../etc/passwd": `the action report: its input 2 is not a pattern of files beneath the repository's root`,
+		"/":              `the action report: its input 2 is not a pattern of files beneath the repository's root`,
+		"src/[":          `the action report: its input 2 is not a pattern of files beneath the project`,
+		"":               `the action report: its input 2 is not a pattern of files beneath the project`,
+		"!":              `the action report: its input 2 is not a pattern of files beneath the project`,
+		":go.fetch":      `the action report: its input 2 names an action: what another action left is written under needs`,
+		"//lib:made/":    `the action report: its input 2 names an action: what another action left is written under needs`,
+	} {
+		_, err := readCatalogInputs("lab", "chain", "lab/chain/catalog-info.yaml", "the action report", []string{"src/**", input}, nil)
+		var mistake *model.Mistake
+		if !errors.As(err, &mistake) || mistake.File != "lab/chain/catalog-info.yaml" || !strings.HasPrefix(mistake.Message, says) {
+			t.Errorf("input %q: %v, want %q of the catalog file", input, err, says)
+		}
+	}
+	for need, says := range map[string]string{
+		"src/**":          `the action report: its need 2 names no action: a need is :<action> or //<path>:<action>`,
+		"/api/**":         `the action report: its need 2 names no action: a need is :<action> or //<path>:<action>`,
 		":":               `the action report: the input ":" names nothing after the colon`,
 		"//lab/chain":     `the action report: the input "//lab/chain" names a project and nothing of it`,
 		"://lab/lib:made": `the action report: the input "://lab/lib:made" names another project after a colon`,
 	} {
-		_, err := readCatalogInputs("lab", "chain", "lab/chain/catalog-info.yaml", "the action report", []string{"src/**", input})
+		_, err := readCatalogInputs("lab", "chain", "lab/chain/catalog-info.yaml", "the action report", nil, []string{":go.fetch", need})
 		var mistake *model.Mistake
 		if !errors.As(err, &mistake) || mistake.File != "lab/chain/catalog-info.yaml" || !strings.HasPrefix(mistake.Message, says) {
-			t.Errorf("%q: %v, want %q of the catalog file", input, err, says)
+			t.Errorf("need %q: %v, want %q of the catalog file", need, err, says)
 		}
 	}
 }
@@ -59,7 +70,7 @@ func TestCatalogInputsAreSourceOrWhatAnotherActionLeft(t *testing.T) {
 // fixture of another Component or the contracts; the control is one
 // written from the catalog file's directory, which stays beneath it.
 func TestACatalogInputFromTheRootIsReadFromTheRepositorysRoot(t *testing.T) {
-	read, err := readCatalogInputs("lab", "chain", "lab/chain/catalog-info.yaml", "test.inputs", []string{"fixtures/**", "/api/**/*.proto", "!/api/internal/**"})
+	read, err := readCatalogInputs("lab", "chain", "lab/chain/catalog-info.yaml", "test.inputs", []string{"fixtures/**", "/api/**/*.proto", "!/api/internal/**"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +92,7 @@ func TestACatalogInputFromTheRootIsReadFromTheRepositorysRoot(t *testing.T) {
 // project's path as written.
 func TestACatalogLabelFromTheRootNamesAProjectOfItsOwnRepository(t *testing.T) {
 	for repository, want := range map[string]string{"frontseat": "frontseat/plugins/apko", "": "plugins/apko"} {
-		read, err := readCatalogInputs(repository, "server", "server/catalog-info.yaml", "test.inputs", []string{"//plugins/apko:cargo.wasm"})
+		read, err := readCatalogInputs(repository, "server", "server/catalog-info.yaml", "test.inputs", nil, []string{"//plugins/apko:cargo.wasm"})
 		if err != nil {
 			t.Fatal(err)
 		}

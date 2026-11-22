@@ -176,19 +176,29 @@ on. This adds to it, for every test of the Component.
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `inputs` | list of text | `[]` | What the tests read besides. Each entry is one of the forms below. |
+| `inputs` | list of patterns | `[]` | The files the tests read besides, in the forms below. |
+| `needs` | list of actions | `[]` | What other actions left that the tests read, in the forms below. |
 | `tools` | list of text | `[]` | Tools the tests run with, each by the name `mise.toml` pins it under. |
 | `environment` | map of name to text | `{}` | Variables the tests are started with. A name is letters, digits and underscores, beginning with no digit. A variable the test's own command sets is refused. |
 
-An entry of `inputs`, and of an action's `inputs`:
+Each list holds one kind of thing: an action among `inputs`, or a
+pattern among `needs`, is refused. An entry of `inputs`, and of an
+action's `inputs`, is a pattern:
 
 | Written | Meaning |
 |---|---|
 | `fixtures/**` | Files matching the pattern, from the catalog file's directory. |
 | `/api/**` | Files matching the pattern, from the repository's root. |
 | `!fixtures/tmp/**`, `!/api/tmp/**` | Files that are left out again. |
+
+An entry of `needs`, and of an action's `needs`, names what an action
+left:
+
+| Written | Meaning |
+|---|---|
 | `:go.compile` | What an action of this directory left, by its name. |
-| `//plugins/go:cargo.wasm` | What an action of another directory left: the directory from the repository's root, then the action's name. |
+| `:made/` | One output of an action of this directory, as that action declares it. |
+| `//plugins/go:cargo.wasm` | What an action of another directory left: the directory from the repository's root, then the action's name or output. |
 
 ```yaml
 # ledger/catalog-info.yaml
@@ -206,6 +216,7 @@ spec:
         - fixtures/**
         - /api/**
         - "!/api/tmp/**"
+      needs:
         - //plugins/go:cargo.wasm
       tools: [buf]
       environment:
@@ -250,7 +261,8 @@ action; a name is lower-case letters, digits and dashes. An action
 | `command` | list of text, required | | The program and its arguments, run in the catalog file's directory. |
 | `description` | text | | What the action does, for whoever reads the file. |
 | `tools` | list of text | `[]` | Tools it runs with, each by the name `mise.toml` pins it under. |
-| `inputs` | list of text | `[]` | What it reads, in the forms `test.inputs` takes. |
+| `inputs` | list of patterns | `[]` | The files it reads, in the forms `test.inputs` takes. |
+| `needs` | list of actions | `[]` | What other actions left that it reads, in the forms `test.needs` takes. |
 | `outputs` | list of text | `[]` | What it writes, relative to the directory. A directory ends in `/`. |
 | `check` | switch | `false` | It checks the source. |
 | `fix` | list of text | | The command that puts right what the check finds. Only with `check`, and with `rewrites`. |
@@ -258,7 +270,7 @@ action; a name is lower-case letters, digits and dashes. An action
 | `program` | switch | `false` | It is a program that keeps running, started by `frontseat run`. It is named `custom.run/<name>`. |
 | `versioned` | switch | `false` | It is given the version of the release it is built for, where its command names it. |
 | `package` | switch | `false` | It makes what the entity ships: each file it leaves is an artifact of a release. It says its `outputs`. |
-| `publish` | switch | `false` | It publishes what a release shipped. It is named `custom.publish/<name>`, says no `inputs`, and is none of the other kinds. |
+| `publish` | switch | `false` | It publishes what a release shipped. It is named `custom.publish/<name>`, says no `inputs` and no `needs`, and is none of the other kinds. |
 | `inherit-environment` | list of text | `[]` | Names of variables of where the daemon runs that the action is given, their values as the daemon has them. Only with `publish`. |
 
 ```yaml
@@ -286,6 +298,10 @@ spec:
         tools: [mkdocs]
         inputs: ["**/*.md", mkdocs.yml]
         outputs: [site/]
+      check-links:
+        command: [lychee, --offline, site]
+        tools: [lychee]
+        needs: [":site/"]
       preview:
         program: true
         command: [mkdocs, serve]

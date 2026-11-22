@@ -23,7 +23,7 @@ func TestRuntimeDataFollowsComponentOwnershipAndKeepsItsLiteralBase(t *testing.T
 	owner := entity.New("component", "default", "parent")
 	nested := entity.New("component", "default", "nested")
 	declaration := config.TestRuntime{Entity: owner, Directory: "parent[1]", File: "repo/parent[1]/catalog-info.yaml",
-		Inputs: []string{"fixtures/**", ":custom.prepare"}, Tools: []string{"node", "node"}, Environment: map[string]string{"FIXTURE": "value"}}
+		Inputs: []string{"fixtures/**"}, Needs: []string{":custom.prepare"}, Tools: []string{"node", "node"}, Environment: map[string]string{"FIXTURE": "value"}}
 	base := &pluginv1.Action{Name: "test/cases@1of2", Test: true, Command: &pluginv1.Command{Arguments: []string{"native", "selection"}, Directory: "cases"}}
 	before := proto.Clone(base)
 	makeAction := func(root, plugin string, declared *pluginv1.Action) plan.Action {
@@ -73,7 +73,7 @@ func BenchmarkTestRuntimeInputs(b *testing.B) {
 		base.Entities = append(base.Entities, record.Located{Repository: "repo", Root: root, Ref: owner})
 		configured["repo"] = append(configured["repo"], config.TestRuntime{
 			Entity: owner, Directory: root, File: "repo/" + root + "/catalog-info.yaml",
-			Inputs: []string{"fixtures/**", ":data.txt"}, Tools: []string{"go"}, Environment: map[string]string{"DATA": "../data.txt"},
+			Inputs: []string{"fixtures/**"}, Needs: []string{":data.txt"}, Tools: []string{"go"}, Environment: map[string]string{"DATA": "../data.txt"},
 		})
 		for j := range 10 {
 			base.Actions = append(base.Actions, plan.Action{Repository: "repo", ProjectRoot: root,
