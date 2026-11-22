@@ -709,14 +709,19 @@ func given(function *ast.FuncDecl, testingAs map[string]bool) bool {
 // method is called by its name. It reads names, not types or the order of
 // what runs, so it can miss a way to the runtime: what holds the gate is
 // that a gate with no stack fails where the runtime is asked at all
-// (specs/cmd/gate); this check names the test to change.
+// (specs/cmd/gate); this check names the test to change. It returns too
+// each function that says testrequired.Stack, itself or so, and skips
+// itself: what it needs of the stack is said missing through the test
+// support (testrequired.Missing, testbox.Runtime), which fails the test
+// where the gate runs against the stack, and a skip of its own would
+// end that gate green with the test not run.
 func unstacked(sources map[string][]byte) ([]string, error) {
 	type function struct {
 		file  string
 		given bool
 	}
 	packages := map[string]map[string]function{}
-	reaches, says := map[string]map[string]bool{}, map[string]map[string]bool{}
+	reaches, says, skips := map[string]map[string]bool{}, map[string]map[string]bool{}, map[string]map[string]bool{}
 	calls := map[string]map[string][]string{}
 	for name, source := range sources {
 		file, err := parser.ParseFile(token.NewFileSet(), name, source, parser.SkipObjectResolution)
@@ -725,7 +730,7 @@ func unstacked(sources map[string][]byte) ([]string, error) {
 		}
 		dir := path.Dir(name)
 		if packages[dir] == nil {
-			packages[dir], reaches[dir], says[dir], calls[dir] = map[string]function{}, map[string]bool{}, map[string]bool{}, map[string][]string{}
+			packages[dir], reaches[dir], says[dir], skips[dir], calls[dir] = map[string]function{}, map[string]bool{}, map[string]bool{}, map[string]bool{}, map[string][]string{}
 		}
 		requires, testingAs := map[string]bool{}, map[string]bool{}
 		for _, spec := range file.Imports {
@@ -760,6 +765,7 @@ func unstacked(sources map[string][]byte) ([]string, error) {
 					if x, ok := fun.X.(*ast.Ident); ok && requires[x.Name] && fun.Sel.Name == "Stack" {
 						says[dir][named] = true
 					} else {
+						skips[dir][named] = skips[dir][named] || slices.Contains([]string{"Skip", "Skipf", "SkipNow"}, fun.Sel.Name)
 						calls[dir][named] = append(calls[dir][named], "."+fun.Sel.Name)
 					}
 				case *ast.Ident:
@@ -805,7 +811,10 @@ func unstacked(sources map[string][]byte) ([]string, error) {
 		}
 		for named, each := range functions {
 			if each.given && reaches[dir][named] && !says[dir][named] {
-				out = append(out, each.file+": "+named)
+				out = append(out, each.file+": "+named+" reaches the container runtime and does not say testrequired.Stack")
+			}
+			if says[dir][named] && skips[dir][named] {
+				out = append(out, each.file+": "+named+" says testrequired.Stack and skips itself")
 			}
 		}
 	}
@@ -835,7 +844,7 @@ func TestATestThatReachesTheContainerRuntimeSaysItNeedsTheStack(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, each := range found {
-		t.Errorf("%s reaches the container runtime and does not say testrequired.Stack", each)
+		t.Error(each)
 	}
 }
 
@@ -866,7 +875,38 @@ var _ = testrequired.Stack
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"a/a_test.go: TestAMethodUnsaid", "a/a_test.go: TestARunOfAnotherType", "a/a_test.go: TestARunner", "a/a_test.go: TestStackOfAnotherPackage", "a/a_test.go: TestThroughAnUnsaidHelper", "a/a_test.go: TestUnsaid", "a/a_test.go: TestUnsaidWithAContext"}
+	var want []string
+	for _, each := range []string{"TestAMethodUnsaid", "TestARunOfAnotherType", "TestARunner", "TestStackOfAnotherPackage", "TestThroughAnUnsaidHelper", "TestUnsaid", "TestUnsaidWithAContext"} {
+		want = append(want, "a/a_test.go: "+each+" reaches the container runtime and does not say testrequired.Stack")
+	}
+	if !slices.Equal(found, want) {
+		t.Errorf("found %q, want %q", found, want)
+	}
+}
+
+// A test that says it needs the stack, itself or through a helper of its
+// package, and then skips itself is found, and so is the helper that
+// does; one that says what is missing through the test support, and one
+// that skips and says nothing of the stack, are not.
+func TestATestThatSkipsItselfAfterSayingItNeedsTheStackIsFound(t *testing.T) {
+	const head = "package p\n\nimport (\n\t\"os/exec\"\n\t\"testing\"\n\n\t\"" + module + "/server/testsupport/testbox\"\n\t\"" + module + "/server/testsupport/testrequired\"\n)\n\n"
+	sources := map[string][]byte{"a/a_test.go": []byte(head + `
+func TestSkipsAfterIt(t *testing.T) { testrequired.Stack(t); if _, err := exec.LookPath("docker"); err != nil { t.Skip("no runtime") } }
+func TestSkipsNowAfterIt(t *testing.T) { testrequired.Stack(t); t.SkipNow() }
+func helper(t *testing.T) { testrequired.Stack(t) }
+func TestSkipsfAfterAHelper(t *testing.T) { helper(t); t.Skipf("no %s", "engine") }
+func newProbe(t *testing.T) { testrequired.Stack(t); t.Skip("no runtime") }
+func TestSaysItMissing(t *testing.T) { testrequired.Stack(t); testbox.Runtime(t); testrequired.Missing(t, "no engine") }
+func TestSkipsAndNeedsNoStack(t *testing.T) { if _, err := exec.LookPath("ssh"); err != nil { t.Skip("no ssh") } }
+`)}
+	found, err := unstacked(sources)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var want []string
+	for _, each := range []string{"TestSkipsAfterIt", "TestSkipsNowAfterIt", "TestSkipsfAfterAHelper", "newProbe"} {
+		want = append(want, "a/a_test.go: "+each+" says testrequired.Stack and skips itself")
+	}
 	if !slices.Equal(found, want) {
 		t.Errorf("found %q, want %q", found, want)
 	}

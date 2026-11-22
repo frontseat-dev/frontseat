@@ -23,6 +23,7 @@ import (
 	sandboxv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/sandbox/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/sandbox/v1alpha1/sandboxv1alpha1connect"
 	"github.com/frontseat-dev/frontseat/server/sandbox"
+	"github.com/frontseat-dev/frontseat/server/testsupport/testbox"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testcontainer"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testlisten"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testrequired"
@@ -160,11 +161,12 @@ type serviceRoutes struct {
 }
 
 func newServiceRoutes(t *testing.T) *serviceRoutes {
-	testrequired.Stack(t)
 	t.Helper()
+	testrequired.Stack(t)
+	testbox.Runtime(t)
 	arch, err := exec.Command("docker", "info", "--format", "{{.Architecture}}").Output()
 	if err != nil {
-		t.Skipf("no container runtime: %v", err)
+		t.Fatalf("the container runtime answers and does not say its architecture: %v", err)
 	}
 	goarch := strings.TrimSpace(string(arch))
 	switch goarch {

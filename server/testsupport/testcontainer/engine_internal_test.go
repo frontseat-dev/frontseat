@@ -19,7 +19,7 @@ import (
 func TestTheEngineSaysOfAContainerWhatTheCommandSays(t *testing.T) {
 	testrequired.Stack(t)
 	if engine() == "" {
-		t.Skip("the runtime on this machine has no engine to ask beside its command")
+		testrequired.Missing(t, "the runtime on this machine has no engine to ask beside its command")
 	}
 	name := testrun.ID(t, "frontseat-engine-test")
 	if out, err := exec.Command("docker", "run", "--detach", "--name", name, "--label", sandboxLabel+"=test", "--label", testrun.Label+"="+testrun.This(), "--publish", "127.0.0.1::7600", "busybox:1.37", "sleep", "300").CombinedOutput(); err != nil {

@@ -85,7 +85,7 @@ func TestAnEngineThatDoesNotAnswerIsNotWaitedOnForEver(t *testing.T) {
 func TestWhatIsReachedIsASandbox(t *testing.T) {
 	testrequired.Stack(t)
 	if engine() == "" {
-		t.Skip("no engine")
+		testrequired.Missing(t, "the container runtime has no engine on this machine to ask")
 	}
 	name := testrun.ID(t, "frontseat-not-a-sandbox")
 	docker := func(args ...string) {
