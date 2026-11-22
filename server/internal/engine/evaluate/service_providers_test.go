@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/entity"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/catalog"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/config"
@@ -19,7 +20,7 @@ func TestResourceDependenciesKeepTheirExplicitEnvironment(t *testing.T) {
 	idp.Said.Environment = map[string]string{"DB": "{db.port.sql}"}
 	declared := map[entity.Ref][]entity.Ref{component: {ref("default", "idp")}, ref("default", "idp"): {ref("default", "db")}}
 	started := map[entity.Ref]config.Service{ref("default", "db"): db, ref("default", "idp"): idp}
-	beside, err := besideOf(component, declared, started, nil)
+	beside, err := besideOf(component, "app/catalog-info.yaml", declared, started, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -31,7 +32,7 @@ func TestResourceDependenciesKeepTheirExplicitEnvironment(t *testing.T) {
 		t.Error("Resource unexpectedly received its dependency's export TOKEN")
 	}
 	idp.Said.Environment["TOKEN"] = "idp-token"
-	if _, err := besideOf(component, declared, started, nil); err != nil {
+	if _, err := besideOf(component, "app/catalog-info.yaml", declared, started, nil); err != nil {
 		t.Fatalf("explicit Resource environment was refused: %v", err)
 	}
 }
@@ -70,9 +71,29 @@ func TestAProviderBindingConflictNamesTheSameVariableEachTime(t *testing.T) {
 	declared := map[entity.Ref][]entity.Ref{component: {provider}, provider: {ref("default", "db")}}
 	started := map[entity.Ref]config.Service{ref("default", "db"): db, provider: app}
 	for range 256 {
-		_, err := besideOf(component, declared, started, nil)
+		_, err := besideOf(component, "app/catalog-info.yaml", declared, started, nil)
 		if err == nil || !strings.Contains(err.Error(), "sets A, which a dependency exports") {
 			t.Fatalf("the first conflicting binding was not named: %v", err)
+		}
+	}
+}
+
+// Of two APIs a Component maps and does not provide, the one named is
+// the first by name each time, whatever order a map gives them in. The
+// control is a Component that maps none.
+func TestAnAPIMappedAndNotProvidedIsNamedTheSameEachTime(t *testing.T) {
+	provider := entity.New("component", "default", "provider")
+	app := resource("default", "provider", map[string]int32{"http": 8080})
+	app.Kind = "component"
+	out := serviceCatalog(t, component, []catalog.Descriptor{{Entity: catalog.Entity{Ref: provider, Roots: []string{"provider"}}}})
+	if _, err := servicePrograms(&out, map[entity.Ref]config.Service{provider: app}); err != nil {
+		t.Fatalf("a Component that maps no API: %v", err)
+	}
+	app.Said.Apis = map[string]*typev1.ServiceApi{"api:default/a": {Port: "http"}, "api:default/z": {Port: "http"}}
+	for range 256 {
+		_, err := servicePrograms(&out, map[entity.Ref]config.Service{provider: app})
+		if err == nil || !strings.Contains(err.Error(), "maps API api:default/a,") {
+			t.Fatalf("the first API by name was not named: %v", err)
 		}
 	}
 }

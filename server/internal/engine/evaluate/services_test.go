@@ -4,6 +4,7 @@ import (
 	"errors"
 	runnerv1 "github.com/frontseat-dev/frontseat/server/internal/runnerapi/frontseat/runner/v1alpha1"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -173,11 +174,11 @@ func TestAServiceCannotReplaceItsDependencyBinding(t *testing.T) {
 		provider:  {ref("default", "db")},
 	}
 	started := map[entity.Ref]config.Service{ref("default", "db"): db, provider: app}
-	if _, err := besideOf(component, declared, started, nil); err != nil {
+	if _, err := besideOf(component, "app/catalog-info.yaml", declared, started, nil); err != nil {
 		t.Fatalf("binding without an override is allowed: %v", err)
 	}
 	app.Said.Environment = map[string]string{"DATABASE": "another database"}
-	if _, err := besideOf(component, declared, started, nil); err == nil || !strings.Contains(err.Error(), "sets DATABASE") {
+	if _, err := besideOf(component, "app/catalog-info.yaml", declared, started, nil); err == nil || !strings.Contains(err.Error(), "sets DATABASE") {
 		t.Fatalf("service silently replaced its dependency binding: %v", err)
 	}
 }
@@ -298,7 +299,7 @@ func TestServicesStartAfterWhatTheyDependOnAndAreToldItsAddress(t *testing.T) {
 		component:             {ref("default", "idp"), ref("default", "db")},
 		ref("default", "idp"): {ref("default", "db")},
 	}
-	beside, err := besideOf(component, declared, started, nil)
+	beside, err := besideOf(component, "app/catalog-info.yaml", declared, started, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -369,13 +370,13 @@ func TestWhatAComponentsServicesCannotBeIsRefused(t *testing.T) {
 		},
 	}
 	for name, c := range cases {
-		if _, err := besideOf(component, c.declared, c.started, nil); err == nil || !strings.Contains(err.Error(), c.says) {
+		if _, err := besideOf(component, "app/catalog-info.yaml", c.declared, c.started, nil); err == nil || !strings.Contains(err.Error(), c.says) {
 			t.Errorf("%s: %v, want a mistake saying %q", name, err, c.says)
 		}
 	}
 	// The control: a Resource that is not started gives the tests
 	// nothing, and is no mistake.
-	if beside, err := besideOf(component, map[entity.Ref][]entity.Ref{component: {ref("default", "prod-db")}}, map[entity.Ref]config.Service{ref("default", "db"): db}, nil); err != nil || beside != nil {
+	if beside, err := besideOf(component, "app/catalog-info.yaml", map[entity.Ref][]entity.Ref{component: {ref("default", "prod-db")}}, map[entity.Ref]config.Service{ref("default", "db"): db}, nil); err != nil || beside != nil {
 		t.Errorf("a Resource that is not started: %v %v, want nothing", beside, err)
 	}
 }
@@ -454,5 +455,41 @@ func TestNoExportIsNamedWhereEndpointsAreTold(t *testing.T) {
 		if refused := err != nil && strings.Contains(err.Error(), EndpointsVariable); refused != c.refused {
 			t.Errorf("an export %s, endpoints %v: %v", c.export, c.endpoints, err)
 		}
+	}
+}
+
+// What a catalog file says wrongly of a test's services is the mistake of
+// that file, never the daemon's failure: more services than a test is
+// given, a port that is none, an export named as the variable a test is
+// told its endpoints in. The control is a Resource given soundly.
+func TestWhatIsWrongInATestsServicesIsItsFilesMistake(t *testing.T) {
+	db := ref("default", "db")
+	sound := resource("default", "db", map[string]int32{"sql": 5432})
+	many, every := map[entity.Ref]config.Service{}, []entity.Ref{}
+	for i := range 33 {
+		name := "db-" + strconv.Itoa(i)
+		many[ref("default", name)] = resource("default", name, map[string]int32{"sql": 5432})
+		every = append(every, ref("default", name))
+	}
+	unserved := resource("default", "db", map[string]int32{"sql": 70000})
+	exporting := resource("default", "db", map[string]int32{"sql": 5432})
+	exporting.Said.Exports = map[string]string{EndpointsVariable: "{host}:{port.sql}"}
+	for name, c := range map[string]struct {
+		started  map[entity.Ref]config.Service
+		declared []entity.Ref
+		file     string
+	}{
+		"more services than a test is given": {many, every, "app/catalog-info.yaml"},
+		"a port that is none":                {map[entity.Ref]config.Service{db: unserved}, []entity.Ref{db}, "catalog-info.yaml"},
+		"an export named as the endpoints":   {map[entity.Ref]config.Service{db: exporting}, []entity.Ref{db}, "app/catalog-info.yaml"},
+	} {
+		_, err := besideOf(component, "app/catalog-info.yaml", map[entity.Ref][]entity.Ref{component: c.declared}, c.started, nil)
+		var mistake *model.Mistake
+		if !errors.As(err, &mistake) || mistake.File != c.file {
+			t.Errorf("%s: %v, want a mistake of %s", name, err, c.file)
+		}
+	}
+	if beside, err := besideOf(component, "app/catalog-info.yaml", map[entity.Ref][]entity.Ref{component: {db}}, map[entity.Ref]config.Service{db: sound}, nil); err != nil || beside == nil {
+		t.Errorf("a Resource given soundly: %v %v, want its services", beside, err)
 	}
 }

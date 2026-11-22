@@ -242,6 +242,18 @@ func TestAnEnvironmentThatCannotBeSaidOnceForItsRepositoryIsRefused(t *testing.T
 	}
 }
 
+// Of several values of an [env] that cannot be said, the one named is the
+// first by its text each time, whatever order the table gives them in.
+func TestTheValueThatCannotBeSaidIsNamedTheSameEachTime(t *testing.T) {
+	config := "[tools]\ngo = \"1.27.3\"\n\n[env]\nZ = \"{{cwd}}/a\"\nM = \"{{cwd}}/m\"\nA = \"{{cwd}}/z\"\n"
+	for range 64 {
+		_, _, err := pins.For([]byte(config), []byte(forLock), []string{"go"})
+		if err == nil || !strings.Contains(err.Error(), `"{{cwd}}/a" reads`) {
+			t.Fatalf("err = %v, want the first value by its text named", err)
+		}
+	}
+}
+
 // What a mise.toml sets to false, alone or as a value of its own, it
 // unsets; true and text are values; a list of [env] is read in order.
 func TestWhatAMiseTomlUnsetsIsKnownByName(t *testing.T) {

@@ -215,17 +215,26 @@ func sayable(whole map[string]any) error {
 					}
 				}
 			}
+			if err != nil {
+				return
+			}
+			// Of several values that cannot be said, the first by its
+			// text is the one named, whatever order the table gives them in.
+			var named, reads string
 			walk(table, func(value string) {
-				if err != nil {
+				if reads != "" && value >= named {
 					return
 				}
 				for _, span := range templates.FindAllString(raw.ReplaceAllString(value, ""), -1) {
 					if found := unsaid.FindStringSubmatch(span); found != nil {
-						err = fmt.Errorf("[%s] %q reads %s, which an action's environment is not made from: it is made once for its repository, from its pins, in the repository's directory; use config_root, or set the value itself", section, value, found[1])
+						named, reads = value, found[1]
 						return
 					}
 				}
 			})
+			if reads != "" {
+				err = fmt.Errorf("[%s] %q reads %s, which an action's environment is not made from: it is made once for its repository, from its pins, in the repository's directory; use config_root, or set the value itself", section, named, reads)
+			}
 		}
 	}
 	each("env", whole["env"])
