@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"path"
 	"strings"
+
+	"github.com/frontseat-dev/frontseat/sdk/go/entity"
 )
 
 // Answer is what frontseat query answers, as it is printed and as its
@@ -144,24 +146,14 @@ func (r Requirement) at() string {
 }
 
 // short is an entity written in full, or a requirement, as a line names
-// it: a component of the default namespace by its name alone, as named
-// says. A requirement is written as it is.
+// it: an entity as it is written short (entity.Ref.Short), a component
+// of the default namespace by its name alone. A requirement, which is no
+// entity written in full, is written as it is.
 func short(full string) string {
-	kind, rest, typed := strings.Cut(full, ":")
-	if !typed || !strings.Contains(rest, "/") || strings.ContainsAny(kind, "./") {
-		return shown(full)
+	if ref, err := entity.Parse(full); err == nil && ref.String() == full {
+		return shown(ref.Short())
 	}
-	namespace, name, _ := strings.Cut(rest, "/")
-	if strings.Contains(name, "/") {
-		return shown(full)
-	}
-	if namespace != "default" {
-		name = namespace + "/" + name
-	}
-	if kind != "component" {
-		name = kind + ":" + name
-	}
-	return shown(name)
+	return shown(full)
 }
 
 // shorts are entities, as a line names them, one after another.

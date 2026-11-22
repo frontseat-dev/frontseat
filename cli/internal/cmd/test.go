@@ -8,7 +8,7 @@ import (
 
 var testProfile string
 
-// testCmd represents the test command
+// testCmd tests the workspace, or what it is pointed at.
 var testCmd = &cobra.Command{
 	Use:   "test [TARGET...]",
 	Short: "Test the workspace, or what you point at",

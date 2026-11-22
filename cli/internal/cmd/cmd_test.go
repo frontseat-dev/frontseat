@@ -170,16 +170,22 @@ func serving(t *testing.T, register func(api *connect.Server)) string {
 	return srv.URL
 }
 
+// complaints is what the test's last command line said of what went
+// wrong, apart from what it printed.
+var complaints bytes.Buffer
+
 // runAt runs the command line inside a workspace's sandbox whose daemon
 // is at endpoint, or outside any where endpoint is empty, and returns
-// what it printed, the exit code and why it could not run.
+// what it printed, the exit code and why it could not run. What it said
+// of what went wrong is in complaints.
 func runAt(t *testing.T, ctx context.Context, endpoint string, args ...string) (string, int, error) {
 	t.Helper()
-	inside, here = func() (bool, error) { return endpoint != "", nil }, endpoint
+	inside, here = func() bool { return endpoint != "" }, endpoint
 	t.Cleanup(func() { inside, here = outside, machine.Daemon })
 	var printed bytes.Buffer
-	out = &printed
-	t.Cleanup(func() { out = os.Stdout })
+	complaints.Reset()
+	out, errOut = &printed, &complaints
+	t.Cleanup(func() { out, errOut = os.Stdout, os.Stderr })
 	code, err := Execute(ctx, args)
 	return printed.String(), code, err
 }

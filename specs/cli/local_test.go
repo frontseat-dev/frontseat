@@ -4,7 +4,6 @@ package e2e
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/frontseat-dev/frontseat/local/ports"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testidentity"
@@ -19,8 +18,6 @@ import (
 	"time"
 
 	connect "connectrpc.com/connect/v2"
-	"connectrpc.com/connect/v2/connectproto"
-	"google.golang.org/genproto/googleapis/rpc/errdetails"
 
 	"github.com/frontseat-dev/frontseat/sdk/go"
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
@@ -249,21 +246,6 @@ func localServer(t *testing.T, program string, flags ...string) (string, string)
 	return "http://" + address, state
 }
 
-// reasonOf is the reason by name a refusal gives, in its ErrorInfo.
-func reasonOf(err error) string {
-	said := new(connect.Error)
-	if errors.As(err, &said) {
-		for _, detail := range said.Details() {
-			if info, _ := connectproto.UnmarshalErrorDetail(detail); info != nil {
-				if named, ok := info.(*errdetails.ErrorInfo); ok {
-					return named.GetReason()
-				}
-			}
-		}
-	}
-	return ""
-}
-
 // A workspace is opened by entity alone where the control plane's
 // operator gave it a Backstage: frontseat-local --backstage, here a fake
 // Backstage that holds the forge's entities, resolves component:gateway
@@ -290,8 +272,8 @@ func TestAWorkspaceOpenedByEntityClonesWhatItsBackstageSays(t *testing.T) {
 	}
 	refusing := frontseat.New(unserved, frontseat.WithToken(strings.TrimSpace(string(raw))))
 	_, err = refusing.Open(ctx, frontseat.Spec{Name: fmt.Sprintf("test-%d", time.Now().UnixNano()), Image: image, Entities: []string{"component:gateway"}})
-	if connect.CodeOf(err) != connect.CodeUnimplemented || reasonOf(err) != "ENTITIES_NOT_SERVED" {
-		t.Errorf("opened by entity without a Backstage: %v (%s), want it refused UNIMPLEMENTED, ENTITIES_NOT_SERVED", err, reasonOf(err))
+	if reason, _ := frontseat.Reason(err); connect.CodeOf(err) != connect.CodeUnimplemented || reason != "ENTITIES_NOT_SERVED" {
+		t.Errorf("opened by entity without a Backstage: %v (%s), want it refused UNIMPLEMENTED, ENTITIES_NOT_SERVED", err, reason)
 	}
 	if listed, err := refusing.Workspaces(ctx); err != nil || len(listed) != 0 {
 		t.Errorf("what was refused left %d workspaces (%v)", len(listed), err)

@@ -21,7 +21,7 @@ var (
 	openWhole bool
 )
 
-// openCmd represents the open command
+// openCmd opens a workspace, and makes it the one the other commands ask.
 var openCmd = &cobra.Command{
 	Use:   "open [WORKSPACE | REPOSITORY... | ENTITY...]",
 	Short: "Open a workspace: this checkout's, a repository's, entities', or one there is",
@@ -30,10 +30,11 @@ it the workspace the other commands ask.
 
 With nothing named, it is the workspace of the repository this checkout is
 of, at the branch it is on, cloned from the checkout's remote. Named a
-repository (URL or URL#REF) or entities (kind:name), it is a workspace of
-those: the control plane resolves entities through the Backstage catalog
-its operator gives it, and refuses them where it has none. Named a workspace there is, by its name, it is that
-one.
+repository (URL or URL#REF) or entities (kind:name; one word alone is
+read as a workspace's name), it is a workspace of those: the control
+plane resolves entities through the Backstage catalog its operator
+gives it, and refuses them where it has none. Named a workspace there
+is, by its name, it is that one.
 
 A workspace is given a name by what it was first asked for, or the one
 --name gives. Asked for again, it is the same workspace. It is the
@@ -64,13 +65,18 @@ as far as the credential the control plane keeps lets it.`,
 		if len(args) > 0 {
 			return openNamed(ctx, fs, args, cmd.Flags())
 		}
+		// A checkout's repository is cloned whole: there are no entities
+		// whose directories alone could be.
+		if openWhole {
+			return errors.New("--whole is said of the entities a workspace is opened of, and none is named: a checkout's repository is cloned whole as it is")
+		}
 		open := opened
 		if open.Directory == "" {
-			here, err := os.Getwd()
+			run, err := os.Getwd()
 			if err != nil {
 				return err
 			}
-			open.Directory = here
+			open.Directory = run
 		}
 		got, err := machine.OpenCheckout(ctx, fs, open, machine.Checkout())
 		if err := kept(fs, got.Opened, err); err != nil {
@@ -128,41 +134,42 @@ func openNamed(ctx context.Context, fs *frontseat.Client, args []string, flags *
 	if len(args) == 1 && frontseat.IsWorkspaceName(args[0]) {
 		// What a workspace is was said when it was made, and is not asked
 		// again of one that is there.
-		for _, said := range []string{"name", "push", "image", "whole"} {
-			if flags.Changed(said) {
-				return fmt.Errorf("--%s is said of a workspace when it is made, and %s is one there is: open it by its name alone", said, args[0])
+		for _, flag := range []string{"name", "push", "image", "whole"} {
+			if flags.Changed(flag) {
+				return fmt.Errorf("--%s is said of a workspace when it is made, and %s is one there is: open it by its name alone", flag, args[0])
 			}
 		}
 		spec.Name = args[0]
 	} else {
 		spec = frontseat.Spec{Name: opened.Name, Image: opened.Image, Push: opened.Push, Whole: openWhole, AuthorizedKey: key}
-		for _, named := range args {
+		for _, arg := range args {
 			switch {
-			case strings.Contains(named, "://"):
-				repository, err := machine.Repository(named)
+			case strings.Contains(arg, "://"):
+				repository, err := machine.Repository(arg)
 				if err != nil {
 					return err
 				}
 				spec.Repositories = append(spec.Repositories, repository)
-			case strings.Contains(named, "@") && strings.Contains(named, ":"):
-				return fmt.Errorf("a workspace clones a repository over http or https, and is given its address so: %q is not one", named)
+			case strings.Contains(arg, "@") && strings.Contains(arg, ":"):
+				return fmt.Errorf("a workspace clones a repository over http or https, and is given its address so: %q is not one", arg)
 			default:
-				if err := typed([]string{named}); err != nil {
-					return fmt.Errorf("%q is no workspace's name, no repository's address and no entity: %w", named, err)
+				if err := typed([]string{arg}); err != nil {
+					return fmt.Errorf("%q is no workspace's name, no repository's address and no entity: %w", arg, err)
 				}
-				spec.Entities = append(spec.Entities, named)
+				spec.Entities = append(spec.Entities, arg)
 			}
+		}
+		// The repositories of entities are cloned whole, or the entities'
+		// directories alone: of repositories named, there is no less.
+		if openWhole && len(spec.Entities) == 0 {
+			return errors.New("--whole is said of the entities a workspace is opened of, and none is named: a repository named is cloned whole as it is")
 		}
 	}
 	got, err := fs.Open(ctx, spec)
 	if err := kept(fs, got, err); err != nil {
 		return err
 	}
-	came := "as it was left"
-	if got.How == frontseat.Made {
-		came = "made"
-	}
-	said("%s  %s", got.Workspace.Name(), came)
+	said("%s  %s", got.Workspace.Name(), how(got.How))
 	// A workspace of one repository is entered in it, and one of several
 	// above them.
 	in := ""
