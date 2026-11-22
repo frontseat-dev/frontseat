@@ -1227,3 +1227,28 @@ func TestWhichSettingOfAMemberIsRefusedDoesNotChangeBetweenReads(t *testing.T) {
 		}
 	}
 }
+
+// A repository's defaults are what each of its entities is released by
+// where neither it, its System nor its Domain says otherwise, and no
+// entity is said to set them. The control is a level that says a
+// setting, which wins over the default.
+func TestARepositorysReleaseDefaultsAreWhatNoLevelSays(t *testing.T) {
+	w := company(says("system:kiosk", "tag", "kiosk-{version}"))
+	w.Defaults = map[string]map[string]string{"services": {config.ReleaseTag: "{unit}@{version}", config.ReleaseInitialVersion: "2.0.0"}}
+	resolved, err := release.Resolve(w)
+	if err != nil {
+		t.Fatal(err)
+	}
+	greet, _ := resolved.Of(ref("greet"))
+	if greet.Tag != "{unit}@{version}" || greet.Initial != "2.0.0" || len(greet.SetBy) != 0 {
+		t.Errorf("greet, which no level says anything of, is released by %+v", greet)
+	}
+	log, _ := resolved.Of(ref("log"))
+	if log.Tag != release.DefaultTag || log.Initial != release.DefaultInitial {
+		t.Errorf("log, of a repository with no defaults, is released by %+v", log)
+	}
+	kiosk, _ := resolved.Of(ref("system:kiosk"))
+	if kiosk.Tag != "kiosk-{version}" || kiosk.Initial != "2.0.0" || kiosk.SetBy[config.ReleaseTag] != ref("system:kiosk") {
+		t.Errorf("control, kiosk, which says its tag: %+v", kiosk)
+	}
+}

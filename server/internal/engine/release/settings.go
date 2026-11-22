@@ -48,6 +48,9 @@ type Workspace struct {
 	Listed map[string][]string
 	// DependsOn is what each entity depends on, as the source says.
 	DependsOn map[entity.Ref][]entity.Ref
+	// Defaults are the release settings each repository says every
+	// entity of it has unless a level says otherwise, by repository.
+	Defaults map[string]map[string]string
 }
 
 // Settings is how an entity is released, as its settings resolve.
@@ -150,28 +153,19 @@ func Resolve(w Workspace) (*Resolved, error) {
 		}
 		return entity.Ref{}, false, &model.Mistake{File: said[ref].File, Message: fmt.Sprintf("%s is part of %s and %s; it is released with one %s", ref, found[0], found[1], kind)}
 	}
-	// inherited resolves the settings every level passes down.
+	// inherited resolves the settings every level passes down, over the
+	// defaults of the repository of the entity they are of, which no
+	// entity sets.
 	inherited := func(levels ...entity.Ref) Settings {
 		s := Settings{Tag: DefaultTag, Initial: DefaultInitial, Versioning: DefaultVersioning, Branching: DefaultBranching, Prerelease: DefaultPrerelease, SetBy: map[string]entity.Ref{}}
+		for key, value := range w.Defaults[out.entities[levels[0]].Repository] {
+			s.set(key, value)
+		}
 		for i := len(levels) - 1; i >= 0; i-- {
 			for key, value := range said[levels[i]].Settings {
-				switch key {
-				case config.ReleaseTag:
-					s.Tag = value
-				case config.ReleaseInitialVersion:
-					s.Initial = value
-				case config.ReleaseVersioning:
-					s.Versioning = value
-				case config.ReleaseBranching:
-					s.Branching = value
-				case config.ReleasePrereleaseFormat:
-					s.Prerelease = value
-				case config.ReleasePrereleaseTagged:
-					s.PrereleaseTag = value == "true"
-				default:
-					continue
+				if s.set(key, value) {
+					s.SetBy[key] = levels[i]
 				}
-				s.SetBy[key] = levels[i]
 			}
 		}
 		return s
@@ -371,4 +365,26 @@ func (r *Resolved) tagsApart() error {
 		seen[at] = ref
 	}
 	return nil
+}
+
+// set sets one inherited setting by its key, and reports whether it is
+// one: grouping is each level's own.
+func (s *Settings) set(key, value string) bool {
+	switch key {
+	case config.ReleaseTag:
+		s.Tag = value
+	case config.ReleaseInitialVersion:
+		s.Initial = value
+	case config.ReleaseVersioning:
+		s.Versioning = value
+	case config.ReleaseBranching:
+		s.Branching = value
+	case config.ReleasePrereleaseFormat:
+		s.Prerelease = value
+	case config.ReleasePrereleaseTagged:
+		s.PrereleaseTag = value == "true"
+	default:
+		return false
+	}
+	return true
 }

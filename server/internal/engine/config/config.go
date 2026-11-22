@@ -76,6 +76,9 @@ type Repository struct {
 	// platforms are the platforms entities say they ship for, each for
 	// its directory, the deepest directory last.
 	platforms []shipped
+	// defaults are what frontseat.yaml says every Component has unless
+	// it says otherwise.
+	defaults Defaults
 }
 
 // shipped is the platforms one catalog file says its entity ships for,
@@ -89,14 +92,14 @@ type shipped struct {
 // an architecture, as the tools that build for one name them.
 var platform = regexp.MustCompile(`^[a-z0-9]+/[a-z0-9]+$`)
 
-// readPlatforms reads spec.frontseat.platforms of one document: a list
-// of platforms, each once.
-func readPlatforms(file string, node *yaml.Node) ([]string, error) {
+// readPlatforms reads a list of platforms, each once, written under at:
+// spec.frontseat.platforms of one document, or defaults.platforms.
+func readPlatforms(file, at string, node *yaml.Node) ([]string, error) {
 	mistake := func(line int, format string, a ...any) ([]string, error) {
 		return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: ", line) + fmt.Sprintf(format, a...)}
 	}
 	if node.Kind != yaml.SequenceNode {
-		return mistake(node.Line, "spec.frontseat.platforms is a list of the platforms the entity ships for, each <os>/<arch>, as linux/amd64")
+		return mistake(node.Line, "%s is a list of the platforms what is built ships for, each <os>/<arch>, as linux/amd64", at)
 	}
 	// A list of none is said too: what is beneath ships for no platform,
 	// whatever an entity above it says.
@@ -104,9 +107,9 @@ func readPlatforms(file string, node *yaml.Node) ([]string, error) {
 	for _, item := range node.Content {
 		switch {
 		case item.Kind != yaml.ScalarNode || item.ShortTag() != "!!str" || !platform.MatchString(item.Value):
-			return mistake(item.Line, "spec.frontseat.platforms holds what is no platform: one is written <os>/<arch>, in small letters and digits, as linux/amd64")
+			return mistake(item.Line, "%s holds what is no platform: one is written <os>/<arch>, in small letters and digits, as linux/amd64", at)
 		case slices.Contains(out, item.Value):
-			return mistake(item.Line, "spec.frontseat.platforms names a platform twice: each is said once")
+			return mistake(item.Line, "%s names a platform twice: each is said once", at)
 		}
 		out = append(out, item.Value)
 	}
@@ -114,10 +117,10 @@ func readPlatforms(file string, node *yaml.Node) ([]string, error) {
 }
 
 // Platforms returns the platforms what is in a directory of the
-// repository ships for: what the entity nearest above it says, and
-// none where none says any.
+// repository ships for: what the entity nearest above it says, else the
+// repository's default, and none where neither says any.
 func (r *Repository) Platforms(directory string) []string {
-	var out []string
+	out := r.defaults.Platforms
 	for _, said := range r.platforms {
 		if said.directory == "" || said.directory == directory || strings.HasPrefix(directory, said.directory+"/") {
 			out = said.platforms
@@ -236,11 +239,17 @@ func Read(ctx context.Context, name string, files Reader) (*Repository, error) {
 		root := documents[0]
 		for i := 0; i+1 < len(root.Content); i += 2 {
 			key, value := root.Content[i], root.Content[i+1]
-			if key.Value != "plugins" {
-				return nil, &model.Mistake{File: r.origin(File), Message: fmt.Sprintf("line %d: it takes no key %s; a repository lists its plugins under plugins", key.Line, key.Value)}
-			}
-			if r.listed, r.repository, err = plugins(r.origin(File), value); err != nil {
-				return nil, err
+			switch key.Value {
+			case "plugins":
+				if r.listed, r.repository, err = plugins(r.origin(File), value); err != nil {
+					return nil, err
+				}
+			case "defaults":
+				if r.defaults, err = readDefaults(r.origin(File), value); err != nil {
+					return nil, err
+				}
+			default:
+				return nil, &model.Mistake{File: r.origin(File), Message: fmt.Sprintf("line %d: it takes no key %s; it takes plugins, the plugins that build the repository, and defaults, what every Component has unless it says otherwise", key.Line, key.Value)}
 			}
 		}
 	}
@@ -339,7 +348,7 @@ func Read(ctx context.Context, name string, files Reader) (*Repository, error) {
 				if ref.Kind != entity.KindComponent {
 					return nil, &model.Mistake{File: r.origin(file), Message: fmt.Sprintf("line %d: spec.frontseat.platforms is said by a Component, for what is built beneath its directory", node.Line)}
 				}
-				read, err := readPlatforms(r.origin(file), node)
+				read, err := readPlatforms(r.origin(file), "spec.frontseat.platforms", node)
 				if err != nil {
 					return nil, err
 				}

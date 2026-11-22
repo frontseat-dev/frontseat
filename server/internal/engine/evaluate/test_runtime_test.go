@@ -1,6 +1,7 @@
 package evaluate
 
 import (
+	"maps"
 	"reflect"
 	"slices"
 	"strconv"
@@ -35,7 +36,7 @@ func TestRuntimeDataFollowsComponentOwnershipAndKeepsItsLiteralBase(t *testing.T
 		makeAction("parent[1]/nested", "go", base), makeAction("parent1", "go", base),
 		makeAction("parent[1]/go", "go", &pluginv1.Action{Name: "compile", Command: base.Command}),
 	}}
-	if err := testRuntimes(&out, map[string][]config.TestRuntime{"repo": {declaration}}, map[string]map[string]string{"repo": {"node": "locked"}}); err != nil {
+	if err := testRuntimes(&out, map[string][]config.TestRuntime{"repo": {declaration}}, nil, map[string]map[string]string{"repo": {"node": "locked"}}); err != nil {
 		t.Fatal(err)
 	}
 	for i, action := range out.Actions {
@@ -87,7 +88,7 @@ func BenchmarkTestRuntimeInputs(b *testing.B) {
 	b.ResetTimer()
 	for b.Loop() {
 		out := Evaluation{Entities: base.Entities, Actions: slices.Clone(base.Actions)}
-		if err := testRuntimes(&out, configured, pinned); err != nil {
+		if err := testRuntimes(&out, configured, nil, pinned); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -116,10 +117,46 @@ func TestRuntimeDataRefusesUnknownOwnershipInputsAndTools(t *testing.T) {
 			if tc.tool != "" {
 				written.Tools = []string{tc.tool}
 			}
-			err := testRuntimes(&out, map[string][]config.TestRuntime{"": {written}}, map[string]map[string]string{"": {"node": "locked"}})
+			err := testRuntimes(&out, map[string][]config.TestRuntime{"": {written}}, nil, map[string]map[string]string{"": {"node": "locked"}})
 			if tc.want == "" && err != nil || tc.want != "" && (err == nil || !strings.Contains(err.Error(), tc.want)) {
 				t.Fatalf("runtime configuration: %v, want %q", err, tc.want)
 			}
 		})
+	}
+}
+
+// What a repository's defaults give tests reaches every Component's,
+// whether or not its catalog file says a test of its own: the tools of
+// both, and the variables of both, the Component's over the defaults'.
+// A variable a test's own command sets is refused as the file's that
+// wrote it; the control is a Component whose test sets none.
+func TestARepositorysDefaultsReachEveryComponentsTests(t *testing.T) {
+	quiet, own := entity.New("component", "default", "quiet"), entity.New("component", "default", "own")
+	test := func(root string, environment map[string]string) plan.Action {
+		return plan.Action{Repository: "repo", ProjectRoot: root, Label: model.Label{Path: "repo/" + root, Plugin: "go", Name: "test"},
+			Declared: &pluginv1.Action{Name: "test", Test: true, Command: &pluginv1.Command{Arguments: []string{"go", "test"}, Environment: environment}}}
+	}
+	defaults := map[string]config.Defaults{"repo": {File: "repo/frontseat.yaml", Test: config.TestDefaults{Tools: []string{"buf"}, Environment: map[string]string{"STACK": "none", "MODE": "quiet"}}}}
+	configured := map[string][]config.TestRuntime{"repo": {{Entity: own, Directory: "own", File: "repo/own/catalog-info.yaml", Tools: []string{"node"}, Environment: map[string]string{"MODE": "loud"}}}}
+	pinned := map[string]map[string]string{"repo": {"buf": "locked", "node": "locked"}}
+	entities := []record.Located{{Repository: "repo", Root: "quiet", Ref: quiet}, {Repository: "repo", Root: "own", Ref: own}}
+	out := Evaluation{Entities: entities, Actions: []plan.Action{test("quiet", nil), test("own", nil)}}
+	if err := testRuntimes(&out, configured, defaults, pinned); err != nil {
+		t.Fatal(err)
+	}
+	for i, want := range []struct {
+		tools       []string
+		environment map[string]string
+	}{{[]string{"buf"}, map[string]string{"STACK": "none", "MODE": "quiet"}}, {[]string{"buf", "node"}, map[string]string{"STACK": "none", "MODE": "loud"}}} {
+		if got := out.Actions[i]; !slices.Equal(got.Declared.GetTools(), want.tools) || !maps.Equal(got.Environment, want.environment) {
+			t.Errorf("%s is given %v and %v, want %v and %v", got.Label, got.Declared.GetTools(), got.Environment, want.tools, want.environment)
+		}
+	}
+	clash := Evaluation{Entities: entities, Actions: []plan.Action{test("quiet", map[string]string{"STACK": "set"})}}
+	if err := testRuntimes(&clash, nil, defaults, pinned); err == nil || !strings.Contains(err.Error(), "repo/frontseat.yaml") || !strings.Contains(err.Error(), "test.environment gives STACK") {
+		t.Errorf("a default a test's command sets: %v", err)
+	}
+	if err := testRuntimes(&out, nil, defaults, map[string]map[string]string{"repo": {}}); err == nil || !strings.Contains(err.Error(), "defaults.test.tools names") {
+		t.Errorf("a default tool the repository does not pin: %v", err)
 	}
 }

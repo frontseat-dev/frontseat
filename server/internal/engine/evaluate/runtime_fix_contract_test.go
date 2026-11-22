@@ -25,7 +25,7 @@ func TestATestThatIsACheckWithAFixIsGivenItsComponentsSettings(t *testing.T) {
 	owner := entity.New("component", "default", "app")
 	out := Evaluation{Entities: []record.Located{{Root: "app", Ref: owner}}, Actions: []plan.Action{{Label: model.Label{Path: "app", Plugin: "fixture", Name: "test"}, ProjectRoot: "app", Declared: action}}}
 	configured := map[string][]config.TestRuntime{"": {{Entity: owner, Directory: "app", File: "app/catalog-info.yaml", Environment: map[string]string{"TEST_REVIEW_VALUE": "configured"}}}}
-	if err := testRuntimes(&out, configured, nil); err != nil {
+	if err := testRuntimes(&out, configured, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 	if out.Actions[0].Environment["TEST_REVIEW_VALUE"] != "configured" {
@@ -46,7 +46,7 @@ func TestATestIsNotGivenWhatItsOwnCommandsSet(t *testing.T) {
 			owner := entity.New("component", "default", "app")
 			out := Evaluation{Entities: []record.Located{{Root: "app", Ref: owner}}, Actions: []plan.Action{{Label: model.Label{Path: "app", Plugin: "fixture", Name: "test"}, ProjectRoot: "app", Declared: declared}}}
 			configured := map[string][]config.TestRuntime{"": {{Entity: owner, Directory: "app", File: "app/catalog-info.yaml", Environment: map[string]string{"TEST_REVIEW_VALUE": "configured"}}}}
-			err := testRuntimes(&out, configured, nil)
+			err := testRuntimes(&out, configured, nil, nil)
 			var mistake *model.Mistake
 			if !errors.As(err, &mistake) || mistake.File != "app/catalog-info.yaml" || !strings.Contains(mistake.Message, "TEST_REVIEW_VALUE") {
 				t.Fatalf("given what %s sets, the setting was taken: %v", name, err)

@@ -57,6 +57,10 @@ type Evaluation struct {
 	// Listed the plugins each repository lists.
 	Releases []config.Release
 	Listed   map[string][]string
+	// ReleaseDefaults are the release settings each repository's
+	// frontseat.yaml says every entity has unless it, its System or its
+	// Domain says otherwise, by repository.
+	ReleaseDefaults map[string]map[string]string
 	// DependsOn is what each entity depends on, as the source says.
 	DependsOn map[entity.Ref][]entity.Ref
 	// Asked is how many times a plugin was asked, and Again how many
@@ -139,6 +143,9 @@ func evaluate(ctx context.Context, src Source, plugins []*pluginhost.Plugin, ans
 	out := Evaluation{Entities: entities, Listed: map[string][]string{}}
 	started := map[entity.Ref]config.Service{}
 	tests := map[string][]config.TestRuntime{}
+	// What each repository says every Component has unless it says
+	// otherwise.
+	defaults := map[string]config.Defaults{}
 	// What each repository's Components say others generate of them.
 	consents := map[string][]config.Generated{}
 	answers.begin()
@@ -153,6 +160,15 @@ func evaluate(ctx context.Context, src Source, plugins []*pluginhost.Plugin, ans
 		pinned[repository] = pins
 		if runtime := configured.TestRuntimes(); len(runtime) > 0 {
 			tests[repository] = runtime
+		}
+		if said := configured.Defaults(); said.File != "" {
+			defaults[repository] = said
+			if len(said.Release) > 0 {
+				if out.ReleaseDefaults == nil {
+					out.ReleaseDefaults = map[string]map[string]string{}
+				}
+				out.ReleaseDefaults[repository] = said.Release
+			}
 		}
 		if said := configured.Generated(); len(said) > 0 {
 			consents[repository] = said
@@ -261,7 +277,7 @@ func evaluate(ctx context.Context, src Source, plugins []*pluginhost.Plugin, ans
 	}
 	// What each action reads of others is what it needs: resolved among
 	// all of them, before generated source adds what its inputs select.
-	if err := testRuntimes(&out, tests, pinned); err != nil {
+	if err := testRuntimes(&out, tests, defaults, pinned); err != nil {
 		return out, err
 	}
 	if err := plan.Resolve(out.Actions); err != nil {

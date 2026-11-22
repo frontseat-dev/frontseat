@@ -63,7 +63,7 @@ func TestWhatADirectoryShipsForIsWhatTheNearestEntityAboveItSays(t *testing.T) {
 // A platform is an operating system and an architecture, written once.
 func TestWhatIsNoPlatformIsRefusedWhereItIsSaid(t *testing.T) {
 	for written, says := range map[string]string{
-		"linux/amd64":                "spec.frontseat.platforms is a list of the platforms the entity ships for",
+		"linux/amd64":                "spec.frontseat.platforms is a list of the platforms what is built ships for",
 		"[linux]":                    "spec.frontseat.platforms holds what is no platform: one is written <os>/<arch>",
 		"[Linux/amd64]":              "holds what is no platform",
 		"[linux/amd64/v3]":           "holds what is no platform",

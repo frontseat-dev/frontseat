@@ -29,6 +29,10 @@ func (e Evaluation) Clone() Evaluation {
 	for i := range out.Releases {
 		out.Releases[i].Settings = maps.Clone(out.Releases[i].Settings)
 	}
+	out.ReleaseDefaults = maps.Clone(e.ReleaseDefaults)
+	for key, settings := range out.ReleaseDefaults {
+		out.ReleaseDefaults[key] = maps.Clone(settings)
+	}
 	out.Listed = maps.Clone(e.Listed)
 	for key, values := range out.Listed {
 		out.Listed[key] = slices.Clone(values)

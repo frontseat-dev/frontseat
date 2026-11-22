@@ -116,7 +116,7 @@ func releaseFailure(err error) error {
 
 // releasing is what an evaluation holds, as releasing reads it.
 func releasing(evaluated evaluate.Evaluation) release.Workspace {
-	w := release.Workspace{Said: evaluated.Releases, Listed: evaluated.Listed, DependsOn: evaluated.DependsOn}
+	w := release.Workspace{Said: evaluated.Releases, Listed: evaluated.Listed, DependsOn: evaluated.DependsOn, Defaults: evaluated.ReleaseDefaults}
 	for _, known := range evaluated.Catalog.Nodes(evaluated.DependsOn) {
 		entity := release.Entity{Ref: known.Ref, Repository: known.Repository, Roots: known.Roots, Manifest: known.Manifest}
 		for _, relation := range known.Relations {

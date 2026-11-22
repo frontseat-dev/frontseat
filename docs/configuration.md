@@ -4,7 +4,7 @@ Everything a repository writes for Frontseat is in two places:
 
 | File | Where | What it says |
 |---|---|---|
-| `frontseat.yaml` | the repository's root | which plugins build the repository, and the options they take |
+| `frontseat.yaml` | the repository's root | which plugins build the repository, the options they take, and what every Component has unless it says otherwise |
 | `catalog-info.yaml` | any directory, any number | the Backstage entities of the repository; under `spec.frontseat`, what Frontseat is told of one entity |
 
 Two more files are read where they are: `mise.toml` pins the tools that
@@ -27,13 +27,18 @@ tests do not do; the tables of options and defaults are prose.
 
 ## `frontseat.yaml`
 
-One YAML document with one key. A file that is empty, or `{}`, lists
+One YAML document of two keys. A file that is empty, or `{}`, lists
 no plugin.
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
 | `plugins` | map of plugin name to its options | none | The plugins that build the repository, in the order written. A plugin with no options is written `name: {}`, or `name:` with nothing after it. |
 | `plugins.<name>.<option>` | as the plugin declares it | the plugin's | An option of that plugin, for the whole repository. |
+| `defaults` | map | none | What every Component of the repository has unless it says otherwise, under the keys an entity says it by. |
+| `defaults.platforms` | list | none | The platforms what is built ships for, where no entity says (`platforms`). |
+| `defaults.test.tools` | list of text | `[]` | Tools every Component's tests run with (`test.tools`). A Component's own are added to them. |
+| `defaults.test.environment` | map of name to text | `{}` | Variables every Component's tests are started with (`test.environment`). A Component's own value of a name wins. |
+| `defaults.release` | map | | The release settings of every entity of the repository where neither it, its System nor its Domain says one (`release`), all but `grouping`, which is each entity's own. |
 
 ```yaml
 # frontseat.yaml
@@ -48,6 +53,13 @@ plugins:
   cargo:
     wasm: true
   backstage: {}
+defaults:
+  platforms: [linux/amd64, linux/arm64]
+  test:
+    tools: [buf]
+    environment: {LOG_LEVEL: info}
+  release:
+    tag: "{unit}@{version}"
 ```
 
 A plugin that is not listed does nothing in the repository. An option a
@@ -123,9 +135,9 @@ A key is inherited in one of three ways, and in no other.
 
 | Rule | Keys | How it holds |
 |---|---|---|
-| By directory | `plugins`, `platforms` | The value holds for the catalog file's directory and every directory beneath it. The nearest file above a directory wins, whole: a nearer `platforms` replaces the list, and a nearer option replaces that option. For an option, the order is the Component's catalog file, then `frontseat.yaml`, then the plugin's default. It is said once for a directory. |
-| By group | `release`, except `grouping` | A Component takes each setting it does not say from its System, then from the System's Domain, then the default. `grouping` is each entity's own. |
-| Not inherited | `test`, `generated`, `actions`, `test-service`, `release.grouping` | The value is the entity's alone. |
+| By directory | `plugins`, `platforms` | The value holds for the catalog file's directory and every directory beneath it. The nearest file above a directory wins, whole: a nearer `platforms` replaces the list, and a nearer option replaces that option. For an option, the order is the Component's catalog file, then `frontseat.yaml`, then the plugin's default; for `platforms`, the nearest catalog file, then `defaults.platforms`. It is said once for a directory. |
+| By group | `release`, except `grouping` | A Component takes each setting it does not say from its System, then from the System's Domain, then from `defaults.release` of its repository, then the default. `grouping` is each entity's own. |
+| Not inherited | `test`, `generated`, `actions`, `test-service`, `release.grouping` | The value is the entity's alone; a Component's `test.tools` and `test.environment` are added to `defaults.test`. |
 
 ### `plugins`
 
