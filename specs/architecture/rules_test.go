@@ -526,7 +526,10 @@ const containerDriver = "server/testsupport/testcontainer"
 // makes is the OpenShell gateway's, and the driver of the container
 // runtime is for tests alone. A test of the journey is held as a
 // program is, since one that made a workspace so would prove nothing of
-// what a person is given.
+// what a person is given. A package beneath server/internal/driver/,
+// where there is none, is refused to tests too: it would be a second
+// driver beside the gateway's, which the sandbox's one implementation
+// leaves no room for.
 func containerRuntimeUses(file string, source []byte) ([]string, error) {
 	file = filepath.ToSlash(file)
 	parsed, err := parser.ParseFile(token.NewFileSet(), file, source, parser.ImportsOnly)
