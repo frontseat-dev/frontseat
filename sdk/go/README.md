@@ -84,9 +84,17 @@ func main() {
 | `Workspace.Describe`, `Workspace.Add`, `Workspace.Delete`, `Workspace.Shell` | The workspace itself: what it holds, more for it to hold, its end, and a connection an SSH client speaks over. |
 | `Client.Here` | Inside a workspace's sandbox, the workspace a `Client` of the daemon there is in. |
 
-`Build`, `Run` and `Release` are handles by id: `Workspace.BuildByID`,
-`RunByID` and `ReleaseByID` give one for an id kept from before, and ask
-nothing until a call is made.
+`Build`, `Run` and `Release` are handles by id (`ID()`):
+`Workspace.BuildByID`, `RunByID` and `ReleaseByID` give one for an id
+kept from before, and ask nothing until a call is made. `Run.BuildID`
+and `Release.BuildID` give the id of the build each made.
+
+Every list (`Workspaces`, `Builds`, `Runs`, `Entities`, `Projects`,
+`Build.Actions`) and every log (`Build.Logs`, `Run.Logs`) is an
+`iter.Seq2[T, error]`, read with `for item, err := range …`; a list is
+asked for a page at a time as it is read. `frontseat.Collect` gathers
+one into a slice. A release is asked for as a build and a run are, by a
+request (`ReleaseRequest{Entities, Etag}`).
 
 What a call hands back is the API's own message, generated from its
 contract into the packages beneath `sdk/go/api` (for a build,

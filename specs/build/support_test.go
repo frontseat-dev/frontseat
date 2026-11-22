@@ -521,7 +521,7 @@ spec: {type: database, owner: team, system: shop}
 
 func (w *Workspace) catalogEntities() map[string]*buildv1.Entity {
 	w.scenario.Helper()
-	listed, err := w.daemon().Entities(context.Background())
+	listed, err := frontseat.Collect(w.daemon().Entities(context.Background()))
 	w.scenario.Expect(err).NotTo(HaveOccurred())
 	result := map[string]*buildv1.Entity{}
 	for _, catalogEntity := range listed {
@@ -667,7 +667,7 @@ type Setting struct {
 // projectFailure observes a rejected graph request over the public API.
 func (w *Workspace) projectFailure() *statuspb.Status {
 	w.scenario.Helper()
-	_, err := w.daemon().Projects(context.Background())
+	_, err := frontseat.Collect(w.daemon().Projects(context.Background()))
 	w.scenario.Expect(err).To(HaveOccurred())
 	var failure *connect.Error
 	w.scenario.Expect(errors.As(err, &failure)).To(BeTrue())
@@ -721,7 +721,7 @@ type Requirement struct{ what, saidAt, at, providedBy string }
 // the workspace says when asked. Nothing is run to ask.
 func (w *Workspace) dependsOn(entity string) []string {
 	w.scenario.Helper()
-	listed, err := w.daemon().Entities(context.Background())
+	listed, err := frontseat.Collect(w.daemon().Entities(context.Background()))
 	w.scenario.Expect(err).NotTo(HaveOccurred())
 	for _, found := range listed {
 		if found.GetRef().GetName() != entity {
@@ -987,7 +987,7 @@ func (b *Build) cameFrom(label string) string {
 // the last.
 func (b *Build) printed(label string) string {
 	b.scenario.Helper()
-	logs, err := b.of.daemon().BuildByID(b.run.GetId()).Logs(context.Background(), label)
+	logs, err := frontseat.Collect(b.of.daemon().BuildByID(b.run.GetId()).Logs(context.Background(), label))
 	b.scenario.Expect(err).NotTo(HaveOccurred())
 	var out []string
 	for _, line := range logs {
@@ -1522,7 +1522,7 @@ func (spec *scenario) runtimeInputs() *Workspace {
 
 func (w *Workspace) projects() []*buildv1.Project {
 	w.scenario.Helper()
-	listed, err := w.daemon().Projects(context.Background())
+	listed, err := frontseat.Collect(w.daemon().Projects(context.Background()))
 	w.scenario.Expect(err).NotTo(HaveOccurred())
 	return listed
 }
@@ -2146,7 +2146,7 @@ func (w *Workspace) releaseSetting(entity, key string) Setting {
 // entityNamed is the entity of a name, through the graph API.
 func (w *Workspace) entityNamed(entity string) *buildv1.Entity {
 	w.scenario.Helper()
-	listed, err := w.daemon().Entities(context.Background())
+	listed, err := frontseat.Collect(w.daemon().Entities(context.Background()))
 	w.scenario.Expect(err).NotTo(HaveOccurred())
 	for _, each := range listed {
 		if each.GetRef().GetName() == entity {

@@ -62,7 +62,7 @@ longer, it stops the program.`,
 			}
 			stop(ctx, run)
 		}()
-		ended, err := followRun(cmd, run)
+		ended, err := followRun(cmd, w, run)
 		if ctx.Err() != nil {
 			<-stopped
 			return ctx.Err()
@@ -112,8 +112,12 @@ func after(more string) string {
 // followRun prints a run of a program to its end: the build of what
 // the program is made of, then what the program prints. It returns the
 // run as it ended.
-func followRun(cmd *cobra.Command, run *frontseat.Run) (*buildv1.Run, error) {
-	if _, err := follow(cmd, run.Build, 0); err != nil {
+func followRun(cmd *cobra.Command, w *frontseat.Workspace, run *frontseat.Run) (*buildv1.Run, error) {
+	built, err := run.BuildID(cmd.Context())
+	if err != nil {
+		return nil, err
+	}
+	if _, err := follow(cmd, w.BuildByID(built), 0); err != nil {
 		return nil, err
 	}
 	printer := plain.Printer{Out: out}

@@ -913,7 +913,7 @@ func (b *Build) retainedCompileResult() *buildv1.ActionResult {
 	if b.outcome() != "SUCCESS" {
 		b.Logf("Run failure: %s\n", b.run.GetFailure())
 		for _, action := range listed.GetActions() {
-			logs, err := b.of.sdk().BuildByID(b.run.GetId()).Logs(context.Background(), action.GetLabel())
+			logs, err := frontseat.Collect(b.of.sdk().BuildByID(b.run.GetId()).Logs(context.Background(), action.GetLabel()))
 			b.Logf("Action: %s\nLogs: %s; error: %v\n", action, logs, err)
 		}
 	}

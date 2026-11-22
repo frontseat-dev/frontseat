@@ -127,10 +127,10 @@ func TestTheStacksEndpointRunsNothingInASandbox(t *testing.T) {
 			t.Errorf("ExecSandbox at %s with %s: %v, %v; want it refused as %s", stack, name, ran, err, want)
 		}
 	}
-	if _, err := frontseat.New(stack).Workspaces(context.Background()); connect.CodeOf(err) != connect.CodeUnauthenticated {
+	if _, err := frontseat.Collect(frontseat.New(stack).Workspaces(context.Background())); connect.CodeOf(err) != connect.CodeUnauthenticated {
 		t.Errorf("ListWorkspaces at %s with no token: %v, want it refused as unauthenticated", stack, err)
 	}
-	if _, err := frontseat.New(stack, stackOwner(t)).Workspaces(context.Background()); err != nil {
+	if _, err := frontseat.Collect(frontseat.New(stack, stackOwner(t)).Workspaces(context.Background())); err != nil {
 		t.Errorf("ListWorkspaces at %s with the owner's token: %v", stack, err)
 	}
 }

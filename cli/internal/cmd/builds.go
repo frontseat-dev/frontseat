@@ -23,11 +23,10 @@ var buildsCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		listed, err := w.Builds(cmd.Context())
-		if err != nil {
-			return err
-		}
-		for _, b := range listed {
+		for b, err := range w.Builds(cmd.Context()) {
+			if err != nil {
+				return err
+			}
 			said("%s  %s", b.GetId(), state(b))
 		}
 		return nil
@@ -86,7 +85,7 @@ func follow(cmd *cobra.Command, build *frontseat.Build, from int64) (int, error)
 			// that does not answer for what was printed is not what a
 			// build's end is kept from being said by.
 			reading, cancel := context.WithTimeout(cmd.Context(), reads)
-			lines, err := build.Logs(reading, failed.GetLabel())
+			lines, err := frontseat.Collect(build.Logs(reading, failed.GetLabel()))
 			cancel()
 			printer.Printed(lines)
 			if err != nil {
@@ -100,7 +99,7 @@ func follow(cmd *cobra.Command, build *frontseat.Build, from int64) (int, error)
 	}
 	// A build is followed to the event that says how it ended: a stream
 	// that ends before it is no build that passed.
-	return 0, fmt.Errorf("the events of %s ended before it did: frontseat builds events %s %d goes on from where they were", build.ID, build.ID, next)
+	return 0, fmt.Errorf("the events of %s ended before it did: frontseat builds events %s %d goes on from where they were", build.ID(), build.ID(), next)
 }
 
 func state(b *buildv1.Build) string {
