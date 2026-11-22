@@ -71,7 +71,7 @@ func mistaken(t *testing.T, keeper *Keeper, file string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	keeper.keep(at, kept{looked: look(info), held: held{hash: "what it held before", size: info.Size()}})
+	keeper.keep(at, kept{looked: look(info), settled: true, held: held{hash: "what it held before", size: info.Size()}})
 }
 
 // What a daemon knows of a file may be wrong, where the file changed
