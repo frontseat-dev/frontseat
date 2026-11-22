@@ -123,13 +123,18 @@ func TestARemoteProgramIsRefusedWhereARemoteMayBeReached(t *testing.T) {
 	if _, err := git.In(ctx, dir, git.Options{Told: true}).Run(ctx, "status", "--porcelain"); err != nil {
 		t.Fatalf("a repository that names no program was refused, so the test below shows nothing: %v", err)
 	}
-	for _, key := range []string{"remote.origin.uploadpack", "remote.Elsewhere.receivepack"} {
+	// A remote's name is the repository's to write, and may be an address
+	// that holds a token: the refusal names the setting and not the remote.
+	for key, variable := range map[string]string{"remote.origin.uploadpack": "uploadpack", "remote.https://x:tok3n@elsewhere.example/.receivepack": "receivepack"} {
 		if _, err := git.In(ctx, dir, git.Options{Offline: true}).Run(ctx, "config", key, "sh -c planted"); err != nil {
 			t.Fatal(err)
 		}
 		_, err := git.In(ctx, dir, git.Options{Told: true}).Run(ctx, "status", "--porcelain")
-		if err == nil || !strings.Contains(err.Error(), key) {
-			t.Errorf("a repository that names %s is asked, or refused as %v", key, err)
+		if err == nil || !strings.Contains(err.Error(), "remote.<name>."+variable) {
+			t.Errorf("a repository that names %s is asked, or refused as %v", variable, err)
+		}
+		if err != nil && (strings.Contains(err.Error(), "tok3n") || strings.Contains(err.Error(), "origin")) {
+			t.Errorf("the refusal repeats the remote's name: %v", err)
 		}
 		if _, err := git.In(ctx, dir, git.Options{Offline: true}).Run(ctx, "status", "--porcelain"); err != nil {
 			t.Errorf("offline, a repository that names %s is refused: %v", key, err)
