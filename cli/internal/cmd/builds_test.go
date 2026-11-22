@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"testing"
 
 	connect "connectrpc.com/connect/v2"
@@ -70,5 +72,57 @@ func TestABuildAndARunAreReadByTheCommandsBeneathThem(t *testing.T) {
 	}
 	if _, _, err := runAt(t, context.Background(), at, "build", "events", "build_7", "--from", "12"); err != nil || r.from != 12 {
 		t.Errorf("build events --from 12 asked from %d: %v", r.from, err)
+	}
+}
+
+// failedAction is a daemon whose build has one action that failed, which
+// printed more than is shown of it.
+type failedAction struct {
+	recorded
+	lines int
+	logs  error
+}
+
+func (f *failedAction) StreamBuildEvents(_ context.Context, _ *buildv1.StreamBuildEventsRequest, stream buildv1alpha1connect.BuildServiceStreamBuildEventsServerStream) error {
+	return stream.Send(&buildv1.StreamBuildEventsResponse{Events: []*buildv1.BuildEvent{
+		{Event: &buildv1.BuildEvent_ActionFinished_{ActionFinished: &buildv1.BuildEvent_ActionFinished{Result: &buildv1.ActionResult{Label: "//greeter:go.compile", Outcome: buildv1.Outcome_OUTCOME_FAILED, ExitCode: 1}}}},
+		{Event: &buildv1.BuildEvent_ActionFinished_{ActionFinished: &buildv1.BuildEvent_ActionFinished{Result: &buildv1.ActionResult{Label: "//greeter:go.vet", Outcome: buildv1.Outcome_OUTCOME_PASSED}}}},
+		{Event: &buildv1.BuildEvent_Finished_{Finished: &buildv1.BuildEvent_Finished{Build: &buildv1.Build{Id: "build_7", ExitCode: &buildv1.ExitCode{Name: "BUILD_FAILURE", Code: 1}}}}},
+	}})
+}
+
+func (f *failedAction) StreamBuildLogs(_ context.Context, req *buildv1.StreamBuildLogsRequest, stream buildv1alpha1connect.BuildServiceStreamBuildLogsServerStream) error {
+	if f.logs != nil {
+		return f.logs
+	}
+	var lines []*typev1.LogLine
+	for i := range f.lines {
+		lines = append(lines, &typev1.LogLine{Text: fmt.Sprintf("%s line %d", req.GetLabel(), i)})
+	}
+	return stream.Send(&buildv1.StreamBuildLogsResponse{Lines: lines})
+}
+
+// What an action that failed printed is shown beneath it, the last 200
+// lines of it, indented, with how to read all of it; what passed shows
+// nothing of what it printed. Where its log cannot be read, the build is
+// followed to its end all the same, and that is said apart.
+func TestWhatAFailedActionPrintedIsShownBeneathIt(t *testing.T) {
+	f := &failedAction{lines: 250}
+	at := serving(t, func(api *connect.Server) { buildv1alpha1connect.RegisterBuildServiceHandler(api, f) })
+	printed, code, err := runAt(t, context.Background(), at, "build", "events", "build_7")
+	if err != nil || code != 1 {
+		t.Fatalf("exit %d, %v", code, err)
+	}
+	lines := strings.Split(strings.TrimSuffix(printed, "\n"), "\n")
+	if lines[0] != "FAILED  //greeter:go.compile  exit 1  0s" || lines[1] != "        //greeter:go.compile line 50" || lines[200] != "        //greeter:go.compile line 249" {
+		t.Errorf("beneath the failure it printed %q … %q", lines[:2], lines[200])
+	}
+	if lines[201] != "        (frontseat build logs build_7 //greeter:go.compile  for all of it)" || !strings.HasPrefix(lines[202], "passed  //greeter:go.vet") || strings.Contains(printed, "go.vet line") {
+		t.Errorf("after the failure's lines it printed %q", lines[201:])
+	}
+	f.logs = connect.NewError(connect.CodeInternal, "the log is gone")
+	printed, code, err = runAt(t, context.Background(), at, "build", "events", "build_7")
+	if err != nil || code != 1 || !strings.Contains(printed, "BUILD_FAILURE") || !strings.Contains(complaints.String(), "could not be read") {
+		t.Errorf("a log that cannot be read: exit %d, %v, printing %q and saying %q", code, err, printed, complaints.String())
 	}
 }

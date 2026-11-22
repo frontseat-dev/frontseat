@@ -39,6 +39,10 @@ func hidden(r rune) bool {
 type Printer struct {
 	// Out is where the lines go.
 	Out io.Writer
+	// Indent is what a line a program printed is written after: nothing
+	// for a run's program, and the depth of what is said of an action
+	// beneath it for a failed action's.
+	Indent string
 }
 
 // Event writes one event.

@@ -11,7 +11,7 @@ import (
 // Line writes a line a program printed, as it printed it, with
 // what a terminal would act on written as the bytes it is.
 func (p Printer) Line(line *typev1.LogLine) {
-	fmt.Fprintln(p.Out, shown(line.GetText()))
+	fmt.Fprintln(p.Out, p.Indent+shown(line.GetText()))
 }
 
 // Run writes one run as a line of a list: its id, where it is,

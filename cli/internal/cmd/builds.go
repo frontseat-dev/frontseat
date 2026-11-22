@@ -158,6 +158,9 @@ func follow(cmd *cobra.Command, build *frontseat.Build, from int64) (int, error)
 			return 0, err
 		}
 		printer.Event(e)
+		if result := e.GetActionFinished().GetResult(); result.GetOutcome() == buildv1.Outcome_OUTCOME_FAILED {
+			tailed(cmd, build, result.GetLabel())
+		}
 		next = e.GetSequence() + 1
 		if ended := e.GetFinished().GetBuild(); ended != nil {
 			return int(ended.GetExitCode().GetCode()), nil
@@ -166,6 +169,32 @@ func follow(cmd *cobra.Command, build *frontseat.Build, from int64) (int, error)
 	// A build is followed to the event that says how it ended: a stream
 	// that ends before it is no build that passed.
 	return 0, fmt.Errorf("%w: the events of %s ended before it did: frontseat build events %s --from %d goes on from where they were", errUnfinished, build.ID(), build.ID(), next)
+}
+
+// shownOfAFailure is how many of the last lines a failed action printed
+// are shown beneath it.
+const shownOfAFailure = 200
+
+// tailed prints, beneath an action that failed, the last lines it
+// printed, each indented, and how to read the rest. Where they cannot be
+// read, it says so apart from what is printed, and the build is followed
+// on.
+func tailed(cmd *cobra.Command, build *frontseat.Build, label string) {
+	var last []*typev1.LogLine
+	for line, err := range build.Logs(cmd.Context(), label) {
+		if err != nil {
+			complained("frontseat: what %s printed could not be read: %v", plain.Shown(label), err)
+			return
+		}
+		if last = append(last, line); len(last) > shownOfAFailure {
+			last = last[1:]
+		}
+	}
+	printer := plain.Printer{Out: out, Indent: "        "}
+	for _, line := range last {
+		printer.Line(line)
+	}
+	said("        (frontseat build logs %s %s  for all of it)", build.ID(), plain.Shown(label))
 }
 
 // errUnfinished is a stream the server ended before what it follows

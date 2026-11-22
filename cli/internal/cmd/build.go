@@ -26,6 +26,8 @@ var buildCmd = &cobra.Command{
 ` + targets + `
 
 The command follows the build to its end and exits with its exit code.
+Beneath an action that failed it shows the last 200 lines the action
+printed; build logs prints all of it.
 
 The builds of the workspace are read and stopped with the commands
 beneath: build list, describe, events, actions, logs and cancel. An
