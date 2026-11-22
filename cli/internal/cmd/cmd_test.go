@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -42,6 +43,14 @@ type daemonOf struct {
 	// waits, if set, is waited on before a release is said to have ended.
 	waits  chan struct{}
 	waited atomic.Int32
+	// events, if set, are the build's events in place of the one above.
+	events []*buildv1.BuildEvent
+	// printed is what each action printed, by its label, and unread what
+	// reading any of it is answered with instead; read is whose was asked
+	// for.
+	printed map[string][]string
+	unread  error
+	read    []string
 }
 
 func (d *daemonOf) PlanRelease(_ context.Context, request *buildv1.PlanReleaseRequest) (*buildv1.PlanReleaseResponse, error) {
@@ -60,9 +69,40 @@ func (d *daemonOf) StreamBuildEvents(_ context.Context, request *buildv1.StreamB
 	if d.streams != nil {
 		return d.streams
 	}
+	if d.events != nil {
+		return stream.Send(&buildv1.StreamBuildEventsResponse{Events: d.events})
+	}
 	return stream.Send(&buildv1.StreamBuildEventsResponse{Events: []*buildv1.BuildEvent{
 		{Event: &buildv1.BuildEvent_ActionFinished_{ActionFinished: &buildv1.BuildEvent_ActionFinished{Result: &buildv1.ActionResult{Outcome: buildv1.Outcome_OUTCOME_PASSED, Label: "//greet:go.compile"}}}},
 	}})
+}
+
+func (d *daemonOf) StreamBuildLogs(_ context.Context, request *buildv1.StreamBuildLogsRequest, stream buildv1alpha1connect.BuildServiceStreamBuildLogsServerStream) error {
+	d.read = append(d.read, request.GetLabel())
+	if d.unread != nil {
+		return d.unread
+	}
+	// In two parts, as an action that printed much is sent.
+	for _, text := range d.printed[request.GetLabel()] {
+		if err := stream.Send(&buildv1.StreamBuildLogsResponse{Lines: []*typev1.LogLine{{Text: text}}}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ended is the events of a build of three actions, one of which failed
+// and one of which was not run for it, and the build's end.
+func ended() []*buildv1.BuildEvent {
+	finished := func(result *buildv1.ActionResult) *buildv1.BuildEvent {
+		return &buildv1.BuildEvent{Event: &buildv1.BuildEvent_ActionFinished_{ActionFinished: &buildv1.BuildEvent_ActionFinished{Result: result}}}
+	}
+	return []*buildv1.BuildEvent{
+		finished(&buildv1.ActionResult{Outcome: buildv1.Outcome_OUTCOME_PASSED, Label: "//greet:go.compile"}),
+		finished(&buildv1.ActionResult{Outcome: buildv1.Outcome_OUTCOME_FAILED, Label: "//greet:go.lint", ExitCode: 1}),
+		finished(&buildv1.ActionResult{Outcome: buildv1.Outcome_OUTCOME_SKIPPED, Label: "//greet:go.test", Message: "not run: //greet:go.lint failed"}),
+		{Event: &buildv1.BuildEvent_Finished_{Finished: &buildv1.BuildEvent_Finished{Build: &buildv1.Build{ExitCode: &buildv1.ExitCode{Name: "BUILD_FAILURE", Code: 1}}}}},
+	}
 }
 
 func (d *daemonOf) ListBuilds(context.Context, *buildv1.ListBuildsRequest) (*buildv1.ListBuildsResponse, error) {
@@ -541,5 +581,59 @@ func TestTheHelpSaysWhichServerAndWorkspaceAreAsked(t *testing.T) {
 	}
 	if strings.Contains(printed.String(), "local/server") {
 		t.Errorf("a command's own help says the rule again:\n%s", printed)
+	}
+}
+
+// An action that failed is followed by what it printed, all of it and
+// as it printed it, beneath the line that says it failed and before the
+// next action's: its exit code says nothing of why. What a terminal
+// would act on is written as the bytes it is, so nothing an action
+// prints is taken for a line of the command's own. Control: an action
+// that passed or was not run is one line, and what it printed is not
+// asked for.
+func TestAnActionThatFailedIsFollowedByWhatItPrinted(t *testing.T) {
+	d := &daemonOf{events: ended(), printed: map[string][]string{
+		"//greet:go.lint":    {"# example.com/greet", "vet: greet.go:24:63: undefined: syscall.SO_REUSEPORT", "", "passed  //forged:line  1ms\rFAILED", "\x1b[2Jlast"},
+		"//greet:go.compile": {"never shown"},
+		"//greet:go.test":    {"never shown"},
+	}}
+	printed, code, err := run(t, d, "builds", "events", "bld_1")
+	if err != nil || code != 1 {
+		t.Fatalf("ended %d, %v:\n%s", code, err, printed)
+	}
+	want := "passed  //greet:go.compile  0s\n" +
+		"FAILED  //greet:go.lint  exit 1  0s\n" +
+		"        # example.com/greet\n" +
+		"        vet: greet.go:24:63: undefined: syscall.SO_REUSEPORT\n" +
+		"        \n" +
+		"        passed  //forged:line  1ms\\x0dFAILED\n" +
+		"        \\x1b[2Jlast\n" +
+		"skipped //greet:go.test  not run: //greet:go.lint failed\n"
+	if !strings.HasPrefix(printed, want) {
+		t.Errorf("printed\n%s\nwant, first,\n%s", printed, want)
+	}
+	if !slices.Equal(d.read, []string{"//greet:go.lint"}) {
+		t.Errorf("what was printed was asked of %v, want of the action that failed alone", d.read)
+	}
+}
+
+// What a failed action printed may not be there to read, or the daemon
+// may not answer: the command says so in the action's place and goes on
+// to the build's end, which it exits by. A build is not lost for a log.
+func TestWhatAFailedActionPrintedMayNotBeRead(t *testing.T) {
+	d := &daemonOf{events: ended(), unread: connect.NewError(connect.CodeInternal, "what the action printed is not there to be read")}
+	printed, code, err := run(t, d, "builds", "events", "bld_1")
+	if err != nil || code != 1 {
+		t.Fatalf("ended %d, %v:\n%s", code, err, printed)
+	}
+	failed, said, next := strings.Index(printed, "FAILED  //greet:go.lint  exit 1"), strings.Index(printed, "        what it printed could not be read: "), strings.Index(printed, "skipped //greet:go.test")
+	if failed < 0 || said < failed || next < said || !strings.Contains(printed, "BUILD_FAILURE") {
+		t.Errorf("printed\n%s", printed)
+	}
+	// An action that printed nothing is its one line.
+	d = &daemonOf{events: ended()}
+	printed, _, _ = run(t, d, "builds", "events", "bld_1")
+	if !strings.Contains(printed, "FAILED  //greet:go.lint  exit 1  0s\nskipped //greet:go.test") {
+		t.Errorf("an action that printed nothing printed\n%s", printed)
 	}
 }

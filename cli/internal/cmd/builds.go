@@ -71,6 +71,17 @@ func follow(cmd *cobra.Command, build *frontseat.Build, from int64) (int, error)
 			return 0, err
 		}
 		printer.Event(e)
+		// An action that failed is followed by what it printed, all of
+		// it: its exit code says nothing of why. One that passed stays
+		// its one line. What cannot be read is said, and the build is
+		// followed on to its end.
+		if failed := e.GetActionFinished().GetResult(); failed.GetOutcome() == buildv1.Outcome_OUTCOME_FAILED {
+			lines, err := build.Logs(cmd.Context(), failed.GetLabel())
+			printer.Printed(lines)
+			if err != nil {
+				printer.Unread(err)
+			}
+		}
 		next = e.GetSequence() + 1
 		if ended := e.GetFinished().GetBuild(); ended != nil {
 			return int(ended.GetExitCode().GetCode()), nil
