@@ -119,7 +119,7 @@ func ExampleWorkspace_Release() {
 		fmt.Println(err)
 		return
 	}
-	fmt.Println(release.ID(), ended.GetState() == buildv1.Release_STATE_SUCCEEDED)
+	fmt.Println(release.ID(), ended.GetState() == frontseat.ReleaseSucceeded)
 	// Output:
 	// greeter 1.2.0 -> 1.3.0
 	// rel_1 true

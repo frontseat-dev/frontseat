@@ -102,7 +102,12 @@ request (`ReleaseRequest{Entities, Etag}`).
 What a call hands back is the API's own message, generated from its
 contract into the packages beneath `sdk/go/api` (for a build,
 `sdk/go/api/frontseat/build/v1alpha1`). Their comments are the
-contract's.
+contract's. `v1alpha1` in an import path is the API's version, and will
+change. The states a caller switches on are named by the SDK
+(`frontseat.WorkspaceReady`, `frontseat.BuildFinished`,
+`frontseat.RunExited`, `frontseat.ReleaseSucceeded` and the rest, of the
+types `WorkspaceState`, `BuildState`, `RunState`, `ReleaseState`), so a
+program that only reads where something is imports no generated package.
 
 ## The token
 
