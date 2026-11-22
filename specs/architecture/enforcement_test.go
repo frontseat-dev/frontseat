@@ -151,6 +151,10 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		// one check, the sandbox service's and a test's services' alike.
 		{"server/sandbox/service.go", "server/internal/plain", true},
 		{"server/internal/testservice/testservice.go", "server/internal/plain", true},
+		// The plugin host shows what a module printed as plain says
+		// text from outside is shown; it reads no secret of the server's.
+		{"server/internal/pluginhost/host.go", "server/internal/plain", true},
+		{"server/internal/pluginhost/host.go", "server/internal/secretfile", false},
 		// A server's test calls the API as anyone does, through the
 		// generated clients, and reads a stream to its end with the SDK's
 		// one reader; the server's code links no client of frontseat's.
