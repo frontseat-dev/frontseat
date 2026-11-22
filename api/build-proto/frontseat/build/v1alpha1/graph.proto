@@ -113,8 +113,8 @@ message EntityRelease {
 // ReleaseSettingOrigin is where one release setting came from.
 message ReleaseSettingOrigin {
   // Key is the setting, as spec.frontseat.release writes it: "grouping",
-  // "tag", "initial", "versioning", "branching", "prerelease" or
-  // "prerelease-tag".
+  // "tag", "initial-version", "versioning", "branching", and a setting
+  // of its prerelease map as "prerelease.format" or "prerelease.tagged".
   string key = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Entity is the entity whose catalog file sets it.
   frontseat.type.v1alpha1.EntityRef entity = 2 [(google.api.field_behavior) = OUTPUT_ONLY];

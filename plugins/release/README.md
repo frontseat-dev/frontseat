@@ -44,8 +44,9 @@ setting, whichever strategy says its branch releases one:
 spec:
   frontseat:
     release:
-      prerelease: "{branch}-{timestamp}"   # the default: 0.78.0-main-20261121101500
-      prerelease-tag: false                # the default: a prerelease is not tagged
+      prerelease:
+        format: "{branch}-{timestamp}"   # the default: 0.78.0-main-20261121101500
+        tagged: false                    # the default: a prerelease is not tagged
 ```
 
 `{branch}` is the branch, every character a semantic version does not

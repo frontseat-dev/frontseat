@@ -30,18 +30,23 @@ type Release struct {
 	Settings map[string]string
 }
 
-// The settings of spec.frontseat.release that are read.
+// The settings of spec.frontseat.release that are read, each by the
+// key it is written under; a setting of the prerelease map by
+// "prerelease." and its key.
 const (
-	ReleaseGrouping   = "grouping"
-	ReleaseTag        = "tag"
-	ReleaseInitial    = "initial"
-	ReleaseVersioning = "versioning"
-	ReleaseBranching  = "branching"
-	// ReleasePrerelease is how a prerelease is spelled after the
-	// version's dash, and ReleasePrereleaseTag whether one is tagged.
-	ReleasePrerelease    = "prerelease"
-	ReleasePrereleaseTag = "prerelease-tag"
+	ReleaseGrouping       = "grouping"
+	ReleaseTag            = "tag"
+	ReleaseInitialVersion = "initial-version"
+	ReleaseVersioning     = "versioning"
+	ReleaseBranching      = "branching"
+	// ReleasePrereleaseFormat is how a prerelease is spelled after the
+	// version's dash, and ReleasePrereleaseTagged whether one is tagged.
+	ReleasePrereleaseFormat = "prerelease.format"
+	ReleasePrereleaseTagged = "prerelease.tagged"
 )
+
+// releasePrerelease is the key of the map of a prerelease's settings.
+const releasePrerelease = "prerelease"
 
 // GroupingSynced and GroupingIndependent are what grouping may say.
 const (
@@ -59,7 +64,7 @@ const (
 // releaseKeys are the settings read; any other is refused, with
 // releaseSettings, which names them.
 var (
-	releaseKeys     = map[string]bool{ReleaseGrouping: true, ReleaseTag: true, ReleaseInitial: true, ReleaseVersioning: true, ReleaseBranching: true, ReleasePrerelease: true, ReleasePrereleaseTag: true}
+	releaseKeys     = map[string]bool{ReleaseGrouping: true, ReleaseTag: true, ReleaseInitialVersion: true, ReleaseVersioning: true, ReleaseBranching: true, releasePrerelease: true}
 	releaseSettings = strings.Join(slices.Sorted(maps.Keys(releaseKeys)), ", ")
 	strategy        = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*:[a-z0-9][a-z0-9-]*$`)
 	placeholder     = regexp.MustCompile(`\{[^{}]*\}`)
@@ -88,17 +93,11 @@ func readRelease(file string, ref entity.Ref, node *yaml.Node) (Release, error) 
 		switch {
 		case !releaseKeys[key.Value]:
 			return mistake(key.Line, "spec.frontseat.release.%s is no release setting; it takes %s", key.Value, releaseSettings)
-		case key.Value == ReleasePrereleaseTag && said.Kind == yaml.ScalarNode && said.ShortTag() == "!!bool":
-			// Whether a prerelease is tagged is true or false, as the
-			// YAML reader reads them, and is kept as it reads it.
-			var tagged bool
-			if err := said.Decode(&tagged); err != nil {
-				return mistake(said.Line, "spec.frontseat.release.prerelease-tag is true or false")
+		case key.Value == releasePrerelease:
+			if err := readPrerelease(said, out.Settings); err != nil {
+				return Release{}, &model.Mistake{File: file, Message: err.Error()}
 			}
-			out.Settings[key.Value] = strconv.FormatBool(tagged)
 			continue
-		case key.Value == ReleasePrereleaseTag:
-			return mistake(said.Line, "spec.frontseat.release.prerelease-tag is true or false")
 		case said.Kind != yaml.ScalarNode || said.ShortTag() != "!!str":
 			return mistake(said.Line, "spec.frontseat.release.%s is text", key.Value)
 		}
@@ -112,35 +111,68 @@ func readRelease(file string, ref entity.Ref, node *yaml.Node) (Release, error) 
 			if err := Tag(value); err != nil {
 				return mistake(said.Line, "spec.frontseat.release.tag %v", err)
 			}
-		case ReleaseInitial:
+		case ReleaseInitialVersion:
 			version, err := semver.StrictNewVersion(value)
 			if err != nil {
-				return mistake(said.Line, "spec.frontseat.release.initial is no semantic version: it is a major, a minor and a patch, as 0.1.0")
+				return mistake(said.Line, "spec.frontseat.release.initial-version is no semantic version: it is a major, a minor and a patch, as 0.1.0")
 			}
 			if version.Prerelease() != "" || version.Metadata() != "" {
-				return mistake(said.Line, "spec.frontseat.release.initial is a major, a minor and a patch, and nothing after them")
+				return mistake(said.Line, "spec.frontseat.release.initial-version is a major, a minor and a patch, and nothing after them")
 			}
 		case ReleaseVersioning, ReleaseBranching:
 			if !strategy.MatchString(value) {
 				return mistake(said.Line, "spec.frontseat.release.%s must be <plugin>:<name>", key.Value)
 			}
-		case ReleasePrerelease:
+		}
+		out.Settings[key.Value] = value
+	}
+	return out, nil
+}
+
+// readPrerelease reads spec.frontseat.release.prerelease, a map of
+// format, how a prerelease is spelled, and tagged, whether one is
+// tagged, into settings, each under "prerelease." and its key.
+func readPrerelease(node *yaml.Node, settings map[string]string) error {
+	wrong := func(line int, format string, a ...any) error {
+		return fmt.Errorf("%s (line %d)", fmt.Sprintf(format, a...), line)
+	}
+	if node.Kind != yaml.MappingNode {
+		return wrong(node.Line, "spec.frontseat.release.prerelease is a map of format and tagged")
+	}
+	for i := 0; i+1 < len(node.Content); i += 2 {
+		key, said := node.Content[i], node.Content[i+1]
+		switch key.Value {
+		case "tagged":
+			// Whether a prerelease is tagged is true or false, as the
+			// YAML reader reads them, and is kept as it reads it.
+			var tagged bool
+			if said.Kind != yaml.ScalarNode || said.ShortTag() != "!!bool" || said.Decode(&tagged) != nil {
+				return wrong(said.Line, "spec.frontseat.release.prerelease.tagged is true or false")
+			}
+			settings[ReleasePrereleaseTagged] = strconv.FormatBool(tagged)
+		case "format":
+			form, ok := text(said)
+			if !ok {
+				return wrong(said.Line, "spec.frontseat.release.prerelease.format is text")
+			}
 			// Read as far as it can be before there is a branch and a
 			// commit: what it names is filled, and what it spells of an
 			// ordinary branch at an ordinary commit is a prerelease.
 			// A branch and a commit may each be written in digits alone,
 			// and begin with a zero: a form that makes either a part of
 			// its own is no prerelease for those, and is refused for all.
-			if _, err := Prerelease(value, "main", "0123abcdef0123abcdef0123abcdef0123abcdef", 1795256100); err != nil {
-				return mistake(said.Line, "spec.frontseat.release.prerelease %v", err)
+			if _, err := Prerelease(form, "main", "0123abcdef0123abcdef0123abcdef0123abcdef", 1795256100); err != nil {
+				return wrong(said.Line, "spec.frontseat.release.prerelease.format %v", err)
 			}
-			if _, err := Prerelease(value, "007", "0123456789012345678901234567890123456789", 1795256100); err != nil {
-				return mistake(said.Line, "spec.frontseat.release.prerelease %v: a branch or a commit written in digits is a number, which begins with no zero; join it to another part with a dash", err)
+			if _, err := Prerelease(form, "007", "0123456789012345678901234567890123456789", 1795256100); err != nil {
+				return wrong(said.Line, "spec.frontseat.release.prerelease.format %v: a branch or a commit written in digits is a number, which begins with no zero; join it to another part with a dash", err)
 			}
+			settings[ReleasePrereleaseFormat] = form
+		default:
+			return wrong(key.Line, "spec.frontseat.release.prerelease.%s is no prerelease setting; it takes format and tagged", key.Value)
 		}
-		out.Settings[key.Value] = value
 	}
-	return out, nil
+	return nil
 }
 
 // Tag holds a tag pattern to what a tag is spelled from: {version}

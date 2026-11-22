@@ -214,7 +214,7 @@ func released(resolved *release.Resolved, ref entity.Ref) *buildv1.EntityRelease
 	if settings.Unit != (entity.Ref{}) {
 		out.Unit = entity.Proto(settings.Unit)
 	}
-	for _, key := range []string{"grouping", "tag", "initial", "versioning", "branching", "prerelease", "prerelease-tag"} {
+	for _, key := range []string{"grouping", "tag", "initial-version", "versioning", "branching", "prerelease.format", "prerelease.tagged"} {
 		if by, set := settings.SetBy[key]; set {
 			out.SetBy = append(out.SetBy, &buildv1.ReleaseSettingOrigin{Key: key, Entity: entity.Proto(by)})
 		}

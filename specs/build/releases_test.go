@@ -248,7 +248,7 @@ func TestASettingNobodyWroteIsTheDefaultAndIsShownAsOne(t *testing.T) {
 
 	spec.Expect(workspace.releaseSetting("greet", "grouping")).To(Equal(Setting{"synced", "the default"}))
 	spec.Expect(workspace.releaseSetting("greet", "tag")).To(Equal(Setting{"{unit}/v{version}", "the default"}))
-	spec.Expect(workspace.releaseSetting("greet", "initial")).To(Equal(Setting{"0.1.0", "the default"}))
+	spec.Expect(workspace.releaseSetting("greet", "initial-version")).To(Equal(Setting{"0.1.0", "the default"}))
 	spec.Expect(workspace.releaseSetting("greet", "versioning")).To(Equal(Setting{"release:conventional-commits", "the default"}))
 	spec.Expect(workspace.releaseSetting("greet", "branching")).To(Equal(Setting{"release:release-flow", "the default"}))
 }
@@ -258,9 +258,9 @@ func TestASystemSSettingsAreInTheGraphAsItsMembersInheritThem(t *testing.T) {
 	t.Skip("Pending requirement: Releases / How settings resolve / A system's settings are in the graph, as its members inherit them")
 	spec := newScenario(t)
 
-	workspace := spec.releasable().releases("system:kiosk", "initial: 1.0.0").releaseWorkspace()
+	workspace := spec.releasable().releases("system:kiosk", "initial-version: 1.0.0").releaseWorkspace()
 
-	spec.Expect(workspace.releaseSetting("kiosk", "initial")).To(Equal(Setting{"1.0.0", "system:default/kiosk"}))
+	spec.Expect(workspace.releaseSetting("kiosk", "initial-version")).To(Equal(Setting{"1.0.0", "system:default/kiosk"}))
 }
 
 // Releases / How settings resolve / A member inherits its system's settings.
@@ -268,9 +268,9 @@ func TestAMemberInheritsItsSystemSSettings(t *testing.T) {
 	t.Skip("Pending requirement: Releases / How settings resolve / A member inherits its system's settings")
 	spec := newScenario(t)
 
-	workspace := spec.releasable().releases("system:kiosk", "initial: 1.0.0").releaseWorkspace()
+	workspace := spec.releasable().releases("system:kiosk", "initial-version: 1.0.0").releaseWorkspace()
 
-	spec.Expect(workspace.releaseSetting("banner", "initial")).To(Equal(Setting{"1.0.0", "system:default/kiosk"}))
+	spec.Expect(workspace.releaseSetting("banner", "initial-version")).To(Equal(Setting{"1.0.0", "system:default/kiosk"}))
 }
 
 // Releases / How settings resolve / A domain's settings reach the members of its systems.
@@ -278,9 +278,9 @@ func TestADomainSSettingsReachTheMembersOfItsSystems(t *testing.T) {
 	t.Skip("Pending requirement: Releases / How settings resolve / A domain's settings reach the members of its systems")
 	spec := newScenario(t)
 
-	workspace := spec.releasable().releases("domain:retail", "initial: 2.0.0").releaseWorkspace()
+	workspace := spec.releasable().releases("domain:retail", "initial-version: 2.0.0").releaseWorkspace()
 
-	spec.Expect(workspace.releaseSetting("ticker", "initial")).To(Equal(Setting{"2.0.0", "domain:default/retail"}))
+	spec.Expect(workspace.releaseSetting("ticker", "initial-version")).To(Equal(Setting{"2.0.0", "domain:default/retail"}))
 }
 
 // Releases / How settings resolve / The nearest level wins, key by key.
@@ -289,11 +289,11 @@ func TestTheNearestLevelWinsKeyByKey(t *testing.T) {
 	spec := newScenario(t)
 
 	workspace := spec.releasable().
-		releases("domain:retail", "initial: 2.0.0", "tag: retail-{unit}-{version}").
-		releases("system:kiosk", "initial: 1.0.0").
+		releases("domain:retail", "initial-version: 2.0.0", "tag: retail-{unit}-{version}").
+		releases("system:kiosk", "initial-version: 1.0.0").
 		releaseWorkspace()
 
-	spec.Expect(workspace.releaseSetting("banner", "initial")).To(Equal(Setting{"1.0.0", "system:default/kiosk"}))
+	spec.Expect(workspace.releaseSetting("banner", "initial-version")).To(Equal(Setting{"1.0.0", "system:default/kiosk"}))
 	spec.Expect(workspace.releaseSetting("banner", "tag")).To(Equal(Setting{"retail-{unit}-{version}", "domain:default/retail"}))
 }
 
@@ -303,12 +303,12 @@ func TestAMemberOfAnIndependentGroupSetsItsOwnSettings(t *testing.T) {
 	spec := newScenario(t)
 
 	workspace := spec.releasable().
-		releases("system:kiosk", "grouping: independent", "initial: 1.0.0").
-		releases("banner", "initial: 3.0.0").
+		releases("system:kiosk", "grouping: independent", "initial-version: 1.0.0").
+		releases("banner", "initial-version: 3.0.0").
 		releaseWorkspace()
 
-	spec.Expect(workspace.releaseSetting("banner", "initial")).To(Equal(Setting{"3.0.0", "component:default/banner"}))
-	spec.Expect(workspace.releaseSetting("ticker", "initial")).To(Equal(Setting{"1.0.0", "system:default/kiosk"}))
+	spec.Expect(workspace.releaseSetting("banner", "initial-version")).To(Equal(Setting{"3.0.0", "component:default/banner"}))
+	spec.Expect(workspace.releaseSetting("ticker", "initial-version")).To(Equal(Setting{"1.0.0", "system:default/kiosk"}))
 }
 
 // Releases / How settings resolve / A member of a synced group sets none of its group's settings / its tag.
@@ -324,7 +324,7 @@ func TestItsFirstVersion(t *testing.T) {
 	t.Skip("Pending requirement: Releases / How settings resolve / A member of a synced group sets none of its group's settings / its first version")
 	spec := newScenario(t)
 
-	spec.expectGroupSettingRefused("initial: 1.0.0", "initial")
+	spec.expectGroupSettingRefused("initial-version: 1.0.0", "initial-version")
 }
 
 // Releases / How settings resolve / A member of a synced group sets none of its group's settings / its versioning.
@@ -396,11 +396,11 @@ func TestAFirstVersionIsASemanticVersion(t *testing.T) {
 	t.Skip("Pending requirement: Releases / How settings resolve / A first version is a semantic version")
 	spec := newScenario(t)
 
-	workspace := spec.releasable().releases("greet", "initial: '1.0'").releaseWorkspace()
+	workspace := spec.releasable().releases("greet", "initial-version: '1.0'").releaseWorkspace()
 
 	_, refusal := workspace.planning(spec.releaseOf("greet"))
 
-	spec.Expect(refusal).To(BeRefusedSaying("spec.frontseat.release.initial is no semantic version"))
+	spec.Expect(refusal).To(BeRefusedSaying("spec.frontseat.release.initial-version is no semantic version"))
 }
 
 // Releases / Releasing / A release tags each unit that moves, at the commit it was planned from.
@@ -721,11 +721,11 @@ func TestAMemberOfASyncedGroupThatSaysHowItIsReleasedIsRefusedNamingTheSetting(t
 	t.Parallel()
 	spec := newScenario(t)
 
-	workspace := spec.releasable().releases("banner", "initial: 3.0.0").releaseWorkspace().onBranch("services", "release/1.0")
+	workspace := spec.releasable().releases("banner", "initial-version: 3.0.0").releaseWorkspace().onBranch("services", "release/1.0")
 
 	_, refusal := workspace.planning(spec.releaseOf("banner"))
 
-	spec.Expect(refusal).To(BeRefusedSaying("banner versions with kiosk, which says how it is released: spec.frontseat.release.initial"))
+	spec.Expect(refusal).To(BeRefusedSaying("banner versions with kiosk, which says how it is released: spec.frontseat.release.initial-version"))
 }
 
 // Planning a release / A domain that says synced is planned as one unit, of every component of its systems, on one version and one tag.
@@ -789,11 +789,11 @@ func TestASystemOfASyncedDomainThatSaysHowItIsReleasedIsRefusedNamingTheSetting(
 	t.Parallel()
 	spec := newScenario(t)
 
-	workspace := spec.syncedRetail().releases("system:kiosk", "initial: 3.0.0").releaseWorkspace().onBranch("services", "release/1.0")
+	workspace := spec.syncedRetail().releases("system:kiosk", "initial-version: 3.0.0").releaseWorkspace().onBranch("services", "release/1.0")
 
 	_, refusal := workspace.planning(spec.releaseOf("domain:retail"))
 
-	spec.Expect(refusal).To(BeRefusedSaying("kiosk versions with retail, which says how it is released: spec.frontseat.release.initial"))
+	spec.Expect(refusal).To(BeRefusedSaying("kiosk versions with retail, which says how it is released: spec.frontseat.release.initial-version"))
 	spec.Expect(spec.refusedAs(refusal)).To(Equal("failed_precondition"))
 }
 

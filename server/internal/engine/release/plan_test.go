@@ -252,7 +252,7 @@ func TestUnderReleaseFlowAUnitMovesOnItsBranchsLine(t *testing.T) {
 		"a branch cut for a line not yet released": {on("release/1.27", []string{"greet/v1.26.3"}, "fix: trim"), nil, "1.27.0", buildv1.ReasonKind_REASON_KIND_OWN_CHANGE},
 		"a feature on a branch cut for a new line": {on("release/1.27", []string{"greet/v1.26.3"}, "feat: by name"), nil, "1.27.0", buildv1.ReasonKind_REASON_KIND_OWN_CHANGE},
 		"never released, on a release branch":      {on("release/0.77", nil, "fix: trim"), nil, "0.77.0", buildv1.ReasonKind_REASON_KIND_FIRST_RELEASE},
-		"never released, its initial on the line":  {on("release/0.77", nil, "fix: trim"), []config.Release{says("greet", "initial", "0.77.3")}, "0.77.3", buildv1.ReasonKind_REASON_KIND_FIRST_RELEASE},
+		"never released, its initial on the line":  {on("release/0.77", nil, "fix: trim"), []config.Release{says("greet", "initial-version", "0.77.3")}, "0.77.3", buildv1.ReasonKind_REASON_KIND_FIRST_RELEASE},
 		"the default branch":                       {on("main", []string{"greet/v1.26.0"}, "feat: by name"), nil, "", buildv1.ReasonKind_REASON_KIND_BRANCH},
 		"nothing changed since its last release":   {on("release/1.26", []string{"greet/v1.26.0"}), nil, "", buildv1.ReasonKind_REASON_KIND_UNCHANGED},
 		"changes that release nothing":             {on("release/1.26", []string{"greet/v1.26.0"}, "docs: more"), nil, "", buildv1.ReasonKind_REASON_KIND_UNCHANGED},
@@ -283,7 +283,7 @@ func TestWhatLeavesABranchsLineOrIsNotNewIsRefused(t *testing.T) {
 		says    string
 	}{
 		"a feature on a release branch":           {on("release/1.26", []string{"greet/v1.26.0"}, "feat: by name"), nil, "greet 1.27.0 leaves the line 1.26 of release/1.26"},
-		"an initial version off the line":         {on("release/0.77", nil, "fix: trim"), []config.Release{says("greet", "initial", "0.1.0")}, "greet: spec.frontseat.release.initial: 0.1.0 is not on the line 0.77 of release/0.77"},
+		"an initial version off the line":         {on("release/0.77", nil, "fix: trim"), []config.Release{says("greet", "initial-version", "0.1.0")}, "greet: spec.frontseat.release.initial-version: 0.1.0 is not on the line 0.77 of release/0.77"},
 		"a version tagged on another commit":      {elsewhere, nil, "greet 1.26.1 is not new: greet/v1.26.1 names another commit"},
 		"a last release above the line":           {above, nil, "greet has no release on the line 1.26 of release/1.26, and is released as 1.27.2 already"},
 		"a repository on no branch":               {detached, nil, "services stands on no branch"},
@@ -412,8 +412,8 @@ func mistaken(t *testing.T, name string, err error, says string) {
 
 func TestSettingsAreInheritedNearestFirstAndAMemberOfASyncedGroupSaysNone(t *testing.T) {
 	resolved, err := release.Resolve(company(
-		says("domain:retail", "initial", "2.0.0", "tag", "retail-{unit}-{version}"),
-		says("system:kiosk", "initial", "1.0.0"),
+		says("domain:retail", "initial-version", "2.0.0", "tag", "retail-{unit}-{version}"),
+		says("system:kiosk", "initial-version", "1.0.0"),
 		says("greet", "branching", "release:release-flow"),
 	))
 	if err != nil {
@@ -421,7 +421,7 @@ func TestSettingsAreInheritedNearestFirstAndAMemberOfASyncedGroupSaysNone(t *tes
 	}
 	banner, _ := resolved.Of(ref("banner"))
 	if banner.Unit != ref("system:kiosk") || !banner.Synced || banner.Initial != "1.0.0" || banner.Tag != "retail-{unit}-{version}" ||
-		banner.SetBy["initial"] != ref("system:kiosk") || banner.SetBy["tag"] != ref("domain:retail") {
+		banner.SetBy["initial-version"] != ref("system:kiosk") || banner.SetBy["tag"] != ref("domain:retail") {
 		t.Errorf("a member of a synced group resolves to %+v", banner)
 	}
 	greet, _ := resolved.Of(ref("greet"))
@@ -436,16 +436,16 @@ func TestSettingsAreInheritedNearestFirstAndAMemberOfASyncedGroupSaysNone(t *tes
 		said []config.Release
 		says string
 	}{
-		"a synced member that says a setting": {[]config.Release{says("banner", "initial", "3.0.0")}, "banner versions with kiosk, which says how it is released: spec.frontseat.release.initial"},
+		"a synced member that says a setting": {[]config.Release{says("banner", "initial-version", "3.0.0")}, "banner versions with kiosk, which says how it is released: spec.frontseat.release.initial-version"},
 		"two units that spell tags alike":     {[]config.Release{says("greet", "tag", "v{version}"), says("system:kiosk", "tag", "v{version}")}, "component:default/greet and system:default/kiosk spell their tags alike in services: v{version}"},
-		"an entity that says it twice":        {[]config.Release{says("greet", "initial", "1.0.0"), says("greet", "initial", "2.0.0")}, "says how it is released twice"},
+		"an entity that says it twice":        {[]config.Release{says("greet", "initial-version", "1.0.0"), says("greet", "initial-version", "2.0.0")}, "says how it is released twice"},
 	} {
 		if _, err := release.Resolve(company(c.said...)); err == nil || !strings.Contains(err.Error(), c.says) {
 			t.Errorf("%s: want a mistake saying %q, got %v", name, c.says, err)
 		}
 	}
 	// A member that leaves its group says its own settings.
-	if _, err := release.Resolve(company(says("banner", "grouping", "independent", "initial", "3.0.0"))); err != nil {
+	if _, err := release.Resolve(company(says("banner", "grouping", "independent", "initial-version", "3.0.0"))); err != nil {
 		t.Errorf("a member that left its group may say how it is released: %v", err)
 	}
 }
@@ -496,7 +496,7 @@ func TestALinesLastReleaseIsItsOwnWhereverItsTagIs(t *testing.T) {
 		first      bool
 	}{
 		"a new line, the earlier line's tags on its own branch": {"release/1.27", tags(false, "greet/v1.26.0", "greet/v1.26.1"), nil, []string{"feat: by name"}, "1.26.1", "1.27.0", "r1", false},
-		"a new line, with an initial version said":              {"release/0.78", tags(false, "greet/v0.77.0"), []config.Release{says("greet", "initial", "0.77.0")}, []string{"fix: trim"}, "0.77.0", "0.78.0", "r0", false},
+		"a new line, with an initial version said":              {"release/0.78", tags(false, "greet/v0.77.0"), []config.Release{says("greet", "initial-version", "0.77.0")}, []string{"fix: trim"}, "0.77.0", "0.78.0", "r0", false},
 		"an earlier line maintained after a later one":          {"release/1.26", append(tags(true, "greet/v1.26.0", "greet/v1.26.1"), vcs.Tag{Name: "greet/v1.27.0", Revision: "later"}), nil, []string{"fix: trim"}, "1.26.1", "1.26.2", "r1", false},
 		"never released at all":                                 {"release/1.27", nil, nil, []string{"fix: trim"}, "", "1.27.0", "", true},
 	} {
@@ -767,7 +767,7 @@ func TestWhatIsNotServedOfGroupingIsRefusedAsThat(t *testing.T) {
 		"a member of an independent system that says synced": {says("system:kiosk", "grouping", "independent"), says("banner", "grouping", "synced")},
 		"an entity of no system that says synced":            {says("greet", "grouping", "synced")},
 		"a system of a synced domain that says a setting":    {says("domain:retail", "grouping", "synced"), says("system:kiosk", "tag", "k-{version}")},
-		"a member of a synced domain that says a setting":    {says("domain:retail", "grouping", "synced"), says("banner", "initial", "3.0.0")},
+		"a member of a synced domain that says a setting":    {says("domain:retail", "grouping", "synced"), says("banner", "initial-version", "3.0.0")},
 		"a system of a synced domain that says synced":       {says("domain:retail", "grouping", "synced"), says("system:kiosk", "grouping", "synced")},
 	} {
 		if _, err := release.Resolve(company(said...)); err == nil {
@@ -877,14 +877,14 @@ func retailed(said ...config.Release) release.Workspace {
 }
 
 func TestADomainThatSaysSyncedIsOneUnitOfEveryMemberOfItsSystems(t *testing.T) {
-	synced := says("domain:retail", "grouping", "synced", "initial", "2.0.0")
+	synced := says("domain:retail", "grouping", "synced", "initial-version", "2.0.0")
 	resolved, err := release.Resolve(retailed(synced))
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, each := range []string{"domain:retail", "system:kiosk", "system:lobby", "banner", "ticker", "hello"} {
 		s, _ := resolved.Of(ref(each))
-		if s.Unit != ref("domain:retail") || s.Group != ref("domain:retail") || !s.Synced || s.Initial != "2.0.0" || s.SetBy["initial"] != ref("domain:retail") {
+		if s.Unit != ref("domain:retail") || s.Group != ref("domain:retail") || !s.Synced || s.Initial != "2.0.0" || s.SetBy["initial-version"] != ref("domain:retail") {
 			t.Errorf("%s resolves to %+v", each, s)
 		}
 	}
@@ -1166,8 +1166,8 @@ func TestABranchThatReleasesNothingStableReleasesAPrerelease(t *testing.T) {
 		"the default branch, above one it does not reach": {then(on("main", []string{"greet/v1.26.4"}, "feat: by name").unreached()), nil, "1.27.0-main-20261121101500", "", "main"},
 		"never released": {then(on("main", nil, "feat: by name")), nil, "0.1.0-main-20261121101500", "", "main"},
 		"a prerelease before it is no last release":    {then(on("main", []string{"greet/v1.26.0", "greet/v1.27.0-main-20261120101500"}, "feat: by name")), nil, "1.27.0-main-20261121101500", "", "main"},
-		"as the unit spells it":                        {then(on("main", []string{"greet/v1.26.0"}, "feat: by name")), []config.Release{says("greet", "prerelease", "{branch}-{sha}.{epoch}")}, "1.27.0-main-0123abc.1795256100", "", "main"},
-		"tagged where the unit says so":                {then(on("main", []string{"greet/v1.26.0"}, "feat: by name")), []config.Release{says("greet", "prerelease-tag", "true")}, "1.27.0-main-20261121101500", "greet/v1.27.0-main-20261121101500", "main"},
+		"as the unit spells it":                        {then(on("main", []string{"greet/v1.26.0"}, "feat: by name")), []config.Release{says("greet", "prerelease.format", "{branch}-{sha}.{epoch}")}, "1.27.0-main-0123abc.1795256100", "", "main"},
+		"tagged where the unit says so":                {then(on("main", []string{"greet/v1.26.0"}, "feat: by name")), []config.Release{says("greet", "prerelease.tagged", "true")}, "1.27.0-main-20261121101500", "greet/v1.27.0-main-20261121101500", "main"},
 		"what its commits do not move is not released": {then(on("main", []string{"greet/v1.26.0"}, "docs: more")), nil, "", "", "main"},
 		"control: a release branch releases as it did": {then(on("release/1.26", []string{"greet/v1.26.0"}, "fix: trim")), nil, "1.26.1", "greet/v1.26.1", "1.26"},
 	} {
@@ -1208,8 +1208,8 @@ func TestABranchThatReleasesNothingStableReleasesAPrerelease(t *testing.T) {
 		said    []config.Release
 		says    string
 	}{
-		"a number written with a zero before it": {then(on("main", []string{"greet/v1.26.0"}, "feat: by name")), []config.Release{says("greet", "prerelease", "0{epoch}")}, "greet: spec.frontseat.release.prerelease, for the branch \"main\": spells what is no prerelease of a semantic version, whose parts are"},
-		"a tag that names another commit":        {then(on("main", []string{"greet/v1.26.0", "greet/v1.27.0-main-20261121101500"}, "feat: by name")), []config.Release{says("greet", "prerelease-tag", "true")}, `greet 1.27.0-main-20261121101500 is not new: greet/v1.27.0-main-20261121101500 names another commit`},
+		"a number written with a zero before it": {then(on("main", []string{"greet/v1.26.0"}, "feat: by name")), []config.Release{says("greet", "prerelease.format", "0{epoch}")}, "greet: spec.frontseat.release.prerelease.format, for the branch \"main\": spells what is no prerelease of a semantic version, whose parts are"},
+		"a tag that names another commit":        {then(on("main", []string{"greet/v1.26.0", "greet/v1.27.0-main-20261121101500"}, "feat: by name")), []config.Release{says("greet", "prerelease.tagged", "true")}, `greet 1.27.0-main-20261121101500 is not new: greet/v1.27.0-main-20261121101500 names another commit`},
 	} {
 		if _, err := release.Plan(context.Background(), company(c.said...), &strategies{prereleases: true}, c.history, asking("greet")); err == nil || !strings.Contains(err.Error(), c.says) {
 			t.Errorf("%s: %v, want %q", name, err, c.says)
@@ -1221,7 +1221,7 @@ func TestABranchThatReleasesNothingStableReleasesAPrerelease(t *testing.T) {
 // group's to say, the first by name is the one refused, every time.
 func TestWhichSettingOfAMemberIsRefusedDoesNotChangeBetweenReads(t *testing.T) {
 	for range 50 {
-		_, err := release.Resolve(company(says("banner", "tag", "{unit}@{version}", "initial", "3.0.0", "versioning", "release:conventional-commits", "branching", "release:release-flow")))
+		_, err := release.Resolve(company(says("banner", "tag", "{unit}@{version}", "initial-version", "3.0.0", "versioning", "release:conventional-commits", "branching", "release:release-flow")))
 		if err == nil || !strings.Contains(err.Error(), "spec.frontseat.release.branching is the group's to say") {
 			t.Fatalf("the setting refused: %v", err)
 		}

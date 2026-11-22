@@ -292,11 +292,11 @@ the change that fixes it.
   highest release, wherever that one's tag is, and by a minor at least
   on the default branch, which a clone must know (where it does not,
   the branch releases nothing and says so). The host spells it, from the unit's setting
-  (`spec.frontseat.release.prerelease`, `{branch}-{timestamp}` by
+  (`spec.frontseat.release.prerelease.format`, `{branch}-{timestamp}` by
   default), the branch, and when the commit planned at was made: the
   commit's time, never the clock's, so a plan is of the repository
   alone. It is never a unit's last release, and has a tag only where
-  the unit says so (`prerelease-tag`). How an entity is released is
+  the unit says so (`prerelease.tagged`). How an entity is released is
   said the same whichever strategy it names: what only one strategy
   means is that strategy's plugin's option, never a release setting.
   Held by: `TestABranchThatReleasesNothingStableReleasesAPrerelease`,

@@ -18,7 +18,7 @@ func released(kind, lines string) files {
 
 func TestWhatAnEntitySaysOfHowItIsReleasedIsRead(t *testing.T) {
 	read, err := config.Read(context.Background(), "services", released("Component",
-		"      grouping: independent\n      tag: '{unit}/v{version}'\n      initial: 0.77.0\n      versioning: release:conventional-commits\n      branching: release:release-flow\n"))
+		"      grouping: independent\n      tag: '{unit}/v{version}'\n      initial-version: 0.77.0\n      versioning: release:conventional-commits\n      branching: release:release-flow\n      prerelease:\n        format: '{branch}-{sha}'\n        tagged: true\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -30,7 +30,7 @@ func TestWhatAnEntitySaysOfHowItIsReleasedIsRead(t *testing.T) {
 	if said.File != "services/greet/catalog-info.yaml" || said.Entity.String() != "component:default/greet" {
 		t.Errorf("it is said by %s in %s", said.Entity, said.File)
 	}
-	want := map[string]string{"grouping": "independent", "tag": "{unit}/v{version}", "initial": "0.77.0", "versioning": "release:conventional-commits", "branching": "release:release-flow"}
+	want := map[string]string{"grouping": "independent", "tag": "{unit}/v{version}", "initial-version": "0.77.0", "versioning": "release:conventional-commits", "branching": "release:release-flow", "prerelease.format": "{branch}-{sha}", "prerelease.tagged": "true"}
 	if len(said.Settings) != len(want) {
 		t.Errorf("settings are %v, want %v", said.Settings, want)
 	}
@@ -49,37 +49,41 @@ func TestWhatAnEntitySaysOfHowItIsReleasedIsRead(t *testing.T) {
 // What is said is checked where it is said, and a mistake names the
 // file, the setting and the line.
 func TestAMistakeInHowAnEntityIsReleasedNamesTheSetting(t *testing.T) {
-	if _, err := config.Read(context.Background(), "services", released("System", "      initial: 1.0.0\n")); err != nil {
+	if _, err := config.Read(context.Background(), "services", released("System", "      initial-version: 1.0.0\n")); err != nil {
 		t.Fatalf("a sound setting was refused, so this test proves nothing: %v", err)
 	}
 	for lines, says := range map[string]string{
-		"      channels: beta\n":                       "services/greet/catalog-info.yaml: spec.frontseat.release.channels is no release setting",
-		"      dependencies: {minor: patch}\n":         "services/greet/catalog-info.yaml: spec.frontseat.release.dependencies is no release setting",
-		"      grouping: locked\n":                     "spec.frontseat.release.grouping must be synced or independent",
-		"      grouping: Synced\n":                     "spec.frontseat.release.grouping must be synced or independent",
-		"      tag: '{unit}'\n":                        "spec.frontseat.release.tag must hold {version} once",
-		"      tag: '{version}-{version}'\n":           "must hold {version} once",
-		"      tag: '{name}/v{version}'\n":             "spec.frontseat.release.tag names something other than {unit} and {version}",
-		"      initial: '1.0'\n":                       "spec.frontseat.release.initial is no semantic version",
-		"      initial: 1.0.0-rc.1\n":                  "is a major, a minor and a patch, and nothing after them",
-		"      initial: 1.0.0+build\n":                 "is a major, a minor and a patch, and nothing after them",
-		"      initial: v1.0.0\n":                      "is no semantic version",
-		"      initial: 1.0\n":                         "spec.frontseat.release.initial is text",
-		"      initial: [1.0.0]\n":                     "spec.frontseat.release.initial is text",
-		"      versioning: conventional-commits\n":     "spec.frontseat.release.versioning must be <plugin>:<name>",
-		"      branching: 'release:'\n":                "spec.frontseat.release.branching must be <plugin>:<name>",
-		"      branching: 'Release:flow'\n":            "must be <plugin>:<name>",
-		"      prerelease: '{branch}-{date}'\n":        "spec.frontseat.release.prerelease names what is not filled: it takes {branch}, {timestamp}, {epoch}, {sha} (line",
-		"      prerelease: '{branch}..{sha}'\n":        "spec.frontseat.release.prerelease spells what is no prerelease of a semantic version",
-		"      prerelease: '{branch}+{sha}'\n":         "spells what is no prerelease of a semantic version",
-		"      prerelease: '0{epoch}'\n":               "spells what is no prerelease of a semantic version",
-		"      prerelease: ''\n":                       "spells what is no prerelease of a semantic version",
-		"      prerelease: '{branch}.{sha}'\n":         "spells what is no prerelease of a semantic version, whose parts are letters, digits and dashes joined by dots, a part of digits alone beginning with no zero: a branch or a commit written in digits is a number",
-		"      prerelease: '{branch}.{timestamp}'\n":   "spells what is no prerelease of a semantic version",
-		"      prerelease-tag: 'yes'\n":                "spec.frontseat.release.prerelease-tag is true or false",
-		"      prerelease-tag: 'true'\n":               "spec.frontseat.release.prerelease-tag is true or false",
-		"      prerelease-tag: 1\n":                    "spec.frontseat.release.prerelease-tag is true or false",
-		"      initial: 1.0.0\n      initial: 2.0.0\n": "initial",
+		"      channels: beta\n":                                       "services/greet/catalog-info.yaml: spec.frontseat.release.channels is no release setting",
+		"      dependencies: {minor: patch}\n":                         "services/greet/catalog-info.yaml: spec.frontseat.release.dependencies is no release setting",
+		"      grouping: locked\n":                                     "spec.frontseat.release.grouping must be synced or independent",
+		"      grouping: Synced\n":                                     "spec.frontseat.release.grouping must be synced or independent",
+		"      tag: '{unit}'\n":                                        "spec.frontseat.release.tag must hold {version} once",
+		"      tag: '{version}-{version}'\n":                           "must hold {version} once",
+		"      tag: '{name}/v{version}'\n":                             "spec.frontseat.release.tag names something other than {unit} and {version}",
+		"      initial-version: '1.0'\n":                               "spec.frontseat.release.initial-version is no semantic version",
+		"      initial-version: 1.0.0-rc.1\n":                          "is a major, a minor and a patch, and nothing after them",
+		"      initial-version: 1.0.0+build\n":                         "is a major, a minor and a patch, and nothing after them",
+		"      initial-version: v1.0.0\n":                              "is no semantic version",
+		"      initial-version: 1.0\n":                                 "spec.frontseat.release.initial-version is text",
+		"      initial-version: [1.0.0]\n":                             "spec.frontseat.release.initial-version is text",
+		"      versioning: conventional-commits\n":                     "spec.frontseat.release.versioning must be <plugin>:<name>",
+		"      branching: 'release:'\n":                                "spec.frontseat.release.branching must be <plugin>:<name>",
+		"      branching: 'Release:flow'\n":                            "must be <plugin>:<name>",
+		"      prerelease: {format: '{branch}-{date}'}\n":              "spec.frontseat.release.prerelease.format names what is not filled: it takes {branch}, {timestamp}, {epoch}, {sha} (line",
+		"      prerelease: {format: '{branch}..{sha}'}\n":              "spec.frontseat.release.prerelease.format spells what is no prerelease of a semantic version",
+		"      prerelease: {format: '{branch}+{sha}'}\n":               "spells what is no prerelease of a semantic version",
+		"      prerelease: {format: '0{epoch}'}\n":                     "spells what is no prerelease of a semantic version",
+		"      prerelease: {format: ''}\n":                             "spells what is no prerelease of a semantic version",
+		"      prerelease: {format: '{branch}.{sha}'}\n":               "spells what is no prerelease of a semantic version, whose parts are letters, digits and dashes joined by dots, a part of digits alone beginning with no zero: a branch or a commit written in digits is a number",
+		"      prerelease: {format: '{branch}.{timestamp}'}\n":         "spells what is no prerelease of a semantic version",
+		"      prerelease: {tagged: 'yes'}\n":                          "spec.frontseat.release.prerelease.tagged is true or false",
+		"      prerelease: {tagged: 'true'}\n":                         "spec.frontseat.release.prerelease.tagged is true or false",
+		"      prerelease: {tagged: 1}\n":                              "spec.frontseat.release.prerelease.tagged is true or false",
+		"      initial-version: 1.0.0\n      initial-version: 2.0.0\n": "initial-version",
+		"      initial: 1.0.0\n":                                       "spec.frontseat.release.initial is no release setting; it takes branching, grouping, initial-version, prerelease, tag, versioning",
+		"      prerelease-tag: true\n":                                 "spec.frontseat.release.prerelease-tag is no release setting",
+		"      prerelease: '{branch}'\n":                               "spec.frontseat.release.prerelease is a map of format and tagged",
+		"      prerelease: {form: '{branch}'}\n":                       "spec.frontseat.release.prerelease.form is no prerelease setting; it takes format and tagged",
 	} {
 		_, err := config.Read(context.Background(), "services", released("Component", lines))
 		if err == nil || !strings.Contains(err.Error(), says) || !strings.Contains(err.Error(), "services/greet/catalog-info.yaml") {
@@ -95,7 +99,7 @@ func TestAMistakeInHowAnEntityIsReleasedNamesTheSetting(t *testing.T) {
 // only reads as ASCII once folded is refused, as it is everywhere.
 func TestWhoSaysHowItIsReleasedIsNamedAsEveryEntityIs(t *testing.T) {
 	file := func(name, namespace string) files {
-		return files{config.File: "plugins:\n  tool:\n", "greet/catalog-info.yaml": "apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata:\n  name: " + name + "\n  namespace: " + namespace + "\nspec:\n  frontseat:\n    release:\n      initial: 1.0.0\n"}
+		return files{config.File: "plugins:\n  tool:\n", "greet/catalog-info.yaml": "apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata:\n  name: " + name + "\n  namespace: " + namespace + "\nspec:\n  frontseat:\n    release:\n      initial-version: 1.0.0\n"}
 	}
 	read, err := config.Read(context.Background(), "services", file("Greet", "Edge"))
 	if err != nil || read.Releases()[0].Entity.String() != "component:edge/greet" {
@@ -114,19 +118,19 @@ func TestARefusedReleaseSettingIsNotRepeated(t *testing.T) {
 	for _, lines := range []string{
 		"      grouping: secret\n",
 		"      tag: 'secret-{version}-{secret}'\n",
-		"      initial: secret\n",
-		"      initial: 1.0.0-secret\n",
+		"      initial-version: secret\n",
+		"      initial-version: 1.0.0-secret\n",
 		"      versioning: secret\n",
 		"      branching: secret\n",
-		"      prerelease: 'secret-{secret}'\n",
-		"      prerelease: 'secret..{sha}'\n",
+		"      prerelease: {format: 'secret-{secret}'}\n",
+		"      prerelease: {format: 'secret..{sha}'}\n",
 	} {
 		_, err := config.Read(context.Background(), "services", released("Component", lines))
 		if err == nil || !strings.Contains(err.Error(), "spec.frontseat.release.") || !strings.Contains(err.Error(), "(line 9)") || strings.Contains(err.Error(), "secret") {
 			t.Errorf("%q: want it refused by its setting and line, and not repeated, got %v", lines, err)
 		}
 	}
-	if _, err := config.Read(context.Background(), "services", released("Component", "      grouping: independent\n      tag: 'secret-{version}'\n      initial: 1.0.0\n      prerelease: 'secret-{sha}'\n")); err != nil {
+	if _, err := config.Read(context.Background(), "services", released("Component", "      grouping: independent\n      tag: 'secret-{version}'\n      initial-version: 1.0.0\n      prerelease: {format: 'secret-{sha}'}\n")); err != nil {
 		t.Errorf("control, settings that are sound: %v", err)
 	}
 }
@@ -136,12 +140,12 @@ func TestARefusedReleaseSettingIsNotRepeated(t *testing.T) {
 // used, and is refused.
 func TestHowAnEntityIsReleasedIsSaidByWhatIsReleased(t *testing.T) {
 	for _, kind := range []string{"Domain", "System", "Component"} {
-		if _, err := config.Read(context.Background(), "services", released(kind, "      initial: 1.0.0\n")); err != nil {
+		if _, err := config.Read(context.Background(), "services", released(kind, "      initial-version: 1.0.0\n")); err != nil {
 			t.Errorf("control, a %s says how it is released: %v", kind, err)
 		}
 	}
 	for _, kind := range []string{"API", "Resource", "Location", "Group"} {
-		_, err := config.Read(context.Background(), "services", released(kind, "      initial: 1.0.0\n"))
+		_, err := config.Read(context.Background(), "services", released(kind, "      initial-version: 1.0.0\n"))
 		if err == nil || !strings.Contains(err.Error(), "spec.frontseat.release is said by a Domain, a System or a Component (line 9)") {
 			t.Errorf("a %s says how it is released: %v", kind, err)
 		}

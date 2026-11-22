@@ -122,7 +122,7 @@ func TestWhatTheConfigurationReferenceRefusesIsRefused(t *testing.T) {
 	}
 	for _, c := range []struct{ refused, allowed files }{
 		{entity("System", "    plugins: {go: {test-shards: 2}}\n"), entity("Component", "    plugins: {go: {test-shards: 2}}\n")},
-		{entity("API", "    release: {initial: 1.0.0}\n"), entity("Component", "    release: {initial: 1.0.0}\n")},
+		{entity("API", "    release: {initial-version: 1.0.0}\n"), entity("Component", "    release: {initial-version: 1.0.0}\n")},
 		{entity("Resource", "    service: {as: container, user: 70}\n"), entity("Resource", "    service: {as: container, user: \"70\"}\n")},
 	} {
 		if _, err := config.Read(t.Context(), "", c.refused); err == nil {

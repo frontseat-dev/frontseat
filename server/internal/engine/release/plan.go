@@ -683,15 +683,15 @@ func planUnit(ctx context.Context, w Workspace, resolved *Resolved, strategies S
 	}
 	initial, err := semver.StrictNewVersion(settings.Initial)
 	if err != nil || initial.Prerelease() != "" || initial.Metadata() != "" {
-		return nil, "", none, mistaken("%s: spec.frontseat.release.initial: %s is no version to release first: a major, a minor and a patch", unit.Name, settings.Initial)
+		return nil, "", none, mistaken("%s: spec.frontseat.release.initial-version: %s is no version to release first: a major, a minor and a patch", unit.Name, settings.Initial)
 	}
 	// A first release on a line is at the line's first version, or at the
 	// initial version a catalog file says, which is then on the line.
-	if _, said := settings.SetBy["initial"]; last == nil && line != nil {
+	if _, said := settings.SetBy[config.ReleaseInitialVersion]; last == nil && line != nil {
 		if !said {
 			initial = line.first()
 		} else if !line.holds(initial) {
-			return nil, "", none, mistaken("%s: spec.frontseat.release.initial: %s is not on the line %s of %s", unit.Name, initial, branch.GetLine(), standing.Branch)
+			return nil, "", none, mistaken("%s: spec.frontseat.release.initial-version: %s is not on the line %s of %s", unit.Name, initial, branch.GetLine(), standing.Branch)
 		}
 	}
 	answered, err := strategies.Version(ctx, versioning[0], &pluginv1.VersionRequest{
@@ -754,10 +754,10 @@ func planUnit(ctx context.Context, w Workspace, resolved *Resolved, strategies S
 		if err != nil {
 			// The branch is said: it is what the person stands on, and
 			// as often what makes the form spell no prerelease.
-			return nil, "", none, mistaken("%s: spec.frontseat.release.prerelease, for the branch %q: %v", unit.Name, standing.Branch, err)
+			return nil, "", none, mistaken("%s: spec.frontseat.release.prerelease.format, for the branch %q: %v", unit.Name, standing.Branch, err)
 		}
 		if next, err = semver.StrictNewVersion(next.String() + "-" + spelled); err != nil {
-			return nil, "", none, mistaken("%s: spec.frontseat.release.prerelease, for the branch %q, spells what is no prerelease of a semantic version", unit.Name, standing.Branch)
+			return nil, "", none, mistaken("%s: spec.frontseat.release.prerelease.format, for the branch %q, spells what is no prerelease of a semantic version", unit.Name, standing.Branch)
 		}
 		planned.Prerelease, tagged = true, settings.PrereleaseTag
 	}

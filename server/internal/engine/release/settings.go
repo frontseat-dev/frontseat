@@ -158,15 +158,15 @@ func Resolve(w Workspace) (*Resolved, error) {
 				switch key {
 				case config.ReleaseTag:
 					s.Tag = value
-				case config.ReleaseInitial:
+				case config.ReleaseInitialVersion:
 					s.Initial = value
 				case config.ReleaseVersioning:
 					s.Versioning = value
 				case config.ReleaseBranching:
 					s.Branching = value
-				case config.ReleasePrerelease:
+				case config.ReleasePrereleaseFormat:
 					s.Prerelease = value
-				case config.ReleasePrereleaseTag:
+				case config.ReleasePrereleaseTagged:
 					s.PrereleaseTag = value == "true"
 				default:
 					continue

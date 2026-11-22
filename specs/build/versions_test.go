@@ -39,7 +39,7 @@ func TestAFirstReleaseIsAtTheInitialVersionAUnitSays(t *testing.T) {
 	t.Skip("Pending requirement: Versions / What changed / A first release is at the initial version a unit says")
 	spec := newScenario(t)
 
-	workspace := spec.fromMain().releases("greet", "initial: 1.0.0").releaseWorkspace()
+	workspace := spec.fromMain().releases("greet", "initial-version: 1.0.0").releaseWorkspace()
 
 	spec.Expect(workspace.unitOf("greet").next()).To(Equal("1.0.0"))
 }

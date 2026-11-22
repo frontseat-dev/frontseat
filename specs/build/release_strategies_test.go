@@ -204,16 +204,16 @@ func TestAnInitialVersionThatIsNotOnAReleaseBranchSLineIsRefusedNamingBoth(t *te
 	t.Parallel()
 	spec := newScenario(t)
 
-	sound := spec.releasable().releases("greet", "initial: 0.77.0").releaseWorkspace()
+	sound := spec.releasable().releases("greet", "initial-version: 0.77.0").releaseWorkspace()
 	sound.onBranch("services", "release/0.77")
-	workspace := spec.releasable().releases("greet", "initial: 0.1.0").releaseWorkspace()
+	workspace := spec.releasable().releases("greet", "initial-version: 0.1.0").releaseWorkspace()
 	workspace.onBranch("services", "release/0.77")
 
 	allowed := sound.unitOf("greet")
 	_, refusal := workspace.planning(spec.releaseOf("greet"))
 
 	spec.Expect(allowed.next()).To(Equal("0.77.0"))
-	spec.Expect(refusal).To(BeRefusedSaying("greet: spec.frontseat.release.initial: 0.1.0 is not on the line 0.77 of release/0.77"))
+	spec.Expect(refusal).To(BeRefusedSaying("greet: spec.frontseat.release.initial-version: 0.1.0 is not on the line 0.77 of release/0.77"))
 }
 
 // Release strategies / Release Flow / A line cut after another comes after it, though that one's tags are on its own branch.

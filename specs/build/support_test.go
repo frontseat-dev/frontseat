@@ -2198,11 +2198,11 @@ func (w *Workspace) releaseSetting(entity, key string) Setting {
 	release := w.entityNamed(entity).GetRelease()
 	w.scenario.Expect(release).NotTo(BeNil(), "%s is released as nothing", entity)
 	values := map[string]any{
-		"grouping":   strings.ToLower(strings.TrimPrefix(release.GetGrouping().String(), "GROUPING_")),
-		"tag":        release.GetTag(),
-		"initial":    release.GetInitial(),
-		"versioning": release.GetVersioningStrategy(),
-		"branching":  release.GetBranchingStrategy(),
+		"grouping":        strings.ToLower(strings.TrimPrefix(release.GetGrouping().String(), "GROUPING_")),
+		"tag":             release.GetTag(),
+		"initial-version": release.GetInitial(),
+		"versioning":      release.GetVersioningStrategy(),
+		"branching":       release.GetBranchingStrategy(),
 	}
 	value, known := values[key]
 	w.scenario.Expect(known).To(BeTrue(), "there is no release setting %s", key)

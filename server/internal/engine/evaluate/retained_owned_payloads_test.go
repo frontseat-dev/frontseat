@@ -57,7 +57,7 @@ func ownedFixture(t *testing.T) Evaluation {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return Evaluation{Actions: []plan.Action{action}, Projects: projects, Generated: []plan.GeneratedSource{generated}, producerReads: []observedGeneration{{repository: "", plugin: "generator", reads: []pluginhost.Read{{Import: "read", Argument: "manifest", Found: true}}}}, Entities: []record.Located{{Ref: ref, Root: "pkg"}}, Catalog: catalogGraph, descriptors: descriptors, Graph: provider, Releases: []config.Release{{Entity: ref, Settings: map[string]string{"initial": "0.1.0"}}}, Listed: map[string][]string{"": {"go"}}, DependsOn: map[entity.Ref][]entity.Ref{ref: {other}}, shared: map[model.Label]sharedAt{label: {index: 0, root: "pkg"}}}
+	return Evaluation{Actions: []plan.Action{action}, Projects: projects, Generated: []plan.GeneratedSource{generated}, producerReads: []observedGeneration{{repository: "", plugin: "generator", reads: []pluginhost.Read{{Import: "read", Argument: "manifest", Found: true}}}}, Entities: []record.Located{{Ref: ref, Root: "pkg"}}, Catalog: catalogGraph, descriptors: descriptors, Graph: provider, Releases: []config.Release{{Entity: ref, Settings: map[string]string{"initial-version": "0.1.0"}}}, Listed: map[string][]string{"": {"go"}}, DependsOn: map[entity.Ref][]entity.Ref{ref: {other}}, shared: map[model.Label]sharedAt{label: {index: 0, root: "pkg"}}}
 }
 
 func ownedFingerprint(t *testing.T, e Evaluation) []byte {
@@ -148,7 +148,7 @@ func TestRetainedOwnedNestedPayloadsDoNotAlias(t *testing.T) {
 		"private descriptor roots":    func(e *Evaluation) { e.descriptors[0].Roots[0] = "changed" },
 		"private descriptor relation": func(e *Evaluation) { e.descriptors[0].Relations[0].Type = "changed" },
 		"private descriptor context":  func(e *Evaluation) { e.descriptors[0].Context.Tools["go"] = "changed" },
-		"release settings":            func(e *Evaluation) { e.Releases[0].Settings["initial"] = "changed" },
+		"release settings":            func(e *Evaluation) { e.Releases[0].Settings["initial-version"] = "changed" },
 		"dependency values": func(e *Evaluation) {
 			for ref := range e.DependsOn {
 				e.DependsOn[ref][0].Name = "changed"

@@ -276,8 +276,8 @@ func (x *EntityRelease) GetSetBy() []*ReleaseSettingOrigin {
 type ReleaseSettingOrigin struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Key is the setting, as spec.frontseat.release writes it: "grouping",
-	// "tag", "initial", "versioning", "branching", "prerelease" or
-	// "prerelease-tag".
+	// "tag", "initial-version", "versioning", "branching", and a setting
+	// of its prerelease map as "prerelease.format" or "prerelease.tagged".
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	// Entity is the entity whose catalog file sets it.
 	Entity        *v1alpha1.EntityRef `protobuf:"bytes,2,opt,name=entity,proto3" json:"entity,omitempty"`

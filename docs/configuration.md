@@ -396,11 +396,12 @@ is released with its System or its Domain where that group is synced.
 |---|---|---|---|
 | `grouping` | `synced` or `independent` | a System is synced; a Domain is not; a Component follows its System | Whether the members of a group release at one version (`synced`) or each alone. A Component of a synced System says `independent` to release alone. |
 | `tag` | text | `{unit}/v{version}` | How the tag is spelled: `{version}` once, and `{unit}` where the unit's name is wanted. |
-| `initial` | text, `MAJOR.MINOR.PATCH` | `0.1.0` | The version a unit with no release starts from. |
+| `initial-version` | text, `MAJOR.MINOR.PATCH` | `0.1.0` | The version a unit with no release starts from. |
 | `versioning` | text, `<plugin>:<name>` | `release:conventional-commits` | The strategy that says the next version. |
 | `branching` | text, `<plugin>:<name>` | `release:release-flow` | The strategy that says which branches release what. |
-| `prerelease` | text | `{branch}-{timestamp}` | How a prerelease is spelled after the version's dash, from `{branch}`, `{timestamp}`, `{epoch}` and `{sha}`. |
-| `prerelease-tag` | switch | `false` | Whether a prerelease is tagged. |
+| `prerelease` | map of `format` and `tagged` | | How a prerelease is released, where a branch releases one. |
+| `prerelease.format` | text | `{branch}-{timestamp}` | How a prerelease is spelled after the version's dash, from `{branch}`, `{timestamp}`, `{epoch}` and `{sha}`. |
+| `prerelease.tagged` | switch | `false` | Whether a prerelease is tagged. |
 
 A member of a synced group says nothing but `grouping`: the rest is the
 group's to say.
@@ -417,11 +418,12 @@ spec:
     release:
       grouping: synced
       tag: "{unit}@{version}"
-      initial: 1.0.0
+      initial-version: 1.0.0
       versioning: release:conventional-commits
       branching: release:release-flow
-      prerelease: "{branch}-{sha}"
-      prerelease-tag: true
+      prerelease:
+        format: "{branch}-{sha}"
+        tagged: true
 ---
 apiVersion: backstage.io/v1alpha1
 kind: System
