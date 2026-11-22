@@ -132,7 +132,7 @@ func merged(checkouts []record.Checkout, c record.Checkout) []record.Checkout {
 // is "" where there is none.
 func twice(spec *workspacev1.WorkspaceSpec, resolved told.Resolved, nameOf func(remote string) string) string {
 	asked := told.Spec(spec, 0, resolved, nameOf)
-	seen := map[string]*sourcev1.Checkout{}
+	seen := map[string]*sourcev1.RepositorySource{}
 	for _, c := range asked.GetRepositories() {
 		if had, named := seen[c.GetName()]; named && (had.GetRemote() != c.GetRemote() || had.GetRef() != c.GetRef()) {
 			return c.GetName()

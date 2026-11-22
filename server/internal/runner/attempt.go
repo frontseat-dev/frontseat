@@ -168,7 +168,7 @@ func (a *attempt) remove(ctx context.Context) bool {
 	// request can enter, so the private records are now a complete inventory.
 	// Retry one transient deletion, without ever passing an undeleted consumer.
 	for range 2 {
-		sandboxes, err := a.r.labelled(ctx, attemptLabel+"="+a.id)
+		sandboxes, err := a.r.labelled(ctx, attemptLabel, a.id)
 		if err != nil {
 			return false
 		}

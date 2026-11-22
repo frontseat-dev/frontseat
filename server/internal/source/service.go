@@ -55,7 +55,7 @@ func brought(held *Workspace, req *sourcev1.SourceSpec) error {
 		checkouts = append(checkouts, record.Checkout{Name: r.GetName(), Remote: r.GetRemote(), Ref: r.GetRef(), Roots: r.GetRoots()})
 	}
 	var located []record.Located
-	for _, l := range req.GetLocated() {
+	for _, l := range req.GetEntities() {
 		ref := entity.FromProto(l.GetRef())
 		if !ref.Whole() || ref.Validate() != nil || l.GetRef().GetKind() == "" || l.GetRef().GetNamespace() == "" {
 			return refuse(connect.CodeInvalidArgument, told.Unfit, "an entity is located by no whole reference: the control plane says each as kind:namespace/name")

@@ -229,10 +229,14 @@ func (s *sandboxes) DescribeSandbox(_ context.Context, asked *sandboxv1.Describe
 func (s *sandboxes) ListSandboxes(_ context.Context, asked *sandboxv1.ListSandboxesRequest) (*sandboxv1.ListSandboxesResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	label, value, _ := strings.Cut(asked.GetLabelSelector(), "=")
 	out := &sandboxv1.ListSandboxesResponse{}
 	for _, id := range s.order {
-		if made := s.made[id]; made != nil && made.GetSpec().GetLabels()[label] == value {
+		made := s.made[id]
+		labelled := made != nil
+		for label, value := range asked.GetLabels() {
+			labelled = labelled && made.GetSpec().GetLabels()[label] == value
+		}
+		if labelled {
 			out.Sandboxes = append(out.Sandboxes, &sandboxv1.Sandbox{Id: id, State: s.state[id], Spec: made.GetSpec()})
 		}
 	}
@@ -862,7 +866,7 @@ func TestAWorkspaceEndedWhileItIsUpdatedIsGonePromptly(t *testing.T) {
 	updated := make(chan error, 1)
 	go func() {
 		more := of("https://forge.example/acme/code.git")
-		more.Whole = true
+		more.WholeRepositories = true
 		_, err := client.UpdateWorkspace(context.Background(), &workspacev1.UpdateWorkspaceRequest{Name: "x", Spec: more})
 		updated <- err
 	}()
@@ -1048,7 +1052,7 @@ func TestAWorkspaceIsBroughtMoreByItsSpec(t *testing.T) {
 		t.Fatalf("more within what its sandbox reaches: %v", err)
 	}
 	holds := toldAgain(t, s.daemon("sbx_1"), 2)
-	if len(holds.GetLocated()) != 1 || holds.GetLocated()[0].GetRoot() != "payments" || len(holds.GetRepositories()) != 2 || holds.GetRepositories()[1].GetName() != "code" {
+	if len(holds.GetEntities()) != 1 || holds.GetEntities()[0].GetRoot() != "payments" || len(holds.GetRepositories()) != 2 || holds.GetRepositories()[1].GetName() != "code" {
 		t.Errorf("its daemon was last told to hold %v", holds)
 	}
 	asked := len(fake.Asked())
@@ -1461,7 +1465,7 @@ func TestADaemonThatIsLongBringingIsPopulatingAndNotFailed(t *testing.T) {
 	daemon.bringing = true
 	daemon.mu.Unlock()
 	more := proto.Clone(spec).(*workspacev1.WorkspaceSpec)
-	more.Whole = true
+	more.WholeRepositories = true
 	updated, err := client.UpdateWorkspace(ctx, &workspacev1.UpdateWorkspaceRequest{Name: "slow", Spec: more})
 	if err != nil || updated.GetWorkspace().GetStatus().GetState() != workspacev1.WorkspaceStatus_STATE_POPULATING {
 		t.Fatalf("what was added is said to be %v (%v), want it populating", updated.GetWorkspace().GetStatus().GetState(), err)

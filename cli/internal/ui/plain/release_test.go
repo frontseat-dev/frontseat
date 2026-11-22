@@ -21,31 +21,31 @@ func TestAPlanPrintsEachUnitAndWhyItMovesOrHolds(t *testing.T) {
 		Units: []*buildv1.ReleaseUnit{
 			{
 				Entity: unit("greet"), Members: []*typev1.EntityRef{unit("greet")}, LastVersion: "0.77.0", NextVersion: "0.77.1", Tag: "greet/v0.77.1", Branch: "release/0.77",
-				Reasons: []*buildv1.ReleaseReason{{Kind: buildv1.ReasonKind_REASON_KIND_OWN_CHANGE, Summary: "fix: trim the greeting", Commit: &buildv1.RepositoryCommit{Commit: "3f2a9c1d5e6f7a8b9c0d"}}},
+				Reasons: []*buildv1.ReleaseReason{{Kind: buildv1.ReleaseReason_KIND_OWN_CHANGE, Summary: "fix: trim the greeting", Commit: &buildv1.RepositoryCommit{Commit: "3f2a9c1d5e6f7a8b9c0d"}}},
 			},
 			{
 				Entity: unit("log"), Members: []*typev1.EntityRef{unit("log")}, NextVersion: "0.77.0", Tag: "log/v0.77.0", Branch: "release/0.77",
-				Reasons: []*buildv1.ReleaseReason{{Kind: buildv1.ReasonKind_REASON_KIND_FIRST_RELEASE}},
+				Reasons: []*buildv1.ReleaseReason{{Kind: buildv1.ReleaseReason_KIND_FIRST_RELEASE}},
 			},
 			{
 				Entity: &typev1.EntityRef{Kind: "system", Namespace: "default", Name: "kiosk"}, Members: []*typev1.EntityRef{unit("banner"), unit("ticker")}, LastVersion: "0.77.0",
-				Reasons: []*buildv1.ReleaseReason{{Kind: buildv1.ReasonKind_REASON_KIND_UNCHANGED}},
+				Reasons: []*buildv1.ReleaseReason{{Kind: buildv1.ReleaseReason_KIND_UNCHANGED}},
 			},
 			{
 				Entity: unit("hello"), Members: []*typev1.EntityRef{unit("hello")},
-				Reasons: []*buildv1.ReleaseReason{{Kind: buildv1.ReasonKind_REASON_KIND_BRANCH, Summary: "main is the default branch, which releases nothing"}},
+				Reasons: []*buildv1.ReleaseReason{{Kind: buildv1.ReleaseReason_KIND_BRANCH, Summary: "main is the default branch, which releases nothing"}},
 			},
 			{
 				Entity: unit("done"), Members: []*typev1.EntityRef{unit("done")}, LastVersion: "1.0.0", Tag: "done/v1.0.0",
-				Reasons: []*buildv1.ReleaseReason{{Kind: buildv1.ReasonKind_REASON_KIND_RELEASED}},
+				Reasons: []*buildv1.ReleaseReason{{Kind: buildv1.ReleaseReason_KIND_RELEASED}},
 			},
 			{
 				Entity: unit("edge"), Members: []*typev1.EntityRef{unit("edge")}, LastVersion: "1.0.0", NextVersion: "1.1.0-main-20261121101500", Prerelease: true, Branch: "main",
-				Reasons: []*buildv1.ReleaseReason{{Kind: buildv1.ReasonKind_REASON_KIND_OWN_CHANGE, Summary: "feat: greet by name", Commit: &buildv1.RepositoryCommit{Repository: "services", Commit: "3f2a9c1d5e6f7a8b9c0d"}}},
+				Reasons: []*buildv1.ReleaseReason{{Kind: buildv1.ReleaseReason_KIND_OWN_CHANGE, Summary: "feat: greet by name", Commit: &buildv1.RepositoryCommit{Repository: "services", Commit: "3f2a9c1d5e6f7a8b9c0d"}}},
 			},
 			{
 				Entity: unit("kept"), Members: []*typev1.EntityRef{unit("kept")}, NextVersion: "0.1.0-next-20261121101500", Prerelease: true, Tag: "kept/v0.1.0-next-20261121101500", Branch: "next",
-				Reasons: []*buildv1.ReleaseReason{{Kind: buildv1.ReasonKind_REASON_KIND_FIRST_RELEASE}},
+				Reasons: []*buildv1.ReleaseReason{{Kind: buildv1.ReleaseReason_KIND_FIRST_RELEASE}},
 			},
 		},
 	})
@@ -70,7 +70,7 @@ plan 94d84b5ff042
 func TestAReleasePrintsWhatItTaggedAndHowItEnded(t *testing.T) {
 	tagged := []*buildv1.ReleasedUnit{
 		{Entity: unit("greet"), Version: "0.77.1", Tags: []*buildv1.ReleaseTag{{Repository: "services", Name: "greet/v0.77.1", Commit: "3f2a9c1d5e6f7a8b9c0d"}}},
-		{Entity: unit("log"), Version: "0.77.0", Already: true, Tags: []*buildv1.ReleaseTag{{Repository: "services", Name: "log/v0.77.0", Commit: "3f2a9c1d5e6f7a8b9c0d"}}},
+		{Entity: unit("log"), Version: "0.77.0", AlreadyReleased: true, Tags: []*buildv1.ReleaseTag{{Repository: "services", Name: "log/v0.77.0", Commit: "3f2a9c1d5e6f7a8b9c0d"}}},
 	}
 	for name, c := range map[string]struct {
 		release *buildv1.Release
@@ -91,7 +91,7 @@ func TestAReleasePrintsWhatItTaggedAndHowItEnded(t *testing.T) {
 		"with what it built to ship": {
 			&buildv1.Release{Id: "rel_7", State: buildv1.Release_STATE_SUCCEEDED, Units: []*buildv1.ReleasedUnit{{
 				Entity: unit("greet"), Version: "0.77.1", Tags: tagged[0].GetTags(),
-				Artifacts: []*buildv1.ReleaseArtifact{{Name: "greet-darwin-arm64", Sha256: "aa11", Size: 7}, {Name: "greet-linux-amd64", Sha256: "bb22", Size: 9}},
+				Artifacts: []*buildv1.ReleaseArtifact{{Name: "greet-darwin-arm64", Digest: &buildv1.Digest{Hash: "aa11", SizeBytes: 7}}, {Name: "greet-linux-amd64", Digest: &buildv1.Digest{Hash: "bb22", SizeBytes: 9}}},
 			}}},
 			"greet  0.77.1  tagged greet/v0.77.1 in services  (3f2a9c1d5e6f)\n  aa11  greet-darwin-arm64  7 bytes\n  bb22  greet-linux-amd64  9 bytes\nrel_7  succeeded: its tags are pushed\n",
 		},
@@ -124,7 +124,7 @@ func TestWhatADaemonSaysCannotBeTakenForALineOfThePrinters(t *testing.T) {
 	p := plain.Printer{Out: &out}
 	p.Plan(&buildv1.ReleasePlan{Etag: "e\nplan forged", Units: []*buildv1.ReleaseUnit{{
 		Entity: unit("greet"), LastVersion: "1.0.0", NextVersion: "1.0.1", Tag: "greet/v1.0.1", Branch: "release/1.0",
-		Reasons: []*buildv1.ReleaseReason{{Kind: buildv1.ReasonKind_REASON_KIND_OWN_CHANGE, Summary: "fix: x\x1b[2J\x1b]0;owned\x07\rrel_9  succeeded", Commit: &buildv1.RepositoryCommit{Commit: "abc"}}},
+		Reasons: []*buildv1.ReleaseReason{{Kind: buildv1.ReleaseReason_KIND_OWN_CHANGE, Summary: "fix: x\x1b[2J\x1b]0;owned\x07\rrel_9  succeeded", Commit: &buildv1.RepositoryCommit{Commit: "abc"}}},
 	}}})
 	p.Release(&buildv1.Release{Id: "rel_1", State: buildv1.Release_STATE_FAILED, Failure: "boom\nrel_1  unpushed: all is well"})
 	p.Event(&buildv1.BuildEvent{Event: &buildv1.BuildEvent_ActionFinished_{ActionFinished: &buildv1.BuildEvent_ActionFinished{Result: &buildv1.ActionResult{Outcome: buildv1.Outcome_OUTCOME_FAILED, Label: "//a:go.test", Message: "bad\npassed  //a:go.test"}}}})

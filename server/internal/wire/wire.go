@@ -12,7 +12,14 @@ import (
 
 // ProjectRef is a complete project identity as the graph contract carries it.
 func ProjectRef(ref model.ProjectRef) *buildv1.ProjectRef {
-	return &buildv1.ProjectRef{Repository: ref.Repository, Root: ref.Root, Plugin: ref.Plugin}
+	return ProjectRefIn(&buildv1.ProjectRef{}, ref)
+}
+
+// ProjectRefIn writes a project's reference into one the caller made, as
+// ProjectRef does, and returns it: for a caller that makes many at once.
+func ProjectRefIn(into *buildv1.ProjectRef, ref model.ProjectRef) *buildv1.ProjectRef {
+	into.Repository, into.Root, into.Plugin = ref.Repository, ref.Root, ref.Plugin
+	return into
 }
 
 // Coordinate is a coordinate as the plugin contract carries it.

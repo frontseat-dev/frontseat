@@ -89,8 +89,8 @@ func planned(t *testing.T, c clients) string {
 
 func hello(whole bool) *workspacev1.WorkspaceSpec {
 	return &workspacev1.WorkspaceSpec{
-		Entities: []*typev1.EntityRef{{Kind: "component", Namespace: "default", Name: "hello"}},
-		Whole:    whole,
+		Entities:          []*typev1.EntityRef{{Kind: "component", Namespace: "default", Name: "hello"}},
+		WholeRepositories: whole,
 	}
 }
 
@@ -163,8 +163,8 @@ func TestEntitiesBringOnlyTheDirectoriesTheyGovern(t *testing.T) {
 // depends on an entity in another.
 func gateway(whole bool) *workspacev1.WorkspaceSpec {
 	return &workspacev1.WorkspaceSpec{
-		Entities: []*typev1.EntityRef{{Kind: "component", Namespace: "default", Name: "gateway"}},
-		Whole:    whole,
+		Entities:          []*typev1.EntityRef{{Kind: "component", Namespace: "default", Name: "gateway"}},
+		WholeRepositories: whole,
 	}
 }
 
@@ -339,7 +339,7 @@ func TestAMountedCheckoutIsNotPopulated(t *testing.T) {
 // refused as what was asked, before anything is cloned.
 func TestARepositoryNamedOutOfTheWorkspaceIsNotCloned(t *testing.T) {
 	forge := testforge.Make(t)
-	for name, checkout := range map[string]*sourcev1.Checkout{
+	for name, checkout := range map[string]*sourcev1.RepositorySource{
 		"named out of the workspace":                 {Name: "../elsewhere", Remote: forge.Remote, Ref: "main"},
 		"named by a path":                            {Name: "a/b", Remote: forge.Remote, Ref: "main"},
 		"named where the workspace keeps its record": {Name: ".frontseat", Remote: forge.Remote, Ref: "main"},
@@ -357,7 +357,7 @@ func TestARepositoryNamedOutOfTheWorkspaceIsNotCloned(t *testing.T) {
 			defer cancel()
 
 			generation := generations.Add(1)
-			_, err := c.source.SetSource(ctx, &sourcev1.SetSourceRequest{Spec: &sourcev1.SourceSpec{Generation: generation, Repositories: []*sourcev1.Checkout{checkout}}})
+			_, err := c.source.SetSource(ctx, &sourcev1.SetSourceRequest{Spec: &sourcev1.SourceSpec{Generation: generation, Repositories: []*sourcev1.RepositorySource{checkout}}})
 
 			if connect.CodeOf(err) != connect.CodeInvalidArgument {
 				t.Errorf("err = %v, want what was asked refused as invalid", err)

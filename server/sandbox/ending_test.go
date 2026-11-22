@@ -57,7 +57,7 @@ func TestASandboxWhoseEndingLingersIsStillListed(t *testing.T) {
 	if !held.Holds(at.GetId()) {
 		t.Fatal("the driver let go of a sandbox whose ending lingers")
 	}
-	listed, err := client.ListSandboxes(ctx, &sandboxv1.ListSandboxesRequest{LabelSelector: "of=x"})
+	listed, err := client.ListSandboxes(ctx, &sandboxv1.ListSandboxesRequest{Labels: map[string]string{"of": "x"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,7 +99,7 @@ func TestASandboxThatEndedByItselfIsForgottenAndItsRequestMakesAnother(t *testin
 	}
 	gone := lingering(t, held, client, first.GetId())
 	gone()
-	listed, err := client.ListSandboxes(ctx, &sandboxv1.ListSandboxesRequest{LabelSelector: "of=x"})
+	listed, err := client.ListSandboxes(ctx, &sandboxv1.ListSandboxesRequest{Labels: map[string]string{"of": "x"}})
 	if err != nil || len(listed.GetSandboxes()) != 0 {
 		t.Fatalf("listed %v, %v once the driver let go, want nothing", listed.GetSandboxes(), err)
 	}

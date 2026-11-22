@@ -196,7 +196,7 @@ func TestAWorkspaceOpenedByItsNameIsAskedForAsItWasMade(t *testing.T) {
 	if _, err := fs.Open(context.Background(), WorkspaceSpec{Name: "a-workspace", Whole: true}); err != nil {
 		t.Fatal(err)
 	}
-	if got := p.created[1].GetSpec(); !proto.Equal(got, &workspacev1.WorkspaceSpec{Whole: true}) {
+	if got := p.created[1].GetSpec(); !proto.Equal(got, &workspacev1.WorkspaceSpec{WholeRepositories: true}) {
 		t.Errorf("a spec that says more was asked for as %v", got)
 	}
 }

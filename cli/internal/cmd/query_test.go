@@ -45,15 +45,15 @@ func (g *graphed) ListEntities(context.Context, *buildv1.ListEntitiesRequest) (*
 
 func (g *graphed) ListProjects(context.Context, *buildv1.ListProjectsRequest) (*buildv1.ListProjectsResponse, error) {
 	return &buildv1.ListProjectsResponse{Projects: []*buildv1.Project{
-		{Repository: "platform", Root: "gateway", Plugin: "go", Kind: "go-module", Name: "example.com/gateway", Owner: component("gateway"), Requires: []*buildv1.ProjectRequirement{
-			{Coordinate: "go:example.com/ledger", Origin: "platform/gateway/go.mod:5", ProviderProject: &buildv1.ProjectRef{Repository: "platform", Root: "ledger", Plugin: "go"}},
-			{Coordinate: "go:github.com/spf13/cobra", Origin: "platform/gateway/go.mod:6", Version: "v1.9.1"},
+		{Ref: &buildv1.ProjectRef{Repository: "platform", Root: "gateway", Plugin: "go"}, Kind: "go-module", Name: "example.com/gateway", Owner: component("gateway"), Requires: []*buildv1.ProjectRequirement{
+			{Coordinate: "go:example.com/ledger", Origin: &typev1.SourceLocation{Repository: "platform", Path: "gateway/go.mod", Line: 5}, ProviderProject: &buildv1.ProjectRef{Repository: "platform", Root: "ledger", Plugin: "go"}},
+			{Coordinate: "go:github.com/spf13/cobra", Origin: &typev1.SourceLocation{Repository: "platform", Path: "gateway/go.mod", Line: 6}, Version: "v1.9.1"},
 		}},
-		{Repository: "platform", Root: "ledger", Plugin: "go", Kind: "go-module", Name: "example.com/ledger", Owner: component("ledger"), Requires: []*buildv1.ProjectRequirement{
-			{Coordinate: "go:example.com/money", Origin: "platform/ledger/go.mod:4", ProviderProject: &buildv1.ProjectRef{Repository: "libs", Root: "money", Plugin: "go"}},
+		{Ref: &buildv1.ProjectRef{Repository: "platform", Root: "ledger", Plugin: "go"}, Kind: "go-module", Name: "example.com/ledger", Owner: component("ledger"), Requires: []*buildv1.ProjectRequirement{
+			{Coordinate: "go:example.com/money", Origin: &typev1.SourceLocation{Repository: "platform", Path: "ledger/go.mod", Line: 4}, ProviderProject: &buildv1.ProjectRef{Repository: "libs", Root: "money", Plugin: "go"}},
 		}},
-		{Repository: "libs", Root: "money", Plugin: "go", Kind: "go-module", Name: "example.com/money", Owner: component("money"), Requires: []*buildv1.ProjectRequirement{
-			{Coordinate: "go:github.com/spf13/cobra", Origin: "libs/money/go.mod:3", Version: "v1.8.0"},
+		{Ref: &buildv1.ProjectRef{Repository: "libs", Root: "money", Plugin: "go"}, Kind: "go-module", Name: "example.com/money", Owner: component("money"), Requires: []*buildv1.ProjectRequirement{
+			{Coordinate: "go:github.com/spf13/cobra", Origin: &typev1.SourceLocation{Repository: "libs", Path: "money/go.mod", Line: 3}, Version: "v1.8.0"},
 		}},
 	}}, nil
 }
@@ -293,7 +293,7 @@ func (a *ambiguous) ListEntities(ctx context.Context, r *buildv1.ListEntitiesReq
 }
 
 func (a *ambiguous) ListProjects(context.Context, *buildv1.ListProjectsRequest) (*buildv1.ListProjectsResponse, error) {
-	return &buildv1.ListProjectsResponse{Projects: []*buildv1.Project{{Root: "cli", Plugin: "go", Kind: "go-module", Name: "example.com/cli"}}}, nil
+	return &buildv1.ListProjectsResponse{Projects: []*buildv1.Project{{Ref: &buildv1.ProjectRef{Root: "cli", Plugin: "go"}, Kind: "go-module", Name: "example.com/cli"}}}, nil
 }
 
 // A name of two entities is refused as such, and not taken for a

@@ -299,23 +299,6 @@ func (s *Server) make(ctx context.Context, spec *sandboxv1.SandboxSpec, request 
 	return s.observe(ctx, id)
 }
 
-// selector reads which labels a list keeps: name=value, separated by
-// commas, all of which a sandbox must carry.
-func selector(given string) (map[string]string, error) {
-	out := map[string]string{}
-	for _, each := range strings.Split(given, ",") {
-		if each = strings.TrimSpace(each); each == "" {
-			continue
-		}
-		name, value, found := strings.Cut(each, "=")
-		if !found || name == "" {
-			return nil, errors.New("the label selector is not name=value, separated by commas")
-		}
-		out[name] = value
-	}
-	return out, nil
-}
-
 // userOf is the user a sandbox's first process runs as, as a driver
 // takes it: by number, or empty for the image's own. Zero, root's, is
 // the image's own: no sandbox is asked to run as root.
@@ -614,7 +597,7 @@ func (s *Server) observe(ctx context.Context, id string) (*sandboxv1.Sandbox, er
 	for _, port := range r.spec.GetPorts() {
 		out.Endpoints = append(out.Endpoints, &sandboxv1.Endpoint{
 			Port: port,
-			Url:  fmt.Sprintf("%s/sandboxes/%s/ports/%d", s.publicURL, id, port),
+			Uri:  fmt.Sprintf("%s/sandboxes/%s/ports/%d", s.publicURL, id, port),
 		})
 	}
 	return out, nil
@@ -629,10 +612,7 @@ func (s *Server) DescribeSandbox(ctx context.Context, req *sandboxv1.DescribeSan
 }
 
 func (s *Server) ListSandboxes(ctx context.Context, req *sandboxv1.ListSandboxesRequest) (*sandboxv1.ListSandboxesResponse, error) {
-	selected, err := selector(req.GetLabelSelector())
-	if err != nil {
-		return nil, refuse(connect.CodeInvalidArgument, "LABEL_SELECTOR_INVALID", err.Error())
-	}
+	selected := req.GetLabels()
 	s.mu.Lock()
 	ids := make([]string, 0, len(s.records))
 	for id, r := range s.records {

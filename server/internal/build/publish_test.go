@@ -98,7 +98,7 @@ func TestAReleasePublishesWhatItShippedWhereTheDaemonIs(t *testing.T) {
 		t.Errorf("a build pointed at what publishes says %q, and published %q", refusal, readAt(t, into, "greet_v1.0.0"))
 	}
 	s, release := releasedAlone(t, c, "greet")
-	published := release.GetUnits()[0].GetPublished()
+	published := release.GetUnits()[0].GetPublishes()
 	if len(published) != 1 || published[0].GetLabel() != "//greet:custom.publish/release" || published[0].GetFailure() != "" {
 		t.Errorf("the unit says it was published as %v", published)
 	}
@@ -118,7 +118,7 @@ func TestAReleasePublishesWhatItShippedWhereTheDaemonIs(t *testing.T) {
 		t.Errorf("it found beside it, and in the sums:\n%s", rest)
 	}
 	for _, artifact := range release.GetUnits()[0].GetArtifacts() {
-		if !strings.Contains(rest, artifact.GetSha256()+"  "+artifact.GetName()) {
+		if !strings.Contains(rest, artifact.GetDigest().GetHash()+"  "+artifact.GetName()) {
 			t.Errorf("the sums do not hold %s as the release lists it:\n%s", artifact.GetName(), rest)
 		}
 	}
@@ -126,8 +126,8 @@ func TestAReleasePublishesWhatItShippedWhereTheDaemonIs(t *testing.T) {
 		t.Errorf("the remote has the tags %q", tagsOf(t, remote))
 	}
 	// log has nothing that publishes: its release is as it ever was.
-	if plain := releaseEnded(t, s, releaseBegun(t, s, "log").GetId()); plain.GetState() != buildv1.Release_STATE_SUCCEEDED || len(plain.GetUnits()[0].GetPublished()) != 0 || readAt(t, into, "log_v1.0.0") != "" {
-		t.Errorf("a release of a unit with nothing that publishes ended %v (%s), published %v", plain.GetState(), plain.GetFailure(), plain.GetUnits()[0].GetPublished())
+	if plain := releaseEnded(t, s, releaseBegun(t, s, "log").GetId()); plain.GetState() != buildv1.Release_STATE_SUCCEEDED || len(plain.GetUnits()[0].GetPublishes()) != 0 || readAt(t, into, "log_v1.0.0") != "" {
+		t.Errorf("a release of a unit with nothing that publishes ended %v (%s), published %v", plain.GetState(), plain.GetFailure(), plain.GetUnits()[0].GetPublishes())
 	}
 }
 
@@ -145,7 +145,7 @@ func TestAPublishThatFailsFailsTheReleaseAndItsTagsStay(t *testing.T) {
 	if release.GetState() != buildv1.Release_STATE_FAILED || !strings.Contains(release.GetFailure(), "//greet:custom.publish/release of greet could not be published; every tag is pushed") {
 		t.Fatalf("the release ended %v (%s)", release.GetState(), release.GetFailure())
 	}
-	published := release.GetUnits()[0].GetPublished()
+	published := release.GetUnits()[0].GetPublishes()
 	if len(published) != 1 || !strings.Contains(published[0].GetFailure(), "exit status 3") || !strings.Contains(published[0].GetFailure(), "refused …") {
 		t.Errorf("the unit says it was published as %v", published)
 	}
@@ -176,8 +176,8 @@ func TestAPublishNoEntityOwnsPublishesEachUnitOfItsRepository(t *testing.T) {
 		}
 	}
 	for _, unit := range release.GetUnits() {
-		if len(unit.GetPublished()) != 1 || unit.GetPublished()[0].GetLabel() != "//:custom.publish/release" || unit.GetPublished()[0].GetFailure() != "" {
-			t.Errorf("%s says it was published as %v", unit.GetEntity().GetName(), unit.GetPublished())
+		if len(unit.GetPublishes()) != 1 || unit.GetPublishes()[0].GetLabel() != "//:custom.publish/release" || unit.GetPublishes()[0].GetFailure() != "" {
+			t.Errorf("%s says it was published as %v", unit.GetEntity().GetName(), unit.GetPublishes())
 		}
 	}
 }
@@ -229,7 +229,7 @@ func TestTheGitHubPluginsPublishIsRunByARelease(t *testing.T) {
 	if release.GetState() != buildv1.Release_STATE_FAILED || len(release.GetUnits()) != 1 {
 		t.Fatalf("the release ended %v (%s) with %v", release.GetState(), release.GetFailure(), release.GetUnits())
 	}
-	published := release.GetUnits()[0].GetPublished()
+	published := release.GetUnits()[0].GetPublishes()
 	if len(published) != 1 || published[0].GetLabel() != "//:github.publish" || !strings.Contains(published[0].GetFailure(), "gh") {
 		t.Errorf("the unit says it was published as %v", published)
 	}
@@ -241,8 +241,8 @@ func TestTheGitHubPluginsPublishIsRunByARelease(t *testing.T) {
 		t.Errorf("a build of a repository that pins no gh ended %s (%s), with the tags %q", ended.GetExitCode(), ended.GetFailure(), tagsOf(t, bare))
 	}
 	control, _, _ := givenACheckoutWith(t, bringing{}, "release/1.0", listing("", false), 3)
-	if _, plain := releasedAlone(t, control, "greet"); len(plain.GetUnits()[0].GetPublished()) != 0 {
-		t.Errorf("without the plugin the unit says it was published as %v", plain.GetUnits()[0].GetPublished())
+	if _, plain := releasedAlone(t, control, "greet"); len(plain.GetUnits()[0].GetPublishes()) != 0 {
+		t.Errorf("without the plugin the unit says it was published as %v", plain.GetUnits()[0].GetPublishes())
 	}
 }
 
@@ -271,11 +271,11 @@ func TestAReleaseFromAWorkspaceThatWouldPublishIsRefusedBeforeItBuilds(t *testin
 	if tagsOf(t, clone) != "" || readAt(t, into, "greet_v1.0.0") != "" {
 		t.Errorf("the refused release left the tags %q and published %q", tagsOf(t, clone), readAt(t, into, "greet_v1.0.0"))
 	}
-	if _, plain := releasedAlone(t, c, "log"); len(plain.GetUnits()[0].GetPublished()) != 0 || tagsOf(t, remoteOf(t, clone)) != "log/v1.0.0" {
-		t.Errorf("a release from the workspace of what nothing publishes was published as %v, with the tags %q", plain.GetUnits()[0].GetPublished(), tagsOf(t, remoteOf(t, clone)))
+	if _, plain := releasedAlone(t, c, "log"); len(plain.GetUnits()[0].GetPublishes()) != 0 || tagsOf(t, remoteOf(t, clone)) != "log/v1.0.0" {
+		t.Errorf("a release from the workspace of what nothing publishes was published as %v, with the tags %q", plain.GetUnits()[0].GetPublishes(), tagsOf(t, remoteOf(t, clone)))
 	}
 	given, _, _ := givenACheckoutWith(t, bringing{}, "release/1.0", publishingSource(t, into, false, false), 3)
-	if _, published := releasedAlone(t, given, "greet"); len(published.GetUnits()[0].GetPublished()) != 1 || readAt(t, into, "greet_v1.0.0") == "" {
-		t.Errorf("a release from a checkout given the daemon was published as %v", published.GetUnits()[0].GetPublished())
+	if _, published := releasedAlone(t, given, "greet"); len(published.GetUnits()[0].GetPublishes()) != 1 || readAt(t, into, "greet_v1.0.0") == "" {
+		t.Errorf("a release from a checkout given the daemon was published as %v", published.GetUnits()[0].GetPublishes())
 	}
 }

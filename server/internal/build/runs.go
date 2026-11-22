@@ -601,7 +601,7 @@ func (r *run) packaged(action plan.Action, left map[string]exec.Held) {
 	}
 	for at, held := range left {
 		r.artifacts = append(r.artifacts, artifact{owner: owner, at: at, directory: held.Directory, held: held, file: &buildv1.ReleaseArtifact{
-			Name: path.Base(at), Sha256: held.Digest.Hash, Size: held.Digest.Size, Label: action.Label.String(),
+			Name: path.Base(at), Digest: &buildv1.Digest{Hash: held.Digest.Hash, SizeBytes: held.Digest.Size}, Label: action.Label.String(),
 		}})
 	}
 }

@@ -445,7 +445,7 @@ the change that fixes it.
   what its project ships (the contract's action kind `Package`; `package:
   true` on a Component's own action), and each file it leaves is an
   artifact of the release that builds it, by the name its tool gave it,
-  with the sha256 and the size the grid holds of it
+  with the digest the grid holds it by
   (`ReleasedUnit.artifacts`). How a tool packages is its plugin's to
   know: the Go plugin makes each of a module's programs for each
   platform, `<program>-<os>-<arch>`, and a crate that is a wasm module

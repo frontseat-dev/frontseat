@@ -955,8 +955,8 @@ type Endpoint struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Port is the port inside the sandbox.
 	Port int32 `protobuf:"varint,1,opt,name=port,proto3" json:"port,omitempty"`
-	// Url is where it is reached from outside.
-	Url           string `protobuf:"bytes,2,opt,name=url,proto3" json:"url,omitempty"`
+	// Uri is where it is reached from outside.
+	Uri           string `protobuf:"bytes,2,opt,name=uri,proto3" json:"uri,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -998,9 +998,9 @@ func (x *Endpoint) GetPort() int32 {
 	return 0
 }
 
-func (x *Endpoint) GetUrl() string {
+func (x *Endpoint) GetUri() string {
 	if x != nil {
-		return x.Url
+		return x.Uri
 	}
 	return ""
 }
@@ -1205,9 +1205,9 @@ func (x *DescribeSandboxResponse) GetSandbox() *Sandbox {
 // ListSandboxesRequest says which sandboxes to keep.
 type ListSandboxesRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// `label_selector` keeps the sandboxes that carry every label it names:
-	// name=value, separated by commas. Empty keeps all.
-	LabelSelector string `protobuf:"bytes,1,opt,name=label_selector,json=labelSelector,proto3" json:"label_selector,omitempty"`
+	// Labels keeps the sandboxes that carry every label it gives, each
+	// with its value. Empty keeps all.
+	Labels map[string]string `protobuf:"bytes,1,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// `page_size` is the most sandboxes to return; zero is a hundred,
 	// and more than a thousand is a thousand.
 	PageSize int32 `protobuf:"varint,2,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
@@ -1248,11 +1248,11 @@ func (*ListSandboxesRequest) Descriptor() ([]byte, []int) {
 	return file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP(), []int{13}
 }
 
-func (x *ListSandboxesRequest) GetLabelSelector() string {
+func (x *ListSandboxesRequest) GetLabels() map[string]string {
 	if x != nil {
-		return x.LabelSelector
+		return x.Labels
 	}
-	return ""
+	return nil
 }
 
 func (x *ListSandboxesRequest) GetPageSize() int32 {
@@ -2285,7 +2285,7 @@ const file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDesc = "" +
 	"\tKIND_HOST\x10\x03\"<\n" +
 	"\bEndpoint\x12\x18\n" +
 	"\x04port\x18\x01 \x01(\x05B\x04\xe2A\x01\x03R\x04port\x12\x16\n" +
-	"\x03url\x18\x02 \x01(\tB\x04\xe2A\x01\x03R\x03url\"x\n" +
+	"\x03uri\x18\x02 \x01(\tB\x04\xe2A\x01\x03R\x03uri\"x\n" +
 	"\x14CreateSandboxRequest\x12A\n" +
 	"\x04spec\x18\x01 \x01(\v2'.frontseat.sandbox.v1alpha1.SandboxSpecB\x04\xe2A\x01\x02R\x04spec\x12\x1d\n" +
 	"\n" +
@@ -2296,12 +2296,15 @@ const file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDesc = "" +
 	"\n" +
 	"sandbox_id\x18\x01 \x01(\tB\x04\xe2A\x01\x02R\tsandboxId\"X\n" +
 	"\x17DescribeSandboxResponse\x12=\n" +
-	"\asandbox\x18\x01 \x01(\v2#.frontseat.sandbox.v1alpha1.SandboxR\asandbox\"y\n" +
-	"\x14ListSandboxesRequest\x12%\n" +
-	"\x0elabel_selector\x18\x01 \x01(\tR\rlabelSelector\x12\x1b\n" +
+	"\asandbox\x18\x01 \x01(\v2#.frontseat.sandbox.v1alpha1.SandboxR\asandbox\"\xe3\x01\n" +
+	"\x14ListSandboxesRequest\x12T\n" +
+	"\x06labels\x18\x01 \x03(\v2<.frontseat.sandbox.v1alpha1.ListSandboxesRequest.LabelsEntryR\x06labels\x12\x1b\n" +
 	"\tpage_size\x18\x02 \x01(\x05R\bpageSize\x12\x1d\n" +
 	"\n" +
-	"page_token\x18\x03 \x01(\tR\tpageToken\"\x82\x01\n" +
+	"page_token\x18\x03 \x01(\tR\tpageToken\x1a9\n" +
+	"\vLabelsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x82\x01\n" +
 	"\x15ListSandboxesResponse\x12A\n" +
 	"\tsandboxes\x18\x01 \x03(\v2#.frontseat.sandbox.v1alpha1.SandboxR\tsandboxes\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\";\n" +
@@ -2386,7 +2389,7 @@ func file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescGZIP() []byte {
 }
 
 var file_frontseat_sandbox_v1alpha1_sandbox_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes = make([]protoimpl.MessageInfo, 36)
+var file_frontseat_sandbox_v1alpha1_sandbox_proto_msgTypes = make([]protoimpl.MessageInfo, 37)
 var file_frontseat_sandbox_v1alpha1_sandbox_proto_goTypes = []any{
 	(Sandbox_State)(0),                 // 0: frontseat.sandbox.v1alpha1.Sandbox.State
 	(Egress_Mode)(0),                   // 1: frontseat.sandbox.v1alpha1.Egress.Mode
@@ -2427,21 +2430,22 @@ var file_frontseat_sandbox_v1alpha1_sandbox_proto_goTypes = []any{
 	nil,                                // 36: frontseat.sandbox.v1alpha1.SandboxSpec.LabelsEntry
 	nil,                                // 37: frontseat.sandbox.v1alpha1.Container.EnvironmentEntry
 	nil,                                // 38: frontseat.sandbox.v1alpha1.EgressRequest.QueryEntry
-	(*timestamppb.Timestamp)(nil),      // 39: google.protobuf.Timestamp
-	(*durationpb.Duration)(nil),        // 40: google.protobuf.Duration
+	nil,                                // 39: frontseat.sandbox.v1alpha1.ListSandboxesRequest.LabelsEntry
+	(*timestamppb.Timestamp)(nil),      // 40: google.protobuf.Timestamp
+	(*durationpb.Duration)(nil),        // 41: google.protobuf.Duration
 }
 var file_frontseat_sandbox_v1alpha1_sandbox_proto_depIdxs = []int32{
 	4,  // 0: frontseat.sandbox.v1alpha1.Sandbox.spec:type_name -> frontseat.sandbox.v1alpha1.SandboxSpec
 	0,  // 1: frontseat.sandbox.v1alpha1.Sandbox.state:type_name -> frontseat.sandbox.v1alpha1.Sandbox.State
 	11, // 2: frontseat.sandbox.v1alpha1.Sandbox.endpoints:type_name -> frontseat.sandbox.v1alpha1.Endpoint
-	39, // 3: frontseat.sandbox.v1alpha1.Sandbox.create_time:type_name -> google.protobuf.Timestamp
+	40, // 3: frontseat.sandbox.v1alpha1.Sandbox.create_time:type_name -> google.protobuf.Timestamp
 	35, // 4: frontseat.sandbox.v1alpha1.SandboxSpec.environment:type_name -> frontseat.sandbox.v1alpha1.SandboxSpec.EnvironmentEntry
 	7,  // 5: frontseat.sandbox.v1alpha1.SandboxSpec.egress:type_name -> frontseat.sandbox.v1alpha1.Egress
 	10, // 6: frontseat.sandbox.v1alpha1.SandboxSpec.volumes:type_name -> frontseat.sandbox.v1alpha1.Volume
 	36, // 7: frontseat.sandbox.v1alpha1.SandboxSpec.labels:type_name -> frontseat.sandbox.v1alpha1.SandboxSpec.LabelsEntry
 	6,  // 8: frontseat.sandbox.v1alpha1.SandboxSpec.containers:type_name -> frontseat.sandbox.v1alpha1.Container
 	5,  // 9: frontseat.sandbox.v1alpha1.SandboxSpec.before_containers:type_name -> frontseat.sandbox.v1alpha1.StartupGate
-	40, // 10: frontseat.sandbox.v1alpha1.StartupGate.timeout:type_name -> google.protobuf.Duration
+	41, // 10: frontseat.sandbox.v1alpha1.StartupGate.timeout:type_name -> google.protobuf.Duration
 	37, // 11: frontseat.sandbox.v1alpha1.Container.environment:type_name -> frontseat.sandbox.v1alpha1.Container.EnvironmentEntry
 	10, // 12: frontseat.sandbox.v1alpha1.Container.volumes:type_name -> frontseat.sandbox.v1alpha1.Volume
 	1,  // 13: frontseat.sandbox.v1alpha1.Egress.mode:type_name -> frontseat.sandbox.v1alpha1.Egress.Mode
@@ -2452,41 +2456,42 @@ var file_frontseat_sandbox_v1alpha1_sandbox_proto_depIdxs = []int32{
 	4,  // 18: frontseat.sandbox.v1alpha1.CreateSandboxRequest.spec:type_name -> frontseat.sandbox.v1alpha1.SandboxSpec
 	3,  // 19: frontseat.sandbox.v1alpha1.CreateSandboxResponse.sandbox:type_name -> frontseat.sandbox.v1alpha1.Sandbox
 	3,  // 20: frontseat.sandbox.v1alpha1.DescribeSandboxResponse.sandbox:type_name -> frontseat.sandbox.v1alpha1.Sandbox
-	3,  // 21: frontseat.sandbox.v1alpha1.ListSandboxesResponse.sandboxes:type_name -> frontseat.sandbox.v1alpha1.Sandbox
-	3,  // 22: frontseat.sandbox.v1alpha1.PauseSandboxResponse.sandbox:type_name -> frontseat.sandbox.v1alpha1.Sandbox
-	3,  // 23: frontseat.sandbox.v1alpha1.ResumeSandboxResponse.sandbox:type_name -> frontseat.sandbox.v1alpha1.Sandbox
-	3,  // 24: frontseat.sandbox.v1alpha1.WaitSandboxResponse.sandbox:type_name -> frontseat.sandbox.v1alpha1.Sandbox
-	40, // 25: frontseat.sandbox.v1alpha1.ExecSandboxRequest.timeout:type_name -> google.protobuf.Duration
-	28, // 26: frontseat.sandbox.v1alpha1.SetCredentialRequest.credential:type_name -> frontseat.sandbox.v1alpha1.Credential
-	28, // 27: frontseat.sandbox.v1alpha1.SetCredentialResponse.credential:type_name -> frontseat.sandbox.v1alpha1.Credential
-	28, // 28: frontseat.sandbox.v1alpha1.DescribeCredentialResponse.credential:type_name -> frontseat.sandbox.v1alpha1.Credential
-	12, // 29: frontseat.sandbox.v1alpha1.SandboxService.CreateSandbox:input_type -> frontseat.sandbox.v1alpha1.CreateSandboxRequest
-	14, // 30: frontseat.sandbox.v1alpha1.SandboxService.DescribeSandbox:input_type -> frontseat.sandbox.v1alpha1.DescribeSandboxRequest
-	16, // 31: frontseat.sandbox.v1alpha1.SandboxService.ListSandboxes:input_type -> frontseat.sandbox.v1alpha1.ListSandboxesRequest
-	18, // 32: frontseat.sandbox.v1alpha1.SandboxService.DeleteSandbox:input_type -> frontseat.sandbox.v1alpha1.DeleteSandboxRequest
-	20, // 33: frontseat.sandbox.v1alpha1.SandboxService.PauseSandbox:input_type -> frontseat.sandbox.v1alpha1.PauseSandboxRequest
-	22, // 34: frontseat.sandbox.v1alpha1.SandboxService.ResumeSandbox:input_type -> frontseat.sandbox.v1alpha1.ResumeSandboxRequest
-	24, // 35: frontseat.sandbox.v1alpha1.SandboxService.WaitSandbox:input_type -> frontseat.sandbox.v1alpha1.WaitSandboxRequest
-	26, // 36: frontseat.sandbox.v1alpha1.SandboxService.ExecSandbox:input_type -> frontseat.sandbox.v1alpha1.ExecSandboxRequest
-	29, // 37: frontseat.sandbox.v1alpha1.SandboxService.SetCredential:input_type -> frontseat.sandbox.v1alpha1.SetCredentialRequest
-	33, // 38: frontseat.sandbox.v1alpha1.SandboxService.DescribeCredential:input_type -> frontseat.sandbox.v1alpha1.DescribeCredentialRequest
-	31, // 39: frontseat.sandbox.v1alpha1.SandboxService.DeleteCredential:input_type -> frontseat.sandbox.v1alpha1.DeleteCredentialRequest
-	13, // 40: frontseat.sandbox.v1alpha1.SandboxService.CreateSandbox:output_type -> frontseat.sandbox.v1alpha1.CreateSandboxResponse
-	15, // 41: frontseat.sandbox.v1alpha1.SandboxService.DescribeSandbox:output_type -> frontseat.sandbox.v1alpha1.DescribeSandboxResponse
-	17, // 42: frontseat.sandbox.v1alpha1.SandboxService.ListSandboxes:output_type -> frontseat.sandbox.v1alpha1.ListSandboxesResponse
-	19, // 43: frontseat.sandbox.v1alpha1.SandboxService.DeleteSandbox:output_type -> frontseat.sandbox.v1alpha1.DeleteSandboxResponse
-	21, // 44: frontseat.sandbox.v1alpha1.SandboxService.PauseSandbox:output_type -> frontseat.sandbox.v1alpha1.PauseSandboxResponse
-	23, // 45: frontseat.sandbox.v1alpha1.SandboxService.ResumeSandbox:output_type -> frontseat.sandbox.v1alpha1.ResumeSandboxResponse
-	25, // 46: frontseat.sandbox.v1alpha1.SandboxService.WaitSandbox:output_type -> frontseat.sandbox.v1alpha1.WaitSandboxResponse
-	27, // 47: frontseat.sandbox.v1alpha1.SandboxService.ExecSandbox:output_type -> frontseat.sandbox.v1alpha1.ExecSandboxResponse
-	30, // 48: frontseat.sandbox.v1alpha1.SandboxService.SetCredential:output_type -> frontseat.sandbox.v1alpha1.SetCredentialResponse
-	34, // 49: frontseat.sandbox.v1alpha1.SandboxService.DescribeCredential:output_type -> frontseat.sandbox.v1alpha1.DescribeCredentialResponse
-	32, // 50: frontseat.sandbox.v1alpha1.SandboxService.DeleteCredential:output_type -> frontseat.sandbox.v1alpha1.DeleteCredentialResponse
-	40, // [40:51] is the sub-list for method output_type
-	29, // [29:40] is the sub-list for method input_type
-	29, // [29:29] is the sub-list for extension type_name
-	29, // [29:29] is the sub-list for extension extendee
-	0,  // [0:29] is the sub-list for field type_name
+	39, // 21: frontseat.sandbox.v1alpha1.ListSandboxesRequest.labels:type_name -> frontseat.sandbox.v1alpha1.ListSandboxesRequest.LabelsEntry
+	3,  // 22: frontseat.sandbox.v1alpha1.ListSandboxesResponse.sandboxes:type_name -> frontseat.sandbox.v1alpha1.Sandbox
+	3,  // 23: frontseat.sandbox.v1alpha1.PauseSandboxResponse.sandbox:type_name -> frontseat.sandbox.v1alpha1.Sandbox
+	3,  // 24: frontseat.sandbox.v1alpha1.ResumeSandboxResponse.sandbox:type_name -> frontseat.sandbox.v1alpha1.Sandbox
+	3,  // 25: frontseat.sandbox.v1alpha1.WaitSandboxResponse.sandbox:type_name -> frontseat.sandbox.v1alpha1.Sandbox
+	41, // 26: frontseat.sandbox.v1alpha1.ExecSandboxRequest.timeout:type_name -> google.protobuf.Duration
+	28, // 27: frontseat.sandbox.v1alpha1.SetCredentialRequest.credential:type_name -> frontseat.sandbox.v1alpha1.Credential
+	28, // 28: frontseat.sandbox.v1alpha1.SetCredentialResponse.credential:type_name -> frontseat.sandbox.v1alpha1.Credential
+	28, // 29: frontseat.sandbox.v1alpha1.DescribeCredentialResponse.credential:type_name -> frontseat.sandbox.v1alpha1.Credential
+	12, // 30: frontseat.sandbox.v1alpha1.SandboxService.CreateSandbox:input_type -> frontseat.sandbox.v1alpha1.CreateSandboxRequest
+	14, // 31: frontseat.sandbox.v1alpha1.SandboxService.DescribeSandbox:input_type -> frontseat.sandbox.v1alpha1.DescribeSandboxRequest
+	16, // 32: frontseat.sandbox.v1alpha1.SandboxService.ListSandboxes:input_type -> frontseat.sandbox.v1alpha1.ListSandboxesRequest
+	18, // 33: frontseat.sandbox.v1alpha1.SandboxService.DeleteSandbox:input_type -> frontseat.sandbox.v1alpha1.DeleteSandboxRequest
+	20, // 34: frontseat.sandbox.v1alpha1.SandboxService.PauseSandbox:input_type -> frontseat.sandbox.v1alpha1.PauseSandboxRequest
+	22, // 35: frontseat.sandbox.v1alpha1.SandboxService.ResumeSandbox:input_type -> frontseat.sandbox.v1alpha1.ResumeSandboxRequest
+	24, // 36: frontseat.sandbox.v1alpha1.SandboxService.WaitSandbox:input_type -> frontseat.sandbox.v1alpha1.WaitSandboxRequest
+	26, // 37: frontseat.sandbox.v1alpha1.SandboxService.ExecSandbox:input_type -> frontseat.sandbox.v1alpha1.ExecSandboxRequest
+	29, // 38: frontseat.sandbox.v1alpha1.SandboxService.SetCredential:input_type -> frontseat.sandbox.v1alpha1.SetCredentialRequest
+	33, // 39: frontseat.sandbox.v1alpha1.SandboxService.DescribeCredential:input_type -> frontseat.sandbox.v1alpha1.DescribeCredentialRequest
+	31, // 40: frontseat.sandbox.v1alpha1.SandboxService.DeleteCredential:input_type -> frontseat.sandbox.v1alpha1.DeleteCredentialRequest
+	13, // 41: frontseat.sandbox.v1alpha1.SandboxService.CreateSandbox:output_type -> frontseat.sandbox.v1alpha1.CreateSandboxResponse
+	15, // 42: frontseat.sandbox.v1alpha1.SandboxService.DescribeSandbox:output_type -> frontseat.sandbox.v1alpha1.DescribeSandboxResponse
+	17, // 43: frontseat.sandbox.v1alpha1.SandboxService.ListSandboxes:output_type -> frontseat.sandbox.v1alpha1.ListSandboxesResponse
+	19, // 44: frontseat.sandbox.v1alpha1.SandboxService.DeleteSandbox:output_type -> frontseat.sandbox.v1alpha1.DeleteSandboxResponse
+	21, // 45: frontseat.sandbox.v1alpha1.SandboxService.PauseSandbox:output_type -> frontseat.sandbox.v1alpha1.PauseSandboxResponse
+	23, // 46: frontseat.sandbox.v1alpha1.SandboxService.ResumeSandbox:output_type -> frontseat.sandbox.v1alpha1.ResumeSandboxResponse
+	25, // 47: frontseat.sandbox.v1alpha1.SandboxService.WaitSandbox:output_type -> frontseat.sandbox.v1alpha1.WaitSandboxResponse
+	27, // 48: frontseat.sandbox.v1alpha1.SandboxService.ExecSandbox:output_type -> frontseat.sandbox.v1alpha1.ExecSandboxResponse
+	30, // 49: frontseat.sandbox.v1alpha1.SandboxService.SetCredential:output_type -> frontseat.sandbox.v1alpha1.SetCredentialResponse
+	34, // 50: frontseat.sandbox.v1alpha1.SandboxService.DescribeCredential:output_type -> frontseat.sandbox.v1alpha1.DescribeCredentialResponse
+	32, // 51: frontseat.sandbox.v1alpha1.SandboxService.DeleteCredential:output_type -> frontseat.sandbox.v1alpha1.DeleteCredentialResponse
+	41, // [41:52] is the sub-list for method output_type
+	30, // [30:41] is the sub-list for method input_type
+	30, // [30:30] is the sub-list for extension type_name
+	30, // [30:30] is the sub-list for extension extendee
+	0,  // [0:30] is the sub-list for field type_name
 }
 
 func init() { file_frontseat_sandbox_v1alpha1_sandbox_proto_init() }
@@ -2500,7 +2505,7 @@ func file_frontseat_sandbox_v1alpha1_sandbox_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDesc), len(file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   36,
+			NumMessages:   37,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

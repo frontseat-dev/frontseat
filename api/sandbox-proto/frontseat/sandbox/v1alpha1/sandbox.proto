@@ -71,9 +71,8 @@ service SandboxService {
   // deleted between two pages, the next page may leave one out.
   //
   // ### Errors
-  // - INVALID_ARGUMENT: the label selector is not name=value, separated
-  //   by commas (LABEL_SELECTOR_INVALID), or the page token is not one
-  //   this call gave (PAGE_TOKEN_INVALID).
+  // - INVALID_ARGUMENT: the page token is not one this call gave
+  //   (PAGE_TOKEN_INVALID).
   rpc ListSandboxes(ListSandboxesRequest) returns (ListSandboxesResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
@@ -403,8 +402,8 @@ message Volume {
 message Endpoint {
   // Port is the port inside the sandbox.
   int32 port = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // Url is where it is reached from outside.
-  string url = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Uri is where it is reached from outside.
+  string uri = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
 }
 
 // CreateSandboxRequest makes a sandbox.
@@ -439,9 +438,9 @@ message DescribeSandboxResponse {
 
 // ListSandboxesRequest says which sandboxes to keep.
 message ListSandboxesRequest {
-  // `label_selector` keeps the sandboxes that carry every label it names:
-  // name=value, separated by commas. Empty keeps all.
-  string label_selector = 1;
+  // Labels keeps the sandboxes that carry every label it gives, each
+  // with its value. Empty keeps all.
+  map<string, string> labels = 1;
   // `page_size` is the most sandboxes to return; zero is a hundred,
   // and more than a thousand is a thousand.
   int32 page_size = 2;

@@ -34,7 +34,7 @@ func TestASandboxIsStillTheServicesWhenTheServerStartsAgain(t *testing.T) {
 
 	second := started(t, provider, state)
 
-	listed, err := second.ListSandboxes(ctx, &sandboxv1.ListSandboxesRequest{LabelSelector: "owner=someone"})
+	listed, err := second.ListSandboxes(ctx, &sandboxv1.ListSandboxesRequest{Labels: map[string]string{"owner": "someone"}})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -215,9 +215,9 @@ message WorkspaceSpec {
   // provided the catalog holds one entity of that kind and name. The
   // workspace's status says which entity each one resolved to.
   repeated frontseat.type.v1alpha1.EntityRef entities = 2;
-  // Whole has the daemon clone every file of the entities' repositories,
-  // not only the directories the entities own.
-  bool whole = 4;
+  // `whole_repositories` has the daemon clone every file of the
+  // entities' repositories, not only the directories the entities own.
+  bool whole_repositories = 4;
   // Push lets it push to the repositories named, with the credential the
   // control plane keeps for their hosts. It is set when the workspace is
   // made, and cannot be changed.

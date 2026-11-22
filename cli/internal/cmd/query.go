@@ -151,7 +151,7 @@ func graphOf(entities []*buildv1.Entity, projects []*buildv1.Project) graph {
 	g := graph{entities: entities, projects: projects, owner: map[projectAt]string{}}
 	for _, p := range projects {
 		if p.GetOwner() != nil {
-			g.owner[projectAt{p.GetRepository(), p.GetRoot(), p.GetPlugin()}] = full(p.GetOwner())
+			g.owner[projectAt{p.GetRef().GetRepository(), p.GetRef().GetRoot(), p.GetRef().GetPlugin()}] = full(p.GetOwner())
 		}
 	}
 	return g
@@ -214,7 +214,7 @@ func (g graph) entity(e *buildv1.Entity, whole bool) plain.Entity {
 
 // project is a project as query answers it.
 func (g graph) project(p *buildv1.Project) plain.Project {
-	out := plain.Project{Repository: p.GetRepository(), Root: p.GetRoot(), Plugin: p.GetPlugin(), Kind: p.GetKind(), Name: p.GetName()}
+	out := plain.Project{Repository: p.GetRef().GetRepository(), Root: p.GetRef().GetRoot(), Plugin: p.GetRef().GetPlugin(), Kind: p.GetKind(), Name: p.GetName()}
 	if p.GetOwner() != nil {
 		out.Owner = full(p.GetOwner())
 	}
@@ -225,7 +225,10 @@ func (g graph) project(p *buildv1.Project) plain.Project {
 }
 
 func (g graph) requirement(r *buildv1.ProjectRequirement) plain.Requirement {
-	out := plain.Requirement{Coordinate: r.GetCoordinate(), Origin: r.GetOrigin(), Version: r.GetVersion()}
+	// Where it is said is written from the workspace: its repository's
+	// name, the file, and the line.
+	origin := r.GetOrigin()
+	out := plain.Requirement{Coordinate: r.GetCoordinate(), Origin: fmt.Sprintf("%s:%d", path.Join(origin.GetRepository(), origin.GetPath()), origin.GetLine()), Version: r.GetVersion()}
 	if at := r.GetProviderProject(); at != nil {
 		out.Provider = g.owner[projectAt{at.GetRepository(), at.GetRoot(), at.GetPlugin()}]
 	}
@@ -241,7 +244,7 @@ func (g graph) beneath(written string) []plain.Project {
 	}
 	var out []plain.Project
 	for _, p := range g.projects {
-		where := path.Join(p.GetRepository(), p.GetRoot())
+		where := path.Join(p.GetRef().GetRepository(), p.GetRef().GetRoot())
 		if at == "" || where == at || strings.HasPrefix(where, at+"/") {
 			out = append(out, g.project(p))
 		}

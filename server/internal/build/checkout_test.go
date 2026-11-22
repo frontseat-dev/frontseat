@@ -50,7 +50,7 @@ func TestADaemonGivenACheckoutReleasesFromIt(t *testing.T) {
 		t.Errorf("the remote has greet/v1.0.0 at %s, and the checkout the tags %q; want it at %s", at, tagsOf(t, checkout), head)
 	}
 	again := releaseEnded(t, s, releaseBegun(t, s, "greet").GetId())
-	if again.GetState() != buildv1.Release_STATE_SUCCEEDED || len(again.GetUnits()) != 1 || !again.GetUnits()[0].GetAlready() {
+	if again.GetState() != buildv1.Release_STATE_SUCCEEDED || len(again.GetUnits()) != 1 || !again.GetUnits()[0].GetAlreadyReleased() {
 		t.Errorf("released again, it ended %v (%s) with %v", again.GetState(), again.GetFailure(), again.GetUnits())
 	}
 }

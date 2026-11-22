@@ -208,9 +208,8 @@ type SandboxServiceClient interface {
 	// deleted between two pages, the next page may leave one out.
 	//
 	// ### Errors
-	// - INVALID_ARGUMENT: the label selector is not name=value, separated
-	//   by commas (LABEL_SELECTOR_INVALID), or the page token is not one
-	//   this call gave (PAGE_TOKEN_INVALID).
+	// - INVALID_ARGUMENT: the page token is not one this call gave
+	//   (PAGE_TOKEN_INVALID).
 	ListSandboxes(context.Context, *v1alpha1.ListSandboxesRequest) (*v1alpha1.ListSandboxesResponse, error)
 	// DeleteSandbox ends a sandbox and removes it. What was only in it is
 	// lost. Only a sandbox this service made is its to delete.
@@ -343,9 +342,8 @@ type SandboxServiceHandler interface {
 	// deleted between two pages, the next page may leave one out.
 	//
 	// ### Errors
-	// - INVALID_ARGUMENT: the label selector is not name=value, separated
-	//   by commas (LABEL_SELECTOR_INVALID), or the page token is not one
-	//   this call gave (PAGE_TOKEN_INVALID).
+	// - INVALID_ARGUMENT: the page token is not one this call gave
+	//   (PAGE_TOKEN_INVALID).
 	ListSandboxes(context.Context, *v1alpha1.ListSandboxesRequest) (*v1alpha1.ListSandboxesResponse, error)
 	// DeleteSandbox ends a sandbox and removes it. What was only in it is
 	// lost. Only a sandbox this service made is its to delete.

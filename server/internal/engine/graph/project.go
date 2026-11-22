@@ -33,9 +33,10 @@ type Produced struct {
 type Requirement struct {
 	// Coordinate is what is required.
 	Coordinate model.Coordinate
-	// Origin is where the ecosystem's own files say so: a file relative
-	// to the workspace, and its line.
-	Origin string
+	// File and Line are where the ecosystem's own files say so: a file
+	// relative to the project's repository, and its line.
+	File string
+	Line int32
 	// Version is what the project's lock resolves it to, as the plugin
 	// read it; empty where no lock says one.
 	Version string

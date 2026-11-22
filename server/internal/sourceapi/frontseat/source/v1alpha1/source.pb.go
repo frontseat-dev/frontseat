@@ -185,11 +185,11 @@ type SourceSpec struct {
 	Generation int64 `protobuf:"varint,1,opt,name=generation,proto3" json:"generation,omitempty"`
 	// Repositories are repositories to clone: those a workspace was asked
 	// for, and those the control plane resolved its entities to.
-	Repositories []*Checkout `protobuf:"bytes,2,rep,name=repositories,proto3" json:"repositories,omitempty"`
-	// Located are the entities the control plane resolved, and where each
+	Repositories []*RepositorySource `protobuf:"bytes,2,rep,name=repositories,proto3" json:"repositories,omitempty"`
+	// Entities are the entities the control plane resolved, and where each
 	// is among the repositories. The daemon resolves nothing itself: this
 	// is all it knows of which entity is where.
-	Located       []*LocatedEntity `protobuf:"bytes,3,rep,name=located,proto3" json:"located,omitempty"`
+	Entities      []*LocatedEntity `protobuf:"bytes,3,rep,name=entities,proto3" json:"entities,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -231,16 +231,16 @@ func (x *SourceSpec) GetGeneration() int64 {
 	return 0
 }
 
-func (x *SourceSpec) GetRepositories() []*Checkout {
+func (x *SourceSpec) GetRepositories() []*RepositorySource {
 	if x != nil {
 		return x.Repositories
 	}
 	return nil
 }
 
-func (x *SourceSpec) GetLocated() []*LocatedEntity {
+func (x *SourceSpec) GetEntities() []*LocatedEntity {
 	if x != nil {
-		return x.Located
+		return x.Entities
 	}
 	return nil
 }
@@ -251,7 +251,7 @@ type LocatedEntity struct {
 	// Ref names the entity in full.
 	Ref *v1alpha1.EntityRef `protobuf:"bytes,1,opt,name=ref,proto3" json:"ref,omitempty"`
 	// Repository is the name of the repository that holds it, as a
-	// Checkout names it.
+	// RepositorySource names it.
 	Repository string `protobuf:"bytes,2,opt,name=repository,proto3" json:"repository,omitempty"`
 	// Root is its directory in that repository; empty for all of it.
 	Root          string `protobuf:"bytes,3,opt,name=root,proto3" json:"root,omitempty"`
@@ -310,8 +310,8 @@ func (x *LocatedEntity) GetRoot() string {
 	return ""
 }
 
-// Checkout is a repository for the daemon to clone.
-type Checkout struct {
+// RepositorySource is a repository for the daemon to clone.
+type RepositorySource struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Remote is its URL.
 	Remote string `protobuf:"bytes,1,opt,name=remote,proto3" json:"remote,omitempty"`
@@ -327,20 +327,20 @@ type Checkout struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *Checkout) Reset() {
-	*x = Checkout{}
+func (x *RepositorySource) Reset() {
+	*x = RepositorySource{}
 	mi := &file_frontseat_source_v1alpha1_source_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *Checkout) String() string {
+func (x *RepositorySource) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*Checkout) ProtoMessage() {}
+func (*RepositorySource) ProtoMessage() {}
 
-func (x *Checkout) ProtoReflect() protoreflect.Message {
+func (x *RepositorySource) ProtoReflect() protoreflect.Message {
 	mi := &file_frontseat_source_v1alpha1_source_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -352,33 +352,33 @@ func (x *Checkout) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Checkout.ProtoReflect.Descriptor instead.
-func (*Checkout) Descriptor() ([]byte, []int) {
+// Deprecated: Use RepositorySource.ProtoReflect.Descriptor instead.
+func (*RepositorySource) Descriptor() ([]byte, []int) {
 	return file_frontseat_source_v1alpha1_source_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *Checkout) GetRemote() string {
+func (x *RepositorySource) GetRemote() string {
 	if x != nil {
 		return x.Remote
 	}
 	return ""
 }
 
-func (x *Checkout) GetRef() string {
+func (x *RepositorySource) GetRef() string {
 	if x != nil {
 		return x.Ref
 	}
 	return ""
 }
 
-func (x *Checkout) GetRoots() []string {
+func (x *RepositorySource) GetRoots() []string {
 	if x != nil {
 		return x.Roots
 	}
 	return nil
 }
 
-func (x *Checkout) GetName() string {
+func (x *RepositorySource) GetName() string {
 	if x != nil {
 		return x.Name
 	}
@@ -659,21 +659,21 @@ const file_frontseat_source_v1alpha1_source_proto_rawDesc = "" +
 	"\x11STATE_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10STATE_POPULATING\x10\x01\x12\x0f\n" +
 	"\vSTATE_READY\x10\x02\x12\x10\n" +
-	"\fSTATE_FAILED\x10\x03\"\xbf\x01\n" +
+	"\fSTATE_FAILED\x10\x03\"\xc9\x01\n" +
 	"\n" +
 	"SourceSpec\x12$\n" +
 	"\n" +
 	"generation\x18\x01 \x01(\x03B\x04\xe2A\x01\x02R\n" +
-	"generation\x12G\n" +
-	"\frepositories\x18\x02 \x03(\v2#.frontseat.source.v1alpha1.CheckoutR\frepositories\x12B\n" +
-	"\alocated\x18\x03 \x03(\v2(.frontseat.source.v1alpha1.LocatedEntityR\alocated\"\x85\x01\n" +
+	"generation\x12O\n" +
+	"\frepositories\x18\x02 \x03(\v2+.frontseat.source.v1alpha1.RepositorySourceR\frepositories\x12D\n" +
+	"\bentities\x18\x03 \x03(\v2(.frontseat.source.v1alpha1.LocatedEntityR\bentities\"\x85\x01\n" +
 	"\rLocatedEntity\x12:\n" +
 	"\x03ref\x18\x01 \x01(\v2\".frontseat.type.v1alpha1.EntityRefB\x04\xe2A\x01\x02R\x03ref\x12$\n" +
 	"\n" +
 	"repository\x18\x02 \x01(\tB\x04\xe2A\x01\x02R\n" +
 	"repository\x12\x12\n" +
-	"\x04root\x18\x03 \x01(\tR\x04root\"j\n" +
-	"\bCheckout\x12\x1c\n" +
+	"\x04root\x18\x03 \x01(\tR\x04root\"r\n" +
+	"\x10RepositorySource\x12\x1c\n" +
 	"\x06remote\x18\x01 \x01(\tB\x04\xe2A\x01\x02R\x06remote\x12\x10\n" +
 	"\x03ref\x18\x02 \x01(\tR\x03ref\x12\x14\n" +
 	"\x05roots\x18\x03 \x03(\tR\x05roots\x12\x18\n" +
@@ -719,7 +719,7 @@ var file_frontseat_source_v1alpha1_source_proto_goTypes = []any{
 	(*Source)(nil),             // 1: frontseat.source.v1alpha1.Source
 	(*SourceSpec)(nil),         // 2: frontseat.source.v1alpha1.SourceSpec
 	(*LocatedEntity)(nil),      // 3: frontseat.source.v1alpha1.LocatedEntity
-	(*Checkout)(nil),           // 4: frontseat.source.v1alpha1.Checkout
+	(*RepositorySource)(nil),   // 4: frontseat.source.v1alpha1.RepositorySource
 	(*Repository)(nil),         // 5: frontseat.source.v1alpha1.Repository
 	(*SetSourceRequest)(nil),   // 6: frontseat.source.v1alpha1.SetSourceRequest
 	(*SetSourceResponse)(nil),  // 7: frontseat.source.v1alpha1.SetSourceResponse
@@ -730,8 +730,8 @@ var file_frontseat_source_v1alpha1_source_proto_goTypes = []any{
 var file_frontseat_source_v1alpha1_source_proto_depIdxs = []int32{
 	0,  // 0: frontseat.source.v1alpha1.Source.state:type_name -> frontseat.source.v1alpha1.Source.State
 	5,  // 1: frontseat.source.v1alpha1.Source.repositories:type_name -> frontseat.source.v1alpha1.Repository
-	4,  // 2: frontseat.source.v1alpha1.SourceSpec.repositories:type_name -> frontseat.source.v1alpha1.Checkout
-	3,  // 3: frontseat.source.v1alpha1.SourceSpec.located:type_name -> frontseat.source.v1alpha1.LocatedEntity
+	4,  // 2: frontseat.source.v1alpha1.SourceSpec.repositories:type_name -> frontseat.source.v1alpha1.RepositorySource
+	3,  // 3: frontseat.source.v1alpha1.SourceSpec.entities:type_name -> frontseat.source.v1alpha1.LocatedEntity
 	10, // 4: frontseat.source.v1alpha1.LocatedEntity.ref:type_name -> frontseat.type.v1alpha1.EntityRef
 	2,  // 5: frontseat.source.v1alpha1.SetSourceRequest.spec:type_name -> frontseat.source.v1alpha1.SourceSpec
 	1,  // 6: frontseat.source.v1alpha1.SetSourceResponse.source:type_name -> frontseat.source.v1alpha1.Source

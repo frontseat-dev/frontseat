@@ -303,7 +303,7 @@ func (p *serviceRoutes) owned() []*sandboxv1.Sandbox {
 	p.t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	answer, err := p.client.ListSandboxes(ctx, &sandboxv1.ListSandboxesRequest{LabelSelector: "dev.frontseat.test-owner=" + p.owner})
+	answer, err := p.client.ListSandboxes(ctx, &sandboxv1.ListSandboxesRequest{Labels: map[string]string{"dev.frontseat.test-owner": p.owner}})
 	if err != nil {
 		p.t.Fatal(err)
 	}
@@ -329,7 +329,7 @@ func (p *serviceRoutes) cleanup() error {
 	case <-ctx.Done():
 		return fmt.Errorf("probe creations did not finish: %w", ctx.Err())
 	}
-	answer, err := p.client.ListSandboxes(ctx, &sandboxv1.ListSandboxesRequest{LabelSelector: "dev.frontseat.test-owner=" + p.owner})
+	answer, err := p.client.ListSandboxes(ctx, &sandboxv1.ListSandboxesRequest{Labels: map[string]string{"dev.frontseat.test-owner": p.owner}})
 	if err != nil {
 		return err
 	}

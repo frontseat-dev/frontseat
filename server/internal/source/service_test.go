@@ -63,7 +63,7 @@ func TestWhatADaemonRefusesToHoldIsRefusedByAReason(t *testing.T) {
 	ctx := context.Background()
 	system := stalled{tapes: &tapes{}, gate: make(chan struct{})}
 	api := sourceOver(t, false, system)
-	asked := &sourcev1.SourceSpec{Generation: 1, Repositories: []*sourcev1.Checkout{{Remote: "vault/reels", Name: "reels"}}}
+	asked := &sourcev1.SourceSpec{Generation: 1, Repositories: []*sourcev1.RepositorySource{{Remote: "vault/reels", Name: "reels"}}}
 	if _, err := api.SetSource(ctx, &sourcev1.SetSourceRequest{Spec: asked}); err != nil {
 		t.Fatal(err)
 	}
@@ -103,7 +103,7 @@ func TestWhatADaemonRefusesToHoldIsRefusedByAReason(t *testing.T) {
 	reasonOf(t, err, connect.CodeInvalidArgument, "SOURCE_MISSING")
 	_, err = api.SetSource(ctx, &sourcev1.SetSourceRequest{Spec: &sourcev1.SourceSpec{Repositories: asked.GetRepositories()}})
 	reasonOf(t, err, connect.CodeInvalidArgument, "GENERATION_INVALID")
-	_, err = api.SetSource(ctx, &sourcev1.SetSourceRequest{Spec: &sourcev1.SourceSpec{Generation: 3, Repositories: []*sourcev1.Checkout{{Remote: "vault/reels", Name: "../elsewhere"}}}})
+	_, err = api.SetSource(ctx, &sourcev1.SetSourceRequest{Spec: &sourcev1.SourceSpec{Generation: 3, Repositories: []*sourcev1.RepositorySource{{Remote: "vault/reels", Name: "../elsewhere"}}}})
 	reasonOf(t, err, connect.CodeInvalidArgument, "SOURCE_UNFIT")
 	_, err = sourceOver(t, true, nil).SetSource(ctx, &sourcev1.SetSourceRequest{Spec: asked})
 	reasonOf(t, err, connect.CodeFailedPrecondition, "SOURCE_MOUNTED")
@@ -123,7 +123,7 @@ func TestADaemonStartedAgainHoldsWhatItBroughtAndNoGeneration(t *testing.T) {
 	srv := httptest.NewServer(source.Serve(first))
 	defer srv.Close()
 	api := sourcev1alpha1connect.NewSourceServiceClient(connect.NewClient(connecthttp.NewTransport(srv.Client(), srv.URL)))
-	if _, err := api.SetSource(ctx, &sourcev1.SetSourceRequest{Spec: &sourcev1.SourceSpec{Generation: 5, Repositories: []*sourcev1.Checkout{{Remote: "vault/reels", Name: "reels"}}}}); err != nil {
+	if _, err := api.SetSource(ctx, &sourcev1.SetSourceRequest{Spec: &sourcev1.SourceSpec{Generation: 5, Repositories: []*sourcev1.RepositorySource{{Remote: "vault/reels", Name: "reels"}}}}); err != nil {
 		t.Fatal(err)
 	}
 	before, err := api.WaitSource(ctx, &sourcev1.WaitSourceRequest{Generation: 5})

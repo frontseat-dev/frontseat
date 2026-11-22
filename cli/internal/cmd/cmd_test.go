@@ -59,7 +59,7 @@ func (d *daemonOf) PlanRelease(_ context.Context, request *buildv1.PlanReleaseRe
 	for _, entity := range request.GetEntities() {
 		plan.Units = append(plan.Units, &buildv1.ReleaseUnit{
 			Entity: entity, Members: []*typev1.EntityRef{entity}, NextVersion: "0.77.0", Tag: entity.GetName() + "/v0.77.0", Branch: "release/0.77",
-			Reasons: []*buildv1.ReleaseReason{{Kind: buildv1.ReasonKind_REASON_KIND_FIRST_RELEASE}},
+			Reasons: []*buildv1.ReleaseReason{{Kind: buildv1.ReleaseReason_KIND_FIRST_RELEASE}},
 		})
 	}
 	return &buildv1.PlanReleaseResponse{Plan: plan}, nil

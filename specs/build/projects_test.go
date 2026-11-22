@@ -45,7 +45,7 @@ func TestAResolvedDependencyIdentifiesItsProviderPluginEvenAtTheRepositoryRoot(t
 	workspace := spec.colocatedProjects("")
 	provider := func() any {
 		for _, project := range workspace.projects() {
-			if project.GetPlugin() != "cohabiting" {
+			if project.GetRef().GetPlugin() != "cohabiting" {
 				continue
 			}
 			spec.Expect(project.GetRequires()).To(HaveLen(1))

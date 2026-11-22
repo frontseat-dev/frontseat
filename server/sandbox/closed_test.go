@@ -285,7 +285,7 @@ func TestWhatASandboxMayReachIsAskedOfTheDriverRuleByRule(t *testing.T) {
 }
 
 // A refusal of the sandbox service repeats nothing of what it refused:
-// an id, a name, a selector, a rule's credential, a container's name, an
+// an id, a name, a rule's credential, a container's name, an
 // image and a volume's subpath are each the caller's to write, and any
 // may hold a token, as may a volume's name, which a driver that does
 // not give its kind refuses. The control is the sandbox each refusal
@@ -319,7 +319,6 @@ func TestARefusalOfASandboxRepeatsNothingItRefused(t *testing.T) {
 		}),
 	}
 	_, refusals["an id no sandbox has"] = client.DescribeSandbox(ctx, &sandboxv1.DescribeSandboxRequest{SandboxId: refusedValue})
-	_, refusals["a selector that is none"] = client.ListSandboxes(ctx, &sandboxv1.ListSandboxesRequest{LabelSelector: refusedValue})
 	_, refusals["a credential's name nothing is kept by"] = client.DescribeCredential(ctx, &sandboxv1.DescribeCredentialRequest{Name: "cred-of-" + strings.ToLower(refusedValue[:5])})
 	for what, err := range refusals {
 		if err == nil {

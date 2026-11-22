@@ -144,7 +144,7 @@ func workspaceSandbox(ctx context.Context, workspace string) (string, error) {
 	if at == "" {
 		return "", fmt.Errorf("the comparison's control plane does not serve yet")
 	}
-	listed, err := testsandbox.Client(at).ListSandboxes(ctx, &sandboxv1.ListSandboxesRequest{PageSize: 1000, LabelSelector: "frontseat.dev/workspace=" + workspace})
+	listed, err := testsandbox.Client(at).ListSandboxes(ctx, &sandboxv1.ListSandboxesRequest{PageSize: 1000, Labels: map[string]string{"frontseat.dev/workspace": workspace}})
 	if err != nil || len(listed.GetSandboxes()) == 0 {
 		return "", err
 	}

@@ -278,7 +278,7 @@ func TestAPlanOfSeveralUnitsIsCompletedByReleasingItAgain(t *testing.T) {
 	if again.GetPlan().GetEtag() != first.GetPlan().GetEtag() {
 		t.Error("the plan has another etag once it is carried out")
 	}
-	if again.GetBuildId() != "" || len(again.GetUnits()) != 2 || !again.GetUnits()[0].GetAlready() || !again.GetUnits()[1].GetAlready() {
+	if again.GetBuildId() != "" || len(again.GetUnits()) != 2 || !again.GetUnits()[0].GetAlreadyReleased() || !again.GetUnits()[1].GetAlreadyReleased() {
 		t.Errorf("released again it is %v", again)
 	}
 }
@@ -362,7 +362,7 @@ func TestAReleasePushesItsTagsAndSaysWhichItCouldNot(t *testing.T) {
 	// Once the remote does not, the release made again sends it.
 	commits.Git(t, remote, "tag", "--delete", "log/v1.0.0")
 	again := releaseEnded(t, s, releaseBegun(t, s, "log").GetId())
-	if again.GetState() != buildv1.Release_STATE_SUCCEEDED || len(again.GetUnits()) != 1 || !again.GetUnits()[0].GetAlready() {
+	if again.GetState() != buildv1.Release_STATE_SUCCEEDED || len(again.GetUnits()) != 1 || !again.GetUnits()[0].GetAlreadyReleased() {
 		t.Errorf("the release made again ended %v (%s) with %v", again.GetState(), again.GetFailure(), again.GetUnits())
 	}
 	if at := commits.Git(t, remote, "rev-parse", "log/v1.0.0^{commit}"); at != head {

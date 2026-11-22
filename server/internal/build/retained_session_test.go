@@ -36,7 +36,7 @@ func TestRetainedSessionAPIReusesBothGraphQueries(t *testing.T) {
 		t.Fatal("empty positive control")
 	}
 	wantProjects, wantEntities := proto.CloneOf(first), proto.CloneOf(entities)
-	first.Projects[0].Root = "mutated"
+	first.Projects[0].Ref.Root = "mutated"
 	entities.Entities[0].Roots = []string{"mutated"}
 	next, err := g.ListProjects(t.Context(), &buildv1.ListProjectsRequest{})
 	if err != nil {

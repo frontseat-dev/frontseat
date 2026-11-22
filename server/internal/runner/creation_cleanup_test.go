@@ -64,7 +64,7 @@ func TestAnOriginalCreateDeliveredAfterCleanupCannotRecreate(t *testing.T) {
 	if !a.remove(cleanup) {
 		t.Fatal("cleanup did not report success")
 	}
-	before, err := client.ListSandboxes(cleanup, &sandboxv1.ListSandboxesRequest{LabelSelector: attemptLabel + "=" + a.id})
+	before, err := client.ListSandboxes(cleanup, &sandboxv1.ListSandboxesRequest{Labels: map[string]string{attemptLabel: a.id}})
 	if err != nil || len(before.GetSandboxes()) != 0 {
 		t.Fatalf("cleanup control: %v %v", before, err)
 	}
@@ -72,7 +72,7 @@ func TestAnOriginalCreateDeliveredAfterCleanupCannotRecreate(t *testing.T) {
 	if err := <-transport.finished; connect.CodeOf(err) != connect.CodePermissionDenied {
 		t.Fatalf("late delivery was not refused at admission: %v", err)
 	}
-	after, err := client.ListSandboxes(cleanup, &sandboxv1.ListSandboxesRequest{LabelSelector: attemptLabel + "=" + a.id})
+	after, err := client.ListSandboxes(cleanup, &sandboxv1.ListSandboxesRequest{Labels: map[string]string{attemptLabel: a.id}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -190,7 +190,7 @@ func TestCleanupJoinsAnAlreadyAdmittedCreation(t *testing.T) {
 	case <-time.After(time.Minute):
 		t.Fatal("creation was not admitted")
 	}
-	before, err := client.ListSandboxes(t.Context(), &sandboxv1.ListSandboxesRequest{LabelSelector: attemptLabel + "=" + a.id})
+	before, err := client.ListSandboxes(t.Context(), &sandboxv1.ListSandboxesRequest{Labels: map[string]string{attemptLabel: a.id}})
 	if err != nil || len(before.GetSandboxes()) != 1 {
 		t.Fatalf("admitted real-creation control: %v %v", before, err)
 	}
@@ -233,7 +233,7 @@ func TestCleanupJoinsAnAlreadyAdmittedCreation(t *testing.T) {
 	if !<-cleaned {
 		t.Fatal("cleanup failed after admitted creation finished")
 	}
-	after, err := client.ListSandboxes(t.Context(), &sandboxv1.ListSandboxesRequest{LabelSelector: attemptLabel + "=" + a.id})
+	after, err := client.ListSandboxes(t.Context(), &sandboxv1.ListSandboxesRequest{Labels: map[string]string{attemptLabel: a.id}})
 	if err != nil || len(after.GetSandboxes()) != 0 {
 		t.Fatalf("cleanup left admitted sandbox: %v %v", after, err)
 	}

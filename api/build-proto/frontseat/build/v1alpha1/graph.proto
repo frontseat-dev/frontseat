@@ -6,6 +6,7 @@ syntax = "proto3";
 package frontseat.build.v1alpha1;
 
 import "frontseat/build/v1alpha1/types.proto";
+import "frontseat/type/v1alpha1/diagnostic.proto";
 import "frontseat/type/v1alpha1/option.proto";
 import "frontseat/type/v1alpha1/types.proto";
 import "google/api/field_behavior.proto";
@@ -126,7 +127,8 @@ message EntityRelease {
 message ReleaseSettingOrigin {
   // Key is the setting, as spec.frontseat.release writes it: "grouping",
   // "tag", "initial", "versioning", "branching", "prerelease" or
-  // "prerelease-tag".
+  // "prerelease-tag". The keys are the catalog file's own spelling,
+  // which is why one is "versioning" and not a field's name.
   string key = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Entity is the entity whose catalog file sets it.
   frontseat.type.v1alpha1.EntityRef entity = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
@@ -148,12 +150,9 @@ message EntityRelation {
 
 // Project is something a plugin found to build.
 message Project {
-  // Repository is the workspace's name for the repository it is in.
-  string repository = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // Root is its directory, relative to the repository.
-  string root = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // Plugin is the plugin that found it.
-  string plugin = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Ref names it: its repository, its directory and the plugin that
+  // found it.
+  ProjectRef ref = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Kind is what it is in its ecosystem, e.g. "go-module".
   string kind = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Name is its name in its ecosystem.
@@ -179,9 +178,8 @@ message Project {
 message ProjectRequirement {
   // Coordinate is what is required, written "<ecosystem>:<name>".
   string coordinate = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // Origin is where it is said: a file relative to the workspace, and
-  // the line, "<file>:<line>".
-  string origin = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Origin is where it is said: a file of a repository, and its line.
+  frontseat.type.v1alpha1.SourceLocation origin = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
   // `provider_project` is the project of the workspace that provides it;
   // unset for what is provided from outside the workspace.
   ProjectRef provider_project = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
@@ -213,9 +211,9 @@ message ProjectOption {
   string name = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Value is its value, of the kind the option has.
   frontseat.type.v1alpha1.OptionValue value = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // Origin is the file that sets it, relative to the workspace; empty
-  // where nothing sets it and the value is the plugin's own.
-  string origin = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Origin is the file that sets it, its line zero; unset where nothing
+  // sets it and the value is the plugin's own.
+  frontseat.type.v1alpha1.SourceLocation origin = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
 }
 
 // ListEntitiesRequest asks for a page of the workspace's entities.

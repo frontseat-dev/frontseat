@@ -191,7 +191,7 @@ func Prepare(ctx context.Context, w Workspace, strategies Strategies, history Hi
 		plan.Units = append(plan.Units, planned)
 		commits[repository], in[unit] = standing.Revision, repository
 		before := planned
-		if reasons := planned.GetReasons(); len(reasons) > 0 && reasons[0].GetKind() == buildv1.ReasonKind_REASON_KIND_RELEASED {
+		if reasons := planned.GetReasons(); len(reasons) > 0 && reasons[0].GetKind() == buildv1.ReleaseReason_KIND_RELEASED {
 			// As it would be planned were its tag not there yet, but only
 			// where the one tag of its own the commit carries is the tag
 			// that plan would write: then the commit is that plan, carried
@@ -568,7 +568,7 @@ func planUnit(ctx context.Context, w Workspace, resolved *Resolved, strategies S
 	if settings.Synced {
 		planned.Grouping = buildv1.Grouping_GROUPING_SYNCED
 	}
-	holds := func(kind buildv1.ReasonKind, summary string) (*buildv1.ReleaseUnit, string, vcs.Standing, error) {
+	holds := func(kind buildv1.ReleaseReason_Kind, summary string) (*buildv1.ReleaseUnit, string, vcs.Standing, error) {
 		planned.Reasons = []*buildv1.ReleaseReason{{Kind: kind, Bump: typev1.Bump_BUMP_NONE, Summary: summary}}
 		return planned, repository, standing, nil
 	}
@@ -577,7 +577,7 @@ func planUnit(ctx context.Context, w Workspace, resolved *Resolved, strategies S
 	if here := highest(releases, func(r released) bool { return !r.former && r.revision == standing.Revision }); here != nil {
 		planned.LastVersion = core(here.version)
 		planned.Tag = before + core(here.version) + after
-		return holds(buildv1.ReasonKind_REASON_KIND_RELEASED, "")
+		return holds(buildv1.ReleaseReason_KIND_RELEASED, "")
 	}
 	// changes are the commits since a release that changed a member's
 	// files, each with the members whose files it changed.
@@ -631,7 +631,7 @@ func planUnit(ctx context.Context, w Workspace, resolved *Resolved, strategies S
 	}
 	if !branch.GetReleases() {
 		planned.LastVersion = lastVersion
-		return holds(buildv1.ReasonKind_REASON_KIND_BRANCH, branch.GetReason())
+		return holds(buildv1.ReleaseReason_KIND_BRANCH, branch.GetReason())
 	}
 	planned.Channel = branch.GetChannel()
 	// plannedAfter makes a release the one the unit is planned after: its
@@ -688,7 +688,7 @@ func planUnit(ctx context.Context, w Workspace, resolved *Resolved, strategies S
 	}
 	planned.LastVersion = lastVersion
 	if last != nil && len(commits) == 0 {
-		return holds(buildv1.ReasonKind_REASON_KIND_UNCHANGED, "")
+		return holds(buildv1.ReleaseReason_KIND_UNCHANGED, "")
 	}
 	initial, err := semver.StrictNewVersion(settings.Initial)
 	if err != nil || initial.Prerelease() != "" || initial.Metadata() != "" {
@@ -714,7 +714,7 @@ func planUnit(ctx context.Context, w Workspace, resolved *Resolved, strategies S
 	}
 	for _, reason := range answered.GetReasons() {
 		planned.Reasons = append(planned.Reasons, &buildv1.ReleaseReason{
-			Kind: buildv1.ReasonKind_REASON_KIND_OWN_CHANGE, Bump: reason.GetBump(), Summary: reason.GetSummary(),
+			Kind: buildv1.ReleaseReason_KIND_OWN_CHANGE, Bump: reason.GetBump(), Summary: reason.GetSummary(),
 			Commit: &buildv1.RepositoryCommit{Repository: repository, Commit: reason.GetCommit()},
 		})
 	}
@@ -724,14 +724,14 @@ func planUnit(ctx context.Context, w Workspace, resolved *Resolved, strategies S
 		// Whatever the strategy makes of a first release, it is the
 		// initial version.
 		next = initial
-		planned.Reasons = append([]*buildv1.ReleaseReason{{Kind: buildv1.ReasonKind_REASON_KIND_FIRST_RELEASE, Bump: typev1.Bump_BUMP_NONE}}, planned.Reasons...)
+		planned.Reasons = append([]*buildv1.ReleaseReason{{Kind: buildv1.ReleaseReason_KIND_FIRST_RELEASE, Bump: typev1.Bump_BUMP_NONE}}, planned.Reasons...)
 	case newLine:
 		// A branch cut for a line not yet released releases the line's
 		// first version, whatever its commits call for.
 		next = line.first()
 		planned.Bump = bumpBetween(last.version, next)
 	case answered.GetVersion() == "":
-		return holds(buildv1.ReasonKind_REASON_KIND_UNCHANGED, "")
+		return holds(buildv1.ReleaseReason_KIND_UNCHANGED, "")
 	default:
 		if next, err = semver.StrictNewVersion(answered.GetVersion()); err != nil {
 			return nil, "", none, &WrongAnswer{fmt.Sprintf("the versioning strategy %s answered %q for %s, which is no semantic version", settings.Versioning, answered.GetVersion(), unit.Name)}

@@ -10,8 +10,8 @@ import (
 
 // Word is a value of one of the contract's enums as a person reads it:
 // its name without its enum's, in lower case, its words apart, so that
-// Workspace.State's STATE_READY is "ready" and ReasonKind's
-// REASON_KIND_OWN_CHANGE is "own change". A value the contract does not
+// Workspace.State's STATE_READY is "ready" and ReleaseReason.Kind's
+// KIND_OWN_CHANGE is "own change". A value the contract does not
 // name is its number.
 func Word(value protoreflect.Enum) string {
 	described := value.Descriptor().Values().ByNumber(value.Number())

@@ -110,7 +110,7 @@ func TestAnAttemptReconcilesARealCreationWhoseReplyWasLost(t *testing.T) {
 			} else if err != nil || id == "" {
 				t.Fatalf("allowed creation: %s %v", id, err)
 			}
-			before, err := client.ListSandboxes(ctx, &sandboxv1.ListSandboxesRequest{LabelSelector: attemptLabel + "=" + a.id})
+			before, err := client.ListSandboxes(ctx, &sandboxv1.ListSandboxesRequest{Labels: map[string]string{attemptLabel: a.id}})
 			if err != nil || len(before.GetSandboxes()) != 2 {
 				t.Fatalf("creation control: %v %v", before, err)
 			}
@@ -126,7 +126,7 @@ func TestAnAttemptReconcilesARealCreationWhoseReplyWasLost(t *testing.T) {
 			if interrupted && (len(transport.deleted) != 3 || transport.deleted[0] != transport.created || transport.deleted[1] != transport.created || transport.deleted[2] != provider) {
 				t.Fatalf("dependency released before consumer deletion succeeded: %v", transport.deleted)
 			}
-			after, err := client.ListSandboxes(cleanup, &sandboxv1.ListSandboxesRequest{LabelSelector: attemptLabel + "=" + a.id})
+			after, err := client.ListSandboxes(cleanup, &sandboxv1.ListSandboxesRequest{Labels: map[string]string{attemptLabel: a.id}})
 			if err != nil || len(after.GetSandboxes()) != 0 {
 				t.Fatalf("cleanup left owned sandboxes: %v %v", after, err)
 			}
