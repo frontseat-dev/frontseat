@@ -34,3 +34,21 @@ name: pretest/posttest hooks (`test-hooks-not-served`), npm workspaces
 (`workspaces-not-served`) and an explicit `packageManager` selection
 (`package-manager-not-served`). pnpm, Yarn, JUnit and Playwright adapters and
 smaller Jest pieces remain unimplemented.
+
+## Options
+
+None. The plugin is listed with nothing set, and an option written for
+it is refused by name. A suite's own options are in its native
+Jest configuration.
+
+```yaml
+# frontseat.yaml
+plugins:
+  jest: {}
+```
+
+## Catalog keys
+
+| Key | Read by | What it does |
+|---|---|---|
+| `spec.frontseat.test` | the host | What the Component's tests are given beyond what the plugin gives them: `inputs` (files, each relative to the catalog file, or from the repository's root written `/…`), `tools` (pinned tools) and `environment` (variables). |

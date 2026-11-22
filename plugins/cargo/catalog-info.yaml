@@ -3,7 +3,7 @@ kind: Component
 metadata:
   name: cargo-plugin
   namespace: frontseat
-  description: "The Cargo plugin: builds Rust packages, and plugins to wasm"
+  description: "The Cargo plugin: builds Rust packages, and their cdylib libraries and examples to wasm modules where its option says so"
 spec:
   type: plugin
   lifecycle: experimental

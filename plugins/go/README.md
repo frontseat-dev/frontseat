@@ -86,7 +86,7 @@ program, every file of its package's directory and its `testdata`, and
 the modules its module's compile is given, for a test that runs the go
 command itself. A test that opens a file anywhere else does not find it,
 unless its Component's catalog file names it (`spec.frontseat.test.inputs`,
-a path from the repository's root written `/…`). A directory with tests is handed to the
+relative to it, or from the repository's root written `/…`). A directory with tests is handed to the
 go command as a pattern where no package this reading sees is beneath it,
 so one it has nothing to build of is passed by, and outright where
 packages are beneath it, so that it never reaches one analysis does not
@@ -150,6 +150,44 @@ Pass a literal directory separately from glob patterns. `repo.glob(root,
 patterns)` delegates selection to the host snapshot; it also records the scope
 for dependency replay. A name such as `pkg[1]` is not a pattern.
 
+## Options
+
+| Option | Kind | Default | Set by | What it does |
+|---|---|---|---|---|
+| `test-timeout` | string | `10m` | the repository or an entity | How long each action that runs tests may take, a package's tests or one shard of them: every test program is started with it (`-test.timeout`). It is written as the go command writes a length of time, a number and a unit (`90s`, `10m`, `1h30m`); `0` is no limit. |
+| `test-shards` | int | `1` | the repository or an entity | Into how many actions a package's tests are cut at most (`test/<directory>@1ofN`); a package with fewer tests has fewer. Less than 1 is refused (`invalid-test-shards`). |
+| `tags` | string list | `[]` | the repository or an entity | The build tags a module is linted, compiled and tested with (`-tags`), and by which its programs are found. |
+| `version` | string list | `[]` | the repository or an entity | The variables a module's programs say their version by, each `<package>.<variable>=<what>`, where what is `version`, `tag`, `commit` or `unit`, as said above. What names no variable, or is set to nothing a release has, or twice, is refused (`invalid-version-variable`). |
+
+```yaml
+# frontseat.yaml
+plugins:
+  go:
+    test-timeout: 2m
+    test-shards: 4
+    tags: [integration]
+    version:
+      - main.version=version
+```
+
+## Catalog keys
+
+| Key | Read by | What it does |
+|---|---|---|
+| `spec.frontseat.plugins.go` | the host | A Component's own setting of any option above, for its directory and what is beneath it, in place of the repository's. A list set there is the whole list. |
+| `spec.frontseat.platforms` | the plugin | The systems a Component ships for, each `<os>/<arch>`: in the production profile each program of its modules is packaged for each (`package/<program>-<os>-<arch>`). Where it says none, nothing is packaged. |
+| `spec.frontseat.test` | the host | What the Component's tests are given beyond what the plugin gives them: `inputs` (files, each relative to the catalog file, or from the repository's root written `/…`), `tools` (pinned tools) and `environment` (variables). |
+
+```yaml
+# catalog-info.yaml
+spec:
+  frontseat:
+    platforms: [linux/amd64, linux/arm64]
+    plugins:
+      go:
+        test-timeout: 30s
+```
+
 ## Tests
 
 Its own logic is tested natively, beside each module, and through
@@ -180,6 +218,6 @@ use standard Go tests with Gomega assertions. Independent build cases run
 concurrently with bounded admission; the acceptance harness itself still runs
 on the host while its builds execute on the grid.
 
-Every other plugin (apko, Backstage, Buf, Cargo, container, Jest, npm,
-postgres, release) is held to the same real-wasm conformance harness; each
+Every other plugin (apko, Backstage, Buf, Cargo, container, GitHub, Jest,
+npm, postgres, release) is held to the same real-wasm conformance harness; each
 README says what it serves.

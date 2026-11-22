@@ -49,3 +49,18 @@ undeclared tools or outputs outside `node_modules/` are not supported.
 
 pnpm and Yarn adapters, private registries, workspace linking and generated
 application builds remain unimplemented. See `plugins/jest/README.md` for tests.
+
+## Options
+
+None. The plugin is listed with nothing set, and an option written for
+it is refused by name.
+
+```yaml
+# frontseat.yaml
+plugins:
+  npm: {}
+```
+
+## Catalog keys
+
+None: nothing a catalog file says reaches the plugin.

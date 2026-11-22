@@ -53,3 +53,19 @@ directory whose name begins with a dot.
 `cargo test -p frontseat-plugin-github` runs its tests through the
 plugin testkit; `TestTheGitHubPluginsPublishIsRunByARelease` runs it
 through the host.
+
+## Options
+
+None. The plugin is listed with nothing set, and an option written for
+it is refused by name. Listing it is what says the
+repository is GitHub's.
+
+```yaml
+# frontseat.yaml
+plugins:
+  github: {}
+```
+
+## Catalog keys
+
+None: nothing a catalog file says reaches the plugin.
