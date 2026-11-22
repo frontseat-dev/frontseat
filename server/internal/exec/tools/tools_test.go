@@ -490,9 +490,14 @@ func TestAToolTheLockHoldsNoChecksumOfIsRefused(t *testing.T) {
 
 // reached prints each of the places it is given that answered it over
 // HTTPS: a host the sandbox's policy refuses is refused at its proxy, and
-// one with no network at all is not found.
+// one with no network at all is not found. Of each that did not answer,
+// it says on its standard error how curl ended and when it had looked
+// the host up, connected and shaken hands, so that a place that should
+// have answered says where it stopped.
 const reached = `for to in "$@"; do
-  if curl -s -o /dev/null --max-time 10 "$to"; then echo "$to"; fi
+  took=$(curl -s -o /dev/null --max-time 10 -w '%{time_namelookup} %{time_connect} %{time_appconnect}' "$to")
+  ended=$?
+  if [ "$ended" -eq 0 ]; then echo "$to"; else echo "$to: curl exited $ended; looked up, connected, shook hands at (s): $took" >&2; fi
 done`
 
 // A fetch is sent where the network is reached (exec.Reaching, as stage
@@ -527,7 +532,7 @@ func TestAFetchReachesTheHostsItMayAndNothingElse(t *testing.T) {
 					t.Fatalf("exit %d: %s", result.ExitCode, result.Stderr)
 				}
 				if got := strings.Join(strings.Fields(string(result.Stdout)), " "); got != kind.want {
-					t.Errorf("it reached %q, want %q", got, kind.want)
+					t.Errorf("it reached %q, want %q; what did not answer:\n%s", got, kind.want, result.Stderr)
 				}
 			})
 		}
