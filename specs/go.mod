@@ -40,7 +40,7 @@ require (
 	github.com/creack/pty v1.1.24 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
-	github.com/frontseat-dev/ssh v0.4.4-0.20261107091341-0b7c6c4d028c // indirect
+	github.com/frontseat-dev/ssh v0.4.4-0.20261107091341-205332a4a986 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
