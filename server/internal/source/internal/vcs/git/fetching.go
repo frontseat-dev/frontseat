@@ -8,6 +8,16 @@ import (
 	"github.com/frontseat-dev/frontseat/server/internal/source/vcs"
 )
 
+// Cloned implements vcs.Fetching: a remote as git clones it in a
+// sandbox (rungit.Over), over https where it is written for ssh.
+func (System) Cloned(remote string) (string, error) {
+	address, err := rungit.Over(remote)
+	if err != nil {
+		return "", err
+	}
+	return address.Cloned, nil
+}
+
 // Requests implements vcs.Fetching: git's smart HTTP protocol reads a
 // repository's refs and asks for its objects, by upload-pack; a push
 // asks by receive-pack, which is said apart (Pushes).

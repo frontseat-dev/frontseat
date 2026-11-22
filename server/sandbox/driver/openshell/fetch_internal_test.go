@@ -12,32 +12,10 @@ import (
 	"github.com/frontseat-dev/frontseat/server/sandbox/driver"
 )
 
-// Where a credential is sent is a host over https, or over http where it
-// is written so, each a credential of its own; what is no host's name is
-// refused.
-func TestWhereACredentialIsSent(t *testing.T) {
-	for given, want := range map[string]string{
-		"forge.example":                 "https://forge.example:443",
-		"Forge.Example.":                "https://forge.example:443",
-		"forge.example:8443":            "https://forge.example:8443",
-		"https://forge.example":         "https://forge.example:443",
-		"http://forge.example":          "http://forge.example:80",
-		"http://forge.example:8080":     "http://forge.example:8080",
-		"host.docker.internal:59310":    "https://host.docker.internal:59310",
-		"http://host.docker.internal:1": "http://host.docker.internal:1",
-	} {
-		scheme, at, err := sent(given)
-		if err != nil || scheme+"://"+at != want {
-			t.Errorf("sent(%q) = %s://%s, %v; want %s", given, scheme, at, err, want)
-		}
-	}
-	for _, given := range []string{"", "192.0.2.7", "[2001:db8::1]:443", "127.1", "2130706433", "forge.example:0", "forge.example/path", "http://forge.example/path", "HTTP://forge.example", "someone@forge.example", "*.example", "forge example"} {
-		if scheme, at, err := sent(given); err == nil {
-			t.Errorf("sent(%q) = %s://%s, want it refused", given, scheme, at)
-		}
-	}
-	// Two ids are two credentials, whatever host each is for; a name
-	// says nothing of the id.
+// A credential is kept under a name of its id: two ids are two
+// credentials, whatever host each is for, and a name says nothing of the
+// id. Where it is sent is read by plain.Ruled, whose test holds it.
+func TestACredentialIsKeptUnderANameOfItsID(t *testing.T) {
 	names := map[string]string{}
 	for _, id := range []string{"ada-forge", "bea-forge", "x", "ada-forge-2"} {
 		name, variable := kept(id)
@@ -47,12 +25,6 @@ func TestWhereACredentialIsSent(t *testing.T) {
 		names[name] = id
 		if len(name) != len("fs-cred-")+40 || variable != "FRONTSEAT_CRED_"+variable[len("FRONTSEAT_CRED_"):] || strings.Contains(name, id) {
 			t.Errorf("kept(%s) = %s, %s", id, name, variable)
-		}
-	}
-	// Where a credential is sent is written as Credential takes a host.
-	for _, each := range [][3]string{{"https", "forge.example:443", "forge.example:443"}, {"http", "forge.example:80", "http://forge.example:80"}} {
-		if got := written(each[0], each[1]); got != each[2] {
-			t.Errorf("written(%s, %s) = %s, want %s", each[0], each[1], got, each[2])
 		}
 	}
 }

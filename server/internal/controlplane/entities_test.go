@@ -297,6 +297,13 @@ metadata:
 	if len(s.asked()) != 0 {
 		t.Errorf("what was refused made the sandboxes %v", s.asked())
 	}
+	// A push is to repositories a workspace is given by their address:
+	// one given entities alone is refused it as not served.
+	unaddressed := byEntity("gateway")
+	unaddressed.Push = true
+	if _, err := client.CreateWorkspace(ctx, &workspacev1.CreateWorkspaceRequest{Name: "refused", Spec: unaddressed}); !refusedAsNotServed(err, "PUSH_NOT_SERVED") {
+		t.Errorf("a push by a workspace of entities alone: %v, want it refused as not served", err)
+	}
 	pushing := byEntity("gateway")
 	pushing.Repositories = []*workspacev1.RepositorySource{{Remote: "https://forge.example/acme/code.git", Ref: "main"}}
 	pushing.Entities = append(pushing.Entities, &typev1.EntityRef{Name: "payments"})

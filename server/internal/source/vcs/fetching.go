@@ -7,6 +7,12 @@ package vcs
 // Whatever stands between a sandbox and a forge asks this, and so lets a
 // repository be fetched without knowing which system fetches it.
 type Fetching interface {
+	// Cloned returns the address a sandbox clones a remote from, over
+	// http or https, as the system reads the remote: one the system
+	// converts, as one written for another transport, is returned as it
+	// is converted. A remote no sandbox clones is an error, which never
+	// repeats the remote: it may hold a password or a token.
+	Cloned(remote string) (string, error)
 	// NameOf returns the name a repository is brought under when it is
 	// given none, as System.NameOf does.
 	NameOf(remote string) string

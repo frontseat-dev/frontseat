@@ -6,8 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"net"
-	"path"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -29,32 +28,18 @@ func kept(id string) (name, variable string) {
 	return "fs-cred-" + digest[:40], "FRONTSEAT_CRED_" + strings.ToUpper(digest[:40])
 }
 
-// written is where a credential is sent, as Credential takes a host:
-// with "http://" before it where it is sent over http.
-func written(scheme, at string) string {
-	if scheme == "http" {
-		return "http://" + at
+// sent reads where a credential is sent, or a rule lets a sandbox
+// reach: a host's name and a port, over https, or over http where it is
+// written so (plain.Ruled). An address is refused in any spelling of
+// one, so that a rule is always of a name and what the name resolves to
+// is the gateway's to check: it refuses the loopback, link-local and
+// unspecified addresses, and lets a name resolve to a private one.
+func sent(host string) (plain.Origin, error) {
+	at, ok := plain.Ruled(host)
+	if !ok {
+		return plain.Origin{}, errors.New("openshell: a host is named by its name and a port: a sandbox is let reach a name, never an address")
 	}
-	return at
-}
-
-// sent reads where a credential is sent: a host, over https, or over
-// http where it is written so.
-func sent(host string) (scheme, at string, err error) {
-	scheme = "https"
-	if plain, ok := strings.CutPrefix(host, "http://"); ok {
-		scheme, host = "http", plain
-		if !strings.Contains(host, ":") {
-			host += ":80"
-		}
-	} else {
-		host = strings.TrimPrefix(host, "https://")
-	}
-	name, port, err := reached(host)
-	if err != nil {
-		return "", "", err
-	}
-	return scheme, net.JoinHostPort(name, strconv.Itoa(int(port))), nil
+	return at, nil
 }
 
 // Credential keeps a credential for a host at the gateway, under an id,
@@ -72,7 +57,7 @@ func (d *Driver) Credential(ctx context.Context, id, host, user, secret string) 
 	if !driver.CredentialID(id) {
 		return fmt.Errorf("%w: openshell: a credential is asked for by what is no credential's id", driver.ErrInvalid)
 	}
-	scheme, at, err := sent(host)
+	at, err := sent(host)
 	if err != nil {
 		return fmt.Errorf("%w: %w", driver.ErrInvalid, err)
 	}
@@ -80,17 +65,17 @@ func (d *Driver) Credential(ctx context.Context, id, host, user, secret string) 
 	case errors.Is(err, driver.ErrNotFound):
 	case err != nil:
 		return err
-	case there != written(scheme, at):
+	case there != at.Rule():
 		return fmt.Errorf("%w: openshell: the credential %s is kept for another host: let go of it first", driver.ErrInvalid, id)
 	}
-	if secret == "" || len(secret) > 4096 || strings.ContainsAny(secret, "\r\n\x00") {
-		return fmt.Errorf("%w: openshell: the secret for %s is one line of no great length", driver.ErrInvalid, host)
+	if !plain.Secret(secret) {
+		return fmt.Errorf("%w: openshell: the secret for %s is one line of no great length", driver.ErrInvalid, at.Rule())
 	}
 	if user == "" {
 		user = "x-access-token"
 	}
 	if !plain.Username(user) {
-		return fmt.Errorf("%w: openshell: the username for %s is letters, digits and . _ @ -", driver.ErrInvalid, host)
+		return fmt.Errorf("%w: openshell: the username for %s is letters, digits and . _ @ -", driver.ErrInvalid, at.Rule())
 	}
 	provider, variable := kept(id)
 	// A profile of its own, which names no endpoint: where the credential
@@ -109,7 +94,7 @@ func (d *Driver) Credential(ctx context.Context, id, host, user, secret string) 
 			}},
 		}}})
 		if err != nil {
-			return fmt.Errorf("openshell: keeping a credential for %s: %w", host, err)
+			return fmt.Errorf("openshell: keeping a credential for %s: %w", at.Rule(), err)
 		}
 		// The gateway says what it made of a profile beside taking it or not.
 		if !imported.Imported {
@@ -117,10 +102,10 @@ func (d *Driver) Credential(ctx context.Context, id, host, user, secret string) 
 			for _, each := range imported.Diagnostics {
 				said = append(said, each.Field+": "+each.Message)
 			}
-			return fmt.Errorf("openshell: keeping a credential for %s: the gateway did not take its profile: %s", host, strings.Join(said, "; "))
+			return fmt.Errorf("openshell: keeping a credential for %s: the gateway did not take its profile: %s", at.Rule(), strings.Join(said, "; "))
 		}
 	} else if err != nil {
-		return fmt.Errorf("openshell: keeping a credential for %s: %w", host, err)
+		return fmt.Errorf("openshell: keeping a credential for %s: %w", at.Rule(), err)
 	}
 	if _, err := d.gateway.Providers().Ensure(ctx, d.config.Workspace, &client.Provider{
 		Name: provider, Type: provider,
@@ -128,12 +113,12 @@ func (d *Driver) Credential(ctx context.Context, id, host, user, secret string) 
 			Credentials: map[string]string{variable: secret},
 			// Where it is sent is kept with it, and read again before it is
 			// bound: a credential is bound where it was kept for.
-			Config: map[string]string{"username": user, "sent": scheme + "://" + at, "id": id},
+			Config: map[string]string{"username": user, "sent": at.URL(), "id": id},
 			// The profile is the workspace's own, and is looked for there.
 			ProfileWorkspace: d.config.Workspace,
 		},
 	}); err != nil {
-		return fmt.Errorf("openshell: keeping a credential for %s: %w", host, err)
+		return fmt.Errorf("openshell: keeping a credential for %s: %w", at.Rule(), err)
 	}
 	return nil
 }
@@ -185,15 +170,16 @@ func (d *Driver) Kept(ctx context.Context, id string) (string, string, string, e
 	if err != nil {
 		return "", "", "", fmt.Errorf("openshell: asking after the credential %s: %w", id, err)
 	}
-	scheme, at, cut := strings.Cut(held.Spec.Config["sent"], "://")
-	if !cut || (scheme != "http" && scheme != "https") || held.Spec.Config["id"] != id || !plain.Username(held.Spec.Config["username"]) {
+	sentTo, err := url.Parse(held.Spec.Config["sent"])
+	var at plain.Origin
+	ok := err == nil
+	if ok {
+		at, ok = plain.OriginOf(sentTo.Scheme, sentTo.Hostname(), sentTo.Port())
+	}
+	if !ok || at.URL() != held.Spec.Config["sent"] || held.Spec.Config["id"] != id || !plain.Username(held.Spec.Config["username"]) {
 		return "", "", "", fmt.Errorf("openshell: what the gateway keeps as the credential %s was not kept by this server under it", id)
 	}
-	again, there, err := sent(written(scheme, at))
-	if err != nil || again != scheme || there != at {
-		return "", "", "", fmt.Errorf("openshell: what the gateway keeps as the credential %s was not kept by this server under it", id)
-	}
-	return written(scheme, at), held.Spec.Config["username"], variable, nil
+	return at.Rule(), held.Spec.Config["username"], variable, nil
 }
 
 // ruled reads a sandbox's rules into what its fetches came to: for each
@@ -207,24 +193,21 @@ func (d *Driver) Kept(ctx context.Context, id string) (string, string, string, e
 func (d *Driver) ruled(ctx context.Context, record driver.Sandbox) (fetched, error) {
 	out := fetched{hosts: map[string]bool{}, rules: map[string]client.NetworkPolicyRule{}}
 	for i, rule := range record.Egress.Rules {
-		scheme, at, err := sent(rule.Host)
+		reached, err := sent(rule.Host)
 		if err != nil {
 			return fetched{}, fmt.Errorf("%w: %w", driver.ErrInvalid, err)
 		}
+		at := reached.Host()
 		if out.hosts[at] {
 			return fetched{}, fmt.Errorf("%w: openshell: %s is named by two rules, and a host is named by one", driver.ErrInvalid, at)
 		}
 		out.hosts[at] = true
-		name, port, err := reached(at)
-		if err != nil {
-			return fetched{}, fmt.Errorf("%w: %w", driver.ErrInvalid, err)
-		}
 		for _, program := range rule.Programs {
-			if !strings.HasPrefix(program, "/") || path.Clean(program) != program || program == "/" || !plain.Text(program) {
+			if !plain.Program(program) {
 				return fetched{}, fmt.Errorf("%w: openshell: the rule for %s names a program by what is no one program's path", driver.ErrInvalid, at)
 			}
 		}
-		endpoint := client.PolicyNetworkEndpoint{Host: name, Port: port, Protocol: "tcp"}
+		endpoint := client.PolicyNetworkEndpoint{Host: reached.Name, Port: uint32(reached.Port), Protocol: "tcp"}
 		if len(rule.Requests) > 0 {
 			endpoint.Protocol, endpoint.Enforcement = "rest", client.NetworkEnforcementModeEnforce
 		}
@@ -234,7 +217,7 @@ func (d *Driver) ruled(ctx context.Context, record driver.Sandbox) (fetched, err
 			}
 			allow := &client.L7Allow{Method: asked.Method, Path: asked.Path}
 			for parameter, value := range asked.Query {
-				if !plain.Text(parameter) || !plain.Text(value) || strings.Contains(parameter+value, "/") {
+				if !plain.Parameter(parameter, value) {
 					return fetched{}, fmt.Errorf("%w: openshell: the rule for %s holds a request to what is no parameter", driver.ErrInvalid, at)
 				}
 				if allow.Query == nil {
@@ -260,7 +243,7 @@ func (d *Driver) ruled(ctx context.Context, record driver.Sandbox) (fetched, err
 			} else if err != nil {
 				return fetched{}, err
 			}
-			if host != written(scheme, at) {
+			if host != reached.Rule() {
 				return fetched{}, fmt.Errorf("%w: openshell: the credential %s is kept for another host than %s, whose rule attaches it", driver.ErrInvalid, id, at)
 			}
 			provider, _ := kept(id)

@@ -24,11 +24,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/fs"
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"path"
 	"path/filepath"
 	"slices"
@@ -40,7 +38,6 @@ import (
 
 	connect "connectrpc.com/connect/v2"
 	"connectrpc.com/connect/v2/connecthttp"
-	"github.com/google/renameio/v2"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -61,6 +58,7 @@ import (
 	"github.com/frontseat-dev/frontseat/server/internal/controlplane/internal/ownertoken"
 	"github.com/frontseat-dev/frontseat/server/internal/forge"
 	"github.com/frontseat-dev/frontseat/server/internal/page"
+	"github.com/frontseat-dev/frontseat/server/internal/records"
 	"github.com/frontseat-dev/frontseat/server/internal/refusal"
 	"github.com/frontseat-dev/frontseat/server/internal/source/told"
 	"github.com/frontseat-dev/frontseat/server/internal/source/vcs"
@@ -154,10 +152,11 @@ func Serve(c Config) (*Plane, error) {
 	if c.Callers == nil {
 		return nil, errors.New("a control plane answers callers it knows, and was told of no way to know one")
 	}
-	if err := os.MkdirAll(c.State, 0o700); err != nil {
+	kept, err := records.Open(c.State)
+	if err != nil {
 		return nil, fmt.Errorf("the workspaces' records: %w", err)
 	}
-	s := &service{Config: c, held: map[string]*held{}, making: map[string]*sync.Mutex{}, woken: make(chan struct{}, 1)}
+	s := &service{Config: c, records: kept, held: map[string]*held{}, making: map[string]*sync.Mutex{}, woken: make(chan struct{}, 1)}
 	if err := s.recover(); err != nil {
 		return nil, err
 	}
@@ -309,6 +308,9 @@ func OwnerToken(file string) (identity.Authenticator, error) {
 
 type service struct {
 	Config
+	// records are where its workspaces are kept, one record each, named
+	// by the workspace's name (server/internal/records).
+	records records.Dir
 
 	mu sync.Mutex
 	// held are the workspaces, by name.
@@ -493,6 +495,9 @@ func (s *service) CreateWorkspace(ctx context.Context, req *workspacev1.CreateWo
 	}
 	if credentialed(spec) {
 		return nil, refusedFor(connect.CodeInvalidArgument, "REMOTE_CREDENTIALED", "a repository's address holds a user or a password, which is kept and said with the workspace: give the address alone, and the secret as a credential")
+	}
+	if err := s.addressed(spec); err != nil {
+		return nil, answered(err)
 	}
 	if life := spec.GetLifetime(); life != nil && (!life.IsValid() || life.AsDuration() <= 0) {
 		return nil, refusedFor(connect.CodeInvalidArgument, "LIFETIME_INVALID", "a workspace's lifetime is a while to come")
@@ -706,6 +711,9 @@ func (s *service) UpdateWorkspace(ctx context.Context, req *workspacev1.UpdateWo
 	wanted := req.GetSpec()
 	if credentialed(wanted) {
 		return nil, refusedFor(connect.CodeInvalidArgument, "REMOTE_CREDENTIALED", "a repository's address holds a user or a password: give the address alone, and the secret as a credential")
+	}
+	if err := s.addressed(wanted); err != nil {
+		return nil, answered(err)
 	}
 	h.pass.Lock()
 	defer h.pass.Unlock()
@@ -1044,7 +1052,7 @@ func (s *service) step(ctx context.Context, h *held) *workspacev1.WorkspaceStatu
 				return &workspacev1.WorkspaceStatus{State: workspacev1.WorkspaceStatus_STATE_ENDING, Failure: err.Error()}
 			}
 		}
-		if err := os.Remove(s.file(called)); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		if err := s.records.Drop(called); err != nil {
 			return &workspacev1.WorkspaceStatus{State: workspacev1.WorkspaceStatus_STATE_ENDING, Failure: err.Error()}
 		}
 		s.mu.Lock()
@@ -1187,11 +1195,7 @@ func (s *service) step(ctx context.Context, h *held) *workspacev1.WorkspaceStatu
 	return told.Status(held)
 }
 
-const suffix = ".json"
-
-func (s *service) file(called string) string { return filepath.Join(s.State, called+suffix) }
-
-// stored is a workspace as a file keeps it.
+// stored is a workspace as its record keeps it.
 type stored struct {
 	// Workspace is its name, what it was asked for with, and when.
 	Workspace json.RawMessage `json:"workspace"`
@@ -1211,7 +1215,7 @@ type stored struct {
 	Resolved told.Resolved `json:"resolved,omitzero"`
 }
 
-// keep writes a workspace's record: whole, or the one before (renameio).
+// keep writes a workspace's record: whole, or the one before.
 func (s *service) keep(h *held) error {
 	workspace, err := protojson.Marshal(&workspacev1.Workspace{Name: h.workspace.GetName(), Spec: h.workspace.GetSpec(), CreateTime: h.workspace.GetCreateTime()})
 	if err != nil {
@@ -1221,11 +1225,7 @@ func (s *service) keep(h *held) error {
 	if err != nil {
 		return err
 	}
-	raw, err := json.Marshal(stored{Workspace: workspace, Made: made, Sandbox: h.sandbox, Requests: h.requests, Owner: h.owner, Ending: h.ending, Generation: h.generation, Resolved: h.resolved})
-	if err != nil {
-		return err
-	}
-	if err := renameio.WriteFile(s.file(h.workspace.GetName()), raw, 0o600); err != nil {
+	if err := s.records.Keep(h.workspace.GetName(), stored{Workspace: workspace, Made: made, Sandbox: h.sandbox, Requests: h.requests, Owner: h.owner, Ending: h.ending, Generation: h.generation, Resolved: h.resolved}); err != nil {
 		return fmt.Errorf("keeping the record of the workspace %s: %w", h.workspace.GetName(), err)
 	}
 	return nil
@@ -1237,26 +1237,21 @@ func (s *service) keep(h *held) error {
 // told of no generation, is none this server wrote, and is refused: a
 // workspace is its owner's alone.
 func (s *service) recover() error {
-	entries, err := os.ReadDir(s.State)
+	names, err := s.records.Names()
 	if err != nil {
 		return err
 	}
-	for _, entry := range entries {
-		called, is := strings.CutSuffix(entry.Name(), suffix)
-		if !is || !frontseat.IsWorkspaceName(called) {
-			// What was being written when the control plane stopped.
+	for _, called := range names {
+		if !frontseat.IsWorkspaceName(called) {
+			// No workspace's record: no workspace has the name.
 			continue
 		}
-		raw, err := os.ReadFile(filepath.Join(s.State, entry.Name()))
-		if err != nil {
-			return err
-		}
 		unread := func(err error) error {
-			return fmt.Errorf("the record of the workspace %s, %s, is not one this server reads (%w): remove the file, and end its sandbox through the gateway if it is still there", called, s.file(called), err)
+			return fmt.Errorf("the record of the workspace %s, %s, is not one this server reads (%w): remove the file, and end its sandbox through the gateway if it is still there", called, s.records.File(called), err)
 		}
 		var kept stored
 		h := &held{workspace: &workspacev1.Workspace{}, made: &workspacev1.WorkspaceSpec{}}
-		if err := json.Unmarshal(raw, &kept); err != nil {
+		if _, err := s.records.Read(called, &kept); err != nil {
 			return unread(err)
 		}
 		if err := protojson.Unmarshal(kept.Workspace, h.workspace); err != nil {
