@@ -501,7 +501,7 @@ func TestWhatIsWrongInATestsServicesIsItsFilesMistake(t *testing.T) {
 func TestAMistakeInATestsServicesIsSaidOfItsComponentsFile(t *testing.T) {
 	db := ref("default", "db")
 	exporting := resource("default", "db", map[string]int32{"sql": 5432})
-	exporting.Said.Exports = map[string]string{EndpointsVariable: "{host}:{port.sql}"}
+	exporting.Said.Exports = map[string]string{endpointsVariable: "{host}:{port.sql}"}
 	catalogOf := func(manifest string) Evaluation {
 		return serviceCatalog(t, component, []catalog.Descriptor{
 			{Entity: catalog.Entity{Ref: component, Manifest: manifest, Roots: []string{"app"}}, Relations: []catalog.DeclaredRelation{{Type: "dependsOn", InverseType: "dependencyOf", Target: db}}},
@@ -527,12 +527,12 @@ func TestAMistakeInATestsServicesIsSaidOfItsComponentsFile(t *testing.T) {
 func TestAnEndpointThatCannotBeSaidIsNamedTheSameEachTime(t *testing.T) {
 	db := ref("default", "db")
 	unsaid := resource("default", "db", map[string]int32{"sql": 5432})
-	if _, err := besideOf(component, "app/catalog-info.yaml", map[entity.Ref][]entity.Ref{component: {db}}, map[entity.Ref]config.Service{db: unsaid}, nil); err != nil {
+	if _, _, err := besideOf(component, "app/catalog-info.yaml", map[entity.Ref][]entity.Ref{component: {db}}, map[entity.Ref]config.Service{db: unsaid}, nil); err != nil {
 		t.Fatalf("a Resource with no endpoints: %v", err)
 	}
 	unsaid.Said.Endpoints = map[string]string{"a": "{host}:{port.first}", "z": "{host}:{port.last}"}
 	for range 64 {
-		_, err := besideOf(component, "app/catalog-info.yaml", map[entity.Ref][]entity.Ref{component: {db}}, map[entity.Ref]config.Service{db: unsaid}, nil)
+		_, _, err := besideOf(component, "app/catalog-info.yaml", map[entity.Ref][]entity.Ref{component: {db}}, map[entity.Ref]config.Service{db: unsaid}, nil)
 		if err == nil || !strings.Contains(err.Error(), "{port.first}") {
 			t.Fatalf("%v, want the endpoint a named", err)
 		}

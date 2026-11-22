@@ -109,8 +109,8 @@ func TestALabelTwoSourcesDeclareIsRefused(t *testing.T) {
 		projects []*pluginv1.Project
 		twice    string
 	}{
-		"a plugin's action and a catalog file's":    {Custom, []*pluginv1.Project{project("provider", action("lint"))}, "//provider:custom.lint"},
-		"a plugin's action beside a catalog file's": {Custom, []*pluginv1.Project{project("provider", action("test"))}, ""},
+		"a plugin's action and a catalog file's":    {customPlugin, []*pluginv1.Project{project("provider", action("lint"))}, "//provider:custom.lint"},
+		"a plugin's action beside a catalog file's": {customPlugin, []*pluginv1.Project{project("provider", action("test"))}, ""},
 	} {
 		t.Run(name, func(t *testing.T) {
 			plugins := []*pluginhost.Plugin{{Description: &pluginv1.DescribeResponse{Name: c.plugin, Interests: []string{"**/catalog-info.yaml"}}}}
