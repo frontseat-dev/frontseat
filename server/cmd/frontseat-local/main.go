@@ -157,21 +157,45 @@ func asked(address, identity string) (string, error) {
 	}
 	// What says whom the server trusts is as much its own as its key:
 	// another who could write there could put an authority of their own,
-	// and the key is worth every credential the gateway keeps. Each is
-	// held as any secret this server keeps in a file is (secretfile): a
-	// directory and files of its own, and no link.
+	// and the key is worth every credential the gateway keeps. The
+	// directory is the server's alone (secretfile), and so is the key,
+	// read as any secret this server keeps in a file is. A certificate
+	// is public, and may be read by anyone; it is a file of its own, no
+	// link, that only its owner may write. The gateway's client opens
+	// each again by its path, as its SDK takes them: what is held here
+	// is held of a directory no one else reaches.
 	const what = "what the gateway is known by and knows this server by (--openshell-identity)"
 	if err := secretfile.Directory(identity, what); err != nil {
 		return "", err
 	}
 	for _, held := range []string{"ca.crt", "tls.crt", "tls.key"} {
-		if _, err := secretfile.Read(filepath.Join(identity, held), what, identityLimit); errors.Is(err, fs.ErrNotExist) {
+		file := filepath.Join(identity, held)
+		var err error
+		if held == "tls.key" {
+			_, err = secretfile.Read(file, what, identityLimit)
+		} else {
+			err = certificate(file)
+		}
+		if errors.Is(err, fs.ErrNotExist) {
 			return "", fmt.Errorf("--openshell-identity %s holds no %s, which the gateway is known by or knows this server by (%s)", identity, held, copied)
 		} else if err != nil {
 			return "", err
 		}
 	}
 	return gateway.String(), nil
+}
+
+// certificate holds a certificate's file to one of its own: a regular
+// file, no link, that neither its group nor others may write.
+func certificate(file string) error {
+	info, err := os.Lstat(file)
+	if err != nil {
+		return err
+	}
+	if !info.Mode().IsRegular() || info.Mode().Perm()&0o022 != 0 {
+		return fmt.Errorf("%s can be written by others, or is no file of its own (%s): it is this server's to write alone (chmod 644)", file, info.Mode())
+	}
+	return nil
 }
 
 // identityLimit is more than a certificate, a chain of them or a key
