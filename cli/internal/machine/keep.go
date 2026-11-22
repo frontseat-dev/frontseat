@@ -1,5 +1,3 @@
-//go:build !windows
-
 package machine
 
 import "github.com/google/renameio/v2"

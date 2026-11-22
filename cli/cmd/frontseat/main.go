@@ -1,6 +1,7 @@
 // Command frontseat is the client: the command line. It talks to a
-// daemon over the build API and holds no build state. It runs on every
-// operating system, and nothing of the daemon is linked into it. Its
+// daemon over the build API and holds no build state. It runs on Linux
+// and macOS, the platforms its catalog file ships it for, and nothing of
+// the daemon is linked into it. Its
 // commands are in cmd, one to a file.
 package main
 
