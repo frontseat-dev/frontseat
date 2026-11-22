@@ -542,8 +542,7 @@ func exported(printed []byte, installs map[string]exec.Held) ([]given, error) {
 	}
 	sort.Strings(names)
 	for at := range installs {
-		tree := string(asked) + "/" + at
-		if !slices.ContainsFunc(filepath.SplitList(answered["PATH"]), func(dir string) bool { return dir == tree || strings.HasPrefix(dir, tree+"/") }) {
+		if !OnPath(answered["PATH"], string(asked)+"/"+at, lexically) {
 			return nil, fmt.Errorf("%s is not on the path mise gives", at)
 		}
 	}
@@ -552,6 +551,20 @@ func exported(printed []byte, installs map[string]exec.Held) ([]given, error) {
 		vars = append(vars, given{name: name, parts: strings.Split(answered[name], string(asked))})
 	}
 	return vars, nil
+}
+
+// OnPath reports whether a tool's tree is on a PATH mise gives: one of
+// its directories is the tree or beneath it, as beneath tells where the
+// path is read (by its text on the grid, on the disk where the daemon is).
+// A program of the system's by the same name is not the tool.
+func OnPath(path, tree string, beneath func(tree, dir string) bool) bool {
+	return slices.ContainsFunc(filepath.SplitList(path), func(dir string) bool { return beneath(tree, dir) })
+}
+
+// lexically reports whether a directory is a tree or beneath it by its
+// text alone, as a path mise printed elsewhere is read.
+func lexically(tree, dir string) bool {
+	return dir == tree || strings.HasPrefix(dir, tree+"/")
 }
 
 // Layout is where a directory laid out as an action's root is, and where
