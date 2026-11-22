@@ -3,7 +3,7 @@ kind: Component
 metadata:
   name: go-sdk
   namespace: frontseat
-  description: "The Go SDK: one client a program calls Frontseat with (package frontseat), the API's Go generated from the protos and committed (api), and entity references (entity)"
+  description: "The Go SDK: one client a program calls Frontseat with (package frontseat), the API's Go generated from the protos and committed (api), entity references (entity), and a value of the API's enums said by its name or in words (enum)"
 spec:
   type: library
   lifecycle: experimental

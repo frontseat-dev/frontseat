@@ -14,6 +14,7 @@ import (
 
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/confine"
+	"github.com/frontseat-dev/frontseat/server/internal/poll"
 	runnerv1 "github.com/frontseat-dev/frontseat/server/internal/runnerapi/frontseat/runner/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/testservice"
 	sandboxv1 "github.com/frontseat-dev/frontseat/server/sandbox/api/frontseat/sandbox/v1alpha1"
@@ -115,18 +116,22 @@ func (a *attempt) routes(name string, outgoing []*runnerv1.RunnerRoute) ([]strin
 func (a *attempt) routesReady(ctx context.Context, name string) error {
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
-	for {
-		if _, err := os.Stat(filepath.Join(a.mine, "ready", name, "listening")); err == nil {
-			return nil
-		} else if !errors.Is(err, os.ErrNotExist) {
-			return err
+	err := poll.Until(ctx, 20*time.Millisecond, func() (bool, error) {
+		_, err := os.Stat(filepath.Join(a.mine, "ready", name, "listening"))
+		if err == nil {
+			return true, nil
 		}
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("service routes: %w", ctx.Err())
-		case <-time.After(20 * time.Millisecond):
+		if !errors.Is(err, os.ErrNotExist) {
+			return false, err
 		}
+		return false, nil
+	})
+	// Only the waiting gave up with ctx's error: a file is not asked
+	// after with ctx.
+	if err != nil && errors.Is(err, ctx.Err()) {
+		return fmt.Errorf("service routes: %w", err)
 	}
+	return err
 }
 
 func (a *attempt) programVolumes(root *os.Root, s *runnerv1.RunnerService) ([]*sandboxv1.Volume, error) {

@@ -6,6 +6,7 @@ import (
 
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
+	"github.com/frontseat-dev/frontseat/sdk/go/enum"
 )
 
 // Line writes a line a program printed, as it printed it, with
@@ -34,7 +35,7 @@ func (p Printer) Run(run *buildv1.Run) {
 func RunState(run *buildv1.Run) string {
 	switch run.GetState() {
 	case buildv1.Run_STATE_BUILDING, buildv1.Run_STATE_RUNNING:
-		return Word(run.GetState())
+		return enum.Word(run.GetState())
 	case buildv1.Run_STATE_SUCCEEDED:
 		return fmt.Sprintf("exited %d", run.GetExitCode())
 	case buildv1.Run_STATE_CANCELLED:

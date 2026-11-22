@@ -11,7 +11,6 @@ import (
 	"path"
 	"path/filepath"
 	"slices"
-	"strings"
 	"sync"
 	"time"
 
@@ -27,6 +26,7 @@ import (
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/entity"
+	"github.com/frontseat-dev/frontseat/sdk/go/enum"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/evaluate"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/graph"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/plan"
@@ -56,7 +56,7 @@ const (
 
 // bazelName is how a run ended, by Bazel's name for it: SUCCESS.
 func bazelName(code buildv1.ExitCode) string {
-	return strings.TrimPrefix(code.String(), "EXIT_CODE_")
+	return enum.Name(code)
 }
 
 // errNotFound is a run that does not exist.

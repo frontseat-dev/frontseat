@@ -31,6 +31,7 @@ import (
 	"time"
 
 	"github.com/frontseat-dev/frontseat/local"
+	"github.com/frontseat-dev/frontseat/local/internal/poll"
 )
 
 // built is the moment every box image is of: an image is what it holds,
@@ -319,16 +320,14 @@ func Answers(ctx context.Context) error {
 // asked of the runtime where none is given.
 func goarchOf(ctx context.Context, architecture string) (string, error) {
 	if architecture == "" {
-		out, err := exec.CommandContext(ctx, "docker", "info", "--format", "{{.Architecture}}").Output()
+		said, err := local.Architecture(ctx)
 		if err != nil {
 			return "", fmt.Errorf("asking the container runtime its architecture: %w", err)
 		}
-		architecture = strings.TrimSpace(string(out))
+		architecture = said
 	}
-	if architecture == "aarch64" || architecture == "arm64" {
-		return "arm64", nil
-	}
-	return "amd64", nil
+	goarch, _ := local.GOARCH(architecture)
+	return goarch, nil
 }
 
 // programs are the programs the box holds, by their command's name, each
@@ -413,21 +412,19 @@ func Give(ctx context.Context, image string) error {
 // GiveTo hands an image to the Podman of a container of the stack's
 // image, as Give does to the stack's own: a test's stack beside it.
 func GiveTo(ctx context.Context, container, image string) error {
-	podman := []string{"exec", "-i", "-u", "frontseat", "-e", "XDG_RUNTIME_DIR=/run/user/1000", "-e", "HOME=/home/frontseat", container, "podman"}
 	// The stack's Podman answers once the container has laid out what is
 	// frontseat's, which a container just started has yet to do.
-	for tries := 0; exec.CommandContext(ctx, "docker", append(podman, "info", "--format", "{{.Host.Arch}}")...).Run() != nil; tries++ {
-		if tries >= 120 {
-			return fmt.Errorf("the stack's Podman did not answer in two minutes: docker logs %s", container)
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(time.Second):
-		}
+	answered, err := poll.Tries(ctx, 120, time.Second, func() bool {
+		return local.Podman(ctx, container, "info", "--format", "{{.Host.Arch}}").Run() == nil
+	})
+	if err != nil {
+		return err
+	}
+	if !answered {
+		return fmt.Errorf("the stack's Podman did not answer in two minutes: docker logs %s", container)
 	}
 	save := exec.CommandContext(ctx, "docker", "save", image)
-	load := exec.CommandContext(ctx, "docker", append(podman, "load", "-q")...)
+	load := local.Podman(ctx, container, "load", "-q")
 	piped, err := save.StdoutPipe()
 	if err != nil {
 		return err

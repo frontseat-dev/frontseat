@@ -56,6 +56,7 @@ import (
 	"github.com/frontseat-dev/frontseat/server/internal/controlplane/identity"
 	"github.com/frontseat-dev/frontseat/server/internal/controlplane/internal/ownertoken"
 	"github.com/frontseat-dev/frontseat/server/internal/page"
+	"github.com/frontseat-dev/frontseat/server/internal/poll"
 	"github.com/frontseat-dev/frontseat/server/internal/records"
 	"github.com/frontseat-dev/frontseat/server/internal/refusal"
 	"github.com/frontseat-dev/frontseat/server/internal/source/told"
@@ -657,10 +658,11 @@ func (s *service) ListWorkspaces(ctx context.Context, req *workspacev1.ListWorks
 }
 
 func (s *service) WaitWorkspace(ctx context.Context, req *workspacev1.WaitWorkspaceRequest) (*workspacev1.WaitWorkspaceResponse, error) {
-	for {
+	var ended *workspacev1.Workspace
+	err := poll.Until(ctx, s.Every, func() (bool, error) {
 		h, err := s.owned(ctx, req.GetName())
 		if err != nil {
-			return nil, err
+			return false, err
 		}
 		// What it is and whether more is asked of it are read together:
 		// read apart, a pass between them would leave a state it no longer
@@ -673,15 +675,16 @@ func (s *service) WaitWorkspace(ctx context.Context, req *workspacev1.WaitWorksp
 		switch now.GetStatus().GetState() {
 		case workspacev1.WorkspaceStatus_STATE_READY, workspacev1.WorkspaceStatus_STATE_FAILED, workspacev1.WorkspaceStatus_STATE_PAUSED:
 			if !pending {
-				return &workspacev1.WaitWorkspaceResponse{Workspace: now}, nil
+				ended = now
+				return true, nil
 			}
 		}
-		select {
-		case <-time.After(s.Every):
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		}
+		return false, nil
+	})
+	if err != nil {
+		return nil, err
 	}
+	return &workspacev1.WaitWorkspaceResponse{Workspace: ended}, nil
 }
 
 func (s *service) UpdateWorkspace(ctx context.Context, req *workspacev1.UpdateWorkspaceRequest) (*workspacev1.UpdateWorkspaceResponse, error) {

@@ -97,5 +97,5 @@ func identity(t testing.TB, needed bool, directory string) string {
 // sandboxes with, the stack container's Podman, as the user whose Podman
 // it is, and returns what it printed, its error output beside.
 func Runtime(ctx context.Context, arguments ...string) ([]byte, error) {
-	return exec.CommandContext(ctx, "docker", append([]string{"exec", "--user", "frontseat", "--env", "XDG_RUNTIME_DIR=/run/user/1000", "--env", "HOME=/home/frontseat", held, "podman"}, arguments...)...).CombinedOutput()
+	return local.Podman(ctx, held, arguments...).CombinedOutput()
 }

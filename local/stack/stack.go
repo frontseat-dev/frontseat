@@ -31,6 +31,7 @@ import (
 
 	"github.com/frontseat-dev/frontseat/local"
 	"github.com/frontseat-dev/frontseat/local/box"
+	"github.com/frontseat-dev/frontseat/local/internal/poll"
 )
 
 // Name is the stack's container's, and Volume the one volume it keeps
@@ -159,7 +160,7 @@ func (s Stack) checkout() (string, error) {
 // answers returns the container runtime's architecture, or that it does
 // not answer.
 func (s Stack) answers(ctx context.Context) (string, error) {
-	architecture, err := s.run(ctx, "info", "--format", "{{.Architecture}}")
+	architecture, err := s.run(ctx, local.ArchitectureAsked()...)
 	if err != nil {
 		return "", fmt.Errorf("the container runtime does not answer: start it, and run this again: %w", err)
 	}
@@ -203,20 +204,17 @@ func (s Stack) give(ctx context.Context, built string) error {
 // alone: whoever holds it may do anything the control plane does. It is
 // never said.
 func (s Stack) layOut(ctx context.Context) error {
-	for tries := 0; ; tries++ {
-		if _, err := s.run(ctx, "exec", Name, "test", "-s", token); err == nil {
-			break
-		}
-		if tries >= 120 {
-			return fmt.Errorf("the control plane minted no owner's token in two minutes: docker logs %s", Name)
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(time.Second):
-		}
+	minted, err := poll.Tries(ctx, 120, time.Second, func() bool {
+		_, err := s.run(ctx, "exec", Name, "test", "-s", token)
+		return err == nil
+	})
+	if err != nil {
+		return err
 	}
-	minted, err := s.run(ctx, "exec", Name, "cat", token)
+	if !minted {
+		return fmt.Errorf("the control plane minted no owner's token in two minutes: docker logs %s", Name)
+	}
+	read, err := s.run(ctx, "exec", Name, "cat", token)
 	if err != nil {
 		return errors.New("reading the owner's token the control plane minted failed")
 	}
@@ -241,7 +239,7 @@ func (s Stack) layOut(ctx context.Context) error {
 	if err := os.Remove(laying); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
-	if err := os.WriteFile(laying, []byte(minted), 0o600); err != nil {
+	if err := os.WriteFile(laying, []byte(read), 0o600); err != nil {
 		return err
 	}
 	// The token is the stack's, and is presented to the stack's control
