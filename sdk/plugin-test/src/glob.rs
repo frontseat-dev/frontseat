@@ -163,14 +163,14 @@ fn compile(glob: &str) -> Option<Regex> {
         .backslash_escape(true)
         .build()
         .ok()?;
-    // globset promises nothing of what it writes here: its version is
-    // pinned (Cargo.toml), and one that writes otherwise is heard of,
-    // where every pattern would select nothing without a word.
-    let bytes = compiled
-        .regex()
-        .strip_prefix("(?-u)")
-        .expect("globset writes a pattern's regular expression after (?-u)");
-    Regex::new(&unicode(bytes)?).ok()
+    // globset promises nothing of the form of what it writes here. What
+    // is read is what globset 0.4.21 writes, held to the host by the
+    // shared table (testdata/select.json); a release that writes
+    // otherwise fails the test that asked, saying so.
+    const OTHERWISE: &str = "frontseat-plugin-test reads the regular expression globset 0.4.21 writes, and this globset writes otherwise: pin it with `cargo update -p globset --precise 0.4.21`";
+    let bytes = compiled.regex().strip_prefix("(?-u)").expect(OTHERWISE);
+    let regex = unicode(bytes).expect(OTHERWISE);
+    Some(Regex::new(&regex).expect(OTHERWISE))
 }
 
 /// A regular expression of bytes, as globset writes one, with each

@@ -85,13 +85,14 @@ impl<'a> Repository<'a> {
     }
 
     /// An option the call's context does not give as the plugin declares
-    /// it. The kinds are named as the contract names them: string, bool,
-    /// int, string list.
+    /// it.
     fn invalid_option(message: String) -> crate::Error {
         crate::Error::new(crate::Code::InvalidArgument, "invalid-option", message)
             .help("Give each option the plugin declares a value of the kind it declares, and no other option.")
     }
 
+    /// An option given as another kind than declared. The kinds are named
+    /// as the contract names them: string, bool, int, string list.
     fn not_of_kind(name: &str, kind: &str) -> crate::Error {
         Self::invalid_option(format!("option {name} is not {kind}"))
     }
