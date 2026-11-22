@@ -337,8 +337,9 @@ func executionError(err error) error {
 
 // lacking is the frontseat-action a worker could not start an action by
 // for something it did not find, where that is what the grid says:
-// the runner answers an argument that is not so, and names the program it
-// could not start and why, as bb_runner does. That is the confiner missing, or the directory
+// Frontseat's runner (frontseat-runner serve) answers an argument that is
+// not so, and names the program it could not start and why, as bb_runner
+// did. That is the confiner missing, or the directory
 // the action runs in, which the process reports as the program's when it
 // cannot change to it; both are said, and neither is taken for the other.
 // Another failure to start a program, or to start this one, is not taken

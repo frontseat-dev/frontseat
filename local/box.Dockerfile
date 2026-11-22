@@ -7,8 +7,8 @@
 # The context holds frontseatd, frontseat, frontseat-runner (the runner
 # of the workers that run tests with services), frontseat-local (the
 # control plane of the local stack) and frontseat-action (what a worker
-# runs every action by, which the stack installs beside bb_runner) built
-# for Linux, and plugins/. Nothing is fetched while the image is built.
+# runs every action by, which the stack installs where each runner
+# sandbox holds it) built for Linux, and plugins/. Nothing is fetched while the image is built.
 ARG SANDBOX_IMAGE
 FROM ${SANDBOX_IMAGE}
 
