@@ -1,10 +1,10 @@
 use frontseat_plugin::prelude::*;
 use frontseat_plugin_test::{Files, Read, TestHost, TestPlugin};
 
-/// What testdata/ holds, spelled here: the repository hides its fixtures
-/// from a run (.frontseatignore), so a test built on the grid cannot
-/// read them. A malformed go.mod names no module; an unlocked module has
-/// no go.sum.
+/// The module these tests read, spelled here: it holds more than the
+/// fixture the conformance harness reads (testdata/), which is that
+/// harness's to keep small. A malformed go.mod names no module; an
+/// unlocked module has no go.sum.
 fn files(malformed: bool, locked: bool) -> Files {
     let go_mod: &str = if malformed {
         "go 1.27\n"
