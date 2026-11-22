@@ -8,3 +8,6 @@ mod versioning;
 mod tests;
 
 frontseat_plugin::serve!(plugin::ReleasePlugin);
+
+#[cfg(test)]
+frontseat_plugin_test::readme_says_the_options!();

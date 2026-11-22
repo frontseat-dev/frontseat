@@ -470,3 +470,6 @@ mod tests {
             .refused("unnamed-port");
     }
 }
+
+#[cfg(test)]
+frontseat_plugin_test::readme_says_the_options!();

@@ -30,6 +30,7 @@ mistake.
 
 | The mistake | The check |
 |---|---|
+| A plugin's README said its options from the code by hand, and nothing held the table to what the plugin declares. | Each plugin's tests hold its README's `## Options` to `describe`: name, kind, default and who sets it, in order, or "None." (`TestPlugin::readme_says_its_options`, by `readme_says_the_options!` in each plugin, its refusals in `a_readme_is_held_to_the_options_the_plugin_declares`); the Backstage plugin has no testkit and is not held yet. |
 | A plugin made npm's cache and installation required outputs, though npm makes neither when every optional dependency excludes the platform. | Let npm choose, make those outputs optional, and try empty and platform-excluded locks beside an installed dependency (`specs/build/jest_test.go`). |
 | A framework was run directly, without the environment its native script gives it. | Run the package manager's own entrypoint, and prove a setup hook sees its script's variables (`specs/build/testdata/jest/global-setup.cjs`). |
 | npm was assumed to refuse every malformed checksum, and installed for garbage, whitespace and unknown algorithms. | Check the checksum's shape with the SDK's strict decoder before npm sees it, with wrong, malformed, empty and unknown controls (`TestNpmRequiresAVerifiableNativeLockIntegrity`). |

@@ -499,6 +499,82 @@ impl<P: Plugin> TestPlugin<P> {
         }
     }
 
+    /// Panics unless the plugin's README says its options as the plugin
+    /// declares them: under `## Options`, a table of one row for each
+    /// option, in the order declared, whose first four cells are its name
+    /// (`` `name` ``), its kind (string, bool, int or string list, and
+    /// what follows of it), its default (`` `10m` ``, `` `[]` ``) and who
+    /// may set it ("the repository", or "the repository or an entity");
+    /// or "None." where it declares none. What a person reads of an option is then what
+    /// the host is told of it.
+    ///
+    /// ```
+    /// # use frontseat_plugin::prelude::*;
+    /// struct Shards;
+    /// impl Plugin for Shards {
+    ///     fn describe(&self) -> Description {
+    ///         let shards = PluginOption::new("shards", 1).entity_settable();
+    ///         Description { name: "shards".into(), options: vec![shards], ..Default::default() }
+    ///     }
+    /// }
+    /// let readme = "## Options\n\n| Option | Kind | Default | Set by | What it does |\n|---|---|---|---|---|\n| `shards` | int | `1` | the repository or an entity | How many. |\n";
+    /// frontseat_plugin_test::TestPlugin::new(Shards).readme_says_its_options(readme);
+    /// ```
+    #[track_caller]
+    pub fn readme_says_its_options(&self, readme: &str) {
+        let section: Vec<&str> = readme
+            .lines()
+            .skip_while(|line| line.trim() != "## Options")
+            .skip(1)
+            .take_while(|line| !line.starts_with("## "))
+            .collect();
+        assert!(!section.is_empty(), "the README has no section ## Options");
+        let options = self.describe().options;
+        if options.is_empty() {
+            assert!(
+                section.iter().any(|line| line.starts_with("None.")),
+                "the plugin declares no option, and its README's options do not say None."
+            );
+            return;
+        }
+        let rows: Vec<Vec<&str>> = section
+            .iter()
+            .filter(|line| line.starts_with("| `"))
+            .map(|line| line.trim_matches('|').split(" | ").map(str::trim).collect())
+            .collect();
+        let said: Vec<&str> = rows.iter().map(|row| row[0].trim_matches('`')).collect();
+        let declared: Vec<&str> = options.iter().map(|option| option.name.as_str()).collect();
+        assert_eq!(
+            said, declared,
+            "the README's options are not the plugin's, in its order"
+        );
+        for (row, option) in rows.iter().zip(&options) {
+            let name = &option.name;
+            assert!(
+                row.len() >= 4,
+                "the README's row of {name} says less than its name, kind, default and who sets it"
+            );
+            let default = option.default.clone().unwrap_or_default().value;
+            let (kind, written) = written_default(default.as_ref());
+            assert!(
+                row[1].starts_with(kind),
+                "the README says {name} is {}, and the plugin declares {kind}",
+                row[1]
+            );
+            assert_eq!(
+                row[2],
+                format!("`{written}`"),
+                "the README's default of {name}"
+            );
+            let set_by = if option.entity_settable {
+                "the repository or an entity"
+            } else {
+                "the repository"
+            };
+            assert_eq!(row[3], set_by, "who the README says sets {name}");
+        }
+    }
+
     /// What the plugin says it is. The host it is given fails any read,
     /// as the real one does.
     #[track_caller]
@@ -639,6 +715,45 @@ fn unreadable() -> TestHost {
     ))
 }
 
+/// A test, in the crate of the plugin `served()` answers with, that its
+/// README says the options the plugin declares, as it declares them
+/// ([`TestPlugin::readme_says_its_options`]). Written at the crate's
+/// root, for tests alone:
+///
+/// ```ignore
+/// #[cfg(test)]
+/// frontseat_plugin_test::readme_says_the_options!();
+/// ```
+#[macro_export]
+macro_rules! readme_says_the_options {
+    () => {
+        #[test]
+        fn the_readme_says_the_options_the_plugin_declares() {
+            $crate::TestPlugin::new(served()).readme_says_its_options(include_str!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/README.md"
+            )));
+        }
+    };
+}
+
+/// The kind of a default as a README names it, and the default as it
+/// writes it.
+fn written_default(
+    value: Option<&frontseat_plugin::option_value::Value>,
+) -> (&'static str, String) {
+    use frontseat_plugin::option_value::Value;
+    match value {
+        Some(Value::StringValue(text)) => ("string", text.clone()),
+        Some(Value::BoolValue(switch)) => ("bool", switch.to_string()),
+        Some(Value::IntValue(number)) => ("int", number.to_string()),
+        Some(Value::StringListValue(list)) => {
+            ("string list", format!("[{}]", list.values.join(", ")))
+        }
+        None => ("nothing", String::new()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -757,6 +872,32 @@ mod tests {
         let error = read.unwrap_err();
         assert_eq!(error.kind(), std::io::ErrorKind::InvalidData);
         assert_eq!(error.to_string(), "a file's name in app is not UTF-8");
+    }
+
+    /// A README is held to the options a plugin declares: a row of
+    /// another default, of another kind, of another setter, a row
+    /// missing, and "None." of a plugin that takes options are each
+    /// refused; the control is a README that says them as declared.
+    #[test]
+    fn a_readme_is_held_to_the_options_the_plugin_declares() {
+        let plugin = TestPlugin::new(Manifests);
+        let table = |row: &str| {
+            format!("## Options\n\n| Option | Kind | Default | Set by | What it does |\n|---|---|---|---|---|\n{row}\n\n## Catalog keys\n")
+        };
+        plugin.readme_says_its_options(&table(
+            "| `strict` | bool | `true` | the repository | Whether a missing manifest is refused. |",
+        ));
+        for wrong in [
+            table("| `strict` | bool | `false` | the repository | x |"),
+            table("| `strict` | int | `true` | the repository | x |"),
+            table("| `strict` | bool | `true` | the repository or an entity | x |"),
+            table("| `lenient` | bool | `true` | the repository | x |"),
+            "## Options\n\nNone.\n".to_string(),
+            "## Catalog keys\n".to_string(),
+        ] {
+            let refused = std::panic::catch_unwind(|| plugin.readme_says_its_options(&wrong));
+            assert!(refused.is_err(), "{wrong}");
+        }
     }
 
     struct Manifests;

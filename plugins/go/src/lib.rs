@@ -10,3 +10,6 @@ frontseat_plugin::serve!(plugin::GoPlugin);
 
 #[cfg(test)]
 mod composition_tests;
+
+#[cfg(test)]
+frontseat_plugin_test::readme_says_the_options!();

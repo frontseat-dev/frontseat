@@ -5,3 +5,6 @@ mod lock;
 mod plugin;
 
 frontseat_plugin::serve!(plugin::ApkoPlugin);
+
+#[cfg(test)]
+frontseat_plugin_test::readme_says_the_options!();
