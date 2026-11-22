@@ -15,7 +15,7 @@ import (
 // idleFor how long a connection that asks nothing is kept. Neither
 // bounds a request's body or an answer: a stream lasts as long as its
 // handler does.
-var headerWithin, idleFor = 10 * time.Second, 2 * time.Minute
+const headerWithin, idleFor = 10 * time.Second, 2 * time.Minute
 
 // Serve serves HTTP/1 and unencrypted HTTP/2 until the context is cancelled or
 // the listener fails. It owns and closes the listener, cancels request contexts,
@@ -24,12 +24,17 @@ var headerWithin, idleFor = 10 * time.Second, 2 * time.Minute
 // A peer that does not end a request's header in time, or keeps a connection
 // that asks nothing, is let go.
 func Serve(ctx context.Context, listener net.Listener, handler http.Handler) error {
+	return serve(ctx, listener, handler, headerWithin)
+}
+
+// serve is Serve, with how long a request's header may take to arrive.
+func serve(ctx context.Context, listener net.Listener, handler http.Handler, header time.Duration) error {
 	requests := Track(handler)
 	serving, cancel := context.WithCancel(ctx)
 	defer cancel()
 	srv := &http.Server{
 		Handler: requests, BaseContext: func(net.Listener) context.Context { return serving },
-		ReadHeaderTimeout: headerWithin, IdleTimeout: idleFor,
+		ReadHeaderTimeout: header, IdleTimeout: idleFor,
 	}
 	srv.Protocols = new(http.Protocols)
 	srv.Protocols.SetHTTP1(true)

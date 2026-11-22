@@ -9,20 +9,20 @@ import (
 	"time"
 )
 
+// arriving is how long a request's header may take to arrive in a test.
+const arriving = 200 * time.Millisecond
+
 // served serves a handler on a listener of the test's, with a short
-// time for a request's header to arrive, and returns its address.
+// time for a request's header to arrive (arriving), and returns its address.
 func served(t *testing.T, handler http.Handler) string {
 	t.Helper()
-	was := headerWithin
-	headerWithin = 200 * time.Millisecond
 	listener := listening(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	finished := make(chan error, 1)
-	go func() { finished <- Serve(ctx, listener, handler) }()
+	go func() { finished <- serve(ctx, listener, handler, arriving) }()
 	t.Cleanup(func() {
 		cancel()
 		<-finished
-		headerWithin = was
 	})
 	return listener.Addr().String()
 }
@@ -57,7 +57,7 @@ func TestAnAnswerMayLastLongerThanARequestsHeaderMayTake(t *testing.T) {
 	address := served(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte("first "))
 		w.(http.Flusher).Flush()
-		time.Sleep(3 * headerWithin)
+		time.Sleep(3 * arriving)
 		_, _ = w.Write([]byte("last"))
 	}))
 
