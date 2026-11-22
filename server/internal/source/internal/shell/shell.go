@@ -23,6 +23,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/creack/pty"
 	"github.com/frontseat-dev/ssh"
@@ -38,7 +39,14 @@ type Config struct {
 	Authorized []ssh.PublicKey
 	// Directory is where a session starts: the workspace.
 	Directory string
+	// Handshake is how long a connection has to log in; none given is
+	// handshakeWithin.
+	Handshake time.Duration
 }
+
+// handshakeWithin is how long a connection has to log in. Whoever
+// reaches the port and shows no key holds a connection no longer.
+const handshakeWithin = 30 * time.Second
 
 // Authorized reads keys as an authorized_keys file lists them.
 func Authorized(keys string) ([]ssh.PublicKey, error) {
@@ -71,10 +79,14 @@ func Serve(listener net.Listener, config Config) error {
 	if err != nil {
 		return err
 	}
+	if config.Handshake == 0 {
+		config.Handshake = handshakeWithin
+	}
 	sessions := &sessions{}
 	server := &ssh.Server{
-		HostSigners: []ssh.Signer{host},
-		Handler:     sessions.handle(config.session),
+		HostSigners:      []ssh.Signer{host},
+		HandshakeTimeout: config.Handshake,
+		Handler:          sessions.handle(config.session),
 		PublicKeyHandler: func(_ ssh.Context, key ssh.PublicKey) bool {
 			for _, authorized := range config.Authorized {
 				if ssh.KeysEqual(key, authorized) {

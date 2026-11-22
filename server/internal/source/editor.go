@@ -22,7 +22,8 @@ type Shell struct {
 }
 
 // NewShell starts workspace editor access. With no authorized keys it returns
-// nil: a sandbox intended only for a daemon serves no editor endpoint.
+// nil: a sandbox intended only for a daemon serves no editor endpoint, and
+// the nil Shell is one that serves nothing, which Wait and Close take.
 func NewShell(config ShellConfig) (*Shell, error) {
 	keys, err := shell.Authorized(config.AuthorizedKeys)
 	if err != nil || len(keys) == 0 {
@@ -45,6 +46,9 @@ func (s *Shell) Address() string { return s.listener.Addr().String() }
 
 // Wait returns when the editor server ends, with its failure if any.
 func (s *Shell) Wait() error {
+	if s == nil {
+		return nil
+	}
 	<-s.done
 	if errors.Is(s.err, net.ErrClosed) {
 		return nil
@@ -54,6 +58,9 @@ func (s *Shell) Wait() error {
 
 // Close stops the endpoint and waits for its serving loop to end.
 func (s *Shell) Close() error {
+	if s == nil {
+		return nil
+	}
 	s.once.Do(func() { _ = s.listener.Close() })
 	return s.Wait()
 }

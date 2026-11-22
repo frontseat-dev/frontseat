@@ -94,7 +94,11 @@ func (s System) PushTag(ctx context.Context, directory, remote, name string) err
 	// What a tag is pushed with is what the remote has of the commit
 	// already: a commit made in the workspace that no branch there has
 	// would leave it under the tag's name, and is pushed first.
-	if on, err := in(ctx, directory).Run(ctx, "for-each-ref", "--count=1", "--contains", ref+"^{commit}", "--format=%(refname)", "refs/remotes/origin"); err != nil || strings.TrimSpace(on) == "" {
+	on, err := trimmed(ctx, in(ctx, directory), "for-each-ref", "--count=1", "--contains", ref+"^{commit}", "--format=%(refname)", "refs/remotes/origin")
+	if err != nil {
+		return fmt.Errorf("git push: %s: which branch of the remote has its commit is not known: %w", name, err)
+	}
+	if on == "" {
 		return fmt.Errorf("git push: the commit %s names is on no branch of the remote, as the repository last saw it: push the commit, then the tag", name)
 	}
 	// To origin, which is pinned to the remote given, and never to the
@@ -273,18 +277,33 @@ func (s System) Changes(ctx context.Context, directory, since string, directorie
 
 // TagName asks git whether it takes a name for a tag, by the rule it
 // holds every reference to (git check-ref-format). The name is given as
-// the reference it would be, so that it is never read as an option.
+// the reference it would be, so that it is never read as an option. Git
+// is asked in a directory made for the question, where nothing is: the
+// one the daemon runs in may be in a repository, whose settings are not
+// this question's. A git that fails otherwise than by refusing the name
+// says so itself.
 func (System) TagName(ctx context.Context, name string) error {
 	if name == "" || strings.ContainsRune(name, 0) {
 		return errors.New("is no name git takes for a tag")
 	}
-	if _, err := in(ctx, "").Run(ctx, "check-ref-format", "refs/tags/"+name); err != nil {
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
+	nowhere, err := os.MkdirTemp("", "frontseat-tag-name-")
+	if err != nil {
+		return err
+	}
+	// Its own to delete: a directory made here, for this one question.
+	defer os.RemoveAll(nowhere)
+	_, err = in(ctx, nowhere).Run(ctx, "check-ref-format", "refs/tags/"+name)
+	var exit *exec.ExitError
+	switch {
+	case err == nil:
+		return nil
+	case ctx.Err() != nil:
+		return ctx.Err()
+	case errors.As(err, &exit) && exit.ExitCode() == 1:
+		// check-ref-format says a name is none by its status of 1.
 		return errors.New("is no name git takes for a tag")
 	}
-	return nil
+	return fmt.Errorf("could not be held to git's rule for a tag: %w", err)
 }
 
 // status asks git status of everything, each entry as "XY path": files
