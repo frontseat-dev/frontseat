@@ -146,8 +146,8 @@ func TestAPIServiceResolutionKeepsCatalogIdentitiesAndOwnership(t *testing.T) {
 				if !errors.As(err, &mistake) || !strings.Contains(err.Error(), "more than one prepared service provider") {
 					t.Fatalf("want an ambiguous-provider diagnostic, got %v", err)
 				}
-				if mistake.File != "shop/checkout/catalog-info.yaml" {
-					t.Fatalf("diagnostic points outside the consumer's repository: %s", mistake.File)
+				if mistake.Where() != "shop/checkout/catalog-info.yaml" {
+					t.Fatalf("diagnostic points outside the consumer's repository: %s", mistake.Where())
 				}
 				return
 			}
@@ -174,11 +174,11 @@ func TestAServiceCannotReplaceItsDependencyBinding(t *testing.T) {
 		provider:  {ref("default", "db")},
 	}
 	started := map[entity.Ref]config.Service{ref("default", "db"): db, provider: app}
-	if _, _, err := besideOf(component, "app/catalog-info.yaml", declared, started, nil); err != nil {
+	if _, _, err := besideOf(component, manifest{file: "app/catalog-info.yaml"}, declared, started, nil); err != nil {
 		t.Fatalf("binding without an override is allowed: %v", err)
 	}
 	app.Said.Environment = map[string]string{"DATABASE": "another database"}
-	if _, _, err := besideOf(component, "app/catalog-info.yaml", declared, started, nil); err == nil || !strings.Contains(err.Error(), "sets DATABASE") {
+	if _, _, err := besideOf(component, manifest{file: "app/catalog-info.yaml"}, declared, started, nil); err == nil || !strings.Contains(err.Error(), "sets DATABASE") {
 		t.Fatalf("service silently replaced its dependency binding: %v", err)
 	}
 }
@@ -299,7 +299,7 @@ func TestServicesStartAfterWhatTheyDependOnAndAreToldItsAddress(t *testing.T) {
 		component:             {ref("default", "idp"), ref("default", "db")},
 		ref("default", "idp"): {ref("default", "db")},
 	}
-	beside, _, err := besideOf(component, "app/catalog-info.yaml", declared, started, nil)
+	beside, _, err := besideOf(component, manifest{file: "app/catalog-info.yaml"}, declared, started, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -370,13 +370,13 @@ func TestWhatAComponentsServicesCannotBeIsRefused(t *testing.T) {
 		},
 	}
 	for name, c := range cases {
-		if _, _, err := besideOf(component, "app/catalog-info.yaml", c.declared, c.started, nil); err == nil || !strings.Contains(err.Error(), c.says) {
+		if _, _, err := besideOf(component, manifest{file: "app/catalog-info.yaml"}, c.declared, c.started, nil); err == nil || !strings.Contains(err.Error(), c.says) {
 			t.Errorf("%s: %v, want a mistake saying %q", name, err, c.says)
 		}
 	}
 	// The control: a Resource that is not started gives the tests
 	// nothing, and is no mistake.
-	if beside, _, err := besideOf(component, "app/catalog-info.yaml", map[entity.Ref][]entity.Ref{component: {ref("default", "prod-db")}}, map[entity.Ref]config.Service{ref("default", "db"): db}, nil); err != nil || beside != nil {
+	if beside, _, err := besideOf(component, manifest{file: "app/catalog-info.yaml"}, map[entity.Ref][]entity.Ref{component: {ref("default", "prod-db")}}, map[entity.Ref]config.Service{ref("default", "db"): db}, nil); err != nil || beside != nil {
 		t.Errorf("a Resource that is not started: %v %v, want nothing", beside, err)
 	}
 }
@@ -483,13 +483,13 @@ func TestWhatIsWrongInATestsServicesIsItsFilesMistake(t *testing.T) {
 		"a port that is none":                {map[entity.Ref]config.Service{db: unserved}, []entity.Ref{db}, "catalog-info.yaml"},
 		"an export named as the endpoints":   {map[entity.Ref]config.Service{db: exporting}, []entity.Ref{db}, "app/catalog-info.yaml"},
 	} {
-		_, _, err := besideOf(component, "app/catalog-info.yaml", map[entity.Ref][]entity.Ref{component: c.declared}, c.started, nil)
+		_, _, err := besideOf(component, manifest{file: "app/catalog-info.yaml"}, map[entity.Ref][]entity.Ref{component: c.declared}, c.started, nil)
 		var mistake *model.Mistake
-		if !errors.As(err, &mistake) || mistake.File != c.file {
+		if !errors.As(err, &mistake) || mistake.Where() != c.file {
 			t.Errorf("%s: %v, want a mistake of %s", name, err, c.file)
 		}
 	}
-	if beside, _, err := besideOf(component, "app/catalog-info.yaml", map[entity.Ref][]entity.Ref{component: {db}}, map[entity.Ref]config.Service{db: sound}, nil); err != nil || beside == nil {
+	if beside, _, err := besideOf(component, manifest{file: "app/catalog-info.yaml"}, map[entity.Ref][]entity.Ref{component: {db}}, map[entity.Ref]config.Service{db: sound}, nil); err != nil || beside == nil {
 		t.Errorf("a Resource given soundly: %v %v, want its services", beside, err)
 	}
 }
@@ -516,7 +516,7 @@ func TestAMistakeInATestsServicesIsSaidOfItsComponentsFile(t *testing.T) {
 		out := catalogOf(manifest)
 		err := services(&out, map[entity.Ref]config.Service{db: exporting})
 		var mistake *model.Mistake
-		if !errors.As(err, &mistake) || mistake.File != manifest {
+		if !errors.As(err, &mistake) || mistake.Where() != manifest {
 			t.Errorf("described in %q: %v, want a mistake of that file", manifest, err)
 		}
 	}
@@ -527,12 +527,12 @@ func TestAMistakeInATestsServicesIsSaidOfItsComponentsFile(t *testing.T) {
 func TestAnEndpointThatCannotBeSaidIsNamedTheSameEachTime(t *testing.T) {
 	db := ref("default", "db")
 	unsaid := resource("default", "db", map[string]int32{"sql": 5432})
-	if _, _, err := besideOf(component, "app/catalog-info.yaml", map[entity.Ref][]entity.Ref{component: {db}}, map[entity.Ref]config.Service{db: unsaid}, nil); err != nil {
+	if _, _, err := besideOf(component, manifest{file: "app/catalog-info.yaml"}, map[entity.Ref][]entity.Ref{component: {db}}, map[entity.Ref]config.Service{db: unsaid}, nil); err != nil {
 		t.Fatalf("a Resource with no endpoints: %v", err)
 	}
 	unsaid.Said.Endpoints = map[string]string{"a": "{host}:{port.first}", "z": "{host}:{port.last}"}
 	for range 64 {
-		_, _, err := besideOf(component, "app/catalog-info.yaml", map[entity.Ref][]entity.Ref{component: {db}}, map[entity.Ref]config.Service{db: unsaid}, nil)
+		_, _, err := besideOf(component, manifest{file: "app/catalog-info.yaml"}, map[entity.Ref][]entity.Ref{component: {db}}, map[entity.Ref]config.Service{db: unsaid}, nil)
 		if err == nil || !strings.Contains(err.Error(), "{port.first}") {
 			t.Fatalf("%v, want the endpoint a named", err)
 		}
@@ -552,7 +552,7 @@ func TestAConsentNotItsToGiveIsNamedTheSameEachTime(t *testing.T) {
 	for range 64 {
 		err := consented(Evaluation{}, said)
 		var mistake *model.Mistake
-		if !errors.As(err, &mistake) || mistake.File != "a/catalog-info.yaml" {
+		if !errors.As(err, &mistake) || mistake.Where() != "a/catalog-info.yaml" {
 			t.Fatalf("%v, want the first repository's consent named", err)
 		}
 	}

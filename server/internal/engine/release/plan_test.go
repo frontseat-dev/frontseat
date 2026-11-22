@@ -1004,7 +1004,7 @@ func TestADomainContinuesTheTagLineOfASystemOfItsName(t *testing.T) {
 func TestASystemOfASyncedDomainThatSaysSyncedIsRefusedByName(t *testing.T) {
 	history := on("release/1.0", nil, "fix: trim")
 	_, err := release.Plan(context.Background(), retailed(says("domain:retail", "grouping", "synced"), says("system:kiosk", "grouping", "synced")), &strategies{}, history, asking("domain:retail"))
-	mistaken(t, "a system that says synced", err, "kiosk is part of the synced domain retail, which groups it: say independent to release it on its own, or nothing")
+	mistaken(t, "a system that says synced", err, "kiosk is part of the synced domain retail, which groups it; say independent to release it on its own, or nothing")
 	// Saying nothing, it versions with its domain; saying independent, on
 	// its own.
 	plansUnits(t, "a system that says nothing", retailed(says("domain:retail", "grouping", "synced")), history, []string{"system:kiosk"}, "retail")

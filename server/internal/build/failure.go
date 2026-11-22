@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
+	"github.com/frontseat-dev/frontseat/server/internal/model"
 	"github.com/frontseat-dev/frontseat/server/internal/page"
 	"github.com/frontseat-dev/frontseat/server/internal/refusal"
+	"github.com/frontseat-dev/frontseat/server/internal/wire"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 
 	"connectrpc.com/connect/v2"
@@ -20,6 +22,12 @@ import (
 func failureOf(err error, fallback codes.Code) *statuspb.Status {
 	if err == nil {
 		return nil
+	}
+	// A mistake is said as it is sent, by wire.Failure, whatever wraps
+	// it.
+	var mistake *model.Mistake
+	if errors.As(err, &mistake) {
+		return wire.Failure(mistake, fallback, err.Error())
 	}
 	if s, ok := status.FromError(err); ok {
 		return s.Proto()

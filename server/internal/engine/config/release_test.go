@@ -27,7 +27,7 @@ func TestWhatAnEntitySaysOfHowItIsReleasedIsRead(t *testing.T) {
 		t.Fatalf("it says %d entities are released, want one", len(releases))
 	}
 	said := releases[0]
-	if said.File != "services/greet/catalog-info.yaml" || said.Entity.String() != "component:default/greet" {
+	if said.Repository != "services" || said.File != "greet/catalog-info.yaml" || said.Entity.String() != "component:default/greet" {
 		t.Errorf("it is said by %s in %s", said.Entity, said.File)
 	}
 	want := map[string]string{"grouping": "independent", "tag": "{unit}/v{version}", "initial": "0.77.0", "versioning": "release:conventional-commits", "branching": "release:release-flow"}
@@ -53,8 +53,8 @@ func TestAMistakeInHowAnEntityIsReleasedNamesTheSetting(t *testing.T) {
 		t.Fatalf("a sound setting was refused, so this test proves nothing: %v", err)
 	}
 	for lines, says := range map[string]string{
-		"      channels: beta\n":                       "services/greet/catalog-info.yaml: spec.frontseat.release.channels is no release setting",
-		"      dependencies: {minor: patch}\n":         "services/greet/catalog-info.yaml: spec.frontseat.release.dependencies is no release setting",
+		"      channels: beta\n":                       "services/greet/catalog-info.yaml:9: spec.frontseat.release.channels is no release setting",
+		"      dependencies: {minor: patch}\n":         "services/greet/catalog-info.yaml:9: spec.frontseat.release.dependencies is no release setting",
 		"      grouping: locked\n":                     "spec.frontseat.release.grouping must be synced or independent",
 		"      grouping: Synced\n":                     "spec.frontseat.release.grouping must be synced or independent",
 		"      tag: '{unit}'\n":                        "spec.frontseat.release.tag must hold {version} once",
@@ -69,7 +69,7 @@ func TestAMistakeInHowAnEntityIsReleasedNamesTheSetting(t *testing.T) {
 		"      versioning: conventional-commits\n":     "spec.frontseat.release.versioning must be <plugin>:<name>",
 		"      branching: 'release:'\n":                "spec.frontseat.release.branching must be <plugin>:<name>",
 		"      branching: 'Release:flow'\n":            "must be <plugin>:<name>",
-		"      prerelease: '{branch}-{date}'\n":        "spec.frontseat.release.prerelease names what is not filled: it takes {branch}, {timestamp}, {epoch}, {sha} (line",
+		"      prerelease: '{branch}-{date}'\n":        "spec.frontseat.release.prerelease names what is not filled: it takes {branch}, {timestamp}, {epoch}, {sha}",
 		"      prerelease: '{branch}..{sha}'\n":        "spec.frontseat.release.prerelease spells what is no prerelease of a semantic version",
 		"      prerelease: '{branch}+{sha}'\n":         "spells what is no prerelease of a semantic version",
 		"      prerelease: '0{epoch}'\n":               "spells what is no prerelease of a semantic version",
@@ -122,7 +122,7 @@ func TestARefusedReleaseSettingIsNotRepeated(t *testing.T) {
 		"      prerelease: 'secret..{sha}'\n",
 	} {
 		_, err := config.Read(context.Background(), "services", released("Component", lines))
-		if err == nil || !strings.Contains(err.Error(), "spec.frontseat.release.") || !strings.Contains(err.Error(), "(line 9)") || strings.Contains(err.Error(), "secret") {
+		if err == nil || !strings.Contains(err.Error(), "spec.frontseat.release.") || !strings.Contains(err.Error(), "catalog-info.yaml:9: ") || strings.Contains(err.Error(), "secret") {
 			t.Errorf("%q: want it refused by its setting and line, and not repeated, got %v", lines, err)
 		}
 	}
@@ -142,7 +142,7 @@ func TestHowAnEntityIsReleasedIsSaidByWhatIsReleased(t *testing.T) {
 	}
 	for _, kind := range []string{"API", "Resource", "Location", "Group"} {
 		_, err := config.Read(context.Background(), "services", released(kind, "      initial: 1.0.0\n"))
-		if err == nil || !strings.Contains(err.Error(), "spec.frontseat.release is said by a Domain, a System or a Component (line 9)") {
+		if err == nil || !strings.Contains(err.Error(), "catalog-info.yaml:9: spec.frontseat.release is said by a Domain, a System or a Component") {
 			t.Errorf("a %s says how it is released: %v", kind, err)
 		}
 	}

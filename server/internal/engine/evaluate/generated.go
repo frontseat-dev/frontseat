@@ -16,7 +16,6 @@ import (
 	"github.com/frontseat-dev/frontseat/server/internal/model"
 	"github.com/frontseat-dev/frontseat/server/internal/pins"
 	"github.com/frontseat-dev/frontseat/server/internal/pluginhost"
-	"github.com/frontseat-dev/frontseat/server/internal/wire"
 )
 
 // generatedView keeps generated authority out of source analysis and replay.
@@ -37,7 +36,7 @@ func (v generatedView) covered(repository, file string) bool {
 
 func (v generatedView) Read(ctx context.Context, repository, file string) ([]byte, bool, error) {
 	if v.covered(repository, file) {
-		return nil, false, &model.Mistake{File: file, Message: "analysis cannot read generated source; its metadata must come from committed manifests"}
+		return nil, false, &model.Mistake{Repository: repository, File: file, Message: "analysis cannot read generated source; its metadata must come from committed manifests"}
 	}
 	return v.Source.Read(ctx, repository, file)
 }
@@ -137,7 +136,7 @@ func consented(out Evaluation, said map[string][]config.Generated) error {
 				if found {
 					whose = owner.Ref.String() + "'s"
 				}
-				return &model.Mistake{File: consent.File, Message: fmt.Sprintf("%s says that %s generates %s, which is not its own directory but %s", consent.Entity, consent.By, path.Join(repository, consent.Directory), whose)}
+				return &model.Mistake{Repository: consent.Repository, File: consent.File, Message: fmt.Sprintf("%s says that %s generates %s, which is not its own directory but %s", consent.Entity, consent.By, path.Join(repository, consent.Directory), whose)}
 			}
 		}
 	}
@@ -154,7 +153,7 @@ func consented(out Evaluation, said map[string][]config.Generated) error {
 			// Component of it but the one at its root.
 			inner := path.Clean(entity.Path())
 			if entity.Ref != owner.Ref && inner != at && (at == "." || strings.HasPrefix(inner, at+"/")) {
-				return wire.SourceMistake(claim.Repository, "", "catalog/generated-without-consent", "GENERATED_WITHOUT_CONSENT", fmt.Sprintf("%s generates %s, which holds %s at %s: a claim never covers another Component's directory", claim.Producer, at, entity.Ref, inner), help)
+				return &model.Mistake{Repository: claim.Repository, Rule: "catalog/generated-without-consent", Reason: "GENERATED_WITHOUT_CONSENT", Message: fmt.Sprintf("%s generates %s, which holds %s at %s: a claim never covers another Component's directory", claim.Producer, at, entity.Ref, inner), Help: help}
 			}
 		}
 		// Within its own project and its own Component (or where there
@@ -165,10 +164,10 @@ func consented(out Evaluation, said map[string][]config.Generated) error {
 			continue
 		}
 		if !owned || owner.Repository != claim.Repository || owner.Ref.Kind != entity.KindComponent {
-			return wire.SourceMistake(claim.Repository, "", "catalog/generated-without-consent", "GENERATED_WITHOUT_CONSENT", fmt.Sprintf("%s generates %s, outside its Component, which no Component owns to say it may", claim.Producer, at), help)
+			return &model.Mistake{Repository: claim.Repository, Rule: "catalog/generated-without-consent", Reason: "GENERATED_WITHOUT_CONSENT", Message: fmt.Sprintf("%s generates %s, outside its Component, which no Component owns to say it may", claim.Producer, at), Help: help}
 		}
 		if !produced || producer.Repository != claim.Repository || producer.Ref.Kind != entity.KindComponent {
-			return wire.SourceMistake(claim.Repository, "", "catalog/generated-without-consent", "GENERATED_WITHOUT_CONSENT", fmt.Sprintf("%s generates %s, outside its project, and its project belongs to no Component that %s could say generates it", claim.Producer, at, owner.Ref), help)
+			return &model.Mistake{Repository: claim.Repository, Rule: "catalog/generated-without-consent", Reason: "GENERATED_WITHOUT_CONSENT", Message: fmt.Sprintf("%s generates %s, outside its project, and its project belongs to no Component that %s could say generates it", claim.Producer, at, owner.Ref), Help: help}
 		}
 		given := false
 		for _, consent := range said[claim.Repository] {
@@ -178,7 +177,7 @@ func consented(out Evaluation, said map[string][]config.Generated) error {
 			}
 		}
 		if !given {
-			return wire.SourceMistake(claim.Repository, "", "catalog/generated-without-consent", "GENERATED_WITHOUT_CONSENT", fmt.Sprintf("%s generates %s, outside its own Component, and %s does not say that %s generates it (spec.frontseat.generated in its catalog file)", claim.Producer, at, owner.Ref, producer.Ref), help)
+			return &model.Mistake{Repository: claim.Repository, Rule: "catalog/generated-without-consent", Reason: "GENERATED_WITHOUT_CONSENT", Message: fmt.Sprintf("%s generates %s, outside its own Component, and %s does not say that %s generates it (spec.frontseat.generated in its catalog file)", claim.Producer, at, owner.Ref, producer.Ref), Help: help}
 		}
 	}
 	return nil

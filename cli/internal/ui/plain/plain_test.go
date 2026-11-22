@@ -195,3 +195,54 @@ func TestThePartsOfALongLineAreWrittenAsOneLine(t *testing.T) {
 		t.Errorf("the parts were written %q", got)
 	}
 }
+
+// A build that fails by one mistake in the source says it once: its
+// failure says where it is and what to do, and the diagnostic beneath
+// it, which says no more, is not written again. The control is a
+// failure that says less than its diagnostics: each is listed, where it
+// is, by its rule, with its help.
+func TestAMistakeInTheSourceIsSaidOnce(t *testing.T) {
+	var out strings.Builder
+	printer := plain.Printer{Out: &out}
+	printer.Event(&buildv1.BuildEvent{Event: &buildv1.BuildEvent_Finished_{Finished: &buildv1.BuildEvent_Finished{Build: &buildv1.Build{
+		ExitCode: buildv1.ExitCode_EXIT_CODE_BUILD_FAILURE,
+		Failure:  "evaluating: lab/frontseat.yaml:3: it takes no key jobs; a repository lists its plugins under plugins",
+		Diagnostics: []*typev1.Diagnostic{{Message: "it takes no key jobs", Help: "a repository lists its plugins under plugins",
+			SourceLocation: &typev1.SourceLocation{Repository: "lab", Path: "frontseat.yaml", Line: 3}}},
+	}}}})
+	if strings.Count(out.String(), "it takes no key jobs") != 1 || strings.Count(out.String(), "lists its plugins") != 1 {
+		t.Errorf("printed %q; want the mistake said once", out.String())
+	}
+
+	// A mistake that names the rule it broke is written beneath its
+	// failure, which says no rule, so that the rule is said.
+	out.Reset()
+	printer.Event(&buildv1.BuildEvent{Event: &buildv1.BuildEvent_Finished_{Finished: &buildv1.BuildEvent_Finished{Build: &buildv1.Build{
+		ExitCode: buildv1.ExitCode_EXIT_CODE_BUILD_FAILURE,
+		Failure:  "evaluating: lab/app/catalog-info.yaml: two descriptors name component:app; give each catalog entity one descriptor",
+		Diagnostics: []*typev1.Diagnostic{{RuleId: "catalog/duplicate-entity", Message: "two descriptors name component:app", Help: "give each catalog entity one descriptor",
+			SourceLocation: &typev1.SourceLocation{Repository: "lab", Path: "app/catalog-info.yaml"}}},
+	}}}})
+	if !strings.Contains(out.String(), "catalog/duplicate-entity") {
+		t.Errorf("printed %q; want the rule the mistake broke", out.String())
+	}
+
+	out.Reset()
+	printer.Event(&buildv1.BuildEvent{Event: &buildv1.BuildEvent_Finished_{Finished: &buildv1.BuildEvent_Finished{Build: &buildv1.Build{
+		ExitCode: buildv1.ExitCode_EXIT_CODE_BUILD_FAILURE,
+		Failure:  "the go plugin refused the workspace",
+		Diagnostics: []*typev1.Diagnostic{
+			{RuleId: "go/invalid-manifest", Message: "the go.mod names no module", Help: "Add a module directive.", SourceLocation: &typev1.SourceLocation{Repository: "lab", Path: "app/go.mod", Line: 1}},
+			{RuleId: "go/invalid-manifest", Message: "the go.mod is empty", SourceLocation: &typev1.SourceLocation{Repository: "lab", Path: "lib/go.mod"}},
+		},
+	}}}})
+	for _, want := range []string{
+		"        lab/app/go.mod:1  go/invalid-manifest  the go.mod names no module\n",
+		"          help: Add a module directive.\n",
+		"        lab/lib/go.mod  go/invalid-manifest  the go.mod is empty\n",
+	} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("printed:\n%s\nwant a line holding %q", out.String(), want)
+		}
+	}
+}

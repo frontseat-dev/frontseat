@@ -1,7 +1,6 @@
 package config
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/frontseat-dev/frontseat/sdk/go/entity"
@@ -16,23 +15,25 @@ import (
 // keep the catalog's existing scope. Commands and test selection belong to
 // the plugin. Tools name the repository's mise pins, never versions.
 type TestRuntime struct {
-	File, Directory string
-	Entity          entity.Ref
-	Inputs, Tools   []string
-	Environment     map[string]string
+	// Repository is the repository it is written in; File the catalog
+	// file, relative to it.
+	Repository, File, Directory string
+	Entity                      entity.Ref
+	Inputs, Tools               []string
+	Environment                 map[string]string
 }
 
-func readTestRuntime(file, directory string, ref entity.Ref, node *yaml.Node) (TestRuntime, error) {
+func readTestRuntime(file place, directory string, ref entity.Ref, node *yaml.Node) (TestRuntime, error) {
 	wrong := func(line int, format string, args ...any) (TestRuntime, error) {
-		return TestRuntime{}, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: ", line) + fmt.Sprintf(format, args...)}
+		return TestRuntime{}, file.at(line, format, args...)
 	}
 	if node.Kind != yaml.MappingNode {
 		return wrong(node.Line, "spec.frontseat.test is a map of inputs, tools and environment")
 	}
 	if err := componentOnly(ref, node, "spec.frontseat.test"); err != nil {
-		return TestRuntime{}, &model.Mistake{File: file, Message: err.Error()}
+		return TestRuntime{}, file.in(err)
 	}
-	out := TestRuntime{File: file, Directory: directory, Entity: ref}
+	out := TestRuntime{Repository: file.repository, File: file.file, Directory: directory, Entity: ref}
 	for i := 0; i+1 < len(node.Content); i += 2 {
 		key, said := node.Content[i], node.Content[i+1]
 		switch key.Value {
@@ -69,7 +70,7 @@ func readTestRuntime(file, directory string, ref entity.Ref, node *yaml.Node) (T
 				out.Environment[name.Value] = value
 			}
 		default:
-			return wrong(key.Line, "spec.frontseat.test takes no key %s; it takes inputs, tools and environment", key.Value)
+			return TestRuntime{}, &model.Mistake{Repository: file.repository, File: file.file, Line: key.Line, Message: "spec.frontseat.test takes no key " + key.Value, Help: "it takes inputs, tools and environment"}
 		}
 	}
 	return out, nil

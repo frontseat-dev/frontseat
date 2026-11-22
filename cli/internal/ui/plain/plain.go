@@ -3,6 +3,7 @@ package plain
 import (
 	"fmt"
 	"io"
+	"path"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -103,7 +104,7 @@ func (p Printer) Action(result *buildv1.ActionResult) {
 	}
 	// What a check found, each where it found it; and what it changed,
 	// where the run was asked to fix.
-	p.found(result.GetDiagnostics())
+	p.found(result.GetDiagnostics(), result.GetMessage())
 	for _, change := range result.GetRewrites() {
 		did := map[bool]string{true: "wrote", false: "would write"}[change.GetApplied()]
 		switch change.GetKind() {
@@ -135,7 +136,7 @@ func (p Printer) finished(build *buildv1.Build) {
 	if build.GetFailure() != "" {
 		fmt.Fprintln(p.Out, shown(build.GetFailure()))
 	}
-	p.found(build.GetDiagnostics())
+	p.found(build.GetDiagnostics(), build.GetFailure())
 }
 
 // Printed writes what an action that failed printed, beneath the line
@@ -169,17 +170,32 @@ func Ended(code buildv1.ExitCode) string {
 	return enum.Name(code)
 }
 
-// found writes what was found, each where it was found.
-func (p Printer) found(diagnostics []*typev1.Diagnostic) {
+// found writes what was found, each where it was found, by the rule
+// that found it, and what to do about it; a finding what is said above
+// it already says whole (a mistake in the source, which its failure
+// says with where it is and what to do, and that names no rule) is not
+// written again.
+func (p Printer) found(diagnostics []*typev1.Diagnostic, said string) {
 	for _, found := range diagnostics {
 		at := ""
 		if location := found.GetSourceLocation(); location != nil {
-			at = location.GetPath()
+			at = path.Join(location.GetRepository(), location.GetPath())
 			if location.GetLine() > 0 {
 				at = fmt.Sprintf("%s:%d", at, location.GetLine())
 			}
-			at += "  "
 		}
-		fmt.Fprintf(p.Out, "        %s%s  %s\n", shown(at), shown(found.GetRuleId()), shown(found.GetMessage()))
+		if strings.Contains(said, found.GetMessage()) && strings.Contains(said, at) && strings.Contains(said, found.GetHelp()) && strings.Contains(said, found.GetRuleId()) {
+			continue
+		}
+		parts := make([]string, 0, 3)
+		for _, part := range []string{at, found.GetRuleId(), found.GetMessage()} {
+			if part != "" {
+				parts = append(parts, shown(part))
+			}
+		}
+		fmt.Fprintf(p.Out, "        %s\n", strings.Join(parts, "  "))
+		if help := found.GetHelp(); help != "" {
+			fmt.Fprintf(p.Out, "          help: %s\n", shown(help))
+		}
 	}
 }

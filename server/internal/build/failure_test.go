@@ -16,6 +16,7 @@ import (
 	"github.com/frontseat-dev/frontseat/sdk/go"
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/release"
+	"github.com/frontseat-dev/frontseat/server/internal/model"
 	"github.com/frontseat-dev/frontseat/server/internal/refusal"
 )
 
@@ -116,5 +117,27 @@ func TestAStrategysWrongAnswerIsRefusedByItsReason(t *testing.T) {
 	other := releaseFailure(errors.New("the disk is full"))
 	if reason, _ := frontseat.Reason(other); connect.CodeOf(other) != connect.CodeInternal || reason != "" {
 		t.Errorf("a failure that is no wrong answer was answered %v (%s); want INTERNAL and no reason", other, reason)
+	}
+}
+
+// A mistake in the source, whatever wraps it, is said as a run says it:
+// its words as the failure, and its parts as the run's diagnostic; and
+// as a call refuses it, beside the reason it is refused by.
+func TestAMistakeIsSaidByARunAndACallWithItsParts(t *testing.T) {
+	mistake := &model.Mistake{Repository: "lab", File: "frontseat.yaml", Line: 3, Message: "it takes no key jobs", Help: "a repository lists its plugins under plugins"}
+	wrapped := fmt.Errorf("evaluating: %w", mistake)
+	failure := failureOf(wrapped, codes.FailedPrecondition)
+	said, diagnostics := explained(failure)
+	want := &typev1.Diagnostic{Message: "it takes no key jobs", Help: "a repository lists its plugins under plugins", SourceLocation: &typev1.SourceLocation{Repository: "lab", Path: "frontseat.yaml", Line: 3}}
+	if failure.GetCode() != int32(codes.FailedPrecondition) || said != "evaluating: lab/frontseat.yaml:3: it takes no key jobs; a repository lists its plugins under plugins" || len(diagnostics) != 1 || !proto.Equal(diagnostics[0], want) {
+		t.Fatalf("a run says %q with %v", said, diagnostics)
+	}
+	refused := graphFailure(wrapped)
+	if reason, _ := frontseat.Reason(refused); connect.CodeOf(refused) != connect.CodeFailedPrecondition || reason != "SOURCE_MISTAKEN" {
+		t.Errorf("a call refused it as %v (%s)", refused, reason)
+	}
+	// The control: a mistake of its message alone carries no diagnostic.
+	if _, diagnostics := explained(failureOf(&model.Mistake{Message: "no action is named tset"}, codes.FailedPrecondition)); len(diagnostics) != 0 {
+		t.Errorf("a mistake of its message alone was said with %v", diagnostics)
 	}
 }

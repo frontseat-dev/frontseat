@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"path"
 	"sort"
 	"strings"
 
@@ -27,7 +26,7 @@ func claimants(repository string, selected []*pluginhost.Plugin) (map[string]*pl
 	for _, plugin := range selected {
 		for _, as := range plugin.Description.GetServices() {
 			if other, twice := claimed[as]; twice {
-				return nil, &model.Mistake{File: path.Join(repository, config.File), Message: fmt.Sprintf("the plugins %s and %s both start %s: a repository names one of them", other.Description.GetName(), plugin.Description.GetName(), as)}
+				return nil, &model.Mistake{Repository: repository, File: config.File, Message: fmt.Sprintf("the plugins %s and %s both start %s: a repository names one of them", other.Description.GetName(), plugin.Description.GetName(), as)}
 			}
 			claimed[as] = plugin
 		}
@@ -51,11 +50,12 @@ func startedAs(ctx context.Context, answers asking, claimed map[string]*pluginho
 			names = append(names, as)
 		}
 		sort.Strings(names)
-		known := "none does; name a plugin that starts services in " + config.File
-		if len(names) > 0 {
-			known = strings.Join(names, ", ")
+		if len(names) == 0 {
+			mistake := written.Mistake(fmt.Errorf("%s is started as %s, which no plugin of the repository starts: none does", written.Entity, written.As))
+			mistake.Help = "name a plugin that starts services in " + config.File
+			return config.Service{}, mistake
 		}
-		return config.Service{}, written.Mistake(fmt.Errorf("%s is started as %s, which no plugin of the repository starts: %s", written.Entity, written.As, known))
+		return config.Service{}, written.Mistake(fmt.Errorf("%s is started as %s, which no plugin of the repository starts: %s", written.Entity, written.As, strings.Join(names, ", ")))
 	}
 	// A plugin is told only what could be a service.
 	if err := testservice.Shaped(written.Said); err != nil {
@@ -70,7 +70,7 @@ func startedAs(ctx context.Context, answers asking, claimed map[string]*pluginho
 		// no file. Anything else is the plugin's own failure.
 		var said *pluginhost.Error
 		if errors.As(err, &said) && said.Status.GetCode() == int32(codes.InvalidArgument) {
-			return config.Service{}, &model.Mistake{File: written.File, Message: fmt.Sprintf("line %d: %s, started as %s: %s", written.Line, written.Entity, written.As, said.Error()), Cause: said}
+			return config.Service{}, &model.Mistake{Repository: written.Repository, File: written.File, Line: written.Line, Message: fmt.Sprintf("%s, started as %s: %s", written.Entity, written.As, said.Error()), Cause: said}
 		}
 		return config.Service{}, fmt.Errorf("plugin %s, asked how %s is started: %w", plugin.Description.GetName(), written.Entity, err)
 	}

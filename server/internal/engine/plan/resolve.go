@@ -21,9 +21,10 @@ type Reference struct {
 	// actions are labelled with: the repository's, which is empty for a
 	// lone repository. Unused for a catalog's.
 	Shared string
-	// File is the catalog file the reference was written in, for the
-	// mistake that names it; empty for a plugin's.
-	File string
+	// Repository and File are the catalog file the reference was
+	// written in, File relative to Repository, for the mistake that
+	// names it; empty for a plugin's.
+	Repository, File string
 }
 
 // Read is what an action reads of what another left: all of it, where
@@ -271,5 +272,5 @@ func (r *reading) end(reader *Action) {
 }
 
 func mistake(ref Reference, format string, args ...any) error {
-	return &model.Mistake{File: ref.File, Message: fmt.Sprintf(format, args...)}
+	return &model.Mistake{Repository: ref.Repository, File: ref.File, Message: fmt.Sprintf(format, args...)}
 }

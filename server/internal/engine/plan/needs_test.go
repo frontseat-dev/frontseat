@@ -69,12 +69,12 @@ func TestACircleNamesTheCatalogFileThatWroteIt(t *testing.T) {
 	own.References = []plan.Reference{{File: "lab/p/catalog-info.yaml"}}
 	for _, actions := range [][]plan.Action{{plugin, own}, {own, plugin}} {
 		var mistake *model.Mistake
-		if err := plan.Check(actions); !errors.As(err, &mistake) || mistake.File != "lab/p/catalog-info.yaml" {
+		if err := plan.Check(actions); !errors.As(err, &mistake) || mistake.Where() != "lab/p/catalog-info.yaml" {
 			t.Errorf("Check = %v naming %q, want the catalog file", err, mistake)
 		}
 	}
 	var mistake *model.Mistake
-	if err := plan.Check([]plan.Action{needing("a", "b"), needing("b", "a")}); !errors.As(err, &mistake) || mistake.File != "" {
+	if err := plan.Check([]plan.Action{needing("a", "b"), needing("b", "a")}); !errors.As(err, &mistake) || mistake.Where() != "" {
 		t.Errorf("a circle of plugins' actions names %q", mistake)
 	}
 }

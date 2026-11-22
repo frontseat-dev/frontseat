@@ -1,14 +1,13 @@
 package config
 
 import (
-	"fmt"
+	"github.com/frontseat-dev/frontseat/server/internal/model"
 	"path"
 	"path/filepath"
 	"slices"
 	"strings"
 
 	"github.com/frontseat-dev/frontseat/sdk/go/entity"
-	"github.com/frontseat-dev/frontseat/server/internal/model"
 	"go.yaml.in/yaml/v4"
 )
 
@@ -27,8 +26,9 @@ import (
 // template says where it writes, and this says the Component it writes
 // into lets it. Only a Component says it, and only of a Component.
 type Generated struct {
-	// File is the catalog file it is written in, as the workspace names it.
-	File string
+	// Repository is the repository it is written in; File the catalog
+	// file, relative to it.
+	Repository, File string
 	// Directory is the directory, relative to the repository.
 	Directory string
 	// Entity is the Component that says it; By the Component it says
@@ -41,12 +41,12 @@ type Generated struct {
 func (r *Repository) Generated() []Generated { return r.generated }
 
 // readGenerated reads spec.frontseat.generated of one catalog document.
-func readGenerated(file, directory string, component entity.Ref, node *yaml.Node) ([]Generated, error) {
+func readGenerated(file place, directory string, component entity.Ref, node *yaml.Node) ([]Generated, error) {
 	wrong := func(line int, format string, args ...any) ([]Generated, error) {
-		return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: ", line) + fmt.Sprintf(format, args...)}
+		return nil, file.at(line, format, args...)
 	}
 	if err := componentOnly(component, node, "spec.frontseat.generated"); err != nil {
-		return nil, &model.Mistake{File: file, Message: err.Error()}
+		return nil, file.in(err)
 	}
 	var err error
 	if node.Kind != yaml.SequenceNode || len(node.Content) == 0 {
@@ -57,7 +57,7 @@ func readGenerated(file, directory string, component entity.Ref, node *yaml.Node
 		if entry.Kind != yaml.MappingNode {
 			return wrong(entry.Line, "an entry of spec.frontseat.generated is a map of directory and by")
 		}
-		said := Generated{File: file, Entity: component}
+		said := Generated{Repository: file.repository, File: file.file, Entity: component}
 		var by, at *yaml.Node
 		for i := 0; i+1 < len(entry.Content); i += 2 {
 			key, value := entry.Content[i], entry.Content[i+1]
@@ -70,7 +70,7 @@ func readGenerated(file, directory string, component entity.Ref, node *yaml.Node
 			case "by":
 				by = value
 			default:
-				return wrong(key.Line, "an entry of spec.frontseat.generated takes no key %s; it takes directory and by", key.Value)
+				return nil, &model.Mistake{Repository: file.repository, File: file.file, Line: key.Line, Message: "an entry of spec.frontseat.generated takes no key " + key.Value, Help: "it takes directory and by"}
 			}
 		}
 		if at == nil || by == nil {

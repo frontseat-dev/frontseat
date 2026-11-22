@@ -31,7 +31,7 @@ func TestAServiceMistakeNamesOnlyTheLineItIsWrittenOn(t *testing.T) {
 		"http":          "      as: container\n      ready: [{http: {port: a, path: /, x: 1}}]\n",
 	} {
 		_, err := config.Read(t.Context(), "repo", resourceWith(text))
-		if err == nil || strings.Contains(err.Error(), "line 1:") || strings.Contains(err.Error(), "struct {") {
+		if err == nil || strings.Contains(err.Error(), "line 1:") || strings.Contains(err.Error(), ":1: ") || strings.Contains(err.Error(), "struct {") {
 			t.Errorf("%s: %v", name, err)
 		}
 	}
@@ -48,10 +48,10 @@ func TestAServiceEntryIsRefusedOnItsOwnLine(t *testing.T) {
 		t.Fatalf("control: %v", err)
 	}
 	for says, change := range map[string][2]string{
-		"line 13: service.ports: a port is named in":                     {"extra: 82", "Bad: 82"},
-		"line 12: service.ports: a port is a number from 1 to":           {"admin: 81", "admin: 70000"},
-		"line 16: service.exports: a name the shell can export":          {"EXPORT: y", "EX-PORT: y"},
-		"line 19: service.environment: a name the shell can export is l": {"VARIABLE: z", "VARI-ABLE: z"},
+		":13: service.ports: a port is named in":                     {"extra: 82", "Bad: 82"},
+		":12: service.ports: a port is a number from 1 to":           {"admin: 81", "admin: 70000"},
+		":16: service.exports: a name the shell can export":          {"EXPORT: y", "EX-PORT: y"},
+		":19: service.environment: a name the shell can export is l": {"VARIABLE: z", "VARI-ABLE: z"},
 	} {
 		_, err := config.Read(t.Context(), "repo", resourceWith(strings.Replace(service, change[0], change[1], 1)))
 		name, _, _ := strings.Cut(change[1], ":")

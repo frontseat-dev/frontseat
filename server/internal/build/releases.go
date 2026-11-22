@@ -302,7 +302,7 @@ func (rs *releases) committed(ctx context.Context, repository string) error {
 		return &model.Mistake{Message: fmt.Sprintf("%s has changes that are not committed (%s); a release is of a commit", repository, some(uncommitted))}
 	}
 	if len(read) > 0 {
-		return &model.Mistake{Message: fmt.Sprintf("%s holds files its commit does not, which a build reads (%s); a release is of a commit: remove them, or name them in %s", repository, some(read), source.IgnoreFile)}
+		return &model.Mistake{Message: fmt.Sprintf("%s holds files its commit does not, which a build reads (%s); a release is of a commit", repository, some(read)), Help: "remove them, or name them in " + source.IgnoreFile}
 	}
 	return nil
 }

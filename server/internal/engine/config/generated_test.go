@@ -23,7 +23,7 @@ func TestAComponentSaysWhichComponentGeneratesItsDirectory(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := read.Generated()
-	if len(got) != 2 || got[0].Directory != "lib/gen" || got[0].File != "repo/lib/catalog-info.yaml" || got[0].Entity.String() != "component:default/lib" || got[0].By.String() != "component:default/api" || got[1].Directory != "lib/other/gen" || got[1].By.String() != "component:default/tools" {
+	if len(got) != 2 || got[0].Directory != "lib/gen" || got[0].Repository != "repo" || got[0].File != "lib/catalog-info.yaml" || got[0].Entity.String() != "component:default/lib" || got[0].By.String() != "component:default/api" || got[1].Directory != "lib/other/gen" || got[1].By.String() != "component:default/tools" {
 		t.Fatalf("consent lost its directory or Components: %+v", got)
 	}
 	for body, says := range map[string]string{

@@ -132,7 +132,7 @@ func TestAReferenceThatNamesNotOneThingIsRefused(t *testing.T) {
 			if !errors.As(err, &mistake) || mistake.Message != c.says {
 				t.Fatalf("Resolve = %v, want %q", err, c.says)
 			}
-			if c.actions[len(c.actions)-1].References[0].File != "" && mistake.File == "" {
+			if c.actions[len(c.actions)-1].References[0].File != "" && mistake.Where() == "" {
 				t.Errorf("the mistake names no file")
 			}
 		})
