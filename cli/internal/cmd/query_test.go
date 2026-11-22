@@ -259,6 +259,10 @@ func TestTestRunsTheTestActionsOfWhatItIsPointedAt(t *testing.T) {
 	if _, _, err := asking(t, g, "build", "gateway"); err != nil || len(g.built) != 2 || len(g.built[1].GetOnly()) != 0 || g.built[1].GetTests() {
 		t.Errorf("build asked for %v (%v)", g.built, err)
 	}
+	// --only keeps the tests of a name, as it keeps the actions of build.
+	if _, _, err := asking(t, g, "test", "gateway", "--only", "test"); err != nil || len(g.built) != 3 || !g.built[2].GetTests() || strings.Join(g.built[2].GetOnly(), ",") != "test" {
+		t.Errorf("test --only asked for %v (%v)", g.built, err)
+	}
 }
 
 // noTests is a daemon whose build of the tests of what it was pointed at

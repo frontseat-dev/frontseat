@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"os"
+	"strings"
 	"testing"
 )
 
@@ -26,5 +28,25 @@ func TestVersionSaysWhatItWasReleasedAt(t *testing.T) {
 	}
 	if len(d.planned)+len(d.created) != 0 {
 		t.Errorf("a daemon was asked: %v %v", d.planned, d.created)
+	}
+}
+
+// frontseat --version says what frontseat version says, and frontseat
+// alone prints its help and is no mistake; a word that is no command is
+// one, and says what was meant where one is near it.
+func TestTheRootSaysItsVersionAndItsHelp(t *testing.T) {
+	d := &daemonOf{}
+	printed := &strings.Builder{}
+	rootCmd.SetOut(printed)
+	t.Cleanup(func() { rootCmd.SetOut(os.Stdout) })
+	if _, code, err := run(t, d, "--version"); err != nil || code != 0 || printed.String() != "frontseat 0.0.0-dev\n" {
+		t.Errorf("--version said %q, %d, %v", printed, code, err)
+	}
+	printed.Reset()
+	if _, code, err := run(t, d); err != nil || code != 0 || !strings.Contains(printed.String(), "Usage:") {
+		t.Errorf("frontseat alone: %d, %v, printing %q", code, err, printed)
+	}
+	if _, _, err := run(t, d, "biuld"); err == nil || !strings.Contains(err.Error(), "did you mean build?") {
+		t.Errorf("a word near a command: %v", err)
 	}
 }

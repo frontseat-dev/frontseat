@@ -144,6 +144,9 @@ the workspace's source is fixed, and the workspace commands are refused.`,
 // it ends with, or why it could not run.
 func Execute(ctx context.Context, args []string) (int, error) {
 	exitCode = 0
+	// --version says what frontseat version says.
+	rootCmd.Version = version
+	rootCmd.SetVersionTemplate(released() + "\n")
 	fresh(rootCmd, ctx)
 	rootCmd.SetArgs(args)
 	if err := rootCmd.ExecuteContext(ctx); err != nil {
@@ -196,8 +199,15 @@ func init() {
 	// found by its name before the command line is run.
 	rootCmd.InitDefaultHelpCmd()
 	rootCmd.InitDefaultCompletionCmd()
-	rootCmd.RunE = named("a command")
+	rootCmd.RunE = func(cmd *cobra.Command, args []string) error {
+		// frontseat alone says what there is, and is no mistake.
+		if len(args) == 0 {
+			return cmd.Help()
+		}
+		return named("a command")(cmd, args)
+	}
 	rootCmd.Args = cobra.ArbitraryArgs
+	rootCmd.SuggestionsMinimumDistance = 2
 }
 
 // named refuses a command that is a group of others and was asked for
@@ -213,7 +223,11 @@ func named(what string) func(*cobra.Command, []string) error {
 			}
 		}
 		if len(args) > 0 {
-			return fmt.Errorf("%q is not %s; there are %s", args[0], what, strings.Join(names, ", "))
+			meant := ""
+			if near := cmd.SuggestionsFor(args[0]); len(near) > 0 {
+				meant = "; did you mean " + strings.Join(near, " or ") + "?"
+			}
+			return fmt.Errorf("%q is not %s; there are %s%s", args[0], what, strings.Join(names, ", "), meant)
 		}
 		return fmt.Errorf("name %s: %s", what, strings.Join(names, ", "))
 	}

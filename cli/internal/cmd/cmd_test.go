@@ -259,7 +259,6 @@ func TestWhatIsWrittenWronglyIsRefusedBeforeADaemonIsAsked(t *testing.T) {
 		"a plan seen and released at once":   {"ship", "greet", "--dry-run", "--etag", "seen"},
 		"a flag ship does not take":          {"ship", "greet", "--only", "test"},
 		"a command there is not":             {"release", "greet"},
-		"no command at all":                  {},
 		"workspace by itself":                {"workspace"},
 		"a workspace command there is not":   {"workspace", "delet"},
 		"a flag written with one dash":       {"build", "-only", "test"},
@@ -275,7 +274,6 @@ func TestWhatIsWrittenWronglyIsRefusedBeforeADaemonIsAsked(t *testing.T) {
 		"build events from before the first": {"build", "events", "build_1", "--from", "-1"},
 		"build logs with no label":           {"build", "logs", "build_1"},
 		"open, which is workspace open":      {"open"},
-		"test keeps no other actions":        {"test", "--only", "lint"},
 		"query of two targets":               {"query", "a", "b"},
 		"a server named by a flag":           {"workspace", "list", "--server", "http://127.0.0.1:1"},
 	} {

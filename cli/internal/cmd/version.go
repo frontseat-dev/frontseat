@@ -15,17 +15,22 @@ var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Say which release of frontseat this is",
 	Long: `Say the version this frontseat was released at, and the commit that
-release was made of. One that no release built says 0.0.0-dev. It asks
-no server.`,
+release was made of, as frontseat --version does. One that no release
+built says 0.0.0-dev. It asks no server.`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if commit == "" {
-			said("frontseat %s", version)
-			return nil
-		}
-		said("frontseat %s (%s)", version, commit)
+		said("%s", released())
 		return nil
 	},
+}
+
+// released says the version and commit this frontseat was released at,
+// as frontseat version and frontseat --version print it.
+func released() string {
+	if commit == "" {
+		return "frontseat " + version
+	}
+	return "frontseat " + version + " (" + commit + ")"
 }
 
 func init() {
