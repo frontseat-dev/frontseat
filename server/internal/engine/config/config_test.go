@@ -151,11 +151,55 @@ func TestAnActionRefusesAKeyItDoesNotTake(t *testing.T) {
 			"catalog-info.yaml": "apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata: {name: app}\nspec:\n  frontseat:\n    actions:\n      serve:\n        " + key + ": true\n        tools: [caddy]\n        command: [caddy, run]\n",
 		})
 	}
-	if _, err := read("serves"); err == nil || !strings.Contains(err.Error(), "line 8: an action takes no key serves; it takes check, command,") {
+	if _, err := read("serves"); err == nil || !strings.Contains(err.Error(), "line 8: an action takes no key serves; it takes command,") {
 		t.Errorf("an action with a key it does not take: %v", err)
 	}
-	if got, err := read("program"); err != nil || len(got.Actions()) != 1 || !got.Actions()[0].Program {
-		t.Errorf("control, program: true: %v", err)
+	if got, err := read("versioned"); err != nil || len(got.Actions()) != 1 || !got.Actions()[0].Versioned {
+		t.Errorf("control, versioned: true: %v", err)
+	}
+}
+
+// An action is of one kind, said by one key with named values, and
+// the keys only one kind takes are refused, on their own line, by an
+// action of another. A switch that said a kind is refused as a key the
+// action does not take. Each refusal has its control.
+func TestAnActionIsOfOneKind(t *testing.T) {
+	read := func(keys string) (*config.Repository, error) {
+		return config.Read(t.Context(), "", files{
+			config.File:         "plugins: {}\n",
+			"catalog-info.yaml": "apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata: {name: app}\nspec:\n  frontseat:\n    actions:\n      lint:\n        command: [lint]\n" + keys,
+		})
+	}
+	for keys, want := range map[string]string{
+		"":                      config.KindBuild,
+		"        kind: build\n": config.KindBuild,
+		"        kind: check\n        fix: [lint, --fix]\n        rewrites: [\"*.md\"]\n": config.KindCheck,
+		"        kind: program\n":                                          config.KindProgram,
+		"        kind: package\n        outputs: [out/]\n":                 config.KindPackage,
+		"        kind: publish\n        inherit-environment: [GH_TOKEN]\n": config.KindPublish,
+	} {
+		got, err := read(keys)
+		if err != nil || len(got.Actions()) != 1 || got.Actions()[0].Kind != want {
+			t.Errorf("%q: want kind %s, got %+v, %v", keys, want, got, err)
+		}
+	}
+	for keys, says := range map[string]string{
+		"        kind: test\n":                             "line 9: kind is one of build, check, program, package and publish",
+		"        kind: [check]\n":                          "line 9: kind is one of build, check, program, package and publish",
+		"        check: true\n":                            "line 9: an action takes no key check; it takes command, description, fix, inherit-environment, inputs, kind, outputs, rewrites, tools, versioned",
+		"        program: true\n":                          "an action takes no key program",
+		"        publish: true\n":                          "an action takes no key publish",
+		"        package: true\n":                          "an action takes no key package",
+		"        fix: [lint, --fix]\n":                     "line 9: the action lint says fix, which only an action of kind check takes",
+		"        rewrites: [\"*.md\"]\n":                   "line 9: the action lint says rewrites, which only an action of kind check takes",
+		"        inherit-environment: [GH_TOKEN]\n":        "line 9: the action lint says inherit-environment, which only an action of kind publish takes",
+		"        kind: package\n":                          "line 9: the action lint is of kind package and says no outputs: what it leaves is what is shipped",
+		"        kind: program\n        versioned: true\n": "line 10: the action lint says versioned, which only an action of kind build or package takes",
+		"        kind: publish\n        versioned: true\n": "line 10: the action lint says versioned, which only an action of kind build or package takes",
+	} {
+		if _, err := read(keys); err == nil || !strings.Contains(err.Error(), says) {
+			t.Errorf("%q: want %q, got %v", keys, says, err)
+		}
 	}
 }
 
@@ -228,14 +272,14 @@ func TestAnActionOfAnEntitysOwnSaysItPublishesAndWhatItIsGiven(t *testing.T) {
 			"catalog-info.yaml": "apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata: {name: app}\nspec:\n  frontseat:\n    actions:\n      release:\n        tools: [gh]\n        command: [gh, release, create]\n" + keys,
 		})
 	}
-	got, err := read("        publish: true\n        inherit-environment: [GH_TOKEN]\n")
-	if err != nil || len(got.Actions()) != 1 || !got.Actions()[0].Publish || !slices.Equal(got.Actions()[0].InheritEnvironment, []string{"GH_TOKEN"}) {
+	got, err := read("        kind: publish\n        inherit-environment: [GH_TOKEN]\n")
+	if err != nil || len(got.Actions()) != 1 || got.Actions()[0].Kind != config.KindPublish || !slices.Equal(got.Actions()[0].InheritEnvironment, []string{"GH_TOKEN"}) {
 		t.Errorf("control, an action that publishes: %v, %v", got.Actions(), err)
 	}
 	for keys, says := range map[string]string{
-		"        inherit-environment: [GH_TOKEN]\n":                      "the action release says inherit-environment, which only an action that publishes is given",
-		"        publish: 'yes'\n":                                       "publish is true or false",
-		"        publish: true\n        inherit-environment: GH_TOKEN\n": "inherit-environment is a list",
+		"        inherit-environment: [GH_TOKEN]\n":                      "the action release says inherit-environment, which only an action of kind publish takes",
+		"        kind: 'yes'\n":                                          "kind is one of build, check, program, package and publish",
+		"        kind: publish\n        inherit-environment: GH_TOKEN\n": "inherit-environment is a list",
 	} {
 		if _, err := read(keys); err == nil || !strings.Contains(err.Error(), says) {
 			t.Errorf("%q: %v, want %q", keys, err, says)

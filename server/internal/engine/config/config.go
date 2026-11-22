@@ -153,10 +153,9 @@ type Action struct {
 	// Inputs are what it reads: patterns relative to Directory, and
 	// what other actions left, as ":what" or "//path:what".
 	Inputs []string
-	// Check says it checks the source.
-	Check bool
-	// Program marks a program, never a finite build action.
-	Program bool
+	// Kind is what it is to a build: KindBuild where nothing is
+	// written, or KindCheck, KindProgram, KindPackage or KindPublish.
+	Kind string
 	// Fix is the command that puts right what the check finds, run where
 	// the checkout is; nothing, where the check has no fix.
 	Fix []string
@@ -169,14 +168,39 @@ type Action struct {
 	// Versioned says it is given the version of the release it is built
 	// for, where its command names it.
 	Versioned bool
-	// Package says it makes what the entity ships: each file it leaves
-	// is an artifact of a release.
-	Package bool
-	// Publish says it publishes what a release shipped, where the
-	// daemon is; InheritEnvironment names the variables of where the
-	// daemon runs that it is given then (inherit-environment).
-	Publish            bool
+	// InheritEnvironment names the variables of where the daemon runs
+	// that an action of KindPublish is given (inherit-environment).
 	InheritEnvironment []string
+}
+
+// The kinds of an action an entity writes, as its kind says each: the
+// words the plugin contract's Action.kind names them by.
+const (
+	// KindBuild is an ordinary step of a build: it makes what other
+	// actions read.
+	KindBuild = "build"
+	// KindCheck checks the source, and may have a fix.
+	KindCheck = "check"
+	// KindProgram is a program that keeps running, started by
+	// frontseat run, and no step of a build.
+	KindProgram = "program"
+	// KindPackage makes what the entity ships: each file it leaves is
+	// an artifact of a release.
+	KindPackage = "package"
+	// KindPublish publishes what a release shipped, where the daemon is.
+	KindPublish = "publish"
+)
+
+// kinds is what kind takes, in the order a refusal says them.
+var kinds = []string{KindBuild, KindCheck, KindProgram, KindPackage, KindPublish}
+
+// onlyOf is each key of an action that only actions of some kinds take,
+// with those kinds, as a refusal says them.
+var onlyOf = map[string][]string{
+	"fix":                 {KindCheck},
+	"rewrites":            {KindCheck},
+	"inherit-environment": {KindPublish},
+	"versioned":           {KindBuild, KindPackage},
 }
 
 // scope is what one catalog file sets, for its directory and beneath.
@@ -401,9 +425,12 @@ func actions(file, directory string, node *yaml.Node) ([]Action, error) {
 		if body.Kind != yaml.MappingNode {
 			return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: the action %s is a map: its command, and what it reads and writes", body.Line, name.Value)}
 		}
-		action := Action{File: file, Directory: directory, Name: name.Value}
+		action := Action{File: file, Directory: directory, Name: name.Value, Kind: KindBuild}
+		// said is where each key is written, for a refusal by its kind.
+		said := map[string]int{}
 		for j := 0; j+1 < len(body.Content); j += 2 {
 			key, value := body.Content[j], body.Content[j+1]
+			said[key.Value] = key.Line
 			var list *[]string
 			switch key.Value {
 			case "description":
@@ -426,29 +453,20 @@ func actions(file, directory string, node *yaml.Node) ([]Action, error) {
 				list = &action.Fix
 			case "inherit-environment":
 				list = &action.InheritEnvironment
-			case "check", "program", "versioned", "package", "publish":
-				if value.Kind != yaml.ScalarNode || value.ShortTag() != "!!bool" {
-					return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: %s is true or false", value.Line, key.Value)}
+			case "kind":
+				kind, ok := text(value)
+				if !ok || !slices.Contains(kinds, kind) {
+					return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: kind is one of %s and %s", value.Line, strings.Join(kinds[:len(kinds)-1], ", "), kinds[len(kinds)-1])}
 				}
-				var enabled bool
-				if err := value.Decode(&enabled); err != nil {
-					return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: %s is true or false", value.Line, key.Value)}
-				}
-				switch key.Value {
-				case "program":
-					action.Program = enabled
-				case "versioned":
-					action.Versioned = enabled
-				case "package":
-					action.Package = enabled
-				case "publish":
-					action.Publish = enabled
-				default:
-					action.Check = enabled
+				action.Kind = kind
+				continue
+			case "versioned":
+				if value.Kind != yaml.ScalarNode || value.ShortTag() != "!!bool" || value.Decode(&action.Versioned) != nil {
+					return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: versioned is true or false", value.Line)}
 				}
 				continue
 			default:
-				return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: an action takes no key %s; it takes check, command, description, fix, inherit-environment, inputs, outputs, package, program, publish, rewrites, tools, versioned", key.Line, key.Value)}
+				return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: an action takes no key %s; it takes command, description, fix, inherit-environment, inputs, kind, outputs, rewrites, tools, versioned", key.Line, key.Value)}
 			}
 			read, wrong := textList(value)
 			switch {
@@ -462,8 +480,15 @@ func actions(file, directory string, node *yaml.Node) ([]Action, error) {
 		if len(action.Command) == 0 {
 			return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: the action %s says no command", name.Line, name.Value)}
 		}
-		if len(action.InheritEnvironment) > 0 && !action.Publish {
-			return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: the action %s says inherit-environment, which only an action that publishes is given", name.Line, name.Value)}
+		// What only some kinds take is refused, where it is written, by
+		// an action of another.
+		for _, key := range slices.Sorted(maps.Keys(onlyOf)) {
+			if line, written := said[key]; written && !slices.Contains(onlyOf[key], action.Kind) {
+				return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: the action %s says %s, which only an action of kind %s takes", line, name.Value, key, strings.Join(onlyOf[key], " or "))}
+			}
+		}
+		if action.Kind == KindPackage && len(action.Outputs) == 0 {
+			return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: the action %s is of kind package and says no outputs: what it leaves is what is shipped", said["kind"], name.Value)}
 		}
 		out = append(out, action)
 	}

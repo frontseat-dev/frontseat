@@ -243,7 +243,8 @@ spec:
 
 The one place a command is written by hand. A map of action name to
 action; a name is lower-case letters, digits and dashes. An action
-`lint` in `handbook/` is `//handbook:custom.lint`.
+`lint` in `handbook/` is `//handbook:custom.lint`, whatever its kind:
+the name written is the name printed.
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
@@ -252,14 +253,19 @@ action; a name is lower-case letters, digits and dashes. An action
 | `tools` | list of text | `[]` | Tools it runs with, each by the name `mise.toml` pins it under. |
 | `inputs` | list of text | `[]` | What it reads, in the forms `test.inputs` takes. |
 | `outputs` | list of text | `[]` | What it writes, relative to the directory. A directory ends in `/`. |
-| `check` | switch | `false` | It checks the source. |
-| `fix` | list of text | | The command that puts right what the check finds. Only with `check`, and with `rewrites`. |
-| `rewrites` | list of text | `[]` | Patterns of the inputs `fix` may change. Only with `fix`. |
-| `program` | switch | `false` | It is a program that keeps running, started by `frontseat run`. It is named `custom.run/<name>`. |
-| `versioned` | switch | `false` | It is given the version of the release it is built for, where its command names it. |
-| `package` | switch | `false` | It makes what the entity ships: each file it leaves is an artifact of a release. It says its `outputs`. |
-| `publish` | switch | `false` | It publishes what a release shipped. It is named `custom.publish/<name>`, says no `inputs`, and is none of the other kinds. |
-| `inherit-environment` | list of text | `[]` | Names of variables of where the daemon runs that the action is given, their values as the daemon has them. Only with `publish`. |
+| `kind` | one of the kinds below | `build` | What the action is to a build. |
+| `fix` | list of text | | The command that puts right what the check finds. Only of kind `check`, and with `rewrites`. |
+| `rewrites` | list of text | `[]` | Patterns of the inputs `fix` may change. Only of kind `check`, and with `fix`. |
+| `versioned` | switch | `false` | It is given the version of the release it is built for, where its command names it. Only of kind `build` or `package`. |
+| `inherit-environment` | list of text | `[]` | Names of variables of where the daemon runs that the action is given, their values as the daemon has them. Only of kind `publish`. |
+
+| Kind | What it is |
+|---|---|
+| `build` | An ordinary step of a build: it makes what other actions read, and fails the build where it fails. |
+| `check` | It checks the source, and may have a `fix`. |
+| `program` | A program that keeps running, started by `frontseat run`, and no step of a build. |
+| `package` | It makes what the entity ships: each file it leaves is an artifact of a release. It says its `outputs`. |
+| `publish` | It publishes what a release shipped, where the daemon runs. It says no `inputs` and no `outputs`. |
 
 ```yaml
 # handbook/catalog-info.yaml
@@ -275,7 +281,7 @@ spec:
     actions:
       lint:
         description: Checks the Markdown.
-        check: true
+        kind: check
         command: [markdownlint, "**/*.md"]
         tools: [markdownlint]
         inputs: ["**/*.md"]
@@ -287,11 +293,11 @@ spec:
         inputs: ["**/*.md", mkdocs.yml]
         outputs: [site/]
       preview:
-        program: true
+        kind: program
         command: [mkdocs, serve]
         tools: [mkdocs]
       announce:
-        publish: true
+        kind: publish
         command: [gh, release, create]
         tools: [gh]
         inherit-environment: [GH_TOKEN]

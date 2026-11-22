@@ -246,7 +246,7 @@ func TestAServicesAPIIsWrittenAsAReferenceIsWritten(t *testing.T) {
 // taken. The control is each written by its word.
 func TestOneWordIsOneThingInOneShape(t *testing.T) {
 	publishing := func(keys string) files {
-		return files{config.File: "plugins: {}\n", "catalog-info.yaml": "apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata: {name: app}\nspec:\n  frontseat:\n    actions:\n      release:\n        command: [gh, release, create]\n        publish: true\n" + keys}
+		return files{config.File: "plugins: {}\n", "catalog-info.yaml": "apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata: {name: app}\nspec:\n  frontseat:\n    actions:\n      release:\n        command: [gh, release, create]\n        kind: publish\n" + keys}
 	}
 	for _, c := range []struct {
 		refused, says string
