@@ -85,19 +85,15 @@ func (s *runService) ListRuns(_ context.Context, request *buildv1.ListRunsReques
 	return out, nil
 }
 
-// CancelRun ends a run, and returns once it has ended.
-func (s *runService) CancelRun(ctx context.Context, request *buildv1.CancelRunRequest) (*buildv1.CancelRunResponse, error) {
+// CancelRun tells a run to end, and returns at once, as CancelBuild
+// does: WaitRun returns once it has ended.
+func (s *runService) CancelRun(_ context.Context, request *buildv1.CancelRunRequest) (*buildv1.CancelRunResponse, error) {
 	found, err := s.find(request.GetRunId())
 	if err != nil {
 		return nil, err
 	}
 	found.end()
-	select {
-	case <-found.ended:
-		return &buildv1.CancelRunResponse{Run: found.snapshot()}, nil
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
+	return &buildv1.CancelRunResponse{Run: found.snapshot()}, nil
 }
 
 // WaitRun returns a run once it has ended.

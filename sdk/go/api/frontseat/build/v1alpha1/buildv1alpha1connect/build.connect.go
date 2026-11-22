@@ -162,9 +162,10 @@ type BuildServiceClient interface {
 	// - INVALID_ARGUMENT: the page token is not one this call gave
 	//   (PAGE_TOKEN_INVALID).
 	ListBuilds(context.Context, *v1alpha1.ListBuildsRequest) (*v1alpha1.ListBuildsResponse, error)
-	// CancelBuild stops a build: nothing new starts, and what is executing is
-	// cancelled on the grid. Cancelling a build that has ended succeeds and
-	// changes nothing.
+	// CancelBuild stops a build: nothing new starts, and what is executing
+	// is cancelled on the grid. It returns at once, with the build as it is
+	// then, as CancelRun does; WaitBuild returns once the build has ended.
+	// Cancelling a build that has ended succeeds and changes nothing.
 	//
 	// ### Errors
 	// - NOT_FOUND: no build has that id (BUILD_NOT_FOUND).
@@ -304,9 +305,10 @@ type BuildServiceHandler interface {
 	// - INVALID_ARGUMENT: the page token is not one this call gave
 	//   (PAGE_TOKEN_INVALID).
 	ListBuilds(context.Context, *v1alpha1.ListBuildsRequest) (*v1alpha1.ListBuildsResponse, error)
-	// CancelBuild stops a build: nothing new starts, and what is executing is
-	// cancelled on the grid. Cancelling a build that has ended succeeds and
-	// changes nothing.
+	// CancelBuild stops a build: nothing new starts, and what is executing
+	// is cancelled on the grid. It returns at once, with the build as it is
+	// then, as CancelRun does; WaitBuild returns once the build has ended.
+	// Cancelling a build that has ended succeeds and changes nothing.
 	//
 	// ### Errors
 	// - NOT_FOUND: no build has that id (BUILD_NOT_FOUND).

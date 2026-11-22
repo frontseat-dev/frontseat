@@ -151,8 +151,9 @@ type RunServiceClient interface {
 	ListRuns(context.Context, *v1alpha1.ListRunsRequest) (*v1alpha1.ListRunsResponse, error)
 	// CancelRun ends a run: its build is cancelled, or its program is
 	// told to end and, where it has not within ten seconds, is ended. It
-	// returns once the run has ended. Cancelling one that has ended
-	// changes nothing and succeeds.
+	// returns at once, with the run as it is then, as CancelBuild does;
+	// WaitRun returns once the run has ended. Cancelling one that has
+	// ended changes nothing and succeeds.
 	//
 	// ### Errors
 	// - NOT_FOUND: no run has that id (RUN_NOT_FOUND).
@@ -245,8 +246,9 @@ type RunServiceHandler interface {
 	ListRuns(context.Context, *v1alpha1.ListRunsRequest) (*v1alpha1.ListRunsResponse, error)
 	// CancelRun ends a run: its build is cancelled, or its program is
 	// told to end and, where it has not within ten seconds, is ended. It
-	// returns once the run has ended. Cancelling one that has ended
-	// changes nothing and succeeds.
+	// returns at once, with the run as it is then, as CancelBuild does;
+	// WaitRun returns once the run has ended. Cancelling one that has
+	// ended changes nothing and succeeds.
 	//
 	// ### Errors
 	// - NOT_FOUND: no run has that id (RUN_NOT_FOUND).

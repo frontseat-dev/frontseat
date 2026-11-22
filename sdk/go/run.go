@@ -109,7 +109,8 @@ func (r *Run) Wait(ctx context.Context) (*buildv1.Run, error) {
 }
 
 // Cancel cancels the run: its build is stopped, or its program ended. It
-// returns the run as it is then.
+// returns at once, with the run as it is then; Wait returns once it has
+// ended.
 func (r *Run) Cancel(ctx context.Context) (*buildv1.Run, error) {
 	api, err := r.w.runs(ctx)
 	if err != nil {

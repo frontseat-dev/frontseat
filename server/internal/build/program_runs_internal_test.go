@@ -1,9 +1,11 @@
 package build
 
 import (
+	"context"
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"strings"
 	"testing"
+	"time"
 
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 )
@@ -131,4 +133,41 @@ func TestARunIsMadeWithItsBuild(t *testing.T) {
 		t.Errorf("the run names the run %s, which is %v (%v); want the build of its program", run, built, err)
 	}
 	<-made.ended
+}
+
+// Cancelling a run returns at once, as cancelling a build does, with the
+// run as it is then; the run is told to end, and WaitRun returns once it
+// has. Cancelling it again changes nothing.
+func TestCancellingARunReturnsAtOnceAndWaitFollows(t *testing.T) {
+	going := aRun()
+	going.state.Id, going.state.State = "run_0123456789ab", buildv1.Run_STATE_RUNNING
+	s := &runService{programs: &programRuns{made: []*programRun{going}}}
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+
+	cancelled, err := s.CancelRun(ctx, &buildv1.CancelRunRequest{RunId: going.state.GetId()})
+	if err != nil || cancelled.GetRun().GetState() != buildv1.Run_STATE_RUNNING {
+		t.Fatalf("cancelling a run that has not ended: %v, %v; want it answered at once, as it is", cancelled.GetRun().GetState(), err)
+	}
+	select {
+	case <-going.stop:
+	default:
+		t.Fatal("the run was not told to end")
+	}
+	waited := make(chan *buildv1.Run, 1)
+	go func() {
+		ended, err := s.WaitRun(ctx, &buildv1.WaitRunRequest{RunId: going.state.GetId()})
+		if err != nil {
+			t.Error(err)
+		}
+		waited <- ended.GetRun()
+	}()
+	going.change(func(r *buildv1.Run) { r.State = buildv1.Run_STATE_CANCELLED })
+	close(going.ended)
+	if ended := <-waited; ended.GetState() != buildv1.Run_STATE_CANCELLED {
+		t.Errorf("WaitRun after a cancel returned %v", ended.GetState())
+	}
+	if again, err := s.CancelRun(ctx, &buildv1.CancelRunRequest{RunId: going.state.GetId()}); err != nil || again.GetRun().GetState() != buildv1.Run_STATE_CANCELLED {
+		t.Errorf("a run that has ended, cancelled again: %v, %v", again.GetRun().GetState(), err)
+	}
 }

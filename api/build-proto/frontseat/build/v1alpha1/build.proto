@@ -66,9 +66,10 @@ service BuildService {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
 
-  // CancelBuild stops a build: nothing new starts, and what is executing is
-  // cancelled on the grid. Cancelling a build that has ended succeeds and
-  // changes nothing.
+  // CancelBuild stops a build: nothing new starts, and what is executing
+  // is cancelled on the grid. It returns at once, with the build as it is
+  // then, as CancelRun does; WaitBuild returns once the build has ended.
+  // Cancelling a build that has ended succeeds and changes nothing.
   //
   // ### Errors
   // - NOT_FOUND: no build has that id (BUILD_NOT_FOUND).

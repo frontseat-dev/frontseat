@@ -130,10 +130,13 @@ func followRun(cmd *cobra.Command, w *frontseat.Workspace, run *frontseat.Run) (
 	return run.Wait(cmd.Context())
 }
 
-// stop cancels a run in a moment of its own, half a minute, whatever
-// became of the context the command ran in.
+// stop cancels a run, and waits for it to have ended, in a moment of
+// its own, half a minute, whatever became of the context the command
+// ran in.
 func stop(ctx context.Context, run *frontseat.Run) {
 	stopping, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
 	defer cancel()
-	_, _ = run.Cancel(stopping)
+	if _, err := run.Cancel(stopping); err == nil {
+		_, _ = run.Wait(stopping)
+	}
 }
