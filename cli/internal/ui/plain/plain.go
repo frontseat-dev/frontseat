@@ -9,7 +9,11 @@ import (
 
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
+	"github.com/frontseat-dev/frontseat/sdk/go/enum"
 )
+
+// Shown is text a server gave, as a line may hold it (shown).
+func Shown(text string) string { return shown(text) }
 
 // shown is text a daemon gave, as a line may hold it: what moves a
 // terminal's cursor, clears its screen or begins a line of its own is
@@ -162,7 +166,7 @@ func Ended(code buildv1.ExitCode) string {
 	if code == buildv1.ExitCode_EXIT_CODE_UNSPECIFIED {
 		return ""
 	}
-	return strings.TrimPrefix(code.String(), "EXIT_CODE_")
+	return enum.Name(code)
 }
 
 // found writes what was found, each where it was found.

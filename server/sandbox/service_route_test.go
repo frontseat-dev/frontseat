@@ -163,20 +163,7 @@ type serviceRoutes struct {
 func newServiceRoutes(t *testing.T) *serviceRoutes {
 	t.Helper()
 	testrequired.Stack(t)
-	testbox.Runtime(t)
-	arch, err := exec.Command("docker", "info", "--format", "{{.Architecture}}").Output()
-	if err != nil {
-		t.Fatalf("the container runtime answers and does not say its architecture: %v", err)
-	}
-	goarch := strings.TrimSpace(string(arch))
-	switch goarch {
-	case "aarch64", "arm64":
-		goarch = "arm64"
-	case "x86_64", "amd64":
-		goarch = "amd64"
-	default:
-		t.Fatalf("unproven probe architecture %q", goarch)
-	}
+	goarch := testbox.GOARCH(t)
 	root := t.TempDir()
 	bin := filepath.Join(root, "bin")
 	if err := os.Mkdir(bin, 0o755); err != nil {

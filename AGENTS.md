@@ -557,7 +557,8 @@ the change that fixes it.
 - Public, for developers, is in an SDK: the Go SDK (`sdk/go`, package
   `frontseat`: one `Client` from which workspaces, builds, tests, runs,
   releases, the graph and credentials are reached; beneath it the API's
-  generated Go, `sdk/go/api`, and entity references, `sdk/go/entity`) and
+  generated Go, `sdk/go/api`, entity references, `sdk/go/entity`, and a
+  value of the API's enums said by its name or in words, `sdk/go/enum`) and
   the Rust plugin SDK (`sdk/plugin`) and its testkit
   (`sdk/plugin-test`). The sandbox API has no client in
   the SDK: it is served to no one outside, and its Go is generated for
@@ -869,6 +870,7 @@ mise run docs:serve       # serve the TechDocs site on http://localhost:8000
 | `sdk/go` | The Go SDK's one client (`frontseat.New`), the one reading of a refusal (`Error`, its `Reason…` constants held to what the servers give by `TestEveryReasonAClientIsGivenIsOneTheGoSDKNames`), every list and log as an iterator (`Collect` gathers one), the one reader of a refusal's reason (`Reason`) and of a workspace's name (`IsWorkspaceName`) |
 | `sdk/go/api` | The API's generated Go and Connect clients and handlers |
 | `sdk/go/entity` | Entity references: the one parser and formatter, for a file (`String`), as typed (`Written`) and on a line (`Short`) |
+| `sdk/go/enum` | A value of the API's enums by its own name (`Name`: `BUILD_FAILURE`) or in words (`Word`: `own change`): the SDK's, the command line's and the server's |
 | `sdk/go/bearer` | A token presented to its origin alone, following no redirect, and never in clear to another machine (`Private`, `ErrInClear`), and what an origin is (`Of`): the SDK's and the server's |
 | `sdk/plugin` | The plugin SDK: contract types and their constructors, repository access and paths, strict readers, a refusal (`Error`) and its decoder, findings read from what a check printed; `examples/make.rs`, the plugin an author starts from |
 | `server/git` | Git, run hardened over a checkout, and remotes read |
@@ -885,9 +887,11 @@ mise run docs:serve       # serve the TechDocs site on http://localhost:8000
 | `server/internal/secretfile` | A secret read from a file and a directory that are the server's alone |
 | `server/internal/backstage` | The Backstage catalog the control plane resolves entities through |
 | `server/internal/refusal` | A refusal by name: its code, `ErrorInfo` reason and the domain of each service |
+| `server/internal/poll` | Asking again at an interval until what is asked is done (`Until`): the server's and its test support's one loop of it |
 | `server/internal/page` | A List cut into pages, by `page_size` and `page_token`, and every page of another's List gathered (`All`) |
 | `server/internal/source/vcs` | What a workspace asks of a version control system |
-| `local` | What the local stack is, read from its files: the workers' image and platform, what a sandbox is told; the checkout a program is started at (`Checkout`); the directory the command line keeps what it keeps in, and the owner's token and server files beneath it (`Config`, `TokenFile`, `ServerFile`) |
+| `local` | What the local stack is, read from its files: the workers' image and platform, what a sandbox is told; the checkout a program is started at (`Checkout`); the directory the command line keeps what it keeps in, and the owner's token and server files beneath it (`Config`, `TokenFile`, `ServerFile`); the container runtime's architecture (`Architecture`, `GOARCH`) and the stack's Podman (`Podman`), each asked one way |
+| `local/internal/poll` | Asking again until the stack's container comes to something (`Tries`): the box's build's and the stack's |
 | `local/ports` | Every port a box and the local stack are reached on |
 | `server/testsupport/*` | Test facilities: pins, Wasm modules, the grid, fixtures (`testfiles`, `testforge`, `commits`), budgets |
 | `server/testsupport/buildtest`, `server/testsupport/controlplanetest` | A daemon and a control plane started for a test, as `frontseatd` and `frontseat-local` start them |

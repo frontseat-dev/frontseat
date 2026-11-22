@@ -12,8 +12,8 @@
 package testbox
 
 import (
+	"context"
 	"os"
-	"os/exec"
 	"sync"
 	"testing"
 
@@ -27,7 +27,8 @@ const Variable = "FRONTSEAT_TEST_BOX"
 // answers is whether the container runtime answers, asked once for the
 // test process.
 var answers = sync.OnceValue(func() error {
-	return exec.Command("docker", "info", "--format", "{{.Architecture}}").Run()
+	_, err := local.Architecture(context.Background())
+	return err
 })
 
 // Runtime is said by a test that needs the container runtime the local
@@ -41,6 +42,23 @@ func Runtime(t testing.TB) {
 	if err := answers(); err != nil {
 		testrequired.Missing(t, "no container runtime answers: %v", err)
 	}
+}
+
+// GOARCH returns Go's name of the container runtime's architecture, as
+// Runtime asks for it first; one the runtime is not known to say fails
+// the test.
+func GOARCH(t testing.TB) string {
+	t.Helper()
+	Runtime(t)
+	said, err := local.Architecture(context.Background())
+	if err != nil {
+		t.Fatalf("the container runtime answers and does not say its architecture: %v", err)
+	}
+	goarch, known := local.GOARCH(said)
+	if !known {
+		t.Fatalf("unproven probe architecture %q", said)
+	}
+	return goarch
 }
 
 // Image returns the box image's tag, as the gate built it. A machine

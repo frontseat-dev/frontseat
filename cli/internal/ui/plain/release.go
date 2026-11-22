@@ -7,6 +7,7 @@ import (
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/entity"
+	"github.com/frontseat-dev/frontseat/sdk/go/enum"
 )
 
 // Plan writes what releasing would do: each unit, what it moves from and
@@ -66,7 +67,7 @@ func (p Printer) reason(reason *buildv1.ReleaseReason) {
 	case buildv1.ReleaseReason_KIND_OWN_CHANGE:
 		fmt.Fprintf(p.Out, "  %s  (%.12s)\n", shown(reason.GetSummary()), shown(reason.GetCommit().GetCommit()))
 	default:
-		fmt.Fprintf(p.Out, "  %s\n", Word(reason.GetKind()))
+		fmt.Fprintf(p.Out, "  %s\n", enum.Word(reason.GetKind()))
 	}
 }
 
@@ -81,7 +82,7 @@ func held(reasons []*buildv1.ReleaseReason) string {
 	case buildv1.ReleaseReason_KIND_BRANCH:
 		return reason.GetSummary()
 	default:
-		return Word(reason.GetKind())
+		return enum.Word(reason.GetKind())
 	}
 }
 
@@ -115,7 +116,7 @@ func (p Printer) Release(release *buildv1.Release) {
 			fmt.Fprintf(p.Out, "  not published by %s: %s\n", shown(published.GetLabel()), shown(published.GetFailure()))
 		}
 	}
-	state := Word(release.GetState())
+	state := enum.Word(release.GetState())
 	tagged := false
 	for _, unit := range release.GetUnits() {
 		tagged = tagged || len(unit.GetTags()) > 0

@@ -29,6 +29,7 @@ import (
 
 	"github.com/frontseat-dev/frontseat/server/internal/page"
 	"github.com/frontseat-dev/frontseat/server/internal/plain"
+	"github.com/frontseat-dev/frontseat/server/internal/poll"
 	"github.com/frontseat-dev/frontseat/server/internal/refusal"
 	sandboxv1 "github.com/frontseat-dev/frontseat/server/sandbox/api/frontseat/sandbox/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/sandbox/api/frontseat/sandbox/v1alpha1/sandboxv1alpha1connect"
@@ -707,20 +708,18 @@ func (s *Server) ResumeSandbox(ctx context.Context, req *sandboxv1.ResumeSandbox
 // WaitSandbox asks the driver where a sandbox is until it is no longer
 // starting, or the caller gives up.
 func (s *Server) WaitSandbox(ctx context.Context, req *sandboxv1.WaitSandboxRequest) (*sandboxv1.WaitSandboxResponse, error) {
-	for {
-		now, err := s.observe(ctx, req.GetSandboxId())
-		if err != nil {
-			return nil, err
+	var now *sandboxv1.Sandbox
+	err := poll.Until(ctx, 100*time.Millisecond, func() (bool, error) {
+		var err error
+		if now, err = s.observe(ctx, req.GetSandboxId()); err != nil {
+			return false, err
 		}
-		if now.GetState() != sandboxv1.Sandbox_STATE_STARTING {
-			return &sandboxv1.WaitSandboxResponse{Sandbox: now}, nil
-		}
-		select {
-		case <-time.After(100 * time.Millisecond):
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		}
+		return now.GetState() != sandboxv1.Sandbox_STATE_STARTING, nil
+	})
+	if err != nil {
+		return nil, err
 	}
+	return &sandboxv1.WaitSandboxResponse{Sandbox: now}, nil
 }
 
 // execOutput is the most of what a command printed that ExecSandbox

@@ -261,6 +261,37 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		// The box is built from what the stack says it is laid on, and
 		// from nothing of what it holds.
 		{"local/box/box.go", "local", true},
+		// The stack's container is asked again until it comes to
+		// something by one loop of the local module's, which nothing of
+		// the server's reaches.
+		{"local/box/box.go", "local/internal/poll", true},
+		{"local/stack/stack.go", "local/internal/poll", true},
+		{"local/internal/poll/poll.go", "local", false},
+		// The stack's Podman is asked one way (local.Podman), by the
+		// stack, the test support and the spec of the stack's container.
+		{"specs/local/container_test.go", "local", true},
+		{"specs/local/container_test.go", "local/stack", false},
+		// The server asks again until what it asks is done by one loop;
+		// a package that waits on nothing does not import it.
+		{"server/internal/build/build.go", "server/internal/poll", true},
+		{"server/internal/controlplane/controlplane.go", "server/internal/poll", true},
+		{"server/internal/runner/runner.go", "server/internal/poll", true},
+		{"server/sandbox/service.go", "server/internal/poll", true},
+		{"server/sandbox/driver/openshell/openshell.go", "server/internal/poll", true},
+		{"server/testsupport/testgrid/door.go", "server/internal/poll", true},
+		{"server/testsupport/drivertest/conformance.go", "server/internal/poll", true},
+		{"server/internal/pluginhost/host.go", "server/internal/poll", false},
+		{"server/testsupport/testbox/testbox.go", "server/internal/poll", false},
+		{"server/internal/poll/poll.go", "server/internal/build", false},
+		// A value of the API's enums is said by the SDK's one function,
+		// which the command line and the server import without the
+		// SDK's client; it imports nothing of the SDK's client.
+		{"server/internal/build/runs.go", "sdk/go/enum", true},
+		{"cli/internal/ui/plain/plain.go", "sdk/go/enum", true},
+		{"cli/internal/cmd/list.go", "sdk/go/enum", true},
+		{"sdk/go/workspace.go", "sdk/go/enum", true},
+		{"sdk/go/enum/enum.go", "sdk/go", false},
+		{"server/internal/source/service.go", "sdk/go/enum", false},
 		{"local/box/box.go", "server/sandbox", false},
 		{"local/box/box.go", "server/internal/build", false},
 		{"local/stack/stack.go", "local/box", true},

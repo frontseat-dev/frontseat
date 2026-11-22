@@ -9,6 +9,7 @@ import (
 	"github.com/frontseat-dev/frontseat/server/internal/exec/download"
 	"github.com/frontseat-dev/frontseat/server/internal/exec/reapi"
 	"github.com/frontseat-dev/frontseat/server/internal/pluginhost"
+	"github.com/frontseat-dev/frontseat/server/internal/poll"
 	"github.com/frontseat-dev/frontseat/server/telemetry"
 )
 
@@ -120,20 +121,19 @@ func dial(ctx context.Context, config Grid) (*reapi.Grid, error) {
 		return nil, fmt.Errorf("no grid: give --grid")
 	}
 	deadline := time.Now().Add(30 * time.Second)
-	for {
+	var grid *reapi.Grid
+	var dialed error
+	err := poll.Until(ctx, time.Second, func() (bool, error) {
 		// Before each dial: a file that became something else since the
 		// daemon started is said so as it is at the start.
 		if err := config.Check(); err != nil {
-			return nil, err
+			return false, err
 		}
-		grid, err := reapi.Dial(ctx, reapi.Config{Address: config.Address, Instance: config.Instance, Access: config.access()})
-		if err == nil || reapi.Settled(err) || time.Now().After(deadline) {
-			return grid, err
-		}
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-time.After(time.Second):
-		}
+		grid, dialed = reapi.Dial(ctx, reapi.Config{Address: config.Address, Instance: config.Instance, Access: config.access()})
+		return dialed == nil || reapi.Settled(dialed) || time.Now().After(deadline), nil
+	})
+	if err != nil {
+		return nil, err
 	}
+	return grid, dialed
 }

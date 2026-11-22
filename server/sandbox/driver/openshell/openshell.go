@@ -18,6 +18,7 @@ import (
 
 	client "github.com/ai-openshell/sdk-go/openshell/v1"
 
+	"github.com/frontseat-dev/frontseat/server/internal/poll"
 	"github.com/frontseat-dev/frontseat/server/sandbox/driver"
 )
 
@@ -448,19 +449,15 @@ func (d *Driver) Delete(ctx context.Context, id string) error {
 	}
 	// It is gone when the gateway no longer holds it.
 	deadline := time.Now().Add(time.Minute)
-	for {
+	return poll.Until(ctx, 100*time.Millisecond, func() (bool, error) {
 		if _, err := d.gateway.Sandboxes().Get(ctx, d.config.Workspace, name); client.IsNotFound(err) {
-			return nil
+			return true, nil
 		}
 		if time.Now().After(deadline) {
-			return fmt.Errorf("openshell: %s was not gone a minute after it was ended", id)
+			return false, fmt.Errorf("openshell: %s was not gone a minute after it was ended", id)
 		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(100 * time.Millisecond):
-		}
-	}
+		return false, nil
+	})
 }
 
 func (d *Driver) Dial(ctx context.Context, id string, port int) (net.Conn, error) {

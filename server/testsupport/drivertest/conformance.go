@@ -3,10 +3,12 @@ package drivertest
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"testing"
 	"time"
 
+	"github.com/frontseat-dev/frontseat/server/internal/poll"
 	"github.com/frontseat-dev/frontseat/server/sandbox/driver"
 )
 
@@ -47,7 +49,7 @@ func Conforms(t *testing.T, d driver.Driver, template driver.Sandbox) {
 	t.Run("a port inside a sandbox is reached", func(t *testing.T) {
 		record := made(t, "dialled")
 		deadline := time.Now().Add(30 * time.Second)
-		for {
+		err := poll.Until(context.Background(), 50*time.Millisecond, func() (bool, error) {
 			// Reached is answered: a driver may hand back a connection it has
 			// not made yet, which says nothing of the port.
 			conn, err := d.Dial(ctx, record.ID, record.Ports[0])
@@ -70,13 +72,16 @@ func Conforms(t *testing.T, d driver.Driver, template driver.Sandbox) {
 				}
 				_ = conn.Close()
 				if err == nil {
-					return
+					return true, nil
 				}
 			}
 			if time.Now().After(deadline) {
-				t.Fatalf("the port was not reached and answered: %v", err)
+				return false, fmt.Errorf("the port was not reached and answered: %v", err)
 			}
-			time.Sleep(50 * time.Millisecond)
+			return false, nil
+		})
+		if err != nil {
+			t.Fatal(err)
 		}
 	})
 
@@ -219,21 +224,24 @@ func running(t *testing.T, d driver.Driver, template driver.Sandbox, suffix stri
 func Await(t testing.TB, d driver.Driver, id string, want driver.State) {
 	t.Helper()
 	deadline := time.Now().Add(60 * time.Second)
-	for {
+	err := poll.Until(context.Background(), 50*time.Millisecond, func() (bool, error) {
 		got, err := d.Observe(context.Background(), id)
 		if err != nil {
-			t.Fatalf("Observe: %v", err)
+			return false, fmt.Errorf("Observe: %v", err)
 		}
 		if got.State == want {
-			return
+			return true, nil
 		}
 		if got.State == driver.Failed {
-			t.Fatalf("the sandbox failed: %s", got.Message)
+			return false, fmt.Errorf("the sandbox failed: %s", got.Message)
 		}
 		if time.Now().After(deadline) {
-			t.Fatalf("the sandbox is in state %v after a minute, want %v", got.State, want)
+			return false, fmt.Errorf("the sandbox is in state %v after a minute, want %v", got.State, want)
 		}
-		time.Sleep(50 * time.Millisecond)
+		return false, nil
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 

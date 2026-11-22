@@ -10,6 +10,7 @@ import (
 	"github.com/frontseat-dev/frontseat/cli/internal/ui/plain"
 	"github.com/frontseat-dev/frontseat/sdk/go"
 	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
+	"github.com/frontseat-dev/frontseat/sdk/go/enum"
 )
 
 // workspaceCmd is the group of commands that are asked of the control plane about workspaces.
@@ -78,7 +79,7 @@ func described(cmd *cobra.Command, w *frontseat.Workspace) error {
 // printWorkspace writes a workspace as described says it.
 func printWorkspace(to io.Writer, held *workspacev1.Workspace) {
 	line := func(format string, a ...any) { fmt.Fprintf(to, format+"\n", a...) }
-	state := plain.Word(held.GetStatus().GetState())
+	state := enum.Word(held.GetStatus().GetState())
 	if held.GetName() != "" {
 		line("%s  %s", held.GetName(), state)
 	} else {

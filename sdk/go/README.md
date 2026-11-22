@@ -151,6 +151,8 @@ reason and the domain.
 ## The other packages
 
 - `entity` reads and writes an entity's reference, `component:default/gateway`.
+- `enum` says a value of the API's enums by its own name, `BUILD_FAILURE`,
+  or in words, `own change`, as the command line prints it.
 - `bearer` presents a token to one origin and follows no redirect, for a
   program that makes HTTP requests of its own.
 - `api` is the generated Go of the contracts, with a Connect client for

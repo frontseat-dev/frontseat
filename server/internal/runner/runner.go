@@ -59,6 +59,7 @@ import (
 	"github.com/frontseat-dev/frontseat/server/internal/httpserver"
 	"github.com/frontseat-dev/frontseat/server/internal/image"
 	"github.com/frontseat-dev/frontseat/server/internal/page"
+	"github.com/frontseat-dev/frontseat/server/internal/poll"
 	runnerv1 "github.com/frontseat-dev/frontseat/server/internal/runnerapi/frontseat/runner/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/testservice"
 	"github.com/frontseat-dev/frontseat/server/sandbox"
@@ -414,22 +415,21 @@ func (a *attempt) ready(ctx context.Context, sb string, s *runnerv1.RunnerServic
 		default:
 			return fmt.Errorf("a readiness check of no kind this runner knows")
 		}
-		for {
+		err := poll.Until(ctx, 200*time.Millisecond, func() (bool, error) {
 			err := try()
 			if err == nil {
-				break
+				return true, nil
 			}
 			if failed := a.r.failed(ctx, sb); failed != nil {
-				return failed
+				return false, failed
 			}
 			if time.Now().After(deadline) {
-				return fmt.Errorf("not ready after %s: %v", said.GetTimeout().AsDuration(), err)
+				return false, fmt.Errorf("not ready after %s: %v", said.GetTimeout().AsDuration(), err)
 			}
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(200 * time.Millisecond):
-			}
+			return false, nil
+		})
+		if err != nil {
+			return err
 		}
 	}
 	return nil
@@ -495,22 +495,18 @@ func answered(ctx context.Context, socket, path string, matches *regexp.Regexp) 
 
 func (r *runner) listening(ctx context.Context, sb, socket string) error {
 	deadline := time.Now().Add(time.Minute)
-	for {
+	return poll.Until(ctx, 50*time.Millisecond, func() (bool, error) {
 		if info, err := os.Lstat(socket); err == nil && info.Mode().Type() == os.ModeSocket {
-			return nil
+			return true, nil
 		}
 		if err := r.failed(ctx, sb); err != nil {
-			return err
+			return false, err
 		}
 		if time.Now().After(deadline) {
-			return errors.New("its socket did not appear within a minute")
+			return false, errors.New("its socket did not appear within a minute")
 		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(50 * time.Millisecond):
-		}
-	}
+		return false, nil
+	})
 }
 
 // paths is what a RunRequest names of the build directory.

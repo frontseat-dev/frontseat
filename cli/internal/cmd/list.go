@@ -8,6 +8,7 @@ import (
 	"github.com/frontseat-dev/frontseat/cli/internal/ui/plain"
 	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/entity"
+	"github.com/frontseat-dev/frontseat/sdk/go/enum"
 )
 
 // listCmd lists the workspaces the control plane keeps.
@@ -27,7 +28,7 @@ name, where it is, and what it was asked for with. A name is what
 			if err != nil {
 				return err
 			}
-			said("%s  %s  %s", each.GetName(), plain.Word(each.GetStatus().GetState()), askedFor(each.GetSpec()))
+			said("%s  %s  %s", each.GetName(), enum.Word(each.GetStatus().GetState()), askedFor(each.GetSpec()))
 			if why := each.GetStatus().GetFailure(); why != "" {
 				said("  %s", plain.Shown(why))
 			}

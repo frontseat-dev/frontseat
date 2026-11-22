@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"regexp"
 	"slices"
-	"strings"
 	"sync"
 	"time"
 
@@ -21,6 +20,7 @@ import (
 	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1/workspacev1alpha1connect"
 	"github.com/frontseat-dev/frontseat/sdk/go/entity"
+	"github.com/frontseat-dev/frontseat/sdk/go/enum"
 	"github.com/frontseat-dev/frontseat/sdk/go/internal/transport"
 )
 
@@ -451,5 +451,5 @@ func notReady(state error, format string, a ...any) error {
 
 // stateOf is where a workspace is, in a word: ready, starting, failed.
 func stateOf(w *workspacev1.Workspace) string {
-	return strings.ToLower(strings.TrimPrefix(w.GetStatus().GetState().String(), "STATE_"))
+	return enum.Word(w.GetStatus().GetState())
 }

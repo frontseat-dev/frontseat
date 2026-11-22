@@ -40,7 +40,11 @@ var policies = []policy{
 	// (TestTheGoSDKRequiresNothingOfThisRepository).
 	{"sdk/go/api/**", []string{"sdk/go/api/**"}},
 	{"sdk/go/entity", []string{"sdk/go/api/**"}},
-	{"sdk/go", []string{"sdk/go/api/**", "sdk/go/entity", "sdk/go/internal/transport", "sdk/go/bearer"}},
+	{"sdk/go", []string{"sdk/go/api/**", "sdk/go/entity", "sdk/go/enum", "sdk/go/internal/transport", "sdk/go/bearer"}},
+	// A value of the API's enums said by its name or in words: one way,
+	// for the SDK, the command line and the server, importing nothing of
+	// the SDK beyond the API its tests say values of.
+	{"sdk/go/enum", []string{"sdk/go/api/**", "sdk/go/enum"}},
 	// A token presented to its origin alone, with no redirect followed:
 	// the SDK's transport, and the server's Backstage client, present one
 	// so.
@@ -53,13 +57,13 @@ var policies = []policy{
 	{"cli/internal/machine", []string{"sdk/go/api/**", "sdk/go", "sdk/go/bearer", "cli/internal/vcs", "cli/internal/vcs/git", "local", "local/ports"}},
 	{"cli/internal/vcs", []string{}},
 	{"cli/internal/vcs/git", []string{"cli/internal/vcs", "server/git"}},
-	{"cli/internal/ui/**", []string{"sdk/go/api/**", "sdk/go/entity", "cli/internal/ui/**"}},
+	{"cli/internal/ui/**", []string{"sdk/go/api/**", "sdk/go/entity", "sdk/go/enum", "cli/internal/ui/**"}},
 	// The binary is a thin main over the commands, which are the command
 	// line's own (cli/internal/cmd).
 	{"cli/cmd/frontseat", []string{"cli/internal/cmd", "server/telemetry"}},
 	// The commands are flags and printing over the SDK's one client, which
 	// they hand the command's telemetry to instrument what they ask.
-	{"cli/internal/cmd", []string{"sdk/go/api/**", "sdk/go/entity", "sdk/go", "cli/internal/machine", "cli/internal/ui/**", "server/telemetry"}},
+	{"cli/internal/cmd", []string{"sdk/go/api/**", "sdk/go/entity", "sdk/go/enum", "sdk/go", "cli/internal/machine", "cli/internal/ui/**", "server/telemetry"}},
 	{"server/telemetry", []string{}},
 	// Git as frontseat runs it, hardened, and how it writes a remote: one
 	// implementation for the client's adapter and the daemon's.
@@ -75,7 +79,7 @@ var policies = []policy{
 	{"server/testsupport/testbox", []string{"server/testsupport/**", "local", "local/ports", "local/stack"}},
 	// The grid's runner runs only a confined command: what another tool
 	// sends it begins as the daemon's do, which the confiner says.
-	{"server/testsupport/testgrid", []string{"server/testsupport/**", "local", "local/ports", "server/internal/confine"}},
+	{"server/testsupport/testgrid", []string{"server/testsupport/**", "local", "local/ports", "server/internal/confine", "server/internal/poll"}},
 	// A test logs in to a workspace's shell with its own key, through the
 	// SDK's tunnel, presenting the token its control plane knows it by.
 	{"server/testsupport/testidentity", []string{"sdk/go"}},
@@ -96,11 +100,18 @@ var policies = []policy{
 	// The box's one build, from what the stack says it is laid on; and
 	// the stack brought up and down, running the box it builds, its one
 	// container publishing the ports where they are said.
-	{"local/box", []string{"local"}},
-	{"local/stack", []string{"local", "local/box", "local/ports"}},
+	{"local/box", []string{"local", "local/internal/poll"}},
+	{"local/stack", []string{"local", "local/box", "local/ports", "local/internal/poll"}},
+	// Asking again until the stack's container comes to something: one
+	// loop, for the box's build and the stack's program.
+	{"local/internal/poll", []string{}},
 	{"server/internal/httpserver", []string{}},
 	{"server/internal/image", []string{}},
 	{"server/internal/confine", []string{}},
+	// Asking again until what is asked is done: one loop, for the
+	// daemon's dial, the control plane, the sandbox service and its
+	// gateway's driver, the runner and the test support that waits so.
+	{"server/internal/poll", []string{}},
 	// Whether what leads out of a sandbox is written plainly: one reader
 	// of a host, an origin, a path and a program, for the control plane
 	// and the gateway's driver.
@@ -117,7 +128,7 @@ var policies = []policy{
 	{"server/internal/backstage", []string{"sdk/go/entity", "sdk/go/bearer", "server/internal/plain", "server/internal/secretfile", "server/internal/source/record", "server/testsupport/backstagetest"}},
 	// What a test service is held to: one check, for the daemon and the grid's runner.
 	{"server/internal/testservice", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/image", "server/internal/plain"}},
-	{"server/internal/build", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/pluginapi/**", "server/internal/exec/publish", "server/internal/exec/tools", "server/telemetry", "server/internal/build", "server/internal/source/told/toldtest", "server/internal/engine/evaluate", "server/internal/engine/graph", "server/internal/engine/plan", "server/internal/engine/release", "server/internal/engine/source", "server/internal/exec", "server/internal/exec/access", "server/internal/exec/download", "server/internal/exec/program", "server/internal/exec/run", "server/internal/history", "server/internal/model", "server/internal/wire", "server/internal/pluginhost", "server/internal/source", "server/internal/source/record", "server/internal/source/told", "server/internal/sourceapi/**", "server/internal/page", "server/internal/refusal"}},
+	{"server/internal/build", []string{"sdk/go/api/**", "sdk/go/entity", "sdk/go/enum", "server/internal/poll", "server/internal/pluginapi/**", "server/internal/exec/publish", "server/internal/exec/tools", "server/telemetry", "server/internal/build", "server/internal/source/told/toldtest", "server/internal/engine/evaluate", "server/internal/engine/graph", "server/internal/engine/plan", "server/internal/engine/release", "server/internal/engine/source", "server/internal/exec", "server/internal/exec/access", "server/internal/exec/download", "server/internal/exec/program", "server/internal/exec/run", "server/internal/history", "server/internal/model", "server/internal/wire", "server/internal/pluginhost", "server/internal/source", "server/internal/source/record", "server/internal/source/told", "server/internal/sourceapi/**", "server/internal/page", "server/internal/refusal"}},
 	{"server/internal/history", []string{"sdk/go/api/**"}},
 	// The plugin contract's Go, generated for the daemon alone.
 	{"server/internal/pluginapi/**", []string{"sdk/go/api/**"}},
@@ -179,8 +190,8 @@ var policies = []policy{
 	// A sandbox is the isolation and knows nothing of what lives in one.
 	// A driver's tests, and the service's, are held to the conformance
 	// and run over the driver held in memory (drivertest).
-	{"server/sandbox/**", []string{"sdk/go/api/**", "server/sandbox/**", "server/internal/image", "server/testsupport/drivertest", "server/internal/page", "server/internal/refusal", "server/internal/plain", "server/internal/records"}},
-	{"server/sandbox/driver/openshell", []string{"sdk/go/api/**", "server/sandbox/**", "server/testsupport/drivertest", "server/internal/plain", "local/ports"}},
+	{"server/sandbox/**", []string{"sdk/go/api/**", "server/sandbox/**", "server/internal/image", "server/testsupport/drivertest", "server/internal/page", "server/internal/refusal", "server/internal/plain", "server/internal/records", "server/internal/poll"}},
+	{"server/sandbox/driver/openshell", []string{"sdk/go/api/**", "server/sandbox/**", "server/testsupport/drivertest", "server/internal/plain", "server/internal/poll", "local/ports"}},
 	// A driver of the container runtime, for tests alone: what an image
 	// starts is asked through the image package, as the gateway's way
 	// asks it. Its tests start a box and ask its daemon.
@@ -196,14 +207,14 @@ var policies = []policy{
 	// (local/ports), and is told nothing of the stack.
 	// It resolves entities through the Backstage its operator gives it
 	// (server/internal/backstage), held over a fake one in its tests.
-	{"server/internal/controlplane/**", []string{"sdk/go/api/**", "server/sandbox/api/**", "sdk/go/entity", "server/internal/controlplane/**", "server/sandbox", "server/internal/backstage", "server/internal/secretfile", "server/internal/source/record", "server/internal/source/vcs", "server/internal/source/told", "server/internal/sourceapi/**", "server/testsupport/drivertest", "server/testsupport/backstagetest", "server/internal/plain", "local/ports", "sdk/go", "server/internal/page", "server/internal/refusal", "server/internal/records"}},
+	{"server/internal/controlplane/**", []string{"sdk/go/api/**", "server/sandbox/api/**", "sdk/go/entity", "server/internal/controlplane/**", "server/sandbox", "server/internal/backstage", "server/internal/secretfile", "server/internal/source/record", "server/internal/source/vcs", "server/internal/source/told", "server/internal/sourceapi/**", "server/testsupport/drivertest", "server/testsupport/backstagetest", "server/internal/plain", "local/ports", "sdk/go", "server/internal/page", "server/internal/refusal", "server/internal/records", "server/internal/poll"}},
 	// A test starts a daemon as frontseatd does, and a control plane as
 	// frontseat-local does, each with the test support beside it.
 	{"server/testsupport/buildtest", []string{"server/internal/build", "server/telemetry", "server/testsupport/**", "sdk/go/api/**", "server/internal/source", "server/internal/source/told", "server/internal/source/told/toldtest", "server/internal/sourceapi/**"}},
 	// A fake Backstage, of entities written as catalog files write them.
 	{"server/testsupport/backstagetest", []string{"sdk/go/entity"}},
 	// What any sandbox driver is held to, and the driver held in memory.
-	{"server/testsupport/drivertest", []string{"server/sandbox/driver", "server/testsupport/drivertest"}},
+	{"server/testsupport/drivertest", []string{"server/sandbox/driver", "server/testsupport/drivertest", "server/internal/poll"}},
 	// It serves the sandbox service beneath the plane to the test alone,
 	// and says how the plane's owner is known as the SDK's clients take it.
 	{"server/testsupport/controlplanetest", []string{"server/sandbox/api/**", "server/internal/controlplane", "server/internal/page", "server/internal/backstage", "server/internal/source", "server/sandbox", "server/testsupport/**", "sdk/go/api/**", "sdk/go"}},
@@ -221,11 +232,12 @@ var policies = []policy{
 	// The runner keeps the grid's pool of runner sandboxes with the
 	// OpenShell driver itself: their bound directories and private policy
 	// are the driver's to say, and no client's of the sandbox API.
-	{"server/internal/runner", []string{"server/sandbox/api/**", "server/internal/page", "server/sandbox", "server/sandbox/driver", "server/sandbox/driver/openshell", "server/internal/httpserver", "server/internal/image", "sdk/go/api/**", "sdk/go/entity", "server/internal/testservice", "server/internal/confine", "sdk/go", "server/internal/runnerapi/**"}},
+	{"server/internal/runner", []string{"server/sandbox/api/**", "server/internal/page", "server/sandbox", "server/sandbox/driver", "server/sandbox/driver/openshell", "server/internal/httpserver", "server/internal/image", "sdk/go/api/**", "sdk/go/entity", "server/internal/testservice", "server/internal/confine", "sdk/go", "server/internal/runnerapi/**", "server/internal/poll"}},
 	// The box's one build, asked by the spec that holds a box to what it
-	// was built with; no other spec builds one.
+	// was built with; no other spec builds one. That spec asks the
+	// stack's Podman as the stack does (local.Podman).
 	{"specs/cli", []string{"sdk/go", "sdk/go/api/**", "server/sandbox/api/**", "sdk/go/entity", "server/testsupport/**", "local/ports"}},
-	{"specs/local", []string{"server/testsupport/**", "local/ports", "local/box"}},
+	{"specs/local", []string{"server/testsupport/**", "local", "local/ports", "local/box"}},
 	{"specs/compare", []string{"sdk/go", "sdk/go/api/**", "server/sandbox/api/**", "server/testsupport/**"}},
 	{"specs/**", []string{"sdk/go", "sdk/go/api/**", "server/sandbox/api/**", "sdk/go/entity", "server/testsupport/**", "server/telemetry", "specs/internal/**", "local/ports"}},
 	// The gate programs: what runs the specs and every other test, and

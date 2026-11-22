@@ -1,6 +1,7 @@
 package testgrid
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -9,6 +10,7 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"net"
 	"os"
 	"os/exec"
@@ -17,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/frontseat-dev/frontseat/server/internal/poll"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testauthority"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testbox"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testrun"
@@ -128,17 +131,23 @@ func NewDoor(t testing.TB) *Door {
 		t.Fatalf("the door's authority: %v", err)
 	}
 	// It answers once it shows its certificate.
-	for began := time.Now(); ; time.Sleep(200 * time.Millisecond) {
+	began := time.Now()
+	err = poll.Until(context.Background(), 200*time.Millisecond, func() (bool, error) {
 		conn, err := tls.DialWithDialer(&net.Dialer{Timeout: time.Second}, "tcp", door.Address, &tls.Config{RootCAs: authorities, NextProtos: []string{"h2"}})
 		if err == nil {
 			conn.Close()
-			return door
+			return true, nil
 		}
 		if time.Since(began) > 30*time.Second {
 			logs, _ := exec.Command("docker", "logs", "--tail", "20", id).CombinedOutput()
-			t.Fatalf("the door did not answer at %s: %v\n%s", door.Address, err, logs)
+			return false, fmt.Errorf("the door did not answer at %s: %v\n%s", door.Address, err, logs)
 		}
+		return false, nil
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
+	return door
 }
 
 // Token writes a token the door admits to a file, and returns the file.

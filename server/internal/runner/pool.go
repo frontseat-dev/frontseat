@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/frontseat-dev/frontseat/server/internal/poll"
 	"github.com/frontseat-dev/frontseat/server/sandbox/driver"
 	"github.com/frontseat-dev/frontseat/server/sandbox/driver/openshell"
 )
@@ -316,21 +317,21 @@ func (p Pool) gone(ctx context.Context, slot int) error {
 	// not what ended the asking: it is said, and not taken for a sandbox
 	// still held.
 	var failed error
-	for {
+	// It ends with an error only where ctx ended while it waited.
+	if poll.Until(ctx, 200*time.Millisecond, func() (bool, error) {
 		_, err := p.Sandboxes.Observe(ctx, id)
 		if errors.Is(err, driver.ErrNotFound) {
-			return nil
+			return true, nil
 		}
 		if ctx.Err() == nil {
 			failed = err
 		}
-		select {
-		case <-ctx.Done():
-			if failed != nil {
-				return fmt.Errorf("its sandbox deleted could not be asked after for %s: %w", p.Wait, failed)
-			}
-			return fmt.Errorf("its sandbox deleted was still held after %s", p.Wait)
-		case <-time.After(200 * time.Millisecond):
-		}
+		return false, nil
+	}) == nil {
+		return nil
 	}
+	if failed != nil {
+		return fmt.Errorf("its sandbox deleted could not be asked after for %s: %w", p.Wait, failed)
+	}
+	return fmt.Errorf("its sandbox deleted was still held after %s", p.Wait)
 }

@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/frontseat-dev/frontseat/local"
 	"github.com/frontseat-dev/frontseat/local/box"
 	"github.com/frontseat-dev/frontseat/local/ports"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testbox"
@@ -71,7 +72,7 @@ func TestTheStackBootsAsOneContainer(t *testing.T) {
 		t.Errorf("the container asks %v for names, not its own resolver alone: %v", named, err)
 	}
 	podman := func(arguments ...string) ([]byte, error) {
-		return exec.CommandContext(ctx, "docker", append([]string{"exec", "-u", "frontseat", "-e", "XDG_RUNTIME_DIR=/run/user/1000", own, "podman"}, arguments...)...).CombinedOutput()
+		return local.Podman(ctx, own, arguments...).CombinedOutput()
 	}
 	// Its command is a file that is there and may be run, which crun
 	// looks for when the container is initialised; it is never started.

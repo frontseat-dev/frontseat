@@ -5,12 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"google.golang.org/protobuf/reflect/protoreflect"
-
 	"github.com/frontseat-dev/frontseat/cli/internal/ui/plain"
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
-	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
 )
 
 // Whoever watches a run sees that it started over, and why: the lines
@@ -161,22 +158,6 @@ func TestASkippedActionIsSaidToBeSkipped(t *testing.T) {
 	want := "skipped //a:b  not run: //a:c failed\nERROR   //a:d  the grid could not stage it\n"
 	if got := out.String(); got != want {
 		t.Errorf("printed %q, want %q", got, want)
-	}
-}
-
-// A value of an enum is said in words, without its enum's name; one the
-// contract does not name is said by its number.
-func TestAnEnumsValueIsSaidInWords(t *testing.T) {
-	for want, value := range map[string]protoreflect.Enum{
-		"ready":      workspacev1.WorkspaceStatus_STATE_READY,
-		"own change": buildv1.ReleaseReason_KIND_OWN_CHANGE,
-		"grid cache": buildv1.Provenance_PROVENANCE_GRID_CACHE,
-		"unpushed":   buildv1.Release_STATE_UNPUSHED,
-		"99":         buildv1.Outcome(99),
-	} {
-		if got := plain.Word(value); got != want {
-			t.Errorf("%v is said %q, want %q", value, got, want)
-		}
 	}
 }
 
