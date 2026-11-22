@@ -36,7 +36,7 @@ pub use google::rpc::{Code, Status};
 pub mod checksum;
 pub mod diagnostics;
 pub mod javascript;
-/// The TOML library the SDK reads TOML with ([`Repository::toml_document`]),
+/// The TOML library the SDK reads TOML with ([`Repository::toml`]),
 /// for a plugin that names its types: `toml::Spanned`, `toml::Value`.
 pub use toml;
 
@@ -78,9 +78,9 @@ mod actions;
 mod contract;
 pub mod entity;
 mod inputs;
+pub mod placeholders;
 pub mod prelude;
 pub mod repository;
-pub mod version;
 pub use contract::{Description, Error, Plugin, PluginOption, Printed, Value};
 pub use repository::{Host, Repository};
 

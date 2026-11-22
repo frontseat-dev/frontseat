@@ -43,8 +43,10 @@ lists retain individual entries, including empty strings and commas.
 
 The context must name development or production explicitly. `repo.profile()`,
 `repo.read()` and `repo.glob()` return `Result`; propagate errors with `?`.
-Use `repo.text()` for UTF-8 source, `repo.toml()` for TOML and `repo.yaml::<T>()`
-for typed YAML. These readers preserve absent files, track source reads, apply
+Use `repo.text()` for UTF-8 source, `repo.toml_table()` or `repo.toml::<T>()`
+for TOML, `repo.yaml::<T>()` or `repo.yaml_stream::<T>()` for typed YAML and
+`repo.json::<T>()` for JSON, each typed reader answering a `Document` of the
+value and its text. These readers preserve absent files, track source reads, apply
 shared validation/resource limits and return source diagnostics. YAML types
 use Serde; common parser policy belongs to the SDK. Go does not replace bad
 text bytes or treat a failed source operation as an absent file.

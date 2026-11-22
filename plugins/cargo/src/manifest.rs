@@ -161,7 +161,7 @@ pub(super) struct Read {
 
 /// Reads a Cargo.toml, or says it is not there.
 pub(super) fn read(repo: &Repository, dir: &str) -> Result<Option<Read>, Error> {
-    let Some(typed) = repo.toml_document::<Manifest>(&join(dir, "Cargo.toml"))? else {
+    let Some(typed) = repo.toml::<Manifest>(&join(dir, "Cargo.toml"))? else {
         return Ok(None);
     };
     Ok(Some(Read {

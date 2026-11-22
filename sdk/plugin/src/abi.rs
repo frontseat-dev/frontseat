@@ -247,7 +247,7 @@ pub fn answer(plugin: &dyn Plugin, host: &dyn Host, call: &[u8]) -> Vec<u8> {
             Some(Err(e)) => failure(e),
             None => failure(Error::new(
                 crate::Code::Unimplemented,
-                "unknown-method",
+                "method-not-served",
                 "the plugin does not serve this method",
             )),
         }),

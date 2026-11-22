@@ -82,7 +82,7 @@ impl Plugin for CargoPlugin {
             return Ok(Vec::new());
         }
         let manifest = join(&ws.dir, "Cargo.toml");
-        let Some(table) = repo.toml(&manifest)? else {
+        let Some(table) = repo.toml_table(&manifest)? else {
             return Ok(Vec::new());
         };
         let lock = join(&ws.dir, "Cargo.lock");

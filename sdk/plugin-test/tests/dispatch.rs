@@ -95,7 +95,7 @@ fn integer_options_round_trip_without_float_conversion() {
             ..Default::default()
         }),
     );
-    assert_eq!(repo.int("number").unwrap(), 9_007_199_254_740_993);
+    assert_eq!(repo.option_int("number").unwrap(), 9_007_199_254_740_993);
 }
 
 /// A repository of a manifest and a Go file in a directory whose name
@@ -315,14 +315,14 @@ fn repository_preserves_literal_paths_context_and_absence() {
     assert_eq!(repo.profile().unwrap(), Profile::Production);
     assert_eq!(repo.tool_version("go"), Some("1.27.3"));
     assert_eq!(repo.tool_version("unknown"), None);
-    assert_eq!(repo.string("text").unwrap(), "value");
-    assert!(repo.bool("switch").unwrap());
-    assert_eq!(repo.int("number").unwrap(), 7);
-    assert_eq!(repo.string_list("list").unwrap(), ["a"]);
-    assert!(repo.string("switch").is_err());
-    assert!(repo.bool("text").is_err());
-    assert!(repo.int("absent").is_err());
-    assert!(repo.string_list("absent").is_err());
+    assert_eq!(repo.option_str("text").unwrap(), "value");
+    assert!(repo.option_bool("switch").unwrap());
+    assert_eq!(repo.option_int("number").unwrap(), 7);
+    assert_eq!(repo.option_list("list").unwrap(), ["a"]);
+    assert!(repo.option_str("switch").is_err());
+    assert!(repo.option_bool("text").is_err());
+    assert!(repo.option_int("absent").is_err());
+    assert!(repo.option_list("absent").is_err());
     assert_eq!(
         repo.read("pkg[1]/manifest").unwrap(),
         Some(b"content".to_vec())
@@ -364,8 +364,9 @@ fn failed_source_reads_never_become_absence_or_empty_documents() {
     let failures = [
         repo.read("manifest").unwrap_err(),
         repo.text("manifest").unwrap_err(),
-        repo.toml("Cargo.toml").unwrap_err(),
-        repo.yaml::<serde_json::Value>("catalog-info.yaml")
+        repo.toml_table("Cargo.toml").unwrap_err(),
+        repo.yaml_stream::<serde_json::Value>("catalog-info.yaml")
+            .map(|read| read.map(|document| document.value))
             .unwrap_err(),
         repo.glob("", &["**/*"]).unwrap_err(),
     ];

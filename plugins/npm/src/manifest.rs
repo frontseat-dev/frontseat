@@ -37,7 +37,10 @@ fn not_served(what: &str, path: &str, message: &str) -> Error {
 
 pub(super) fn read(repo: &Repository, root: &str) -> Result<Option<Package>, Error> {
     let path = join(root, "package.json");
-    let Some(package) = repo.json_document::<Package>(&path)? else {
+    let Some(package) = repo
+        .json::<Package>(&path)
+        .map(|read| read.map(|document| document.value))?
+    else {
         return Ok(None);
     };
     if package.workspaces.is_some() {
@@ -91,7 +94,8 @@ pub(super) fn read(repo: &Repository, root: &str) -> Result<Option<Package>, Err
     }
     let path = join(root, "package-lock.json");
     let lock = repo
-        .json_document::<Lock>(&path)?
+        .json::<Lock>(&path)?
+        .map(|document| document.value)
         .ok_or_else(|| invalid(&path, "a committed package-lock.json is required"))?;
     if lock.lockfile_version != 3 || !lock.packages.contains_key("") {
         return Err(invalid(&path, "the v3 lock must contain this package"));

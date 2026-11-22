@@ -114,7 +114,10 @@ fn action_of(file: &str) -> Option<String> {
 
 pub(super) fn read(repo: &Repository, root: &str) -> Result<Option<Manifest>, Error> {
     let path = join(root, "buf.yaml");
-    let Some(workspace) = repo.yaml_document::<Workspace>(&path)? else {
+    let Some(workspace) = repo
+        .yaml::<Workspace>(&path)
+        .map(|read| read.map(|document| document.value))?
+    else {
         return Ok(None);
     };
     if workspace.version != "v2" {
@@ -168,7 +171,10 @@ fn template(
     file: String,
     action: String,
 ) -> Result<Option<Template>, Error> {
-    let Some(generation) = repo.yaml_document::<Generation>(path)? else {
+    let Some(generation) = repo
+        .yaml::<Generation>(path)
+        .map(|read| read.map(|document| document.value))?
+    else {
         return Ok(None);
     };
     if generation.version != "v2" || generation.plugins.is_empty() {

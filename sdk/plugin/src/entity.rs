@@ -1,7 +1,7 @@
 //! Provider-neutral Frontseat entity identities shared by plugins.
 //! References use `[kind:][namespace/]name`; adapters map provider-native IDs.
 
-use crate::EntityRef;
+use crate::{EntityRef, Error};
 
 /// Whether text is a name as an entity's parts are written: 1 to
 /// `at_most` ASCII bytes, letters and digits at either end, and letters,
@@ -21,12 +21,15 @@ pub fn is_name(text: &str, at_most: usize) -> bool {
 /// Construct a canonical reference. Each part is 1–255 ASCII bytes with
 /// alphanumeric endpoints and hyphens, dots or underscores inside. Output is
 /// lower case. Provider-specific field validation belongs to the adapter.
-pub fn reference(kind: &str, namespace: &str, name: &str) -> Result<EntityRef, String> {
+pub fn reference(kind: &str, namespace: &str, name: &str) -> Result<EntityRef, Error> {
     let valid = |s: &str| is_name(s, 255);
     if !valid(kind) || !valid(namespace) || !valid(name) {
-        return Err(format!(
-            "invalid entity reference {kind}:{namespace}/{name}"
-        ));
+        return Err(Error::new(
+            crate::Code::InvalidArgument,
+            "invalid-entity-reference",
+            format!("invalid entity reference {kind}:{namespace}/{name}"),
+        )
+        .help("Name an entity kind:namespace/name, each part 1 to 255 letters, digits, hyphens, dots or underscores, beginning and ending with a letter or digit."));
     }
     Ok(EntityRef {
         kind: kind.to_ascii_lowercase(),
@@ -41,7 +44,7 @@ pub fn parse(
     written: &str,
     default_kind: Option<&str>,
     namespace: &str,
-) -> Result<EntityRef, String> {
+) -> Result<EntityRef, Error> {
     let (kind, rest) = match written.split_once(':') {
         Some(pair) => pair,
         None => (default_kind.unwrap_or(""), written),

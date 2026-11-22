@@ -42,7 +42,9 @@ impl Plugin for BackstagePlugin {
             if !read.contains_key(manifest) {
                 read.insert(
                     manifest,
-                    repo.yaml::<Document>(manifest)?.unwrap_or_default(),
+                    repo.yaml_stream::<Document>(manifest)
+                        .map(|read| read.map(|document| document.value))?
+                        .unwrap_or_default(),
                 );
             }
             let documents = &read[manifest];
@@ -88,7 +90,10 @@ impl Plugin for BackstagePlugin {
 
     fn analyze(&self, repo: &Repository, root: &str) -> Result<Analysis, Error> {
         let manifest = join(root, "catalog-info.yaml");
-        let documents = repo.yaml::<Document>(&manifest)?.unwrap_or_default();
+        let documents = repo
+            .yaml_stream::<Document>(&manifest)
+            .map(|read| read.map(|document| document.value))?
+            .unwrap_or_default();
         let mut entities = Vec::with_capacity(documents.len());
         for document in documents {
             entities.push(document.entity(&manifest, root)?);

@@ -16,6 +16,6 @@ pub fn describe(name: &str) -> Description {
 /// where there is none.
 pub fn manifest(repo: &Repository, root: &str, name: &str) -> Result<(String, TomlTable), Error> {
     let manifest = join(root, &format!("{name}.toml"));
-    let document = repo.toml(&manifest)?.unwrap_or_default();
+    let document = repo.toml_table(&manifest)?.unwrap_or_default();
     Ok((manifest, document))
 }

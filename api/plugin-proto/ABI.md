@@ -82,7 +82,7 @@ and patterns when deciding whether a previously computed answer still holds.
    to arrange actions it declares no arrangement for, it answers
    `INVALID_ARGUMENT` for the reason `UNSUPPORTED_ARRANGEMENT`. The Rust
    SDK answers a method it does not know `UNIMPLEMENTED` for the reason
-   `UNKNOWN_METHOD`, which the host reads alike.
+   `METHOD_NOT_SERVED`, which the host reads alike.
 
 The methods are `Describe`, `Analyze`, `Arrange`, `Report`, `Reconcile`,
 `Service`, `Branch` and `Version`. `Report` is
