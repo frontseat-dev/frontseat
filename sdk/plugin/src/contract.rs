@@ -24,6 +24,7 @@ use crate::{Analysis, File, Handoff, Repository};
 /// `impl From<MyError> for Error`, and `?` then carries it out of
 /// [`Plugin::analyze`].
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct Error {
     /// Canonical RPC status.
     pub code: crate::Code,
@@ -308,6 +309,7 @@ pub struct Description {
 /// An option a plugin takes: its name, and the value it has where nothing
 /// sets it. The value's kind is the option's kind.
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct PluginOption {
     /// What it is set by, lower-case `[a-z0-9-]`.
     pub name: &'static str,
@@ -320,6 +322,7 @@ pub struct PluginOption {
 
 /// The value of an option.
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum Value {
     /// Text.
     String(String),
@@ -376,6 +379,24 @@ impl From<Value> for crate::OptionValue {
 }
 
 impl PluginOption {
+    /// An option of a name and its default, which only a repository may
+    /// set.
+    pub fn new(name: &'static str, default: impl Into<Value>) -> Self {
+        Self {
+            name,
+            default: default.into(),
+            entity_settable: false,
+        }
+    }
+
+    /// The same option, which an entity may set too, for its own
+    /// directory and beneath.
+    #[must_use]
+    pub fn entity_settable(mut self) -> Self {
+        self.entity_settable = true;
+        self
+    }
+
     /// The declared kind, matching the default without a second source of truth.
     pub fn kind(&self) -> crate::wire::option_declaration::Kind {
         use crate::wire::option_declaration::Kind;
@@ -391,6 +412,7 @@ impl PluginOption {
 /// What a check printed, and how it ended: what a plugin reads its
 /// findings from.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct Printed {
     /// How the check ended.
     pub exit_code: i32,
@@ -398,6 +420,18 @@ pub struct Printed {
     pub stdout: Vec<u8>,
     /// What it printed to standard error, cut to its first MiB.
     pub stderr: Vec<u8>,
+}
+
+impl Printed {
+    /// What a check printed to standard output and to standard error, and
+    /// the code it ended with.
+    pub fn new(exit_code: i32, stdout: impl Into<Vec<u8>>, stderr: impl Into<Vec<u8>>) -> Self {
+        Self {
+            exit_code,
+            stdout: stdout.into(),
+            stderr: stderr.into(),
+        }
+    }
 }
 
 /// What every plugin implements.

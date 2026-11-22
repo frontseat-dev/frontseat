@@ -33,9 +33,9 @@ func (e *Error) Error() string { return e.Status.GetMessage() }
 // GRPCStatus lets standard status adapters retain typed details when wrapping.
 func (e *Error) GRPCStatus() *status.Status { return status.FromProto(e.Status) }
 
-// unknownMethod is the reason the SDK gives for a method it does not
-// know.
-const unknownMethod = "UNKNOWN_METHOD"
+// methodNotServed is the reason the SDK gives for a method it does not
+// know: what is not served, as every other reason of the kind is named.
+const methodNotServed = "METHOD_NOT_SERVED"
 
 // notServed is the reason a plugin gives for each method it may leave
 // unserved, as the contract names it: the method's name in capitals,
@@ -58,7 +58,7 @@ func (e *Error) Is(target error) bool {
 		return false
 	}
 	reason, leaves := notServed[e.method]
-	return e.Reason == unknownMethod || leaves && e.Reason == reason
+	return e.Reason == methodNotServed || leaves && e.Reason == reason
 }
 
 var errorReason = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)

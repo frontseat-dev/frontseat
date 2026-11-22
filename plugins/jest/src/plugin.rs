@@ -25,7 +25,10 @@ impl Plugin for JestPlugin {
 
     fn analyze(&self, repo: &Repository, root: &str) -> Result<Analysis, Error> {
         let manifest = join(root, "package.json");
-        let Some(package) = repo.json_document::<Package>(&manifest)? else {
+        let Some(package) = repo
+            .json::<Package>(&manifest)
+            .map(|read| read.map(|document| document.value))?
+        else {
             return Ok(Analysis::default());
         };
         if !package.depends_on("jest") {
@@ -95,7 +98,8 @@ impl Plugin for JestPlugin {
     ) -> Result<Vec<File>, Error> {
         let manifest = join(root, "package.json");
         let package = repo
-            .json_document::<Package>(&manifest)?
+            .json::<Package>(&manifest)?
+            .map(|document| document.value)
             .ok_or_else(|| invalid(&manifest, "the Jest package is missing"))?;
         if actions != [TEST] {
             return Err(invalid(

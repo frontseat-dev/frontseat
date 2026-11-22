@@ -1,9 +1,9 @@
 use crate::inputs::Tested;
 use crate::manifest::{Entry, Locked};
 use crate::plugin;
+use frontseat_plugin::placeholders;
 use frontseat_plugin::prelude::*;
 use frontseat_plugin::repository::{join, literal};
-use frontseat_plugin::version;
 
 /// What the two profiles mean for the go command. Development leaves the
 /// compiler's optimisations and inlining off, so that a debugger sees the
@@ -42,10 +42,10 @@ fn linked_version(variables: &[String], manifest: &str) -> Result<Option<String>
             return Err(wrong("which sets a variable to nothing"));
         };
         let filled = match what {
-            "version" => version::VERSION,
-            "tag" => version::TAG,
-            "commit" => version::COMMIT,
-            "unit" => version::UNIT,
+            "version" => placeholders::VERSION,
+            "tag" => placeholders::TAG,
+            "commit" => placeholders::COMMIT,
+            "unit" => placeholders::UNIT,
             _ => return Err(wrong("which is set to nothing a release has")),
         };
         // A package's path and a variable's name, as the linker reads
@@ -243,8 +243,8 @@ pub(super) fn actions(
         tested,
         programs,
     } = *found;
-    let tags = repo.string_list(plugin::TAGS)?;
-    let timeout = repo.string(plugin::TEST_TIMEOUT)?;
+    let tags = repo.option_list(plugin::TAGS)?;
+    let timeout = repo.option_str(plugin::TEST_TIMEOUT)?;
     // The go command's own reading, before a worker is asked: what it
     // would not read fails every test of the module, far from where it
     // was set. Less than nothing is no limit to the go command, which
@@ -282,7 +282,7 @@ pub(super) fn actions(
             .inputs(fetches.iter().map(|fetch| Input::output(&fetch.name)))
             .inputs([Input::dependencies(format!("{REQUIRED}/{{name}}"))])
     };
-    let shards = repo.int(plugin::TEST_SHARDS)?;
+    let shards = repo.option_int(plugin::TEST_SHARDS)?;
     if shards < 1 {
         // A plugin is told what an option is set to and not where: the
         // mistake is said of the module it was set for.
@@ -311,7 +311,7 @@ pub(super) fn actions(
     };
     let tests = tests(&testing, &action)?;
     let mut compiling = over_module(compile(repo.profile()?), tags);
-    let version = linked_version(repo.string_list(plugin::VERSION)?, &join(root, "go.mod"))?;
+    let version = linked_version(repo.option_list(plugin::VERSION)?, &join(root, "go.mod"))?;
     // A flag of the go command's, before the packages it is given.
     if let Some(flag) = &version {
         compiling.insert(compiling.len() - 1, flag.clone());
@@ -1282,11 +1282,7 @@ mod report_tests {
 
     #[test]
     fn vet_findings_are_read_with_their_file_and_line() {
-        let printed = Printed {
-            exit_code: 1,
-            stdout: Vec::new(),
-            stderr: b"# example.com/app\n./main.go:6:14: fmt.Printf format %d has arg \"x\" of wrong type string\nsub/other.go:3: unreachable code\n".to_vec(),
-        };
+        let printed = Printed::new(1, Vec::new(), b"# example.com/app\n./main.go:6:14: fmt.Printf format %d has arg \"x\" of wrong type string\nsub/other.go:3: unreachable code\n".to_vec());
         let found = report("app", "lint", &printed);
         assert_eq!(found.len(), 2);
         assert_eq!(found[0].rule_id, "go/vet");
@@ -1332,11 +1328,11 @@ mod report_tests {
         let formatted = report(
             "app",
             "format",
-            &Printed {
-                exit_code: 0,
-                stdout: b"main.go\n./sub/x.go\n../up.go\nnot a file\n".to_vec(),
-                stderr: Vec::new(),
-            },
+            &Printed::new(
+                0,
+                b"main.go\n./sub/x.go\n../up.go\nnot a file\n".to_vec(),
+                Vec::new(),
+            ),
         );
         assert_eq!(formatted.len(), 2);
         assert_eq!(formatted[0].rule_id, "go/format");

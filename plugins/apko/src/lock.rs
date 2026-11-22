@@ -215,7 +215,10 @@ fn section(entry: &SectionEntry, kind: &str, bytes: usize) -> Option<Section> {
 /// Reads the lock of an image in a directory; none where there is no lock.
 pub(super) fn read(repo: &Repository, root: &str) -> Result<Option<Lock>, Error> {
     let path = join(root, FILE);
-    let Some(document) = repo.json_document::<Document>(&path)? else {
+    let Some(document) = repo
+        .json::<Document>(&path)
+        .map(|read| read.map(|document| document.value))?
+    else {
         return Ok(None);
     };
     if document.version != "v1" {

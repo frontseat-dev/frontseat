@@ -44,7 +44,10 @@ fn address(entry: &str) -> &str {
 /// since each of those is read from where apko runs and nothing hands it
 /// there.
 pub(super) fn check(repo: &Repository, path: &str) -> Result<(), Error> {
-    let Some(image) = repo.yaml_document::<Image>(path)? else {
+    let Some(image) = repo
+        .yaml::<Image>(path)
+        .map(|read| read.map(|document| document.value))?
+    else {
         return Err(Error::invalid(
             "invalid-lock",
             path,

@@ -29,7 +29,7 @@ pub(super) fn extract(
                 ));
             }
             let target = entity::parse(target, default_kind, &source.namespace)
-                .map_err(|message| invalid(spec.path, format!("spec.{field}: {message}")))?;
+                .map_err(|error| invalid(spec.path, format!("spec.{field}: {}", error.message)))?;
             result.push(EntityRelation {
                 r#type: outgoing.into(),
                 target: Some(target),

@@ -7,6 +7,10 @@ readme = "README.md"
 repository = "https://github.com/frontseat-dev/frontseat"
 documentation = "https://docs.rs/frontseat-plugin-test"
 description = "What a frontseat plugin's unit tests are written with: a repository in memory, a host that fails when told to, and the plugin asked as the host asks it."
+# The Rust this repository pins (mise.toml): no older one is tested.
+rust-version = "1.99"
+keywords = ["frontseat", "build", "plugin", "wasm"]
+categories = ["development-tools::build-utils", "wasm"]
 
 [dependencies]
 # Released with the SDK, at its version: the version is what a

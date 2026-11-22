@@ -82,7 +82,7 @@ impl Lock {
     /// cargo writes one is refused where it is: what it names would be
     /// asked of a registry, by name and version, in an address.
     pub(super) fn read(repo: &Repository, path: &str) -> Result<Option<Lock>, Error> {
-        let Some(typed) = repo.toml_document::<File>(path)? else {
+        let Some(typed) = repo.toml::<File>(path)? else {
             return Ok(None);
         };
         let text = typed.text;

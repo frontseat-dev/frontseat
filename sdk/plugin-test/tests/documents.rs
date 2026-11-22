@@ -61,9 +61,10 @@ fn typed_yaml_preserves_values_and_refuses_implicit_coercion() {
         let source =
             documents(format!("name: '${{HOME}}'\nenabled: true\ncount: {count}\n").into_bytes());
         let actual = Repository::new(&*source, None)
-            .yaml::<Manifest>("manifest.yaml")
+            .yaml_stream::<Manifest>("manifest.yaml")
             .unwrap()
-            .unwrap();
+            .unwrap()
+            .value;
         assert_eq!(
             actual,
             [Manifest {
@@ -82,7 +83,7 @@ fn typed_yaml_preserves_values_and_refuses_implicit_coercion() {
     ] {
         let source = documents(text.as_bytes().to_vec());
         let error = Repository::new(&*source, None)
-            .yaml::<Manifest>("manifest.yaml")
+            .yaml_stream::<Manifest>("manifest.yaml")
             .unwrap_err();
         assert_eq!(
             (error.reason.as_str(), error.path.as_str()),
@@ -99,8 +100,10 @@ fn manifest_size_limit_has_an_allowed_boundary_control() {
         bytes[0] = b'#';
         let source = documents(bytes);
         let repo = Repository::new(&*source, None);
-        let toml = repo.toml("Cargo.toml");
-        let yaml = repo.yaml::<Manifest>("catalog-info.yaml");
+        let toml = repo.toml_table("Cargo.toml");
+        let yaml = repo
+            .yaml_stream::<Manifest>("catalog-info.yaml")
+            .map(|read| read.map(|document| document.value));
         if allowed {
             assert!(toml.unwrap().unwrap().is_empty());
             assert!(yaml.unwrap().unwrap().is_empty());
@@ -115,12 +118,12 @@ fn manifest_size_limit_has_an_allowed_boundary_control() {
 fn yaml_and_toml_errors_report_source_lines_after_unicode() {
     let source = documents("name: café\nname: duplicate\n".as_bytes().to_vec());
     let error = Repository::new(&*source, None)
-        .yaml::<Manifest>("catalog-info.yaml")
+        .yaml_stream::<Manifest>("catalog-info.yaml")
         .unwrap_err();
     assert_eq!(error.line, 2);
     let source = documents("name = 'café'\nname = 'duplicate'\n".as_bytes().to_vec());
     let error = Repository::new(&*source, None)
-        .toml("Cargo.toml")
+        .toml_table("Cargo.toml")
         .unwrap_err();
     assert_eq!(error.line, 2);
 }
@@ -131,9 +134,10 @@ fn single_yaml_document_requires_one_nonempty_manifest() {
     let source = documents(valid.as_bytes().to_vec());
     assert_eq!(
         Repository::new(&*source, None)
-            .yaml_document::<Manifest>("manifest.yaml")
+            .yaml::<Manifest>("manifest.yaml")
             .unwrap()
             .unwrap()
+            .value
             .name,
         "sample"
     );
@@ -145,7 +149,7 @@ fn single_yaml_document_requires_one_nonempty_manifest() {
     ] {
         let source = documents(text.into_bytes());
         let error = Repository::new(&*source, None)
-            .yaml_document::<Manifest>("manifest.yaml")
+            .yaml::<Manifest>("manifest.yaml")
             .unwrap_err();
         assert_eq!(error.reason, "invalid-yaml");
         assert_eq!(error.path, "manifest.yaml");
@@ -160,9 +164,10 @@ fn typed_json_preserves_values_and_refuses_what_is_not_the_document() {
                 .into_bytes(),
         );
         let actual = Repository::new(&*source, None)
-            .json_document::<Manifest>("lock.json")
+            .json::<Manifest>("lock.json")
             .unwrap()
-            .unwrap();
+            .unwrap()
+            .value;
         assert_eq!(
             actual,
             Manifest {
@@ -188,7 +193,7 @@ fn typed_json_preserves_values_and_refuses_what_is_not_the_document() {
     ] {
         let source = documents(text.as_bytes().to_vec());
         let error = Repository::new(&*source, None)
-            .json_document::<Manifest>("lock.json")
+            .json::<Manifest>("lock.json")
             .unwrap_err();
         assert_eq!(
             (error.reason.as_str(), error.path.as_str()),
@@ -198,13 +203,13 @@ fn typed_json_preserves_values_and_refuses_what_is_not_the_document() {
     }
     let source = documents("{\"name\": \"a\",\n \"enabled\": true,\n \"count\": []}".as_bytes());
     let error = Repository::new(&*source, None)
-        .json_document::<Manifest>("lock.json")
+        .json::<Manifest>("lock.json")
         .unwrap_err();
     assert_eq!(error.line, 3);
     let mut large = b"{\"name\": \"".to_vec();
     large.resize(4 * 1024 * 1024 + 1, b'a');
     let error = Repository::new(&*documents(large), None)
-        .json_document::<Manifest>("lock.json")
+        .json::<Manifest>("lock.json")
         .unwrap_err();
     assert_eq!(error.reason, "file-too-large");
 }

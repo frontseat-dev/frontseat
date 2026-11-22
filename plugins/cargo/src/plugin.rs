@@ -40,11 +40,9 @@ impl Plugin for CargoPlugin {
             ]
             .map(str::to_string)
             .to_vec(),
-            options: vec![PluginOption {
-                name: WASM,
-                default: frontseat_plugin::Value::Bool(false),
-                entity_settable: true,
-            }],
+            options: vec![
+                PluginOption::new(WASM, frontseat_plugin::Value::Bool(false)).entity_settable(),
+            ],
             ..Default::default()
         }
     }
@@ -81,7 +79,7 @@ impl Plugin for CargoPlugin {
             return Ok(Vec::new());
         }
         let manifest = join(&ws.dir, "Cargo.toml");
-        let Some(table) = repo.toml(&manifest)? else {
+        let Some(table) = repo.toml_table(&manifest)? else {
             return Ok(Vec::new());
         };
         let lock = join(&ws.dir, "Cargo.lock");

@@ -424,7 +424,7 @@ impl<T> Answer<T> {
 
     /// Panics unless the call was answered as the host reads a method
     /// unserved: `UNIMPLEMENTED`, for the method's own reason or the
-    /// SDK's `unknown-method`. `UNIMPLEMENTED` for another reason is a
+    /// SDK's `method-not-served`. `UNIMPLEMENTED` for another reason is a
     /// failure of the call, as the host reads it.
     #[track_caller]
     pub fn unsupported(self) {
@@ -436,13 +436,13 @@ impl<T> Answer<T> {
             "Service" => "service-not-served",
             "Branch" => "branching-strategy-not-served",
             "Version" => "versioning-strategy-not-served",
-            _ => "unknown-method",
+            _ => "method-not-served",
         };
         match self.result {
             Ok(_) => panic!("the plugin answered, and was to say it serves no such call"),
             Err(refusal) => assert!(
                 refusal.code == Code::Unimplemented
-                    && (refusal.reason == reason || refusal.reason == "unknown-method"),
+                    && (refusal.reason == reason || refusal.reason == "method-not-served"),
                 "refused, and not as {} unserved, which is UNIMPLEMENTED for the reason {reason}: {refusal:?}",
                 self.method
             ),
@@ -764,16 +764,12 @@ mod tests {
         fn describe(&self) -> Description {
             Description {
                 name: "manifests".into(),
-                options: vec![PluginOption {
-                    name: "strict",
-                    default: Value::Bool(true),
-                    entity_settable: false,
-                }],
+                options: vec![PluginOption::new("strict", Value::Bool(true))],
                 ..Default::default()
             }
         }
         fn analyze(&self, repo: &Repository, root: &str) -> Result<Analysis, Error> {
-            if repo.bool("strict")? && repo.read(root)?.is_none() {
+            if repo.option_bool("strict")? && repo.read(root)?.is_none() {
                 return Err(Error::new(
                     Code::FailedPrecondition,
                     "missing-manifest",
