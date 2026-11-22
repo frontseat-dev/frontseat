@@ -259,8 +259,8 @@ type Option struct {
 	Kind Option_Kind `protobuf:"varint,3,opt,name=kind,proto3,enum=frontseat.plugin.v1alpha1.Option_Kind" json:"kind,omitempty"`
 	// Default is its value where nothing sets it.
 	Default *v1alpha1.OptionValue `protobuf:"bytes,4,opt,name=default,proto3" json:"default,omitempty"`
-	// Entity_settable says an entity may set it, for its own directory and beneath;
-	// unset, only a repository may.
+	// Entity_settable says a Component may set it, for its own directory and
+	// beneath; unset, only a repository may.
 	EntitySettable bool `protobuf:"varint,5,opt,name=entity_settable,json=entitySettable,proto3" json:"entity_settable,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache

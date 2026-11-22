@@ -231,7 +231,7 @@ pub struct PluginOption {
     pub name: &'static str,
     /// Its value where nothing sets it.
     pub default: Value,
-    /// Whether an entity may set it, for its own directory and beneath;
+    /// Whether a Component may set it, for its own directory and beneath;
     /// otherwise only a repository may.
     pub entity_settable: bool,
 }

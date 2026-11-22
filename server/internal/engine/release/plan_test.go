@@ -1208,7 +1208,7 @@ func TestABranchThatReleasesNothingStableReleasesAPrerelease(t *testing.T) {
 		said    []config.Release
 		says    string
 	}{
-		"a number written with a zero before it": {then(on("main", []string{"greet/v1.26.0"}, "feat: by name")), []config.Release{says("greet", "prerelease", "0{epoch}")}, "greet: spec.frontseat.release.prerelease: spells what is no prerelease of a semantic version"},
+		"a number written with a zero before it": {then(on("main", []string{"greet/v1.26.0"}, "feat: by name")), []config.Release{says("greet", "prerelease", "0{epoch}")}, "greet: spec.frontseat.release.prerelease, for the branch \"main\": spells what is no prerelease of a semantic version, whose parts are"},
 		"a tag that names another commit":        {then(on("main", []string{"greet/v1.26.0", "greet/v1.27.0-main-20261121101500"}, "feat: by name")), []config.Release{says("greet", "prerelease-tag", "true")}, `greet 1.27.0-main-20261121101500 is not new: greet/v1.27.0-main-20261121101500 names another commit`},
 	} {
 		if _, err := release.Plan(context.Background(), company(c.said...), &strategies{prereleases: true}, c.history, asking("greet")); err == nil || !strings.Contains(err.Error(), c.says) {

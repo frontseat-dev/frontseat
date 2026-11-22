@@ -160,8 +160,8 @@ func TestAnActionRefusesAKeyItDoesNotTake(t *testing.T) {
 }
 
 // A Component sets a plugin's options for its directory, once: a second
-// setting for the directory is refused, where the later once won, and so
-// is one by an entity that is no directory. The control is one Component
+// setting for the directory is refused, and so is one by an entity that
+// is no directory. The control is one Component
 // that sets them.
 func TestAPluginsOptionsAreSetOnceForADirectoryByAComponent(t *testing.T) {
 	document := func(kind, name, strict string) string {

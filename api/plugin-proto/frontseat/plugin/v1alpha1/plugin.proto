@@ -136,8 +136,8 @@ message Option {
   Kind kind = 3;
   // Default is its value where nothing sets it.
   frontseat.type.v1alpha1.OptionValue default = 4;
-  // Entity_settable says an entity may set it, for its own directory and beneath;
-  // unset, only a repository may.
+  // Entity_settable says a Component may set it, for its own directory and
+  // beneath; unset, only a repository may.
   bool entity_settable = 5;
 
   // Kind is a kind of value an option takes.

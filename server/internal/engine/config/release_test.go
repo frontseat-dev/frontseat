@@ -69,12 +69,12 @@ func TestAMistakeInHowAnEntityIsReleasedNamesTheSetting(t *testing.T) {
 		"      versioning: conventional-commits\n":     "spec.frontseat.release.versioning must be <plugin>:<name>",
 		"      branching: 'release:'\n":                "spec.frontseat.release.branching must be <plugin>:<name>",
 		"      branching: 'Release:flow'\n":            "must be <plugin>:<name>",
-		"      prerelease: '{branch}-{date}'\n":        "spec.frontseat.release.prerelease names what is not filled: it takes {branch}, {timestamp}, {epoch}, {sha}",
+		"      prerelease: '{branch}-{date}'\n":        "spec.frontseat.release.prerelease names what is not filled: it takes {branch}, {timestamp}, {epoch}, {sha} (line",
 		"      prerelease: '{branch}..{sha}'\n":        "spec.frontseat.release.prerelease spells what is no prerelease of a semantic version",
 		"      prerelease: '{branch}+{sha}'\n":         "spells what is no prerelease of a semantic version",
 		"      prerelease: '0{epoch}'\n":               "spells what is no prerelease of a semantic version",
 		"      prerelease: ''\n":                       "spells what is no prerelease of a semantic version",
-		"      prerelease: '{branch}.{sha}'\n":         "spells what is no prerelease of a semantic version: a branch or a commit written in digits is a number",
+		"      prerelease: '{branch}.{sha}'\n":         "spells what is no prerelease of a semantic version, whose parts are letters, digits and dashes joined by dots, a part of digits alone beginning with no zero: a branch or a commit written in digits is a number",
 		"      prerelease: '{branch}.{timestamp}'\n":   "spells what is no prerelease of a semantic version",
 		"      prerelease-tag: 'yes'\n":                "spec.frontseat.release.prerelease-tag is true or false",
 		"      prerelease-tag: 'true'\n":               "spec.frontseat.release.prerelease-tag is true or false",
@@ -102,7 +102,7 @@ func TestWhoSaysHowItIsReleasedIsNamedAsEveryEntityIs(t *testing.T) {
 		t.Fatalf("an entity written in upper case is %v, %v", read.Releases(), err)
 	}
 	for _, c := range [][2]string{{"\u212Aelvin", "default"}, {"greet", "De\u212A"}, {"a b", "default"}} {
-		if _, err := config.Read(context.Background(), "services", file(c[0], c[1])); err == nil || !strings.Contains(err.Error(), "an entity whose name is none") {
+		if _, err := config.Read(context.Background(), "services", file(c[0], c[1])); err == nil || !strings.Contains(err.Error(), "an entity whose name is none: a kind, namespace and name are") || strings.Contains(err.Error(), "component:") {
 			t.Errorf("%q in %q says how it is released: %v", c[0], c[1], err)
 		}
 	}

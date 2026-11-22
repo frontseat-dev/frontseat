@@ -93,8 +93,8 @@ func readRelease(file string, document, node *yaml.Node) (Release, error) {
 		return mistake(node.Line, "spec.frontseat.release is said by an entity, which has a kind and a name")
 	}
 	ref := entity.New(kind, namespace, name)
-	if err := ref.Validate(); err != nil {
-		return mistake(node.Line, "spec.frontseat.release is said by an entity whose name is none: %v", err)
+	if ref.Validate() != nil {
+		return mistake(node.Line, "spec.frontseat.release is said by an entity whose name is none: a kind, namespace and name are each of letters and digits, with dashes, dots or underscores between them")
 	}
 	// What is released is a Component, alone or with its group, and a
 	// group is a System or a Domain: on any other kind a setting would
@@ -151,10 +151,11 @@ func readRelease(file string, document, node *yaml.Node) (Release, error) {
 			// A branch and a commit may each be written in digits alone,
 			// and begin with a zero: a form that makes either a part of
 			// its own is no prerelease for those, and is refused for all.
-			for _, sample := range [][2]string{{"main", "0123abcdef0123abcdef0123abcdef0123abcdef"}, {"007", "0123456789012345678901234567890123456789"}} {
-				if _, err := Prerelease(value, sample[0], sample[1], 1795256100); err != nil {
-					return mistake(said.Line, "spec.frontseat.release.prerelease %v: a branch or a commit written in digits is a number, which begins with no zero; join it to another part with a dash", err)
-				}
+			if _, err := Prerelease(value, "main", "0123abcdef0123abcdef0123abcdef0123abcdef", 1795256100); err != nil {
+				return mistake(said.Line, "spec.frontseat.release.prerelease %v", err)
+			}
+			if _, err := Prerelease(value, "007", "0123456789012345678901234567890123456789", 1795256100); err != nil {
+				return mistake(said.Line, "spec.frontseat.release.prerelease %v: a branch or a commit written in digits is a number, which begins with no zero; join it to another part with a dash", err)
 			}
 		}
 		out.Settings[key.Value] = value
@@ -238,7 +239,7 @@ func Prerelease(form, branch, revision string, committed int64) (string, error) 
 	// with no zero before it, and nothing after a plus.
 	version, err := semver.StrictNewVersion("0.0.0-" + spelled)
 	if err != nil || version.Prerelease() != spelled || version.Metadata() != "" {
-		return "", errors.New("spells what is no prerelease of a semantic version")
+		return "", errors.New("spells what is no prerelease of a semantic version, whose parts are letters, digits and dashes joined by dots, a part of digits alone beginning with no zero")
 	}
 	return spelled, nil
 }

@@ -65,18 +65,20 @@ func fromRoot(input string) (string, bool) {
 func readCatalogInputs(repository, directory, file, what string, written []string) (catalogReading, error) {
 	out := catalogReading{source: pattern.Group{Directory: directory}, root: pattern.Group{Committed: true}}
 	var sources, named int
-	for _, input := range written {
+	// A mistake says which input by its place in the list and never
+	// repeats it: a catalog file's text is said back by no refusal.
+	for i, input := range written {
 		within, rooted := fromRoot(input)
 		switch {
 		case pattern.IsReference(input):
 			named++
 		case rooted && !pattern.Valid(within):
-			return catalogReading{}, &model.Mistake{File: file, Message: fmt.Sprintf("%s holds %q, which is not a pattern of files beneath the repository's root", what, input)}
+			return catalogReading{}, &model.Mistake{File: file, Message: fmt.Sprintf("%s: its input %d is not a pattern of files beneath the repository's root", what, i+1)}
 		case rooted:
 		case strings.HasPrefix(input, "="):
-			return catalogReading{}, &model.Mistake{File: file, Message: fmt.Sprintf("%s names the input set %q, which the project does not declare", what, strings.TrimPrefix(input, "="))}
+			return catalogReading{}, &model.Mistake{File: file, Message: fmt.Sprintf("%s: its input %d names an input set, which a catalog file declares none of", what, i+1)}
 		case !pattern.Valid(input):
-			return catalogReading{}, &model.Mistake{File: file, Message: fmt.Sprintf("%s holds %q, which is not a pattern of files beneath the project", what, input)}
+			return catalogReading{}, &model.Mistake{File: file, Message: fmt.Sprintf("%s: its input %d is not a pattern of files beneath the project", what, i+1)}
 		default:
 			sources++
 		}
