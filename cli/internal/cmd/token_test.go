@@ -192,9 +192,9 @@ func TestNoCommandAsksAControlPlaneOnAnotherMachineInClear(t *testing.T) {
 // another control plane as the one the server file names.
 func TestAServerThatDoesNotAnswerIsSaidWithWhatStartsIt(t *testing.T) {
 	serverAt(t, "http://127.0.0.1:1")
-	_, _, err := runAt(t, context.Background(), "", "workspace", "list")
-	if err == nil || !strings.Contains(err.Error(), "the control plane frontseat/local/server names does not answer") || strings.Contains(err.Error(), "mise") {
-		t.Errorf("a control plane that does not answer: %v", err)
+	_, code, err := runAt(t, context.Background(), "", "workspace", "list")
+	if _, said := Failed(context.Background(), err); code != ExitUnanswered || !strings.Contains(said, "the control plane frontseat/local/server names does not answer") || strings.Contains(said, "mise") {
+		t.Errorf("a control plane that does not answer: %d, %q", code, said)
 	}
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	if said := unanswered(); !strings.Contains(said, "the local stack does not answer: `frontseat-local up` starts it") {

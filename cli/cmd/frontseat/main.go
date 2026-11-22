@@ -23,8 +23,11 @@ func main() {
 	defer stop()
 	code, err := observedCommand(ctx, os.Args[1:])
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "frontseat:", err)
-		os.Exit(2)
+		var said string
+		code, said = cmd.Failed(ctx, err)
+		if said != "" {
+			fmt.Fprintln(os.Stderr, "frontseat:", said)
+		}
 	}
 	os.Exit(code)
 }
@@ -47,7 +50,7 @@ func observedCommand(ctx context.Context, args []string) (code int, err error) {
 	defer func() {
 		exit := code
 		if err != nil {
-			exit = 2
+			exit, _ = cmd.Failed(ctx, err)
 		}
 		failed := telemetry.Outcome(span, exit, err)
 		severity, message := log.SeverityInfo, "command finished"
