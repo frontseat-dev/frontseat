@@ -177,15 +177,15 @@ func lastOpened(t *testing.T, server, workspaceName string) {
 	}
 }
 
-func TestShipPlanSaysWhatReleasingWouldDoAndReleasesNothing(t *testing.T) {
+func TestShipDryRunSaysWhatReleasingWouldDoAndReleasesNothing(t *testing.T) {
 	d := &daemonOf{}
-	printed, code, err := run(t, d, "ship", "plan", "greet", "system:kiosk")
+	printed, code, err := run(t, d, "ship", "--dry-run", "greet", "system:kiosk")
 	if err != nil || code != 0 {
-		t.Fatalf("ship plan ended %d, %v", code, err)
+		t.Fatalf("ship --dry-run ended %d, %v", code, err)
 	}
 	want := "greet  unreleased -> 0.77.0  tag greet/v0.77.0  on release/0.77\n  its first release\nsystem:kiosk  unreleased -> 0.77.0  tag kiosk/v0.77.0  on release/0.77\n  its first release\nplan etag-of-the-plan\n"
 	if printed != want {
-		t.Errorf("ship plan printed\n%s\nwant\n%s", printed, want)
+		t.Errorf("ship --dry-run printed\n%s\nwant\n%s", printed, want)
 	}
 	if len(d.planned) != 1 || len(d.created) != 0 {
 		t.Fatalf("it planned %d times and released %d", len(d.planned), len(d.created))
@@ -229,12 +229,12 @@ func TestAShipThatFailsExitsOne(t *testing.T) {
 	}
 }
 
-// With --plan a release is of the plan that was seen, and no other: the
+// With --etag a release is of the plan that was seen, and no other: the
 // command plans nothing of its own, and what the daemon refuses is said.
 func TestShipWithAPlanReleasesThatPlanAndNoOther(t *testing.T) {
 	d := &daemonOf{state: buildv1.Release_STATE_SUCCEEDED}
 	// A flag is read wherever it is written.
-	for _, args := range [][]string{{"ship", "--plan", "seen", "greet"}, {"ship", "greet", "--plan", "seen"}, {"ship", "greet", "--plan=seen"}} {
+	for _, args := range [][]string{{"ship", "--etag", "seen", "greet"}, {"ship", "greet", "--etag", "seen"}, {"ship", "greet", "--etag=seen"}} {
 		d.planned, d.created = nil, nil
 		if _, code, err := run(t, d, args...); err != nil || code != 0 {
 			t.Fatalf("%v ended %d, %v", args, code, err)
@@ -243,7 +243,7 @@ func TestShipWithAPlanReleasesThatPlanAndNoOther(t *testing.T) {
 			t.Errorf("%v planned %d times and released %v", args, len(d.planned), d.created)
 		}
 	}
-	_, _, err := run(t, d, "ship", "greet", "--plan", "stale")
+	_, _, err := run(t, d, "ship", "greet", "--etag", "stale")
 	if err == nil || !strings.Contains(err.Error(), "plan again") {
 		t.Errorf("a plan the workspace has moved from: %v", err)
 	}
@@ -253,8 +253,10 @@ func TestWhatIsWrittenWronglyIsRefusedBeforeADaemonIsAsked(t *testing.T) {
 	d := &daemonOf{}
 	for name, args := range map[string][]string{
 		"ship with nothing named":            {"ship"},
-		"ship plan with nothing named":       {"ship", "plan"},
-		"an entity that is none":             {"ship", "plan", "a b"},
+		"ship --dry-run with nothing named":  {"ship", "--dry-run"},
+		"an entity that is none":             {"ship", "--dry-run", "a b"},
+		"ship --plan, which is ship --etag":  {"ship", "greet", "--plan", "seen"},
+		"a plan seen and released at once":   {"ship", "greet", "--dry-run", "--etag", "seen"},
 		"a flag ship does not take":          {"ship", "greet", "--only", "test"},
 		"a command there is not":             {"release", "greet"},
 		"no command at all":                  {},
@@ -294,8 +296,7 @@ func TestACommandIsNamedWithoutWhatItWasGiven(t *testing.T) {
 	}
 	for want, args := range map[string][]string{
 		"build":          {"build", "gateway", "--only", "test"},
-		"ship":           {"ship", "greet"},
-		"ship plan":      {"ship", "plan", "secret-entity"},
+		"ship":           {"ship", "--dry-run", "secret-entity"},
 		"workspace ssh":  {"workspace", "ssh", "cat", "/etc/passwd"},
 		"workspace open": {"workspace", "open", "https://secret.example/private.git"},
 		"build events":   {"build", "events", "build_1", "--from", "7"},
@@ -399,7 +400,7 @@ func TestOneCommandLineLeavesNothingForTheNext(t *testing.T) {
 	if _, _, err := run(t, d, "ship", "--help"); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := run(t, d, "ship", "greet", "--plan", "seen"); err != nil {
+	if _, _, err := run(t, d, "ship", "greet", "--etag", "seen"); err != nil {
 		t.Fatal(err)
 	}
 	gone, cancel := context.WithCancel(context.Background())
@@ -410,7 +411,7 @@ func TestOneCommandLineLeavesNothingForTheNext(t *testing.T) {
 	d.planned, d.created = nil, nil
 	printed, code, err := run(t, d, "ship", "greet")
 	if err != nil || code != 0 || len(d.planned) != 1 || len(d.created) != 1 || d.created[0].GetEtag() != "etag-of-the-plan" {
-		t.Errorf("after --help, --plan and a cancelled run, ship ended %d, %v, planned %d and released %v, printing\n%s", code, err, len(d.planned), d.created, printed)
+		t.Errorf("after --help, --etag and a cancelled run, ship ended %d, %v, planned %d and released %v, printing\n%s", code, err, len(d.planned), d.created, printed)
 	}
 }
 
@@ -439,22 +440,22 @@ func TestAWorkspaceIsNamedAndNotAddressed(t *testing.T) {
 	at = srv.URL + "/workspaces/named/build"
 	serverAt(t, srv.URL)
 	lastOpened(t, srv.URL, "another")
-	if _, _, err := runAt(t, context.Background(), "", "ship", "plan", "greet", "--workspace", "named"); err != nil {
+	if _, _, err := runAt(t, context.Background(), "", "ship", "--dry-run", "greet", "--workspace", "named"); err != nil {
 		t.Fatal(err)
 	}
 	if len(d.planned) != 1 {
 		t.Errorf("the workspace named was asked %d times", len(d.planned))
 	}
-	if _, _, err := runAt(t, context.Background(), "", "ship", "plan", "greet", "--workspace", "not-there"); err == nil || !strings.Contains(err.Error(), "not-there") {
+	if _, _, err := runAt(t, context.Background(), "", "ship", "--dry-run", "greet", "--workspace", "not-there"); err == nil || !strings.Contains(err.Error(), "not-there") {
 		t.Errorf("a workspace that is not there: %v, want it said", err)
 	}
 	// Inside a workspace's sandbox, its own daemon is asked, and no
 	// other: a name is given outside.
 	other := &daemonOf{}
-	if _, _, err := run(t, other, "ship", "plan", "greet"); err != nil || len(other.planned) != 1 {
+	if _, _, err := run(t, other, "ship", "--dry-run", "greet"); err != nil || len(other.planned) != 1 {
 		t.Errorf("inside, with no name, the daemon there was asked %d times (%v)", len(other.planned), err)
 	}
-	if _, _, err := run(t, other, "ship", "plan", "greet", "--workspace", "named"); err == nil || !strings.Contains(err.Error(), "--workspace is given outside") || len(d.planned) != 1 {
+	if _, _, err := run(t, other, "ship", "--dry-run", "greet", "--workspace", "named"); err == nil || !strings.Contains(err.Error(), "--workspace is given outside") || len(d.planned) != 1 {
 		t.Errorf("inside, another workspace named: %v, and it was asked %d times; want it refused by name, and asked once", err, len(d.planned))
 	}
 	for _, args := range [][]string{{"build", "--endpoint", "x"}, {"workspace", "open", "--workspace", "x"}, {"workspace", "ssh", "--endpoint", "x"}} {
@@ -462,7 +463,7 @@ func TestAWorkspaceIsNamedAndNotAddressed(t *testing.T) {
 			t.Errorf("%v took a flag it has none of: %v", args, err)
 		}
 	}
-	for _, path := range [][]string{{"workspace", "describe"}, {"workspace", "add"}, {"build"}, {"test"}, {"query"}, {"build", "list"}, {"build", "describe"}, {"build", "events"}, {"build", "actions"}, {"build", "logs"}, {"build", "cancel"}, {"run"}, {"run", "list"}, {"run", "describe"}, {"run", "logs"}, {"run", "cancel"}, {"ship"}, {"ship", "plan"}} {
+	for _, path := range [][]string{{"workspace", "describe"}, {"workspace", "add"}, {"build"}, {"test"}, {"query"}, {"build", "list"}, {"build", "describe"}, {"build", "events"}, {"build", "actions"}, {"build", "logs"}, {"build", "cancel"}, {"run"}, {"run", "list"}, {"run", "describe"}, {"run", "logs"}, {"run", "cancel"}, {"ship"}} {
 		sub, _, err := rootCmd.Find(path)
 		if err != nil || sub.Flags().Lookup("workspace") == nil {
 			t.Errorf("%v asks a workspace and takes no --workspace", path)
@@ -556,5 +557,14 @@ func TestTheHelpSaysWhichServerAndWorkspaceAreAsked(t *testing.T) {
 	}
 	if strings.Contains(printed.String(), "local/server") {
 		t.Errorf("a command's own help says the rule again:\n%s", printed)
+	}
+}
+
+// An entity named plan is named as any other: there is no ship plan to
+// take its name.
+func TestAnEntityNamedPlanIsShippedByItsName(t *testing.T) {
+	d := &daemonOf{}
+	if _, _, err := run(t, d, "ship", "--dry-run", "plan"); err != nil || len(d.planned) != 1 || d.planned[0].GetEntities()[0].GetName() != "plan" {
+		t.Errorf("ship --dry-run plan: %v, planned %v", err, d.planned)
 	}
 }

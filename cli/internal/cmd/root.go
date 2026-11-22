@@ -170,7 +170,7 @@ func unanswered() string {
 }
 
 // Name is the command the arguments name, as it is said of in a trace:
-// "build", "ship plan", "workspace ssh". It never holds an argument, a
+// "build", "build events", "workspace ssh". It never holds an argument, a
 // source location or shell text. What names no command is "unknown", and
 // nothing at all is "help".
 func Name(args []string) string {

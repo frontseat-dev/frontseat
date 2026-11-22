@@ -80,7 +80,7 @@ func TestInsideAWorkspaceItsSourceIsFixed(t *testing.T) {
 		t.Fatalf("inside, the control plane was asked %d times, and told %d changes", asked, plane.changes())
 	}
 	// Inside, the daemon there is asked what it builds and releases.
-	if _, code, err := run(t, d, "ship", "plan", "greet"); err != nil || code != 0 || len(d.planned) != 1 {
+	if _, code, err := run(t, d, "ship", "--dry-run", "greet"); err != nil || code != 0 || len(d.planned) != 1 {
 		t.Errorf("inside, a plan ended %d (%v), and the daemon was asked %d times", code, err, len(d.planned))
 	}
 	// Outside, the same command tells the control plane.

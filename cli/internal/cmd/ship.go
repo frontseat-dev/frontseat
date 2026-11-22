@@ -9,9 +9,13 @@ import (
 	"github.com/frontseat-dev/frontseat/sdk/go/entity"
 )
 
-// shipPlanned is the etag of a plan that was seen, where a release is to
-// be of that plan and no other.
-var shipPlanned string
+var (
+	// shipEtag is the etag of a plan that was seen, where a release is
+	// to be of that plan and no other.
+	shipEtag string
+	// shipDryRun says what releasing would do, and releases nothing.
+	shipDryRun bool
+)
 
 // shipCmd releases entities.
 var shipCmd = &cobra.Command{
@@ -31,14 +35,18 @@ again where it may, it pushes them. The command follows the build and
 exits 0 where the release ended with its tags pushed, or with nothing
 to tag, and 1 where it failed or ended unpublished.
 
-With --plan, the release is of the plan that etag names, as ship plan
-printed it, and is refused where the workspace has moved since.
+With --dry-run, it says what releasing would do now: the units it would
+release, the version each would get and why, the tag it would be given,
+or why a unit holds. Nothing is built, tagged or changed. The last line
+is the plan's etag: plan ETAG.
 
-An entity named plan is written in full, component:plan.`,
+With --etag, the release is of the plan that etag names, as --dry-run
+printed it, and is refused where the workspace has moved since.`,
 	Example: `  frontseat ship greet
   frontseat ship system:kiosk
   frontseat ship domain:retail
-  frontseat ship greet --plan 94d84b5ff042...`,
+  frontseat ship --dry-run greet
+  frontseat ship greet --etag 94d84b5ff042...`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		w, err := releasing(args)
@@ -47,7 +55,11 @@ An entity named plan is written in full, component:plan.`,
 		}
 		ctx := cmd.Context()
 		printer := plain.Printer{Out: out}
-		etag := shipPlanned
+		if shipDryRun {
+			_, err = plan(cmd, w, args)
+			return err
+		}
+		etag := shipEtag
 		if etag == "" {
 			if etag, err = plan(cmd, w, args); err != nil {
 				return err
@@ -96,7 +108,10 @@ An entity named plan is written in full, component:plan.`,
 func init() {
 	rootCmd.AddCommand(shipCmd)
 	asksAWorkspace(shipCmd)
-	shipCmd.Flags().StringVar(&shipPlanned, "plan", "", "release the plan this etag names, as ship plan printed it")
+	shipCmd.Flags().StringVar(&shipEtag, "etag", "", "release the plan this etag names, as ship --dry-run printed it")
+	shipCmd.Flags().BoolVar(&shipDryRun, "dry-run", false, "say what releasing would do, and release nothing")
+	// A plan is seen, or released: not both at once.
+	shipCmd.MarkFlagsMutuallyExclusive("etag", "dry-run")
 }
 
 // releasing is the workspace a command that releases entities asks,

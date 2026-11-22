@@ -139,7 +139,7 @@ func TestANameADomainAndAComponentShareIsTheComponentsAndTheDomainIsNamedWithIts
 	source.says("platform", "retail/retail.go", "package retail\n")
 	workspace := source.releaseWorkspace()
 
-	// No kind and no namespace, as `frontseat ship plan retail` asks: the
+	// No kind and no namespace, as `frontseat ship --dry-run retail` asks: the
 	// component, released alone.
 	component := workspace.plan(func(r *buildv1.PlanReleaseRequest) { r.Entities = []*typev1.EntityRef{{Name: "retail"}} })
 	spec.Expect(component.units()).To(Equal([]string{"retail"}))
