@@ -48,10 +48,10 @@ func TestAShellOpenedOnAWorkspaceBeginsInItsRepository(t *testing.T) {
 }
 
 // No catalog is named on the command line: the control plane resolves
-// entities through its own. --catalog is an unknown flag of open and of
-// add; the control is --whole, a flag of both.
+// entities through its own. --catalog is an unknown flag of create and
+// of add; the control is --whole, a flag of both.
 func TestACatalogIsNamedOnTheCommandLineNoMore(t *testing.T) {
-	for _, command := range []*cobra.Command{openCmd, addCmd} {
+	for _, command := range []*cobra.Command{createCmd, addCmd} {
 		if flag := command.Flags().Lookup("catalog"); flag != nil {
 			t.Errorf("%s takes --catalog", command.Name())
 		}

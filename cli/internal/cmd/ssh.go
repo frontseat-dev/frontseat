@@ -23,16 +23,40 @@ var sshStdio, sshConfig bool
 // through the server that made the sandbox, by this same command with
 // --stdio as the SSH client's proxy; an editor is given the same.
 var sshCmd = &cobra.Command{
-	Use:   "ssh [COMMAND...]",
-	Short: "A shell in the sandbox, or a command",
-	Long: `Open a shell in the workspace's sandbox, or run a command there.
+	Use:   "ssh [NAME] [-- COMMAND...]",
+	Short: "A shell in a workspace's sandbox, or a command",
+	Long: `Open a shell in the sandbox of the workspace named, or of the one last
+opened, or run a command there: what follows -- is the command, or the
+SSH client's own flags and one.
 
 With --config, print what ~/.ssh/config needs for an editor to open the
 workspace (VS Code Remote-SSH, JetBrains Gateway): the host
-frontseat-workspace, which follows the workspace last opened, or, with
---workspace NAME, the host frontseat-NAME, which is that workspace's.`,
+frontseat-workspace, which follows the workspace last opened, or, for a
+workspace named, the host frontseat-NAME, which is that workspace's.`,
+	Example: `  frontseat workspace ssh
+  frontseat workspace ssh services-main
+  frontseat workspace ssh services-main -- go test ./...
+  frontseat workspace ssh -- ls
+  frontseat workspace ssh services-main --config >> ~/.ssh/config`,
+	Args: func(cmd *cobra.Command, args []string) error {
+		if dash := cmd.ArgsLenAtDash(); dash > 1 || dash < 0 && len(args) > 1 {
+			return errors.New("a workspace is named once, and a command follows --: frontseat workspace ssh [NAME] [-- COMMAND...]")
+		}
+		return nil
+	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
+		named, args := args, nil
+		if dash := cmd.ArgsLenAtDash(); dash >= 0 && dash <= len(named) {
+			named, args = named[:dash], named[dash:]
+		}
+		workspace := ""
+		if len(named) == 1 {
+			if !frontseat.IsWorkspaceName(named[0]) {
+				return fmt.Errorf("%q is no workspace's name: one is lower-case letters, digits and dashes, at most 48; a command follows --", named[0])
+			}
+			workspace = named[0]
+		}
 		// What prints the host for an editor runs nothing, and what
 		// carries a connection is given no command: either with a command
 		// is refused, and not run without it.
@@ -43,7 +67,7 @@ frontseat-workspace, which follows the workspace last opened, or, with
 			return errors.New("--stdio carries an SSH client's connection and runs nothing: it is given with no command")
 		}
 		if sshStdio {
-			w, err := asked()
+			w, err := subject(named)
 			if err != nil {
 				return err
 			}
@@ -57,17 +81,17 @@ frontseat-workspace, which follows the workspace last opened, or, with
 			return nil
 		}
 		if sshConfig {
-			options, err := sshClientOptions(workspaceFlag)
+			options, err := sshClientOptions(workspace)
 			if err != nil {
 				return err
 			}
-			said("Host %s", hostOf(workspaceFlag))
+			said("Host %s", hostOf(workspace))
 			for _, option := range options {
 				said("  %s %s", option[0], option[1])
 			}
 			return nil
 		}
-		return shell(ctx, workspaceFlag, false, args)
+		return shell(ctx, workspace, false, args)
 	},
 }
 
@@ -150,7 +174,7 @@ func sshOptions(self, identity, workspace string) ([][2]string, error) {
 		if !frontseat.IsWorkspaceName(workspace) {
 			return nil, fmt.Errorf("%q is no workspace's name: one is lower-case letters, digits and dashes, at most 48", workspace)
 		}
-		proxy += " --workspace=" + workspace
+		proxy += " " + workspace
 	}
 	// The sandbox's host key is made when the sandbox is, so it is not
 	// kept: the server the connection goes through vouches for it.
@@ -178,12 +202,8 @@ func writtenPlainly(path string) bool {
 
 func init() {
 	workspaceCmd.AddCommand(sshCmd)
-	asksAWorkspace(sshCmd)
 	sshCmd.Flags().BoolVar(&sshStdio, "stdio", false, "carry an SSH client's connection to the sandbox on standard input and output")
 	sshCmd.Flags().BoolVar(&sshConfig, "config", false, "print the host an editor opens the workspace as, for ~/.ssh/config")
 	_ = sshCmd.Flags().MarkHidden("stdio")
 	sshCmd.MarkFlagsMutuallyExclusive("stdio", "config")
-	// What follows the command to run is the command's own: its flags are
-	// not this command's.
-	sshCmd.Flags().SetInterspersed(false)
 }
