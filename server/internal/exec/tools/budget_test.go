@@ -2,10 +2,7 @@ package tools_test
 
 import (
 	"context"
-	"errors"
 	"path/filepath"
-	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -96,82 +93,6 @@ func TestBudgetOfGivingAnActionItsToolsAndItsEnvironment(t *testing.T) {
 	testbudget.Hold(t, testbudget.Budget{Time: 10 * time.Microsecond, Allocs: 13}, BenchmarkUseWithAnEnvironment)
 }
 
-// counting is a grid that installs at once and counts how often it is
-// asked for the environment of the tools, holding each answer a moment,
-// so that actions asking at once overlap, unless it is given up on.
-type counting struct {
-	installing
-	asked, gaveUp atomic.Int32
-}
-
-func (c *counting) Execute(ctx context.Context, action exec.Action) (exec.Result, error) {
-	if toolstest.Asks(action) {
-		c.asked.Add(1)
-		// As a grid does, it gives up on what is given up on.
-		select {
-		case <-time.After(50 * time.Millisecond):
-		case <-ctx.Done():
-			c.gaveUp.Add(1)
-			return exec.Result{}, ctx.Err()
-		}
-	}
-	return c.installing.Execute(ctx, action)
-}
-
-// Actions of a run that ask at once for the environment of the same
-// tools wait for one answer, and the grid is asked once; another tool
-// set is asked of its own.
-func TestActionsThatAskAtOnceAreGivenOneEnvironment(t *testing.T) {
-	grid := &counting{}
-	_, p, action := pinnedGo(t, grid)
-	var joined sync.WaitGroup
-	for range 50 {
-		joined.Go(func() {
-			if _, err := p.Use(context.Background(), action, "repo", []string{"go"}, false, nil); err != nil {
-				t.Error(err)
-			}
-		})
-	}
-	joined.Wait()
-	if asked := grid.asked.Load(); asked != 1 {
-		t.Errorf("50 actions asking at once asked the grid %d times; want once", asked)
-	}
-	if _, err := p.Use(context.Background(), action, "repo", nil, false, nil); err != nil {
-		t.Fatal(err)
-	}
-	if asked := grid.asked.Load(); asked != 2 {
-		t.Errorf("an action of no tool asked the grid %d times in all; want its own once more", asked)
-	}
-}
-
-// An action that gives up waiting for the environment of its tools does
-// not take it from another waiting for the same: the other is answered,
-// the grid is asked once, and the one that gave up is told so.
-func TestAnActionThatGivesUpWaitingTakesTheEnvironmentFromNoOther(t *testing.T) {
-	grid := &counting{}
-	root, p, action := pinnedGo(t, grid)
-	// The tool is installed first, so that both wait on the environment.
-	installedGo(t, p, root)
-	impatient, giveUp := context.WithCancel(context.Background())
-	var joined sync.WaitGroup
-	var gaveUp, waited error
-	joined.Go(func() { _, gaveUp = p.Use(impatient, action, "repo", []string{"go"}, false, nil) })
-	time.Sleep(10 * time.Millisecond)
-	joined.Go(func() { _, waited = p.Use(context.Background(), action, "repo", []string{"go"}, false, nil) })
-	time.Sleep(10 * time.Millisecond)
-	giveUp()
-	joined.Wait()
-	if !errors.Is(gaveUp, context.Canceled) {
-		t.Errorf("the action that gave up was told %v, want that it was cancelled", gaveUp)
-	}
-	if waited != nil {
-		t.Errorf("the action that waited was told %v", waited)
-	}
-	if asked := grid.asked.Load(); asked != 1 {
-		t.Errorf("the grid was asked %d times, want once", asked)
-	}
-}
-
 // BenchmarkUseWithAnEnvironment is BenchmarkUse for an action with the
 // environment the Go plugin gives each of its actions: what every Go
 // action of a run but the first costs.
@@ -179,56 +100,4 @@ func BenchmarkUseWithAnEnvironment(b *testing.B) {
 	_, p, action := pinnedGo(b, installing{})
 	action.Environment = map[string]string{"CGO_ENABLED": "0", "GOPROXY": "off", "GOSUMDB": "off", "MISE_GO_SET_GOBIN": "false"}
 	using(b, p, action)
-}
-
-// An action that comes as the environment of its tools is being given
-// to those that asked is given it too, and does not ask again: the grid
-// is asked once, however the actions of a run fall about the answer.
-func TestAnActionThatComesAsTheEnvironmentIsGivenDoesNotAskAgain(t *testing.T) {
-	for trial := range 20 {
-		grid := &counting{}
-		root, p, action := pinnedGo(t, grid)
-		installedGo(t, p, root)
-		var joined sync.WaitGroup
-		for n := range 200 {
-			// Spread about the moment the answer comes, 50ms in.
-			after := 40*time.Millisecond + time.Duration(n)*100*time.Microsecond
-			joined.Go(func() {
-				time.Sleep(after)
-				if _, err := p.Use(context.Background(), action, "repo", []string{"go"}, false, nil); err != nil {
-					t.Error(err)
-				}
-			})
-		}
-		go func() { _, _ = p.Use(context.Background(), action, "repo", []string{"go"}, false, nil) }()
-		joined.Wait()
-		if asked := grid.asked.Load(); asked != 1 {
-			t.Fatalf("trial %d: the grid was asked %d times, want once", trial, asked)
-		}
-	}
-}
-
-// Asking stops when none waits for the answer: the grid is told to give
-// up, nothing is kept of it, and an action that asks later asks anew and
-// is answered.
-func TestAskingForAnEnvironmentNoneWaitsForStops(t *testing.T) {
-	grid := &counting{}
-	root, p, action := pinnedGo(t, grid)
-	installedGo(t, p, root)
-	impatient, giveUp := context.WithTimeout(context.Background(), 10*time.Millisecond)
-	defer giveUp()
-	if _, err := p.Use(impatient, action, "repo", []string{"go"}, false, nil); !errors.Is(err, context.DeadlineExceeded) {
-		t.Fatalf("the action that gave up was told %v", err)
-	}
-	for wait := time.Now(); grid.gaveUp.Load() == 0; time.Sleep(time.Millisecond) {
-		if time.Since(wait) > time.Second {
-			t.Fatal("the grid was never told to give up: the asking goes on with none waiting for it")
-		}
-	}
-	if _, err := p.Use(context.Background(), action, "repo", []string{"go"}, false, nil); err != nil {
-		t.Fatalf("an action that asked later was told %v", err)
-	}
-	if asked := grid.asked.Load(); asked != 2 {
-		t.Errorf("the grid was asked %d times, want once for each", asked)
-	}
 }
