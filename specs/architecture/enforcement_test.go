@@ -184,6 +184,12 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		// left in the gateway, through the sandbox service; other test
 		// support makes no sandboxes there.
 		{"server/testsupport/controlplanetest/left.go", "server/sandbox", true},
+		// What gathers every page of another's List is the server's, for
+		// the runner and a control plane's test support alike; a plugin has no
+		// List to read.
+		{"server/testsupport/controlplanetest/left.go", "server/internal/page", true},
+		{"server/internal/runner/runner.go", "server/internal/page", true},
+		{"server/internal/pluginhost/host.go", "server/internal/page", false},
 		// What a test is told of its repository is said by the host and
 		// read by the test support, and a test of the host holds the two
 		// to one name; the host itself imports no test support.

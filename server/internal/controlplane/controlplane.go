@@ -1032,7 +1032,7 @@ func (s *service) step(ctx context.Context, h *held) *workspacev1.WorkspaceStatu
 		// making that was stopped left behind, which carries a request it
 		// kept. A sandbox that carries its name and no request of its own
 		// is another's, and is not its to end.
-		listed, err := frontseat.Listed(func(token string) ([]*sandboxv1.Sandbox, string, error) {
+		listed, err := page.All(func(token string) ([]*sandboxv1.Sandbox, string, error) {
 			page, err := s.Sandboxes.ListSandboxes(ctx, &sandboxv1.ListSandboxesRequest{LabelSelector: Named + "=" + called, PageToken: token})
 			return page.GetSandboxes(), page.GetNextPageToken(), err
 		})

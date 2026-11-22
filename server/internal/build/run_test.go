@@ -2,8 +2,10 @@ package build
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/frontseat-dev/frontseat/server/internal/sourceapi/frontseat/source/v1alpha1/sourcev1alpha1connect"
+	"io"
 	"net/http/httptest"
 	"os"
 	"strings"
@@ -14,7 +16,6 @@ import (
 
 	connect "connectrpc.com/connect/v2"
 	"connectrpc.com/connect/v2/connecthttp"
-	"github.com/frontseat-dev/frontseat/sdk/go"
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1/buildv1alpha1connect"
 	"github.com/frontseat-dev/frontseat/server/internal/exec"
@@ -227,15 +228,17 @@ func events(t *testing.T, client buildv1alpha1connect.BuildServiceClient, id str
 		t.Fatal(err)
 	}
 	defer stream.Close()
-	parts, err := frontseat.Received(stream)
-	if err != nil {
-		t.Fatal(err)
-	}
 	var out []*buildv1.BuildEvent
-	for _, part := range parts {
+	for {
+		part, err := stream.Receive()
+		if errors.Is(err, io.EOF) {
+			return out
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
 		out = append(out, part.GetEvents()...)
 	}
-	return out
 }
 
 // watched is an executor that knows how many of its actions are running,
