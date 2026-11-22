@@ -4,14 +4,13 @@ import (
 	"sync"
 
 	connect "connectrpc.com/connect/v2"
+
+	"github.com/frontseat-dev/frontseat/server/internal/refusal"
 )
 
 // requestsKept is how many request ids a daemon remembers of each kind
 // of call: a retry comes soon after the call it repeats.
 const requestsKept = 4096
-
-// requestIDMost is the longest request id a call takes, in bytes.
-const requestIDMost = 128
 
 // requests remembers which resource each request id made, so that a call
 // sent again with the same id, as after a lost answer, is answered with
@@ -27,7 +26,7 @@ type requests struct {
 // are answered one after the other, so that both are never made.
 func once[T any](r *requests, id string, find func(string) (T, bool), create func() (T, string, error)) (T, error) {
 	var none T
-	if len(id) > requestIDMost {
+	if len(id) > refusal.RequestIDMost {
 		return none, refuse(connect.CodeInvalidArgument, "REQUEST_ID_INVALID", "a request id is at most 128 bytes")
 	}
 	if id == "" {

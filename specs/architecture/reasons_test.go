@@ -40,14 +40,16 @@ var refusing = map[string][]string{
 	"server/internal/refusal":         nil,
 }
 
-// domainOf is the proto package of each domain refusal names, for a
-// refusal that names its domain where it is made.
-var domainOf = map[string]string{
-	"Build":      "frontseat.build.v1alpha1",
-	"Workspace":  "frontseat.workspace.v1alpha1",
-	"Credential": "frontseat.credential.v1alpha1",
-	"Sandbox":    "frontseat.sandbox.v1alpha1",
-	"Source":     "frontseat.source.v1alpha1",
+// domainOf is the proto packages of each domain refusal names, for a
+// refusal that names its domain where it is made: the control plane's
+// own is said by every contract it serves.
+var domainOf = map[string][]string{
+	"ControlPlane": {"frontseat.workspace.v1alpha1", "frontseat.credential.v1alpha1"},
+	"Build":        {"frontseat.build.v1alpha1"},
+	"Workspace":    {"frontseat.workspace.v1alpha1"},
+	"Credential":   {"frontseat.credential.v1alpha1"},
+	"Sandbox":      {"frontseat.sandbox.v1alpha1"},
+	"Source":       {"frontseat.source.v1alpha1"},
 }
 
 // aReason is how a reason is written: upper case, words joined by "_".
@@ -58,6 +60,9 @@ var aReason = regexp.MustCompile(`^[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$`)
 type givenReason struct {
 	reason, at string
 	contracts  []string
+	// code is the canonical code it is given with, as connect names it
+	// ("CodeUnimplemented"), where the call or literal names one.
+	code string
 	// file and line are where it is given, as at says them.
 	file string
 	line int
@@ -139,7 +144,7 @@ func reasonsGiven(sources map[string][]byte) ([]givenReason, []string) {
 		contracts, known := refusing[f.dir]
 		// read is what an expression at a reason's place says, in a
 		// domain where the place names one.
-		read := func(e ast.Expr, domain string) {
+		read := func(e ast.Expr, domain, code string) {
 			where := set.Position(e.Pos())
 			at := where.String()
 			var value string
@@ -176,9 +181,24 @@ func reasonsGiven(sources map[string][]byte) ([]givenReason, []string) {
 			}
 			in := contracts
 			if domain != "" {
-				in = []string{domainOf[domain]}
+				in = domainOf[domain]
 			}
-			given = append(given, givenReason{value, at, in, where.Filename, where.Line})
+			given = append(given, givenReason{value, at, in, code, where.Filename, where.Line})
+		}
+		// codeNamed is the canonical code among some expressions, as
+		// connect names it, or "" where none names one.
+		codeNamed := func(among []ast.Expr) string {
+			for _, e := range among {
+				if kv, ok := e.(*ast.KeyValueExpr); ok {
+					e = kv.Value
+				}
+				if sel, ok := e.(*ast.SelectorExpr); ok {
+					if pkg, ok := sel.X.(*ast.Ident); ok && f.imported[pkg.Name] == "connectrpc.com/connect/v2" && strings.HasPrefix(sel.Sel.Name, "Code") {
+						return sel.Sel.Name
+					}
+				}
+			}
+			return ""
 		}
 		// domainNamed is the domain an expression names as refusal's.
 		domainNamed := func(e ast.Expr) string {
@@ -206,7 +226,7 @@ func reasonsGiven(sources map[string][]byte) ([]givenReason, []string) {
 					if callee == "server/internal/refusal.New" {
 						domain = domainNamed(n.Args[0])
 					}
-					read(n.Args[i], domain)
+					read(n.Args[i], domain, codeNamed(n.Args))
 				}
 			case *ast.CompositeLit:
 				domain := ""
@@ -220,20 +240,20 @@ func reasonsGiven(sources map[string][]byte) ([]givenReason, []string) {
 				for i, elt := range n.Elts {
 					if kv, ok := elt.(*ast.KeyValueExpr); ok {
 						if key, ok := kv.Key.(*ast.Ident); ok && strings.EqualFold(key.Name, "reason") {
-							read(kv.Value, domain)
+							read(kv.Value, domain, codeNamed(n.Elts))
 						}
 						continue
 					}
 					if name, ok := n.Type.(*ast.Ident); ok && fields[f.dir+"."+name.Name] == i {
 						if _, has := fields[f.dir+"."+name.Name]; has {
-							read(elt, "")
+							read(elt, "", codeNamed(n.Elts))
 						}
 					}
 				}
 			case *ast.AssignStmt:
 				for i, lhs := range n.Lhs {
 					if name, ok := lhs.(*ast.Ident); ok && name.Name == "reason" && len(n.Rhs) == len(n.Lhs) {
-						read(n.Rhs[i], "")
+						read(n.Rhs[i], "", "")
 					}
 				}
 			}
@@ -279,6 +299,19 @@ func unnamed(given []givenReason, contracts map[string]string) []string {
 			if !named.MatchString(contracts[contract]) {
 				out = append(out, fmt.Sprintf("%s: %s is given and %s does not name it", g.at, g.reason, contract))
 			}
+		}
+	}
+	return out
+}
+
+// notServedByName holds each reason given with UNIMPLEMENTED to the one
+// form AGENTS.md gives what a server does not serve: <WHAT>_NOT_SERVED,
+// and no other suffix.
+func notServedByName(given []givenReason) []string {
+	var out []string
+	for _, g := range given {
+		if g.code == "CodeUnimplemented" && !strings.HasSuffix(g.reason, "_NOT_SERVED") {
+			out = append(out, fmt.Sprintf("%s: %s is given with UNIMPLEMENTED, which refuses what is not served by <WHAT>_NOT_SERVED alone", g.at, g.reason))
 		}
 	}
 	return out
@@ -557,6 +590,61 @@ func TestEveryReasonAServerGivesIsNamedInItsContract(t *testing.T) {
 	}
 	for _, broken := range append(unread, unnamed(given, contractsOf(t, filepath.Join(root, "api")))...) {
 		t.Error(broken)
+	}
+}
+
+func TestWhatIsNotServedIsRefusedAsNotServed(t *testing.T) {
+	given, _ := reasonsGiven(serverSources(t, repositoryRoot(t)))
+	unimplemented := 0
+	for _, g := range given {
+		if g.code == "CodeUnimplemented" {
+			unimplemented++
+		}
+	}
+	if unimplemented < 5 {
+		t.Fatalf("found %d reasons given with UNIMPLEMENTED; the codes were not read", unimplemented)
+	}
+	for _, broken := range notServedByName(given) {
+		t.Error(broken)
+	}
+}
+
+// TestAReasonOfWhatIsNotServedNamedOtherwiseIsFound is the control: a
+// reason given with UNIMPLEMENTED that ends _NOT_SERVED is allowed, by a
+// call and by a struct literal, as is one of another code named
+// otherwise; one given with UNIMPLEMENTED named otherwise is refused, by
+// either.
+func TestAReasonOfWhatIsNotServedNamedOtherwiseIsFound(t *testing.T) {
+	source := func(call, literal string) map[string][]byte {
+		return map[string][]byte{"server/internal/build/build.go": []byte(`package build
+import connect "connectrpc.com/connect/v2"
+type refused struct {
+	code   connect.Code
+	reason string
+}
+func refuse(code connect.Code, reason, message string) error { return nil }
+func calls() {
+	_ = refuse(connect.CodeUnimplemented, "` + call + `", "not here")
+	_ = &refused{code: connect.CodeUnimplemented, reason: "` + literal + `"}
+	_ = refuse(connect.CodeNotFound, "THING_NOT_FOUND", "no thing")
+}
+`)}
+	}
+	for name, c := range map[string]struct {
+		call, literal string
+		want          int
+	}{
+		"both not served":       {"THING_NOT_SERVED", "OTHER_NOT_SERVED", 0},
+		"a call's otherwise":    {"CALL_NOT_LED", "OTHER_NOT_SERVED", 1},
+		"a literal's otherwise": {"THING_NOT_SERVED", "OTHER_UNSUPPORTED", 1},
+	} {
+		given, unread := reasonsGiven(source(c.call, c.literal))
+		if len(unread) != 0 || len(given) != 3 {
+			t.Fatalf("%s: read %v, and could not read %v; want three reasons read", name, given, unread)
+		}
+		if found := notServedByName(given); len(found) != c.want {
+			t.Errorf("%s: found %v; want %d", name, found, c.want)
+		}
 	}
 }
 

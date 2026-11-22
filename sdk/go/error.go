@@ -136,7 +136,11 @@ func (s readStream) Close() error { return refused(s.ClientStream.Close()) }
 // The domains of the services that refuse by name, as an Error's Domain
 // says them.
 const (
-	// DomainWorkspace is the workspace API's: the control plane's own.
+	// DomainControlPlane is the control plane's own: a caller it does not
+	// know is refused in it (IDENTITY_MISSING, IDENTITY_INVALID), by every
+	// service it serves.
+	DomainControlPlane = "frontseat.dev"
+	// DomainWorkspace is the workspace API's.
 	DomainWorkspace = "workspace.frontseat.dev"
 	// DomainBuild is the build API's: builds, runs, releases and the
 	// graph, which a workspace's daemon serves.

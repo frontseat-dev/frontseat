@@ -1015,9 +1015,9 @@ type CreateSandboxRequest struct {
 	Spec *SandboxSpec `protobuf:"bytes,1,opt,name=spec,proto3" json:"spec,omitempty"`
 	// `request_id` makes a retry return the sandbox the first call made: a
 	// client that lost the answer sends the same request again with it.
-	// It is remembered for as long as that sandbox is there, and it is of
-	// any length. What is sent with it again is not compared with the
-	// first request. Empty, every call makes a sandbox.
+	// It is at most 128 bytes; a UUID serves. It is remembered for as long
+	// as that sandbox is there. What is sent with it again is not compared
+	// with the first request. Empty, every call makes a sandbox.
 	RequestId     string `protobuf:"bytes,2,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1838,11 +1838,12 @@ type Credential struct {
 	// sandbox that uses the credential can have it sent to the host
 	// without TLS.
 	Host string `protobuf:"bytes,2,opt,name=host,proto3" json:"host,omitempty"`
-	// Username is the user it is for, as the host knows them. It is not
-	// secret: a sandbox that uses the credential is told it.
+	// Username is the user it is for, as the host knows them: at most
+	// 128 letters, digits, dots, underscores, hyphens and at signs. It is
+	// not secret: a sandbox that uses the credential is told it.
 	Username string `protobuf:"bytes,3,opt,name=username,proto3" json:"username,omitempty"`
-	// Secret is the password or token. It is kept outside every sandbox,
-	// and no call returns it.
+	// Secret is the password or token: one line, of at most 4096 bytes.
+	// It is kept outside every sandbox, and no call returns it.
 	Secret string `protobuf:"bytes,4,opt,name=secret,proto3" json:"secret,omitempty"`
 	// Variable is the environment variable in which a sandbox that uses
 	// the credential finds its stand-in.

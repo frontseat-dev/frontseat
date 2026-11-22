@@ -69,14 +69,14 @@ func (d *Driver) Credential(ctx context.Context, id string, host driver.Endpoint
 	}
 	at, err := sent(host)
 	if err != nil {
-		return fmt.Errorf("%w: %w", driver.ErrInvalid, err)
+		return fmt.Errorf("%w: %w", driver.ErrHostInvalid, err)
 	}
 	switch there, _, _, err := d.Kept(ctx, id); {
 	case errors.Is(err, driver.ErrNotFound):
 	case err != nil:
 		return err
 	case there != host:
-		return fmt.Errorf("%w: openshell: the credential %s is kept for another host: let go of it first", driver.ErrInvalid, id)
+		return fmt.Errorf("%w: openshell: the credential %s is kept for another host: let go of it first", driver.ErrTaken, id)
 	}
 	if !plain.Secret(secret) {
 		return fmt.Errorf("%w: openshell: the secret for %s is one line of no great length", driver.ErrInvalid, at.Rule())

@@ -212,10 +212,11 @@ type BuildServiceClient interface {
 	// given as U+FFFD.
 	//
 	// ### Errors
-	// - NOT_FOUND: no build has that id (BUILD_NOT_FOUND), or the build
-	//   has planned no such action (ACTION_NOT_FOUND).
-	// - INTERNAL: what the action printed could not be read from where the
-	//   daemon keeps it.
+	// - NOT_FOUND: no build has that id (BUILD_NOT_FOUND); the build has
+	//   planned no such action (ACTION_NOT_FOUND); or the daemon no longer
+	//   keeps what the action printed (LOG_NOT_KEPT).
+	// - INTERNAL: what the action printed could not be read to its end.
+	//   No reason is given.
 	StreamBuildLogs(context.Context, *v1alpha1.StreamBuildLogsRequest) (BuildServiceStreamBuildLogsClientStream, error)
 }
 
@@ -352,10 +353,11 @@ type BuildServiceHandler interface {
 	// given as U+FFFD.
 	//
 	// ### Errors
-	// - NOT_FOUND: no build has that id (BUILD_NOT_FOUND), or the build
-	//   has planned no such action (ACTION_NOT_FOUND).
-	// - INTERNAL: what the action printed could not be read from where the
-	//   daemon keeps it.
+	// - NOT_FOUND: no build has that id (BUILD_NOT_FOUND); the build has
+	//   planned no such action (ACTION_NOT_FOUND); or the daemon no longer
+	//   keeps what the action printed (LOG_NOT_KEPT).
+	// - INTERNAL: what the action printed could not be read to its end.
+	//   No reason is given.
 	StreamBuildLogs(context.Context, *v1alpha1.StreamBuildLogsRequest, BuildServiceStreamBuildLogsServerStream) error
 }
 

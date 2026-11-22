@@ -9,7 +9,8 @@
 // Every call is a person's, known by the token they present as a bearer
 // token. A call that presents none, or one the control plane does not
 // know, is refused UNAUTHENTICATED, with the reason IDENTITY_MISSING or
-// IDENTITY_INVALID in ErrorInfo, of the domain workspace.frontseat.dev.
+// IDENTITY_INVALID in ErrorInfo, of the control plane's own domain,
+// frontseat.dev.
 // What this service refuses by name carries ErrorInfo of the domain
 // credential.frontseat.dev, with the reason each call names.
 

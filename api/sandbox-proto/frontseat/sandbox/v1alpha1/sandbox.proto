@@ -44,7 +44,8 @@ service SandboxService {
   //
   // ### Errors
   // - INVALID_ARGUMENT: the spec names no image, or holds something this
-  //   server does not know (SPEC_INVALID).
+  //   server does not know (SPEC_INVALID); the request_id is longer than
+  //   128 bytes (REQUEST_ID_INVALID).
   // - UNIMPLEMENTED: the spec asks for what the driver cannot enforce;
   //   the message names it (CAPABILITY_NOT_SERVED).
   // - FAILED_PRECONDITION: the sandbox the same request_id made is
@@ -142,9 +143,13 @@ service SandboxService {
   //
   // ### Errors
   // - INVALID_ARGUMENT: the name is not a valid credential name, as
-  //   Credential.name says (CREDENTIAL_NAME_INVALID); no host or no
-  //   secret is given (CREDENTIAL_INVALID); the host is not a host name,
-  //   or the name is kept for another host (SPEC_INVALID).
+  //   Credential.name says (CREDENTIAL_NAME_INVALID); the host is
+  //   missing or is not a host name (CREDENTIAL_HOST_INVALID); the
+  //   username is not one, as Credential.username says
+  //   (CREDENTIAL_USERNAME_INVALID); no secret is given, or one that is
+  //   not as Credential.secret says (CREDENTIAL_SECRET_INVALID).
+  // - ALREADY_EXISTS: the name is kept for another host
+  //   (CREDENTIAL_NAME_TAKEN).
   // - UNIMPLEMENTED: the driver keeps no credential outside its
   //   sandboxes (CAPABILITY_NOT_SERVED).
   // - UNAVAILABLE: the driver could not keep it. No reason is given.
@@ -410,9 +415,9 @@ message CreateSandboxRequest {
   SandboxSpec spec = 1 [(google.api.field_behavior) = REQUIRED];
   // `request_id` makes a retry return the sandbox the first call made: a
   // client that lost the answer sends the same request again with it.
-  // It is remembered for as long as that sandbox is there, and it is of
-  // any length. What is sent with it again is not compared with the
-  // first request. Empty, every call makes a sandbox.
+  // It is at most 128 bytes; a UUID serves. It is remembered for as long
+  // as that sandbox is there. What is sent with it again is not compared
+  // with the first request. Empty, every call makes a sandbox.
   string request_id = 2;
 }
 
@@ -543,11 +548,12 @@ message Credential {
   // sandbox that uses the credential can have it sent to the host
   // without TLS.
   string host = 2 [(google.api.field_behavior) = REQUIRED];
-  // Username is the user it is for, as the host knows them. It is not
-  // secret: a sandbox that uses the credential is told it.
+  // Username is the user it is for, as the host knows them: at most
+  // 128 letters, digits, dots, underscores, hyphens and at signs. It is
+  // not secret: a sandbox that uses the credential is told it.
   string username = 3;
-  // Secret is the password or token. It is kept outside every sandbox,
-  // and no call returns it.
+  // Secret is the password or token: one line, of at most 4096 bytes.
+  // It is kept outside every sandbox, and no call returns it.
   string secret = 4 [
     (google.api.field_behavior) = REQUIRED,
     (google.api.field_behavior) = INPUT_ONLY

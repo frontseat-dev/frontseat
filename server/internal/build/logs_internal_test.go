@@ -13,6 +13,7 @@ import (
 	connect "connectrpc.com/connect/v2"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/frontseat-dev/frontseat/sdk/go"
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 )
@@ -187,8 +188,8 @@ func TestLogsAreNotReadForACallerThatHasGone(t *testing.T) {
 	}
 }
 
-// An action whose output is not all there is an error, and no part of
-// what is there is sent: whichever of the two is missing.
+// An action whose output is not all there is refused as no longer kept,
+// and no part of what is there is sent: whichever of the two is missing.
 func TestNoPartIsSentOfOutputThatIsNotAllThere(t *testing.T) {
 	for name, kept := range map[string][]string{"standard output is missing": {"wrong\n"}, "standard error is missing": {"fine\n"}, "both are missing": nil} {
 		t.Run(name, func(t *testing.T) {
@@ -200,8 +201,8 @@ func TestNoPartIsSentOfOutputThatIsNotAllThere(t *testing.T) {
 				return nil
 			})
 
-			if connect.CodeOf(err) != connect.CodeInternal || sends != 0 {
-				t.Errorf("%d parts were sent, and the stream ended with %v; want none and an internal error", sends, err)
+			if reason, _ := frontseat.Reason(err); connect.CodeOf(err) != connect.CodeNotFound || reason != "LOG_NOT_KEPT" || sends != 0 {
+				t.Errorf("%d parts were sent, and the stream ended with %v; want none and LOG_NOT_KEPT", sends, err)
 			}
 		})
 	}

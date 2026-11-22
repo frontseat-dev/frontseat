@@ -9,7 +9,8 @@
 // Every call is a person's, known by the token they present as a bearer
 // token. A call that presents none, or one the control plane does not
 // know, is refused UNAUTHENTICATED, with the reason IDENTITY_MISSING or
-// IDENTITY_INVALID in ErrorInfo, of the domain workspace.frontseat.dev.
+// IDENTITY_INVALID in ErrorInfo, of the control plane's own domain,
+// frontseat.dev.
 // What this service refuses by name carries ErrorInfo of the domain
 // credential.frontseat.dev, with the reason each call names.
 
@@ -90,12 +91,12 @@ type CredentialServiceClient interface {
 	//   says (CREDENTIAL_HOST_INVALID); the username is not one, as
 	//   Credential.username says (CREDENTIAL_USERNAME_INVALID); or no
 	//   secret is given, or one longer than 4096 bytes or of more than one
-	//   line (CREDENTIAL_SECRET_INVALID). Or what keeps credentials
-	//   outside the sandboxes finds the credential not well formed; no
-	//   reason is given then.
+	//   line (CREDENTIAL_SECRET_INVALID). What keeps credentials outside
+	//   the sandboxes refuses by the same reasons what it finds not well
+	//   formed.
 	// - UNIMPLEMENTED: this control plane's sandboxes keep no credential
-	//   outside them. No reason is given.
-	// - UNAVAILABLE: it could not be kept. No reason is given.
+	//   outside them (CREDENTIALS_NOT_SERVED).
+	// - UNAVAILABLE: it could not be kept (CREDENTIAL_NOT_KEPT).
 	SetCredential(context.Context, *v1alpha1.SetCredentialRequest) (*v1alpha1.SetCredentialResponse, error)
 	// ListCredentials returns the caller's credentials, by host, a page at
 	// a time: never their secrets. A page token names a position in that
@@ -116,8 +117,8 @@ type CredentialServiceClient interface {
 	//   can be deleted once those workspaces have ended
 	//   (CREDENTIAL_IN_USE).
 	// - UNIMPLEMENTED: this control plane's sandboxes keep no credential
-	//   outside them. No reason is given.
-	// - UNAVAILABLE: it could not be removed. No reason is given.
+	//   outside them (CREDENTIALS_NOT_SERVED).
+	// - UNAVAILABLE: it could not be removed (CREDENTIAL_NOT_KEPT).
 	DeleteCredential(context.Context, *v1alpha1.DeleteCredentialRequest) (*v1alpha1.DeleteCredentialResponse, error)
 }
 
@@ -141,12 +142,12 @@ type CredentialServiceHandler interface {
 	//   says (CREDENTIAL_HOST_INVALID); the username is not one, as
 	//   Credential.username says (CREDENTIAL_USERNAME_INVALID); or no
 	//   secret is given, or one longer than 4096 bytes or of more than one
-	//   line (CREDENTIAL_SECRET_INVALID). Or what keeps credentials
-	//   outside the sandboxes finds the credential not well formed; no
-	//   reason is given then.
+	//   line (CREDENTIAL_SECRET_INVALID). What keeps credentials outside
+	//   the sandboxes refuses by the same reasons what it finds not well
+	//   formed.
 	// - UNIMPLEMENTED: this control plane's sandboxes keep no credential
-	//   outside them. No reason is given.
-	// - UNAVAILABLE: it could not be kept. No reason is given.
+	//   outside them (CREDENTIALS_NOT_SERVED).
+	// - UNAVAILABLE: it could not be kept (CREDENTIAL_NOT_KEPT).
 	SetCredential(context.Context, *v1alpha1.SetCredentialRequest) (*v1alpha1.SetCredentialResponse, error)
 	// ListCredentials returns the caller's credentials, by host, a page at
 	// a time: never their secrets. A page token names a position in that
@@ -167,8 +168,8 @@ type CredentialServiceHandler interface {
 	//   can be deleted once those workspaces have ended
 	//   (CREDENTIAL_IN_USE).
 	// - UNIMPLEMENTED: this control plane's sandboxes keep no credential
-	//   outside them. No reason is given.
-	// - UNAVAILABLE: it could not be removed. No reason is given.
+	//   outside them (CREDENTIALS_NOT_SERVED).
+	// - UNAVAILABLE: it could not be removed (CREDENTIAL_NOT_KEPT).
 	DeleteCredential(context.Context, *v1alpha1.DeleteCredentialRequest) (*v1alpha1.DeleteCredentialResponse, error)
 }
 

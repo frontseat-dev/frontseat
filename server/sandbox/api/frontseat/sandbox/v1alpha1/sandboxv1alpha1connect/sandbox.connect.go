@@ -185,7 +185,8 @@ type SandboxServiceClient interface {
 	//
 	// ### Errors
 	// - INVALID_ARGUMENT: the spec names no image, or holds something this
-	//   server does not know (SPEC_INVALID).
+	//   server does not know (SPEC_INVALID); the request_id is longer than
+	//   128 bytes (REQUEST_ID_INVALID).
 	// - UNIMPLEMENTED: the spec asks for what the driver cannot enforce;
 	//   the message names it (CAPABILITY_NOT_SERVED).
 	// - FAILED_PRECONDITION: the sandbox the same request_id made is
@@ -263,9 +264,13 @@ type SandboxServiceClient interface {
 	//
 	// ### Errors
 	// - INVALID_ARGUMENT: the name is not a valid credential name, as
-	//   Credential.name says (CREDENTIAL_NAME_INVALID); no host or no
-	//   secret is given (CREDENTIAL_INVALID); the host is not a host name,
-	//   or the name is kept for another host (SPEC_INVALID).
+	//   Credential.name says (CREDENTIAL_NAME_INVALID); the host is
+	//   missing or is not a host name (CREDENTIAL_HOST_INVALID); the
+	//   username is not one, as Credential.username says
+	//   (CREDENTIAL_USERNAME_INVALID); no secret is given, or one that is
+	//   not as Credential.secret says (CREDENTIAL_SECRET_INVALID).
+	// - ALREADY_EXISTS: the name is kept for another host
+	//   (CREDENTIAL_NAME_TAKEN).
 	// - UNIMPLEMENTED: the driver keeps no credential outside its
 	//   sandboxes (CAPABILITY_NOT_SERVED).
 	// - UNAVAILABLE: the driver could not keep it. No reason is given.
@@ -314,7 +319,8 @@ type SandboxServiceHandler interface {
 	//
 	// ### Errors
 	// - INVALID_ARGUMENT: the spec names no image, or holds something this
-	//   server does not know (SPEC_INVALID).
+	//   server does not know (SPEC_INVALID); the request_id is longer than
+	//   128 bytes (REQUEST_ID_INVALID).
 	// - UNIMPLEMENTED: the spec asks for what the driver cannot enforce;
 	//   the message names it (CAPABILITY_NOT_SERVED).
 	// - FAILED_PRECONDITION: the sandbox the same request_id made is
@@ -392,9 +398,13 @@ type SandboxServiceHandler interface {
 	//
 	// ### Errors
 	// - INVALID_ARGUMENT: the name is not a valid credential name, as
-	//   Credential.name says (CREDENTIAL_NAME_INVALID); no host or no
-	//   secret is given (CREDENTIAL_INVALID); the host is not a host name,
-	//   or the name is kept for another host (SPEC_INVALID).
+	//   Credential.name says (CREDENTIAL_NAME_INVALID); the host is
+	//   missing or is not a host name (CREDENTIAL_HOST_INVALID); the
+	//   username is not one, as Credential.username says
+	//   (CREDENTIAL_USERNAME_INVALID); no secret is given, or one that is
+	//   not as Credential.secret says (CREDENTIAL_SECRET_INVALID).
+	// - ALREADY_EXISTS: the name is kept for another host
+	//   (CREDENTIAL_NAME_TAKEN).
 	// - UNIMPLEMENTED: the driver keeps no credential outside its
 	//   sandboxes (CAPABILITY_NOT_SERVED).
 	// - UNAVAILABLE: the driver could not keep it. No reason is given.

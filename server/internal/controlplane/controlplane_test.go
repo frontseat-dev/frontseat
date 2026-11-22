@@ -159,6 +159,8 @@ type sandboxes struct {
 	kept map[string]string
 	// inUse are the credentials a sandbox is let through with, by id.
 	inUse map[string]bool
+	// keepsNot is what SetCredential refuses with, where it is set.
+	keepsNot error
 	// fails, silent and refusing are what each daemon made from now on
 	// does.
 	fails    string
@@ -277,6 +279,9 @@ func (s *sandboxes) DescribeCredential(_ context.Context, asked *sandboxv1.Descr
 func (s *sandboxes) SetCredential(_ context.Context, asked *sandboxv1.SetCredentialRequest) (*sandboxv1.SetCredentialResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.keepsNot != nil {
+		return nil, s.keepsNot
+	}
 	s.kept[asked.GetCredential().GetName()] = asked.GetCredential().GetHost()
 	return &sandboxv1.SetCredentialResponse{}, nil
 }

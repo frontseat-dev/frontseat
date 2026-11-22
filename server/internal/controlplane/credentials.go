@@ -11,6 +11,8 @@ import (
 	"sync"
 
 	connect "connectrpc.com/connect/v2"
+
+	"github.com/frontseat-dev/frontseat/sdk/go"
 	credentialv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/credential/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/credential/v1alpha1/credentialv1alpha1connect"
 	"github.com/frontseat-dev/frontseat/server/internal/controlplane/identity"
@@ -100,9 +102,32 @@ func (c *credentials) write(record credentialRecord) error {
 func caller(ctx context.Context) (string, error) {
 	who, ok := identity.Of(ctx)
 	if !ok || who.Subject == "" {
-		return "", refusedFor(connect.CodeUnauthenticated, "IDENTITY_MISSING", "the call is from no one known")
+		return "", refusal.New(refusal.ControlPlane, connect.CodeUnauthenticated, "IDENTITY_MISSING", "the call is from no one known")
 	}
 	return who.Subject, nil
+}
+
+// credentialRefused is how the credential service says what the sandbox
+// service refused of a credential the control plane asked it to keep or
+// let go of: what was not well formed by the same reason, which both
+// contracts name; a driver that keeps no credential outside its
+// sandboxes as not served; and anything else as not kept. A message of
+// the sandbox service's names no secret.
+func credentialRefused(err error) error {
+	message := err.Error()
+	if said := new(connect.Error); errors.As(err, &said) {
+		message = said.Message()
+	}
+	reason, domain := frontseat.Reason(err)
+	if domain == refusal.Sandbox {
+		switch reason {
+		case "CREDENTIAL_HOST_INVALID", "CREDENTIAL_USERNAME_INVALID", "CREDENTIAL_SECRET_INVALID":
+			return refusal.New(refusal.Credential, connect.CodeInvalidArgument, reason, message)
+		case "CAPABILITY_NOT_SERVED":
+			return refusal.New(refusal.Credential, connect.CodeUnimplemented, "CREDENTIALS_NOT_SERVED", "this control plane's sandboxes keep no credential outside them")
+		}
+	}
+	return refusal.New(refusal.Credential, connect.CodeUnavailable, "CREDENTIAL_NOT_KEPT", message)
 }
 
 // holding does what a call does with the record of the credentials kept,
@@ -142,7 +167,7 @@ func (c *credentials) SetCredential(ctx context.Context, req *credentialv1.SetCr
 		if _, err := c.s.Sandboxes.SetCredential(ctx, &sandboxv1.SetCredentialRequest{Credential: &sandboxv1.Credential{
 			Name: credentialID(owner, host), Host: host, Username: given.GetUsername(), Secret: given.GetSecret(),
 		}}); err != nil {
-			return relayed(err)
+			return credentialRefused(err)
 		}
 		if record[owner] == nil {
 			record[owner] = map[string]string{}
@@ -185,7 +210,7 @@ func (c *credentials) DeleteCredential(ctx context.Context, req *credentialv1.De
 			if connect.CodeOf(err) == connect.CodeFailedPrecondition {
 				return refusal.New(refusal.Credential, connect.CodeFailedPrecondition, "CREDENTIAL_IN_USE", fmt.Sprintf("a workspace of yours is still let through with your credential for %s: it is let go of once those workspaces have ended", host))
 			}
-			return relayed(err)
+			return credentialRefused(err)
 		}
 		if _, ok := record[owner][host]; !ok {
 			return nil
