@@ -24,7 +24,7 @@ import (
 )
 
 // Confiner is where this form of the confiner, frontseat-action, is on a
-// worker: in the directory bb_runner is installed into, which the runner
+// worker: in the directory the runner is installed into, which the runner
 // and every runner sandbox of a test with services hold at /bb, under a
 // name of its form, so that it is in every action's key.
 var Confiner = Confiners + Form
@@ -185,6 +185,9 @@ func Run() {
 // this form, and is replaced whole.
 func Install(dir string) (string, error) {
 	at := filepath.Join(dir, filepath.Base(Confiner))
+	if installed(at) {
+		return at, nil
+	}
 	self, err := os.Executable()
 	if err != nil {
 		return "", err
@@ -192,9 +195,6 @@ func Install(dir string) (string, error) {
 	content, err := os.ReadFile(self)
 	if err != nil {
 		return "", err
-	}
-	if installed(at) {
-		return at, nil
 	}
 	beside, err := os.CreateTemp(dir, ".frontseat-action-*")
 	if err != nil {
@@ -538,6 +538,8 @@ type prepared struct {
 // sweep (sweep), before it is confined: once confined, the action may
 // remove nothing of the directory it is in.
 func (a prepared) leave() {
+	// Its own to delete: what is in the directory this confiner made
+	// for its one action, and holds.
 	if a.temporary != "" {
 		if entries, err := os.ReadDir(a.temporary); err == nil {
 			for _, entry := range entries {
@@ -563,7 +565,7 @@ func prepare(args []string) (prepared, error) {
 	up := args[1]
 	for _, step := range strings.Split(up, "/") {
 		if step != ".." && step != "." {
-			return prepared{}, fmt.Errorf("the way up to the root is %q: it is .. or . alone", up)
+			return prepared{}, errors.New("the way up to the root is not .. or . alone")
 		}
 	}
 	// Where it runs, as the system says, never as the environment does:
@@ -700,7 +702,7 @@ func confineTo(root, temporary string) error {
 		return err
 	}
 	// What the runner keeps the command's output in, beside the root
-	// (bb_runner's stdout and stderr), is written as the command writes
+	// (its stdout and stderr files), is written as the command writes
 	// its output: through /dev/stdout, which leads there.
 	output := (accessWriteFile | accessTruncate) & handled
 	for _, rule := range []struct {
@@ -804,7 +806,7 @@ func read(given string) (Spec, error) {
 	}
 	for _, dir := range []string{spec.Home, spec.Temporary} {
 		if !filepath.IsLocal(dir) {
-			return Spec{}, fmt.Errorf("the spec names %q, which is not a directory beneath the root", dir)
+			return Spec{}, errors.New("the spec names its home or its temporary directory by what is not a directory beneath the root")
 		}
 	}
 	return spec, nil
@@ -938,7 +940,9 @@ func sweep(dir string, now time.Time) {
 // Clear removes every action's temporary directory in dir, whatever its
 // age and whether or not it is held: what runs actions one at a time
 // clears them between two (the runner), so that nothing one action left,
-// killed before it could empty its own, is read by the next.
+// killed before it could empty its own, is read by the next. They are
+// its caller's to delete: each is named as a confiner names an action's
+// own, in the directory the caller's actions alone are given theirs in.
 func Clear(dir string) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {

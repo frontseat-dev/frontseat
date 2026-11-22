@@ -63,8 +63,6 @@ func runRoutes(args []string) error {
 	if len(args)%4 != 0 || len(args) > 4*128 {
 		return errors.New("routes are at most 128 listener/destination pairs")
 	}
-	// The marker is in a private mount shared only with this service's
-	// confiner. It is written after every listener is bound.
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 	var listeners []net.Listener
@@ -137,6 +135,8 @@ func runRoutes(args []string) error {
 			}
 		})
 	}
+	// The marker is in a private mount shared only with this service's
+	// confiner. It is written after every listener is bound.
 	if err := os.WriteFile("/frontseat/ready/listening", []byte("ready\n"), 0644); err != nil {
 		return err
 	}
