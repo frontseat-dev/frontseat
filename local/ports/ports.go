@@ -3,8 +3,12 @@
 // its shell) and the local stack's (one container of local/image). The
 // daemon listens on a box's by default and the control plane opens and
 // dials them; the command line asks the stack's control plane, or,
-// inside a box, the daemon there (Lock); the stack's image's files, which
-// cannot read Go, are held to these by its test (local, ports_test).
+// inside a box, the daemon there (Lock); the stack's image's files and
+// the box's Dockerfile, which cannot read Go, are held to these by its
+// test (local, ports_test). A port that only the processes of the
+// stack's container dial among themselves, on its loopback (the grid's
+// storage and scheduler, the gateway's health), is no port frontseat's
+// programs are reached on: its image's files say it, and it is not here.
 package ports
 
 // Lock is the one lock of a box's sandbox, at one path whatever its
