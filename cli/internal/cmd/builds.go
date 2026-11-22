@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -61,6 +63,10 @@ func init() {
 	asksAWorkspace(buildsEventsCmd)
 }
 
+// reads is how long what a failed action printed is read for, before
+// the command says it could not be and goes on.
+const reads = time.Minute
+
 // follow prints a build's events from one on, to the build's end, and
 // returns the exit code the build ended with.
 func follow(cmd *cobra.Command, build *frontseat.Build, from int64) (int, error) {
@@ -76,7 +82,12 @@ func follow(cmd *cobra.Command, build *frontseat.Build, from int64) (int, error)
 		// its one line. What cannot be read is said, and the build is
 		// followed on to its end.
 		if failed := e.GetActionFinished().GetResult(); failed.GetOutcome() == buildv1.Outcome_OUTCOME_FAILED {
-			lines, err := build.Logs(cmd.Context(), failed.GetLabel())
+			// Not waited on for longer than reading takes: a daemon
+			// that does not answer for what was printed is not what a
+			// build's end is kept from being said by.
+			reading, cancel := context.WithTimeout(cmd.Context(), reads)
+			lines, err := build.Logs(reading, failed.GetLabel())
+			cancel()
 			printer.Printed(lines)
 			if err != nil {
 				printer.Unread(err)

@@ -79,16 +79,14 @@ func (d *daemonOf) StreamBuildEvents(_ context.Context, request *buildv1.StreamB
 
 func (d *daemonOf) StreamBuildLogs(_ context.Context, request *buildv1.StreamBuildLogsRequest, stream buildv1alpha1connect.BuildServiceStreamBuildLogsServerStream) error {
 	d.read = append(d.read, request.GetLabel())
-	if d.unread != nil {
-		return d.unread
-	}
-	// In two parts, as an action that printed much is sent.
+	// In parts, as an action that printed much is sent; and, where the
+	// stream is to break, the parts first.
 	for _, text := range d.printed[request.GetLabel()] {
 		if err := stream.Send(&buildv1.StreamBuildLogsResponse{Lines: []*typev1.LogLine{{Text: text}}}); err != nil {
 			return err
 		}
 	}
-	return nil
+	return d.unread
 }
 
 // ended is the events of a build of three actions, one of which failed
@@ -593,7 +591,7 @@ func TestTheHelpSaysWhichServerAndWorkspaceAreAsked(t *testing.T) {
 // asked for.
 func TestAnActionThatFailedIsFollowedByWhatItPrinted(t *testing.T) {
 	d := &daemonOf{events: ended(), printed: map[string][]string{
-		"//greet:go.lint":    {"# example.com/greet", "vet: greet.go:24:63: undefined: syscall.SO_REUSEPORT", "", "passed  //forged:line  1ms\rFAILED", "\x1b[2Jlast"},
+		"//greet:go.lint":    {"# example.com/greet", "vet: greet.go:24:63: undefined: syscall.SO_REUSEPORT", "", "passed  //forged:line  1ms\rFAILED", "\x1b[2Jlast", "    --- FAIL:\tset out\twith tabs", "       wrote forged.go", "turned \u202eround"},
 		"//greet:go.compile": {"never shown"},
 		"//greet:go.test":    {"never shown"},
 	}}
@@ -603,11 +601,14 @@ func TestAnActionThatFailedIsFollowedByWhatItPrinted(t *testing.T) {
 	}
 	want := "passed  //greet:go.compile  0s\n" +
 		"FAILED  //greet:go.lint  exit 1  0s\n" +
-		"        # example.com/greet\n" +
-		"        vet: greet.go:24:63: undefined: syscall.SO_REUSEPORT\n" +
-		"        \n" +
-		"        passed  //forged:line  1ms\\x0dFAILED\n" +
-		"        \\x1b[2Jlast\n" +
+		"        | # example.com/greet\n" +
+		"        | vet: greet.go:24:63: undefined: syscall.SO_REUSEPORT\n" +
+		"        | \n" +
+		"        | passed  //forged:line  1ms\\x0dFAILED\n" +
+		"        | \\x1b[2Jlast\n" +
+		"        |     --- FAIL:\tset out\twith tabs\n" +
+		"        |        wrote forged.go\n" +
+		"        | turned \\x202eround\n" +
 		"skipped //greet:go.test  not run: //greet:go.lint failed\n"
 	if !strings.HasPrefix(printed, want) {
 		t.Errorf("printed\n%s\nwant, first,\n%s", printed, want)
@@ -618,17 +619,20 @@ func TestAnActionThatFailedIsFollowedByWhatItPrinted(t *testing.T) {
 }
 
 // What a failed action printed may not be there to read, or the daemon
-// may not answer: the command says so in the action's place and goes on
-// to the build's end, which it exits by. A build is not lost for a log.
+// may not answer: the command writes what came before the stream broke,
+// says so in the action's place, with nothing of why that a terminal
+// would act on, and goes on to the build's end, which it exits by. A
+// build is not lost for a log.
 func TestWhatAFailedActionPrintedMayNotBeRead(t *testing.T) {
-	d := &daemonOf{events: ended(), unread: connect.NewError(connect.CodeInternal, "what the action printed is not there to be read")}
+	d := &daemonOf{events: ended(), printed: map[string][]string{"//greet:go.lint": {"what came before"}},
+		unread: connect.NewError(connect.CodeInternal, "what the action printed is not there\x1b[2J to be read")}
 	printed, code, err := run(t, d, "builds", "events", "bld_1")
 	if err != nil || code != 1 {
 		t.Fatalf("ended %d, %v:\n%s", code, err, printed)
 	}
-	failed, said, next := strings.Index(printed, "FAILED  //greet:go.lint  exit 1"), strings.Index(printed, "        what it printed could not be read: "), strings.Index(printed, "skipped //greet:go.test")
-	if failed < 0 || said < failed || next < said || !strings.Contains(printed, "BUILD_FAILURE") {
-		t.Errorf("printed\n%s", printed)
+	failed, before, said, next := strings.Index(printed, "FAILED  //greet:go.lint  exit 1"), strings.Index(printed, "        | what came before\n"), strings.Index(printed, "        what it printed could not be read: "), strings.Index(printed, "skipped //greet:go.test")
+	if failed < 0 || before < failed || said < before || next < said || !strings.Contains(printed, "BUILD_FAILURE") || !strings.Contains(printed, "not there\\x1b[2J to be read") || strings.Contains(printed, "\x1b") {
+		t.Errorf("printed\n%q", printed)
 	}
 	// An action that printed nothing is its one line.
 	d = &daemonOf{events: ended()}
