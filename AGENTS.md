@@ -719,9 +719,13 @@ the change that fixes it.
   `TestEveryReasonACallGivesIsNamedInThatCallsContract`, which holds it
   to what the contract says of the call, where the source says which
   call gives it; their controls `TestAReasonNoContractNamesIsFound` and
-  `TestAReasonItsCallsContractDoesNotNameIsFound`. Not held: a reason
-  given through a value or a method several types have, and one lost
-  where a service says on what another refused.
+  `TestAReasonItsCallsContractDoesNotNameIsFound`. A call's contract
+  is its comment, its service's, its file's header, and the Errors of
+  a call it says it refuses as ("as for PlanRelease"). Not held: a
+  reason given through a value or a method several types have, or by
+  what a handler calls in another package (`server/internal/wire`,
+  `engine/evaluate`, `backstage`), each held to its domain and to no
+  call; and one lost where a service says on what another refused.
 - A call or a field may be served by an enterprise server alone, or only
   where the operator has configured what serves it; its comment in the
   contract says so. A server that does not serve it refuses it by name,
@@ -747,10 +751,14 @@ the change that fixes it.
   resource, identifying fields are required, a List pages, no `reserved`,
   every message reached by a call, one failure shape, times and lengths
   of time, a contract imports only shared types, a Create can be sent
-  again, every field of a message no request carries is `OUTPUT_ONLY`,
-  and a handler in the server for every call; each with a fixture it
-  refuses and one it allows. Not held: a field the server sets in a
-  message a request does carry, which a reviewer reads.
+  again, every field of a message no request carries is `OUTPUT_ONLY`
+  (read in answers only, so a resource's spec the caller chose is
+  marked so too), and a handler in the server for every call; each with
+  a fixture it refuses and one it allows. Not held: a field the server
+  sets in a message a request does carry, which a reviewer reads; a
+  call's own response, whose resource says who sets it; and the shared
+  types (`frontseat.type.v1alpha1`), which a plugin writes as well as a
+  server.
 
 ## Security
 
