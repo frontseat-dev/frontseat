@@ -48,7 +48,7 @@ func TestAServiceIsReadIntoTheShapeAServiceHas(t *testing.T) {
 		t.Fatal(err)
 	}
 	services := read.Services()
-	if len(services) != 1 || services[0].As != "container" || services[0].Ref() != "resource:default/db" {
+	if len(services) != 1 || services[0].As != "container" || services[0].Entity.String() != "resource:default/db" {
 		t.Fatalf("read %+v", services)
 	}
 	want := &typev1.Service{

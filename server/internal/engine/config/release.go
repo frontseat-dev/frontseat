@@ -14,7 +14,6 @@ import (
 	"go.yaml.in/yaml/v4"
 
 	"github.com/frontseat-dev/frontseat/sdk/go/entity"
-	"github.com/frontseat-dev/frontseat/server/internal/engine/internal/yamlnode"
 	"github.com/frontseat-dev/frontseat/server/internal/model"
 )
 
@@ -70,31 +69,12 @@ var (
 // file. Each setting is text, written directly, and is checked as far as
 // it can be alone: what it means beside other entities' is for whoever
 // resolves them.
-func readRelease(file string, document, node *yaml.Node) (Release, error) {
+func readRelease(file string, ref entity.Ref, node *yaml.Node) (Release, error) {
 	mistake := func(line int, format string, a ...any) (Release, error) {
 		return Release{}, &model.Mistake{File: file, Message: fmt.Sprintf(format, a...) + fmt.Sprintf(" (line %d)", line)}
 	}
 	if node.Kind != yaml.MappingNode {
 		return mistake(node.Line, "spec.frontseat.release is a map of settings: %s", releaseSettings)
-	}
-	// The entity is named as the catalog names it, in the grammar every
-	// entity reference has: what that refuses is refused here, as it is.
-	kind, namespace, name := "", "", ""
-	if at := yamlnode.Child(document, "kind"); at != nil {
-		kind = at.Value
-	}
-	if at := yamlnode.Child(yamlnode.Child(document, "metadata"), "name"); at != nil {
-		name = at.Value
-	}
-	if at := yamlnode.Child(yamlnode.Child(document, "metadata"), "namespace"); at != nil {
-		namespace = at.Value
-	}
-	if kind == "" || name == "" {
-		return mistake(node.Line, "spec.frontseat.release is said by an entity, which has a kind and a name")
-	}
-	ref := entity.New(kind, namespace, name)
-	if ref.Validate() != nil {
-		return mistake(node.Line, "spec.frontseat.release is said by an entity whose name is none: a kind, namespace and name are each of letters and digits, with dashes, dots or underscores between them")
 	}
 	// What is released is a Component, alone or with its group, and a
 	// group is a System or a Domain: on any other kind a setting would

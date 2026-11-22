@@ -83,7 +83,7 @@ func TestAProviderBindingConflictNamesTheSameVariableEachTime(t *testing.T) {
 func TestAnAPIMappedAndNotProvidedIsNamedTheSameEachTime(t *testing.T) {
 	provider := entity.New("component", "default", "provider")
 	app := resource("default", "provider", map[string]int32{"http": 8080})
-	app.Kind = "component"
+	app.Entity.Kind = "component"
 	out := serviceCatalog(t, component, []catalog.Descriptor{{Entity: catalog.Entity{Ref: provider, Roots: []string{"provider"}}}})
 	if _, err := servicePrograms(&out, map[entity.Ref]config.Service{provider: app}); err != nil {
 		t.Fatalf("a Component that maps no API: %v", err)

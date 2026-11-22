@@ -102,7 +102,7 @@ func TestWhoSaysHowItIsReleasedIsNamedAsEveryEntityIs(t *testing.T) {
 		t.Fatalf("an entity written in upper case is %v, %v", read.Releases(), err)
 	}
 	for _, c := range [][2]string{{"\u212Aelvin", "default"}, {"greet", "De\u212A"}, {"a b", "default"}} {
-		if _, err := config.Read(context.Background(), "services", file(c[0], c[1])); err == nil || !strings.Contains(err.Error(), "an entity whose name is none: a kind, namespace and name are") || strings.Contains(err.Error(), "component:") {
+		if _, err := config.Read(context.Background(), "services", file(c[0], c[1])); err == nil || !strings.Contains(err.Error(), "an entity whose reference is none: a kind, namespace and name are") || strings.Contains(err.Error(), "component:") {
 			t.Errorf("%q in %q says how it is released: %v", c[0], c[1], err)
 		}
 	}

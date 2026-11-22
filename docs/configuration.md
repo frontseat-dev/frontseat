@@ -92,7 +92,7 @@ Frontseat reads the ones below and leaves the rest alone.
 
 | Backstage field | What Frontseat does with it |
 |---|---|
-| `kind`, `metadata.name`, `metadata.namespace` | The entity's reference. The namespace is `default` where none is written. |
+| `kind`, `metadata.name`, `metadata.namespace` | The entity's reference, read one way for every key of `spec.frontseat`. A kind Backstage defines is spelled as Backstage spells it (`Component`, `API`, `Resource`, `System`, `Domain`, `Group`, `User`, `Location`): `component` is refused. An entity that says `spec.frontseat` has a name. The namespace is `default` where none is written. |
 | a Component's directory | A Component owns the projects beneath the directory of its catalog file. |
 | `spec.system`, `spec.domain` | What an entity is released with (see `release`). |
 | `spec.providesApis`, `spec.consumesApis` | A Component that consumes an API is given the Component that provides it as a service for its tests, where the provider has a `service`. |
