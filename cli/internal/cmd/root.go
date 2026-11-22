@@ -134,6 +134,8 @@ Inside a workspace's sandbox, a command asks that workspace's daemon,
 on the loopback, to build, run and release, and no control plane: there
 the workspace's source is fixed, and the workspace commands are refused.
 
+` + jsonHelp + `
+
 ` + exitCodes,
 	// A mistake in how a command is written is said once, by main, and
 	// the usage is asked for with --help.
@@ -207,6 +209,7 @@ func init() {
 	}
 	rootCmd.Args = cobra.ArbitraryArgs
 	rootCmd.SuggestionsMinimumDistance = 2
+	rootCmd.PersistentFlags().BoolVar(&asJSON, "json", false, "write what is printed as JSON, one message of the API to a line, for a program to read")
 }
 
 // named refuses a command that is a group of others and was asked for

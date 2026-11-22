@@ -11,6 +11,7 @@ import (
 	"github.com/frontseat-dev/frontseat/sdk/go"
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
+	"google.golang.org/protobuf/proto"
 )
 
 // buildFrom is the event a build is followed from.
@@ -44,11 +45,12 @@ var buildDescribeCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		said("%s  %s", b.GetId(), state(b))
-		if why := b.GetFailure(); why != "" {
-			said("  %s", plain.Shown(why))
-		}
-		return nil
+		return shown(b, func(b *buildv1.Build) {
+			said("%s  %s", b.GetId(), state(b))
+			if why := b.GetFailure(); why != "" {
+				said("  %s", plain.Shown(why))
+			}
+		})
 	},
 }
 
@@ -127,13 +129,15 @@ func init() {
 
 // printedEach prints, one at a time as they come, what the workspace a
 // command asks yields: a list, a log.
-func printedEach[T any](items func(*frontseat.Workspace) iter.Seq2[T, error], print func(T)) error {
+func printedEach[T proto.Message](items func(*frontseat.Workspace) iter.Seq2[T, error], print func(T)) error {
 	return inWorkspace(func(w *frontseat.Workspace) error {
 		for item, err := range items(w) {
 			if err != nil {
 				return err
 			}
-			print(item)
+			if err := shown(item, print); err != nil {
+				return err
+			}
 		}
 		return nil
 	})
@@ -157,9 +161,16 @@ func follow(cmd *cobra.Command, build *frontseat.Build, from int64) (int, error)
 		if err != nil {
 			return 0, err
 		}
-		printer.Event(e)
-		if result := e.GetActionFinished().GetResult(); result.GetOutcome() == buildv1.Outcome_OUTCOME_FAILED {
-			tailed(cmd, build, result.GetLabel())
+		if asJSON {
+			// A program reads a failed action's log with build logs.
+			if err := emitted(e); err != nil {
+				return 0, err
+			}
+		} else {
+			printer.Event(e)
+			if result := e.GetActionFinished().GetResult(); result.GetOutcome() == buildv1.Outcome_OUTCOME_FAILED {
+				tailed(cmd, build, result.GetLabel())
+			}
 		}
 		next = e.GetSequence() + 1
 		if ended := e.GetFinished().GetBuild(); ended != nil {

@@ -71,8 +71,7 @@ func described(cmd *cobra.Command, w *frontseat.Workspace) error {
 	if err != nil {
 		return err
 	}
-	printWorkspace(out, held)
-	return nil
+	return shown(held, func(held *workspacev1.Workspace) { printWorkspace(out, held) })
 }
 
 // printWorkspace writes a workspace as described says it.

@@ -26,7 +26,7 @@ func main() {
 		var said string
 		code, said = cmd.Failed(ctx, err)
 		if said != "" {
-			fmt.Fprintln(os.Stderr, "frontseat:", said)
+			fmt.Fprintln(os.Stderr, said)
 		}
 	}
 	os.Exit(code)

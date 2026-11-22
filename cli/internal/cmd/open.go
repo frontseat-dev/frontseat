@@ -12,6 +12,7 @@ import (
 
 	"github.com/frontseat-dev/frontseat/cli/internal/machine"
 	"github.com/frontseat-dev/frontseat/sdk/go"
+	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
 )
 
 var (
@@ -72,6 +73,12 @@ as far as the credential the control plane keeps lets it.`,
 		got, err := machine.OpenCheckout(ctx, fs, open, machine.Checkout())
 		if err := kept(fs, got.OpenResult, err); err != nil {
 			return err
+		}
+		if asJSON {
+			if err := emitted(got.Status); err != nil {
+				return err
+			}
+			return entered(ctx, got.Repository)
 		}
 		standing := got.Standing
 		said("%s  %s", standing.Remote, standing.Branch)
@@ -138,7 +145,9 @@ func opening(ctx context.Context, fs *frontseat.Client, spec frontseat.Workspace
 	if err := kept(fs, got, err); err != nil {
 		return err
 	}
-	said("%s  %s", got.Workspace.Name(), got.Outcome)
+	if err := shown(got.Status, func(*workspacev1.Workspace) { said("%s  %s", got.Workspace.Name(), got.Outcome) }); err != nil {
+		return err
+	}
 	in := ""
 	if holds := got.Status.GetStatus().GetRepositories(); len(holds) == 1 {
 		in = holds[0].GetName()
@@ -149,13 +158,13 @@ func opening(ctx context.Context, fs *frontseat.Client, spec frontseat.Workspace
 // entered goes on, at a terminal, into a shell in a workspace that was
 // opened or made: a person who opens a workspace means to be in it. What
 // is not at a terminal, a script or an agent, has no one to type, and is
-// given what was opened and nothing more; --shell and --no-shell say
-// which, whatever runs it. The workspace was opened whatever is then
+// given what was opened and nothing more, and so is a program that asked
+// for --json; --shell and --no-shell say which, whatever runs it. The workspace was opened whatever is then
 // done in the shell: how the shell's last command ended is not how this
 // command ends, and only an SSH client that could not get in (255, its
 // own) is.
 func entered(ctx context.Context, repository string) error {
-	if wanted := openShell || (!openNoShell && atTerminal()); !wanted {
+	if wanted := openShell || (!openNoShell && !asJSON && atTerminal()); !wanted {
 		return nil
 	}
 	err := shell(ctx, "", true, []string{entering(repository)})

@@ -68,7 +68,10 @@ without it.`,
 				return err
 			}
 		}
-		said("deleted %s", name)
+		// What is gone is no resource to write as JSON.
+		if !asJSON {
+			said("deleted %s", name)
+		}
 		return nil
 	},
 }

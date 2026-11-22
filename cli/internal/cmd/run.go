@@ -24,7 +24,8 @@ printed:
   //services/greeter:go.run/greeter
 
 Everything after the program is given to the program, with or without
---; a flag of this command is written before the program. A program
+--; a flag of this command, --json among them, is written before the
+program. A program
 named list, describe, logs or cancel is written in full, as it is
 printed. The command
 prints the build, then what the program prints, and exits with the
@@ -127,9 +128,15 @@ func followRun(cmd *cobra.Command, w *frontseat.Workspace, run *frontseat.Run) (
 		if err != nil {
 			return nil, err
 		}
-		printer.Line(line)
+		if err := shown(line, printer.Line); err != nil {
+			return nil, err
+		}
 	}
-	return run.Wait(cmd.Context())
+	ended, err := run.Wait(cmd.Context())
+	if err == nil && asJSON {
+		err = emitted(ended)
+	}
+	return ended, err
 }
 
 // stop cancels a run in a moment of its own, half a minute, whatever

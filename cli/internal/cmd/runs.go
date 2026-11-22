@@ -35,8 +35,7 @@ var runDescribeCmd = &cobra.Command{
 			if err != nil {
 				return err
 			}
-			plain.Printer{Out: out}.Run(described)
-			return nil
+			return shown(described, plain.Printer{Out: out}.Run)
 		})
 	},
 }

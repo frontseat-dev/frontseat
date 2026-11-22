@@ -2,7 +2,40 @@
 
 `frontseat --help` and each command's own `--help` say what each command
 does. This page holds what a program that runs `frontseat` relies on:
-how it ends.
+what it writes, and how it ends.
+
+## `--json`
+
+Plain lines are for people, and may change between releases. A program
+gives `--json` (before the program, for `run`): each resource a command
+prints is then the API's own message, one to a line, as protojson writes
+it, with proto field names and enums by name. There is no second
+schema: the message is the one the contract (`api/`) defines.
+
+| Command | Each line |
+|---|---|
+| `workspace list` | `frontseat.workspace.v1alpha1.Workspace` |
+| `workspace describe`, `add`, `open`, `create` | `Workspace`, as it is once it can be worked in (`open` and `create` go on into no shell, unless `--shell`) |
+| `workspace delete` | nothing |
+| `build`, `test`, `build events` | `frontseat.build.v1alpha1.BuildEvent`, to the one that says how the build ended (a failed action's log is not inlined: `build logs` reads it) |
+| `build list`, `build describe` | `Build` |
+| `build actions` | `ActionResult` |
+| `build logs`, `run logs` | `frontseat.type.v1alpha1.LogLine` |
+| `run` | its build's `BuildEvent`s, its program's `LogLine`s, then the `Run` as it ended |
+| `run list`, `run describe` | `Run` |
+| `ship --dry-run` | `ReleasePlan`: its `etag` is what `ship --etag` takes |
+| `ship` | the `ReleasePlan` (unless `--etag`), its build's `BuildEvent`s, then the `Release` as it ended |
+| `credential list` | `frontseat.credential.v1alpha1.Credential`, its `secret` always empty |
+| `query` | the one exception: one line of query's own answer, whose names are kept |
+
+A failure is one line of JSON on standard error:
+
+```json
+{"code":"not_found","reason":"WORKSPACE_NOT_FOUND","domain":"workspace.frontseat.dev","message":"…","exit":1}
+```
+
+`code` and `reason` are there where a server refused; `exit` is the
+code the command exits with.
 
 ## Exit codes
 

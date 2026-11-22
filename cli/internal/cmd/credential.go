@@ -13,6 +13,7 @@ import (
 
 	"github.com/frontseat-dev/frontseat/cli/internal/ui/plain"
 	"github.com/frontseat-dev/frontseat/sdk/go"
+	credentialv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/credential/v1alpha1"
 )
 
 // credentialUsername is who a credential set is of.
@@ -88,11 +89,15 @@ var credentialListCmd = &cobra.Command{
 			return err
 		}
 		for _, each := range listed {
-			if each.Username == "" {
-				said("%s", plain.Shown(each.Host))
-				continue
+			if err := shown(&credentialv1.Credential{Host: each.Host, Username: each.Username}, func(each *credentialv1.Credential) {
+				if each.GetUsername() == "" {
+					said("%s", plain.Shown(each.GetHost()))
+					return
+				}
+				said("%s  %s", plain.Shown(each.GetHost()), plain.Shown(each.GetUsername()))
+			}); err != nil {
+				return err
 			}
-			said("%s  %s", plain.Shown(each.Host), plain.Shown(each.Username))
 		}
 		return nil
 	},

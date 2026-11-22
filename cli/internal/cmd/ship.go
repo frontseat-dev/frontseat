@@ -41,7 +41,9 @@ or why a unit holds. Nothing is built, tagged or changed. The last line
 is the plan's etag: plan ETAG.
 
 With --etag, the release is of the plan that etag names, as --dry-run
-printed it, and is refused where the workspace has moved since.`,
+printed it, and is refused where the workspace has moved since. With
+--json, --dry-run writes the plan, whose etag field is what --etag
+takes.`,
 	Example: `  frontseat ship greet
   frontseat ship system:kiosk
   frontseat ship domain:retail
@@ -71,7 +73,9 @@ printed it, and is refused where the workspace has moved since.`,
 		}
 		// It is named at once: whoever is interrupted from here on, or
 		// loses the daemon, finds it again by this, and it goes on.
-		printer.Began(release.ID())
+		if !asJSON {
+			printer.Began(release.ID())
+		}
 		// Its build is followed as a build is; a plan that builds nothing
 		// has none.
 		built, err := release.BuildID(ctx)
@@ -94,7 +98,9 @@ printed it, and is refused where the workspace has moved since.`,
 		if err != nil {
 			return err
 		}
-		printer.Release(ended)
+		if err := shown(ended, printer.Release); err != nil {
+			return err
+		}
 		// A release that failed, and one whose tags did not all leave
 		// the workspace, did not do what was asked: whatever runs the
 		// command is told so.
@@ -131,7 +137,9 @@ func plan(cmd *cobra.Command, w *frontseat.Workspace, names []string) (string, e
 	if err != nil {
 		return "", err
 	}
-	plain.Printer{Out: out}.Plan(planned)
+	if err := shown(planned, plain.Printer{Out: out}.Plan); err != nil {
+		return "", err
+	}
 	return planned.GetEtag(), nil
 }
 

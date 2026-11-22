@@ -16,10 +16,7 @@ import (
 	"github.com/frontseat-dev/frontseat/sdk/go/entity"
 )
 
-var (
-	queryWhy  string
-	queryJSON bool
-)
+var queryWhy string
 
 // queryCmd says what the workspace is made of.
 var queryCmd = &cobra.Command{
@@ -43,7 +40,8 @@ says so, and the version its lock resolves it to there ("at v1.9.1").
 One that does not depend on the other says so, and the command exits 1.
 
 With --json, the answer is one line of JSON, whose names are kept for a
-program to read.`,
+program to read: query alone writes no message of the API, but the
+answer of its own its help names.`,
 	Example: `  frontseat query
   frontseat query gateway
   frontseat query platform/
@@ -115,7 +113,7 @@ program to read.`,
 			}
 			answer.Entities = []plain.Entity{g.entity(e, true)}
 		}
-		if queryJSON {
+		if asJSON {
 			raw, err := json.Marshal(answer)
 			if err != nil {
 				return err
@@ -132,7 +130,6 @@ func init() {
 	rootCmd.AddCommand(queryCmd)
 	asksAWorkspace(queryCmd)
 	queryCmd.Flags().StringVar(&queryWhy, "why", "", "say why the entity named depends on this entity, or on this requirement from outside the workspace")
-	queryCmd.Flags().BoolVar(&queryJSON, "json", false, "write the answer as one line of JSON, for a program to read")
 }
 
 // graph is the workspace's entities and projects, as query reads them.

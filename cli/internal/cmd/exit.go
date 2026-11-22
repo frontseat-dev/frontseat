@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 
@@ -54,11 +55,38 @@ const exitCodes = `Exit codes:
   run exits with its program's own exit code, which may be any of these.`
 
 // Failed is how a command that failed ends: the code it exits with,
-// and what is said of it, for a person, empty where nothing is
-// (interrupted). What a server refused is said by its message, without
-// the code word Connect puts before it, and with what to do where the
-// command line knows.
+// and the line said of it on standard error, empty where nothing is
+// (interrupted). For a person, "frontseat: " and what a server refused
+// by its message, without the code word Connect puts before it, and with
+// what to do where the command line knows; with --json, one line of
+// JSON: the code, the reason, the domain and that message.
 func Failed(ctx context.Context, err error) (int, string) {
+	code, said := failed(ctx, err)
+	if said == "" {
+		return code, ""
+	}
+	if !asJSON {
+		return code, "frontseat: " + said
+	}
+	reason, domain := frontseat.Reason(err)
+	refused := struct {
+		Code    string `json:"code,omitempty"`
+		Reason  string `json:"reason,omitempty"`
+		Domain  string `json:"domain,omitempty"`
+		Message string `json:"message"`
+		Exit    int    `json:"exit"`
+	}{Reason: reason, Domain: domain, Message: said, Exit: code}
+	var raw *connect.Error
+	if errors.As(err, &raw) {
+		refused.Code = raw.Code().String()
+	}
+	line, _ := json.Marshal(refused)
+	return code, string(line)
+}
+
+// failed is the code a failure ends with, and what is said of it to a
+// person.
+func failed(ctx context.Context, err error) (int, string) {
 	if ctx.Err() != nil && (errors.Is(err, context.Canceled) || connect.CodeOf(err) == connect.CodeCanceled) {
 		return ExitInterrupted, ""
 	}

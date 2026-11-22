@@ -27,9 +27,13 @@ name, where it is, and what it was asked for with. A name is what
 			if err != nil {
 				return err
 			}
-			said("%s  %s  %s", each.GetName(), plain.Word(each.GetStatus().GetState()), askedFor(each.GetSpec()))
-			if why := each.GetStatus().GetFailure(); why != "" {
-				said("  %s", plain.Shown(why))
+			if err := shown(each, func(each *workspacev1.Workspace) {
+				said("%s  %s  %s", each.GetName(), plain.Word(each.GetStatus().GetState()), askedFor(each.GetSpec()))
+				if why := each.GetStatus().GetFailure(); why != "" {
+					said("  %s", plain.Shown(why))
+				}
+			}); err != nil {
+				return err
 			}
 		}
 		return nil
