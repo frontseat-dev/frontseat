@@ -123,7 +123,7 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		{"server/internal/exec/run/run.go", "server/internal/exec/publish", false},
 		{"server/internal/forge/forge.go", "server/internal/controlplane", false},
 		{"server/internal/forge/forge.go", "server/sandbox", false},
-		{"server/cmd/frontseatd/main.go", "server/internal/forge", false},
+		{"server/internal/daemon/daemon.go", "server/internal/forge", false},
 		{"server/internal/build/releases.go", "server/internal/forge", false},
 		{"server/sandbox/driver/openshell/fetch.go", "server/internal/forge", false},
 		{"server/sandbox/driver/openshell/fetch.go", "server/internal/plain", true},
@@ -263,8 +263,8 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		// The ports are said once, and read by what opens, serves or asks
 		// them, which reads nothing else of the stack for them.
 		{"server/internal/controlplane/rules.go", "local/ports", true},
-		{"server/cmd/frontseatd/main.go", "local/ports", true},
-		{"server/cmd/frontseatd/main.go", "local", false},
+		{"server/internal/daemon/daemon.go", "local/ports", true},
+		{"server/internal/daemon/daemon.go", "local", false},
 		{"cli/internal/machine/token.go", "local/ports", true},
 		{"cli/internal/machine/token.go", "local", false},
 		{"server/testsupport/testcontainer/container_test.go", "local/ports", true},
@@ -313,8 +313,11 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		{"specs/build/builds_test.go", "sdk/go", true},
 		{"specs/build/builds_test.go", "server/testsupport/buildtest", false},
 		{"specs/build/support_test.go", "server/testsupport/buildtest", true},
-		{"server/cmd/frontseatd/main.go", "server/internal/build", true},
-		{"server/cmd/frontseatd/main.go", "server/internal/pluginhost", false},
+		{"server/internal/daemon/daemon.go", "server/internal/build", true},
+		{"server/internal/daemon/daemon.go", "server/internal/pluginhost", false},
+		// The daemon's program is a thin main over the daemon.
+		{"server/cmd/frontseatd/main.go", "server/internal/daemon", true},
+		{"server/cmd/frontseatd/main.go", "server/internal/build", false},
 		{"server/internal/build/service.go", "server/internal/pluginhost/conformance", false},
 		{"server/internal/pluginhost/host_test.go", "server/internal/pluginhost/conformance", true},
 		{"server/internal/engine/evaluate/catalog_rewrite_test.go", "server/internal/pluginhost/conformance", true},
@@ -377,7 +380,7 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		{"server/internal/exec/stage/stage.go", "server/internal/exec/access", false},
 		{"server/internal/exec/tools/tools.go", "server/internal/exec/access", false},
 		{"server/internal/exec/access/access.go", "server/internal/exec", false},
-		{"server/cmd/frontseatd/main.go", "server/internal/exec/access", false},
+		{"server/internal/daemon/daemon.go", "server/internal/exec/access", false},
 		// Evaluation writes the source groups of the actions it plans.
 		{"server/internal/engine/evaluate/evaluate.go", "server/internal/pattern", true},
 		{"server/internal/exec/schedule/schedule.go", "server/internal/pattern", false},
