@@ -56,8 +56,9 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use frontseat_plugin::{
-    wire, BranchRequest, BranchResponse, Code, Error, Handed, Host, Plugin, Printed, Profile,
-    Repository, Resolved, Service, Value, VersionRequest, VersionResponse, ABI,
+    wire, AnalyzeResponse, ArrangeResponse, BranchRequest, BranchResponse, Code, DescribeResponse,
+    Error, Handed, Host, Plugin, Printed, Profile, ReconcileResponse, ReportResponse, Repository,
+    Resolved, Service, ServiceResponse, Value, VersionRequest, VersionResponse, ABI,
 };
 use prost::Message;
 
@@ -74,40 +75,47 @@ impl Files {
 
     /// Adds a file, or replaces it; the path is relative to the
     /// repository, with slashes.
+    #[must_use]
     pub fn with(mut self, path: &str, contents: impl Into<Vec<u8>>) -> Self {
         self.0.insert(path.into(), contents.into());
         self
     }
 
     /// Takes a file away, if it is there.
+    #[must_use]
     pub fn without(mut self, path: &str) -> Self {
         self.0.remove(path);
         self
     }
 
     /// Reads a directory on disk, such as `testdata/valid`, into memory:
-    /// each file beneath it, by its path relative to it.
+    /// each file beneath it, by its path relative to it. A link is not
+    /// followed: one to a file is read as nothing, and one to a
+    /// directory is not entered. A name that is not UTF-8 is an error,
+    /// since a repository's paths are text.
     pub fn from_dir(dir: impl AsRef<Path>) -> std::io::Result<Self> {
-        fn walk(root: &Path, dir: &Path, files: &mut Files) -> std::io::Result<()> {
+        fn walk(dir: &Path, beneath: &str, files: &mut Files) -> std::io::Result<()> {
             for entry in std::fs::read_dir(dir)? {
-                let path = entry?.path();
-                if path.is_dir() {
-                    walk(root, &path, files)?;
-                    continue;
+                let entry = entry?;
+                let name = entry.file_name().into_string().map_err(|_| {
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "a file's name is not UTF-8",
+                    )
+                })?;
+                let relative = frontseat_plugin::repository::join(beneath, &name);
+                // The entry's own kind, which follows no link.
+                let kind = entry.file_type()?;
+                if kind.is_dir() {
+                    walk(&entry.path(), &relative, files)?;
+                } else if kind.is_file() {
+                    files.0.insert(relative, std::fs::read(entry.path())?);
                 }
-                let relative = path
-                    .strip_prefix(root)
-                    .expect("a file beneath the directory read")
-                    .components()
-                    .map(|part| part.as_os_str().to_string_lossy())
-                    .collect::<Vec<_>>()
-                    .join("/");
-                files.0.insert(relative, std::fs::read(&path)?);
             }
             Ok(())
         }
         let mut files = Files::new();
-        walk(dir.as_ref(), dir.as_ref(), &mut files)?;
+        walk(dir.as_ref(), "", &mut files)?;
         Ok(files)
     }
 }
@@ -129,6 +137,12 @@ pub enum Read {
 /// A host that serves [`Files`] as the real host does, records what is
 /// read, and fails when it is told to. A read or a listing that fails is
 /// not recorded, as the host records none.
+///
+/// The real host tells a module nothing of a read it could not serve,
+/// and fails the call the read was made in, whatever the plugin does
+/// after. So does a call asked through [`TestPlugin`]: a plugin that
+/// reads past a failure, taking it for a file that is not there, is
+/// answered with the failure all the same.
 #[derive(Default)]
 pub struct TestHost {
     files: Files,
@@ -136,6 +150,7 @@ pub struct TestHost {
     reads_failing: BTreeMap<String, Error>,
     globs_failing: BTreeMap<String, Error>,
     reads: RefCell<Vec<Read>>,
+    failed: RefCell<Option<Error>>,
 }
 
 impl TestHost {
@@ -154,6 +169,7 @@ impl TestHost {
 
     /// Reading this path fails with this error instead of returning the
     /// file.
+    #[must_use]
     pub fn fail_read(mut self, path: &str, error: Error) -> Self {
         self.reads_failing.insert(path.into(), error);
         self
@@ -161,6 +177,7 @@ impl TestHost {
 
     /// Listing beneath this directory fails with this error, whatever the
     /// patterns.
+    #[must_use]
     pub fn fail_glob(mut self, directory: &str, error: Error) -> Self {
         self.globs_failing.insert(directory.into(), error);
         self
@@ -168,6 +185,7 @@ impl TestHost {
 
     /// Every read and every listing fails with this error, as when the
     /// source is unavailable.
+    #[must_use]
     pub fn fail_everything(mut self, error: Error) -> Self {
         self.everything = Some(error);
         self
@@ -180,9 +198,18 @@ impl TestHost {
 
     fn failing(&self, of: &BTreeMap<String, Error>, key: &str) -> Result<(), Error> {
         match self.everything.as_ref().or_else(|| of.get(key)) {
-            Some(error) => Err(error.clone()),
+            Some(error) => Err(self.fail(error.clone())),
             None => Ok(()),
         }
+    }
+
+    /// Notes the first failure of a call, which the call ends with, and
+    /// returns it for the plugin to be told.
+    fn fail(&self, error: Error) -> Error {
+        self.failed
+            .borrow_mut()
+            .get_or_insert_with(|| error.clone());
+        error
     }
 }
 
@@ -199,6 +226,18 @@ impl Host for TestHost {
 
     fn glob(&self, directory: &str, patterns: &[&str]) -> Result<Vec<String>, Error> {
         self.failing(&self.globs_failing, directory)?;
+        // The host globs beneath a directory of the repository, and
+        // fails the call for one that is not.
+        if !directory.is_empty() && frontseat_plugin::repository::resolve("", directory).is_none() {
+            return Err(self.fail(
+                Error::new(
+                    Code::InvalidArgument,
+                    "glob-outside-repository",
+                    "a glob's directory leaves the repository",
+                )
+                .help("Glob beneath a directory relative to the repository's root."),
+            ));
+        }
         // The files are held sorted, so what is selected is too.
         let paths: Vec<String> = self
             .files
@@ -224,6 +263,7 @@ pub struct TestContext(wire::Context);
 impl TestContext {
     /// Sets an option. The SDK refuses a call whose option is not of the
     /// kind the plugin declares, or is one it does not declare.
+    #[must_use]
     pub fn option(mut self, name: &str, value: impl Into<Value>) -> Self {
         self.0.options.insert(name.into(), value.into().into());
         self
@@ -231,6 +271,7 @@ impl TestContext {
 
     /// Adds a platform what the plugin is asked about is shipped for, as
     /// its entity's catalog file would say it: `linux/amd64`.
+    #[must_use]
     pub fn platform(mut self, platform: &str) -> Self {
         self.0.platforms.push(platform.into());
         self
@@ -238,6 +279,7 @@ impl TestContext {
 
     /// Pins a tool at a version, as the repository's mise configuration
     /// would.
+    #[must_use]
     pub fn tool(mut self, name: &str, version: &str) -> Self {
         self.0.tools.insert(name.into(), version.into());
         self
@@ -255,6 +297,7 @@ impl TestContext {
 /// response, or the refusal read back by the SDK's own decoder
 /// ([`Error::from_status`]), its reason as its author wrote it.
 #[derive(Debug)]
+#[must_use = "an answer is checked with answered(), refused() or unsupported()"]
 pub struct Answer<T> {
     /// The response, or the refusal.
     pub result: Result<T, Error>,
@@ -268,13 +311,8 @@ impl<T> Answer<T> {
         match self.result {
             Ok(response) => response,
             Err(refusal) => panic!(
-                "the plugin refused: {} {:?}: {} ({}:{}). {}",
-                refusal.reason,
-                refusal.code,
-                refusal.message,
-                refusal.path,
-                refusal.line,
-                refusal.help
+                "the plugin refused, {:?} for the reason {}: {refusal}",
+                refusal.code, refusal.reason
             ),
         }
     }
@@ -323,10 +361,11 @@ impl<P: Plugin> TestPlugin<P> {
 
     fn ask<Response: Message + Default>(
         &self,
-        host: &dyn Host,
+        host: &TestHost,
         method: &str,
         request: impl Message,
     ) -> Answer<Response> {
+        host.failed.take();
         let call = wire::Call {
             method: method.into(),
             request: request.encode_to_vec(),
@@ -336,6 +375,13 @@ impl<P: Plugin> TestPlugin<P> {
             frontseat_plugin::abi::answer(&self.plugin, host, &call).as_slice(),
         )
         .expect("the plugin's reply decodes");
+        // What the host could not serve fails the call, whatever the
+        // plugin answered.
+        if let Some(failure) = host.failed.take() {
+            return Answer {
+                result: Err(failure),
+            };
+        }
         Answer {
             result: match reply.result.expect("the plugin replied with something") {
                 wire::reply::Result::Response(bytes) => {
@@ -349,7 +395,7 @@ impl<P: Plugin> TestPlugin<P> {
     /// What the plugin says it is. The host it is given fails any read,
     /// as the real one does.
     #[track_caller]
-    pub fn describe(&self) -> wire::DescribeResponse {
+    pub fn describe(&self) -> DescribeResponse {
         self.ask(
             &unreadable(),
             "Describe",
@@ -383,7 +429,7 @@ impl<P: Plugin> TestPlugin<P> {
         host: &TestHost,
         context: &TestContext,
         roots: &[&str],
-    ) -> Answer<wire::AnalyzeResponse> {
+    ) -> Answer<AnalyzeResponse> {
         self.ask(
             host,
             "Analyze",
@@ -403,7 +449,7 @@ impl<P: Plugin> TestPlugin<P> {
         root: &str,
         actions: &[&str],
         handed: &[Handed],
-    ) -> Answer<wire::ArrangeResponse> {
+    ) -> Answer<ArrangeResponse> {
         self.ask(
             host,
             "Arrange",
@@ -424,7 +470,7 @@ impl<P: Plugin> TestPlugin<P> {
         root: &str,
         action: &str,
         printed: &Printed,
-    ) -> Answer<wire::ReportResponse> {
+    ) -> Answer<ReportResponse> {
         self.ask(
             host,
             "Report",
@@ -446,7 +492,7 @@ impl<P: Plugin> TestPlugin<P> {
         context: &TestContext,
         root: &str,
         entities: &[Resolved],
-    ) -> Answer<wire::ReconcileResponse> {
+    ) -> Answer<ReconcileResponse> {
         self.ask(
             host,
             "Reconcile",
@@ -472,7 +518,7 @@ impl<P: Plugin> TestPlugin<P> {
 
     /// Asks Service of a name the plugin claims, with what was written
     /// beside it. It is given a host that fails any read.
-    pub fn service(&self, name: &str, written: Service) -> Answer<wire::ServiceResponse> {
+    pub fn service(&self, name: &str, written: Service) -> Answer<ServiceResponse> {
         self.ask(
             &unreadable(),
             "Service",
@@ -561,6 +607,23 @@ mod tests {
         let files = Files::from_dir(concat!(env!("CARGO_MANIFEST_DIR"), "/src")).unwrap();
         let host = TestHost::new(files);
         assert_eq!(host.glob("", &["**"]).unwrap(), ["glob.rs", "lib.rs"]);
+    }
+
+    /// A link is the entry it is, and is not followed: a directory
+    /// linked to itself is not walked for ever, and what a link leads to
+    /// is not read as a file of the directory.
+    #[cfg(unix)]
+    #[test]
+    fn a_directory_is_read_without_following_its_links() {
+        let dir =
+            std::env::temp_dir().join(format!("frontseat-plugin-test-{}", std::process::id()));
+        std::fs::create_dir_all(dir.join("app")).unwrap();
+        std::fs::write(dir.join("app/Makefile"), "test:\n").unwrap();
+        std::os::unix::fs::symlink(&dir, dir.join("app/again")).unwrap();
+        std::os::unix::fs::symlink(dir.join("app/Makefile"), dir.join("linked")).unwrap();
+        let read = Files::from_dir(&dir);
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(read.unwrap(), Files::new().with("app/Makefile", "test:\n"));
     }
 
     struct Manifests;

@@ -95,3 +95,46 @@ fn a_test_hears_of_a_failure_the_host_would_refuse() {
         refused.message
     );
 }
+
+struct Forgiving;
+impl Plugin for Forgiving {
+    fn describe(&self) -> Description {
+        Description {
+            name: "forgiving".into(),
+            ..Default::default()
+        }
+    }
+    fn analyze(&self, repo: &Repository, root: &str) -> Result<Analysis, Error> {
+        // A failed read taken for a file that is not there, and a glob
+        // of a directory out of the repository taken for an empty one.
+        let _ = repo.read(&format!("{root}/Makefile")).ok().flatten();
+        if root == "outside" {
+            let _ = repo.glob("../elsewhere", &["**"]);
+        }
+        Ok(Analysis::default())
+    }
+}
+
+/// The host tells a module nothing of a read it could not serve and
+/// fails the call. A plugin that reads past a failure is answered with
+/// the failure by the testkit too, and is answered where nothing failed.
+#[test]
+fn a_read_the_host_could_not_serve_fails_the_call_whatever_the_plugin_does() {
+    let plugin = TestPlugin::new(Forgiving);
+    let context = plugin.context(Profile::Development);
+    let unavailable = Error::new(
+        Code::Unavailable,
+        "source-unavailable",
+        "the source is gone",
+    );
+    let host = TestHost::empty().fail_read("app/Makefile", unavailable);
+    let refused = plugin
+        .analyze(&host, &context, &["app"])
+        .refused("source-unavailable");
+    assert_eq!(refused.code, Code::Unavailable);
+    // The same host, asked of a root whose read it serves, answers.
+    plugin.analyze(&host, &context, &["lib"]).answered();
+    plugin
+        .analyze(&TestHost::empty(), &context, &["outside"])
+        .refused("glob-outside-repository");
+}
