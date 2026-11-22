@@ -10,6 +10,8 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+
+	"golang.org/x/sys/unix"
 )
 
 // held listens at address (a host and port 0) as a process does that
@@ -21,8 +23,10 @@ func held(t *testing.T, network, address string) int {
 	config := net.ListenConfig{Control: func(_, _ string, raw syscall.RawConn) error {
 		var failed error
 		if err := raw.Control(func(fd uintptr) {
-			for _, option := range []int{syscall.SO_REUSEADDR, syscall.SO_REUSEPORT} {
-				if err := syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, option, 1); err != nil {
+			// x/sys names both on every system this is built for: package
+			// syscall has no SO_REUSEPORT on linux/amd64.
+			for _, option := range []int{unix.SO_REUSEADDR, unix.SO_REUSEPORT} {
+				if err := unix.SetsockoptInt(int(fd), unix.SOL_SOCKET, option, 1); err != nil {
 					failed = err
 				}
 			}
