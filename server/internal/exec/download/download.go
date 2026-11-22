@@ -204,7 +204,7 @@ func (c *Client) Fetch(ctx context.Context, url, sum string) (exec.Digest, error
 	answers := c.asking.DoChan(flightKey, func() (any, error) { return c.ask(flight, url, proxied, sum, key, forgotten) })
 	select {
 	case <-ctx.Done():
-		return exec.Digest{}, fmt.Errorf("%s: %w", url, ctx.Err())
+		return exec.Digest{}, fmt.Errorf("%s: %w", site(url), ctx.Err())
 	case answer := <-answers:
 		if answer.Err != nil {
 			return exec.Digest{}, answer.Err
@@ -225,7 +225,7 @@ func (c *Client) ask(ctx context.Context, url, proxied, sum, key string, forgott
 	if sum != "" {
 		raw, err := hex.DecodeString(sum)
 		if err != nil || len(raw) != sha256.Size || strings.ToLower(sum) != sum {
-			return exec.Digest{}, fmt.Errorf("%s: %q is no sha256", url, sum)
+			return exec.Digest{}, fmt.Errorf("%s: the checksum it is held to is no sha256", site(url))
 		}
 		request.Qualifiers = []*remoteasset.Qualifier{{Name: "checksum.sri", Value: "sha256-" + base64.StdEncoding.EncodeToString(raw)}}
 	}
@@ -238,21 +238,21 @@ func (c *Client) ask(ctx context.Context, url, proxied, sum, key string, forgott
 		// with the status kept: asking again would say the same.
 		told := access.Told(ctx, err)
 		if said := c.shaken.Said("the asset service", c.address, told); access.Untrusted(said) {
-			return exec.Digest{}, fmt.Errorf("%s, asked of the asset service as %s: %w", url, proxied, said)
+			return exec.Digest{}, fmt.Errorf("%s, asked of the asset service: %w", site(url), said)
 		}
 		if access.Unsent(told) || access.NotAdmitted(told) {
-			return exec.Digest{}, fmt.Errorf("%s, asked of the asset service as %s: %w", url, proxied, c.access.Refused("the asset service", told))
+			return exec.Digest{}, fmt.Errorf("%s, asked of the asset service: %w", site(url), c.access.Refused("the asset service", told))
 		}
-		return exec.Digest{}, fmt.Errorf("%s, asked of the asset service as %s: %s", url, proxied, status.Convert(err).Message())
+		return exec.Digest{}, fmt.Errorf("%s, asked of the asset service: %s", site(url), status.Convert(err).Message())
 	}
 	if said := status.FromProto(answer.GetStatus()); said.Err() != nil {
-		return exec.Digest{}, fmt.Errorf("%s, asked of the asset service as %s: %s", url, proxied, said.Message())
+		return exec.Digest{}, fmt.Errorf("%s, asked of the asset service: %s", site(url), said.Message())
 	}
 	switch hash := answer.GetBlobDigest().GetHash(); {
 	case sum != "" && hash != sum:
-		return exec.Digest{}, fmt.Errorf("%s: the asset service answered with content whose sha256 is %s, not %s", url, hash, sum)
+		return exec.Digest{}, fmt.Errorf("%s: the asset service answered with content whose sha256 is %s, not %s", site(url), hash, sum)
 	case !named.MatchString(hash) || answer.GetBlobDigest().GetSizeBytes() < 0:
-		return exec.Digest{}, fmt.Errorf("%s: the asset service answered with %q, which names no content", url, hash)
+		return exec.Digest{}, fmt.Errorf("%s: the asset service answered with %q, which names no content", site(url), hash)
 	}
 	digest := exec.Digest{Hash: answer.GetBlobDigest().GetHash(), Size: answer.GetBlobDigest().GetSizeBytes()}
 	c.mu.Lock()
@@ -270,18 +270,34 @@ func (c *Client) ask(ctx context.Context, url, proxied, sum, key string, forgott
 // proxied returns the address a URL is asked of the service by: the
 // proxy's for it, by the first rule that matches it, or, where no rule
 // does, the URL itself where it is a public site's (public). A URL that
-// is refused is not repeated: it may hold a user's password, or a token
-// among what it asks for.
+// carries a user is refused before any rule is tried: a proxy is no
+// place for a user's password. A URL that is refused is not repeated: it
+// may hold a user's password, or a token among what it asks for.
 func (c *Client) proxied(url string) (string, error) {
+	if parsed, err := neturl.Parse(url); err == nil && parsed.User != nil {
+		return "", fmt.Errorf("%s: it carries a user, and is neither proxied nor downloaded as it is", site(url))
+	}
 	for _, rule := range c.rewrites {
 		if rule.from.MatchString(url) {
 			return rule.from.ReplaceAllString(url, rule.to), nil
 		}
 	}
 	if err := public(url); err != nil {
-		return "", fmt.Errorf("a download's address, not repeated here: no proxy of the grid's stands in for it, and it is not downloaded as it is: %w", err)
+		return "", fmt.Errorf("%s: no proxy of the grid's stands in for it, and it is not downloaded as it is: %w", site(url), err)
 	}
 	return url, nil
+}
+
+// site is how a download is said in an error: by its scheme and host
+// where the host is a public site's name, else as "a download". The rest
+// of its URL is never said, whether or not a rule proxies it: a user's
+// password, or a token among what it asks for, may be there.
+func site(raw string) string {
+	parsed, err := neturl.Parse(raw)
+	if err != nil || parsed.Scheme == "" || publicHost(parsed.Hostname()) != nil {
+		return "a download"
+	}
+	return parsed.Scheme + "://" + strings.ToLower(strings.TrimSuffix(parsed.Hostname(), "."))
 }
 
 // public returns why a URL is no public site's, which is asked as it is:
@@ -297,7 +313,12 @@ func public(raw string) error {
 	case parsed.User != nil:
 		return fmt.Errorf("it carries a user")
 	}
-	host := strings.ToLower(strings.TrimSuffix(parsed.Hostname(), "."))
+	return publicHost(parsed.Hostname())
+}
+
+// publicHost returns why a URL's host is no public site's name.
+func publicHost(hostname string) error {
+	host := strings.ToLower(strings.TrimSuffix(hostname, "."))
 	// A name of anything but plain letters, digits, dots and dashes is
 	// another name once the client reads it (IDNA: a full-width dot is a
 	// dot), and is not checked as it will be reached.
