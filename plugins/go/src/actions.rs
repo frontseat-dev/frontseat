@@ -22,31 +22,23 @@ fn compile(profile: Profile) -> &'static [&'static str] {
     }
 }
 
-/// The linker's flag that sets the variables the `version` option names,
-/// each to what the host fills for it; nothing, where it names none. The
-/// linker sets a variable where the package that declares it is linked
-/// in, and says nothing where it is not, so one list serves every module
-/// it is set for.
-fn linked_version(variables: &[String], manifest: &str) -> Result<Option<String>, Error> {
+/// The linker's flag that sets the variables the `link-variables` option
+/// names, each to what the host fills for it; nothing, where it names
+/// none. The linker sets a variable where the package that declares it
+/// is linked in, and says nothing where it is not, so one map serves
+/// every module it is set for. What each is set to is one of the four
+/// words the option allows, which the host holds it to.
+fn linked_version(
+    variables: &std::collections::BTreeMap<String, String>,
+    manifest: &str,
+) -> Result<Option<String>, Error> {
     let mut sets = Vec::with_capacity(variables.len());
-    for written in variables {
-        let wrong = |why: &str| {
-            Error::invalid(
-                "invalid-version-variable",
-                manifest,
-                format!("version holds {written:?} for this module, {why}"),
-                "Write each as <package>.<variable>=<what>, as github.com/acme/greet/internal/build.Version=version, where <what> is version, tag, commit or unit.",
-            )
-        };
-        let Some((variable, what)) = written.split_once('=') else {
-            return Err(wrong("which sets a variable to nothing"));
-        };
-        let filled = match what {
+    for (variable, what) in variables {
+        let filled = match what.as_str() {
             "version" => placeholders::VERSION,
             "tag" => placeholders::TAG,
             "commit" => placeholders::COMMIT,
-            "unit" => placeholders::UNIT,
-            _ => return Err(wrong("which is set to nothing a release has")),
+            _ => placeholders::UNIT,
         };
         // A package's path and a variable's name, as the linker reads
         // them: nothing that would end the flag or begin another.
@@ -59,19 +51,39 @@ fn linked_version(variables: &[String], manifest: &str) -> Result<Option<String>
                 && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
         });
         if !named {
-            return Err(wrong("which names no variable of a package"));
-        }
-        if variables
-            .iter()
-            .filter(|other| other.split_once('=').is_some_and(|(v, _)| v == variable))
-            .count()
-            > 1
-        {
-            return Err(wrong("which sets a variable set twice"));
+            return Err(Error::invalid(
+                "invalid-version-variable",
+                manifest,
+                format!("link-variables names {variable:?} for this module, which is no variable of a package"),
+                "Name each as <package>.<variable>, as github.com/acme/greet/internal/build.Version, set to version, tag, commit or unit.",
+            ));
         }
         sets.push(format!("-X {variable}={filled}"));
     }
     Ok((!sets.is_empty()).then(|| format!("-ldflags={}", sets.join(" "))))
+}
+
+/// A length of time as the go command writes one: hours, minutes and
+/// seconds, each where there are any, and "0s" for none, which the go
+/// command reads as no limit.
+fn go_duration(length: std::time::Duration) -> String {
+    let seconds = length.as_secs();
+    let (hours, minutes, seconds) = (seconds / 3600, seconds / 60 % 60, seconds % 60);
+    let nanos = length.subsec_nanos();
+    let mut written = String::new();
+    if hours > 0 {
+        written.push_str(&format!("{hours}h"));
+    }
+    if minutes > 0 {
+        written.push_str(&format!("{minutes}m"));
+    }
+    if nanos > 0 {
+        let fraction = format!("{nanos:09}");
+        written.push_str(&format!("{seconds}.{}s", fraction.trim_end_matches('0')));
+    } else if seconds > 0 || written.is_empty() {
+        written.push_str(&format!("{seconds}s"));
+    }
+    written
 }
 
 /// Where the go command installs a module's programs, in the action's
@@ -244,19 +256,9 @@ pub(super) fn actions(
         programs,
     } = *found;
     let tags = repo.option_list(plugin::TAGS)?;
-    let timeout = repo.option_str(plugin::TEST_TIMEOUT)?;
-    // The go command's own reading, before a worker is asked: what it
-    // would not read fails every test of the module, far from where it
-    // was set. Less than nothing is no limit to the go command, which
-    // is written 0: it is refused too. The value is not repeated.
-    if crate::duration::nanoseconds(timeout).is_none_or(|nanoseconds| nanoseconds < 0) {
-        return Err(Error::invalid(
-            "invalid-test-timeout",
-            &join(root, "go.mod"),
-            "test-timeout for this module is no length of time as the go command writes one, or is less than nothing",
-            "Set test-timeout to a number and a unit, as 90s, 10m or 1h30m, or to 0 for no limit, in frontseat.yaml or the entity's catalog file.",
-        ));
-    }
+    // A duration the host read where it was set, which no worker then
+    // refuses: written as the go command reads one.
+    let timeout = go_duration(repo.option_duration(plugin::TEST_TIMEOUT)?);
     let fetches: Vec<Action> = locked.entries.iter().map(fetch).collect();
     // Each is named as every plugin names its like, reads the modules
     // this one requires of the workspace, and waits for the ones it
@@ -282,19 +284,8 @@ pub(super) fn actions(
             .inputs(fetches.iter().map(|fetch| Input::output(&fetch.name)))
             .inputs([Input::dependencies(format!("{REQUIRED}/{{name}}"))])
     };
+    // At least 1, which the host holds it to where it was set.
     let shards = repo.option_int(plugin::TEST_SHARDS)?;
-    if shards < 1 {
-        // A plugin is told what an option is set to and not where: the
-        // mistake is said of the module it was set for.
-        return Err(Error::invalid(
-            "invalid-test-shards",
-            &join(root, "go.mod"),
-            format!(
-                "test-shards is {shards} for this module: a package's tests are cut into one action or more"
-            ),
-            "Set test-shards to 1 or more, in frontseat.yaml or the entity's catalog file.",
-        ));
-    }
     let fetched: Vec<String> = fetches.iter().map(|fetch| fetch.name.clone()).collect();
     let testing = Testing {
         root,
@@ -306,12 +297,15 @@ pub(super) fn actions(
         // More than a worker's word holds is more than any package has
         // tests: as many as there are.
         shards: usize::try_from(shards).unwrap_or(usize::MAX),
-        timeout,
+        timeout: &timeout,
         tags,
     };
     let tests = tests(&testing, &action)?;
     let mut compiling = over_module(compile(repo.profile()?), tags);
-    let version = linked_version(repo.option_list(plugin::VERSION)?, &join(root, "go.mod"))?;
+    let version = linked_version(
+        repo.option_map(plugin::LINK_VARIABLES)?,
+        &join(root, "go.mod"),
+    )?;
     // A flag of the go command's, before the packages it is given.
     if let Some(flag) = &version {
         compiling.insert(compiling.len() - 1, flag.clone());
@@ -946,16 +940,15 @@ mod tests {
             longest > super::SELECTION_AT_MOST - 2000 && refusals > 0,
             "the longest argument taken is {longest} bytes, and {refusals} counts were refused"
         );
-        // Fewer than one shard is refused, by the option's name.
-        for shards in [0, -3] {
-            let repo = sharded(shards).repository(&empty);
-            let refused = answered(&repo, &tested).unwrap_err();
-            assert!(
-                refused.message.contains("test-shards"),
-                "{}",
-                refused.message
-            );
-        }
+        // Fewer than one shard is refused before the plugin reads it: by
+        // the host where it is set, and by the SDK, of the option's least.
+        let plugin = TestPlugin::new(crate::served());
+        let context = plugin
+            .context(Profile::Development)
+            .option("test-shards", Value::Int(0));
+        plugin
+            .analyze(&empty, &context, &["app"])
+            .refused("invalid-option");
     }
 
     #[test]
@@ -1233,12 +1226,12 @@ mod tests {
         assert_eq!(arguments.last().map(String::as_str), Some("./..."));
     }
 
-    /// A test-timeout the go command would not read, or would read as
-    /// less than nothing, is refused where the module is read, by the
-    /// option's name and without the value; the control is one it reads,
-    /// which every test of the module is started with.
+    /// A test-timeout, which the host reads as a length of time where it
+    /// is set, starts every test of the module as the go command reads
+    /// one; no limit is 0s. What is no length of time is refused by the
+    /// host at its line (config's `TestAnOptionsValueIsHeldToWhatItTakesWhereItIsWritten`).
     #[test]
-    fn a_test_timeout_that_is_no_duration_is_refused_by_name() {
+    fn a_test_timeout_starts_every_test_as_the_go_command_reads_it() {
         let plugin = TestPlugin::new(crate::served());
         let host = TestHost::new(
             frontseat_plugin_test::Files::new()
@@ -1246,32 +1239,35 @@ mod tests {
                 .with("app/hello.go", "package hello\n")
                 .with("app/hello_test.go", "package hello\nfunc TestA() {}\n"),
         );
-        let timed = |timeout: &str| {
-            let context = plugin
-                .context(Profile::Development)
-                .option("test-timeout", Value::String(timeout.into()));
-            plugin.analyze(&host, &context, &["app"])
-        };
-        let answered = timed("1h30m").answered();
-        let test = answered.analyses[0].projects[0]
-            .actions
-            .iter()
-            .find(|action| action.name == "test/.")
-            .expect("the module's own package has a test");
-        assert!(test
-            .command
-            .as_ref()
-            .unwrap()
-            .arguments
-            .contains(&"-test.timeout=1h30m".to_string()));
-        // No limit is written 0, and is read.
-        timed("0").answered();
-        for written in ["ten-minutes-of-secret", "10", "", "-5m"] {
-            let refused = timed(written).refused("invalid-test-timeout");
-            assert_eq!(refused.path, "app/go.mod");
-            assert!(refused.message.contains("test-timeout"));
-            assert!(!refused.message.contains("secret") && !refused.help.contains("secret"));
+        for (given, written) in [
+            (5400, "-test.timeout=1h30m"),
+            (90, "-test.timeout=1m30s"),
+            (0, "-test.timeout=0s"),
+        ] {
+            let context = plugin.context(Profile::Development).option(
+                "test-timeout",
+                Value::Duration(std::time::Duration::from_secs(given)),
+            );
+            let answered = plugin.analyze(&host, &context, &["app"]).answered();
+            let test = answered.analyses[0].projects[0]
+                .actions
+                .iter()
+                .find(|action| action.name == "test/.")
+                .expect("the module's own package has a test");
+            assert!(
+                test.command
+                    .as_ref()
+                    .unwrap()
+                    .arguments
+                    .contains(&written.to_string()),
+                "{given}s: {:?}",
+                test.command
+            );
         }
+        assert_eq!(
+            super::go_duration(std::time::Duration::from_millis(1500)),
+            "1.5s"
+        );
     }
 }
 

@@ -17,12 +17,12 @@ func cargoFixture(t *testing.T) conformance.Fixture {
 	t.Helper()
 	tools := map[string]string{"rust": "1.99.1"}
 	// Its one option, wasm, at its default: nothing is built for wasm.
-	options := map[string]*typev1.OptionValue{"wasm": {Value: &typev1.OptionValue_BoolValue{BoolValue: false}}}
+	options := map[string]*typev1.OptionValue{"targets": {Value: &typev1.OptionValue_StringListValue{StringListValue: &typev1.OptionValue_StringList{}}}}
 	with := &pluginv1.Context{Profile: typev1.Profile_PROFILE_DEVELOPMENT, Tools: tools, Options: options}
 	without := &pluginv1.Context{Profile: typev1.Profile_PROFILE_DEVELOPMENT, Options: options}
 	narrowed := "[workspace]\nmembers = [\"greet\", \"hello\"]\nresolver = \"2\"\n\n[workspace.dependencies]\nitoa = \"1\"\n\n[workspace.package]\nedition = \"2021\"\nversion = \"0.1.0\"\n"
 	return conformance.Fixture{
-		ABI: 25, Description: &pluginv1.DescribeResponse{Name: "cargo", Interests: []string{"**/Cargo.toml", "**/Cargo.lock", "**/*.rs", "**/.cargo/config.toml", "**/rustfmt.toml", "**/.rustfmt.toml", "**/clippy.toml", "**/.clippy.toml", "!**/target/**", "!**/testdata/**"}, Options: []*pluginv1.OptionDeclaration{{Name: "wasm", Description: "Whether each cdylib crate is also built to wasm32-wasip1.", Kind: pluginv1.OptionDeclaration_KIND_BOOL, Default: &typev1.OptionValue{Value: &typev1.OptionValue_BoolValue{BoolValue: false}}, EntitySettable: true}}},
+		ABI: 25, Description: &pluginv1.DescribeResponse{Name: "cargo", Interests: []string{"**/Cargo.toml", "**/Cargo.lock", "**/*.rs", "**/.cargo/config.toml", "**/rustfmt.toml", "**/.rustfmt.toml", "**/clippy.toml", "**/.clippy.toml", "!**/target/**", "!**/testdata/**"}, Options: []*pluginv1.OptionDeclaration{{Name: "targets", Description: "The targets each cdylib crate is built to beside the worker's: wasm32-wasip1.", Kind: pluginv1.OptionDeclaration_KIND_STRING_LIST, Default: &typev1.OptionValue{Value: &typev1.OptionValue_StringListValue{StringListValue: &typev1.OptionValue_StringList{}}}, EntitySettable: true, Allowed: []string{"wasm32-wasip1"}}}},
 		Name: "cargo", Source: fixtureSource(t, "cargo", "valid"),
 		Absent: files{}, Malformed: fixtureSource(t, "cargo", "malformed"), ErrorCode: "INVALID_TOML",
 		Projects: []*pluginv1.Project{{

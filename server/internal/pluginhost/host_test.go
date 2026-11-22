@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"math"
 	"os"
 	"slices"
@@ -63,8 +64,8 @@ func TestAModuleSaysWhatItIsWhenItIsLoaded(t *testing.T) {
 	for _, option := range plugin.Description.GetOptions() {
 		options = append(options, option.GetName())
 	}
-	if !slices.Equal(options, []string{"test-timeout", "test-shards", "tags", "version"}) {
-		t.Errorf("options = %v, want test-timeout, test-shards and tags", options)
+	if !slices.Equal(options, []string{"test-timeout", "test-shards", "tags", "link-variables"}) {
+		t.Errorf("options = %v, want test-timeout, test-shards, tags and link-variables", options)
 	}
 }
 
@@ -499,10 +500,10 @@ func TestWhatTheBoundaryCosts(t *testing.T) {
 // goContext is the fixture's explicit values, independent of plugin defaults.
 func goContext() *pluginv1.Context {
 	return &pluginv1.Context{Profile: typev1.Profile_PROFILE_DEVELOPMENT, Options: map[string]*typev1.OptionValue{
-		"test-timeout": {Value: &typev1.OptionValue_StringValue{StringValue: "10m"}},
-		"test-shards":  {Value: &typev1.OptionValue_IntValue{IntValue: 1}},
-		"tags":         {Value: &typev1.OptionValue_StringListValue{StringListValue: &typev1.OptionValue_StringList{}}},
-		"version":      {Value: &typev1.OptionValue_StringListValue{StringListValue: &typev1.OptionValue_StringList{}}},
+		"test-timeout":   {Value: &typev1.OptionValue_DurationValue{DurationValue: durationpb.New(10 * time.Minute)}},
+		"test-shards":    {Value: &typev1.OptionValue_IntValue{IntValue: 1}},
+		"tags":           {Value: &typev1.OptionValue_StringListValue{StringListValue: &typev1.OptionValue_StringList{}}},
+		"link-variables": {Value: &typev1.OptionValue_StringMapValue{StringMapValue: &typev1.OptionValue_StringMap{}}},
 	}}
 }
 

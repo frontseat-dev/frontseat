@@ -59,7 +59,7 @@ func versionedSource(t *testing.T) func(remote string) {
 
 func versionedInto(t *testing.T, remote string) {
 	t.Helper()
-	write(t, remote, "frontseat.yaml", "plugins:\n  go:\n    version: [\"example.com/greet.Version=version\", \"example.com/greet.Commit=commit\"]\n  backstage: {}\n  release: {}\n")
+	write(t, remote, "frontseat.yaml", "plugins:\n  go:\n    link-variables: {example.com/greet.Version: version, example.com/greet.Commit: commit}\n  backstage: {}\n  release: {}\n")
 	for _, name := range []string{"greet", "log"} {
 		write(t, remote, name+"/catalog-info.yaml", "apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata:\n  name: "+name+"\nspec:\n  type: library\n  lifecycle: production\n  owner: team\n  frontseat:\n    actions:\n      says:\n        command: [echo, \"{frontseat.version}\", \"{frontseat.tag}\", \"{frontseat.commit}\", \"{frontseat.unit}\"]\n        versioned: true\n")
 	}
@@ -90,7 +90,7 @@ func TestWhatAReleaseBuildsIsGivenItsVersion(t *testing.T) {
 		if sent := grid.last(t, says); !strings.HasSuffix(sent, "echo 0.0.0-dev   ") {
 			t.Errorf("%s: a build that is no release sent %q", when, sent)
 		}
-		if sent := grid.last(t, compile); !strings.Contains(sent, "-ldflags=-X example.com/greet.Version=0.0.0-dev -X example.com/greet.Commit= ./...") {
+		if sent := grid.last(t, compile); !strings.Contains(sent, "-ldflags=-X example.com/greet.Commit= -X example.com/greet.Version=0.0.0-dev ./...") {
 			t.Errorf("%s: a build that is no release sent %q", when, sent)
 		}
 	}
@@ -102,7 +102,7 @@ func TestWhatAReleaseBuildsIsGivenItsVersion(t *testing.T) {
 	if sent, want := grid.last(t, says), "echo 1.0.0 greet/v1.0.0 "+head+" component:default/greet"; !strings.HasSuffix(sent, want) {
 		t.Errorf("the release sent %q, want it to end %q", sent, want)
 	}
-	if sent, want := grid.last(t, compile), "-ldflags=-X example.com/greet.Version=1.0.0 -X example.com/greet.Commit="+head+" ./..."; !strings.Contains(sent, want) {
+	if sent, want := grid.last(t, compile), "-ldflags=-X example.com/greet.Commit="+head+" -X example.com/greet.Version=1.0.0 ./..."; !strings.Contains(sent, want) {
 		t.Errorf("the release sent %q, want %q in it", sent, want)
 	}
 	// The unit beside it does not move, and nothing of it was built.
@@ -146,7 +146,7 @@ func TestAPrereleaseIsBuiltAtItsVersionAndNotTagged(t *testing.T) {
 	if sent, want := grid.last(t, "//services/greet:custom.says"), "echo "+version+"  "+head+" component:default/greet"; !strings.HasSuffix(sent, want) {
 		t.Errorf("the prerelease sent %q, want it to end %q", sent, want)
 	}
-	if sent, want := grid.last(t, "//services/greet:go.compile"), "-ldflags=-X example.com/greet.Version="+version+" -X example.com/greet.Commit="+head+" ./..."; !strings.Contains(sent, want) {
+	if sent, want := grid.last(t, "//services/greet:go.compile"), "-ldflags=-X example.com/greet.Commit="+head+" -X example.com/greet.Version="+version+" ./..."; !strings.Contains(sent, want) {
 		t.Errorf("the prerelease sent %q, want %q in it", sent, want)
 	}
 }

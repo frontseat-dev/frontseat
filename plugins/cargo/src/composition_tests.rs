@@ -445,10 +445,20 @@ fn with_module(rest: &str) -> TestHost {
 }
 
 /// A context that pins rust and the standard library for wasm, with
-/// the option `wasm` set as told.
+/// the option `targets` naming wasm32-wasip1 where told, and nothing
+/// otherwise.
 fn wasm_context(wasm: bool) -> TestContext {
     context(&[("rust", "1.99.1"), ("rust-std-wasm32-wasip1", "1.99.1")])
-        .option("wasm", frontseat_plugin::Value::Bool(wasm))
+        .option("targets", targets(wasm))
+}
+
+/// What `targets` holds: wasm32-wasip1, or nothing.
+fn targets(wasm: bool) -> frontseat_plugin::Value {
+    frontseat_plugin::Value::StringList(if wasm {
+        vec!["wasm32-wasip1".to_string()]
+    } else {
+        Vec::new()
+    })
 }
 
 #[test]
@@ -481,8 +491,18 @@ fn a_cdylib_is_built_for_wasm_where_the_option_says_so() {
         .all(|a| a.name != "wasm"));
     // Set, with no standard library for wasm pinned, it is refused, and
     // not built for nothing.
-    let unpinned =
-        context(&[("rust", "1.99.1")]).option("wasm", frontseat_plugin::Value::Bool(true));
+    // A target the plugin does not build is refused before it reads,
+    // as the host refuses it where it is set: of the option's words.
+    let other = context(&[("rust", "1.99.1"), ("rust-std-wasm32-wasip1", "1.99.1")]).option(
+        "targets",
+        frontseat_plugin::Value::StringList(vec!["x86_64-unknown-linux-gnu".to_string()]),
+    );
+    let plugin = TestPlugin::new(crate::served());
+    let refused = plugin
+        .analyze(&host, &other, &["module"])
+        .refused("invalid-option");
+    assert!(!refused.message.contains("x86_64"), "{refused:?}");
+    let unpinned = context(&[("rust", "1.99.1")]).option("targets", targets(true));
     let refused = analyze(&host, &unpinned, "module").unwrap_err();
     assert_eq!(
         (refused.reason.as_str(), refused.path.as_str()),

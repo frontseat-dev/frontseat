@@ -358,10 +358,10 @@ fn served_plugin_links_the_version_where_the_option_names_its_variables() {
             .clone()
     };
     let named = plugin.context(Profile::Production).option(
-        "version",
-        Value::StringList(vec![
-            "example.com/hello/internal/build.Version=version".to_string(),
-            "example.com/hello/internal/build.Commit=commit".to_string(),
+        "link-variables",
+        variables(&[
+            ("example.com/hello/internal/build.Version", "version"),
+            ("example.com/hello/internal/build.Commit", "commit"),
         ]),
     );
     let versioned: Vec<_> = actions(&named)
@@ -376,7 +376,7 @@ fn served_plugin_links_the_version_where_the_option_names_its_variables() {
             "go",
             "install",
             "-trimpath",
-            "-ldflags=-X example.com/hello/internal/build.Version={frontseat.version} -X example.com/hello/internal/build.Commit={frontseat.commit}",
+            "-ldflags=-X example.com/hello/internal/build.Commit={frontseat.commit} -X example.com/hello/internal/build.Version={frontseat.version}",
             "./...",
         ]
     );
@@ -391,24 +391,39 @@ fn served_plugin_links_the_version_where_the_option_names_its_variables() {
         compile.command.as_ref().unwrap().arguments,
         ["go", "install", "-trimpath", "./..."]
     );
-    // A variable that is none, or set to nothing a release has, is the
-    // module's author's mistake.
+    // A variable that is none is the module's author's mistake.
     for wrong in [
-        "example.com/hello/internal/build.Version",
-        "example.com/hello/internal/build.Version=date",
-        "Version=version",
-        "example.com/hello/internal/build.Version -X main.other=version",
-        "main.version=version,main.version=tag",
+        "Version",
+        "example.com/hello/internal/build.Version -X main.other",
+        ".Version",
     ] {
-        let context = plugin.context(Profile::Production).option(
-            "version",
-            Value::StringList(wrong.split(',').map(str::to_string).collect()),
-        );
+        let context = plugin
+            .context(Profile::Production)
+            .option("link-variables", variables(&[(wrong, "version")]));
         let err = plugin
             .analyze(&host, &context, &["app"])
             .refused("invalid-version-variable");
         assert_eq!(err.path, "app/go.mod", "{wrong}");
     }
+    // One set to nothing a release has is refused before the plugin
+    // reads it, by the SDK as by the host, of the option's words.
+    let context = plugin.context(Profile::Production).option(
+        "link-variables",
+        variables(&[("example.com/hello/internal/build.Version", "date")]),
+    );
+    plugin
+        .analyze(&host, &context, &["app"])
+        .refused("invalid-option");
+}
+
+/// What `link-variables` is set to, by variable.
+fn variables(pairs: &[(&str, &str)]) -> Value {
+    Value::StringMap(
+        pairs
+            .iter()
+            .map(|(variable, what)| (variable.to_string(), what.to_string()))
+            .collect(),
+    )
 }
 
 /// What a module ships is each of its programs, made for each platform
@@ -433,10 +448,7 @@ fn served_plugin_packages_each_program_for_each_platform_it_ships_for() {
             .context(profile)
             .platform("linux/amd64")
             .platform("darwin/arm64")
-            .option(
-                "version",
-                Value::StringList(vec!["main.version=version".to_string()]),
-            )
+            .option("link-variables", variables(&[("main.version", "version")]))
     };
     let made = packages(&shipped(Profile::Production));
     assert_eq!(

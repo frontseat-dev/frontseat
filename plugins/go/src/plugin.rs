@@ -13,7 +13,7 @@ pub(super) struct GoPlugin;
 pub(super) const TEST_TIMEOUT: &str = "test-timeout";
 pub(super) const TEST_SHARDS: &str = "test-shards";
 pub(super) const TAGS: &str = "tags";
-pub(super) const VERSION: &str = "version";
+pub(super) const LINK_VARIABLES: &str = "link-variables";
 
 impl Plugin for GoPlugin {
     fn describe(&self) -> Description {
@@ -26,15 +26,13 @@ impl Plugin for GoPlugin {
                 .to_vec(),
             options: vec![
                 // How long each action that runs tests may take, a
-                // package's tests or one shard of them, as the go
-                // command writes a duration: every test program is
-                // started with it, and 0 is no limit, as it is the go
-                // command's. What the go command would not read, or
-                // would read as less than nothing, is refused.
+                // package's tests or one shard of them: every test
+                // program is started with it, and 0 is no limit, as it
+                // is the go command's. The host reads it as a duration.
                 PluginOption::new(
                     TEST_TIMEOUT,
-                    "How long each test action may run, as the go command writes a duration (10m); 0 is no limit.",
-                    "10m",
+                    "How long each test action may run, as 90s, 10m or 1h30m; 0 is no limit.",
+                    std::time::Duration::from_secs(600),
                 )
                 .entity_settable(),
                 PluginOption::new(
@@ -42,22 +40,24 @@ impl Plugin for GoPlugin {
                     "Into how many actions each package's tests are cut at most, each running a share.",
                     1,
                 )
-                .entity_settable(),
+                .entity_settable()
+                .at_least(1),
                 PluginOption::new(
                     TAGS,
                     "The build tags a module is linted, compiled and tested with.",
                     Vec::<String>::new(),
                 )
                 .entity_settable(),
-                // Each "<package>.<variable>=<what>": a string variable of
-                // a package, by its import path, and what of the release
-                // it is set to when the program is linked.
+                // A string variable of a package, by its import path and
+                // name, and what of the release it is set to when the
+                // program is linked.
                 PluginOption::new(
-                    VERSION,
-                    "Variables a module's programs say their version by, each <package>.<variable>=<version|tag|commit|unit>.",
-                    Vec::<String>::new(),
+                    LINK_VARIABLES,
+                    "The variables a module's programs say their release by, each <package>.<variable> set to version, tag, commit or unit.",
+                    std::collections::BTreeMap::<String, String>::new(),
                 )
-                .entity_settable(),
+                .entity_settable()
+                .one_of(&["version", "tag", "commit", "unit"]),
             ],
             ..Default::default()
         }

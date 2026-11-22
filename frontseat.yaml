@@ -10,15 +10,15 @@ plugins:
     # What a released frontseat says its version by (frontseat version,
     # frontseatd --version): the release writes it in where each is
     # linked.
-    version:
-      - github.com/frontseat-dev/frontseat/cli/internal/cmd.version=version
-      - github.com/frontseat-dev/frontseat/cli/internal/cmd.commit=commit
-      - main.version=version
-      - main.commit=commit
+    link-variables:
+      github.com/frontseat-dev/frontseat/cli/internal/cmd.version: version
+      github.com/frontseat-dev/frontseat/cli/internal/cmd.commit: commit
+      main.version: version
+      main.commit: commit
   # The plugins and the SDK's conformance examples are wasm modules:
   # each cdylib is built to wasm32-wasip1 too.
   cargo:
-    wasm: true
+    targets: [wasm32-wasip1]
   buf: {}
   backstage: {}
   release: {}

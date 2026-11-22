@@ -6,14 +6,17 @@ use crate::manifest::{Example, Lib};
 /// The tool every action runs with: the Rust the repository pins, which
 /// brings cargo, clippy and rustfmt with it.
 pub(super) const RUST: &str = "rust";
-/// The option that has a library and the examples that are a C-style
-/// dynamic library (`cdylib`) built to wasm32-wasip1 modules, beside
-/// what is built for the worker.
-pub(super) const WASM: &str = "wasm";
-/// The standard library a wasm module is linked against, which the
-/// repository pins beside Rust where it builds one.
+/// The option that names the targets a library and the examples that
+/// are a C-style dynamic library (`cdylib`) are built to, beside what
+/// is built for the worker: cargo's own word for `--target`. The one
+/// target served is wasm32-wasip1, a wasm module; the host refuses any
+/// other where it is set.
+pub(super) const TARGETS: &str = "targets";
+/// The target a module is built to.
+pub(super) const WASM_TARGET: &str = "wasm32-wasip1";
+/// The standard library of the target, which the repository pins beside
+/// Rust where it builds one: `rust-std-<target>`.
 const WASM_STD: &str = "rust-std-wasm32-wasip1";
-const WASM_TARGET: &str = "wasm32-wasip1";
 /// The checks of a package, by the names their findings are asked by.
 const LINT: &str = "lint";
 const FORMAT: &str = "format";
@@ -161,7 +164,11 @@ pub(super) fn actions(
     // A library built as a C-style dynamic library is a wasm module, and
     // so are its examples so built, where the option says so: built in
     // release, as a module is shipped, the examples together.
-    if !repo.option_bool(WASM)? {
+    if !repo
+        .option_list(TARGETS)?
+        .iter()
+        .any(|target| target == WASM_TARGET)
+    {
         return Ok(actions);
     }
     let wasm = |name: &str, more: &[&str]| {

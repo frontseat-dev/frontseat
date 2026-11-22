@@ -48,7 +48,7 @@ with_dependencies! {
         pub(super) target: BTreeMap<String, Target>,
         pub(super) lib: Option<Lib>,
         /// Its examples, `[[example]]`: one built as a C-style dynamic
-        /// library is a wasm module too, where the option `wasm` is set.
+        /// library is a wasm module too, where the option `targets` names wasm32-wasip1.
         #[serde(default)]
         pub(super) example: Vec<Example>,
     }

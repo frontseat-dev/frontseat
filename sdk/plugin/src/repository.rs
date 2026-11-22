@@ -58,11 +58,49 @@ impl<'a> Repository<'a> {
                 Kind::StringList if !matches!(value, Value::StringListValue(_)) => "a string list",
                 Kind::Duration if !matches!(value, Value::DurationValue(_)) => "a duration",
                 Kind::StringMap if !matches!(value, Value::StringMapValue(_)) => "a string map",
-                _ => continue,
+                _ => {
+                    Self::within(option, value)?;
+                    continue;
+                }
             };
             return Err(Self::not_of_kind(option.name, kind));
         }
         Ok(())
+    }
+
+    /// Holds a value of its option's kind to the bounds and the words the
+    /// option declares, as the host holds what a repository sets: a
+    /// plugin may rely on them, and a test of one is refused what the
+    /// host refuses. The value is not repeated.
+    fn within(
+        option: &crate::PluginOption,
+        value: &crate::option_value::Value,
+    ) -> Result<(), crate::Error> {
+        use crate::option_value::Value;
+        let name = option.name;
+        let words = |texts: &mut dyn Iterator<Item = &String>| {
+            for text in texts {
+                if !option.allowed.is_empty() && !option.allowed.contains(&text.as_str()) {
+                    return Err(Self::invalid_option(format!(
+                        "option {name} is one of {}",
+                        option.allowed.join(", ")
+                    )));
+                }
+            }
+            Ok(())
+        };
+        match value {
+            Value::IntValue(number) if option.minimum.is_some_and(|least| *number < least) => Err(
+                Self::invalid_option(format!("option {name} is below its least")),
+            ),
+            Value::IntValue(number) if option.maximum.is_some_and(|most| *number > most) => Err(
+                Self::invalid_option(format!("option {name} is above its most")),
+            ),
+            Value::StringValue(text) => words(&mut std::iter::once(text)),
+            Value::StringListValue(list) => words(&mut list.values.iter()),
+            Value::StringMapValue(map) => words(&mut map.values.values()),
+            _ => Ok(()),
+        }
     }
 
     /// The platforms what the plugin is asked about is shipped for, as

@@ -520,7 +520,7 @@ the change that fixes it.
   `{frontseat.commit}` and `{frontseat.unit}` where its command names
   them, in its arguments and the values of its environment. How a tool
   carries a version is its plugin's to know: the Go plugin links it into
-  a module's programs, into the variables its `version` option names.
+  a module's programs, into the variables its `link-variables` option names.
   Only the production build a release makes fills in what was planned
   for the action's unit; every other build fills in `0.0.0-dev` and
   nothing for the rest, the same each time, so a versioned action is

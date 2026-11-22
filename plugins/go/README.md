@@ -61,7 +61,7 @@ encoding do not belong in a plugin.
 
 | Method | Go behavior | Error/control |
 |---|---|---|
-| Describe | Names the plugin, interests, `test-timeout`, `test-shards`, `tags` and `version` options | Shared SDK refuses incompatible ABI; method reads no source |
+| Describe | Names the plugin, interests, `test-timeout`, `test-shards`, `tags` and `link-variables` options | Shared SDK refuses incompatible ABI; method reads no source |
 | Analyze | Finds a module, provides/requires coordinates with origins, named inputs and complete actions | Absent manifest yields no project; a malformed go.mod or go.sum is refused `invalid-manifest`, and a `replace` or a directive it does not read `directive-not-served` (`UNIMPLEMENTED`), each with its path, line and help |
 | Arrange | Writes a workspace using the pinned Go version and replacements for handed modules | Missing tool pin (`unpinned-tool`) or invalid handover is refused; valid calls work afterwards |
 | Report | Reads `go vet`'s `path:line[:col]: message` lines and `gofmt -l`'s files into findings | A line that names no file beneath the module is no finding |
@@ -121,27 +121,28 @@ has files for another system alone is not packaged; `.exe` is not added
 for Windows; each package compiles the module anew.
 
 A module's programs say the version they were released at where the
-`version` option names the variables that hold it, each
-`<package>.<variable>=<what>`, a string variable of a package by its
-import path (`main` for a program's own) and what of the release it is
-set to: `version`, `tag`, `commit` or `unit`.
+`link-variables` option names the variables that hold it: a map of
+`<package>.<variable>`, a string variable of a package by its import path
+(`main` for a program's own), to what of the release it is set to:
+`version`, `tag`, `commit` or `unit`.
 
 ```yaml
 plugins:
   go:
-    version:
-      - example.com/greet/internal/build.Version=version
-      - main.commit=commit
+    link-variables:
+      example.com/greet/internal/build.Version: version
+      main.commit: commit
 ```
 
 The compile is then versioned (`-ldflags=-X …`), and it alone: the host
 fills in what a release planned, and `0.0.0-dev` and nothing for any
 other build. The linker sets a variable where its package is linked in
-and says nothing where it is not, so one list serves a repository. A
-Component's catalog file may set a list of its own, which is then the
-whole list for its modules, in place of the repository's. Refused by
-name (`invalid-version-variable`): what names no variable of a package,
-what is set to nothing a release has, and a variable set twice.
+and says nothing where it is not, so one map serves a repository. A
+Component's catalog file may set a map of its own, which is then the
+whole map for its modules, in place of the repository's. What names no
+variable of a package is refused by name (`invalid-version-variable`);
+what is set to nothing a release has, and a variable set twice, are
+refused by the host at the line that wrote them.
 
 A module is compiled by one action, so `main.<variable>` is set in every
 program of the module alike, and each is given what the release plans
@@ -156,10 +157,10 @@ for dependency replay. A name such as `pkg[1]` is not a pattern.
 
 | Option | Kind | Default | Set by | What it does |
 |---|---|---|---|---|
-| `test-timeout` | string | `10m` | the repository or an entity | How long each action that runs tests may take, a package's tests or one shard of them: every test program is started with it (`-test.timeout`). It is written as the go command writes a length of time, a number and a unit (`90s`, `10m`, `1h30m`); `0` is no limit. |
-| `test-shards` | int | `1` | the repository or an entity | Into how many actions a package's tests are cut at most (`test/<directory>@1ofN`); a package with fewer tests has fewer. Less than 1 is refused (`invalid-test-shards`). |
+| `test-timeout` | duration | `10m` | the repository or an entity | How long each action that runs tests may take, a package's tests or one shard of them: every test program is started with it (`-test.timeout`). It is a length of time, a number and a unit (`90s`, `10m`, `1h30m`), which the host reads where it is set and refuses there if it is none; `0s` is no limit. |
+| `test-shards` | int | `1` | the repository or an entity | Into how many actions a package's tests are cut at most (`test/<directory>@1ofN`); a package with fewer tests has fewer. Less than 1 is refused by the host where it is set. |
 | `tags` | string list | `[]` | the repository or an entity | The build tags a module is linted, compiled and tested with (`-tags`), and by which its programs are found. |
-| `version` | string list | `[]` | the repository or an entity | The variables a module's programs say their version by, each `<package>.<variable>=<what>`, where what is `version`, `tag`, `commit` or `unit`, as said above. What names no variable, or is set to nothing a release has, or twice, is refused (`invalid-version-variable`). |
+| `link-variables` | map of `version`, `tag`, `commit` or `unit` | `{}` | the repository or an entity | The variables a module's programs say their version by, each `<package>.<variable>` set to `version`, `tag`, `commit` or `unit`, as said above. What names no variable is refused (`invalid-version-variable`); any other word, by the host where it is set. |
 
 ```yaml
 # frontseat.yaml
@@ -168,15 +169,15 @@ plugins:
     test-timeout: 2m
     test-shards: 4
     tags: [integration]
-    version:
-      - main.version=version
+    link-variables:
+      main.version: version
 ```
 
 ## Catalog keys
 
 | Key | Read by | What it does |
 |---|---|---|
-| `spec.frontseat.plugins.go` | the host | A Component's own setting of any option above, for its directory and what is beneath it, in place of the repository's. A list set there is the whole list. |
+| `spec.frontseat.plugins.go` | the host | A Component's own setting of any option above, for its directory and what is beneath it, in place of the repository's. A list or a map set there is the whole list or map. |
 | `spec.frontseat.platforms` | the plugin | The systems a Component ships for, each `<os>/<arch>`: in the production profile each program of its modules is packaged for each (`package/<program>-<os>-<arch>`). Where it says none, nothing is packaged. |
 | `spec.frontseat.test` | the host | What the Component's tests are given beyond what the plugin gives them: `inputs` (files, each relative to the catalog file, or from the repository's root written `/…`), `tools` (pinned tools) and `environment` (variables). |
 

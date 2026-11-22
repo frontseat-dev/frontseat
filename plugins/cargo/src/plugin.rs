@@ -2,7 +2,7 @@ use frontseat_plugin::prelude::*;
 use frontseat_plugin::repository::{beneath, join, resolve, TomlTable};
 use frontseat_plugin::toml::{self, Value};
 
-use crate::actions::{actions, report, RUST, WASM};
+use crate::actions::{actions, report, RUST, TARGETS, WASM_TARGET};
 use crate::inputs::input_sets;
 use crate::lock::Lock;
 use crate::manifest::{read, workspace_root};
@@ -41,11 +41,12 @@ impl Plugin for CargoPlugin {
             .map(str::to_string)
             .to_vec(),
             options: vec![PluginOption::new(
-                WASM,
-                "Whether each cdylib crate is also built to wasm32-wasip1.",
-                false,
+                TARGETS,
+                "The targets each cdylib crate is built to beside the worker's: wasm32-wasip1.",
+                Vec::<String>::new(),
             )
-            .entity_settable()],
+            .entity_settable()
+            .one_of(&[WASM_TARGET])],
             ..Default::default()
         }
     }
