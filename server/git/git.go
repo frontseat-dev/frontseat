@@ -213,7 +213,7 @@ func reaching(scope, key, value string) error {
 		subsection, variable = rest[:last], rest[last+1:]
 	}
 	if section == "remote" && (variable == "uploadpack" || variable == "receivepack") {
-		return fmt.Errorf("git: the configuration names a program to ask the remote %q with (%q), which git would run: remove it", subsection, key)
+		return fmt.Errorf("git: the configuration names a program to ask a remote with (remote.<name>.%s), which git would run: remove it", variable)
 	}
 	switch scope {
 	case "system", "global", "command":
