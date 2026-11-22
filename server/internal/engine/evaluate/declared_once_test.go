@@ -99,7 +99,7 @@ func TestALabelTwoSourcesDeclareIsRefused(t *testing.T) {
 	const catalogFile = "apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata: {name: provider}\nspec:\n  type: service\n  owner: team\n  frontseat:\n" +
 		"    actions:\n      lint:\n        command: [lint]\n"
 	project := func(root string, actions ...*pluginv1.Action) *pluginv1.Project {
-		return &pluginv1.Project{Root: root, Manifest: root + "/catalog-info.yaml", Actions: actions}
+		return &pluginv1.Project{Root: root, Name: root, Kind: "custom", Manifest: root + "/catalog-info.yaml", Actions: actions}
 	}
 	action := func(name string) *pluginv1.Action {
 		return &pluginv1.Action{Name: name, Command: &pluginv1.Command{Arguments: []string{name}}}
