@@ -224,7 +224,7 @@ var policies = []policy{
 	{"server/internal/runner", []string{"server/internal/page", "server/sandbox", "server/sandbox/driver", "server/sandbox/driver/openshell", "server/internal/httpserver", "server/internal/image", "sdk/go/api/**", "sdk/go/entity", "server/internal/testservice", "server/internal/confine", "sdk/go", "server/internal/runnerapi/**"}},
 	// The box's one build, asked by the spec that holds a box to what it
 	// was built with; no other spec builds one.
-	{"specs/cli", []string{"sdk/go", "sdk/go/api/**", "server/testsupport/**", "local/ports"}},
+	{"specs/cli", []string{"sdk/go", "sdk/go/api/**", "sdk/go/entity", "server/testsupport/**", "local/ports"}},
 	{"specs/local", []string{"server/testsupport/**", "local/ports", "local/box"}},
 	{"specs/compare", []string{"sdk/go", "sdk/go/api/**", "server/testsupport/**"}},
 	{"specs/**", []string{"sdk/go", "sdk/go/api/**", "sdk/go/entity", "server/testsupport/**", "server/telemetry", "specs/internal/**", "local/ports"}},

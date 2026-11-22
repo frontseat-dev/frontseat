@@ -101,7 +101,7 @@ func ExampleWorkspace_Release() {
 	ctx := context.Background()
 
 	ws := fs.Workspace("services-main")
-	plan, err := ws.PlanRelease(ctx, frontseat.ReleaseRequest{Entities: []string{"greeter"}})
+	plan, err := ws.PlanRelease(ctx, frontseat.ReleaseRequest{Entities: []entity.Pattern{{Kind: "component", Name: "greeter"}}})
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -109,7 +109,7 @@ func ExampleWorkspace_Release() {
 	for _, unit := range plan.GetUnits() {
 		fmt.Println(entity.FromProto(unit.GetEntity()).Short(), unit.GetLastVersion(), "->", unit.GetNextVersion())
 	}
-	release, err := ws.Release(ctx, frontseat.ReleaseRequest{Entities: []string{"greeter"}, Etag: plan.GetEtag()})
+	release, err := ws.Release(ctx, frontseat.ReleaseRequest{Entities: []entity.Pattern{{Kind: "component", Name: "greeter"}}, Etag: plan.GetEtag()})
 	if err != nil {
 		fmt.Println(err)
 		return

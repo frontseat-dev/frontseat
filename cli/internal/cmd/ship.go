@@ -41,7 +41,7 @@ An entity named plan is written in full, component:plan.`,
   frontseat ship greet --plan 94d84b5ff042...`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		w, err := releasing(args)
+		entities, w, err := releasing(args)
 		if err != nil {
 			return err
 		}
@@ -49,11 +49,11 @@ An entity named plan is written in full, component:plan.`,
 		printer := plain.Printer{Out: out}
 		etag := shipPlanned
 		if etag == "" {
-			if etag, err = plan(cmd, w, args); err != nil {
+			if etag, err = plan(cmd, w, entities); err != nil {
 				return err
 			}
 		}
-		release, err := w.Release(ctx, frontseat.ReleaseRequest{Entities: args, Etag: etag})
+		release, err := w.Release(ctx, frontseat.ReleaseRequest{Entities: entities, Etag: etag})
 		if err != nil {
 			return err
 		}
@@ -99,19 +99,21 @@ func init() {
 	shipCmd.Flags().StringVar(&shipPlanned, "plan", "", "release the plan this etag names, as ship plan printed it")
 }
 
-// releasing is the workspace a command that releases entities asks,
-// once what names them is read: a name that names none is refused before
-// any server is asked.
-func releasing(names []string) (*frontseat.Workspace, error) {
-	if err := typed(names); err != nil {
-		return nil, err
+// releasing reads what names the entities a command releases, and the
+// workspace it asks: a name that names none is refused before any server
+// is asked.
+func releasing(names []string) ([]entity.Pattern, *frontseat.Workspace, error) {
+	entities, err := typed(names)
+	if err != nil {
+		return nil, nil, err
 	}
-	return asked()
+	w, err := asked()
+	return entities, w, err
 }
 
 // plan prints what releasing entities would do, and returns the plan's
 // etag.
-func plan(cmd *cobra.Command, w *frontseat.Workspace, names []string) (string, error) {
+func plan(cmd *cobra.Command, w *frontseat.Workspace, names []entity.Pattern) (string, error) {
 	planned, err := w.PlanRelease(cmd.Context(), frontseat.ReleaseRequest{Entities: names})
 	if err != nil {
 		return "", err
@@ -120,13 +122,17 @@ func plan(cmd *cobra.Command, w *frontseat.Workspace, names []string) (string, e
 	return planned.GetEtag(), nil
 }
 
-// typed refuses, before any server is asked, a name that is no entity
-// as a person types one: greet, system:kiosk, component:default/greet.
-func typed(names []string) error {
+// typed reads names of entities as a person types them (greet,
+// system:kiosk, component:default/greet), and refuses, before any
+// server is asked, one that is none.
+func typed(names []string) ([]entity.Pattern, error) {
+	var out []entity.Pattern
 	for _, name := range names {
-		if _, err := entity.Typed(name); err != nil {
-			return err
+		p, err := entity.ParsePattern(name)
+		if err != nil {
+			return nil, err
 		}
+		out = append(out, p)
 	}
-	return nil
+	return out, nil
 }

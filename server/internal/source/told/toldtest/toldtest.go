@@ -40,9 +40,9 @@ func resolve(ctx context.Context, entities []*typev1.EntityRef, catalog backstag
 	if err != nil {
 		return told.Resolved{}, err
 	}
-	typed := make([]entity.Ref, 0, len(entities))
+	typed := make([]entity.Pattern, 0, len(entities))
 	for _, each := range entities {
-		typed = append(typed, entity.FromTypedProto(each))
+		typed = append(typed, entity.PatternFromProto(each))
 	}
 	resolution, err := asked.Resolve(ctx, "local", typed)
 	if err != nil {

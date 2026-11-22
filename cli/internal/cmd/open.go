@@ -155,10 +155,11 @@ func openNamed(ctx context.Context, fs *frontseat.Client, args []string, flags *
 			case strings.Contains(arg, "@") && strings.Contains(arg, ":"):
 				return fmt.Errorf("a workspace clones a repository over http or https, and is given its address so: %q is not one", arg)
 			default:
-				if err := typed([]string{arg}); err != nil {
+				named, err := typed([]string{arg})
+				if err != nil {
 					return fmt.Errorf("%q is no workspace's name, no repository's address and no entity: %w", arg, err)
 				}
-				spec.Entities = append(spec.Entities, arg)
+				spec.Entities = append(spec.Entities, named...)
 			}
 		}
 		// The repositories of entities are cloned whole, or the entities'

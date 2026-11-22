@@ -48,7 +48,7 @@ func askedFor(spec *workspacev1.WorkspaceSpec) string {
 	}
 	for _, ref := range spec.GetEntities() {
 		// As it was asked for: a namespace left out stands for any.
-		parts = append(parts, entity.FromTypedProto(ref).Written())
+		parts = append(parts, entity.PatternFromProto(ref).String())
 	}
 	if spec.GetPush() {
 		parts = append(parts, "(may push)")

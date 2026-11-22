@@ -22,6 +22,7 @@ import (
 	"github.com/frontseat-dev/frontseat/sdk/go"
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
+	"github.com/frontseat-dev/frontseat/sdk/go/entity"
 	"github.com/frontseat-dev/frontseat/server/testsupport/backstagetest"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testbox"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testfiles"
@@ -281,7 +282,7 @@ func TestAWorkspaceOpenedByEntityClonesWhatItsBackstageSays(t *testing.T) {
 		t.Fatal(err)
 	}
 	refusing := sdkClient(t, unserved, frontseat.WithToken(strings.TrimSpace(string(raw))))
-	_, err = refusing.Open(ctx, frontseat.WorkspaceSpec{Name: fmt.Sprintf("test-%d", time.Now().UnixNano()), Image: image, Entities: []string{"component:gateway"}})
+	_, err = refusing.Open(ctx, frontseat.WorkspaceSpec{Name: fmt.Sprintf("test-%d", time.Now().UnixNano()), Image: image, Entities: []entity.Pattern{{Kind: "component", Name: "gateway"}}})
 	if reason, _ := frontseat.Reason(err); connect.CodeOf(err) != connect.CodeUnimplemented || reason != "ENTITIES_NOT_SERVED" {
 		t.Errorf("opened by entity without a Backstage: %v (%s), want it refused UNIMPLEMENTED, ENTITIES_NOT_SERVED", err, reason)
 	}

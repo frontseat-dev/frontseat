@@ -59,10 +59,10 @@ func (s *service) resolve(ctx context.Context, owner string, added []*typev1.Ent
 	if err := s.served(added); err != nil {
 		return told.Resolved{}, err
 	}
-	typed := make([]entity.Ref, 0, len(added))
+	typed := make([]entity.Pattern, 0, len(added))
 	for i, each := range added {
-		ref := entity.FromTypedProto(each)
-		if err := ref.ValidateTyped(); err != nil {
+		ref := entity.PatternFromProto(each)
+		if err := ref.Validate(); err != nil {
 			return told.Resolved{}, refusedFor(connect.CodeInvalidArgument, backstage.Invalid, fmt.Sprintf("the entity asked for at %d is no entity's name: one is a name, kind:name or kind:namespace/name", i+1))
 		}
 		typed = append(typed, ref)

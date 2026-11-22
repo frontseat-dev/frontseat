@@ -23,13 +23,19 @@ func FromProto(ref *typev1.EntityRef) Ref {
 	return New(ref.GetKind(), ref.GetNamespace(), ref.GetName())
 }
 
-// FromTypedProto is a reference a request carried as a person typed
-// it (Typed): a kind it leaves empty is a component, and a namespace it
-// leaves empty stands for any. Its parts are checked by ValidateTyped.
-func FromTypedProto(ref *typev1.EntityRef) Ref {
+// PatternProto is a pattern as the contract carries it: what it leaves
+// out is left empty, for the server to find among the entities it holds.
+func PatternProto(p Pattern) *typev1.EntityRef {
+	return &typev1.EntityRef{Kind: p.Kind, Namespace: p.Namespace, Name: p.Name}
+}
+
+// PatternFromProto is a pattern a request carried: a kind it leaves
+// empty is a component, and a namespace it leaves empty stands for any.
+// Its parts are checked by Pattern.Validate.
+func PatternFromProto(ref *typev1.EntityRef) Pattern {
 	kind := ref.GetKind()
 	if kind == "" {
 		kind = KindComponent
 	}
-	return Ref{Kind: lowerASCII(kind), Namespace: lowerASCII(ref.GetNamespace()), Name: lowerASCII(ref.GetName())}
+	return Pattern{Kind: lowerASCII(kind), Namespace: lowerASCII(ref.GetNamespace()), Name: lowerASCII(ref.GetName())}
 }

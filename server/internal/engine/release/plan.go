@@ -97,17 +97,17 @@ func Prepare(ctx context.Context, w Workspace, strategies Strategies, history Hi
 	}
 	for _, each := range request.GetEntities() {
 		// What a person typed finds its entity: a kind left out is a
-		// component, and a namespace left out is any (entity.Typed).
-		typed := entity.FromTypedProto(each)
-		if err := typed.ValidateTyped(); err != nil {
-			return nil, &Refusal{Message: fmt.Sprintf("%q names no entity: %v", typed.Written(), err)}
+		// component, and a namespace left out is any (entity.Pattern).
+		typed := entity.PatternFromProto(each)
+		if err := typed.Validate(); err != nil {
+			return nil, &Refusal{Message: fmt.Sprintf("%q names no entity: %v", typed, err)}
 		}
-		ref, found, err := entity.Find(typed, held)
+		ref, found, err := typed.Find(held)
 		if err != nil {
 			return nil, &Refusal{Message: err.Error()}
 		}
 		if !found {
-			return nil, &Refusal{Unknown: true, Message: fmt.Sprintf("the workspace holds no entity %s", typed.Written())}
+			return nil, &Refusal{Unknown: true, Message: fmt.Sprintf("the workspace holds no entity %s", typed)}
 		}
 		if err := ref.Validate(); err != nil {
 			return nil, &Refusal{Message: fmt.Sprintf("%q names no entity: %v", ref, err)}
