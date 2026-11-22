@@ -64,11 +64,19 @@ func TestTheContextFileIsWrittenInItsFormat(t *testing.T) {
 	if want := "{\n  \"server\": \"http://s\",\n  \"workspace\": \"w\"\n}\n"; err != nil || string(raw) != want {
 		t.Fatalf("wrote %q (%v), want %q", raw, err, want)
 	}
-	if err := os.WriteFile(at, []byte(`{"server":"http://s","workspace":"w","build":"http://b","sandbox":"sbx"}`), 0o600); err != nil {
-		t.Fatal(err)
-	}
 	if c, found, err := ReadContext(); err != nil || !found || c != (Context{Server: "http://s", Workspace: "w"}) {
-		t.Fatalf("read %+v, %v, %v", c, found, err)
+		t.Fatalf("the control: read %+v, %v, %v", c, found, err)
+	}
+	// It is read in its format alone: a key it does not have (an older
+	// build's) or a second object is refused, naming the file, never read
+	// past.
+	for _, written := range []string{`{"server":"http://s","workspace":"w","build":"http://b","sandbox":"sbx"}`, `{"server":"http://s","workspace":"w"}{"workspace":"x"}`} {
+		if err := os.WriteFile(at, []byte(written), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if c, _, err := ReadContext(); err == nil || !strings.Contains(err.Error(), at) {
+			t.Errorf("%s was read as %+v (%v), want it refused by the file's name", written, c, err)
+		}
 	}
 }
 
