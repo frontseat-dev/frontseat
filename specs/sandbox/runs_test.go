@@ -123,7 +123,10 @@ func main() {
 	spec.Expect(strings.TrimSpace(workspace.prints("pgrep -x hello | wc -l"))).To(Equal("1"))
 	spec.Expect(strings.TrimSpace(workspace.prints("pgrep -x sleep | wc -l"))).To(Equal("1"))
 
-	cancelled, err := runs.CancelRun(ctx, &buildv1.CancelRunRequest{RunId: id})
+	_, err = runs.CancelRun(ctx, &buildv1.CancelRunRequest{RunId: id})
+	spec.Expect(err).NotTo(HaveOccurred())
+	// A cancel returns at once; the run is followed to its end.
+	cancelled, err := runs.WaitRun(ctx, &buildv1.WaitRunRequest{RunId: id})
 	spec.Expect(err).NotTo(HaveOccurred())
 	spec.Expect(cancelled.GetRun().GetState()).To(Equal(buildv1.Run_STATE_CANCELLED))
 	spec.Expect(cancelled.GetRun().GetFailure()).To(BeEmpty())

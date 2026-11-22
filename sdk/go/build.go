@@ -105,7 +105,8 @@ func (b *Build) Wait(ctx context.Context) (*buildv1.Build, error) {
 	return said.GetBuild(), err
 }
 
-// Cancel stops the build, and returns it as it is then.
+// Cancel stops the build, and returns at once, with the build as it is
+// then; Wait returns once it has ended.
 func (b *Build) Cancel(ctx context.Context) (*buildv1.Build, error) {
 	api, err := b.w.builds(ctx)
 	if err != nil {
