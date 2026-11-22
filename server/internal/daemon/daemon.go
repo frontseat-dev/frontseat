@@ -38,7 +38,7 @@ type modules []string
 // form, by a daemon from before a change to how a build is written, are
 // not read, and are the operator's to delete. It moves when a kept
 // build would otherwise be read as something it was not.
-const keptBuilds = "builds-2"
+const keptBuilds = "builds-3"
 
 func (m *modules) String() string     { return fmt.Sprint(*m) }
 func (m *modules) Set(v string) error { *m = append(*m, v); return nil }

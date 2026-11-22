@@ -34,26 +34,26 @@ type Entity struct {
 	Ref *v1alpha1.EntityRef `protobuf:"bytes,1,opt,name=ref,proto3" json:"ref,omitempty"`
 	// Repository is the workspace's name for the repository its catalog
 	// file is in.
-	Repository string `protobuf:"bytes,3,opt,name=repository,proto3" json:"repository,omitempty"`
+	Repository string `protobuf:"bytes,2,opt,name=repository,proto3" json:"repository,omitempty"`
 	// Roots are the directories it governs, relative to the repository.
-	Roots []string `protobuf:"bytes,5,rep,name=roots,proto3" json:"roots,omitempty"`
+	Roots []string `protobuf:"bytes,3,rep,name=roots,proto3" json:"roots,omitempty"`
 	// `depends_on` are the entities it depends on, from what its projects
 	// require of what others provide.
-	DependsOn []*v1alpha1.EntityRef `protobuf:"bytes,6,rep,name=depends_on,json=dependsOn,proto3" json:"depends_on,omitempty"`
+	DependsOn []*v1alpha1.EntityRef `protobuf:"bytes,4,rep,name=depends_on,json=dependsOn,proto3" json:"depends_on,omitempty"`
 	// Manifest is the catalog file that describes it, relative to the
 	// repository; empty for an entity no catalog file of the workspace
 	// describes.
-	Manifest string `protobuf:"bytes,7,opt,name=manifest,proto3" json:"manifest,omitempty"`
+	Manifest string `protobuf:"bytes,5,opt,name=manifest,proto3" json:"manifest,omitempty"`
 	// Relations are what its catalog file says it is related to, and what
 	// other entities' catalog files say of it, except between two
 	// Components: there dependsOn and dependencyOf are what depends_on
 	// says, from what their projects require, and never what a catalog
 	// file says. They are sorted by type and target.
-	Relations []*EntityRelation `protobuf:"bytes,8,rep,name=relations,proto3" json:"relations,omitempty"`
+	Relations []*EntityRelation `protobuf:"bytes,6,rep,name=relations,proto3" json:"relations,omitempty"`
 	// Release is how it is released, as its settings resolve: for an
 	// entity that owns projects, and for a system or a domain, whose
 	// settings its members inherit. Unset for any other.
-	Release       *EntityRelease `protobuf:"bytes,9,opt,name=release,proto3" json:"release,omitempty"`
+	Release       *EntityRelease `protobuf:"bytes,7,opt,name=release,proto3" json:"release,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -161,19 +161,19 @@ type EntityRelease struct {
 	// `versioning_strategy` is the versioning strategy its unit's next
 	// version is asked of, as "<plugin>:<name>":
 	// "release:conventional-commits".
-	VersioningStrategy string `protobuf:"bytes,8,opt,name=versioning_strategy,json=versioningStrategy,proto3" json:"versioning_strategy,omitempty"`
+	VersioningStrategy string `protobuf:"bytes,6,opt,name=versioning_strategy,json=versioningStrategy,proto3" json:"versioning_strategy,omitempty"`
 	// `branching_strategy` is the branching strategy that says what a branch
 	// releases of it, as "<plugin>:<name>": "release:github-flow".
-	BranchingStrategy string `protobuf:"bytes,9,opt,name=branching_strategy,json=branchingStrategy,proto3" json:"branching_strategy,omitempty"`
+	BranchingStrategy string `protobuf:"bytes,7,opt,name=branching_strategy,json=branchingStrategy,proto3" json:"branching_strategy,omitempty"`
 	// Prerelease is how a prerelease of its unit is spelled after its
 	// version's dash, where its branch releases one: "{branch}-{timestamp}"
 	// names it by the branch and by when its commit was made.
-	Prerelease string `protobuf:"bytes,10,opt,name=prerelease,proto3" json:"prerelease,omitempty"`
+	Prerelease string `protobuf:"bytes,8,opt,name=prerelease,proto3" json:"prerelease,omitempty"`
 	// `prerelease_tag` is whether a prerelease of its unit is tagged.
-	PrereleaseTag bool `protobuf:"varint,11,opt,name=prerelease_tag,json=prereleaseTag,proto3" json:"prerelease_tag,omitempty"`
+	PrereleaseTag bool `protobuf:"varint,9,opt,name=prerelease_tag,json=prereleaseTag,proto3" json:"prerelease_tag,omitempty"`
 	// `set_by` says, for each setting, which entity set it; a setting no
 	// level sets is the default, and is not listed.
-	SetBy         []*ReleaseSettingOrigin `protobuf:"bytes,7,rep,name=set_by,json=setBy,proto3" json:"set_by,omitempty"`
+	SetBy         []*ReleaseSettingOrigin `protobuf:"bytes,10,rep,name=set_by,json=setBy,proto3" json:"set_by,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -411,23 +411,23 @@ type Project struct {
 	// found it.
 	Ref *ProjectRef `protobuf:"bytes,1,opt,name=ref,proto3" json:"ref,omitempty"`
 	// Kind is what it is in its ecosystem, e.g. "go-module".
-	Kind string `protobuf:"bytes,4,opt,name=kind,proto3" json:"kind,omitempty"`
+	Kind string `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty"`
 	// Name is its name in its ecosystem.
-	Name string `protobuf:"bytes,5,opt,name=name,proto3" json:"name,omitempty"`
+	Name string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
 	// Manifest is the file it was found from, relative to the repository.
-	Manifest string `protobuf:"bytes,6,opt,name=manifest,proto3" json:"manifest,omitempty"`
+	Manifest string `protobuf:"bytes,4,opt,name=manifest,proto3" json:"manifest,omitempty"`
 	// Owner is the entity that owns it; unset for one no entity governs.
-	Owner *v1alpha1.EntityRef `protobuf:"bytes,7,opt,name=owner,proto3" json:"owner,omitempty"`
+	Owner *v1alpha1.EntityRef `protobuf:"bytes,5,opt,name=owner,proto3" json:"owner,omitempty"`
 	// Options are the options it is built with: every option its plugin
 	// takes, each with the value that holds for this project and where
 	// that value comes from.
-	Options []*ProjectOption `protobuf:"bytes,8,rep,name=options,proto3" json:"options,omitempty"`
+	Options []*ProjectOption `protobuf:"bytes,6,rep,name=options,proto3" json:"options,omitempty"`
 	// Provides are what it can be required by, each written
 	// "<ecosystem>:<name>".
-	Provides []string `protobuf:"bytes,9,rep,name=provides,proto3" json:"provides,omitempty"`
+	Provides []string `protobuf:"bytes,7,rep,name=provides,proto3" json:"provides,omitempty"`
 	// Requires are what it requires: what its ecosystem's own files say it
 	// needs, each with where that is said and what provides it.
-	Requires      []*ProjectRequirement `protobuf:"bytes,10,rep,name=requires,proto3" json:"requires,omitempty"`
+	Requires      []*ProjectRequirement `protobuf:"bytes,8,rep,name=requires,proto3" json:"requires,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -525,16 +525,16 @@ type ProjectRequirement struct {
 	// Coordinate is what is required, written "<ecosystem>:<name>".
 	Coordinate string `protobuf:"bytes,1,opt,name=coordinate,proto3" json:"coordinate,omitempty"`
 	// Origin is where it is said: a file of a repository, and its line.
-	Origin *v1alpha1.SourceLocation `protobuf:"bytes,3,opt,name=origin,proto3" json:"origin,omitempty"`
+	Origin *v1alpha1.SourceLocation `protobuf:"bytes,2,opt,name=origin,proto3" json:"origin,omitempty"`
 	// `provider_project` is the project of the workspace that provides it;
 	// unset for what is provided from outside the workspace.
-	ProviderProject *ProjectRef `protobuf:"bytes,4,opt,name=provider_project,json=providerProject,proto3" json:"provider_project,omitempty"`
+	ProviderProject *ProjectRef `protobuf:"bytes,3,opt,name=provider_project,json=providerProject,proto3" json:"provider_project,omitempty"`
 	// Version is the version the project's own files resolve it to, as
 	// its ecosystem spells it ("v1.9.1" for Go, "1.0.228" for Cargo), as
 	// the plugin that found the project read it; empty where they say
 	// none. Where provider_project is set, what is built is that
 	// project's source, whatever this says.
-	Version       string `protobuf:"bytes,5,opt,name=version,proto3" json:"version,omitempty"`
+	Version       string `protobuf:"bytes,4,opt,name=version,proto3" json:"version,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -962,28 +962,28 @@ const file_frontseat_build_v1alpha1_graph_proto_rawDesc = "" +
 	"\x06Entity\x12:\n" +
 	"\x03ref\x18\x01 \x01(\v2\".frontseat.type.v1alpha1.EntityRefB\x04\xe2A\x01\x03R\x03ref\x12$\n" +
 	"\n" +
-	"repository\x18\x03 \x01(\tB\x04\xe2A\x01\x03R\n" +
+	"repository\x18\x02 \x01(\tB\x04\xe2A\x01\x03R\n" +
 	"repository\x12\x1a\n" +
-	"\x05roots\x18\x05 \x03(\tB\x04\xe2A\x01\x03R\x05roots\x12G\n" +
+	"\x05roots\x18\x03 \x03(\tB\x04\xe2A\x01\x03R\x05roots\x12G\n" +
 	"\n" +
-	"depends_on\x18\x06 \x03(\v2\".frontseat.type.v1alpha1.EntityRefB\x04\xe2A\x01\x03R\tdependsOn\x12 \n" +
-	"\bmanifest\x18\a \x01(\tB\x04\xe2A\x01\x03R\bmanifest\x12L\n" +
-	"\trelations\x18\b \x03(\v2(.frontseat.build.v1alpha1.EntityRelationB\x04\xe2A\x01\x03R\trelations\x12G\n" +
-	"\arelease\x18\t \x01(\v2'.frontseat.build.v1alpha1.EntityReleaseB\x04\xe2A\x01\x03R\arelease\"\x97\x04\n" +
+	"depends_on\x18\x04 \x03(\v2\".frontseat.type.v1alpha1.EntityRefB\x04\xe2A\x01\x03R\tdependsOn\x12 \n" +
+	"\bmanifest\x18\x05 \x01(\tB\x04\xe2A\x01\x03R\bmanifest\x12L\n" +
+	"\trelations\x18\x06 \x03(\v2(.frontseat.build.v1alpha1.EntityRelationB\x04\xe2A\x01\x03R\trelations\x12G\n" +
+	"\arelease\x18\a \x01(\v2'.frontseat.build.v1alpha1.EntityReleaseB\x04\xe2A\x01\x03R\arelease\"\x97\x04\n" +
 	"\rEntityRelease\x12<\n" +
 	"\x04unit\x18\x01 \x01(\v2\".frontseat.type.v1alpha1.EntityRefB\x04\xe2A\x01\x03R\x04unit\x12>\n" +
 	"\x05group\x18\x02 \x01(\v2\".frontseat.type.v1alpha1.EntityRefB\x04\xe2A\x01\x03R\x05group\x12D\n" +
 	"\bgrouping\x18\x03 \x01(\x0e2\".frontseat.build.v1alpha1.GroupingB\x04\xe2A\x01\x03R\bgrouping\x12\x16\n" +
 	"\x03tag\x18\x04 \x01(\tB\x04\xe2A\x01\x03R\x03tag\x12\x1e\n" +
 	"\ainitial\x18\x05 \x01(\tB\x04\xe2A\x01\x03R\ainitial\x125\n" +
-	"\x13versioning_strategy\x18\b \x01(\tB\x04\xe2A\x01\x03R\x12versioningStrategy\x123\n" +
-	"\x12branching_strategy\x18\t \x01(\tB\x04\xe2A\x01\x03R\x11branchingStrategy\x12$\n" +
+	"\x13versioning_strategy\x18\x06 \x01(\tB\x04\xe2A\x01\x03R\x12versioningStrategy\x123\n" +
+	"\x12branching_strategy\x18\a \x01(\tB\x04\xe2A\x01\x03R\x11branchingStrategy\x12$\n" +
 	"\n" +
-	"prerelease\x18\n" +
-	" \x01(\tB\x04\xe2A\x01\x03R\n" +
+	"prerelease\x18\b \x01(\tB\x04\xe2A\x01\x03R\n" +
 	"prerelease\x12+\n" +
-	"\x0eprerelease_tag\x18\v \x01(\bB\x04\xe2A\x01\x03R\rprereleaseTag\x12K\n" +
-	"\x06set_by\x18\a \x03(\v2..frontseat.build.v1alpha1.ReleaseSettingOriginB\x04\xe2A\x01\x03R\x05setBy\"p\n" +
+	"\x0eprerelease_tag\x18\t \x01(\bB\x04\xe2A\x01\x03R\rprereleaseTag\x12K\n" +
+	"\x06set_by\x18\n" +
+	" \x03(\v2..frontseat.build.v1alpha1.ReleaseSettingOriginB\x04\xe2A\x01\x03R\x05setBy\"p\n" +
 	"\x14ReleaseSettingOrigin\x12\x16\n" +
 	"\x03key\x18\x01 \x01(\tB\x04\xe2A\x01\x03R\x03key\x12@\n" +
 	"\x06entity\x18\x02 \x01(\v2\".frontseat.type.v1alpha1.EntityRefB\x04\xe2A\x01\x03R\x06entity\"\x99\x01\n" +
@@ -993,21 +993,20 @@ const file_frontseat_build_v1alpha1_graph_proto_rawDesc = "" +
 	"\x0etarget_present\x18\x03 \x01(\bB\x04\xe2A\x01\x03R\rtargetPresent\"\x98\x03\n" +
 	"\aProject\x12<\n" +
 	"\x03ref\x18\x01 \x01(\v2$.frontseat.build.v1alpha1.ProjectRefB\x04\xe2A\x01\x03R\x03ref\x12\x18\n" +
-	"\x04kind\x18\x04 \x01(\tB\x04\xe2A\x01\x03R\x04kind\x12\x18\n" +
-	"\x04name\x18\x05 \x01(\tB\x04\xe2A\x01\x03R\x04name\x12 \n" +
-	"\bmanifest\x18\x06 \x01(\tB\x04\xe2A\x01\x03R\bmanifest\x12>\n" +
-	"\x05owner\x18\a \x01(\v2\".frontseat.type.v1alpha1.EntityRefB\x04\xe2A\x01\x03R\x05owner\x12G\n" +
-	"\aoptions\x18\b \x03(\v2'.frontseat.build.v1alpha1.ProjectOptionB\x04\xe2A\x01\x03R\aoptions\x12 \n" +
-	"\bprovides\x18\t \x03(\tB\x04\xe2A\x01\x03R\bprovides\x12N\n" +
-	"\brequires\x18\n" +
-	" \x03(\v2,.frontseat.build.v1alpha1.ProjectRequirementB\x04\xe2A\x01\x03R\brequires\"\xf8\x01\n" +
+	"\x04kind\x18\x02 \x01(\tB\x04\xe2A\x01\x03R\x04kind\x12\x18\n" +
+	"\x04name\x18\x03 \x01(\tB\x04\xe2A\x01\x03R\x04name\x12 \n" +
+	"\bmanifest\x18\x04 \x01(\tB\x04\xe2A\x01\x03R\bmanifest\x12>\n" +
+	"\x05owner\x18\x05 \x01(\v2\".frontseat.type.v1alpha1.EntityRefB\x04\xe2A\x01\x03R\x05owner\x12G\n" +
+	"\aoptions\x18\x06 \x03(\v2'.frontseat.build.v1alpha1.ProjectOptionB\x04\xe2A\x01\x03R\aoptions\x12 \n" +
+	"\bprovides\x18\a \x03(\tB\x04\xe2A\x01\x03R\bprovides\x12N\n" +
+	"\brequires\x18\b \x03(\v2,.frontseat.build.v1alpha1.ProjectRequirementB\x04\xe2A\x01\x03R\brequires\"\xf8\x01\n" +
 	"\x12ProjectRequirement\x12$\n" +
 	"\n" +
 	"coordinate\x18\x01 \x01(\tB\x04\xe2A\x01\x03R\n" +
 	"coordinate\x12E\n" +
-	"\x06origin\x18\x03 \x01(\v2'.frontseat.type.v1alpha1.SourceLocationB\x04\xe2A\x01\x03R\x06origin\x12U\n" +
-	"\x10provider_project\x18\x04 \x01(\v2$.frontseat.build.v1alpha1.ProjectRefB\x04\xe2A\x01\x03R\x0fproviderProject\x12\x1e\n" +
-	"\aversion\x18\x05 \x01(\tB\x04\xe2A\x01\x03R\aversion\"j\n" +
+	"\x06origin\x18\x02 \x01(\v2'.frontseat.type.v1alpha1.SourceLocationB\x04\xe2A\x01\x03R\x06origin\x12U\n" +
+	"\x10provider_project\x18\x03 \x01(\v2$.frontseat.build.v1alpha1.ProjectRefB\x04\xe2A\x01\x03R\x0fproviderProject\x12\x1e\n" +
+	"\aversion\x18\x04 \x01(\tB\x04\xe2A\x01\x03R\aversion\"j\n" +
 	"\n" +
 	"ProjectRef\x12$\n" +
 	"\n" +

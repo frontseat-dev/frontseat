@@ -68,6 +68,7 @@ var apiRules = map[string]func(contract) []string{
 	"a contract imports only shared types": importsShared,
 	"a Create can be sent again":           retried,
 	"what only the server sets says so":    outputs,
+	"numbers are dense":                    dense,
 }
 
 // contract is what the rules read: the files, the packages whose calls
@@ -468,6 +469,32 @@ func nothingReserved(c contract) []string {
 	return out
 }
 
+// dense holds that each message of the held packages numbers its fields
+// 1 to n, and each enum its values 0 to n-1, in the order declared, with
+// no number skipped: a field removed closes its hole in the same change,
+// while no client outside this repository is built against the
+// contracts (API-17). The plugin contract is held by its own ABI.
+func dense(c contract) []string {
+	var out []string
+	c.held(func(d protoreflect.Descriptor) {
+		switch d := d.(type) {
+		case protoreflect.MessageDescriptor:
+			for i := range d.Fields().Len() {
+				if f := d.Fields().Get(i); int(f.Number()) != i+1 {
+					out = append(out, fmt.Sprintf("%s is numbered %d, and is field %d of %s", f.FullName(), f.Number(), i+1, d.FullName()))
+				}
+			}
+		case protoreflect.EnumDescriptor:
+			for i := range d.Values().Len() {
+				if v := d.Values().Get(i); int(v.Number()) != i {
+					out = append(out, fmt.Sprintf("%s is numbered %d, and is value %d of %s", v.FullName(), v.Number(), i, d.FullName()))
+				}
+			}
+		}
+	})
+	return out
+}
+
 // reached holds that each message and enum of the held packages is
 // reached from a call: what it takes or answers, through their fields.
 func reached(c contract) []string {
@@ -753,6 +780,14 @@ message ListThingsResponse { repeated Thing things = 1; }
 		// A field number kept for later.
 		"no reserved": thing + sound + `message Kept { reserved 2; string name = 1; }
 message Holding { Kept kept = 1; }
+`,
+		// A field removed and its hole left, as Build's were, and an enum
+		// that skips a value.
+		"numbers are dense": thing + sound + `message Holed { string name = 1; string kind = 3; }
+enum Skipping {
+  SKIPPING_UNSPECIFIED = 0;
+  SKIPPING_LATER = 2;
+}
 `,
 		// A message no call reaches.
 		"every message reached by a call": thing + sound + `message Orphan { string name = 1; }

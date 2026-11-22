@@ -145,35 +145,35 @@ message Build {
   // Id is the build's id, "build_" and what the server chose.
   string id = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Targets are the targets asked for, as they were written.
-  repeated string targets = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
+  repeated string targets = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
   // State is where the build is.
-  State state = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
+  State state = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Stage is what a running build is doing now.
-  Stage stage = 6 [(google.api.field_behavior) = OUTPUT_ONLY];
+  Stage stage = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
   // `exit_code` is how the build ended, by Bazel's names; unspecified
   // until it has.
-  ExitCode exit_code = 7 [(google.api.field_behavior) = OUTPUT_ONLY];
+  ExitCode exit_code = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Failure says, for a build that ended in an error no action explains,
   // what went wrong. Describing a failed build still succeeds. Empty for a
   // build that did not so fail.
-  string failure = 18 [(google.api.field_behavior) = OUTPUT_ONLY];
+  string failure = 6 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Diagnostics are what the source was found to say wrong, where that is
   // the failure: each a rule, a message, a source location and what to
   // do, as the plugin or the host that found it says them, so that a
   // client reads the file and the rule without parsing the failure.
-  repeated frontseat.type.v1alpha1.Diagnostic diagnostics = 19 [(google.api.field_behavior) = OUTPUT_ONLY];
+  repeated frontseat.type.v1alpha1.Diagnostic diagnostics = 7 [(google.api.field_behavior) = OUTPUT_ONLY];
   // `create_time` is when the build was made.
-  google.protobuf.Timestamp create_time = 11 [(google.api.field_behavior) = OUTPUT_ONLY];
+  google.protobuf.Timestamp create_time = 8 [(google.api.field_behavior) = OUTPUT_ONLY];
   // `end_time` is when it ended; unset until it has.
-  google.protobuf.Timestamp end_time = 12 [(google.api.field_behavior) = OUTPUT_ONLY];
+  google.protobuf.Timestamp end_time = 9 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Counts are its actions by outcome, as they stand.
-  Counts counts = 13 [(google.api.field_behavior) = OUTPUT_ONLY];
+  Counts counts = 10 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Cost is what the build used.
-  Cost cost = 15 [(google.api.field_behavior) = OUTPUT_ONLY];
+  Cost cost = 11 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Profile is the profile the source was built with: never unspecified.
-  frontseat.type.v1alpha1.Profile profile = 17 [(google.api.field_behavior) = OUTPUT_ONLY];
+  frontseat.type.v1alpha1.Profile profile = 12 [(google.api.field_behavior) = OUTPUT_ONLY];
   // `last_sequence` is the sequence of the build's latest event.
-  int64 last_sequence = 16 [(google.api.field_behavior) = OUTPUT_ONLY];
+  int64 last_sequence = 13 [(google.api.field_behavior) = OUTPUT_ONLY];
 
   // State is where a build is.
   enum State {
@@ -199,7 +199,7 @@ message Build {
     // STAGE_EVALUATING: reading the source and asking the plugins.
     STAGE_EVALUATING = 1;
     // STAGE_EXECUTING: running actions.
-    STAGE_EXECUTING = 3;
+    STAGE_EXECUTING = 2;
   }
 }
 
@@ -258,25 +258,25 @@ message ActionResult {
   string message = 7 [(google.api.field_behavior) = OUTPUT_ONLY];
   // `action_digest` is the action's digest on the grid: what a portal links
   // to, and what two builds are compared by.
-  Digest action_digest = 9 [(google.api.field_behavior) = OUTPUT_ONLY];
+  Digest action_digest = 8 [(google.api.field_behavior) = OUTPUT_ONLY];
   // `start_time` is when it started; unset for one answered from a cache.
-  google.protobuf.Timestamp start_time = 10 [(google.api.field_behavior) = OUTPUT_ONLY];
+  google.protobuf.Timestamp start_time = 9 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Duration is how long it took, as the build saw it.
-  google.protobuf.Duration duration = 11 [(google.api.field_behavior) = OUTPUT_ONLY];
+  google.protobuf.Duration duration = 10 [(google.api.field_behavior) = OUTPUT_ONLY];
   // `worker_time` is how long a worker spent running it, as the worker
   // says; unset for one no worker ran for this build. What a build cost its
   // workers is the sum of these.
-  google.protobuf.Duration worker_time = 12 [(google.api.field_behavior) = OUTPUT_ONLY];
+  google.protobuf.Duration worker_time = 11 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Stdout is what it printed.
-  Digest stdout = 13 [(google.api.field_behavior) = OUTPUT_ONLY];
+  Digest stdout = 12 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Stderr is what it printed to standard error.
-  Digest stderr = 14 [(google.api.field_behavior) = OUTPUT_ONLY];
+  Digest stderr = 13 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Diagnostics are what a check found, as its plugin reports them: each
   // a rule, a message, a source location and what to do.
-  repeated frontseat.type.v1alpha1.Diagnostic diagnostics = 15 [(google.api.field_behavior) = OUTPUT_ONLY];
+  repeated frontseat.type.v1alpha1.Diagnostic diagnostics = 14 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Rewrites are the changes to source a check proposed, and whether the
   // build wrote them.
-  repeated Rewrite rewrites = 16 [(google.api.field_behavior) = OUTPUT_ONLY];
+  repeated Rewrite rewrites = 15 [(google.api.field_behavior) = OUTPUT_ONLY];
 }
 
 // Rewrite is a change to one source file a fix made, as a build records
@@ -314,25 +314,25 @@ message Rewrite {
 message CreateBuildRequest {
   // Targets select what to run it over, in the target grammar; empty is
   // everything in the workspace.
-  repeated string targets = 2;
+  repeated string targets = 1;
   // Fix asks that each check with a fix has it run where the checkout
   // is, before the check, and what it changes written to the daemon's
   // checkout; without it a check only reports, and fails the build.
-  bool fix = 5;
+  bool fix = 2;
   // Profile is the profile the source is built with. Unspecified, it is
   // PROFILE_DEVELOPMENT. A build may ask for PROFILE_PRODUCTION, to see
   // that what will be released builds: a release builds with it.
-  frontseat.type.v1alpha1.Profile profile = 12;
+  frontseat.type.v1alpha1.Profile profile = 3;
   // Only keeps the actions that have one of these names, such as
   // "lint", of whatever the targets point at. Empty keeps every action.
   // A name no action has fails the build, which says so in its failure.
-  repeated string only = 13;
+  repeated string only = 4;
   // Tests keeps the actions that run tests, as the plugin that declared
   // each says (its test flag), of whatever the targets point at, and
   // what they need. Where they hold none, the build runs nothing and
   // ends EXIT_CODE_NO_TESTS_FOUND, saying so in its failure, as Bazel
   // ends `bazel test` with no test targets.
-  bool tests = 15;
+  bool tests = 5;
   // `request_id` makes a retry return the build the first call made: a
   // client that lost the answer sends the same request again with it.
   // It is at most 128 bytes; a UUID serves. The daemon remembers the
@@ -341,7 +341,7 @@ message CreateBuildRequest {
   // again since, starts another build. What is sent with it again is
   // not compared with the first request. Empty, every call starts a
   // build.
-  string request_id = 14;
+  string request_id = 6;
 }
 
 // CreateBuildResponse is the build that was made.
@@ -424,10 +424,10 @@ message ListBuildActionsRequest {
   string build_id = 1 [(google.api.field_behavior) = REQUIRED];
   // `page_size` is the most actions to return; zero is a hundred, and more
   // than a thousand is a thousand.
-  int32 page_size = 3;
+  int32 page_size = 2;
   // `page_token` is the next_page_token of the page before; empty for the
   // first page.
-  string page_token = 4;
+  string page_token = 3;
 }
 
 // ListBuildActionsResponse is a page of a build's actions.

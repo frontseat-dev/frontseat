@@ -217,25 +217,25 @@ message WorkspaceSpec {
   repeated frontseat.type.v1alpha1.EntityRef entities = 2;
   // `whole_repositories` has the daemon clone every file of the
   // entities' repositories, not only the directories the entities own.
-  bool whole_repositories = 4;
+  bool whole_repositories = 3;
   // Push lets it push to the repositories named, with the credential the
   // control plane keeps for their hosts. It is set when the workspace is
   // made, and cannot be changed.
-  bool push = 5;
+  bool push = 4;
   // Author is the name and address its commits are made under; empty
   // for none. It is set when the workspace is made, and cannot be
   // changed.
-  Author author = 6;
+  Author author = 5;
   // `authorized_key` is the SSH public key that may open its shell, on one
   // line, as an SSH client writes its own public key file; empty for a
   // workspace no one opens a shell in. It is set when the workspace is
   // made, and cannot be changed: CreateWorkspace for a workspace that is
   // there is refused with another key, and with none returns the
   // workspace as it was made.
-  string authorized_key = 7;
+  string authorized_key = 6;
   // Image is the image its sandbox runs; empty for the control plane's
   // own. It is set when the workspace is made, and cannot be changed.
-  string image = 8;
+  string image = 7;
   // Lifetime is how long it lasts from when it was made (its
   // create_time), whether or not it is used. After that the control
   // plane ends it as DeleteWorkspace would: it is meant for the
@@ -244,7 +244,7 @@ message WorkspaceSpec {
   // CreateWorkspace for a workspace that is there is refused with
   // another lifetime, and with none returns the workspace as it was
   // made.
-  google.protobuf.Duration lifetime = 9;
+  google.protobuf.Duration lifetime = 8;
 }
 
 // Author is who commits in a workspace.
@@ -270,12 +270,12 @@ message WorkspaceStatus {
   // Empty until the workspace has a sandbox.
   string build_uri = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Repositories are the repositories it holds, as its daemon says.
-  repeated Repository repositories = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
+  repeated Repository repositories = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Entities are what the entities it was asked for resolved to, and the
   // components they depend on: each entity, and the repository and
   // directory that hold it. They were resolved once, when each was
   // asked for, and are not resolved again.
-  repeated LocatedEntity entities = 6 [(google.api.field_behavior) = OUTPUT_ONLY];
+  repeated LocatedEntity entities = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
 
   // State is where a workspace is.
   enum State {

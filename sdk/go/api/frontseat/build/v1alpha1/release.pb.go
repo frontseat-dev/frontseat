@@ -133,29 +133,29 @@ const (
 	// STATE_TAGGING: its units are built, and are being tagged, in the
 	// daemon's checkout.
 	Release_STATE_TAGGING Release_State = 2
-	// STATE_SUCCEEDED: it ended with nothing left to do: every tag of
-	// its units is where its repository was cloned from, and every
-	// publish of them passed; or no unit of
-	// its plan was tagged, since none moves, or since what moves is a
-	// prerelease its unit does not tag, which was built and no more.
-	Release_STATE_SUCCEEDED Release_State = 3
 	// STATE_PUSHING: its units are tagged, and each tag is being sent to
 	// where its repository was cloned from.
-	Release_STATE_PUSHING Release_State = 6
+	Release_STATE_PUSHING Release_State = 3
 	// STATE_PUBLISHING: every tag is where its repository was cloned
 	// from, and what was shipped is being published, each publish of
 	// each unit in turn.
-	Release_STATE_PUBLISHING Release_State = 7
+	Release_STATE_PUBLISHING Release_State = 4
+	// STATE_SUCCEEDED: it ended with nothing left to do: every tag of
+	// its units is where its repository was cloned from, and every
+	// publish of them passed; or no unit of its plan was tagged, since
+	// none moves, or since what moves is a prerelease its unit does not
+	// tag, which was built and no more.
+	Release_STATE_SUCCEEDED Release_State = 5
 	// STATE_UNPUSHED: its units are tagged in the daemon's checkout,
 	// and not every tag is where its repository was cloned from: a
 	// workspace that may not push leaves them all there, and failure
 	// says which tag was not sent and why. Released again, at the same
 	// commit, it sends them.
-	Release_STATE_UNPUSHED Release_State = 4
+	Release_STATE_UNPUSHED Release_State = 6
 	// STATE_FAILED: it ended before all of that was done; its units say
 	// what was. Where the build fails, no unit is tagged. Where a
 	// publish fails, its unit says which, and its tags stay pushed.
-	Release_STATE_FAILED Release_State = 5
+	Release_STATE_FAILED Release_State = 7
 )
 
 // Enum value maps for Release_State.
@@ -164,21 +164,21 @@ var (
 		0: "STATE_UNSPECIFIED",
 		1: "STATE_BUILDING",
 		2: "STATE_TAGGING",
-		3: "STATE_SUCCEEDED",
-		6: "STATE_PUSHING",
-		7: "STATE_PUBLISHING",
-		4: "STATE_UNPUSHED",
-		5: "STATE_FAILED",
+		3: "STATE_PUSHING",
+		4: "STATE_PUBLISHING",
+		5: "STATE_SUCCEEDED",
+		6: "STATE_UNPUSHED",
+		7: "STATE_FAILED",
 	}
 	Release_State_value = map[string]int32{
 		"STATE_UNSPECIFIED": 0,
 		"STATE_BUILDING":    1,
 		"STATE_TAGGING":     2,
-		"STATE_SUCCEEDED":   3,
-		"STATE_PUSHING":     6,
-		"STATE_PUBLISHING":  7,
-		"STATE_UNPUSHED":    4,
-		"STATE_FAILED":      5,
+		"STATE_PUSHING":     3,
+		"STATE_PUBLISHING":  4,
+		"STATE_SUCCEEDED":   5,
+		"STATE_UNPUSHED":    6,
+		"STATE_FAILED":      7,
 	}
 )
 
@@ -450,41 +450,41 @@ type ReleaseUnit struct {
 	// Grouping is how the unit's group versions its members.
 	Grouping Grouping `protobuf:"varint,4,opt,name=grouping,proto3,enum=frontseat.build.v1alpha1.Grouping" json:"grouping,omitempty"`
 	// `last_version` is the unit's last release; empty if it has none.
-	LastVersion string `protobuf:"bytes,6,opt,name=last_version,json=lastVersion,proto3" json:"last_version,omitempty"`
+	LastVersion string `protobuf:"bytes,5,opt,name=last_version,json=lastVersion,proto3" json:"last_version,omitempty"`
 	// `next_version` is what the release makes it; empty if it holds. A
 	// prerelease's says so: "1.27.0-main-20261121101500".
-	NextVersion string `protobuf:"bytes,7,opt,name=next_version,json=nextVersion,proto3" json:"next_version,omitempty"`
+	NextVersion string `protobuf:"bytes,6,opt,name=next_version,json=nextVersion,proto3" json:"next_version,omitempty"`
 	// Bump is how far it moves.
-	Bump v1alpha1.Bump `protobuf:"varint,8,opt,name=bump,proto3,enum=frontseat.type.v1alpha1.Bump" json:"bump,omitempty"`
+	Bump v1alpha1.Bump `protobuf:"varint,7,opt,name=bump,proto3,enum=frontseat.type.v1alpha1.Bump" json:"bump,omitempty"`
 	// Reasons say why it moves, or why it holds, heaviest first.
-	Reasons []*ReleaseReason `protobuf:"bytes,9,rep,name=reasons,proto3" json:"reasons,omitempty"`
+	Reasons []*ReleaseReason `protobuf:"bytes,8,rep,name=reasons,proto3" json:"reasons,omitempty"`
 	// Tag is the tag the release writes, spelled from the unit's tag
 	// setting; empty if it holds, and for a prerelease that is not tagged.
-	Tag string `protobuf:"bytes,10,opt,name=tag,proto3" json:"tag,omitempty"`
+	Tag string `protobuf:"bytes,9,opt,name=tag,proto3" json:"tag,omitempty"`
 	// `depends_on` are the units of the plan it depends on, folded from what
 	// its members' projects require. A unit comes after them in the plan,
 	// and is refused where one has a change not released that the plan does
 	// not release; their release does not move it.
-	DependsOn []*v1alpha1.EntityRef `protobuf:"bytes,11,rep,name=depends_on,json=dependsOn,proto3" json:"depends_on,omitempty"`
+	DependsOn []*v1alpha1.EntityRef `protobuf:"bytes,10,rep,name=depends_on,json=dependsOn,proto3" json:"depends_on,omitempty"`
 	// Notes are the release notes, as its versioning strategy wrote them,
 	// in Markdown.
-	Notes string `protobuf:"bytes,12,opt,name=notes,proto3" json:"notes,omitempty"`
+	Notes string `protobuf:"bytes,11,opt,name=notes,proto3" json:"notes,omitempty"`
 	// `versioning_strategy` is the strategy that gave its version, as
 	// "<plugin>:<name>".
-	VersioningStrategy string `protobuf:"bytes,13,opt,name=versioning_strategy,json=versioningStrategy,proto3" json:"versioning_strategy,omitempty"`
+	VersioningStrategy string `protobuf:"bytes,12,opt,name=versioning_strategy,json=versioningStrategy,proto3" json:"versioning_strategy,omitempty"`
 	// `branching_strategy` is the strategy that said what its branch
 	// releases, as "<plugin>:<name>".
-	BranchingStrategy string `protobuf:"bytes,14,opt,name=branching_strategy,json=branchingStrategy,proto3" json:"branching_strategy,omitempty"`
+	BranchingStrategy string `protobuf:"bytes,13,opt,name=branching_strategy,json=branchingStrategy,proto3" json:"branching_strategy,omitempty"`
 	// Branch is the branch it is planned from.
-	Branch string `protobuf:"bytes,15,opt,name=branch,proto3" json:"branch,omitempty"`
+	Branch string `protobuf:"bytes,14,opt,name=branch,proto3" json:"branch,omitempty"`
 	// Channel is the name its branching strategy gives what its branch
 	// releases: "latest", "next", a branch's name.
-	Channel string `protobuf:"bytes,17,opt,name=channel,proto3" json:"channel,omitempty"`
+	Channel string `protobuf:"bytes,15,opt,name=channel,proto3" json:"channel,omitempty"`
 	// Prerelease is whether what the release makes it is a prerelease:
 	// its next version then says so after a dash, as its settings spell
 	// one, and it has a tag only where its settings say a prerelease is
 	// tagged.
-	Prerelease    bool `protobuf:"varint,18,opt,name=prerelease,proto3" json:"prerelease,omitempty"`
+	Prerelease    bool `protobuf:"varint,16,opt,name=prerelease,proto3" json:"prerelease,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1082,7 +1082,7 @@ type ReleaseArtifact struct {
 	// Digest is the address of its bytes in the grid's store.
 	Digest *Digest `protobuf:"bytes,2,opt,name=digest,proto3" json:"digest,omitempty"`
 	// Label is the label of the action that left it.
-	Label         string `protobuf:"bytes,4,opt,name=label,proto3" json:"label,omitempty"`
+	Label         string `protobuf:"bytes,3,opt,name=label,proto3" json:"label,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1409,21 +1409,21 @@ const file_frontseat_build_v1alpha1_release_proto_rawDesc = "" +
 	"\amembers\x18\x02 \x03(\v2\".frontseat.type.v1alpha1.EntityRefB\x04\xe2A\x01\x03R\amembers\x12>\n" +
 	"\x05group\x18\x03 \x01(\v2\".frontseat.type.v1alpha1.EntityRefB\x04\xe2A\x01\x03R\x05group\x12D\n" +
 	"\bgrouping\x18\x04 \x01(\x0e2\".frontseat.build.v1alpha1.GroupingB\x04\xe2A\x01\x03R\bgrouping\x12'\n" +
-	"\flast_version\x18\x06 \x01(\tB\x04\xe2A\x01\x03R\vlastVersion\x12'\n" +
-	"\fnext_version\x18\a \x01(\tB\x04\xe2A\x01\x03R\vnextVersion\x127\n" +
-	"\x04bump\x18\b \x01(\x0e2\x1d.frontseat.type.v1alpha1.BumpB\x04\xe2A\x01\x03R\x04bump\x12G\n" +
-	"\areasons\x18\t \x03(\v2'.frontseat.build.v1alpha1.ReleaseReasonB\x04\xe2A\x01\x03R\areasons\x12\x16\n" +
-	"\x03tag\x18\n" +
-	" \x01(\tB\x04\xe2A\x01\x03R\x03tag\x12G\n" +
+	"\flast_version\x18\x05 \x01(\tB\x04\xe2A\x01\x03R\vlastVersion\x12'\n" +
+	"\fnext_version\x18\x06 \x01(\tB\x04\xe2A\x01\x03R\vnextVersion\x127\n" +
+	"\x04bump\x18\a \x01(\x0e2\x1d.frontseat.type.v1alpha1.BumpB\x04\xe2A\x01\x03R\x04bump\x12G\n" +
+	"\areasons\x18\b \x03(\v2'.frontseat.build.v1alpha1.ReleaseReasonB\x04\xe2A\x01\x03R\areasons\x12\x16\n" +
+	"\x03tag\x18\t \x01(\tB\x04\xe2A\x01\x03R\x03tag\x12G\n" +
 	"\n" +
-	"depends_on\x18\v \x03(\v2\".frontseat.type.v1alpha1.EntityRefB\x04\xe2A\x01\x03R\tdependsOn\x12\x1a\n" +
-	"\x05notes\x18\f \x01(\tB\x04\xe2A\x01\x03R\x05notes\x125\n" +
-	"\x13versioning_strategy\x18\r \x01(\tB\x04\xe2A\x01\x03R\x12versioningStrategy\x123\n" +
-	"\x12branching_strategy\x18\x0e \x01(\tB\x04\xe2A\x01\x03R\x11branchingStrategy\x12\x1c\n" +
-	"\x06branch\x18\x0f \x01(\tB\x04\xe2A\x01\x03R\x06branch\x12\x1e\n" +
-	"\achannel\x18\x11 \x01(\tB\x04\xe2A\x01\x03R\achannel\x12$\n" +
+	"depends_on\x18\n" +
+	" \x03(\v2\".frontseat.type.v1alpha1.EntityRefB\x04\xe2A\x01\x03R\tdependsOn\x12\x1a\n" +
+	"\x05notes\x18\v \x01(\tB\x04\xe2A\x01\x03R\x05notes\x125\n" +
+	"\x13versioning_strategy\x18\f \x01(\tB\x04\xe2A\x01\x03R\x12versioningStrategy\x123\n" +
+	"\x12branching_strategy\x18\r \x01(\tB\x04\xe2A\x01\x03R\x11branchingStrategy\x12\x1c\n" +
+	"\x06branch\x18\x0e \x01(\tB\x04\xe2A\x01\x03R\x06branch\x12\x1e\n" +
+	"\achannel\x18\x0f \x01(\tB\x04\xe2A\x01\x03R\achannel\x12$\n" +
 	"\n" +
-	"prerelease\x18\x12 \x01(\bB\x04\xe2A\x01\x03R\n" +
+	"prerelease\x18\x10 \x01(\bB\x04\xe2A\x01\x03R\n" +
 	"prerelease\"\xfe\x02\n" +
 	"\rReleaseReason\x12F\n" +
 	"\x04kind\x18\x01 \x01(\x0e2,.frontseat.build.v1alpha1.ReleaseReason.KindB\x04\xe2A\x01\x03R\x04kind\x127\n" +
@@ -1455,12 +1455,12 @@ const file_frontseat_build_v1alpha1_release_proto_rawDesc = "" +
 	"\x05State\x12\x15\n" +
 	"\x11STATE_UNSPECIFIED\x10\x00\x12\x12\n" +
 	"\x0eSTATE_BUILDING\x10\x01\x12\x11\n" +
-	"\rSTATE_TAGGING\x10\x02\x12\x13\n" +
-	"\x0fSTATE_SUCCEEDED\x10\x03\x12\x11\n" +
-	"\rSTATE_PUSHING\x10\x06\x12\x14\n" +
-	"\x10STATE_PUBLISHING\x10\a\x12\x12\n" +
-	"\x0eSTATE_UNPUSHED\x10\x04\x12\x10\n" +
-	"\fSTATE_FAILED\x10\x05\"\xfd\x02\n" +
+	"\rSTATE_TAGGING\x10\x02\x12\x11\n" +
+	"\rSTATE_PUSHING\x10\x03\x12\x14\n" +
+	"\x10STATE_PUBLISHING\x10\x04\x12\x13\n" +
+	"\x0fSTATE_SUCCEEDED\x10\x05\x12\x12\n" +
+	"\x0eSTATE_UNPUSHED\x10\x06\x12\x10\n" +
+	"\fSTATE_FAILED\x10\a\"\xfd\x02\n" +
 	"\fReleasedUnit\x12@\n" +
 	"\x06entity\x18\x01 \x01(\v2\".frontseat.type.v1alpha1.EntityRefB\x04\xe2A\x01\x03R\x06entity\x12\x1e\n" +
 	"\aversion\x18\x02 \x01(\tB\x04\xe2A\x01\x03R\aversion\x12>\n" +
@@ -1474,7 +1474,7 @@ const file_frontseat_build_v1alpha1_release_proto_rawDesc = "" +
 	"\x0fReleaseArtifact\x12\x18\n" +
 	"\x04name\x18\x01 \x01(\tB\x04\xe2A\x01\x03R\x04name\x12>\n" +
 	"\x06digest\x18\x02 \x01(\v2 .frontseat.build.v1alpha1.DigestB\x04\xe2A\x01\x03R\x06digest\x12\x1a\n" +
-	"\x05label\x18\x04 \x01(\tB\x04\xe2A\x01\x03R\x05label\"j\n" +
+	"\x05label\x18\x03 \x01(\tB\x04\xe2A\x01\x03R\x05label\"j\n" +
 	"\n" +
 	"ReleaseTag\x12$\n" +
 	"\n" +

@@ -163,41 +163,41 @@ message ReleaseUnit {
   // Grouping is how the unit's group versions its members.
   Grouping grouping = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
   // `last_version` is the unit's last release; empty if it has none.
-  string last_version = 6 [(google.api.field_behavior) = OUTPUT_ONLY];
+  string last_version = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
   // `next_version` is what the release makes it; empty if it holds. A
   // prerelease's says so: "1.27.0-main-20261121101500".
-  string next_version = 7 [(google.api.field_behavior) = OUTPUT_ONLY];
+  string next_version = 6 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Bump is how far it moves.
-  frontseat.type.v1alpha1.Bump bump = 8 [(google.api.field_behavior) = OUTPUT_ONLY];
+  frontseat.type.v1alpha1.Bump bump = 7 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Reasons say why it moves, or why it holds, heaviest first.
-  repeated ReleaseReason reasons = 9 [(google.api.field_behavior) = OUTPUT_ONLY];
+  repeated ReleaseReason reasons = 8 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Tag is the tag the release writes, spelled from the unit's tag
   // setting; empty if it holds, and for a prerelease that is not tagged.
-  string tag = 10 [(google.api.field_behavior) = OUTPUT_ONLY];
+  string tag = 9 [(google.api.field_behavior) = OUTPUT_ONLY];
   // `depends_on` are the units of the plan it depends on, folded from what
   // its members' projects require. A unit comes after them in the plan,
   // and is refused where one has a change not released that the plan does
   // not release; their release does not move it.
-  repeated frontseat.type.v1alpha1.EntityRef depends_on = 11 [(google.api.field_behavior) = OUTPUT_ONLY];
+  repeated frontseat.type.v1alpha1.EntityRef depends_on = 10 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Notes are the release notes, as its versioning strategy wrote them,
   // in Markdown.
-  string notes = 12 [(google.api.field_behavior) = OUTPUT_ONLY];
+  string notes = 11 [(google.api.field_behavior) = OUTPUT_ONLY];
   // `versioning_strategy` is the strategy that gave its version, as
   // "<plugin>:<name>".
-  string versioning_strategy = 13 [(google.api.field_behavior) = OUTPUT_ONLY];
+  string versioning_strategy = 12 [(google.api.field_behavior) = OUTPUT_ONLY];
   // `branching_strategy` is the strategy that said what its branch
   // releases, as "<plugin>:<name>".
-  string branching_strategy = 14 [(google.api.field_behavior) = OUTPUT_ONLY];
+  string branching_strategy = 13 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Branch is the branch it is planned from.
-  string branch = 15 [(google.api.field_behavior) = OUTPUT_ONLY];
+  string branch = 14 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Channel is the name its branching strategy gives what its branch
   // releases: "latest", "next", a branch's name.
-  string channel = 17 [(google.api.field_behavior) = OUTPUT_ONLY];
+  string channel = 15 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Prerelease is whether what the release makes it is a prerelease:
   // its next version then says so after a dash, as its settings spell
   // one, and it has a tag only where its settings say a prerelease is
   // tagged.
-  bool prerelease = 18 [(google.api.field_behavior) = OUTPUT_ONLY];
+  bool prerelease = 16 [(google.api.field_behavior) = OUTPUT_ONLY];
 }
 
 // ReleaseReason is one reason a unit moves or holds.
@@ -282,29 +282,29 @@ message Release {
     // STATE_TAGGING: its units are built, and are being tagged, in the
     // daemon's checkout.
     STATE_TAGGING = 2;
-    // STATE_SUCCEEDED: it ended with nothing left to do: every tag of
-    // its units is where its repository was cloned from, and every
-    // publish of them passed; or no unit of
-    // its plan was tagged, since none moves, or since what moves is a
-    // prerelease its unit does not tag, which was built and no more.
-    STATE_SUCCEEDED = 3;
     // STATE_PUSHING: its units are tagged, and each tag is being sent to
     // where its repository was cloned from.
-    STATE_PUSHING = 6;
+    STATE_PUSHING = 3;
     // STATE_PUBLISHING: every tag is where its repository was cloned
     // from, and what was shipped is being published, each publish of
     // each unit in turn.
-    STATE_PUBLISHING = 7;
+    STATE_PUBLISHING = 4;
+    // STATE_SUCCEEDED: it ended with nothing left to do: every tag of
+    // its units is where its repository was cloned from, and every
+    // publish of them passed; or no unit of its plan was tagged, since
+    // none moves, or since what moves is a prerelease its unit does not
+    // tag, which was built and no more.
+    STATE_SUCCEEDED = 5;
     // STATE_UNPUSHED: its units are tagged in the daemon's checkout,
     // and not every tag is where its repository was cloned from: a
     // workspace that may not push leaves them all there, and failure
     // says which tag was not sent and why. Released again, at the same
     // commit, it sends them.
-    STATE_UNPUSHED = 4;
+    STATE_UNPUSHED = 6;
     // STATE_FAILED: it ended before all of that was done; its units say
     // what was. Where the build fails, no unit is tagged. Where a
     // publish fails, its unit says which, and its tags stay pushed.
-    STATE_FAILED = 5;
+    STATE_FAILED = 7;
   }
 }
 
@@ -348,7 +348,7 @@ message ReleaseArtifact {
   // Digest is the address of its bytes in the grid's store.
   Digest digest = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Label is the label of the action that left it.
-  string label = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
+  string label = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
 }
 
 // ReleaseTag is a tag a release wrote.
