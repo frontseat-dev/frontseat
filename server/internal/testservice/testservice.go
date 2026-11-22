@@ -53,7 +53,7 @@ const exportable = "letters, digits and underscores, beginning with no digit"
 func Exportable(name string) bool { return variable.MatchString(name) }
 
 // Variable holds a name written under a key of a service (exports,
-// env) to one the shell can export.
+// environment) to one the shell can export.
 func Variable(key, name string) error {
 	if !Exportable(name) {
 		return fmt.Errorf("service.%s: a name the shell can export is %s", key, exportable)
@@ -134,7 +134,7 @@ func Shaped(l *typev1.Service) error {
 	// none would be the runtime's to refuse, when the test is started,
 	// and one with an equals sign in it would set another.
 	for _, name := range slices.Sorted(maps.Keys(l.GetEnvironment())) {
-		if err := Variable("env", name); err != nil {
+		if err := Variable("environment", name); err != nil {
 			return err
 		}
 	}
@@ -200,7 +200,7 @@ func Program(l *typev1.Service) error {
 		return err
 	}
 	if l.GetImage() != "" || len(l.GetArguments()) != 0 {
-		return errors.New("a service that is a program names no image or args; its program supplies the command")
+		return errors.New("a service that is a program names no image or arguments; its program supplies the command")
 	}
 	return endpoints(l)
 }
