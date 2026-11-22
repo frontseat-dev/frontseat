@@ -74,7 +74,7 @@ impl Plugin for GoPlugin {
         repo: &Repository,
         root: &str,
         _actions: &[String],
-        handed: &[Handed],
+        handed: &[Handoff],
     ) -> Result<Vec<File>, Error> {
         let manifest = join(root, "go.mod");
         let version = repo.pinned("go", &manifest)?;
@@ -143,7 +143,7 @@ impl Plugin for GoPlugin {
             // A module is required by its path, and whatever requires it
             // is handed its source: the go command builds a module it
             // requires from source.
-            provides: vec![Provide {
+            provides: vec![Provision {
                 coordinate: Some(Coordinate {
                     ecosystem: "go".into(),
                     name: module.path,

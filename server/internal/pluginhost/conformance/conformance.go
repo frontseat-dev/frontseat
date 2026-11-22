@@ -249,7 +249,7 @@ func Run(t *testing.T, f Fixture) {
 		}
 		// An entity the file does not describe is refused by name.
 		stranger := proto.Clone(f.Reconcile).(*pluginv1.ReconcileRequest)
-		stranger.Entities = append(stranger.Entities, &pluginv1.Resolved{Ref: &typev1.EntityRef{Kind: "component", Namespace: "default", Name: "nobody"}, Manifest: f.Reconcile.GetEntities()[0].GetManifest()})
+		stranger.Entities = append(stranger.Entities, &pluginv1.EntityDependencies{Ref: &typev1.EntityRef{Kind: "component", Namespace: "default", Name: "nobody"}, Manifest: f.Reconcile.GetEntities()[0].GetManifest()})
 		if _, err := plugin.Call(t.Context(), f.Source, "Reconcile", stranger, new(pluginv1.ReconcileResponse)); err == nil {
 			t.Fatal("an entity the file does not describe was reconciled")
 		}
@@ -314,7 +314,7 @@ func Run(t *testing.T, f Fixture) {
 					refused(func(options map[string]*typev1.OptionValue) { options[option.GetName()] = &typev1.OptionValue{} })
 					refused(func(options map[string]*typev1.OptionValue) {
 						value := &typev1.OptionValue{Value: &typev1.OptionValue_BoolValue{}}
-						if option.GetKind() == pluginv1.Option_KIND_BOOL {
+						if option.GetKind() == pluginv1.OptionDeclaration_KIND_BOOL {
 							value = &typev1.OptionValue{Value: &typev1.OptionValue_StringValue{}}
 						}
 						options[option.GetName()] = value

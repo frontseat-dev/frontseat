@@ -113,7 +113,7 @@ message VersionRequest {
   // member's files, oldest first.
   repeated ReleaseCommit commits = 5;
   // Branch is what the branch releases, as Branch answered.
-  BranchResponse branch = 8;
+  BranchResponse branch = 6;
 }
 
 // ReleaseCommit is one commit, as far as it concerns a unit.
@@ -148,7 +148,7 @@ message VersionReason {
   // Commit is the commit that is the reason, by id.
   string commit = 1;
   // Bump is what this reason alone is worth.
-  frontseat.type.v1alpha1.Bump bump = 3;
+  frontseat.type.v1alpha1.Bump bump = 2;
   // Summary says it in a line: "feat: trim the greeting".
-  string summary = 4;
+  string summary = 3;
 }

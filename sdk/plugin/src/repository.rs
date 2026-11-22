@@ -40,7 +40,7 @@ impl<'a> Repository<'a> {
         declared: &[crate::PluginOption],
     ) -> Result<(), crate::Error> {
         use crate::option_value::Value;
-        use crate::wire::option::Kind;
+        use crate::wire::option_declaration::Kind;
         self.profile()?;
         for name in self.context.options.keys() {
             if !declared.iter().any(|option| option.name == name) {

@@ -349,7 +349,7 @@ func kept(ctx context.Context, src Source, plugins []*pluginhost.Plugin, answers
 	type file struct {
 		descriptor catalog.Descriptor
 		raw        []byte
-		resolved   []*pluginv1.Resolved
+		resolved   []*pluginv1.EntityDependencies
 		outOfStep  bool
 	}
 	var actions []plan.Action
@@ -392,7 +392,7 @@ func kept(ctx context.Context, src Source, plugins []*pluginhost.Plugin, answers
 		}
 		sort.Slice(should, func(i, j int) bool { return should[i].String() < should[j].String() })
 		step.Entities = append(step.Entities, plan.Described{Entity: entry.Ref, Says: says, Should: should})
-		resolved := &pluginv1.Resolved{Ref: entity.Proto(entry.Ref), Manifest: descriptor.Manifest, DependsOn: entity.Protos(should)}
+		resolved := &pluginv1.EntityDependencies{Ref: entity.Proto(entry.Ref), Manifest: descriptor.Manifest, DependsOn: entity.Protos(should)}
 		held.outOfStep = held.outOfStep || !slices.Equal(says, should)
 		// The inverse is held only where the file states it.
 		if states(descriptor.Relations, "dependencyOf") {
@@ -486,7 +486,7 @@ func states(relations []catalog.DeclaredRelation, kind string) bool {
 // agrees checks a plugin's reading of a rewritten file against what the
 // source says of one entity: its components depended on, and depended
 // on by where the file states it.
-func agrees(answer *pluginv1.AnalyzeResponse, want *pluginv1.Resolved) error {
+func agrees(answer *pluginv1.AnalyzeResponse, want *pluginv1.EntityDependencies) error {
 	for _, analysis := range answer.GetAnalyses() {
 		for _, entry := range analysis.GetEntities() {
 			if !proto.Equal(entry.GetRef(), want.GetRef()) {
@@ -575,7 +575,7 @@ func hand(ctx context.Context, src Source, plugins []*pluginhost.Plugin, answers
 	// together: the plugin is asked once for them.
 	type arranging struct {
 		project graph.Project
-		handed  []*pluginv1.Handed
+		handed  []*pluginv1.Handoff
 		actions []int
 	}
 	type arrangementKey struct {
@@ -590,7 +590,7 @@ func hand(ctx context.Context, src Source, plugins []*pluginhost.Plugin, answers
 		if len(dependencies) == 0 {
 			continue
 		}
-		var handed []*pluginv1.Handed
+		var handed []*pluginv1.Handoff
 		selections, err := selectedHandoffs(resolved, project, dependencies)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", action.Label, err)
@@ -616,7 +616,7 @@ func hand(ctx context.Context, src Source, plugins []*pluginhost.Plugin, answers
 				Artifacts:  artifacts,
 				Into:       into,
 			})
-			handed = append(handed, &pluginv1.Handed{Coordinate: wire.Coordinate(each.Provide.Coordinate), Into: into})
+			handed = append(handed, &pluginv1.Handoff{Coordinate: wire.Coordinate(each.Provide.Coordinate), Into: into})
 		}
 		// A project with nothing handed is left as it is, unless its
 		// plugin asks to arrange it for every run: its tool needs files
@@ -909,7 +909,7 @@ func analyze(ctx context.Context, view repositoryView, plugin *pluginhost.Plugin
 					AlwaysArranged: project.GetAlwaysArranged(),
 				}
 				optional := map[string]map[string]bool{}
-				if slices.ContainsFunc(project.GetProvides(), func(p *pluginv1.Provide) bool { return len(p.GetArtifacts()) > 0 }) {
+				if slices.ContainsFunc(project.GetProvides(), func(p *pluginv1.Provision) bool { return len(p.GetArtifacts()) > 0 }) {
 					for _, declared := range project.GetActions() {
 						for _, output := range declared.GetOutputs() {
 							if output.GetOptional() {

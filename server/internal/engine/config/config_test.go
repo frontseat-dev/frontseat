@@ -17,10 +17,10 @@ import (
 type files = pluginhosttest.Files
 
 // declared are the options of a plugin that takes one of each kind.
-var declared = []*pluginv1.Option{
-	{Name: "strict", Kind: pluginv1.Option_KIND_BOOL, Default: &typev1.OptionValue{Value: &typev1.OptionValue_BoolValue{BoolValue: false}}, EntitySettable: true},
-	{Name: "jobs", Kind: pluginv1.Option_KIND_INT, Default: &typev1.OptionValue{Value: &typev1.OptionValue_IntValue{IntValue: 1}}, EntitySettable: true},
-	{Name: "flavour", Kind: pluginv1.Option_KIND_STRING, Default: &typev1.OptionValue{Value: &typev1.OptionValue_StringValue{StringValue: "plain"}}, EntitySettable: true},
+var declared = []*pluginv1.OptionDeclaration{
+	{Name: "strict", Kind: pluginv1.OptionDeclaration_KIND_BOOL, Default: &typev1.OptionValue{Value: &typev1.OptionValue_BoolValue{BoolValue: false}}, EntitySettable: true},
+	{Name: "jobs", Kind: pluginv1.OptionDeclaration_KIND_INT, Default: &typev1.OptionValue{Value: &typev1.OptionValue_IntValue{IntValue: 1}}, EntitySettable: true},
+	{Name: "flavour", Kind: pluginv1.OptionDeclaration_KIND_STRING, Default: &typev1.OptionValue{Value: &typev1.OptionValue_StringValue{StringValue: "plain"}}, EntitySettable: true},
 }
 
 // set returns the value an option holds at the repository's root, where

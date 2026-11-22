@@ -1,7 +1,7 @@
 //! Contract fixture: round-trip typed options through the real Wasm SDK.
 //! This exercises the SDK; it is not an ecosystem build plugin.
 use frontseat_plugin::{
-    Analysis, Description, Error, File, Handed, Plugin, PluginOption, Repository, Value,
+    Analysis, Description, Error, File, Handoff, Plugin, PluginOption, Repository, Value,
 };
 
 struct Options;
@@ -47,7 +47,7 @@ impl Plugin for Options {
         repo: &Repository,
         _root: &str,
         _actions: &[String],
-        _handed: &[Handed],
+        _handed: &[Handoff],
     ) -> Result<Vec<File>, Error> {
         repo.read("contract.txt")?;
         let mut files = vec![

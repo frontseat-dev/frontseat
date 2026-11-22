@@ -28,7 +28,7 @@ impl Plugin for BackstagePlugin {
         &self,
         repo: &Repository,
         _root: &str,
-        entities: &[Resolved],
+        entities: &[EntityDependencies],
     ) -> Result<Vec<Edit>, Error> {
         let mut read: BTreeMap<&str, Vec<Document>> = BTreeMap::new();
         let mut edits = Vec::new();

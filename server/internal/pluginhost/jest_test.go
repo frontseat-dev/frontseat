@@ -28,7 +28,7 @@ func jestFixture() conformance.Fixture {
 			Actions:  []*pluginv1.Action{{Name: "test", Command: &pluginv1.Command{Arguments: []string{"npm", "run", "test", "--", "--ci"}}, Inputs: append([]*pluginv1.Input{pluginhost.SourceInput("**"), pluginhost.SourceInput("!node_modules/**")}, pluginhost.DependencyInput(coordinate, "{root}")), Tools: []string{"node"}, Kind: &pluginv1.Action_Test{Test: &pluginv1.Test{}}}},
 		}},
 		Reads:   []conformance.Observation{{Import: "read", Argument: "app/package.json", Found: true}},
-		Arrange: &pluginv1.ArrangeRequest{Context: jestContext(), Root: "app", Actions: []string{"test"}, Handed: []*pluginv1.Handed{{Coordinate: coordinate, Into: "."}}}, Files: []*pluginv1.File{},
+		Arrange: &pluginv1.ArrangeRequest{Context: jestContext(), Root: "app", Actions: []string{"test"}, Handed: []*pluginv1.Handoff{{Coordinate: coordinate, Into: "."}}}, Files: []*pluginv1.File{},
 		InvalidArrange: &pluginv1.ArrangeRequest{Context: jestContext(), Root: "app", Actions: []string{"test"}}, ArrangeErrorCode: "MISSING_INSTALLATION", ArrangeErrorPath: "app/package.json",
 	}
 }

@@ -377,7 +377,7 @@ type VersionRequest struct {
 	// member's files, oldest first.
 	Commits []*ReleaseCommit `protobuf:"bytes,5,rep,name=commits,proto3" json:"commits,omitempty"`
 	// Branch is what the branch releases, as Branch answered.
-	Branch        *BranchResponse `protobuf:"bytes,8,opt,name=branch,proto3" json:"branch,omitempty"`
+	Branch        *BranchResponse `protobuf:"bytes,6,opt,name=branch,proto3" json:"branch,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -616,9 +616,9 @@ type VersionReason struct {
 	// Commit is the commit that is the reason, by id.
 	Commit string `protobuf:"bytes,1,opt,name=commit,proto3" json:"commit,omitempty"`
 	// Bump is what this reason alone is worth.
-	Bump v1alpha1.Bump `protobuf:"varint,3,opt,name=bump,proto3,enum=frontseat.type.v1alpha1.Bump" json:"bump,omitempty"`
+	Bump v1alpha1.Bump `protobuf:"varint,2,opt,name=bump,proto3,enum=frontseat.type.v1alpha1.Bump" json:"bump,omitempty"`
 	// Summary says it in a line: "feat: trim the greeting".
-	Summary       string `protobuf:"bytes,4,opt,name=summary,proto3" json:"summary,omitempty"`
+	Summary       string `protobuf:"bytes,3,opt,name=summary,proto3" json:"summary,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -709,7 +709,7 @@ const file_frontseat_plugin_v1alpha1_release_proto_rawDesc = "" +
 	"\flast_version\x18\x03 \x01(\tR\vlastVersion\x12\x18\n" +
 	"\ainitial\x18\x04 \x01(\tR\ainitial\x12B\n" +
 	"\acommits\x18\x05 \x03(\v2(.frontseat.plugin.v1alpha1.ReleaseCommitR\acommits\x12A\n" +
-	"\x06branch\x18\b \x01(\v2).frontseat.plugin.v1alpha1.BranchResponseR\x06branch\"\xd4\x01\n" +
+	"\x06branch\x18\x06 \x01(\v2).frontseat.plugin.v1alpha1.BranchResponseR\x06branch\"\xd4\x01\n" +
 	"\rReleaseCommit\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1e\n" +
 	"\n" +
@@ -726,8 +726,8 @@ const file_frontseat_plugin_v1alpha1_release_proto_rawDesc = "" +
 	"\x05notes\x18\x04 \x01(\tR\x05notes\"t\n" +
 	"\rVersionReason\x12\x16\n" +
 	"\x06commit\x18\x01 \x01(\tR\x06commit\x121\n" +
-	"\x04bump\x18\x03 \x01(\x0e2\x1d.frontseat.type.v1alpha1.BumpR\x04bump\x12\x18\n" +
-	"\asummary\x18\x04 \x01(\tR\asummaryB\x9a\x02\n" +
+	"\x04bump\x18\x02 \x01(\x0e2\x1d.frontseat.type.v1alpha1.BumpR\x04bump\x12\x18\n" +
+	"\asummary\x18\x03 \x01(\tR\asummaryB\x9a\x02\n" +
 	"\x1dcom.frontseat.plugin.v1alpha1B\fReleaseProtoP\x01Zegithub.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1;pluginv1alpha1\xa2\x02\x03FPX\xaa\x02\x19Frontseat.Plugin.V1alpha1\xca\x02\x19Frontseat\\Plugin\\V1alpha1\xe2\x02%Frontseat\\Plugin\\V1alpha1\\GPBMetadata\xea\x02\x1bFrontseat::Plugin::V1alpha1b\x06proto3"
 
 var (

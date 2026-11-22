@@ -30,30 +30,30 @@ func TestAPluginWhoseInterestsAreNoPatternsIsRefused(t *testing.T) {
 // What a repository sets is held to the options a plugin declares, so a
 // plugin whose declarations do not hold together is not loaded.
 func TestAPluginWhoseOptionsDoNotHoldTogetherIsRefused(t *testing.T) {
-	described := func(options ...*pluginv1.Option) *pluginv1.DescribeResponse {
+	described := func(options ...*pluginv1.OptionDeclaration) *pluginv1.DescribeResponse {
 		return &pluginv1.DescribeResponse{Name: "tool", Options: options}
 	}
 	list := &typev1.OptionValue{Value: &typev1.OptionValue_StringListValue{StringListValue: &typev1.OptionValue_StringList{Values: []string{"a", "b"}}}}
-	sound := []*pluginv1.Option{
-		{Name: "flavour", Kind: pluginv1.Option_KIND_STRING, Default: &typev1.OptionValue{Value: &typev1.OptionValue_StringValue{StringValue: "plain"}}},
-		{Name: "strict", Kind: pluginv1.Option_KIND_BOOL, Default: &typev1.OptionValue{Value: &typev1.OptionValue_BoolValue{BoolValue: false}}},
-		{Name: "jobs", Kind: pluginv1.Option_KIND_INT, Default: &typev1.OptionValue{Value: &typev1.OptionValue_IntValue{IntValue: 4}}},
-		{Name: "tags", Kind: pluginv1.Option_KIND_STRING_LIST, Default: list},
+	sound := []*pluginv1.OptionDeclaration{
+		{Name: "flavour", Kind: pluginv1.OptionDeclaration_KIND_STRING, Default: &typev1.OptionValue{Value: &typev1.OptionValue_StringValue{StringValue: "plain"}}},
+		{Name: "strict", Kind: pluginv1.OptionDeclaration_KIND_BOOL, Default: &typev1.OptionValue{Value: &typev1.OptionValue_BoolValue{BoolValue: false}}},
+		{Name: "jobs", Kind: pluginv1.OptionDeclaration_KIND_INT, Default: &typev1.OptionValue{Value: &typev1.OptionValue_IntValue{IntValue: 4}}},
+		{Name: "tags", Kind: pluginv1.OptionDeclaration_KIND_STRING_LIST, Default: list},
 	}
 	if err := checkDescription(described(sound...)); err != nil {
 		t.Fatalf("a plugin with one sound option of each kind was refused: %v", err)
 	}
 
-	for name, options := range map[string][]*pluginv1.Option{
-		"a name that is not lower-case":    {{Name: "Flavour", Kind: pluginv1.Option_KIND_STRING, Default: &typev1.OptionValue{Value: &typev1.OptionValue_StringValue{StringValue: ""}}}},
-		"no name":                          {{Kind: pluginv1.Option_KIND_STRING, Default: &typev1.OptionValue{Value: &typev1.OptionValue_StringValue{StringValue: ""}}}},
+	for name, options := range map[string][]*pluginv1.OptionDeclaration{
+		"a name that is not lower-case":    {{Name: "Flavour", Kind: pluginv1.OptionDeclaration_KIND_STRING, Default: &typev1.OptionValue{Value: &typev1.OptionValue_StringValue{StringValue: ""}}}},
+		"no name":                          {{Kind: pluginv1.OptionDeclaration_KIND_STRING, Default: &typev1.OptionValue{Value: &typev1.OptionValue_StringValue{StringValue: ""}}}},
 		"one name twice":                   {sound[0], sound[0]},
 		"no kind":                          {{Name: "flavour", Default: &typev1.OptionValue{Value: &typev1.OptionValue_StringValue{StringValue: ""}}}},
-		"no default":                       {{Name: "flavour", Kind: pluginv1.Option_KIND_STRING}},
-		"a switch whose default is text":   {{Name: "strict", Kind: pluginv1.Option_KIND_BOOL, Default: &typev1.OptionValue{Value: &typev1.OptionValue_StringValue{StringValue: "true"}}}},
-		"an integer with no value":         {{Name: "jobs", Kind: pluginv1.Option_KIND_INT, Default: &typev1.OptionValue{}}},
-		"an integer with a string default": {{Name: "jobs", Kind: pluginv1.Option_KIND_INT, Default: sound[0].Default}},
-		"a list with a nil message":        {{Name: "tags", Kind: pluginv1.Option_KIND_STRING_LIST, Default: &typev1.OptionValue{Value: &typev1.OptionValue_StringListValue{}}}},
+		"no default":                       {{Name: "flavour", Kind: pluginv1.OptionDeclaration_KIND_STRING}},
+		"a switch whose default is text":   {{Name: "strict", Kind: pluginv1.OptionDeclaration_KIND_BOOL, Default: &typev1.OptionValue{Value: &typev1.OptionValue_StringValue{StringValue: "true"}}}},
+		"an integer with no value":         {{Name: "jobs", Kind: pluginv1.OptionDeclaration_KIND_INT, Default: &typev1.OptionValue{}}},
+		"an integer with a string default": {{Name: "jobs", Kind: pluginv1.OptionDeclaration_KIND_INT, Default: sound[0].Default}},
+		"a list with a nil message":        {{Name: "tags", Kind: pluginv1.OptionDeclaration_KIND_STRING_LIST, Default: &typev1.OptionValue{Value: &typev1.OptionValue_StringListValue{}}}},
 	} {
 		if err := checkDescription(described(options...)); err == nil {
 			t.Errorf("a plugin that declares %s was loaded", name)

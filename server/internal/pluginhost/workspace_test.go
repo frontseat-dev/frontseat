@@ -96,7 +96,7 @@ func TestAnArrangedFileMayBeAboveItsProject(t *testing.T) {
 // A reconciliation edits only the files it was asked about, at plain
 // keys, with plain strings, each place once.
 func TestAReconciliationIsHeldToTheFilesAsked(t *testing.T) {
-	request := &pluginv1.ReconcileRequest{Root: "app", Entities: []*pluginv1.Resolved{{Manifest: "app/catalog-info.yaml"}}}
+	request := &pluginv1.ReconcileRequest{Root: "app", Entities: []*pluginv1.EntityDependencies{{Manifest: "app/catalog-info.yaml"}}}
 	edit := func(path string, document int32, keys []string, values ...string) *pluginv1.ReconcileResponse {
 		return &pluginv1.ReconcileResponse{Edits: []*pluginv1.Edit{{Path: path, Document: document, Keys: keys, Values: values}}}
 	}

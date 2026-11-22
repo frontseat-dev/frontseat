@@ -78,7 +78,7 @@ fn describe(d: Description, request: &[u8]) -> Result<Vec<u8>, Error> {
     let options = d
         .options
         .into_iter()
-        .map(|o| wire::Option {
+        .map(|o| wire::OptionDeclaration {
             name: o.name.into(),
             kind: o.kind() as i32,
             default: Some(o.default.into()),
