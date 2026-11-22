@@ -317,7 +317,8 @@ const mostDescribed = 1 << 20
 // in front of, which the runtime pulls it from and from nowhere else.
 // Where none is, the image as written, by its digest.
 func (r *runner) proxied(written string) (string, error) {
-	// What was written is not repeated: any client of the grid writes it.
+	// What was written is not repeated: any client of the grid writes
+	// it, and what image.Read refuses it with repeats none of it.
 	pinned, err := image.Read(written)
 	if err != nil {
 		return "", fmt.Errorf("a service's image %w", err)
