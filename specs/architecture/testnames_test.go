@@ -4,8 +4,6 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -90,14 +88,7 @@ func occasionedTests(name string, source []byte) ([]string, error) {
 // on, as its file is: no word of a Go test's name is an occasion's.
 func TestATestIsNamedForItsSubject(t *testing.T) {
 	root := repositoryRoot(t)
-	for _, file := range repositoryFiles(t, root) {
-		if !strings.HasSuffix(file, "_test.go") || slices.Contains(strings.Split(file, "/"), "testdata") {
-			continue
-		}
-		source, err := os.ReadFile(filepath.Join(root, file))
-		if err != nil {
-			t.Fatal(err)
-		}
+	goTestFiles(t, root, func(file string, source []byte) {
 		named, err := occasionedTests(file, source)
 		if err != nil {
 			t.Fatal(err)
@@ -105,7 +96,7 @@ func TestATestIsNamedForItsSubject(t *testing.T) {
 		for _, name := range named {
 			t.Errorf("%s: %s is named for an occasion (%v): name it for what it holds", file, name, anOccasion)
 		}
-	}
+	})
 }
 
 func TestATestNamedForAnOccasionIsFound(t *testing.T) {
