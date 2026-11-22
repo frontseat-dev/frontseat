@@ -4,8 +4,10 @@
 package machine
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -48,7 +50,9 @@ func contextFile() (string, error) {
 }
 
 // ReadContext returns the context: the workspace last opened. It says
-// whether there is one.
+// whether there is one. The file is read in its format alone: a key it
+// does not have, or more than one object, is refused, naming the file,
+// which the next workspace opened writes again.
 func ReadContext() (Context, bool, error) {
 	path, err := contextFile()
 	if err != nil {
@@ -62,8 +66,10 @@ func ReadContext() (Context, bool, error) {
 		return Context{}, false, err
 	}
 	var c Context
-	if err := json.Unmarshal(raw, &c); err != nil {
-		return Context{}, false, err
+	strict := json.NewDecoder(bytes.NewReader(raw))
+	strict.DisallowUnknownFields()
+	if err := strict.Decode(&c); err != nil || strict.More() {
+		return Context{}, false, fmt.Errorf("%s is not written in the command line's format: delete it, and open a workspace again", path)
 	}
 	return c, true, nil
 }
