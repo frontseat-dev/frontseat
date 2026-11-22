@@ -52,6 +52,22 @@ rules_apko fetches each section by an HTTP range request. The grid's proxy did
 not serve ranges when this was written, so the package is fetched whole and cut
 on the worker instead; it is one download for a package where ranges are two.
 
+## Options
+
+None. The plugin is listed with nothing set, and an option written for
+it is refused by name. The architectures built are the
+ones the lock holds packages of.
+
+```yaml
+# frontseat.yaml
+plugins:
+  apko: {}
+```
+
+## Catalog keys
+
+None: nothing a catalog file says reaches the plugin.
+
 ## Not served yet, each refused by name
 
 What a configuration says that is valid and not built yet is refused

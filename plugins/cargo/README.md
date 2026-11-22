@@ -68,9 +68,32 @@ a registry the worker names), since only cargo fetches from those.
 |---|---|---|---|---|
 | `wasm` | bool | false | the repository or an entity | Builds a library and the examples that are a `cdylib` to wasm32-wasip1 modules too (`wasm`, `wasm-examples`), with the `rust-std-wasm32-wasip1` the repository pins beside Rust; a package that has one, where the option is set and that standard library is not pinned, is refused (`unpinned-tool`). |
 
+```yaml
+# frontseat.yaml
+plugins:
+  cargo:
+    wasm: true
+```
+
 `target/` is never handed on: build scripts and proc macros run code of
 what is built, so cargo's cache falls under the rule that such a cache
 is not shared. Warm builds come from the grid's action cache.
+
+## Catalog keys
+
+| Key | Read by | What it does |
+|---|---|---|
+| `spec.frontseat.plugins.cargo` | the host | A Component's own setting of an option above, for its directory and what is beneath it, in place of the repository's. |
+| `spec.frontseat.test` | the host | What the Component's tests are given beyond what the plugin gives them: `inputs` (files, each a path from the repository's root written `/…`), `tools` (pinned tools) and `environment` (variables). |
+
+```yaml
+# catalog-info.yaml
+spec:
+  frontseat:
+    plugins:
+      cargo:
+        wasm: true
+```
 
 ## Not built yet
 
@@ -91,8 +114,7 @@ since its download address is not in the lock. This repository's own crates are 
 (`specs/build/self_test.go`): the plugin SDK's contract types are
 committed (`sdk/plugin/src/gen`), so its build runs no build script and
 reads nothing outside the package. Each action compiles its dependencies from
-the lock: the self-build spec took 405 s on 2026-11-08 with the Go
-modules, the API and the five Rust packages, measured by `go test`.
+the lock.
 
 Specs: `specs/build/cargo_test.go`. Conformance fixture:
 `server/internal/pluginhost/cargo_test.go` over `testdata/`.
