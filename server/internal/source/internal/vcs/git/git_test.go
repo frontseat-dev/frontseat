@@ -1597,8 +1597,8 @@ func TestATagNameIsHeldToGitsRuleWhereverTheDaemonRuns(t *testing.T) {
 	if err := (git.System{}).TagName(ctx, "greet/v1.0.0"); err != nil {
 		t.Errorf("a name git takes for a tag: %v", err)
 	}
-	if err := (git.System{}).TagName(ctx, "greet/v1..0"); err == nil {
-		t.Error("a name git does not take for a tag was taken")
+	if err := (git.System{}).TagName(ctx, "greet/v1..0"); err == nil || err.Error() != "is no name git takes for a tag" {
+		t.Errorf("a name git does not take for a tag: %v, want it said to be none", err)
 	}
 }
 
