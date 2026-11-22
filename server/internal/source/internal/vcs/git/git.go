@@ -93,12 +93,17 @@ func (s System) PushTag(ctx context.Context, directory, remote, name string) err
 	}
 	// What a tag is pushed with is what the remote has of the commit
 	// already: a commit made in the workspace that no branch there has
-	// would leave it under the tag's name, and is pushed first.
-	on, err := trimmed(ctx, in(ctx, directory), "for-each-ref", "--count=1", "--contains", ref+"^{commit}", "--format=%(refname)", "refs/remotes/origin")
+	// would leave it under the tag's name, and is pushed first. Asked of
+	// rev-list, the commit if no branch of the remote reaches it, and
+	// not of for-each-ref --contains: from git 2.56 that passes over a
+	// branch it cannot read, says so on its error stream alone and ends
+	// well, so a commit on that branch would be said to be on none.
+	// rev-list ends in failure there, in every git.
+	off, err := trimmed(ctx, in(ctx, directory), "rev-list", "--max-count=1", ref+"^{commit}", "--not", "--remotes=origin")
 	if err != nil {
 		return fmt.Errorf("git push: %s: which branch of the remote has its commit is not known: %w", name, err)
 	}
-	if on == "" {
+	if off != "" {
 		return fmt.Errorf("git push: the commit %s names is on no branch of the remote, as the repository last saw it: push the commit, then the tag", name)
 	}
 	// To origin, which is pinned to the remote given, and never to the
