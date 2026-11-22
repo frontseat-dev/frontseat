@@ -182,5 +182,19 @@
  {"patterns": ["/a"], "path": "a", "selected": false},
  {"patterns": ["a[!/]b"], "path": "a/b", "selected": false},
  {"patterns": ["{a,}"], "path": "a", "selected": true},
- {"patterns": ["**", "!{a/x,b}"], "path": "a/x", "selected": true}
+ {"patterns": ["**", "!{a/x,b}"], "path": "a/x", "selected": true},
+ {"patterns": ["a\\[1\\]"], "path": "a[1]", "selected": true},
+ {"patterns": ["a\\[1\\]"], "path": "a1", "selected": false},
+ {"patterns": ["\\{x,y\\}"], "path": "{x,y}", "selected": true},
+ {"patterns": ["\\{x,y\\}"], "path": "x", "selected": false},
+ {"patterns": ["\\!x"], "path": "!x", "selected": true},
+ {"patterns": ["\\!x"], "path": "x", "selected": false},
+ {"patterns": ["a\\\\b"], "path": "a\\b", "selected": true},
+ {"patterns": ["a\\\\b"], "path": "ab", "selected": false},
+ {"patterns": ["é\\?"], "path": "é?", "selected": true},
+ {"patterns": ["é\\?"], "path": "éx", "selected": false},
+ {"patterns": ["a\\*b"], "path": "a*b", "selected": true},
+ {"patterns": ["a\\*b"], "path": "axb", "selected": false},
+ {"patterns": ["pkg\\[1\\]/a\\*b"], "path": "pkg[1]/a*b", "selected": true},
+ {"patterns": ["pkg\\[1\\]/a\\*b"], "path": "pkg1/axb", "selected": false}
 ]
