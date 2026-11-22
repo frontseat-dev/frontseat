@@ -82,7 +82,7 @@ func TestTheStackMakesAWorkspaceWithNothingStartedByHand(t *testing.T) {
 	owner := stackOwner(t)
 	checkout := helloModule(t)
 
-	made, _ := madeWorkspace(t, frontseat.New(stack, owner), frontseat.WorkspaceSpec{Image: image, Repositories: cloned(t, checkout)})
+	made, _ := madeWorkspace(t, sdkClient(t, stack, owner), frontseat.WorkspaceSpec{Image: image, Repositories: cloned(t, checkout)})
 	run, labels := buildIn(t, made)
 	if run.GetExitCode().GetName() != "SUCCESS" || run.GetCounts().GetPassed() == 0 {
 		t.Fatalf("the build ended %s with %d actions passed (%s), want SUCCESS", run.GetExitCode().GetName(), run.GetCounts().GetPassed(), labels)
@@ -124,10 +124,10 @@ func TestTheStacksEndpointRunsNothingInASandbox(t *testing.T) {
 			t.Errorf("ExecSandbox at %s with %s: %v, %v; want no such call", stack, name, ran, err)
 		}
 	}
-	if _, err := frontseat.Collect(frontseat.New(stack).Workspaces(context.Background())); connect.CodeOf(err) != connect.CodeUnauthenticated {
+	if _, err := frontseat.Collect(sdkClient(t, stack).Workspaces(context.Background())); connect.CodeOf(err) != connect.CodeUnauthenticated {
 		t.Errorf("ListWorkspaces at %s with no token: %v, want it refused as unauthenticated", stack, err)
 	}
-	if _, err := frontseat.Collect(frontseat.New(stack, stackOwner(t)).Workspaces(context.Background())); err != nil {
+	if _, err := frontseat.Collect(sdkClient(t, stack, stackOwner(t)).Workspaces(context.Background())); err != nil {
 		t.Errorf("ListWorkspaces at %s with the owner's token: %v", stack, err)
 	}
 }

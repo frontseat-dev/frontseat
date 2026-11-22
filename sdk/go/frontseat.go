@@ -1,7 +1,7 @@
 // Package frontseat is the Go SDK of Frontseat: one Client, made for a
 // server, from which everything is reached.
 //
-//	fs := frontseat.New("https://frontseat.example", frontseat.WithToken(token))
+//	fs, err := frontseat.New("https://frontseat.example", frontseat.WithToken(token))
 //	ws := fs.Workspace("payments")
 //	build, err := ws.Build(ctx, frontseat.BuildRequest{Targets: []string{"gateway"}})
 //	for event, err := range build.Events(ctx, 0) { ... }
@@ -27,10 +27,15 @@
 package frontseat
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"connectrpc.com/connect/v2"
 
+	"github.com/frontseat-dev/frontseat/sdk/go/bearer"
 	"github.com/frontseat-dev/frontseat/sdk/go/internal/transport"
 )
 
@@ -64,32 +69,65 @@ func WithHTTPClient(client *http.Client) Option {
 // Client is a client of one Frontseat server: a control plane, or,
 // inside a workspace's sandbox, the daemon there.
 type Client struct {
-	server string
+	server *url.URL
 	reach  transport.Reach
 	api    *connect.Client
 }
 
-// New returns a Client of the server at an address, a URL such as
-// http://127.0.0.1:7700. Nothing is asked of the server until a call is
-// made.
-func New(server string, options ...Option) *Client {
+// New returns a Client of the server at an address: a URL of http or
+// https and a host, such as http://127.0.0.1:7700, with no user, no
+// path but /, no query and no fragment; a trailing / is left out.
+// Nothing is asked of the server until a call is made. An address that
+// is none of that is refused, and so is a Client that would present its
+// token (WithToken) in clear to another machine: over http to a host
+// that is not this machine's (bearer.ErrInClear). A control plane on
+// another machine is named with https.
+func New(server string, options ...Option) (*Client, error) {
+	at, err := address(server)
+	if err != nil {
+		return nil, err
+	}
 	var reach transport.Reach
 	for _, option := range options {
 		if option.apply != nil {
 			option.apply(&reach)
 		}
 	}
-	reach.Origin = server
-	return &Client{server: server, reach: reach, api: transport.New(server, reach, errorsRead)}
+	if reach.Token != "" && !bearer.Private(at) {
+		return nil, bearer.ErrInClear
+	}
+	reach.Origin = at.String()
+	return &Client{server: at, reach: reach, api: transport.New(reach.Origin, reach, errorsRead)}, nil
 }
 
-// Server is the address the Client was made for.
-func (c *Client) Server() string { return c.server }
+// address is the server an address names, or why it names none.
+func address(server string) (*url.URL, error) {
+	at, err := url.Parse(server)
+	switch {
+	case err != nil:
+		return nil, fmt.Errorf("a server is named by a URL, http://host:port or https://host: %w", err)
+	case at.Scheme != "http" && at.Scheme != "https":
+		return nil, fmt.Errorf("a server is named by a URL of http or https, and %q is not one", server)
+	case at.Host == "":
+		return nil, fmt.Errorf("a server is named by a URL with a host, and %q has none", server)
+	case at.User != nil:
+		return nil, errors.New("a server is named with no user: a token is given with WithToken")
+	case at.RawQuery != "" || at.ForceQuery || at.Fragment != "" || strings.Contains(server, "#"):
+		return nil, fmt.Errorf("a server is named by its scheme, host and port alone, and %q says more", server)
+	case at.Path != "" && at.Path != "/":
+		return nil, fmt.Errorf("a server is named by its scheme, host and port alone, and %q names a path", server)
+	}
+	return &url.URL{Scheme: at.Scheme, Host: at.Host}, nil
+}
+
+// Server is the address the Client was made for, as New read it:
+// http://127.0.0.1:7700.
+func (c *Client) Server() string { return c.server.String() }
 
 // at is a connection to an address the server gave, presenting the
 // Client's token where the address is of the server's origin alone.
 func (c *Client) at(address string) *connect.Client {
-	if address == c.server {
+	if address == c.Server() {
 		return c.api
 	}
 	return transport.New(address, c.reach, errorsRead)

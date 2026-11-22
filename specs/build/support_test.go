@@ -421,7 +421,13 @@ func (s *Source) catalog() backstagetest.Served {
 }
 
 // daemon is the workspace's daemon, as the SDK reaches it.
-func (w *Workspace) daemon() *frontseat.Workspace { return frontseat.New(w.at).Here() }
+func (w *Workspace) daemon() *frontseat.Workspace {
+	fs, err := frontseat.New(w.at)
+	if err != nil {
+		w.Fatal(err)
+	}
+	return fs.Here()
+}
 
 // buildsAt is the builds of the daemon at an endpoint, over the wire,
 // for what a spec asks that the SDK does not serve: a request's own

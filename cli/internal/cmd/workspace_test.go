@@ -136,9 +136,9 @@ func TestAWorkspaceOpenedOfWhatIsNamedSaysHowItCame(t *testing.T) {
 	plane := &making{}
 	serverAt(t, serving(t, func(api *connect.Server) { workspacev1alpha1connect.RegisterWorkspaceServiceHandler(api, plane) }))
 	for want, answers := range map[string]func() *workspacev1.CreateWorkspaceResponse{
-		"payments  made\n": came(true, workspacev1.WorkspaceStatus_STATE_POPULATING),
-		"payments  filled\n": came(false, workspacev1.WorkspaceStatus_STATE_POPULATING),
-		"payments  as it was left\n":                            came(false, workspacev1.WorkspaceStatus_STATE_READY),
+		"payments  made\n":           came(true, workspacev1.WorkspaceStatus_STATE_POPULATING),
+		"payments  filled\n":         came(false, workspacev1.WorkspaceStatus_STATE_POPULATING),
+		"payments  as it was left\n": came(false, workspacev1.WorkspaceStatus_STATE_READY),
 	} {
 		plane.answers = answers
 		if got, _, err := runAt(t, context.Background(), "", "workspace", "open", "component:payments"); err != nil || got != want {

@@ -108,7 +108,7 @@ func there(state workspacev1.WorkspaceStatus_State, push bool) *workspacev1.Work
 func TestAWorkspaceIsAskedForByWhatItIsToHold(t *testing.T) {
 	for _, push := range []bool{false, true} {
 		p := &plane{refused: connect.NewError(connect.CodeInternal, "the test makes no workspace")}
-		_, err := New(served(t, p)).Open(context.Background(), pushing(push))
+		_, err := client(t, served(t, p)).Open(context.Background(), pushing(push))
 		if err == nil || !strings.Contains(err.Error(), "the test makes no workspace") {
 			t.Fatalf("opening: %v, want the control plane's own answer", err)
 		}
@@ -145,7 +145,7 @@ func TestHowAWorkspaceCameToBeOpenedIsTheControlPlanesWord(t *testing.T) {
 		"there and pushing, asked plainly": {&workspacev1.CreateWorkspaceResponse{Workspace: there(workspacev1.WorkspaceStatus_STATE_READY, true)}, OpenOutcomeExisting, true},
 	} {
 		p := &plane{answers: c.answers, holds: []string{here.Repositories[0].Remote}}
-		opened, err := New(served(t, p)).Open(context.Background(), pushing(false))
+		opened, err := client(t, served(t, p)).Open(context.Background(), pushing(false))
 		if err != nil {
 			t.Errorf("%s: %v", name, err)
 			continue
@@ -162,7 +162,7 @@ func TestHowAWorkspaceCameToBeOpenedIsTheControlPlanesWord(t *testing.T) {
 // it was given.
 func TestOpeningEndsNothing(t *testing.T) {
 	refusing := &plane{refused: connect.NewError(connect.CodeAlreadyExists, "the workspace code-main is there, and it was made without push")}
-	if _, err := New(served(t, refusing)).Open(context.Background(), pushing(true)); connect.CodeOf(err) != connect.CodeAlreadyExists || !strings.Contains(err.Error(), "made without push") {
+	if _, err := client(t, served(t, refusing)).Open(context.Background(), pushing(true)); connect.CodeOf(err) != connect.CodeAlreadyExists || !strings.Contains(err.Error(), "made without push") {
 		t.Errorf("a workspace that is there and asked for otherwise: %v, want the control plane's refusal", err)
 	}
 	if len(refusing.deleted) != 0 {
@@ -181,7 +181,7 @@ func TestAWorkspaceOpenedByItsNameIsAskedForAsItWasMade(t *testing.T) {
 		Push:         true, Author: &workspacev1.Author{Name: "Someone", Email: "someone@forge.example"}, Image: "box:1",
 	}
 	p := &plane{answers: &workspacev1.CreateWorkspaceResponse{Workspace: there(workspacev1.WorkspaceStatus_STATE_READY, true)}, kept: kept}
-	fs := New(served(t, p))
+	fs := client(t, served(t, p))
 	if _, err := fs.Open(context.Background(), WorkspaceSpec{Name: "a-workspace", AuthorizedKey: "key"}); err != nil {
 		t.Fatal(err)
 	}

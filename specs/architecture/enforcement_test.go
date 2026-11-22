@@ -46,6 +46,10 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		// command line, not the shared private libraries.
 		{"sdk/go/build.go", "sdk/go/api/frontseat/build/v1alpha1/buildv1alpha1connect", true},
 		{"sdk/go/frontseat.go", "sdk/go/internal/transport", true},
+		// The client refuses a token in clear as bearer says it, and the
+		// bearer knows nothing of the client.
+		{"sdk/go/frontseat.go", "sdk/go/bearer", true},
+		{"sdk/go/bearer/bearer.go", "sdk/go", false},
 		{"sdk/go/build.go", "server/internal/build", false},
 		{"sdk/go/build.go", "cli/internal/machine", false},
 		{"sdk/go/internal/transport/transport.go", "server/telemetry", false},

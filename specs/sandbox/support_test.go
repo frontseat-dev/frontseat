@@ -74,6 +74,16 @@ func planeOf(at string) controlplanetest.Served {
 // is of, as its owner's client does.
 func owned(at string) frontseat.Option { return planeOf(at).Owner }
 
+// ownedClient is the SDK's client of the control plane an address is
+// of, as its owner.
+func ownedClient(at string) *frontseat.Client {
+	fs, err := frontseat.New(at, owned(at))
+	if err != nil {
+		panic(err)
+	}
+	return fs
+}
+
 // ownerToken is the token of the owner of the control plane an address
 // is of, for a client that is none of the SDK's.
 func ownerToken(at string) string {
@@ -156,7 +166,7 @@ func livingIn(server, name string) string {
 // sdk is the workspace as the SDK reaches it, as the owner of its
 // control plane.
 func (r reached) sdk() *frontseat.Workspace {
-	return frontseat.New(r.Server, owned(r.Server)).Workspace(r.Workspace)
+	return ownedClient(r.Server).Workspace(r.Workspace)
 }
 
 // making is a workspace to make, of the control plane at Server.
@@ -168,7 +178,7 @@ type making struct {
 // made makes a workspace as the owner of its control plane asks for it,
 // waits until it can be worked in, and says how it came to be.
 func made(ctx context.Context, m making) (reached, frontseat.OpenResult, error) {
-	opened, err := frontseat.New(m.Server, owned(m.Server)).Open(ctx, m.WorkspaceSpec)
+	opened, err := ownedClient(m.Server).Open(ctx, m.WorkspaceSpec)
 	return reachedOf(m.Server, opened.Status), opened, err
 }
 
@@ -839,7 +849,7 @@ func ended(name string) { endedAt(server, name) }
 func endedAt(address, name string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-	_ = frontseat.New(address, owned(address)).Workspace(name).Delete(ctx)
+	_ = ownedClient(address).Workspace(name).Delete(ctx)
 }
 
 // The test supplies operator telemetry settings to a private control plane.

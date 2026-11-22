@@ -62,15 +62,11 @@ func Presents(address string, reach Reach) bool {
 }
 
 // sameOrigin is whether an address, http or ws, is of an origin
-// (bearer.Of).
+// (bearer.SameOrigin).
 func sameOrigin(address, origin string) bool {
 	a, err := url.Parse(address)
 	if err != nil {
 		return false
 	}
-	o, err := url.Parse(origin)
-	if err != nil {
-		return false
-	}
-	return bearer.Of(a, o)
+	return bearer.SameOrigin(a, parsed(origin))
 }
