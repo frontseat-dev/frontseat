@@ -10,6 +10,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"io"
 	"slices"
+	"strings"
 	"sync"
 
 	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
@@ -123,7 +124,7 @@ func (h *Host) Load(ctx context.Context, module []byte) (*Plugin, error) {
 		return nil, fmt.Errorf("pluginhost: %s is not a plugin: %w", digest[:12], err)
 	}
 	p := &Plugin{Digest: digest, rt: h.rt, compiled: compiled}
-	instance, err := p.instantiate(ctx)
+	instance, err := p.instantiate(ctx, io.Discard)
 	if err != nil {
 		_ = compiled.Close(ctx)
 		return nil, fmt.Errorf("pluginhost: instantiating %s: %w", digest[:12], err)
@@ -136,12 +137,12 @@ func (h *Host) Load(ctx context.Context, module []byte) (*Plugin, error) {
 	}
 	if v := uint32(got[0]); v < MinABI || v > MaxABI {
 		_ = compiled.Close(ctx)
-		return nil, fmt.Errorf("pluginhost: %s speaks plugin ABI %d, and this host loads %d to %d", digest[:12], v, MinABI, MaxABI)
+		return nil, fmt.Errorf("pluginhost: %s speaks plugin ABI %d, and this host loads %d to %d: build it against an SDK of an ABI this host loads", digest[:12], v, MinABI, MaxABI)
 	}
 	description := &pluginv1.DescribeResponse{}
 	if _, err := p.Call(ctx, nil, "Describe", &pluginv1.DescribeRequest{HostAbiMin: MinABI, HostAbiMax: MaxABI}, description); err != nil {
 		_ = compiled.Close(ctx)
-		return nil, err
+		return nil, fmt.Errorf("pluginhost: %s, asked what it is: %w", digest[:12], err)
 	}
 	if err := checkDescription(description); err != nil {
 		_ = compiled.Close(ctx)
@@ -152,20 +153,76 @@ func (h *Host) Load(ctx context.Context, module []byte) (*Plugin, error) {
 }
 
 // instantiate returns an instance of the module: its own memory, with
-// nothing in it of any call before.
-func (p *Plugin) instantiate(ctx context.Context) (api.Module, error) {
+// nothing in it of any call before. What the instance prints to
+// standard error is written to stderr.
+func (p *Plugin) instantiate(ctx context.Context, stderr io.Writer) (api.Module, error) {
 	config := wazero.NewModuleConfig().
 		WithName("").
 		WithStartFunctions("_initialize").
 		WithStdout(io.Discard).
-		WithStderr(io.Discard)
+		WithStderr(stderr)
 	return p.rt.InstantiateModule(ctx, p.compiled, config)
+}
+
+// printedAtMost is how much is kept of what a module printed to standard
+// error: its end, where a module that trapped says why.
+const printedAtMost = 8 << 10
+
+// printed keeps the end of what a module printed to standard error.
+type printed struct {
+	end []byte
+	cut bool
+}
+
+// Write implements io.Writer. It keeps the last printedAtMost bytes.
+func (p *printed) Write(b []byte) (int, error) {
+	written := len(b)
+	if len(b) > printedAtMost {
+		b, p.cut = b[len(b)-printedAtMost:], true
+	}
+	p.end = append(p.end, b...)
+	if over := len(p.end) - printedAtMost; over > 0 {
+		p.end, p.cut = append(p.end[:0], p.end[over:]...), true
+	}
+	return written, nil
+}
+
+// said is what was kept, as an error says it: text of one piece, with
+// nothing in it that a terminal acts on.
+func (p *printed) said() string {
+	text := strings.Map(func(r rune) rune {
+		if r < 0x20 && r != '\n' && r != '\t' || r == 0x7f {
+			return -1
+		}
+		return r
+	}, strings.ToValidUTF8(string(p.end), "\uFFFD"))
+	text = strings.TrimSpace(text)
+	switch {
+	case text == "":
+		return "it printed nothing to standard error"
+	case p.cut:
+		return "the end of what it printed to standard error: " + text
+	}
+	return "it printed to standard error: " + text
+}
+
+// named is what the plugin is named by in what is said of a call: its
+// name, or the start of its digest while it has not said its name.
+func (p *Plugin) named() string {
+	if name := p.Description.GetName(); name != "" {
+		return name
+	}
+	return p.Digest[:12]
 }
 
 // Close releases the module.
 func (p *Plugin) Close(ctx context.Context) error { return p.compiled.Close(ctx) }
 
-// ErrUnsupported is returned for a method the module does not serve.
+// ErrUnsupported is what a plugin's answer is where the plugin does not
+// serve the method: UNIMPLEMENTED, for the reason <METHOD>_NOT_SERVED
+// or, of a method its SDK does not know, UNKNOWN_METHOD. UNIMPLEMENTED
+// for another reason is of what the method was asked about, which the
+// plugin does not build yet, and is a failure of the call.
 var ErrUnsupported = errors.New("pluginhost: the plugin does not serve the method")
 
 // Call asks the plugin one method of the contract's PluginService and
@@ -177,65 +234,80 @@ var ErrUnsupported = errors.New("pluginhost: the plugin does not serve the metho
 // there for the next, so an answer depends on the request and on what
 // was read and on nothing else; calls do not wait for each other; and a
 // call whose caller has gone ends alone, the plugin still answering.
+//
+// A call that does not end in an answer says which of three things
+// happened: its caller gave it up, the host could not serve what the
+// plugin read, or the module trapped, which is a bug in the module and
+// is said with what the module printed to standard error.
 func (p *Plugin) Call(ctx context.Context, src Source, method string, request, response proto.Message) (reads []Read, err error) {
 	ctx, span := telemetry.Start(ctx, "plugin", attribute.String("plugin", p.Description.GetName()), attribute.String("method", method))
 	defer func() {
 		span.SetAttributes(attribute.Int("reads", len(reads)))
 		telemetry.End(span, err)
 	}()
+	unanswered := func(format string, args ...any) error {
+		return fmt.Errorf("pluginhost: plugin %s: %s: %w", p.named(), method, fmt.Errorf(format, args...))
+	}
 	in, err := proto.Marshal(request)
 	if err != nil {
-		return nil, fmt.Errorf("pluginhost: %s: %w", method, err)
+		return nil, unanswered("%w", err)
 	}
 	envelope, err := proto.Marshal(&pluginv1.Call{Method: method, Request: in})
 	if err != nil {
-		return nil, fmt.Errorf("pluginhost: %s: %w", method, err)
+		return nil, unanswered("%w", err)
 	}
 	state := &callState{source: src}
 	ctx = context.WithValue(ctx, callKey{}, state)
 
-	instance, err := p.instantiate(ctx)
+	stderr := &printed{}
+	instance, err := p.instantiate(ctx, stderr)
 	if err != nil {
-		return nil, fmt.Errorf("pluginhost: %s: %w", method, err)
+		return nil, unanswered("%w", err)
 	}
 	defer instance.Close(context.WithoutCancel(ctx))
 	alloc, free, call := instance.ExportedFunction("frontseat_alloc"), instance.ExportedFunction("frontseat_free"), instance.ExportedFunction("frontseat_call")
 
 	ptr, err := writeInto(ctx, instance, alloc, envelope)
 	if err != nil {
-		return nil, fmt.Errorf("pluginhost: %s: %w", method, err)
+		return nil, unanswered("%w", err)
 	}
 	packed, err := call.Call(ctx, uint64(ptr), uint64(len(envelope)))
-	if err != nil {
-		return nil, fmt.Errorf("pluginhost: %s: the module trapped: %w", method, err)
+	// A module is ended where its caller has gone, and is told nothing
+	// of a read the host could not serve: neither is the module's bug,
+	// whatever the module did after.
+	switch {
+	case ctx.Err() != nil:
+		return nil, unanswered("its caller gave the call up: %w", context.Cause(ctx))
+	case state.err != nil:
+		return nil, unanswered("the host could not serve what the plugin read: %w", state.err)
+	case err != nil:
+		return nil, unanswered("the module trapped, which is a bug in the plugin: %w; %s", err, stderr.said())
 	}
 	_, _ = free.Call(ctx, uint64(ptr), uint64(len(envelope)))
-	if state.err != nil {
-		return nil, fmt.Errorf("pluginhost: %s: %w", method, state.err)
-	}
 	rptr, rsize := uint32(packed[0]>>32), uint32(packed[0])
 	raw, ok := instance.Memory().Read(rptr, rsize)
 	if !ok {
-		return nil, fmt.Errorf("pluginhost: %s: the module answered outside its memory", method)
+		return nil, unanswered("the module answered outside its memory")
 	}
 	reply := &pluginv1.Reply{}
 	if err := proto.Unmarshal(raw, reply); err != nil {
-		return nil, fmt.Errorf("pluginhost: %s: %w", method, err)
+		return nil, unanswered("%w", err)
 	}
 	switch r := reply.GetResult().(type) {
 	case *pluginv1.Reply_Response:
 		if err := proto.Unmarshal(r.Response, response); err != nil {
-			return nil, fmt.Errorf("pluginhost: %s: %w", method, err)
+			return nil, unanswered("%w", err)
 		}
 		return state.reads, nil
 	case *pluginv1.Reply_Error:
 		failure, err := readError(p.Description.GetName(), r.Error)
 		if err != nil {
-			return nil, err
+			return nil, unanswered("%w", err)
 		}
+		failure.method = method
 		return nil, failure
 	default:
-		return nil, fmt.Errorf("pluginhost: %s: the module answered nothing", method)
+		return nil, unanswered("the module answered nothing")
 	}
 }
 

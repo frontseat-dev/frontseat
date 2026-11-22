@@ -20,13 +20,15 @@ use crate::{Analysis, File, Handed, Repository};
 pub struct Error {
     /// Canonical RPC status.
     pub code: crate::Code,
-    /// A plugin-qualified reason, written lower-case `[a-z0-9-]` by
-    /// authors: `invalid-manifest`. A client is told it upper case,
-    /// `INVALID_MANIFEST`.
+    /// A plugin-qualified reason, written by authors as lower-case
+    /// words of `[a-z0-9]` joined by single hyphens, the first begun
+    /// with a letter: `invalid-manifest`. A client is told it upper
+    /// case, `INVALID_MANIFEST`.
     pub reason: String,
-    /// What went wrong.
+    /// What went wrong. It is never empty.
     pub message: String,
-    /// The file it is about, relative to the repository; empty for none.
+    /// The file it is about, relative to the repository's root and
+    /// within it; empty for none.
     pub path: String,
     /// The line in the file, from 1; 0 for none.
     pub line: i32,
@@ -110,11 +112,67 @@ impl Error {
         self
     }
 
-    /// Encode one shared failure model, with a canonical reason and source detail.
+    /// The rule of the host's this failure breaks, if it breaks one. The
+    /// host refuses a failure that is not a failure's code, a reason
+    /// written as [`Error::reason`] says, a message, and a file of the
+    /// repository where it names one; `sdk/plugin-test/testdata/failures.json`
+    /// is the table of cases the host and this run alike.
+    fn broken(&self) -> Option<&'static str> {
+        let mut words = self.reason.split('-');
+        let word = |word: &str| {
+            !word.is_empty()
+                && word
+                    .bytes()
+                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
+        };
+        let begun = self
+            .reason
+            .as_bytes()
+            .first()
+            .is_some_and(u8::is_ascii_lowercase);
+        if self.code == crate::Code::Ok {
+            Some("its code is OK, which is no failure")
+        } else if !begun || !words.all(word) {
+            Some("its reason is not lower-case words of [a-z0-9] joined by single hyphens, begun with a letter")
+        } else if self.message.is_empty() {
+            Some("it has no message")
+        } else if self.path.is_empty() {
+            None
+        } else if crate::repository::resolve("", &self.path).is_none() {
+            Some("its path is not a file of the repository, relative to its root")
+        } else if self.line < 0 {
+            Some("its line is below zero")
+        } else {
+            None
+        }
+    }
+
+    /// Encodes the failure as a module answers one: the status, with its
+    /// reason (`ErrorInfo`) and where it is and what to do (`Diagnostic`).
+    ///
+    /// A failure the host would refuse is not sent: the host would say
+    /// only that the plugin's failure was refused, and what the plugin
+    /// meant to say would be lost. In its place goes an `INTERNAL`
+    /// failure for the reason `invalid-failure`, which says the rule
+    /// broken and the message the plugin wrote.
     pub fn into_status(self, plugin: &str) -> crate::google::rpc::Status {
         use crate::frontseat::r#type::v1alpha1::{Diagnostic, SourceLocation};
         use crate::google::rpc::{ErrorInfo, Status};
         use prost::Message;
+        if let Some(rule) = self.broken() {
+            let said = if self.message.is_empty() {
+                "It said nothing.".to_string()
+            } else {
+                format!("It said: {}", self.message)
+            };
+            return Self::new(
+                crate::Code::Internal,
+                "invalid-failure",
+                format!("the plugin's failure is not one the host accepts: {rule}. {said}"),
+            )
+            .help("Write the failure as frontseat_plugin::Error says one is written.")
+            .into_status(plugin);
+        }
         let mut message = self.message.clone();
         if self.line > 0 {
             message = format!("line {}: {message}", self.line);

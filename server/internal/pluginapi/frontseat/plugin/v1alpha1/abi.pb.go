@@ -162,7 +162,10 @@ type Reply_Response struct {
 
 type Reply_Error struct {
 	// Error says the call failed, with ErrorInfo and shared Diagnostic details.
-	// A method the plugin does not serve uses UNIMPLEMENTED.
+	// A method the plugin does not serve uses UNIMPLEMENTED, for the
+	// reason <METHOD>_NOT_SERVED in its ErrorInfo, the method's name in
+	// capitals. UNIMPLEMENTED for another reason is a failure of the
+	// call, of something the method was asked about.
 	// Additional details use standard google.rpc error-detail messages only;
 	// custom message types and nested Status messages are refused. Every detail
 	// must be valid for both protobuf and JSON clients.

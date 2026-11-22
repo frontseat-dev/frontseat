@@ -16,7 +16,9 @@
 // (Report); it finds catalog entities (Analyze) and says what their files
 // should say (Reconcile); it says how a service is started for a test
 // (Service); it is a release strategy (Branch, Version). A method it does
-// not serve it answers UNIMPLEMENTED.
+// not serve it answers UNIMPLEMENTED, for the reason <METHOD>_NOT_SERVED,
+// the method's name in capitals. A name here is lower-case words of
+// [a-z0-9] joined by single hyphens.
 syntax = "proto3";
 
 package frontseat.plugin.v1alpha1;
@@ -51,8 +53,9 @@ service PluginService {
   // Report says what a check found, from what it printed: findings a
   // client need not parse. It is asked of each check that ran, once it
   // has ended, whatever its exit code. A plugin that does not serve it
-  // answers UNIMPLEMENTED, and its checks have no findings but their
-  // exit code and what they printed.
+  // answers UNIMPLEMENTED for the reason REPORT_NOT_SERVED, and its
+  // checks have no findings but their exit code and what they printed.
+  // UNIMPLEMENTED for another reason is a failure of the call.
   rpc Report(ReportRequest) returns (ReportResponse);
   // Reconcile asks a plugin that finds catalog entities what their
   // files should say of what the source says: for each entity, the
@@ -130,7 +133,8 @@ enum Profile {
 // against it, and hands the plugin every option it declared, each with
 // the value that holds where the plugin is asked.
 message Option {
-  // Name is what it is set by, lower-case [a-z0-9-].
+  // Name is what it is set by, lower-case words of [a-z0-9] joined by
+  // single hyphens.
   string name = 1;
   // Kind is the kind of value it takes.
   Kind kind = 3;
@@ -165,8 +169,8 @@ message DescribeRequest {
 
 // DescribeResponse is what a plugin is.
 message DescribeResponse {
-  // Name is the plugin's name, lower-case [a-z0-9-]. It qualifies every
-  // action the plugin declares.
+  // Name is the plugin's name, lower-case words of [a-z0-9] joined by
+  // single hyphens. It qualifies every action the plugin declares.
   string name = 1;
   // Abi is the ABI the module speaks. The host refuses a module outside
   // the range it sent.
@@ -411,9 +415,10 @@ message Produced {
 message Requirement {
   // Coordinate is what is needed.
   Coordinate coordinate = 1;
-  // Origin is where the ecosystem's own files say so. An edge is shown
-  // with it, so that whoever asks why one project needs another is
-  // pointed at the line.
+  // Origin is where the ecosystem's own files say so, and is required:
+  // the host refuses a requirement without a file and a line. An edge
+  // is shown with it, so that whoever asks why one project needs another
+  // is pointed at the line.
   Origin origin = 5;
   // Version is the version the project's own files resolve it to, as the
   // ecosystem spells it: v1.2.3 for Go (its go.mod, whose versions the
@@ -425,18 +430,19 @@ message Requirement {
 
 // Origin is a place in a file of the repository.
 message Origin {
-  // Path is the file, relative to the repository.
+  // Path is the file, relative to the repository's root and within it.
   string path = 1;
-  // Line is the line in it, from 1; zero when it names none.
+  // Line is the line in it, from 1.
   int32 line = 2;
 }
 
 // Action is one hermetic command. The host composes its label from the
 // entity that owns its project, the plugin's name and the action's name.
 message Action {
-  // Name is its name within the project, lower-case [a-z0-9-]. Plugins
-  // use the same names for the same things, since a run can be asked
-  // for only the actions of one name: lint, compile, test. A shared
+  // Name is its name within the project, lower-case words of [a-z0-9]
+  // joined by single hyphens. Plugins use the same names for the same
+  // things, since a run can be asked for only the actions of one name:
+  // lint, compile, test. A shared
   // action's name is that, a slash, and what it is of, in letters,
   // digits and "._~+@-/": fetch/github.com/spf13/cobra@v1.8.1.
   //
@@ -454,6 +460,10 @@ message Action {
   // is and of how many, from 1, as test/internal/ledger@2of4. No piece's
   // own name holds "@". The label of a piece that is cut into shards
   // points at its shards.
+  //
+  // An action that publishes is named "publish", a slash and what it
+  // publishes to, a name as the first sentence says one:
+  // publish/github. Only one that publishes is named so.
   string name = 1;
   // Command is what it runs.
   Command command = 4;
