@@ -54,7 +54,7 @@ func CheckPublish(what string, action *pluginv1.Action) error {
 		switch {
 		case !variable.MatchString(name):
 			return fmt.Errorf("%s is given the variable %q, which is no name a tool reads one by", what, name)
-		case name == "PATH" || name == "HOME" || name == "TMPDIR" || strings.HasPrefix(name, "MISE_") || strings.HasPrefix(name, "FRONTSEAT_"):
+		case hostSets(name) || strings.HasPrefix(name, "MISE_") || strings.HasPrefix(name, "FRONTSEAT_"):
 			return fmt.Errorf("%s is given the variable %s, which the host sets or keeps", what, name)
 		case slices.Contains(publish.GetEnvironment()[:i], name):
 			return fmt.Errorf("%s is given the variable %s twice", what, name)

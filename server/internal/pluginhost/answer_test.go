@@ -103,7 +103,7 @@ func TestProjectRootAliasesCannotDuplicateIdentity(t *testing.T) {
 	for _, roots := range [][2]string{{"", "."}, {"pkg", "sub/../pkg"}, {"pkg", "./pkg"}, {"pkg", "pkg/"}, {"pkg", "pkg/."}, {"pkg", "pkg"}, {"pkg", "other"}} {
 		var projects []*pluginv1.Project
 		for i, root := range roots {
-			projects = append(projects, &pluginv1.Project{Root: root, Manifest: "manifest.toml", Provides: []*pluginv1.Provide{{Coordinate: &pluginv1.Coordinate{Ecosystem: "fixture", Name: []string{"one", "two"}[i]}}}})
+			projects = append(projects, &pluginv1.Project{Root: root, Name: "fixture", Kind: "fixture", Manifest: "manifest.toml", Provides: []*pluginv1.Provide{{Coordinate: &pluginv1.Coordinate{Ecosystem: "fixture", Name: []string{"one", "two"}[i]}}}})
 		}
 		err := pluginhost.CheckAnalysis("fixture", []string{""}, &pluginv1.AnalyzeResponse{Analyses: []*pluginv1.Analysis{{Projects: projects}}})
 		if roots[1] == "other" {
@@ -397,7 +397,7 @@ func TestAnOutputIsWrittenPlainly(t *testing.T) {
 // the same.
 func TestNoProjectIsWhereAnActionsHomeIs(t *testing.T) {
 	answer := func(root string) *pluginv1.AnalyzeResponse {
-		return &pluginv1.AnalyzeResponse{Analyses: []*pluginv1.Analysis{{Projects: []*pluginv1.Project{{Root: root, Manifest: root + "/go.mod",
+		return &pluginv1.AnalyzeResponse{Analyses: []*pluginv1.Analysis{{Projects: []*pluginv1.Project{{Root: root, Name: "a", Kind: "go-module", Manifest: root + "/go.mod",
 			Actions: []*pluginv1.Action{{Name: "compile", Command: &pluginv1.Command{Arguments: []string{"true"}}, Outputs: []*pluginv1.Output{{Path: "home/x"}}}}}}}}}
 	}
 	for _, allowed := range []string{"a", ".frontseatx", "x/.frontseat", ".hidden"} {
@@ -798,5 +798,47 @@ func TestARequirementsVersionIsOneWordOfPrintableText(t *testing.T) {
 		if err == nil || !strings.Contains(err.Error(), "not one word of printable text") || strings.Contains(err.Error(), version) {
 			t.Errorf("version %q: %v", version, err)
 		}
+	}
+}
+
+// A project's name and kind are printed and pointed at: each is there,
+// one line of printable text, and no longer than a name is. A refusal
+// says the rule and not the name.
+func TestAProjectsNameAndKindAreHeldToWhatIsPrinted(t *testing.T) {
+	roots := []string{"services"}
+	for _, name := range []string{"example.com/hello", "@scope/package", "héllo wörld", strings.Repeat("n", pluginhost.ProjectNameAtMost)} {
+		a := sound()
+		a.Analyses[0].Projects[0].Name = name
+		if err := pluginhost.CheckAnalysis("go", roots, a); err != nil {
+			t.Errorf("the name %q was refused: %v", name, err)
+		}
+	}
+	for name, rule := range map[string]string{
+		"":              "it has no name",
+		"hello\nworld":  "not one line of printable text",
+		"hello\x1b[31m": "not one line of printable text",
+		strings.Repeat("n", pluginhost.ProjectNameAtMost+1): "not one line of printable text",
+	} {
+		a := sound()
+		a.Analyses[0].Projects[0].Name = name
+		err := pluginhost.CheckAnalysis("go", roots, a)
+		if err == nil || !strings.Contains(err.Error(), rule) || name != "" && strings.Contains(err.Error(), name) {
+			t.Errorf("the name %q: %v", name, err)
+		}
+	}
+	for _, kind := range []string{"", "Go Module", "go_module", "-module", "go--module", strings.Repeat("k", pluginhost.ProjectNameAtMost+1)} {
+		a := sound()
+		a.Analyses[0].Projects[0].Kind = kind
+		err := pluginhost.CheckAnalysis("go", roots, a)
+		if err == nil || !strings.Contains(err.Error(), "its kind is not lower-case words") {
+			t.Errorf("the kind %q: %v", kind, err)
+		}
+	}
+	// A project at the repository's root is said to be there.
+	a := sound()
+	a.Analyses[0].Root, a.Analyses[0].Projects[0].Root, a.Analyses[0].Projects[0].Name = "", "", ""
+	err := pluginhost.CheckAnalysis("go", []string{""}, a)
+	if err == nil || !strings.Contains(err.Error(), "project at the repository's root: it has no name") {
+		t.Errorf("a nameless project at the root: %v", err)
 	}
 }

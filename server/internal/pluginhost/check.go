@@ -81,7 +81,7 @@ func checkDescription(d *pluginv1.DescribeResponse) error {
 		case declared[option.GetName()]:
 			return fmt.Errorf("plugin %s declares the option %s twice", d.GetName(), option.GetName())
 		case !ofKind(option.GetKind(), option.GetDefault()):
-			return fmt.Errorf("plugin %s declares the option %s with a kind and a default that do not agree: a kind is text, a switch, a whole number or a list of text, and a default is one of it", d.GetName(), option.GetName())
+			return fmt.Errorf("plugin %s declares the option %s with a kind and a default that do not agree: a kind is a string, a bool, an int or a string list, and a default is a value of it", d.GetName(), option.GetName())
 		}
 		declared[option.GetName()] = true
 	}
@@ -148,19 +148,27 @@ func checkEntity(root string, described *pluginv1.Entity) error {
 	if !pattern.Local(manifest) || path.Clean(manifest) != manifest || !beneath(root, manifest) || manifest == root || strings.ContainsAny(manifest, "\\\x00") {
 		return fmt.Errorf("catalog manifest %q is not a file beneath %q", manifest, root)
 	}
+	wrong := func(format string, args ...any) error {
+		return fmt.Errorf("the entity of %s: %s", manifest, fmt.Sprintf(format, args...))
+	}
 	seen := map[string]bool{}
 	for _, at := range described.GetRoots() {
-		if at == "." || !beneath(root, at) || at != "" && path.Clean(at) != at || strings.ContainsAny(at, "\\\x00") || seen[at] {
-			return fmt.Errorf("catalog root %q is repeated or not beneath %q", at, root)
+		switch {
+		case seen[at]:
+			return wrong("its root %q is said twice", at)
+		case at == "." || at != "" && path.Clean(at) != at || strings.ContainsAny(at, "\\\x00"):
+			return wrong("its root %q is not written plainly: the repository's root is the empty path, and any other has no \".\", \"..\" or empty part", at)
+		case !beneath(root, at):
+			return wrong("its root %q is not beneath %q, the root that was asked about", at, root)
 		}
 		seen[at] = true
 	}
 	for _, relation := range described.GetRelations() {
 		if !relationName.MatchString(relation.GetType()) || !relationName.MatchString(relation.GetInverseType()) {
-			return fmt.Errorf("catalog relation must name its type and inverse type")
+			return wrong("a relation's type and its inverse type are each lowerCamelCase, a lower-case letter and then letters and digits")
 		}
 		if err := identity(relation.GetTarget()); err != nil {
-			return err
+			return wrong("a relation's target: %v", err)
 		}
 	}
 	return nil
@@ -178,7 +186,7 @@ func beneath(directory, at string) bool {
 // checkPatterns holds an input set to source patterns and nested sets.
 func checkPatterns(what string, inputs []*pluginv1.Input, sets map[string]bool) error {
 	for _, input := range inputs {
-		if _, err := checkInput(what, input, sets); err != nil {
+		if err := checkInput(what, input, sets); err != nil {
 			return err
 		}
 		switch input.GetKind().(type) {
@@ -192,26 +200,26 @@ func checkPatterns(what string, inputs []*pluginv1.Input, sets map[string]bool) 
 
 // checkInput validates the explicit variant without interpreting its contents
 // as another variant. Reference resolution belongs to the project and planner.
-func checkInput(what string, input *pluginv1.Input, sets map[string]bool) (reference bool, err error) {
+func checkInput(what string, input *pluginv1.Input, sets map[string]bool) error {
 	switch kind := input.GetKind().(type) {
 	case *pluginv1.Input_Output:
-		return true, nil
+		return nil
 	case *pluginv1.Input_InputSet:
 		if !sets[kind.InputSet] {
-			return false, fmt.Errorf("%s names the input set %q, which the project does not declare", what, kind.InputSet)
+			return fmt.Errorf("%s names the input set %q, which the project does not declare", what, kind.InputSet)
 		}
 	case *pluginv1.Input_Source:
 		if err := checkSourcePattern(what, kind.Source); err != nil {
-			return false, err
+			return err
 		}
 	case *pluginv1.Input_Dependency:
 		if err := checkDependency(what, kind.Dependency); err != nil {
-			return false, err
+			return err
 		}
 	default:
-		return false, fmt.Errorf("%s has an input without a supported kind", what)
+		return fmt.Errorf("%s has an input without a supported kind", what)
 	}
-	return false, nil
+	return nil
 }
 
 func checkSourcePattern(what, selection string) error {
@@ -366,12 +374,20 @@ func checkReferences(project *pluginv1.Project) error {
 	return nil
 }
 
+// ProjectNameAtMost is the most bytes a project's name, and its kind,
+// may be.
+const ProjectNameAtMost = 256
+
 // checkProject holds one project of an answer to the contract. What it
 // names becomes paths in a workspace and in the root of an action, so
 // each is held to the project it is of.
 func checkProject(plugin, root string, project *pluginv1.Project, found map[string]bool) error {
+	at := project.GetRoot()
+	if at == "" {
+		at = "at the repository's root"
+	}
 	wrong := func(format string, args ...any) error {
-		return fmt.Errorf("plugin %s: project %s: %s", plugin, project.GetRoot(), fmt.Sprintf(format, args...))
+		return fmt.Errorf("plugin %s: project %s: %s", plugin, at, fmt.Sprintf(format, args...))
 	}
 	switch {
 	case !beneath(root, project.GetRoot()):
@@ -385,6 +401,14 @@ func checkProject(plugin, root string, project *pluginv1.Project, found map[stri
 		return wrong("it was found twice: a directory is one project of a plugin's")
 	case !pattern.Local(project.GetManifest()):
 		return wrong("its manifest %q is not a file of the repository", project.GetManifest())
+	case project.GetName() == "":
+		// A name is what a person points at and what the graph prints:
+		// a project at the repository's root has one as any other has.
+		return wrong("it has no name: a project is named, at the repository's root too")
+	case !plain(project.GetName()) || len(project.GetName()) > ProjectNameAtMost:
+		return wrong("its name is not one line of printable text of at most %d bytes", ProjectNameAtMost)
+	case !name.MatchString(project.GetKind()) || len(project.GetKind()) > ProjectNameAtMost:
+		return wrong("its kind is not lower-case words of [a-z0-9] joined by single hyphens, of at most %d bytes", ProjectNameAtMost)
 	}
 	found[path.Clean(project.GetRoot())] = true
 	sets := map[string]bool{}
@@ -486,28 +510,28 @@ func checkProject(plugin, root string, project *pluginv1.Project, found map[stri
 		}
 		what := "the action " + action.GetName()
 		for _, input := range action.GetInputs() {
-			if _, err := checkInput(what, input, sets); err != nil {
+			if err := checkInput(what, input, sets); err != nil {
 				return wrong("%v", err)
 			}
 		}
-		if err := CheckRewrites(fmt.Sprintf("the action %s", action.GetName()), action.GetRewrites()); err != nil {
+		if err := CheckRewrites(what, action.GetRewrites()); err != nil {
 			return wrong("%v", err)
 		}
-		if err := CheckFix(fmt.Sprintf("the action %s", action.GetName()), action); err != nil {
+		if err := CheckFix(what, action); err != nil {
 			return wrong("%v", err)
 		}
-		if err := CheckVersion(fmt.Sprintf("the action %s", action.GetName()), action); err != nil {
+		if err := CheckVersion(what, action); err != nil {
 			return wrong("%v", err)
 		}
 		if action.GetPublish() != nil {
-			if err := CheckPublish(fmt.Sprintf("the action %s", action.GetName()), action); err != nil {
+			if err := CheckPublish(what, action); err != nil {
 				return wrong("%v", err)
 			}
 		}
 		// Few actions are packages: one that is none is not named to
 		// be looked at.
 		if action.GetPackage() {
-			if err := CheckPackage(fmt.Sprintf("the action %s", action.GetName()), action); err != nil {
+			if err := CheckPackage(what, action); err != nil {
 				return wrong("%v", err)
 			}
 		}
@@ -589,7 +613,7 @@ func checkProvidedArtifacts(project *pluginv1.Project) error {
 				return fmt.Errorf("provided artifact %q names no finite action of its project", artifact.GetAction())
 			}
 			output := artifact.GetOutput()
-			if strings.HasPrefix(output, "~/") || !slicesAny(action.GetOutputs(), func(o *pluginv1.Output) bool { return o.GetPath() == output }) {
+			if strings.HasPrefix(output, "~/") || !slices.ContainsFunc(action.GetOutputs(), func(o *pluginv1.Output) bool { return o.GetPath() == output }) {
 				return fmt.Errorf("provided artifact %q is not an exact project output of %q", output, action.GetName())
 			}
 			at := strings.TrimSuffix(output, "/")
@@ -818,7 +842,7 @@ func checkShared(action *pluginv1.Action) error {
 	case kind == "test":
 		return fmt.Errorf("the shared action %q is named as a piece of a project's tests, which only a test is", n)
 	case !action.GetFetch():
-		return fmt.Errorf("the shared action %s is no fetch: only a fetch is shared", kind)
+		return fmt.Errorf("the shared action %q is no fetch: only a fetch is shared", n)
 	case len(action.GetInputs()) > 0:
 		return fmt.Errorf("the shared action %q reads source, which no project gives it", n)
 	case action.GetCheck() || action.GetTest() || action.GetFix() != nil || len(action.GetRewrites()) > 0:
@@ -983,7 +1007,7 @@ func checkParts(n string, download *pluginv1.Download, outputs []*pluginv1.Outpu
 			return fmt.Errorf("the shared action %q cuts a part from %s with the checksum %q, which is no hex sha256", n, download.GetUrl(), part.GetSha256())
 		case !home || strings.HasSuffix(rest, "/") || !plainOutput(part.GetPath()):
 			return fmt.Errorf("the shared action %q keeps a part of %s as %q, which is not a file of its home, written plainly", n, download.GetUrl(), part.GetPath())
-		case !slicesAny(outputs, func(output *pluginv1.Output) bool { return leaves(output.GetPath(), part.GetPath()) }):
+		case !slices.ContainsFunc(outputs, func(output *pluginv1.Output) bool { return leaves(output.GetPath(), part.GetPath()) }):
 			return fmt.Errorf("the shared action %q keeps a part of %s as %s, which is no output of its and beneath none", n, download.GetUrl(), part.GetPath())
 		case kept[at]:
 			return fmt.Errorf("the shared action %q keeps two parts as %s", n, at)
@@ -998,16 +1022,6 @@ func checkParts(n string, download *pluginv1.Download, outputs []*pluginv1.Outpu
 func leaves(output, file string) bool {
 	directory := strings.TrimSuffix(output, "/")
 	return output == file || strings.HasPrefix(file, directory+"/")
-}
-
-// slicesAny reports whether any output satisfies a condition.
-func slicesAny(outputs []*pluginv1.Output, is func(*pluginv1.Output) bool) bool {
-	for _, output := range outputs {
-		if is(output) {
-			return true
-		}
-	}
-	return false
 }
 
 // sha256Hex is a sha256 as a lock writes one: 64 lower-case hex digits.
@@ -1161,12 +1175,17 @@ func checkProgram(action *pluginv1.Action) error {
 		switch {
 		case !testservice.Exportable(name):
 			return fmt.Errorf("the action %q is a program to run that sets %q, which is no name of a variable", n, name)
-		case name == "PATH" || name == "HOME" || name == "TMPDIR":
+		case hostSets(name):
 			return fmt.Errorf("the action %q is a program to run that sets %s, which the host sets", n, name)
 		}
 	}
 	return nil
 }
+
+// hostSets reports whether a variable is one the host sets for whatever
+// it runs: where programs are found, the home and the temporary
+// directory. No command a plugin declares sets one.
+func hostSets(name string) bool { return name == "PATH" || name == "HOME" || name == "TMPDIR" }
 
 // CheckProgram applies the program contract to explicitly authored custom
 // programs too, after their ordinary input and output validation.
@@ -1189,7 +1208,7 @@ func CheckFix(what string, action *pluginv1.Action) error {
 	// The host sets where a fix's programs are found and what mise reads:
 	// a fix that set them would find a program the host did not give it.
 	for name := range action.GetFix().GetEnvironment() {
-		if name == "PATH" || name == "HOME" || name == "TMPDIR" || strings.HasPrefix(name, "MISE_") {
+		if hostSets(name) || strings.HasPrefix(name, "MISE_") {
 			return fmt.Errorf("%s has a fix that sets %s, which the host sets", what, name)
 		}
 	}
