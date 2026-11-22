@@ -881,7 +881,7 @@ mise run docs:serve       # serve the TechDocs site on http://localhost:8000
 | `sdk/go` | The Go SDK's one client (`frontseat.New`), and the one reader of a stream to its end (`Received`), of every page of a List (`Listed`), of a refusal's reason (`Reason`) and of a workspace's name (`IsWorkspaceName`) |
 | `sdk/go/api` | The API's generated Go and Connect clients and handlers |
 | `sdk/go/entity` | Entity references: the one parser and formatter, for a file (`String`), as typed (`Written`) and on a line (`Short`) |
-| `sdk/go/bearer` | A token presented to its origin alone, following no redirect, and what an origin is (`Of`): the SDK's and the server's |
+| `sdk/go/bearer` | A token presented to its origin alone, following no redirect, and never in clear to another machine (`Private`, `ErrInClear`), and what an origin is (`Of`): the SDK's and the server's |
 | `sdk/plugin` | The plugin SDK: contract types and their constructors, repository access and paths, strict readers, a refusal (`Error`) and its decoder, findings read from what a check printed; `examples/make.rs`, the plugin an author starts from |
 | `server/git` | Git, run hardened over a checkout, and remotes read |
 | `server/telemetry` | OpenTelemetry providers, propagation, logs, measurements |

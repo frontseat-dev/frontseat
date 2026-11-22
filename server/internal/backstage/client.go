@@ -116,7 +116,7 @@ func New(c Config) (*Catalog, error) {
 	}
 	switch {
 	case at.Scheme == "https":
-	case at.Scheme == "http" && c.Loopback && loopback(at.Hostname()):
+	case at.Scheme == "http" && c.Loopback && bearer.Private(at):
 	case at.Scheme == "http":
 		return nil, errors.New("the Backstage address is http, which is served only at this machine, with --backstage-loopback: give its https address")
 	default:
@@ -131,15 +131,6 @@ func New(c Config) (*Catalog, error) {
 	}
 	out.client = out.made()
 	return out, nil
-}
-
-// loopback is whether a host is this machine by its name or address.
-func loopback(host string) bool {
-	if strings.EqualFold(host, "localhost") {
-		return true
-	}
-	ip := net.ParseIP(host)
-	return ip != nil && ip.IsLoopback()
 }
 
 // made is the HTTP client the catalog is asked with: its own transport,
