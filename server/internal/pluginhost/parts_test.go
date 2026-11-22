@@ -14,7 +14,7 @@ import (
 // output is "written plainly, one spelling for one place" (plainOutput
 // refuses a backslash, a NUL and a path that is not clean); a part's path
 // reaches a worker's command line as an argument and is held to less.
-func TestReviewAPartsPathIsHeldAsAnOutputsIs(t *testing.T) {
+func TestAPartsPathIsHeldAsAnOutputsIs(t *testing.T) {
 	roots := []string{"services"}
 	if err := pluginhost.CheckAnalysis("cargo", roots, cutting()); err != nil {
 		t.Fatalf("control refused: %v", err)
@@ -36,7 +36,7 @@ func TestReviewAPartsPathIsHeldAsAnOutputsIs(t *testing.T) {
 // Review probe: the "whole" exception (a shared fetch with files and
 // outputs and neither a command nor downloads). No test of the change
 // tries it at the host; these are its controls and refusals.
-func TestReviewASharedFetchThatRunsNothingIsHeldToItsFiles(t *testing.T) {
+func TestASharedFetchThatRunsNothingIsHeldToItsFiles(t *testing.T) {
 	roots := []string{"services"}
 	whole := func() *pluginv1.AnalyzeResponse {
 		a := sound()

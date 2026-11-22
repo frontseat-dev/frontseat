@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestReviewGeneratedNestedExclusionDoesNotLeakThroughSnapshotSibling(t *testing.T) {
+func TestGeneratedNestedExclusionDoesNotLeakThroughSnapshotSibling(t *testing.T) {
 	sets := map[string]*pluginv1.InputSet{
 		"generated": {Inputs: []*pluginv1.Input{pluginhost.SourceInput("**/*.go")}, AcceptsGenerated: true},
 		"wrapper":   {Inputs: []*pluginv1.Input{pluginhost.SetInput("generated"), pluginhost.SourceInput("!private.go")}},
