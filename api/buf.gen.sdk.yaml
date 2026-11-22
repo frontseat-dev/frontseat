@@ -5,7 +5,7 @@
 # sets every Go package, so no .proto names a language. Generated, never
 # edited, and held to what this writes now by `mise run check`.
 #
-# Frontseat builds it as //api:buf.generate-sdk: it writes outside this
+# Frontseat builds it as //api:buf.generate/sdk: it writes outside this
 # workspace, into the Go SDK, which says so in its catalog file
 # (spec.frontseat.generated).
 version: v2

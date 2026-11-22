@@ -16,7 +16,7 @@ that the lock says it was written of. A configuration with no lock is not built;
 lock it with `apko lock` and commit the lock.
 
 For each architecture the lock holds packages of there is one action,
-`image-<architecture>` (`image-aarch64`, `image-x86-64`), which runs
+`image/<architecture>` (`image/aarch64`, `image/x86-64`), which runs
 
 ```
 apko build --offline --lockfile apko.lock.json --vcs=false --sbom=false \

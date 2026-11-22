@@ -75,7 +75,7 @@ func pointsAt(t *testing.T, actions []Action, entities []record.Located, says st
 // would have points at them all; a piece is pointed at by its own.
 func TestTestsInPiecesAreAskedForAndPointedAtTogether(t *testing.T) {
 	var actions []Action
-	for _, name := range []string{"lint", "test-build", "test/.", "test/internal/ledger"} {
+	for _, name := range []string{"lint", "compile-tests", "test/.", "test/internal/ledger"} {
 		declared := &pluginv1.Action{Name: name, Kind: &pluginv1.Action_Build{Build: &pluginv1.Build{}}}
 		if strings.HasPrefix(name, "test/") {
 			declared.Kind = &pluginv1.Action_Test{Test: &pluginv1.Test{}}
@@ -102,7 +102,8 @@ func TestTestsInPiecesAreAskedForAndPointedAtTogether(t *testing.T) {
 		{"tests asked for are every piece and every whole", nil, []string{"test"}, "//services/greet:go.test/. //services/greet:go.test/internal/ledger //odd.test/svc:go.test/. //odd.test/svc:go.test/pkg.test/sub //sharded:go.test/. //sharded:go.test/internal/ledger@1of2 //sharded:go.test/internal/ledger@2of2 //sharded:go.test/internal/ledgers //platform/log:go.test"},
 		{"the label of a project's tests is each piece", []string{"//services/greet:go.test"}, nil, "//services/greet:go.test/. //services/greet:go.test/internal/ledger"},
 		{"a piece by its own label", []string{"//services/greet:go.test/internal/ledger"}, nil, "//services/greet:go.test/internal/ledger"},
-		{"what builds the tests is no test", nil, []string{"test-build"}, "//services/greet:go.test-build"},
+		{"what builds the tests is no test", nil, []string{"compile-tests"}, "//services/greet:go.compile-tests"},
+		{"a piece is asked for by its own name too", nil, []string{"test/."}, "//services/greet:go.test/. //odd.test/svc:go.test/. //sharded:go.test/."},
 		{"a piece cut into shards is each of its shards", []string{"//sharded:go.test/internal/ledger"}, nil, "//sharded:go.test/internal/ledger@1of2 //sharded:go.test/internal/ledger@2of2"},
 		{"a shard by its own label", []string{"//sharded:go.test/internal/ledger@2of2"}, nil, "//sharded:go.test/internal/ledger@2of2"},
 		{"the tests of a project with shards are every piece and shard", []string{"//sharded:go.test"}, nil, "//sharded:go.test/. //sharded:go.test/internal/ledger@1of2 //sharded:go.test/internal/ledger@2of2 //sharded:go.test/internal/ledgers"},
@@ -110,7 +111,7 @@ func TestTestsInPiecesAreAskedForAndPointedAtTogether(t *testing.T) {
 		pointsAt(t, actions, nil, c.says, c.targets, c.only, c.want)
 	}
 	// What begins as a piece's label and is none points at nothing, and
-	// a piece is no name to ask for.
+	// a name no action has, nor kind, is none to ask for.
 	for _, c := range []struct{ targets, only []string }{
 		// The label of the tests of another project, another plugin and
 		// no project; and what is no label and begins as one does.
@@ -119,7 +120,7 @@ func TestTestsInPiecesAreAskedForAndPointedAtTogether(t *testing.T) {
 		{[]string{"//services/greet:go.test/"}, nil},
 		{[]string{"//services/greet.test"}, nil},
 		{[]string{"//services/greet:go.test/internal"}, nil},
-		{[]string{"//services/greet:go.lint"}, []string{"test/."}},
+		{nil, []string{"test/internal"}},
 		{[]string{"//services/greet:go.tes"}, nil},
 		{[]string{"//odd.test"}, nil},
 		// A piece that is not cut into shards has no shards to point at
@@ -329,11 +330,12 @@ func TestANameFindsItsEntityInAnyNamespaceAndAnAmbiguousNameIsRefused(t *testing
 	}
 }
 
-// The packages of a project are asked for and pointed at together, as
-// the pieces of its tests are: by "package", and by the label one
-// package of it would have. An action named so that is no package is
-// none of them; the control is each by its own label and name.
-func TestTheBuildsPackagesAreAskedForAndPointedAtTogether(t *testing.T) {
+// The pieces of one kind of a project are asked for and pointed at
+// together, as the pieces of its tests are: by the kind ("package",
+// "generate"), whichever plugin declared them, and by the label one
+// action of that kind would have. The host reads nothing else of a
+// name; the control is each by its own label and name.
+func TestThePiecesOfAKindAreAskedForAndPointedAtTogether(t *testing.T) {
 	var actions []Action
 	for _, name := range []string{"compile", "package/greet-linux-amd64", "package/greet-darwin-arm64"} {
 		declared := &pluginv1.Action{Name: name, Kind: &pluginv1.Action_Build{Build: &pluginv1.Build{}}}
@@ -343,6 +345,11 @@ func TestTheBuildsPackagesAreAskedForAndPointedAtTogether(t *testing.T) {
 		actions = append(actions, Action{Label: model.Label{Path: "services/greet", Plugin: "go", Name: name}, Declared: declared})
 	}
 	actions = append(actions, Action{Label: model.Label{Path: "services/greet", Plugin: "cargo", Name: "wasm"}, Declared: &pluginv1.Action{Name: "wasm", Kind: &pluginv1.Action_Package{Package: &pluginv1.Package{}}}})
+	// Pieces of any kind are asked for and pointed at by it, whichever
+	// plugin declared them, as a package's and a test's are.
+	for _, name := range []string{"generate/sdk", "generate/lib"} {
+		actions = append(actions, Action{Label: model.Label{Path: "api", Plugin: "buf", Name: name}, Declared: &pluginv1.Action{Name: name, Kind: &pluginv1.Action_Build{Build: &pluginv1.Build{}}}})
+	}
 	for _, c := range []struct {
 		says          string
 		targets, only []string
@@ -352,6 +359,8 @@ func TestTheBuildsPackagesAreAskedForAndPointedAtTogether(t *testing.T) {
 		{"pointed at by the label a package would have", []string{"//services/greet:go.package"}, nil, "//services/greet:go.package/greet-linux-amd64 //services/greet:go.package/greet-darwin-arm64"},
 		{"control: one by its label", []string{"//services/greet:go.package/greet-linux-amd64"}, nil, "//services/greet:go.package/greet-linux-amd64"},
 		{"control: a package its tool names is asked for by that name", nil, []string{"wasm"}, "//services/greet:cargo.wasm"},
+		{"pieces of another kind asked for by it", nil, []string{"generate"}, "//api:buf.generate/sdk //api:buf.generate/lib"},
+		{"pieces of another kind pointed at by its label", []string{"//api:buf.generate"}, nil, "//api:buf.generate/sdk //api:buf.generate/lib"},
 	} {
 		got, err := Pointed(actions, nil, c.targets, c.only)
 		if err != nil {

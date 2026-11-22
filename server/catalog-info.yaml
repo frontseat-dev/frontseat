@@ -58,15 +58,15 @@ spec:
         - /plugins/*/Cargo.toml
         - /plugins/*/testdata/**
         - /sdk/plugin-test/testdata/**
-        - //plugins/apko:cargo.wasm
-        - //plugins/backstage:cargo.wasm
-        - //plugins/buf:cargo.wasm
-        - //plugins/cargo:cargo.wasm
-        - //plugins/container:cargo.wasm
-        - //plugins/github:cargo.wasm
-        - //plugins/go:cargo.wasm
-        - //plugins/jest:cargo.wasm
-        - //plugins/npm:cargo.wasm
-        - //plugins/postgres:cargo.wasm
-        - //plugins/release:cargo.wasm
-        - //sdk/plugin:cargo.wasm-examples
+        - //plugins/apko:cargo.package/wasm32-wasip1
+        - //plugins/backstage:cargo.package/wasm32-wasip1
+        - //plugins/buf:cargo.package/wasm32-wasip1
+        - //plugins/cargo:cargo.package/wasm32-wasip1
+        - //plugins/container:cargo.package/wasm32-wasip1
+        - //plugins/github:cargo.package/wasm32-wasip1
+        - //plugins/go:cargo.package/wasm32-wasip1
+        - //plugins/jest:cargo.package/wasm32-wasip1
+        - //plugins/npm:cargo.package/wasm32-wasip1
+        - //plugins/postgres:cargo.package/wasm32-wasip1
+        - //plugins/release:cargo.package/wasm32-wasip1
+        - //sdk/plugin:cargo.compile/wasm32-wasip1-examples

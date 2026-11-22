@@ -38,20 +38,26 @@ func TestAPackageLeavesFilesItIsSureToLeave(t *testing.T) {
 	}
 }
 
-// A package that is one of several is named "package", a slash and what
-// it is of, and only a package is named so.
-func TestOnlyAPackageIsNamedAsOne(t *testing.T) {
+// An action is named a kind, or a kind, a slash and what piece of it it
+// is, whatever its kind: the host reads nothing more of a name, but
+// that only a test is named as a piece of the tests. The controls are
+// pieces of several kinds, and of what is no package and no publish.
+func TestAnActionIsNamedAKindOrAKindAndAPiece(t *testing.T) {
 	for name, c := range map[string]struct {
 		action *pluginv1.Action
 		says   string
 	}{
-		"a package":             {&pluginv1.Action{Name: "package/greet-linux-amd64", Kind: &pluginv1.Action_Package{Package: &pluginv1.Package{}}}, ""},
-		"a package of a path":   {&pluginv1.Action{Name: "package/cmd/greet-linux-amd64", Kind: &pluginv1.Action_Package{Package: &pluginv1.Package{}}}, ""},
-		"a package by one name": {&pluginv1.Action{Name: "wasm", Kind: &pluginv1.Action_Package{Package: &pluginv1.Package{}}}, ""},
-		"no package":            {&pluginv1.Action{Name: "package/greet-linux-amd64"}, `the action "package/greet-linux-amd64" is named as a package of the project, and is no package`},
-		"of nothing":            {&pluginv1.Action{Name: "package/", Kind: &pluginv1.Action_Package{Package: &pluginv1.Package{}}}, `the action name "package/" is not package, a slash and what it is a package of`},
-		"of what leaves it":     {&pluginv1.Action{Name: "package/../x", Kind: &pluginv1.Action_Package{Package: &pluginv1.Package{}}}, `is not package, a slash and what it is a package of`},
-		"of a space":            {&pluginv1.Action{Name: "package/a b", Kind: &pluginv1.Action_Package{Package: &pluginv1.Package{}}}, `is not package, a slash and what it is a package of`},
+		"a package":                  {&pluginv1.Action{Name: "package/greet-linux-amd64", Kind: &pluginv1.Action_Package{Package: &pluginv1.Package{}}}, ""},
+		"a package of a path":        {&pluginv1.Action{Name: "package/cmd/greet-linux-amd64", Kind: &pluginv1.Action_Package{Package: &pluginv1.Package{}}}, ""},
+		"a package by one name":      {&pluginv1.Action{Name: "wasm", Kind: &pluginv1.Action_Package{Package: &pluginv1.Package{}}}, ""},
+		"a piece of what generates":  {&pluginv1.Action{Name: "generate/sdk", Kind: &pluginv1.Action_Build{Build: &pluginv1.Build{}}}, ""},
+		"a step named as a package":  {&pluginv1.Action{Name: "package/greet-linux-amd64", Kind: &pluginv1.Action_Build{Build: &pluginv1.Build{}}}, ""},
+		"what publishes by its kind": {&pluginv1.Action{Name: "publish", Kind: &pluginv1.Action_Publish{Publish: &pluginv1.Publish{}}}, ""},
+		"a test piece of no test":    {&pluginv1.Action{Name: "test/greet", Kind: &pluginv1.Action_Build{Build: &pluginv1.Build{}}}, "is named as a piece of the project's tests, and is no test"},
+		"of nothing":                 {&pluginv1.Action{Name: "package/", Kind: &pluginv1.Action_Package{Package: &pluginv1.Package{}}}, `nor a kind, a slash and the piece of it it is`},
+		"of what leaves it":          {&pluginv1.Action{Name: "package/../x", Kind: &pluginv1.Action_Package{Package: &pluginv1.Package{}}}, `nor a kind, a slash and the piece of it it is`},
+		"of a space":                 {&pluginv1.Action{Name: "package/a b", Kind: &pluginv1.Action_Package{Package: &pluginv1.Package{}}}, `nor a kind, a slash and the piece of it it is`},
+		"a kind in capitals":         {&pluginv1.Action{Name: "Generate/sdk", Kind: &pluginv1.Action_Build{Build: &pluginv1.Build{}}}, `nor a kind, a slash and the piece of it it is`},
 	} {
 		err := checkNamed(c.action)
 		if c.says == "" && err != nil || c.says != "" && (err == nil || !strings.Contains(err.Error(), c.says)) {

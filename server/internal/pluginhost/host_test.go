@@ -101,7 +101,7 @@ func TestAnalyzeCrossesTheBoundaryAndTheHostSeesWhatWasRead(t *testing.T) {
 	// leaves their program, and nothing else leaves anything.
 	for _, action := range project.GetActions() {
 		outputs := action.GetOutputs()
-		if action.GetName() == "test-build" {
+		if action.GetName() == "compile-tests" {
 			if len(outputs) != 1 || outputs[0].GetPath() != "_tests/0/hello.test" || !outputs[0].GetOptional() {
 				t.Errorf("%s leaves %v; want the program of the module's one tested package", action.GetName(), outputs)
 			}
@@ -132,7 +132,7 @@ func TestAModuleWithALockFetchesEachModuleTheLockHoldsOnItsOwn(t *testing.T) {
 	want := []struct{ name, command, sum, kept string }{
 		{"fetch/example.com/dep@v1.2.3", "go mod download -x example.com/dep@v1.2.3", "example.com/dep v1.2.3 h1:AAAA=\nexample.com/dep v1.2.3/go.mod h1:BBBB=\n",
 			"~/go/pkg/mod/cache/download/example.com/dep/@v/v1.2.3.info ~/go/pkg/mod/cache/download/example.com/dep/@v/v1.2.3.mod ~/go/pkg/mod/cache/download/example.com/dep/@v/v1.2.3.zip ~/go/pkg/mod/cache/download/example.com/dep/@v/v1.2.3.ziphash ~/go/pkg/mod/example.com/dep@v1.2.3/"},
-		{"metadata/example.com/other@v0.9.0", "go list -x -m -json example.com/other@v0.9.0", "example.com/other v0.9.0/go.mod h1:CCCC=\n",
+		{"fetch/example.com/other@v0.9.0/go.mod", "go list -x -m -json example.com/other@v0.9.0", "example.com/other v0.9.0/go.mod h1:CCCC=\n",
 			"~/go/pkg/mod/cache/download/example.com/other/@v/v0.9.0.info ~/go/pkg/mod/cache/download/example.com/other/@v/v0.9.0.mod"},
 	}
 	for i, w := range want {

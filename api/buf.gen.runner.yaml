@@ -5,7 +5,7 @@
 # generated into the server's internal packages (server/internal/runnerapi);
 # the types of the other modules it names are the Go SDK's. Generated,
 # never edited, and held to what this writes now by `mise run check`.
-# Frontseat builds it as //api:buf.generate-runner, into the server, which
+# Frontseat builds it as //api:buf.generate/runner, into the server, which
 # says so in its catalog file (spec.frontseat.generated).
 version: v2
 # What it writes into is its own: emptied first, so that what a proto no

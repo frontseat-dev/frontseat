@@ -350,6 +350,19 @@ above the unit's highest release it is at least (`at_least`), where it
 is heading for more than its commits say. It never spells a prerelease:
 the host does, from the unit's own setting, the branch and the commit.
 
+## How an action is named
+
+An action is named a kind, or a kind, a slash and what piece of that
+kind it is: `compile`, `generate/sdk`, `package/greet-linux-amd64`,
+`fetch/github.com/spf13/cobra@v1.8.1`. Plugins use the same kinds for
+the same things: `fetch`, `lint`, `format`, `compile`, `test`,
+`package`, `run`, `publish`, `generate` (the Rust SDK's `kinds`). A run
+asked for a kind (`--only generate`) builds every action of it, whole or
+a piece, whichever plugin declared it; the label of a kind
+(`//api:buf.generate`) points at every piece of it of that project. The
+host reads nothing more of a name than that, but that only a test is
+named `test` or a piece of it (below).
+
 ## What an action is
 
 Every action is of one kind (`Action.kind`), and the host refuses one
@@ -381,9 +394,8 @@ whatever names what it leaves. What a release builds is what a
 production build builds: declare a package for the production profile
 alone where a development build should not pay for it. Name it
 `package`, or `package`, a slash and what it is of
-(`package/greet-linux-amd64`), unless the tool has a name for it; the
-packages named so, and those alone, are asked for and pointed at
-together, by `package`.
+(`package/greet-linux-amd64`): asked for by `package`, it is built with
+every other.
 
 Refused: a package that leaves nothing, a directory, or what it may not
 leave; and an action named as a package that is none.
@@ -419,8 +431,8 @@ version, with `{frontseat.version}`, `{frontseat.tag}`,
 its tool reads a token from, as `GH_TOKEN`. It is given one only where
 whoever runs the daemon said it may be (`frontseatd
 --publish-environment`); its environment holds nothing else of where
-the daemon runs. It runs as the daemon does, and is not confined. Name it `publish`, a slash and what it publishes to
-(`publish/release`).
+the daemon runs. It runs as the daemon does, and is not confined. Name it
+`publish`, or `publish`, a slash and what it publishes to.
 
 It passes or fails by its exit code. One that fails fails the release,
 which says so on the unit with what the tool printed; the tags stay

@@ -631,22 +631,19 @@ func checkProvidedArtifacts(project *pluginv1.Project) error {
 // together. They are what it is told of one entry of a lock.
 const SharedFilesAtMost = 1 << 20
 
-// pieceName is what a piece of a project's tests is named: "test", a
-// slash and what piece it is, as its tool spells it.
-var pieceName = regexp.MustCompile(`^test/[A-Za-z0-9._~+@/-]+$`)
+// pieceName is what a piece of an action of a kind is named: the kind,
+// lower-case [a-z0-9-], a slash and what piece it is, in letters,
+// digits and "._~+@-/".
+var pieceName = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*/[A-Za-z0-9._~+@/-]+$`)
 
-// packageName is what a package of a project is named where it is one
-// of several: "package", a slash and what it is of.
-var packageName = regexp.MustCompile(`^package/[A-Za-z0-9._~+/-]+$`)
-
-// checkNamed holds a project's action to its name: lower-case
-// [a-z0-9-]; or, for a test alone, "test", a slash and the piece of the
-// project's tests it is, a plain path that is written one way; for a
-// package alone, "package", a slash and what it is of; and for what
-// publishes alone, "publish", a slash and what it publishes to.
+// checkNamed holds a project's action to its name: a kind, lower-case
+// [a-z0-9-]; or a kind, a slash and what piece of that kind it is, a
+// plain path written one way. The host reads nothing more of a name but
+// that "test/" names a piece of the project's tests, and only a test is
+// named so.
 func checkNamed(action *pluginv1.Action) error {
 	n := action.GetName()
-	_, piece, pieced := strings.Cut(n, "/")
+	kind, piece, pieced := strings.Cut(n, "/")
 	switch {
 	case !pieced && !name.MatchString(n):
 		return fmt.Errorf("the action name %q is not lower-case [a-z0-9-]", n)
@@ -654,28 +651,10 @@ func checkNamed(action *pluginv1.Action) error {
 		return nil
 	case len(n) > SharedNameAtMost:
 		return fmt.Errorf("the action name %.40q... is %d bytes, more than the %d allowed", n, len(n), SharedNameAtMost)
-	// A package is named "package", a slash and what it is of, in what a
-	// piece of the tests is named with; and only a package is named so.
-	case strings.HasPrefix(n, "package/"):
-		switch {
-		case !packageName.MatchString(n) || !pattern.Local(piece) || path.Clean(piece) != piece:
-			return fmt.Errorf("the action name %q is not package, a slash and what it is a package of", n)
-		case action.GetPackage() == nil:
-			return fmt.Errorf("the action %q is named as a package of the project, and is no package", n)
-		}
-		return nil
-	// What publishes is named "publish", a slash and what it publishes
-	// to; and only what publishes is named so.
-	case strings.HasPrefix(n, "publish/"):
-		if !name.MatchString(piece) {
-			return fmt.Errorf("the action name %q is not publish, a slash and what it publishes to, lower-case [a-z0-9-]", n)
-		}
-		if action.GetPublish() == nil {
-			return fmt.Errorf("the action %q is named as what publishes, and publishes nothing", n)
-		}
-		return nil
 	case !pieceName.MatchString(n) || !pattern.Local(piece) || path.Clean(piece) != piece:
-		return fmt.Errorf("the action name %q is not lower-case [a-z0-9-], nor test, a slash and the piece of the tests it is", n)
+		return fmt.Errorf("the action name %q is not lower-case [a-z0-9-], nor a kind, a slash and the piece of it it is", n)
+	case kind != "test":
+		return nil
 	case action.GetTest() == nil:
 		return fmt.Errorf("the action %q is named as a piece of the project's tests, and is no test", n)
 	case strings.Contains(piece, "@") && !shardOf(piece):

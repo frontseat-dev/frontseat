@@ -5,7 +5,7 @@
 # Connect handler and client, and never into the Go SDK; the types of
 # the other modules it names are the Go SDK's. Generated, never edited,
 # and held to what this writes now by `mise run check`. Frontseat builds
-# it as //api:buf.generate-source, into the server, which says so in its
+# it as //api:buf.generate/source, into the server, which says so in its
 # catalog file (spec.frontseat.generated).
 version: v2
 # What it writes into is its own: emptied first, so that what a proto no

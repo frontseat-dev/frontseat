@@ -76,7 +76,7 @@ fn image(config: &str, architecture: &str, inputs: Vec<Input>) -> Action {
         &layout,
     ]);
     ["index.json", "oci-layout", "blobs/"].into_iter().fold(
-        Action::new(format!("image-{}", architecture.replace('_', "-")), command)
+        Action::new(format!("image/{}", architecture.replace('_', "-")), command)
             .tool(APKO)
             .inputs(inputs),
         |action, file| action.output(Output::required(format!("{layout}/{file}"))),

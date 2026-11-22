@@ -9,7 +9,7 @@ fn invalid(path: &str, message: impl Into<String>) -> Error {
 }
 
 /// The one action of a suite: its tests, which are what is arranged.
-const TEST: &str = "test";
+const TEST: &str = frontseat_plugin::kinds::TEST;
 
 const HELP: &str = "Declare Jest as a direct dependency and scripts.test as jest; keep options in native Jest configuration. One configured suite is one piece.";
 

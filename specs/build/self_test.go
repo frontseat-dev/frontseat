@@ -34,7 +34,7 @@ func TestBuildsThisRepositorySModulesAndAPIFromItsCommittedConfiguration(t *test
 
 	workspace := spec.ownCheckout()
 	started := time.Now()
-	built := workspace.buildFor(30*time.Minute, only("compile", "lint", "generate-sdk", "generate-daemon", "generate-runner", "generate-source", "generate-sandbox", "wasm", "depends-on"))
+	built := workspace.buildFor(30*time.Minute, only("compile", "lint", "generate", "package", "depends-on"))
 	spec.Logf("the self-build ended %s after %s\n", built.outcome(), time.Since(started).Round(time.Second))
 	spec.Expect(built.outcome()).To(Equal("SUCCESS"), built.diagnostics())
 	spec.Expect(built.actions()).To(ContainElements(
@@ -42,11 +42,11 @@ func TestBuildsThisRepositorySModulesAndAPIFromItsCommittedConfiguration(t *test
 		"//server:go.compile", "//server:go.lint",
 		"//local:go.compile",
 		"//sdk/go:go.compile", "//sdk/go:go.lint",
-		"//api:buf.lint", "//api:buf.generate-sdk", "//api:buf.generate-daemon", "//api:buf.generate-runner", "//api:buf.generate-source", "//api:buf.generate-sandbox",
+		"//api:buf.lint", "//api:buf.generate/sdk", "//api:buf.generate/daemon", "//api:buf.generate/runner", "//api:buf.generate/source", "//api:buf.generate/sandbox",
 		"//sdk/plugin:cargo.compile", "//sdk/plugin:cargo.lint",
-		"//plugins/go:cargo.compile", "//plugins/go:cargo.wasm", "//plugins/cargo:cargo.wasm",
-		"//plugins/npm:cargo.compile", "//plugins/npm:cargo.wasm",
-		"//plugins/jest:cargo.compile", "//plugins/jest:cargo.wasm",
+		"//plugins/go:cargo.compile", "//plugins/go:cargo.package/wasm32-wasip1", "//plugins/cargo:cargo.package/wasm32-wasip1",
+		"//plugins/npm:cargo.compile", "//plugins/npm:cargo.package/wasm32-wasip1",
+		"//plugins/jest:cargo.compile", "//plugins/jest:cargo.package/wasm32-wasip1",
 		"//specs:catalog.depends-on", "//cli:catalog.depends-on",
 		"//server:catalog.depends-on", "//local:catalog.depends-on",
 	))

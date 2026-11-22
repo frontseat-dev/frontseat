@@ -1,3 +1,4 @@
+use frontseat_plugin::kinds;
 use frontseat_plugin::prelude::*;
 
 use crate::lock::{Crate, Fetching};
@@ -15,8 +16,8 @@ pub(super) const WASM: &str = "wasm";
 const WASM_STD: &str = "rust-std-wasm32-wasip1";
 const WASM_TARGET: &str = "wasm32-wasip1";
 /// The checks of a package, by the names their findings are asked by.
-const LINT: &str = "lint";
-const FORMAT: &str = "format";
+const LINT: &str = kinds::LINT;
+const FORMAT: &str = kinds::FORMAT;
 
 /// Where cargo reads crates from when the whole lock is fetched at once:
 /// crates.io, replaced by the registry the worker names `frontseat`,
@@ -195,7 +196,7 @@ pub(super) fn actions(
             .unwrap_or_else(|| package.replace('-', "_"));
         // The module is what a crate that is a wasm module ships.
         actions.push(
-            wasm("wasm", &[])
+            wasm(&format!("{}/{WASM_TARGET}", kinds::PACKAGE), &[])
                 .output(Output::required(format!(
                     "target/{WASM_TARGET}/release/{name}.wasm"
                 )))
@@ -203,7 +204,10 @@ pub(super) fn actions(
         );
     }
     if !modules.is_empty() {
-        let mut examples = wasm("wasm-examples", &["--examples"]);
+        let mut examples = wasm(
+            &format!("{}/{WASM_TARGET}-examples", kinds::COMPILE),
+            &["--examples"],
+        );
         examples.outputs = modules
             .iter()
             .map(|example| {

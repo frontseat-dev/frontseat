@@ -1,9 +1,9 @@
 use crate::inputs::Tested;
 use crate::manifest::{Entry, Locked};
 use crate::plugin;
-use frontseat_plugin::placeholders;
 use frontseat_plugin::prelude::*;
 use frontseat_plugin::repository::{join, literal};
+use frontseat_plugin::{kinds, placeholders};
 
 /// What the two profiles mean for the go command. Development leaves the
 /// compiler's optimisations and inlining off, so that a debugger sees the
@@ -88,9 +88,13 @@ pub(super) const PROGRAMS: &str = "~/go/bin/";
 /// The actions of a module that another place names: the compile, whose
 /// programs a run is given, and the checks, by the names their findings
 /// are asked by.
-pub(super) const COMPILE: &str = "compile";
-const LINT: &str = "lint";
-const FORMAT: &str = "format";
+pub(super) const COMPILE: &str = kinds::COMPILE;
+const LINT: &str = kinds::LINT;
+const FORMAT: &str = kinds::FORMAT;
+/// What builds the test programs of a module's packages: a compile, of
+/// the tests, the first of them by this name and each other a piece of
+/// it, `compile-tests/<n>`.
+const COMPILE_TESTS: &str = "compile-tests";
 
 /// What was found of a module, read from its files.
 #[derive(Clone, Copy)]
@@ -211,10 +215,18 @@ fn told(entry: &Entry) -> Vec<File> {
 /// The fetch is shared: it reads nothing of the project, and is the same
 /// whichever module of the repository locks the module alike.
 fn fetch(entry: &Entry) -> Action {
+    // A module whose archive is fetched is named for it; one whose
+    // go.mod alone is, for that go.mod: each a piece of the kind fetch.
     let (name, arguments) = if entry.archive {
-        ("fetch", vec!["go", "mod", "download", "-x"])
+        (
+            format!("{}/{}", kinds::FETCH, entry.module),
+            vec!["go", "mod", "download", "-x"],
+        )
     } else {
-        ("metadata", vec!["go", "list", "-x", "-m", "-json"])
+        (
+            format!("{}/{}/go.mod", kinds::FETCH, entry.module),
+            vec!["go", "list", "-x", "-m", "-json"],
+        )
     };
     let command = Command::new(arguments.into_iter().chain([entry.module.as_str()]))
         .env("GOFLAGS", "-modcacherw")
@@ -224,7 +236,7 @@ fn fetch(entry: &Entry) -> Action {
         Action {
             command: Some(command),
             tools: vec!["go".into()],
-            ..Action::shared_fetch(format!("{name}/{}", entry.module), kept(entry))
+            ..Action::shared_fetch(name, kept(entry))
         },
         Action::file,
     )
@@ -513,9 +525,9 @@ fn tests(
     let mut actions = Vec::new();
     for (number, group) in groups.iter().enumerate() {
         let built = if number == 0 {
-            "test-build".to_string()
+            COMPILE_TESTS.to_string()
         } else {
-            format!("test-build-{number}")
+            format!("{COMPILE_TESTS}/{number}")
         };
         let mut arguments: Vec<String> = ["go", "test", "-c", "-trimpath"]
             .map(str::to_string)
@@ -815,7 +827,7 @@ mod tests {
         let handed = |actions: &[Action]| {
             actions
                 .iter()
-                .find(|action| action.name == "test-build")
+                .find(|action| action.name == "compile-tests")
                 .and_then(|action| action.command.clone())
                 .map(|command| command.arguments)
                 .unwrap_or_default()
@@ -971,31 +983,31 @@ mod tests {
                 "lint",
                 "format",
                 "compile",
-                "test-build",
+                "compile-tests",
                 "test/a/util",
                 "test/c",
-                "test-build-1",
+                "compile-tests/1",
                 "test/b/util"
             ]
         );
         let of = |name: &str| all.iter().find(|action| action.name == name).unwrap();
         let arguments = |name: &str| of(name).command.as_ref().unwrap().arguments.join(" ");
         assert_eq!(
-            arguments("test-build"),
+            arguments("compile-tests"),
             "go test -c -trimpath -o _tests/0/ ./a/util/... ./c/..."
         );
         assert_eq!(
-            arguments("test-build-1"),
+            arguments("compile-tests/1"),
             "go test -c -trimpath -o _tests/1/ ./b/util/..."
         );
         let left = |name: &str| -> Vec<&str> {
             of(name).outputs.iter().map(|o| o.path.as_str()).collect()
         };
         assert_eq!(
-            left("test-build"),
+            left("compile-tests"),
             ["_tests/0/util.test", "_tests/0/c.test"]
         );
-        assert_eq!(left("test-build-1"), ["_tests/1/util.test"]);
+        assert_eq!(left("compile-tests/1"), ["_tests/1/util.test"]);
         // Each test reads the program of its own package, and no other's.
         assert_eq!(
             of("test/a/util").inputs[0],
@@ -1043,7 +1055,7 @@ mod tests {
         let all = answered(&repo, &tested).unwrap();
         let build = all
             .iter()
-            .find(|action| action.name == "test-build")
+            .find(|action| action.name == "compile-tests")
             .unwrap();
         // The go command is handed each directory with tests as a
         // pattern, which it passes by where it has nothing to build, and
@@ -1102,7 +1114,7 @@ mod tests {
             among(&repo, packages, &tested)
                 .unwrap()
                 .iter()
-                .filter(|action| action.name.starts_with("test-build"))
+                .filter(|action| action.name.starts_with("compile-tests"))
                 .map(|action| {
                     (
                         action.command.as_ref().unwrap().arguments[6..].join(" "),

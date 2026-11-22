@@ -150,7 +150,7 @@ func TestTwoPackagesTheGoCommandWouldNameAlikeAreEachTested(t *testing.T) {
 	spec.Expect(build.outcomeOf("//lab/fixtures:go.test/far/util")).To(Equal("passed"))
 	// Each program is built by an action of its own: the go command
 	// writes two of one name into no one directory.
-	spec.Expect(build.actions()).To(ContainElements("//lab/fixtures:go.test-build", "//lab/fixtures:go.test-build-1"))
+	spec.Expect(build.actions()).To(ContainElements("//lab/fixtures:go.compile-tests", "//lab/fixtures:go.compile-tests/1"))
 }
 
 // A Go module's tests, one action for each package / A package the go command builds no tests for on a worker has nothing to do there, and fails nothing.
@@ -196,7 +196,7 @@ func TestAModuleWhoseEveryTestIsBehindATagNobodyGaveHasNothingToTestAndItsBuildP
 	build := source.workspaceOf("greet").build(only("test"))
 
 	spec.Expect(build.outcome()).To(Equal("SUCCESS"), build.diagnostics())
-	spec.Expect(build.outcomeOf("//services/greet:go.test-build")).To(Equal("passed"))
+	spec.Expect(build.outcomeOf("//services/greet:go.compile-tests")).To(Equal("passed"))
 	spec.Expect(build.outcomeOf("//services/greet:go.test/tagged")).To(Equal("idle"))
 }
 
@@ -253,7 +253,7 @@ func TestAPackageWhoseTestsDoNotCompileFailsWhatBuildsTheTestsAndNoPackageOfTheM
 	build := workspace.write("lab/fixtures/orders/orders_test.go", "package orders\n\nimport \"testing\"\n\nfunc TestCount(t *testing.T) { undefined() }\n").build(only("test"))
 
 	spec.Expect(build.outcome()).To(Equal("BUILD_FAILURE"))
-	spec.Expect(build.failed()).To(Equal([]string{"//lab/fixtures:go.test-build"}))
+	spec.Expect(build.failed()).To(Equal([]string{"//lab/fixtures:go.compile-tests"}))
 	spec.Expect(build.outcomeOf("//lab/fixtures:go.test/ledger")).To(Equal("skipped"))
 }
 

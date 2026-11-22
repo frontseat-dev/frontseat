@@ -82,7 +82,9 @@ the change that fixes it.
   build that keeps the actions their plugins say run tests (the
   contract's action kind `Test`, never an action's name), and ends
   `NO_TESTS_FOUND`, exit 4, where there are none. `--only NAME` keeps the
-  actions of a name. `frontseat run PROGRAM` runs a program (a run, of
+  actions of a name, or of a kind: an action is named a kind or a kind,
+  a slash and a piece of it (`generate/sdk`), and `--only generate` keeps
+  every one of that kind, whichever plugin declared it. `frontseat run PROGRAM` runs a program (a run, of
   `RunService`); a build is of `BuildService`. `frontseat query` reads
   what the workspace is made of and why one entity depends on another,
   with the version each lock resolves a requirement to; there is no
@@ -453,9 +455,8 @@ the change that fixes it.
   told to every plugin that builds beneath it. What a release builds is what a
   production build builds, so a package that costs what a development
   build should not pay is declared for production alone; the packages
-  a plugin names `package/…` are tried together by `frontseat build
-  --profile production --only package`, and one its tool names, as
-  `wasm`, by that name. Two artifacts of one name in a release, and a
+  a plugin names `package` or `package/…` are tried together by
+  `frontseat build --profile production --only package`. Two artifacts of one name in a release, and a
   package that left a directory, fail it before it tags. Held by:
   `TestAReleaseListsWhatItsPackagesLeft`,
   `TestAReleaseBuildsAProgramForEachPlatformItsEntityShipsFor`,

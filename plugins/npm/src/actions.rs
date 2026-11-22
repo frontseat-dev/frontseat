@@ -1,7 +1,7 @@
 use frontseat_plugin::prelude::*;
 
 /// The action that fills npm's cache, which the install reads.
-const FETCH: &str = "fetch";
+const FETCH: &str = frontseat_plugin::kinds::FETCH;
 /// The action that installs a package, and the directory it leaves:
 /// what the package provides.
 pub(super) const INSTALL: &str = "install";

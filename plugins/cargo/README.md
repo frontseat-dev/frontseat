@@ -59,14 +59,14 @@ a registry the worker names), since only cargo fetches from those.
 | `test` | `cargo test --locked --offline` | test |
 | `lint` | `cargo clippy --all-targets -- -D warnings` | check; findings `cargo/clippy` with file and line |
 | `format` | `cargo fmt -- --check` | check; findings `cargo/format`; fix `cargo fmt` over `**/*.rs` |
-| `wasm` | `cargo build --release --target wasm32-wasip1` | where the option `wasm` is set and the library is a `cdylib`; output `target/wasm32-wasip1/release/<lib>.wasm`, which is what the crate ships: a package, and so an artifact of a release |
-| `wasm-examples` | `cargo build --release --target wasm32-wasip1 --examples` | where the option `wasm` is set and an `[[example]]` is a `cdylib`; output `target/wasm32-wasip1/release/examples/<example>.wasm` for each such example |
+| `package/wasm32-wasip1` | `cargo build --release --target wasm32-wasip1` | where the option `wasm` is set and the library is a `cdylib`; output `target/wasm32-wasip1/release/<lib>.wasm`, which is what the crate ships: a package, and so an artifact of a release |
+| `compile/wasm32-wasip1-examples` | `cargo build --release --target wasm32-wasip1 --examples` | where the option `wasm` is set and an `[[example]]` is a `cdylib`; output `target/wasm32-wasip1/release/examples/<example>.wasm` for each such example |
 
 ## Options
 
 | Option | Kind | Default | Set by | What it does |
 |---|---|---|---|---|
-| `wasm` | bool | false | the repository or a Component | Builds a library and the examples that are a `cdylib` to wasm32-wasip1 modules too (`wasm`, `wasm-examples`), with the `rust-std-wasm32-wasip1` the repository pins beside Rust; a package that has one, where the option is set and that standard library is not pinned, is refused (`unpinned-tool`). |
+| `wasm` | bool | false | the repository or a Component | Builds a library and the examples that are a `cdylib` to wasm32-wasip1 modules too (`package/wasm32-wasip1`, `compile/wasm32-wasip1-examples`), with the `rust-std-wasm32-wasip1` the repository pins beside Rust; a package that has one, where the option is set and that standard library is not pinned, is refused (`unpinned-tool`). |
 
 ```yaml
 # frontseat.yaml

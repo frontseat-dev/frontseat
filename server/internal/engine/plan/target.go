@@ -59,7 +59,7 @@ func Pointed(actions []Action, entities []record.Located, targets, only []string
 		// name is none to keep.
 		for _, action := range actions {
 			if action.Built() {
-				known[asked(action)] = true
+				known[action.Name()], known[kindOf(action.Name())] = true, true
 			}
 		}
 		if !known[name] {
@@ -75,7 +75,7 @@ func Pointed(actions []Action, entities []record.Located, targets, only []string
 		if len(targets) > 0 && !chosen[i] {
 			continue
 		}
-		if len(only) > 0 && !names[asked(action)] {
+		if len(only) > 0 && !asked(names, action) {
 			continue
 		}
 		out = append(out, action)
@@ -83,16 +83,21 @@ func Pointed(actions []Action, entities []record.Located, targets, only []string
 	return out, nil
 }
 
-// asked is the name a run is asked for an action by: its own, or, for a
-// piece of a project's tests ("test/internal/ledger"), "test", so that
-// whoever asks for tests is given every piece.
-func asked(action Action) string {
-	// The packages of a project are asked for together as its tests
-	// are: by "package", whatever each is a package of.
-	if kind, _, pieced := strings.Cut(action.Name(), "/"); pieced && (kind == "test" && action.IsTest() || kind == "package" && action.IsPackage()) {
-		return kind
-	}
-	return action.Name()
+// asked reports whether a run asked for these names is asked for an
+// action: by its own name, or by its kind, the part of its name before
+// the first slash, so that whoever asks for "test" is given every piece
+// of every project's tests, and whoever asks for "generate" every
+// "generate/<what>", whichever plugin declared it. Nothing else of the
+// name is read.
+func asked(names map[string]bool, action Action) bool {
+	return names[action.Name()] || names[kindOf(action.Name())]
+}
+
+// kindOf is the kind an action's name says: the part before its first
+// slash, or the whole of a name of none.
+func kindOf(name string) string {
+	kind, _, _ := strings.Cut(name, "/")
+	return kind
 }
 
 // pointed returns which actions one target points at.
@@ -107,9 +112,10 @@ func pointed(actions []Action, entities []record.Located, target string) ([]int,
 		// And the shards of one piece by the label the piece would have:
 		// a shard is named its piece, "@" and which shard it is.
 		whole, err := model.ParseLabel(target)
-		// The packages of a project are pointed at together the same
-		// way, by the label one package of it would have.
-		together := err == nil && (whole.Name == "test" || whole.Name == "package")
+		// Every piece of one kind of a project is pointed at together
+		// the same way, by the label of the kind: //app:go.generate is
+		// each generate/<what>, as //app:go.test is each test/<piece>.
+		together := err == nil && !strings.Contains(whole.Name, "/")
 		shards := ""
 		if err == nil && strings.HasPrefix(whole.Name, "test/") && !strings.Contains(whole.Name, "@") {
 			shards = whole.Name + "@"
@@ -118,8 +124,8 @@ func pointed(actions []Action, entities []record.Located, target string) ([]int,
 			if action.Label.String() == target {
 				return []int{i}, nil
 			}
-			if action.Label.Path == whole.Path && action.Label.Plugin == whole.Plugin && (asked(action) == "test" || asked(action) == "package") &&
-				(together && asked(action) == whole.Name && action.Label.Name != whole.Name || shards != "" && strings.HasPrefix(action.Label.Name, shards)) {
+			if action.Label.Path == whole.Path && action.Label.Plugin == whole.Plugin && action.Built() &&
+				(together && kindOf(action.Label.Name) == whole.Name && action.Label.Name != whole.Name || shards != "" && strings.HasPrefix(action.Label.Name, shards)) {
 				pieces = append(pieces, i)
 			}
 			labels = append(labels, action.Label.String())

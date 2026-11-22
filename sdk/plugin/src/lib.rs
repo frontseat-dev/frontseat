@@ -78,6 +78,7 @@ mod actions;
 mod contract;
 pub mod entity;
 mod inputs;
+pub mod kinds;
 pub mod placeholders;
 pub mod prelude;
 pub mod repository;

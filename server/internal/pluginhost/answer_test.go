@@ -212,7 +212,6 @@ func TestASharedActionIsHeldToWhatNoProjectGivesIt(t *testing.T) {
 		"a shared name with a space":             func(a *pluginv1.AnalyzeResponse) { rename(a, "fetch/a b") },
 		"a shared name with a colon":             func(a *pluginv1.AnalyzeResponse) { rename(a, "fetch/a:b") },
 		"a shared name of an upper-case kind":    func(a *pluginv1.AnalyzeResponse) { rename(a, "Fetch/a") },
-		"a project's action with a slash":        func(a *pluginv1.AnalyzeResponse) { fetch(a).Kind = &pluginv1.Action_Fetch{Fetch: &pluginv1.Fetch{}} },
 		"a file out of its directory":            func(a *pluginv1.AnalyzeResponse) { fetch(a).GetSharedFetch().Files[0].Path = "../go.mod" },
 		"a file by its full path":                func(a *pluginv1.AnalyzeResponse) { fetch(a).GetSharedFetch().Files[0].Path = "/go.mod" },
 		"a file with no name":                    func(a *pluginv1.AnalyzeResponse) { fetch(a).GetSharedFetch().Files[0].Path = "" },
@@ -623,7 +622,7 @@ func pieced() *pluginv1.AnalyzeResponse {
 	a := sound()
 	p := a.GetAnalyses()[0].GetProjects()[0]
 	p.Actions = append(p.Actions,
-		&pluginv1.Action{Name: "test-build", Command: &pluginv1.Command{Arguments: []string{"go", "test", "-c"}}, Inputs: []*pluginv1.Input{pluginhost.SetInput("sources")}, Outputs: []*pluginv1.Output{{Path: "_tests/0/hello.test"}, {Path: "_tests/0/ledger.test"}}, Tools: []string{"go"}, Kind: &pluginv1.Action_Build{Build: &pluginv1.Build{}}},
+		&pluginv1.Action{Name: "compile-tests", Command: &pluginv1.Command{Arguments: []string{"go", "test", "-c"}}, Inputs: []*pluginv1.Input{pluginhost.SetInput("sources")}, Outputs: []*pluginv1.Output{{Path: "_tests/0/hello.test"}, {Path: "_tests/0/ledger.test"}}, Tools: []string{"go"}, Kind: &pluginv1.Action_Build{Build: &pluginv1.Build{}}},
 		&pluginv1.Action{Name: "test/.", Command: &pluginv1.Command{Arguments: []string{"./_tests/0/hello.test"}}, Inputs: []*pluginv1.Input{pluginhosttest.OutputInput("_tests/0/hello.test"), pluginhost.SourceInput("testdata/**")}, Kind: &pluginv1.Action_Test{Test: &pluginv1.Test{}}},
 		&pluginv1.Action{Name: "test/internal/ledger", Command: &pluginv1.Command{Arguments: []string{"../../_tests/0/ledger.test"}, Directory: "internal/ledger"}, Inputs: []*pluginv1.Input{pluginhosttest.OutputInput("_tests/0/ledger.test"), pluginhost.SourceInput("internal/ledger/testdata/**")}, Kind: &pluginv1.Action_Test{Test: &pluginv1.Test{}}},
 	)
@@ -649,13 +648,12 @@ func TestTestsInPiecesAndWhereACommandRunsAreHeldToTheContract(t *testing.T) {
 	}{
 		"a piece that is no test":    {func(a *pluginv1.AnalyzeResponse) { piece(a).Kind = &pluginv1.Action_Build{Build: &pluginv1.Build{}} }, "is no test"},
 		"an action of no kind":       {func(a *pluginv1.AnalyzeResponse) { piece(a).Kind = nil }, "says no kind"},
-		"a piece of nothing":         {func(a *pluginv1.AnalyzeResponse) { piece(a).Name = "test/" }, "nor test, a slash"},
-		"a piece that climbs":        {func(a *pluginv1.AnalyzeResponse) { piece(a).Name = "test/.." }, "nor test, a slash"},
-		"a piece written two ways":   {func(a *pluginv1.AnalyzeResponse) { piece(a).Name = "test/internal/../internal/ledger" }, "nor test, a slash"},
-		"a piece with an empty part": {func(a *pluginv1.AnalyzeResponse) { piece(a).Name = "test/internal//ledger" }, "nor test, a slash"},
-		"a piece with a space":       {func(a *pluginv1.AnalyzeResponse) { piece(a).Name = "test/a b" }, "nor test, a slash"},
-		"a piece with a colon":       {func(a *pluginv1.AnalyzeResponse) { piece(a).Name = "test/a:b" }, "nor test, a slash"},
-		"a piece of another kind":    {func(a *pluginv1.AnalyzeResponse) { piece(a).Name = "lint/internal/ledger" }, "nor test, a slash"},
+		"a piece of nothing":         {func(a *pluginv1.AnalyzeResponse) { piece(a).Name = "test/" }, "nor a kind, a slash"},
+		"a piece that climbs":        {func(a *pluginv1.AnalyzeResponse) { piece(a).Name = "test/.." }, "nor a kind, a slash"},
+		"a piece written two ways":   {func(a *pluginv1.AnalyzeResponse) { piece(a).Name = "test/internal/../internal/ledger" }, "nor a kind, a slash"},
+		"a piece with an empty part": {func(a *pluginv1.AnalyzeResponse) { piece(a).Name = "test/internal//ledger" }, "nor a kind, a slash"},
+		"a piece with a space":       {func(a *pluginv1.AnalyzeResponse) { piece(a).Name = "test/a b" }, "nor a kind, a slash"},
+		"a piece with a colon":       {func(a *pluginv1.AnalyzeResponse) { piece(a).Name = "test/a:b" }, "nor a kind, a slash"},
 		"a piece longer than the contract": {func(a *pluginv1.AnalyzeResponse) {
 			piece(a).Name = "test/" + strings.Repeat("a", pluginhost.SharedNameAtMost)
 		}, "more than the"},
@@ -671,12 +669,12 @@ func TestTestsInPiecesAndWhereACommandRunsAreHeldToTheContract(t *testing.T) {
 		}, "reads no output another action may pass without leaving"},
 		"an action idle without an output its action always leaves": {func(a *pluginv1.AnalyzeResponse) { piece(a).GetTest().IdleWithoutInputs = true }, "reads no output another action may pass without leaving"},
 		"an action idle without all an action leaves": {func(a *pluginv1.AnalyzeResponse) {
-			piece(a).GetTest().IdleWithoutInputs, piece(a).Inputs = true, []*pluginv1.Input{pluginhosttest.OutputInput("test-build")}
+			piece(a).GetTest().IdleWithoutInputs, piece(a).Inputs = true, []*pluginv1.Input{pluginhosttest.OutputInput("compile-tests")}
 		}, "reads no output another action may pass without leaving"},
 		// With an output that may not be left in the project, beside it.
 		"an action idle without all an action leaves, one of them optional": {func(a *pluginv1.AnalyzeResponse) {
 			actions(a)[2].Outputs[0].Optional = true
-			piece(a).GetTest().IdleWithoutInputs, piece(a).Inputs = true, []*pluginv1.Input{pluginhosttest.OutputInput("test-build")}
+			piece(a).GetTest().IdleWithoutInputs, piece(a).Inputs = true, []*pluginv1.Input{pluginhosttest.OutputInput("compile-tests")}
 		}, "reads no output another action may pass without leaving"},
 		"an action idle without an output always left, beside one that may not be": {func(a *pluginv1.AnalyzeResponse) {
 			actions(a)[2].Outputs[0].Optional = true
