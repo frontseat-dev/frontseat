@@ -13,7 +13,7 @@ import (
 
 	"github.com/frontseat-dev/frontseat/local/ports"
 	"github.com/frontseat-dev/frontseat/sdk/go"
-	sandboxv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/sandbox/v1alpha1"
+	sandboxv1 "github.com/frontseat-dev/frontseat/server/sandbox/api/frontseat/sandbox/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testbox"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testgrid"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testowner"

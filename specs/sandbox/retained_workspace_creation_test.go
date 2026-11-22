@@ -15,8 +15,8 @@ import (
 
 	connect "connectrpc.com/connect/v2"
 	"github.com/frontseat-dev/frontseat/sdk/go"
-	sandboxv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/sandbox/v1alpha1"
 	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
+	sandboxv1 "github.com/frontseat-dev/frontseat/server/sandbox/api/frontseat/sandbox/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testsandbox"
 	. "github.com/onsi/gomega"
 	"testing"

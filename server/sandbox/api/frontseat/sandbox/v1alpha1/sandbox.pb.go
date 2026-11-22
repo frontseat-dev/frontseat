@@ -2362,8 +2362,8 @@ const file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDesc = "" +
 	"\vExecSandbox\x12..frontseat.sandbox.v1alpha1.ExecSandboxRequest\x1a/.frontseat.sandbox.v1alpha1.ExecSandboxResponse\x12y\n" +
 	"\rSetCredential\x120.frontseat.sandbox.v1alpha1.SetCredentialRequest\x1a1.frontseat.sandbox.v1alpha1.SetCredentialResponse\"\x03\x90\x02\x02\x12\x88\x01\n" +
 	"\x12DescribeCredential\x125.frontseat.sandbox.v1alpha1.DescribeCredentialRequest\x1a6.frontseat.sandbox.v1alpha1.DescribeCredentialResponse\"\x03\x90\x02\x01\x12\x82\x01\n" +
-	"\x10DeleteCredential\x123.frontseat.sandbox.v1alpha1.DeleteCredentialRequest\x1a4.frontseat.sandbox.v1alpha1.DeleteCredentialResponse\"\x03\x90\x02\x02B\x92\x02\n" +
-	"\x1ecom.frontseat.sandbox.v1alpha1B\fSandboxProtoP\x01ZXgithub.com/frontseat-dev/frontseat/sdk/go/api/frontseat/sandbox/v1alpha1;sandboxv1alpha1\xa2\x02\x03FSX\xaa\x02\x1aFrontseat.Sandbox.V1alpha1\xca\x02\x1aFrontseat\\Sandbox\\V1alpha1\xe2\x02&Frontseat\\Sandbox\\V1alpha1\\GPBMetadata\xea\x02\x1cFrontseat::Sandbox::V1alpha1b\x06proto3"
+	"\x10DeleteCredential\x123.frontseat.sandbox.v1alpha1.DeleteCredentialRequest\x1a4.frontseat.sandbox.v1alpha1.DeleteCredentialResponse\"\x03\x90\x02\x02B\x9a\x02\n" +
+	"\x1ecom.frontseat.sandbox.v1alpha1B\fSandboxProtoP\x01Z`github.com/frontseat-dev/frontseat/server/sandbox/api/frontseat/sandbox/v1alpha1;sandboxv1alpha1\xa2\x02\x03FSX\xaa\x02\x1aFrontseat.Sandbox.V1alpha1\xca\x02\x1aFrontseat\\Sandbox\\V1alpha1\xe2\x02&Frontseat\\Sandbox\\V1alpha1\\GPBMetadata\xea\x02\x1cFrontseat::Sandbox::V1alpha1b\x06proto3"
 
 var (
 	file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDescOnce sync.Once

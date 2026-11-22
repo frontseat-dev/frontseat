@@ -929,10 +929,14 @@ func handles(fn *ast.FuncDecl, imported map[string]string) string {
 
 // generatedPackage is the Go package the generated code of a served proto
 // package is in: the server's own for the daemon's internal API
-// (api/buf.gen.source.yaml), and the Go SDK's for every other.
+// (api/buf.gen.source.yaml) and the sandbox API (api/buf.gen.sandbox.yaml),
+// and the Go SDK's for every other.
 func generatedPackage(pkg protoreflect.FullName) string {
-	if pkg == "frontseat.source.v1alpha1" {
+	switch pkg {
+	case "frontseat.source.v1alpha1":
 		return "github.com/frontseat-dev/frontseat/server/internal/sourceapi/frontseat/source/v1alpha1"
+	case "frontseat.sandbox.v1alpha1":
+		return "github.com/frontseat-dev/frontseat/server/sandbox/api/frontseat/sandbox/v1alpha1"
 	}
 	return sdkPackage(pkg)
 }

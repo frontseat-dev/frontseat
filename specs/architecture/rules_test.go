@@ -84,7 +84,7 @@ var policies = []policy{
 	{"server/testsupport/testowner", []string{"local", "local/ports", "sdk/go/bearer"}},
 	// The sandbox API is no part of the SDK: a test asks it, and opens a
 	// tunnel to a sandbox's port, through this.
-	{"server/testsupport/testsandbox", []string{"sdk/go/api/**", "server/testsupport/testwire"}},
+	{"server/testsupport/testsandbox", []string{"sdk/go/api/**", "server/sandbox/api/**", "server/testsupport/testwire"}},
 	// What the local stack is, read from its files: one reader, for the
 	// stack's control plane, the box and the test support, which links
 	// nothing of the server.
@@ -196,7 +196,7 @@ var policies = []policy{
 	// (local/ports), and is told nothing of the stack.
 	// It resolves entities through the Backstage its operator gives it
 	// (server/internal/backstage), held over a fake one in its tests.
-	{"server/internal/controlplane/**", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/controlplane/**", "server/sandbox", "server/internal/backstage", "server/internal/secretfile", "server/internal/source/record", "server/internal/source/vcs", "server/internal/source/told", "server/internal/sourceapi/**", "server/testsupport/drivertest", "server/testsupport/backstagetest", "server/internal/plain", "local/ports", "sdk/go", "server/internal/page", "server/internal/refusal", "server/internal/records"}},
+	{"server/internal/controlplane/**", []string{"sdk/go/api/**", "server/sandbox/api/**", "sdk/go/entity", "server/internal/controlplane/**", "server/sandbox", "server/internal/backstage", "server/internal/secretfile", "server/internal/source/record", "server/internal/source/vcs", "server/internal/source/told", "server/internal/sourceapi/**", "server/testsupport/drivertest", "server/testsupport/backstagetest", "server/internal/plain", "local/ports", "sdk/go", "server/internal/page", "server/internal/refusal", "server/internal/records"}},
 	// A test starts a daemon as frontseatd does, and a control plane as
 	// frontseat-local does, each with the test support beside it.
 	{"server/testsupport/buildtest", []string{"server/internal/build", "server/telemetry", "server/testsupport/**", "sdk/go/api/**", "server/internal/source", "server/internal/source/told", "server/internal/source/told/toldtest", "server/internal/sourceapi/**"}},
@@ -206,7 +206,7 @@ var policies = []policy{
 	{"server/testsupport/drivertest", []string{"server/sandbox/driver", "server/testsupport/drivertest"}},
 	// It serves the sandbox service beneath the plane to the test alone,
 	// and says how the plane's owner is known as the SDK's clients take it.
-	{"server/testsupport/controlplanetest", []string{"server/internal/controlplane", "server/internal/page", "server/internal/backstage", "server/internal/source", "server/sandbox", "server/testsupport/**", "sdk/go/api/**", "sdk/go"}},
+	{"server/testsupport/controlplanetest", []string{"server/sandbox/api/**", "server/internal/controlplane", "server/internal/page", "server/internal/backstage", "server/internal/source", "server/sandbox", "server/testsupport/**", "sdk/go/api/**", "sdk/go"}},
 	// The daemon: a thin main over the package that is it, which reads
 	// its flags and serves the build API over what it is told.
 	{"server/cmd/frontseatd", []string{"server/internal/daemon"}},
@@ -221,13 +221,13 @@ var policies = []policy{
 	// The runner keeps the grid's pool of runner sandboxes with the
 	// OpenShell driver itself: their bound directories and private policy
 	// are the driver's to say, and no client's of the sandbox API.
-	{"server/internal/runner", []string{"server/internal/page", "server/sandbox", "server/sandbox/driver", "server/sandbox/driver/openshell", "server/internal/httpserver", "server/internal/image", "sdk/go/api/**", "sdk/go/entity", "server/internal/testservice", "server/internal/confine", "sdk/go", "server/internal/runnerapi/**"}},
+	{"server/internal/runner", []string{"server/sandbox/api/**", "server/internal/page", "server/sandbox", "server/sandbox/driver", "server/sandbox/driver/openshell", "server/internal/httpserver", "server/internal/image", "sdk/go/api/**", "sdk/go/entity", "server/internal/testservice", "server/internal/confine", "sdk/go", "server/internal/runnerapi/**"}},
 	// The box's one build, asked by the spec that holds a box to what it
 	// was built with; no other spec builds one.
-	{"specs/cli", []string{"sdk/go", "sdk/go/api/**", "sdk/go/entity", "server/testsupport/**", "local/ports"}},
+	{"specs/cli", []string{"sdk/go", "sdk/go/api/**", "server/sandbox/api/**", "sdk/go/entity", "server/testsupport/**", "local/ports"}},
 	{"specs/local", []string{"server/testsupport/**", "local/ports", "local/box"}},
-	{"specs/compare", []string{"sdk/go", "sdk/go/api/**", "server/testsupport/**"}},
-	{"specs/**", []string{"sdk/go", "sdk/go/api/**", "sdk/go/entity", "server/testsupport/**", "server/telemetry", "specs/internal/**", "local/ports"}},
+	{"specs/compare", []string{"sdk/go", "sdk/go/api/**", "server/sandbox/api/**", "server/testsupport/**"}},
+	{"specs/**", []string{"sdk/go", "sdk/go/api/**", "server/sandbox/api/**", "sdk/go/entity", "server/testsupport/**", "server/telemetry", "specs/internal/**", "local/ports"}},
 	// The gate programs: what runs the specs and every other test, and
 	// builds the box before the tests that need it; what reads a gate's
 	// command, and what the contracts' generators are held to.

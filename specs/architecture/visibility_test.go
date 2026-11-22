@@ -23,15 +23,17 @@ import (
 // a binary's main (cmd/<binary>), the test support (server/testsupport,
 // which the import rules hold to tests) or a package of tests alone.
 var public = map[string]string{
-	"server/sandbox":                  "the sandbox service: frontseat-enterprise embeds it (owner's ruling)",
-	"server/sandbox/driver":           "the port the sandbox service drives its drivers through, for frontseat-enterprise's drivers to implement (owner's ruling)",
-	"server/sandbox/driver/openshell": "the one OpenShell driver, which frontseat-enterprise composes around and never copies (owner's ruling)",
-	"server/git":                      "git, run hardened: the command line's version control runs it too",
-	"server/telemetry":                "OpenTelemetry: the command line instruments what it asks with it",
-	"local":                           "what the local stack is, read from its files: the box's build, the stack's control plane and the test support read it; and the checkout a program is started at (Checkout), which the stack's program, the gate and what prepares the plugins find alike; and the directory the command line keeps what it keeps in (Config), where the stack lays out its owner's token and the command line and the test support read it",
-	"local/ports":                     "the ports a box and the local stack are reached on, each said once: the server, the command line and the test support read them",
-	"local/box":                       "the box's one build: the stack's program (frontseat-local box, up) and the gate build it here, and a spec holds it to what it was built with",
-	"local/stack":                     "the local stack brought up and down from a checkout: the stack's program (frontseat-local up, down) runs it",
+	"server/sandbox":                                "the sandbox service: frontseat-enterprise embeds it (owner's ruling)",
+	"server/sandbox/driver":                         "the port the sandbox service drives its drivers through, for frontseat-enterprise's drivers to implement (owner's ruling)",
+	"server/sandbox/driver/openshell":               "the one OpenShell driver, which frontseat-enterprise composes around and never copies (owner's ruling)",
+	"server/sandbox/api/frontseat/sandbox/v1alpha1": "the sandbox API's generated Go (api/buf.gen.sandbox.yaml), which the sandbox service serves and frontseat-enterprise embeds with it; it has no client in the Go SDK",
+	"server/sandbox/api/frontseat/sandbox/v1alpha1/sandboxv1alpha1connect": "the sandbox API's generated Connect handler and client, for the service, the control plane, the runner and frontseat-enterprise",
+	"server/git":       "git, run hardened: the command line's version control runs it too",
+	"server/telemetry": "OpenTelemetry: the command line instruments what it asks with it",
+	"local":            "what the local stack is, read from its files: the box's build, the stack's control plane and the test support read it; and the checkout a program is started at (Checkout), which the stack's program, the gate and what prepares the plugins find alike; and the directory the command line keeps what it keeps in (Config), where the stack lays out its owner's token and the command line and the test support read it",
+	"local/ports":      "the ports a box and the local stack are reached on, each said once: the server, the command line and the test support read them",
+	"local/box":        "the box's one build: the stack's program (frontseat-local box, up) and the gate build it here, and a spec holds it to what it was built with",
+	"local/stack":      "the local stack brought up and down from a checkout: the stack's program (frontseat-local up, down) runs it",
 }
 
 // goSource is one Go file of the repository, parsed.
@@ -269,7 +271,7 @@ func TestAPublicPackageOnNoListIsFound(t *testing.T) {
 // generatedAPIs are where the API's Go and the plugin contract's are
 // generated: packages named for their version, which a file names for
 // their service (buildv1, pluginv1).
-var generatedAPIs = []string{"sdk/go/api", "server/internal/pluginapi", "server/internal/runnerapi", "server/internal/sourceapi"}
+var generatedAPIs = []string{"sdk/go/api", "server/internal/pluginapi", "server/internal/runnerapi", "server/internal/sourceapi", "server/sandbox/api"}
 
 // version is how a package named for its version is named: v1, v2alpha1.
 var version = regexp.MustCompile(`^(v[0-9]+)((alpha|beta)[0-9]*)?$`)

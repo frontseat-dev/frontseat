@@ -13,11 +13,11 @@ import (
 	connect "connectrpc.com/connect/v2"
 	"connectrpc.com/connect/v2/connecthttp"
 
-	sandboxv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/sandbox/v1alpha1"
-	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/sandbox/v1alpha1/sandboxv1alpha1connect"
 	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1/workspacev1alpha1connect"
 	"github.com/frontseat-dev/frontseat/server/sandbox"
+	sandboxv1 "github.com/frontseat-dev/frontseat/server/sandbox/api/frontseat/sandbox/v1alpha1"
+	"github.com/frontseat-dev/frontseat/server/sandbox/api/frontseat/sandbox/v1alpha1/sandboxv1alpha1connect"
 	"github.com/frontseat-dev/frontseat/server/testsupport/drivertest"
 )
 

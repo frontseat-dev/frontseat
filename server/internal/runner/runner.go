@@ -54,8 +54,6 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	sandboxv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/sandbox/v1alpha1"
-	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/sandbox/v1alpha1/sandboxv1alpha1connect"
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/confine"
 	"github.com/frontseat-dev/frontseat/server/internal/httpserver"
@@ -64,6 +62,8 @@ import (
 	runnerv1 "github.com/frontseat-dev/frontseat/server/internal/runnerapi/frontseat/runner/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/testservice"
 	"github.com/frontseat-dev/frontseat/server/sandbox"
+	sandboxv1 "github.com/frontseat-dev/frontseat/server/sandbox/api/frontseat/sandbox/v1alpha1"
+	"github.com/frontseat-dev/frontseat/server/sandbox/api/frontseat/sandbox/v1alpha1/sandboxv1alpha1connect"
 )
 
 // runnerSandbox is where in an action's root what its sandbox holds is,

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	sandboxv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/sandbox/v1alpha1"
+	sandboxv1 "github.com/frontseat-dev/frontseat/server/sandbox/api/frontseat/sandbox/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testrequired"
 	"google.golang.org/protobuf/types/known/durationpb"
 )

@@ -13,12 +13,12 @@ import (
 	connect "connectrpc.com/connect/v2"
 	credentialv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/credential/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/credential/v1alpha1/credentialv1alpha1connect"
-	sandboxv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/sandbox/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/controlplane/identity"
 	"github.com/frontseat-dev/frontseat/server/internal/page"
 	"github.com/frontseat-dev/frontseat/server/internal/plain"
 	"github.com/frontseat-dev/frontseat/server/internal/records"
 	"github.com/frontseat-dev/frontseat/server/internal/refusal"
+	sandboxv1 "github.com/frontseat-dev/frontseat/server/sandbox/api/frontseat/sandbox/v1alpha1"
 )
 
 // credentials serves each person's credentials (frontseat.credential.

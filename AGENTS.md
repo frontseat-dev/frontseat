@@ -559,7 +559,8 @@ the change that fixes it.
   generated Go, `sdk/go/api`, and entity references, `sdk/go/entity`) and
   the Rust plugin SDK (`sdk/plugin`) and its testkit
   (`sdk/plugin-test`). The sandbox API has no client in
-  the SDK: it is served to no one outside. An SDK depends on nothing of
+  the SDK: it is served to no one outside, and its Go is generated for
+  the server alone (`server/sandbox/api`). An SDK depends on nothing of
   this repository but itself; what a program adds to how a client
   reaches a server (its telemetry) it passes as an option. Held by:
   `TestTheGoSDKRequiresNothingOfThisRepository`, and for the plugin SDK
@@ -576,8 +577,8 @@ the change that fixes it.
 - Everything else of a module is under its `<module>/internal/`, but
   what another module or frontseat-enterprise needs, each on one list
   with why (`public`, in `specs/architecture/visibility_test.go`): the
-  sandbox service, its driver port and the OpenShell driver
-  (`server/sandbox`, `server/sandbox/driver`,
+  sandbox service, its generated API, its driver port and the OpenShell
+  driver (`server/sandbox`, `server/sandbox/api/...`, `server/sandbox/driver`,
   `server/sandbox/driver/openshell`), which frontseat-enterprise embeds
   and composes around and never copies; git and telemetry (`server/git`,
   `server/telemetry`), which the command line runs too (and with git
@@ -593,8 +594,9 @@ the change that fixes it.
 - Generated code is in the Component that ships it, never beside the
   contract, and committed: the Go SDK's (`sdk/go/api`), the server's of
   the plugin contract (`server/internal/pluginapi`), of what a runner is
-  told (`server/internal/runnerapi`) and of the daemon's source API
-  (`server/internal/sourceapi`), each from a Buf template of its own
+  told (`server/internal/runnerapi`), of the daemon's source API
+  (`server/internal/sourceapi`) and of the sandbox API, public for
+  frontseat-enterprise (`server/sandbox/api`), each from a Buf template of its own
   (`api/buf.gen.*.yaml`), and the plugin SDK's Rust
   (`sdk/plugin/src/gen`, from `sdk/plugin/generate`). `mise run protos`
   writes it; `mise run check` fails where it is not what its generator

@@ -50,6 +50,12 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		// bearer knows nothing of the client.
 		{"sdk/go/frontseat.go", "sdk/go/bearer", true},
 		{"sdk/go/bearer/bearer.go", "sdk/go", false},
+		// The sandbox API's Go is the server's: the runner, the control
+		// plane and frontseat-enterprise speak it, and neither the Go SDK
+		// nor the command line does.
+		{"server/internal/runner/runner.go", "server/sandbox/api/frontseat/sandbox/v1alpha1/sandboxv1alpha1connect", true},
+		{"sdk/go/workspace.go", "server/sandbox/api/frontseat/sandbox/v1alpha1", false},
+		{"cli/internal/cmd/root.go", "server/sandbox/api/frontseat/sandbox/v1alpha1", false},
 		{"sdk/go/build.go", "server/internal/build", false},
 		{"sdk/go/build.go", "cli/internal/machine", false},
 		{"sdk/go/internal/transport/transport.go", "server/telemetry", false},
