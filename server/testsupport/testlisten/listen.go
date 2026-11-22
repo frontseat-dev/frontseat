@@ -4,7 +4,7 @@
 // A port the kernel hands out is not always one no other process holds.
 // A listener on every address over "tcp" is one IPv6 socket that takes
 // IPv4 too, and on macOS it binds a port that another process holds on
-// every IPv4 address (Logi Options+ on 59869) without an error. Under
+// every IPv4 address without an error. Under
 // OrbStack, a container's host.docker.internal is 0.250.250.254, and
 // what it sends there reaches the host at 127.0.0.1: at that port it
 // reaches the other process and not the test, which reads it and

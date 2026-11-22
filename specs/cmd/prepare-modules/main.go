@@ -1,12 +1,12 @@
-// Command prepare builds the wasm modules the tests load, lays them out
-// as package modules reads them, and prints the directory they are laid
+// Command prepare-modules builds the wasm modules the tests load, lays
+// them out as package testmodule reads them, and prints the directory they are laid
 // out in: every plugin of the repository, and every example of the SDK
 // that is a module, each where the crate that makes it leaves it. It is
 // what compiles for the tests; the tests read what was prepared and
 // compile nothing.
 //
-// A task that runs tests is told the directory it prints
-// (FRONTSEAT_TEST_ARTIFACTS, in mise.toml), so each run of tests reads
+// The gate tells the tests it runs the directory it prints
+// (FRONTSEAT_TEST_ARTIFACTS, specs/cmd/gate), so each run of tests reads
 // the modules that were built for it and no others. Which crates there
 // are is cargo's own word (cargo metadata), and so are the file each
 // module is (what cargo build says it made) and where what is built is
@@ -28,7 +28,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/frontseat-dev/frontseat/local"
 	"maps"
 	"os"
 	"os/exec"
@@ -39,6 +38,7 @@ import (
 
 	"github.com/google/renameio/v2"
 
+	"github.com/frontseat-dev/frontseat/local"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testmodule"
 )
 
@@ -69,7 +69,7 @@ type module struct {
 func main() {
 	dist := flag.String("dist", "", "write each plugin's module as <name>.wasm into this directory too, which holds nothing else")
 	flag.Usage = func() {
-		fmt.Fprintln(os.Stderr, "usage: prepare [-dist DIR], in the repository; it prints where the modules are laid out")
+		fmt.Fprintln(os.Stderr, "usage: prepare-modules [-dist DIR], in the repository; it prints where the modules are laid out")
 	}
 	flag.Parse()
 	if flag.NArg() > 0 {
@@ -78,7 +78,7 @@ func main() {
 	}
 	set, err := prepare(*dist)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "prepare:", err)
+		fmt.Fprintln(os.Stderr, "prepare-modules:", err)
 		os.Exit(1)
 	}
 	fmt.Println(set)
@@ -128,20 +128,20 @@ func prepare(dist string) (string, error) {
 	return lay(kept, found)
 }
 
-// Dist is where the build lays the plugins out, beneath the repository's
+// distPlugins is where the build lays the plugins out, beneath the repository's
 // root: the one directory -dist may name, since what is there that is no
 // plugin's now is removed.
-const Dist = "dist/plugins"
+const distPlugins = "dist/plugins"
 
 // distDirectory returns the directory -dist names, if it is the build's
-// own (Dist beneath root), however it is spelt; anything else is refused.
+// own (distPlugins beneath root), however it is spelt; anything else is refused.
 func distDirectory(root, given string) (string, error) {
 	at, err := filepath.Abs(given)
 	if err != nil {
 		return "", err
 	}
-	if want := filepath.Join(root, filepath.FromSlash(Dist)); at != want {
-		return "", fmt.Errorf("-dist %s is not the build's %s beneath %s, which alone this program writes and removes plugins in", given, Dist, root)
+	if want := filepath.Join(root, filepath.FromSlash(distPlugins)); at != want {
+		return "", fmt.Errorf("-dist %s is not the build's %s beneath %s, which alone this program writes and removes plugins in", given, distPlugins, root)
 	}
 	return at, nil
 }

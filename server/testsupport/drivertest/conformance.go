@@ -247,39 +247,23 @@ func Lingering(t *testing.T, d driver.Driver, template driver.Sandbox, linger fu
 	}
 }
 
-// Await waits for a sandbox to reach a state.
 // running has the driver make a sandbox of the template, of its id and
-// a suffix and labelled with that id, waits for it to run, and ends it
-// when the test ends.
+// a suffix and labelled with that id and with this run's label, waits
+// for it to run, and ends it when the test ends (Running).
 func running(t *testing.T, d driver.Driver, template driver.Sandbox, suffix string) driver.Sandbox {
 	t.Helper()
-	ctx := context.Background()
 	record := template
 	record.ID = template.ID + "-" + suffix
-	// The template's own labels, and one that is this sandbox's alone.
-	record.Labels = map[string]string{}
-	for k, v := range template.Labels {
-		record.Labels[k] = v
-	}
+	// The template's own labels, this run's, and one that is this
+	// sandbox's alone.
+	record = Labelled(record)
 	record.Labels["conformance"] = record.ID
-	unheld(t, d, record.ID)
-	t.Cleanup(func() { _ = d.Delete(ctx, record.ID) })
-	if _, err := d.Apply(ctx, record); err != nil {
-		t.Fatalf("Apply: %v", err)
-	}
-	Await(t, d, record.ID, driver.Running)
+	Running(t, d, record)
 	return record
 }
 
-// unheld fails a test whose id the driver holds already: a sandbox there
-// is another run's, not this one's to make over or end.
-func unheld(t testing.TB, d driver.Driver, id string) {
-	t.Helper()
-	if held, err := d.Observe(context.Background(), id); !errors.Is(err, driver.ErrNotFound) {
-		t.Fatalf("the id %s is held already (%v, %v): it is not this run's to make or end", id, held.State, err)
-	}
-}
-
+// Await waits, for a minute at most, for a sandbox the driver holds by
+// an id to reach a state, and fails the test where it fails first.
 func Await(t testing.TB, d driver.Driver, id string, want driver.State) {
 	t.Helper()
 	deadline := time.Now().Add(60 * time.Second)
