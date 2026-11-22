@@ -313,7 +313,7 @@ one of the two is written.
 | `environment` | both | map of name to text | `{}` | Variables it is started with, filled in as `arguments` is. |
 | `ports` | both | map of name to whole number | the plugin's | The ports it listens on, 1 to 65535, each under a name of lower-case letters, digits and dashes. At least one. |
 | `ready` | both | list of checks | the plugin's | When it is ready. At least one check, each one of `port: <name>`, `http: {port, path, body}` (`body` a regular expression) or `command: [...]`, whose arguments are filled in as `arguments` is. |
-| `timeout` | both | whole number of seconds | `120` | How long it is given to be ready. At most `3600`. |
+| `ready-timeout` | both | a length of time, as Go writes one (`90s`, `2m`, `1h`) | `2m` | How long it is given to be ready. In whole seconds, more than zero, at most `1h`. |
 | `exports` | Resource | map of name to text | the plugin's | Variables each test given the service is told, with `{host}` and `{port.<name>}` filled in. |
 | `apis` | Component | map of API to `{port, exports}` | | For each API the Component provides, written as a reference is (`orders-api`, `api:orders-api` or `api:<namespace>/orders-api`; the kind is `api` where none is written): the port it is served on, and the variables a test that consumes that API is told. |
 | `endpoints` | both | map of name to text | `{}` | Addresses a test reads from `FRONTSEAT_ENDPOINTS`, each `{host}` with one `{port.<name>}`. That variable is a JSON object of each service the test is given, by its entity reference, holding its endpoints filled in: `{"resource:default/cache": {"redis": "127.0.0.1:41001"}}`. |
@@ -344,7 +344,7 @@ spec:
       ready:
         - port: redis
         - command: [redis-cli, ping]
-      timeout: 60
+      ready-timeout: 1m
       exports: {REDIS_ADDR: "{host}:{port.redis}"}
       endpoints: {redis: "{host}:{port.redis}"}
       user: "999"

@@ -49,8 +49,8 @@ func TestWhatAServiceCannotBeIsRefusedByItsKey(t *testing.T) {
 		"a command that names nothing": func(l *typev1.Service) {
 			l.Ready = []*typev1.ServiceReady{{Check: &typev1.ServiceReady_Command{Command: &typev1.ServiceCommandReady{}}}}
 		},
-		"service.timeout is a number": func(l *typev1.Service) { l.Timeout = durationpb.New(-1 * time.Second) },
-		"more than the hour":          func(l *typev1.Service) { l.Timeout = durationpb.New(3601 * time.Second) },
+		"service.ready-timeout is a length": func(l *typev1.Service) { l.Timeout = durationpb.New(-1 * time.Second) },
+		"more than the hour":                func(l *typev1.Service) { l.Timeout = durationpb.New(3601 * time.Second) },
 		"service.exports: a name the shell can export is letters, digits and underscores": func(l *typev1.Service) { l.Exports = map[string]string{"LD-PRELOAD": "x"} },
 		// What it starts with is named as what it exports is: each of
 		// these would reach the runtime as --env <name>=<value>.

@@ -24,7 +24,7 @@ plugins:
 
 | Key | Read by | What it does |
 |---|---|---|
-| `spec.frontseat.service` with `as: container` | the host, which asks the plugin | The service, started as it is written: `image`, `arguments`, `environment`, `ports`, `ready`, `timeout`, `user`, `writable`, `exports` and `endpoints`. The plugin gives none a default. |
+| `spec.frontseat.service` with `as: container` | the host, which asks the plugin | The service, started as it is written: `image`, `arguments`, `environment`, `ports`, `ready`, `ready-timeout`, `user`, `writable`, `exports` and `endpoints`. The plugin gives none a default. |
 
 ```yaml
 # catalog-info.yaml
