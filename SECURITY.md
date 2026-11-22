@@ -39,6 +39,15 @@ which runs nothing for it while its own run lasts; actions that run one after an
 loopback; a download's host name that resolves to an address of the
 grid's own, or redirects there, is fetched by the grid's asset service.
 
+Not held of a release either, and known: what publishes a release runs
+as the daemon, where the daemon is, confined by nothing but where the
+daemon runs. The variables it is given are no boundary: it can read the
+daemon's own environment (through `/proc`), the grid's token and the
+daemon's state, so a checkout that says what publishes says what runs
+there as the daemon, in a release someone asked for. A release that
+pushes a tag to a remote given as a directory runs that directory's own
+hooks as the daemon.
+
 The local stack (`frontseat-local up`) is one container for a trusted
 development machine. Its grid asks no one who they are and listens on the
 loopback alone. That it is unauthenticated is not a vulnerability; a way to

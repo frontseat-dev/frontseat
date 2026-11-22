@@ -840,6 +840,7 @@ the change that fixes it.
 mise install              # the pinned tools
 mise run build            # Frontseat into dist/, and the box image, tagged frontseat-box:local too
 mise run build:programs   # Frontseat's programs and plugins into dist/, and no image: what a job builds
+mise run ready            # whether the local stack can be started from this checkout
 mise start                # build, then bring the local stack up from this checkout, on its own box (never `mise up`)
 mise stop                 # bring the local stack down, whichever checkout started it
 mise run check            # what must always pass; needs no stack
