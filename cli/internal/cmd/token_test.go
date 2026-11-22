@@ -115,11 +115,6 @@ func TestTheTokenIsPresentedToTheControlPlaneAlone(t *testing.T) {
 	if got := taken(); len(got) != 1 || got[0] != plane+" " {
 		t.Errorf("with no token, the control plane was presented %q", got)
 	}
-	for at, here := range map[string]bool{"http://127.0.0.1:7700": true, "http://[::1]:1": true, "http://localhost:1": true, "https://cp.example.com": false, "http://127.0.0.1.example.com": false} {
-		if local(at) != here {
-			t.Errorf("%s is said to be of this machine: %v, want %v", at, local(at), here)
-		}
-	}
 }
 
 // layOut lays out the owner's token where the command line finds it,
@@ -158,4 +153,34 @@ func TestMain(m *testing.M) {
 	// The directory is the tests' own, made just above.
 	_ = os.RemoveAll(config)
 	os.Exit(code)
+}
+
+// No command asks a control plane on another machine in clear: named
+// with http, it is refused by every command before anything is sent,
+// the token and a credential's secret among it, and the refusal does not
+// repeat the address. The control is the same commands asking a control
+// plane on this machine over http
+// (TestTheTokenIsPresentedToTheControlPlaneAlone,
+// TestACredentialIsReadFromStandardInputAndHandedToTheServer).
+func TestNoCommandAsksAControlPlaneOnAnotherMachineInClear(t *testing.T) {
+	layOut(t, "http://frontseat.example:7700")
+	secretFrom = strings.NewReader("a-made-up-secret\n")
+	t.Cleanup(func() { secretFrom = nil })
+	for _, command := range [][]string{
+		{"workspace", "list"},
+		{"workspace", "describe", "--workspace", "named"},
+		{"workspace", "delete", "named"},
+		{"workspace", "ssh", "--stdio", "--workspace", "named"},
+		{"workspace", "credential", "forge.example"},
+		{"builds", "--workspace", "named"},
+		{"build", "--workspace", "named"},
+	} {
+		_, _, err := runAt(t, context.Background(), "", command...)
+		switch {
+		case err == nil || !strings.Contains(err.Error(), "without TLS"):
+			t.Errorf("frontseat %s asked a control plane on another machine in clear: %v", strings.Join(command, " "), err)
+		case strings.Contains(err.Error(), "frontseat.example") || strings.Contains(err.Error(), token):
+			t.Errorf("frontseat %s: the refusal repeats what it refused: %v", strings.Join(command, " "), err)
+		}
+	}
 }

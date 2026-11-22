@@ -106,7 +106,9 @@ the change that fixes it.
   control plane `$XDG_CONFIG_HOME/frontseat/local/server` names,
   else the local stack's; the token beside it is presented to that
   origin alone, never to an address a server answers with, and no
-  redirect is followed with it. No command takes a server by a flag.
+  redirect is followed with it. A control plane on another machine is
+  asked over https alone, and the SDK sends a token in clear to none
+  (`bearer.Private`). No command takes a server by a flag.
   Inside a workspace's sandbox, which the command line knows by the
   sandbox's lock its daemon holds (`Lock` in `local/ports`), a command asks
   that daemon's build API on the loopback and no control plane, and
@@ -114,8 +116,10 @@ the change that fixes it.
   `frontseat --help` says so. Held by:
   `TestEveryCommandAsksTheOneControlPlaneTheRuleNames`,
   `TestInsideAWorkspaceItsSourceIsFixed`,
-  `TestTheTokenIsPresentedToTheControlPlaneAlone` and the SDK's
-  `TestATokenIsPresentedToItsOriginAlone`.
+  `TestTheTokenIsPresentedToTheControlPlaneAlone`,
+  `TestNoCommandAsksAControlPlaneOnAnotherMachineInClear` and the SDK's
+  `TestATokenIsPresentedToItsOriginAlone` and
+  `TestATokenIsNotPresentedInClearToAnotherMachine`.
 - **A workspace has one writer.** The control plane alone serves
   `frontseat.workspace.v1alpha1` and keeps what a workspace is asked for;
   it tells the workspace's daemon what to hold through the daemon's

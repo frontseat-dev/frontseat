@@ -2,6 +2,7 @@ package transport_test
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/coder/websocket"
 
+	"github.com/frontseat-dev/frontseat/sdk/go/bearer"
 	"github.com/frontseat-dev/frontseat/sdk/go/internal/transport"
 )
 
@@ -157,4 +159,41 @@ func TestATunnelEndsWhenWhoeverAskedGoesAway(t *testing.T) {
 	if _, err := conn.Read(make([]byte, 1)); err == nil {
 		t.Error("an open tunnel was still read from after whoever asked went away")
 	}
+}
+
+// A tunnel that would carry a token in clear to another machine is not
+// opened, and nothing is dialled. The control is a tunnel to this
+// machine in clear, opened and presented the token
+// (TestATokenIsPresentedWhereOneIsGiven), and one to another machine
+// with no token, which is dialled.
+func TestATunnelCarriesNoTokenInClearToAnotherMachine(t *testing.T) {
+	dialled := &countingTransport{}
+	reach := transport.Reach{HTTP: &http.Client{Transport: unreached{dialled}}, Token: "a-token", Origin: "http://frontseat.example"}
+	conn, err := transport.Tunnel(context.Background(), "ws://frontseat.example/shell", reach)
+	if err == nil {
+		conn.Close()
+	}
+	if !errors.Is(err, bearer.ErrInClear) {
+		t.Errorf("a tunnel in clear to another machine: %v, want it refused", err)
+	}
+	if made := dialled.made.Load(); made != 0 {
+		t.Errorf("another machine was dialled %d times with a token to present", made)
+	}
+	reach.Token = ""
+	if conn, err := transport.Tunnel(context.Background(), "ws://frontseat.example/shell", reach); err == nil {
+		conn.Close()
+	} else if errors.Is(err, bearer.ErrInClear) {
+		t.Errorf("the control: a tunnel with no token was refused: %v", err)
+	}
+	if made := dialled.made.Load(); made != 1 {
+		t.Errorf("the control: a tunnel with no token dialled %d times, want once", made)
+	}
+}
+
+// unreached counts what would be dialled, and reaches nothing.
+type unreached struct{ counted *countingTransport }
+
+func (u unreached) RoundTrip(*http.Request) (*http.Response, error) {
+	u.counted.made.Add(1)
+	return nil, errors.New("nothing is reached from this test")
 }
