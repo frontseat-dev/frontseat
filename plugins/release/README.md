@@ -91,6 +91,30 @@ README says why it is a clone, and when it goes.
 The answer names each commit that moved the unit, heaviest first, and
 writes release notes from their descriptions.
 
+## Options
+
+None. The plugin is listed with nothing set, as above, and an option
+written for it is refused by name.
+
+## Catalog keys
+
+| Key | Read by | What it does |
+|---|---|---|
+| `spec.frontseat.release.branching` | the host, which asks the plugin | The branching strategy of a unit, `<plugin>:<name>`. Default `release:release-flow`. |
+| `spec.frontseat.release.versioning` | the host, which asks the plugin | The versioning strategy of a unit, `<plugin>:<name>`. Default `release:conventional-commits`. |
+| `spec.frontseat.release.prerelease` | the host | How a prerelease is spelled. Default `{branch}-{timestamp}`. |
+| `spec.frontseat.release.prerelease-tag` | the host | Whether a prerelease is tagged. Default `false`. |
+| `spec.frontseat.release.grouping`, `tag`, `initial` | the host | What a unit is, its tag and its first version: none is a strategy's to say. |
+
+```yaml
+# catalog-info.yaml
+spec:
+  frontseat:
+    release:
+      branching: release:release-flow
+      versioning: release:conventional-commits
+```
+
 ## Not built yet
 
 GitHub Flow and GitLab Flow are not served: a strategy the plugin does

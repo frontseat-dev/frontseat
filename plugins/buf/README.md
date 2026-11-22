@@ -66,3 +66,20 @@ sandbox. Full integration validation requires the local stack.
 Not implemented: external Buf module fetching, generation into a new module
 without committed metadata, arbitrary local generator programs, and general
 binary artifact providers.
+
+## Options
+
+None. The plugin is listed with nothing set, and an option written for
+it is refused by name.
+
+```yaml
+# frontseat.yaml
+plugins:
+  buf: {}
+```
+
+## Catalog keys
+
+| Key | Read by | What it does |
+|---|---|---|
+| `spec.frontseat.generated` | the host | A Component's consent that another generates into a directory of its own, each entry a `directory`, from the catalog file, and `by`, the Component of the Buf workspace. It is needed where a template's `out` is in another Component, as said above, and nowhere else. |
