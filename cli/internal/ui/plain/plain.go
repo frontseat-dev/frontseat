@@ -119,6 +119,22 @@ func (p Printer) finished(build *buildv1.Build) {
 }
 
 // found writes what was found, each where it was found.
+// Printed writes what an action that failed printed, beneath the line
+// that says it failed: every line, as the action printed it, set in as
+// what an action is told is, so that none is taken for a line of this
+// printer's own.
+func (p Printer) Printed(lines []*typev1.LogLine) {
+	for _, line := range lines {
+		fmt.Fprintf(p.Out, "        %s\n", shown(line.GetText()))
+	}
+}
+
+// Unread says, in the place of what a failed action printed, that it
+// could not be read, and why.
+func (p Printer) Unread(err error) {
+	fmt.Fprintf(p.Out, "        what it printed could not be read: %s\n", shown(err.Error()))
+}
+
 func (p Printer) found(diagnostics []*typev1.Diagnostic) {
 	for _, found := range diagnostics {
 		at := ""
