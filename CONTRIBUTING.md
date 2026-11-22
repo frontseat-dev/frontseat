@@ -127,7 +127,7 @@ or from your own shell with `--workspace NAME`:
 
 ```sh
 frontseat build --only compile --only lint --only generate --only package --only depends-on
-frontseat builds
+frontseat build list
 ```
 
 The build is held to the actions of those names because they are what

@@ -72,7 +72,7 @@ func TestASandboxHoldsOneDaemonWhichStandsInItsWorkspaceAndKnowsItsName(t *testi
 	spec.Expect(exit).NotTo(Equal(0))
 	spec.Expect(printed).To(And(ContainSubstring("one daemon"), ContainSubstring(workspace.Workspace)))
 	spec.Expect(strings.Fields(workspace.prints(daemons))).To(HaveLen(1))
-	spec.Expect(workspace.exits("frontseat builds")).To(Equal(0))
+	spec.Expect(workspace.exits("frontseat build list")).To(Equal(0))
 }
 
 // Workspaces in sandboxes / You build from where you are, outside the sandbox.

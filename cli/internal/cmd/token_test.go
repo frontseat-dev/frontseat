@@ -71,14 +71,14 @@ func TestTheTokenIsPresentedToTheControlPlaneAlone(t *testing.T) {
 		t.Errorf("the control plane was presented %q, want the token", got)
 	}
 	daemonAt = recorded + "/workspaces/named/build"
-	if _, _, err := runAt(t, context.Background(), "", "builds", "--workspace", "named"); err != nil {
+	if _, _, err := runAt(t, context.Background(), "", "build", "list", "--workspace", "named"); err != nil {
 		t.Fatal(err)
 	}
 	if got := taken(); len(got) != 2 || got[1] != plane+" Bearer "+token {
 		t.Errorf("a daemon beneath the control plane was presented %q, want the token", got)
 	}
 	daemonAt = elsewhere.URL
-	if _, _, err := runAt(t, context.Background(), "", "builds", "--workspace", "named"); err != nil {
+	if _, _, err := runAt(t, context.Background(), "", "build", "list", "--workspace", "named"); err != nil {
 		t.Fatal(err)
 	}
 	if got := taken(); len(got) != 2 || got[1] != elsewhere.URL[len("http://"):]+" " {
@@ -87,7 +87,7 @@ func TestTheTokenIsPresentedToTheControlPlaneAlone(t *testing.T) {
 
 	// Inside a workspace's sandbox, the daemon beside is presented no
 	// token, though one is laid out.
-	if _, _, err := runAt(t, context.Background(), elsewhere.URL, "builds"); err != nil {
+	if _, _, err := runAt(t, context.Background(), elsewhere.URL, "build", "list"); err != nil {
 		t.Fatal(err)
 	}
 	if got := taken(); len(got) != 1 || got[0] != elsewhere.URL[len("http://"):]+" " {
@@ -172,7 +172,7 @@ func TestNoCommandAsksAControlPlaneOnAnotherMachineInClear(t *testing.T) {
 		{"workspace", "delete", "named"},
 		{"workspace", "ssh", "--stdio", "--workspace", "named"},
 		{"workspace", "credential", "forge.example"},
-		{"builds", "--workspace", "named"},
+		{"build", "list", "--workspace", "named"},
 		{"build", "--workspace", "named"},
 	} {
 		_, _, err := runAt(t, context.Background(), "", command...)

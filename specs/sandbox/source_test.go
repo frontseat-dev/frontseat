@@ -44,7 +44,7 @@ func TestInsideAWorkspaceItsSourceIsFixedAndItIsFilledFromOutside(t *testing.T) 
 	spec.Expect(inside.GetSpec().GetEntities()).To(HaveLen(1))
 	spec.Expect(repositoriesOf(inside)).To(Equal(repositoriesOf(before)))
 	// The command line inside still asks the daemon there to build.
-	spec.Expect(workspace.exits("frontseat builds")).To(Equal(0))
+	spec.Expect(workspace.exits("frontseat build list")).To(Equal(0))
 
 	// The control: the same request from outside is kept in the spec the
 	// control plane keeps, and brought.

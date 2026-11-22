@@ -290,22 +290,28 @@ func TestShipWithAPlanReleasesThatPlanAndNoOther(t *testing.T) {
 func TestWhatIsWrittenWronglyIsRefusedBeforeADaemonIsAsked(t *testing.T) {
 	d := &daemonOf{}
 	for name, args := range map[string][]string{
-		"ship with nothing named":          {"ship"},
-		"ship plan with nothing named":     {"ship", "plan"},
-		"an entity that is none":           {"ship", "plan", "a b"},
-		"a flag ship does not take":        {"ship", "greet", "--only", "test"},
-		"a command there is not":           {"release", "greet"},
-		"workspace by itself":              {"workspace"},
-		"a workspace command there is not": {"workspace", "delet"},
-		"a flag written with one dash":     {"build", "-only", "test"},
-		"builds with an argument":          {"builds", "extra"},
-		"cancel with no id":                {"cancel"},
-		"cancel with two ids":              {"cancel", "build_1", "run_1"},
-		"runs cancel, which is cancel":     {"runs", "cancel", "run_1"},
-		"events, which is builds events":   {"events", "build_1"},
-		"open, which is workspace open":    {"open"},
-		"query of two targets":             {"query", "a", "b"},
-		"a server named by a flag":         {"workspace", "list", "--server", "http://127.0.0.1:1"},
+		"ship with nothing named":            {"ship"},
+		"ship plan with nothing named":       {"ship", "plan"},
+		"an entity that is none":             {"ship", "plan", "a b"},
+		"a flag ship does not take":          {"ship", "greet", "--only", "test"},
+		"a command there is not":             {"release", "greet"},
+		"workspace by itself":                {"workspace"},
+		"a workspace command there is not":   {"workspace", "delet"},
+		"a flag written with one dash":       {"build", "-only", "test"},
+		"build list with an argument":        {"build", "list", "extra"},
+		"build cancel with no id":            {"build", "cancel"},
+		"build cancel with two ids":          {"build", "cancel", "build_1", "build_2"},
+		"run cancel with no id":              {"run", "cancel"},
+		"cancel, which is build cancel":      {"cancel", "build_1"},
+		"builds, which is build list":        {"builds"},
+		"runs, which is run list":            {"runs"},
+		"events, which is build events":      {"events", "build_1"},
+		"build events of an event's number":  {"build", "events", "build_1", "7"},
+		"build events from before the first": {"build", "events", "build_1", "--from", "-1"},
+		"build logs with no label":           {"build", "logs", "build_1"},
+		"open, which is workspace open":      {"open"},
+		"query of two targets":               {"query", "a", "b"},
+		"a server named by a flag":           {"workspace", "list", "--server", "http://127.0.0.1:1"},
 	} {
 		if _, _, err := run(t, d, args...); err == nil {
 			t.Errorf("%s was run", name)
@@ -328,7 +334,10 @@ func TestACommandIsNamedWithoutWhatItWasGiven(t *testing.T) {
 		"ship plan":      {"ship", "plan", "secret-entity"},
 		"workspace ssh":  {"workspace", "ssh", "cat", "/etc/passwd"},
 		"workspace open": {"workspace", "open", "https://secret.example/private.git"},
-		"builds events":  {"builds", "events", "build_1", "7"},
+		"build events":   {"build", "events", "build_1", "--from", "7"},
+		"build logs":     {"build", "logs", "build_1", "//secret:go.compile"},
+		"run cancel":     {"run", "cancel", "run_1"},
+		"run":            {"run", "//secret:go.run/secret", "--", "list"},
 		"test":           {"test", "secret-entity"},
 		"query":          {"query", "secret-entity", "--why", "another"},
 		"unknown":        {"not-a-command", "secret"},
@@ -489,7 +498,7 @@ func TestAWorkspaceIsNamedAndNotAddressed(t *testing.T) {
 			t.Errorf("%v took a flag it has none of: %v", args, err)
 		}
 	}
-	for _, path := range [][]string{{"workspace", "describe"}, {"workspace", "add"}, {"build"}, {"test"}, {"query"}, {"builds"}, {"builds", "events"}, {"run"}, {"runs"}, {"cancel"}, {"ship"}, {"ship", "plan"}} {
+	for _, path := range [][]string{{"workspace", "describe"}, {"workspace", "add"}, {"build"}, {"test"}, {"query"}, {"build", "list"}, {"build", "describe"}, {"build", "events"}, {"build", "actions"}, {"build", "logs"}, {"build", "cancel"}, {"run"}, {"run", "list"}, {"run", "describe"}, {"run", "logs"}, {"run", "cancel"}, {"ship"}, {"ship", "plan"}} {
 		sub, _, err := rootCmd.Find(path)
 		if err != nil || sub.Flags().Lookup("workspace") == nil {
 			t.Errorf("%v asks a workspace and takes no --workspace", path)
@@ -578,7 +587,7 @@ func TestTheHelpSaysWhichServerAndWorkspaceAreAsked(t *testing.T) {
 		}
 	}
 	printed.Reset()
-	if _, err := Execute(context.Background(), []string{"cancel", "--help"}); err != nil {
+	if _, err := Execute(context.Background(), []string{"build", "cancel", "--help"}); err != nil {
 		t.Fatal(err)
 	}
 	if strings.Contains(printed.String(), "local/server") {
@@ -599,7 +608,7 @@ func TestAnActionThatFailedIsFollowedByWhatItPrinted(t *testing.T) {
 		"//greet:go.compile": {"never shown"},
 		"//greet:go.test":    {"never shown"},
 	}}
-	printed, code, err := run(t, d, "builds", "events", "bld_1")
+	printed, code, err := run(t, d, "build", "events", "bld_1")
 	if err != nil || code != 1 {
 		t.Fatalf("ended %d, %v:\n%s", code, err, printed)
 	}
@@ -630,7 +639,7 @@ func TestAnActionThatFailedIsFollowedByWhatItPrinted(t *testing.T) {
 func TestWhatAFailedActionPrintedMayNotBeRead(t *testing.T) {
 	d := &daemonOf{events: ended(), printed: map[string][]string{"//greet:go.lint": {"what came before"}},
 		unread: connect.NewError(connect.CodeInternal, "what the action printed is not there\x1b[2J to be read")}
-	printed, code, err := run(t, d, "builds", "events", "bld_1")
+	printed, code, err := run(t, d, "build", "events", "bld_1")
 	if err != nil || code != 1 {
 		t.Fatalf("ended %d, %v:\n%s", code, err, printed)
 	}
@@ -640,7 +649,7 @@ func TestWhatAFailedActionPrintedMayNotBeRead(t *testing.T) {
 	}
 	// An action that printed nothing is its one line.
 	d = &daemonOf{events: ended()}
-	printed, _, _ = run(t, d, "builds", "events", "bld_1")
+	printed, _, _ = run(t, d, "build", "events", "bld_1")
 	if !strings.Contains(printed, "FAILED  //greet:go.lint  exit 1  0s\nskipped //greet:go.test") {
 		t.Errorf("an action that printed nothing printed\n%s", printed)
 	}
