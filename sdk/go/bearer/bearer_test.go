@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -59,7 +60,9 @@ func (a *asked) RoundTrip(r *http.Request) (*http.Response, error) {
 
 // A token is never sent in clear to another machine: a request that
 // would carry it over http to a host that is not this machine is refused
-// before anything is sent, by an error that names neither. The controls
+// before anything is sent. The refusal itself names neither the token
+// nor the address; Go's HTTP client says of every request that fails
+// what it was of, as its caller wrote it, and no token. The controls
 // are the same request over TLS, and to this machine in clear, by its
 // name and by its loopback addresses, each presented the token.
 func TestATokenIsNotPresentedInClearToAnotherMachine(t *testing.T) {
@@ -75,7 +78,12 @@ func TestATokenIsNotPresentedInClearToAnotherMachine(t *testing.T) {
 		if len(over.presented) != 0 {
 			t.Errorf("%s was asked, presented %q", origin, over.presented)
 		}
-		if err != nil && (strings.Contains(err.Error(), "a-token") || strings.Contains(bearer.ErrInClear.Error(), "example")) {
+		var failed *url.Error
+		if !errors.As(err, &failed) {
+			continue
+		}
+		host := strings.TrimPrefix(origin, "http://")
+		if refusal := failed.Err.Error(); strings.Contains(err.Error(), "a-token") || strings.Contains(refusal, host) {
 			t.Errorf("the refusal repeats what it refused: %v", err)
 		}
 	}
