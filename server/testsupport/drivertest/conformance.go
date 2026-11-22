@@ -255,7 +255,8 @@ func running(t *testing.T, d driver.Driver, template driver.Sandbox, suffix stri
 	record := template
 	record.ID = template.ID + "-" + suffix
 	// The template's own labels, this run's, and one that is this
-	// sandbox's alone.
+	// sandbox's alone, written in the copy Labelled makes so that the
+	// template's are not; Running labels it again, which changes nothing.
 	record = Labelled(record)
 	record.Labels["conformance"] = record.ID
 	Running(t, d, record)
