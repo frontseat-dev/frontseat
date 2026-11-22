@@ -185,9 +185,9 @@ message Workspace {
   // owns them: lower-case letters, digits and dashes, at most 48. It is
   // what every command and call says to mean this workspace, and its
   // daemon is told it.
-  string name = 1;
+  string name = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Spec is what it was asked for with.
-  WorkspaceSpec spec = 2;
+  WorkspaceSpec spec = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Status is what is so.
   WorkspaceStatus status = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
   // `create_time` is when it was made.
@@ -256,11 +256,11 @@ message Author {
 // WorkspaceStatus is what is so of a workspace.
 message WorkspaceStatus {
   // State is where it is.
-  State state = 1;
+  State state = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Failure says what went wrong: for a workspace that failed, why; for
   // one starting or ending, what is holding it up, which the control
   // plane tries again. Empty where nothing went wrong.
-  string failure = 2;
+  string failure = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
   // `build_uri` is the address at which its daemon's build API
   // (frontseat.build.v1alpha1) is called. It is an address of the
   // control plane, which forwards calls of that API, and no others, to
@@ -268,7 +268,7 @@ message WorkspaceStatus {
   // Empty until the workspace has a sandbox.
   string build_uri = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Repositories are the repositories it holds, as its daemon says.
-  repeated Repository repositories = 5;
+  repeated Repository repositories = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Entities are what the entities it was asked for resolved to, and the
   // components they depend on: each entity, and the repository and
   // directory that hold it. They were resolved once, when each was

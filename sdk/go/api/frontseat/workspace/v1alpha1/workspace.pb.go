@@ -1301,10 +1301,10 @@ var File_frontseat_workspace_v1alpha1_workspace_proto protoreflect.FileDescripto
 
 const file_frontseat_workspace_v1alpha1_workspace_proto_rawDesc = "" +
 	"\n" +
-	",frontseat/workspace/v1alpha1/workspace.proto\x12\x1cfrontseat.workspace.v1alpha1\x1a#frontseat/type/v1alpha1/types.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x8c\x02\n" +
-	"\tWorkspace\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\x12?\n" +
-	"\x04spec\x18\x02 \x01(\v2+.frontseat.workspace.v1alpha1.WorkspaceSpecR\x04spec\x12K\n" +
+	",frontseat/workspace/v1alpha1/workspace.proto\x12\x1cfrontseat.workspace.v1alpha1\x1a#frontseat/type/v1alpha1/types.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x98\x02\n" +
+	"\tWorkspace\x12\x18\n" +
+	"\x04name\x18\x01 \x01(\tB\x04\xe2A\x01\x03R\x04name\x12E\n" +
+	"\x04spec\x18\x02 \x01(\v2+.frontseat.workspace.v1alpha1.WorkspaceSpecB\x04\xe2A\x01\x03R\x04spec\x12K\n" +
 	"\x06status\x18\x03 \x01(\v2-.frontseat.workspace.v1alpha1.WorkspaceStatusB\x04\xe2A\x01\x03R\x06status\x12A\n" +
 	"\vcreate_time\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\n" +
 	"createTime\x12\x1a\n" +
@@ -1320,12 +1320,12 @@ const file_frontseat_workspace_v1alpha1_workspace_proto_rawDesc = "" +
 	"\blifetime\x18\t \x01(\v2\x19.google.protobuf.DurationR\blifetime\"2\n" +
 	"\x06Author\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
-	"\x05email\x18\x02 \x01(\tR\x05email\"\xc8\x03\n" +
-	"\x0fWorkspaceStatus\x12I\n" +
-	"\x05state\x18\x01 \x01(\x0e23.frontseat.workspace.v1alpha1.WorkspaceStatus.StateR\x05state\x12\x18\n" +
-	"\afailure\x18\x02 \x01(\tR\afailure\x12!\n" +
-	"\tbuild_uri\x18\x03 \x01(\tB\x04\xe2A\x01\x03R\bbuildUri\x12L\n" +
-	"\frepositories\x18\x05 \x03(\v2(.frontseat.workspace.v1alpha1.RepositoryR\frepositories\x12M\n" +
+	"\x05email\x18\x02 \x01(\tR\x05email\"\xda\x03\n" +
+	"\x0fWorkspaceStatus\x12O\n" +
+	"\x05state\x18\x01 \x01(\x0e23.frontseat.workspace.v1alpha1.WorkspaceStatus.StateB\x04\xe2A\x01\x03R\x05state\x12\x1e\n" +
+	"\afailure\x18\x02 \x01(\tB\x04\xe2A\x01\x03R\afailure\x12!\n" +
+	"\tbuild_uri\x18\x03 \x01(\tB\x04\xe2A\x01\x03R\bbuildUri\x12R\n" +
+	"\frepositories\x18\x05 \x03(\v2(.frontseat.workspace.v1alpha1.RepositoryB\x04\xe2A\x01\x03R\frepositories\x12M\n" +
 	"\bentities\x18\x06 \x03(\v2+.frontseat.workspace.v1alpha1.LocatedEntityB\x04\xe2A\x01\x03R\bentities\"\x8f\x01\n" +
 	"\x05State\x12\x15\n" +
 	"\x11STATE_UNSPECIFIED\x10\x00\x12\x12\n" +

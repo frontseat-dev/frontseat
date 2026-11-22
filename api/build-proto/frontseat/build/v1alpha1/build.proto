@@ -200,30 +200,30 @@ message Build {
 // passed, failed, skipped, errored and idle add up to total.
 message Counts {
   // Total is how many actions the build selected.
-  int32 total = 1;
+  int32 total = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Passed is how many passed (OUTCOME_PASSED).
-  int32 passed = 2;
+  int32 passed = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Failed is how many ran and did not pass (OUTCOME_FAILED), and how
   // many checks would rewrite the source (OUTCOME_REWRITE).
-  int32 failed = 3;
+  int32 failed = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Skipped is how many did not run because something they need did not
   // pass (OUTCOME_SKIPPED), and, once the build has ended, how many it
   // never reached, as when it was cancelled.
-  int32 skipped = 4;
+  int32 skipped = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Errored is how many could not be run (OUTCOME_ERROR).
-  int32 errored = 5;
+  int32 errored = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Idle is how many were not run, having nothing to do (OUTCOME_IDLE).
-  int32 idle = 6;
+  int32 idle = 6 [(google.api.field_behavior) = OUTPUT_ONLY];
 }
 
 // Cost is what a build used: what a budget counts.
 message Cost {
   // `actions_executed` is how many actions a worker ran.
-  int32 actions_executed = 1;
+  int32 actions_executed = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
   // `worker_time` is the time workers spent running them, summed.
-  google.protobuf.Duration worker_time = 2;
+  google.protobuf.Duration worker_time = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
   // `wall_time` is how long the build took.
-  google.protobuf.Duration wall_time = 3;
+  google.protobuf.Duration wall_time = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
 }
 
 // ActionResult is what one action of a build did. It is the build's check for
@@ -446,73 +446,73 @@ message StreamBuildLogsResponse {
 // a build's progress needs these events and nothing else.
 message BuildEvent {
   // Sequence numbers the build's events from 1, with no gaps.
-  int64 sequence = 1;
+  int64 sequence = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Time is when it happened.
-  google.protobuf.Timestamp time = 2;
+  google.protobuf.Timestamp time = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Event is what happened.
   oneof event {
     // `stage_changed`: the build moved to another stage.
-    StageChanged stage_changed = 3;
+    StageChanged stage_changed = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
     // Planned: the build knows its actions.
-    Planned planned = 4;
+    Planned planned = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
     // `action_started`: an action began.
-    ActionStarted action_started = 5;
+    ActionStarted action_started = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
     // `action_finished`: an action ended.
-    ActionFinished action_finished = 6;
+    ActionFinished action_finished = 6 [(google.api.field_behavior) = OUTPUT_ONLY];
     // Patched: the daemon wrote what a fix changed to its own checkout.
-    Patched patched = 7;
+    Patched patched = 7 [(google.api.field_behavior) = OUTPUT_ONLY];
     // Finished: the build ended. It is the build's last event.
-    Finished finished = 8;
+    Finished finished = 8 [(google.api.field_behavior) = OUTPUT_ONLY];
     // `started_over`: the build began again from its plan.
-    StartedOver started_over = 9;
+    StartedOver started_over = 9 [(google.api.field_behavior) = OUTPUT_ONLY];
   }
 
   // StageChanged is the build moving to another stage.
   message StageChanged {
     // Stage is the stage it moved to.
-    Build.Stage stage = 1;
+    Build.Stage stage = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
   }
 
   // Planned lists every action the build will run or answer for, so
   // that a reader knows from the start how many are still to end.
   message Planned {
     // Actions are the build's actions, in dependency order.
-    repeated PlannedAction actions = 1;
+    repeated PlannedAction actions = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
     // Roots are the labels the targets named.
-    repeated string roots = 2;
+    repeated string roots = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
   }
 
   // PlannedAction is one action of a build's plan.
   message PlannedAction {
     // Label is the action's label.
-    string label = 1;
+    string label = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
     // Entity is the entity that owns it; unset when none does.
-    frontseat.type.v1alpha1.EntityRef entity = 2;
+    frontseat.type.v1alpha1.EntityRef entity = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
     // Name is its name within its plugin: "test", "lint".
-    string name = 3;
+    string name = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
     // Needs are the labels of the actions it waits for.
-    repeated string needs = 4;
+    repeated string needs = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
   }
 
   // ActionStarted is an action beginning: handed to the grid, or looked
   // up in a cache.
   message ActionStarted {
     // Label is the action's label.
-    string label = 1;
+    string label = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
   }
 
   // ActionFinished is an action ending.
   message ActionFinished {
     // Result is what it did.
-    ActionResult result = 1;
+    ActionResult result = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
   }
 
   // Patched is a fix applied to the daemon's own checkout.
   message Patched {
     // Repository is the workspace's name for the repository.
-    string repository = 1;
+    string repository = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
     // Paths are the files it changed, relative to the repository.
-    repeated string paths = 2;
+    repeated string paths = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
   }
 
   // StartedOver is the build beginning again from its plan. It happens
@@ -524,15 +524,15 @@ message BuildEvent {
   // input a second time ends in error.
   message StartedOver {
     // Label is the action whose input the grid no longer held.
-    string label = 1;
+    string label = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
     // Reason is what the grid said.
-    string reason = 2;
+    string reason = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
   }
 
   // Finished is the build's end.
   message Finished {
     // Build is the build as it ended.
-    Build build = 1;
+    Build build = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
   }
 }
 

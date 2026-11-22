@@ -2189,10 +2189,10 @@ var File_frontseat_sandbox_v1alpha1_sandbox_proto protoreflect.FileDescriptor
 
 const file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDesc = "" +
 	"\n" +
-	"(frontseat/sandbox/v1alpha1/sandbox.proto\x12\x1afrontseat.sandbox.v1alpha1\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xeb\x03\n" +
+	"(frontseat/sandbox/v1alpha1/sandbox.proto\x12\x1afrontseat.sandbox.v1alpha1\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xf1\x03\n" +
 	"\aSandbox\x12\x14\n" +
-	"\x02id\x18\x01 \x01(\tB\x04\xe2A\x01\x03R\x02id\x12;\n" +
-	"\x04spec\x18\x02 \x01(\v2'.frontseat.sandbox.v1alpha1.SandboxSpecR\x04spec\x12E\n" +
+	"\x02id\x18\x01 \x01(\tB\x04\xe2A\x01\x03R\x02id\x12A\n" +
+	"\x04spec\x18\x02 \x01(\v2'.frontseat.sandbox.v1alpha1.SandboxSpecB\x04\xe2A\x01\x03R\x04spec\x12E\n" +
 	"\x05state\x18\x03 \x01(\x0e2).frontseat.sandbox.v1alpha1.Sandbox.StateB\x04\xe2A\x01\x03R\x05state\x12\x1c\n" +
 	"\x06driver\x18\x05 \x01(\tB\x04\xe2A\x01\x03R\x06driver\x12H\n" +
 	"\tendpoints\x18\x06 \x03(\v2$.frontseat.sandbox.v1alpha1.EndpointB\x04\xe2A\x01\x03R\tendpoints\x12A\n" +
@@ -2227,10 +2227,10 @@ const file_frontseat_sandbox_v1alpha1_sandbox_proto_rawDesc = "" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"`\n" +
-	"\vStartupGate\x12\x1c\n" +
-	"\targuments\x18\x01 \x03(\tR\targuments\x123\n" +
-	"\atimeout\x18\x02 \x01(\v2\x19.google.protobuf.DurationR\atimeout\"\xb7\x02\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"l\n" +
+	"\vStartupGate\x12\"\n" +
+	"\targuments\x18\x01 \x03(\tB\x04\xe2A\x01\x02R\targuments\x129\n" +
+	"\atimeout\x18\x02 \x01(\v2\x19.google.protobuf.DurationB\x04\xe2A\x01\x02R\atimeout\"\xb7\x02\n" +
 	"\tContainer\x12\x18\n" +
 	"\x04name\x18\x01 \x01(\tB\x04\xe2A\x01\x02R\x04name\x12\x1a\n" +
 	"\x05image\x18\x02 \x01(\tB\x04\xe2A\x01\x02R\x05image\x12\x1c\n" +

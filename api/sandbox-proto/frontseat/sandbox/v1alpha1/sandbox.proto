@@ -190,7 +190,7 @@ message Sandbox {
   // Id is the sandbox's id, "sbx_" and what the server chose.
   string id = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Spec is what was asked for.
-  SandboxSpec spec = 2;
+  SandboxSpec spec = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
   // State is where it is.
   State state = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Driver is the driver that made it.
@@ -273,11 +273,11 @@ message SandboxSpec {
 message StartupGate {
   // Arguments are the program and its arguments, each its own string:
   // no shell reads them. A gate with none is refused.
-  repeated string arguments = 1;
+  repeated string arguments = 1 [(google.api.field_behavior) = REQUIRED];
   // Timeout is how long the command is given: more than zero, and at
   // most two minutes. A gate with none is refused. The command has
   // failed where it does not exit 0 within it.
-  google.protobuf.Duration timeout = 2;
+  google.protobuf.Duration timeout = 2 [(google.api.field_behavior) = REQUIRED];
 }
 
 // Container is one of a sandbox's further containers.

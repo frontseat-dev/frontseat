@@ -5,13 +5,15 @@ syntax = "proto3";
 
 package frontseat.build.v1alpha1;
 
+import "google/api/field_behavior.proto";
+
 // Digest is the address of content in the grid's store: what a client
 // fetches a log, a report or an output by.
 message Digest {
   // Hash is the content's SHA-256, in lower-case hex.
-  string hash = 1;
+  string hash = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
   // `size_bytes` is the content's size.
-  int64 size_bytes = 2;
+  int64 size_bytes = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
 }
 
 // Outcome is how an action ended.
