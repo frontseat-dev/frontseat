@@ -121,13 +121,13 @@ func (p Printer) Release(release *buildv1.Release) {
 		tagged = tagged || len(unit.GetTags()) > 0
 	}
 	switch release.GetState() {
-	case buildv1.Release_STATE_UNPUBLISHED:
+	case buildv1.Release_STATE_UNPUSHED:
 		// Why it is, where the release says: which tag was not sent.
 		why := ""
 		if release.GetFailure() != "" {
 			why = ": " + shown(release.GetFailure())
 		}
-		fmt.Fprintf(p.Out, "%s  unpublished: its tags are in the workspace and are not pushed%s\n", shown(release.GetId()), why)
+		fmt.Fprintf(p.Out, "%s  unpushed: its tags are in the workspace and are not pushed%s\n", shown(release.GetId()), why)
 	case buildv1.Release_STATE_SUCCEEDED:
 		if tagged {
 			fmt.Fprintf(p.Out, "%s  %s: its tags are pushed\n", shown(release.GetId()), state)

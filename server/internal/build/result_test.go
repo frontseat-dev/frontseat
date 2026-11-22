@@ -160,7 +160,7 @@ func TestAnActionThatCouldNotBeRunWasRunByNoWorker(t *testing.T) {
 		t.Fatalf("the run has %d actions, want the module's three", len(by))
 	}
 	for label, action := range by {
-		if action.GetOutcome() == buildv1.Outcome_OUTCOME_ERROR && action.GetProvenance() != buildv1.Provenance_PROVENANCE_UNSPECIFIED {
+		if action.GetOutcome() == buildv1.Outcome_OUTCOME_ERRORED && action.GetProvenance() != buildv1.Provenance_PROVENANCE_UNSPECIFIED {
 			t.Errorf("%s could not be run, and its result is said to be from %s", label, action.GetProvenance())
 		}
 	}

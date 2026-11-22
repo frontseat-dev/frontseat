@@ -35,7 +35,7 @@ func RunState(run *buildv1.Run) string {
 	switch run.GetState() {
 	case buildv1.Run_STATE_BUILDING, buildv1.Run_STATE_RUNNING:
 		return Word(run.GetState())
-	case buildv1.Run_STATE_EXITED:
+	case buildv1.Run_STATE_SUCCEEDED:
 		return fmt.Sprintf("exited %d", run.GetExitCode())
 	case buildv1.Run_STATE_CANCELLED:
 		// What could not be done of ending it is said.

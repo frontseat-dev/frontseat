@@ -99,7 +99,7 @@ func ended() []*buildv1.BuildEvent {
 		finished(&buildv1.ActionResult{Outcome: buildv1.Outcome_OUTCOME_PASSED, Label: "//greet:go.compile"}),
 		finished(&buildv1.ActionResult{Outcome: buildv1.Outcome_OUTCOME_FAILED, Label: "//greet:go.lint", ExitCode: 1}),
 		finished(&buildv1.ActionResult{Outcome: buildv1.Outcome_OUTCOME_SKIPPED, Label: "//greet:go.test", Message: "not run: //greet:go.lint failed"}),
-		{Event: &buildv1.BuildEvent_Finished_{Finished: &buildv1.BuildEvent_Finished{Build: &buildv1.Build{ExitCode: &buildv1.ExitCode{Name: "BUILD_FAILURE", Code: 1}}}}},
+		{Event: &buildv1.BuildEvent_Finished_{Finished: &buildv1.BuildEvent_Finished{Build: &buildv1.Build{ExitCode: buildv1.ExitCode_EXIT_CODE_BUILD_FAILURE}}}},
 	}
 }
 
@@ -258,9 +258,9 @@ func TestAShipThatFailsExitsOne(t *testing.T) {
 	if err != nil || code != 1 || !strings.Contains(printed, "rel_1  FAILED: the production build run_9 ended BUILD_FAILURE") {
 		t.Errorf("a failed ship ended %d, %v, printing\n%s", code, err, printed)
 	}
-	unpublished, code, err := run(t, &daemonOf{state: buildv1.Release_STATE_UNPUBLISHED}, "ship", "greet")
-	if err != nil || code != 1 || !strings.Contains(unpublished, "rel_1  unpublished: its tags are in the workspace and are not pushed") {
-		t.Errorf("a ship that ended unpublished ended %d, %v, printing\n%s", code, err, unpublished)
+	unpushed, code, err := run(t, &daemonOf{state: buildv1.Release_STATE_UNPUSHED}, "ship", "greet")
+	if err != nil || code != 1 || !strings.Contains(unpushed, "rel_1  unpushed: its tags are in the workspace and are not pushed") {
+		t.Errorf("a ship that ended unpushed ended %d, %v, printing\n%s", code, err, unpushed)
 	}
 	if _, code, err := run(t, &daemonOf{state: buildv1.Release_STATE_SUCCEEDED}, "ship", "greet"); err != nil || code != 0 {
 		t.Errorf("the control ended %d, %v", code, err)
@@ -383,7 +383,7 @@ func TestShipFollowsItsBuildAndWaitsForTheRelease(t *testing.T) {
 // A build that cannot be followed is still a release that goes on: the
 // command waits for it and says how it ended, and exits by that.
 func TestABuildThatCannotBeFollowedIsStillWaitedFor(t *testing.T) {
-	for state, want := range map[buildv1.Release_State]int{buildv1.Release_STATE_SUCCEEDED: 0, buildv1.Release_STATE_UNPUBLISHED: 1, buildv1.Release_STATE_FAILED: 1} {
+	for state, want := range map[buildv1.Release_State]int{buildv1.Release_STATE_SUCCEEDED: 0, buildv1.Release_STATE_UNPUSHED: 1, buildv1.Release_STATE_FAILED: 1} {
 		d := &daemonOf{state: state, builds: true, streams: connect.NewError(connect.CodeUnavailable, "the stream broke")}
 		printed, code, err := run(t, d, "ship", "greet")
 		if err != nil || code != want || d.waited.Load() != 1 || !strings.Contains(printed, "rel_1  ") {

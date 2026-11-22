@@ -28,7 +28,7 @@ type BuildRequest struct {
 	Fix bool
 	// Tests keeps the actions that run tests, as the plugins that
 	// declared them say, and what they need. A build of targets that
-	// hold none ends with the exit code NO_TESTS_FOUND, 4.
+	// hold none ends EXIT_CODE_NO_TESTS_FOUND.
 	Tests bool
 	// RequestID makes the request safe to send again: one sent again
 	// with the same id, where the first was lost on the way back, is

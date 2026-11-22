@@ -146,12 +146,12 @@ const (
 	// from, and what was shipped is being published, each publish of
 	// each unit in turn.
 	Release_STATE_PUBLISHING Release_State = 7
-	// STATE_UNPUBLISHED: its units are tagged in the daemon's checkout,
+	// STATE_UNPUSHED: its units are tagged in the daemon's checkout,
 	// and not every tag is where its repository was cloned from: a
 	// workspace that may not push leaves them all there, and failure
 	// says which tag was not sent and why. Released again, at the same
 	// commit, it sends them.
-	Release_STATE_UNPUBLISHED Release_State = 4
+	Release_STATE_UNPUSHED Release_State = 4
 	// STATE_FAILED: it ended before all of that was done; its units say
 	// what was. Where the build fails, no unit is tagged. Where a
 	// publish fails, its unit says which, and its tags stay pushed.
@@ -167,7 +167,7 @@ var (
 		3: "STATE_SUCCEEDED",
 		6: "STATE_PUSHING",
 		7: "STATE_PUBLISHING",
-		4: "STATE_UNPUBLISHED",
+		4: "STATE_UNPUSHED",
 		5: "STATE_FAILED",
 	}
 	Release_State_value = map[string]int32{
@@ -177,7 +177,7 @@ var (
 		"STATE_SUCCEEDED":   3,
 		"STATE_PUSHING":     6,
 		"STATE_PUBLISHING":  7,
-		"STATE_UNPUBLISHED": 4,
+		"STATE_UNPUSHED":    4,
 		"STATE_FAILED":      5,
 	}
 )
@@ -823,7 +823,7 @@ type Release struct {
 	// Units say what became of each unit that moves.
 	Units []*ReleasedUnit `protobuf:"bytes,5,rep,name=units,proto3" json:"units,omitempty"`
 	// Failure says why a release that failed did, where no unit says, and
-	// why one that is unpublished is.
+	// why one that is unpushed is.
 	Failure string `protobuf:"bytes,6,opt,name=failure,proto3" json:"failure,omitempty"`
 	// `create_time` is when it was made.
 	CreateTime *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=create_time,json=createTime,proto3" json:"create_time,omitempty"`
@@ -1444,7 +1444,7 @@ const file_frontseat_build_v1alpha1_release_proto_rawDesc = "" +
 	"\bentities\x18\x01 \x03(\v2\".frontseat.type.v1alpha1.EntityRefB\x04\xe2A\x01\x02R\bentities\x12\x18\n" +
 	"\x04etag\x18\x02 \x01(\tB\x04\xe2A\x01\x02R\x04etag\"T\n" +
 	"\x15CreateReleaseResponse\x12;\n" +
-	"\arelease\x18\x01 \x01(\v2!.frontseat.build.v1alpha1.ReleaseR\arelease\"\xd9\x04\n" +
+	"\arelease\x18\x01 \x01(\v2!.frontseat.build.v1alpha1.ReleaseR\arelease\"\xd6\x04\n" +
 	"\aRelease\x12\x14\n" +
 	"\x02id\x18\x01 \x01(\tB\x04\xe2A\x01\x03R\x02id\x12?\n" +
 	"\x04plan\x18\x02 \x01(\v2%.frontseat.build.v1alpha1.ReleasePlanB\x04\xe2A\x01\x03R\x04plan\x12C\n" +
@@ -1454,15 +1454,15 @@ const file_frontseat_build_v1alpha1_release_proto_rawDesc = "" +
 	"\afailure\x18\x06 \x01(\tB\x04\xe2A\x01\x03R\afailure\x12A\n" +
 	"\vcreate_time\x18\a \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\n" +
 	"createTime\x12;\n" +
-	"\bend_time\x18\b \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\aendTime\"\xac\x01\n" +
+	"\bend_time\x18\b \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\aendTime\"\xa9\x01\n" +
 	"\x05State\x12\x15\n" +
 	"\x11STATE_UNSPECIFIED\x10\x00\x12\x12\n" +
 	"\x0eSTATE_BUILDING\x10\x01\x12\x11\n" +
 	"\rSTATE_TAGGING\x10\x02\x12\x13\n" +
 	"\x0fSTATE_SUCCEEDED\x10\x03\x12\x11\n" +
 	"\rSTATE_PUSHING\x10\x06\x12\x14\n" +
-	"\x10STATE_PUBLISHING\x10\a\x12\x15\n" +
-	"\x11STATE_UNPUBLISHED\x10\x04\x12\x10\n" +
+	"\x10STATE_PUBLISHING\x10\a\x12\x12\n" +
+	"\x0eSTATE_UNPUSHED\x10\x04\x12\x10\n" +
 	"\fSTATE_FAILED\x10\x05\"\xef\x02\n" +
 	"\fReleasedUnit\x12@\n" +
 	"\x06entity\x18\x01 \x01(\v2\".frontseat.type.v1alpha1.EntityRefB\x04\xe2A\x01\x03R\x06entity\x12\x1e\n" +

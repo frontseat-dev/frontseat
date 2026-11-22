@@ -38,7 +38,7 @@ func TestAProgramOfAModuleIsBuiltOnTheGridAndRunWhereTheDaemonIsWithWhatItIsGive
 
 	workspace := spec.aModule(saying(said), "hello/main_test.go", "package main\n\nimport \"testing\"\n\nfunc TestNothing(t *testing.T) {}\n")
 	run := workspace.runProgram("//code/hello:go.run/hello", "fail", "--name", "two words")
-	spec.Expect(run.ended.GetState()).To(Equal(buildv1.Run_STATE_EXITED), run.ended.String())
+	spec.Expect(run.ended.GetState()).To(Equal(buildv1.Run_STATE_SUCCEEDED), run.ended.String())
 	spec.Expect(run.ended.GetExitCode()).To(BeEquivalentTo(3))
 	spec.Expect(run.ended.GetLabel()).To(Equal("//code/hello:go.run/hello"))
 	spec.Expect(run.printed).To(ContainElement(said + " given fail,--name,two words"))
@@ -193,7 +193,7 @@ func TestWhatIsNoProgramIsNotRunAndSaysWhatIs(t *testing.T) {
 	_, err := runsAt(workspace.Build).CreateRun(context.Background(), &buildv1.CreateRunRequest{})
 	spec.Expect(err).To(BeRefusedSaying("name the program to run"))
 	// The control: the program itself is run.
-	spec.Expect(workspace.runProgram("//code/hello:go.run/hello").ended.GetState()).To(Equal(buildv1.Run_STATE_EXITED))
+	spec.Expect(workspace.runProgram("//code/hello:go.run/hello").ended.GetState()).To(Equal(buildv1.Run_STATE_SUCCEEDED))
 }
 
 // Runs / A program that does not build is not started.

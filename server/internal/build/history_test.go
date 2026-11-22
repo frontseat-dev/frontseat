@@ -164,7 +164,7 @@ func TestAPluginDiagnosticOutlivesItsDaemon(t *testing.T) {
 	}
 	write(t, workspace, "hello/go.mod", "module example.com/hello\n\ngo 1.27\n")
 	control := wait(t, second.runs, create(t, second.runs).GetId())
-	if control.GetExitCode().GetCode() != 0 || control.GetFailure() != "" || len(control.GetDiagnostics()) != 0 {
+	if control.GetExitCode() != buildv1.ExitCode_EXIT_CODE_SUCCESS || control.GetFailure() != "" || len(control.GetDiagnostics()) != 0 {
 		t.Fatalf("valid control failed: %v", control)
 	}
 }
@@ -210,8 +210,8 @@ func TestARunItsDaemonDiedUnderIsEndedByTheNext(t *testing.T) {
 	next := serveAs(t, configuration{Workspace: workspace, Mounted: true, Executor: scripted{}, Builds: left})
 
 	got := tellOf(t, next, id)
-	if got.run.GetState() != buildv1.Build_STATE_FINISHED || got.run.GetExitCode().GetName() != "INTERNAL_ERROR" || !strings.Contains(got.run.GetFailure(), "daemon") {
-		t.Errorf("the run is %s, %s (%s); want it finished, in error, and saying its daemon ended under it", got.run.GetState(), got.run.GetExitCode().GetName(), got.run.GetFailure())
+	if got.run.GetState() != buildv1.Build_STATE_FAILED || got.run.GetExitCode() != buildv1.ExitCode_EXIT_CODE_INTERNAL_ERROR || !strings.Contains(got.run.GetFailure(), "daemon") {
+		t.Errorf("the run is %s, %s (%s); want it failed, in error, and saying its daemon ended under it", got.run.GetState(), got.run.GetExitCode(), got.run.GetFailure())
 	}
 	if got.run.GetCounts().GetPassed() != 1 || got.run.GetEndTime() == nil {
 		t.Errorf("the run ended %v at %v; want its lint passed and an end", got.run.GetCounts(), got.run.GetEndTime())
@@ -247,8 +247,8 @@ func TestAnEventCutShortIsNotPartOfARun(t *testing.T) {
 	next := serveAs(t, config)
 
 	got := tellOf(t, next, run.GetId())
-	if got.run.GetExitCode().GetName() != "INTERNAL_ERROR" || len(got.events) != len(want.events) {
-		t.Fatalf("the run is %s with %d events; want it ended by this daemon, with its %d events less the one cut short and one for its end", got.run.GetExitCode().GetName(), len(got.events), len(want.events))
+	if got.run.GetExitCode() != buildv1.ExitCode_EXIT_CODE_INTERNAL_ERROR || len(got.events) != len(want.events) {
+		t.Fatalf("the run is %s with %d events; want it ended by this daemon, with its %d events less the one cut short and one for its end", got.run.GetExitCode(), len(got.events), len(want.events))
 	}
 	for i := range len(want.events) - 1 {
 		if !proto.Equal(got.events[i], want.events[i]) {

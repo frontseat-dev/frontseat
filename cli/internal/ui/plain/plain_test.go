@@ -35,7 +35,7 @@ func TestAFinishedRunPrintsItsFailureMessage(t *testing.T) {
 	printer := plain.Printer{Out: &out}
 	message := "platform/gateway/go.mod: the go.mod names no module. Add a module directive."
 	printer.Event(&buildv1.BuildEvent{Event: &buildv1.BuildEvent_Finished_{Finished: &buildv1.BuildEvent_Finished{Build: &buildv1.Build{
-		ExitCode: &buildv1.ExitCode{Name: "BUILD_FAILURE", Code: 1}, Failure: message,
+		ExitCode: buildv1.ExitCode_EXIT_CODE_BUILD_FAILURE, Failure: message,
 	}}}})
 	if strings.Count(out.String(), message) != 1 {
 		t.Fatalf("failure message was lost or repeated: %q", out.String())
@@ -69,7 +69,7 @@ func TestACheckPrintsWhatItFoundAndWhatItWouldChange(t *testing.T) {
 		Diagnostics: []*typev1.Diagnostic{{RuleId: "go/vet", Message: "Printf format %d has arg of wrong type", SourceLocation: &typev1.SourceLocation{Path: "app/main.go", Line: 6}}},
 	}}}})
 	p.Event(&buildv1.BuildEvent{Event: &buildv1.BuildEvent_ActionFinished_{ActionFinished: &buildv1.BuildEvent_ActionFinished{Result: &buildv1.ActionResult{
-		Label: "//app:catalog.depends-on", Outcome: buildv1.Outcome_OUTCOME_REWRITE, Message: "app/catalog-info.yaml says it depends on nothing; it should say it depends on component:default/api, which is what the source says: frontseat build --fix writes it",
+		Label: "//app:catalog.depends-on", Outcome: buildv1.Outcome_OUTCOME_REWRITTEN, Message: "app/catalog-info.yaml says it depends on nothing; it should say it depends on component:default/api, which is what the source says: frontseat build --fix writes it",
 	}}}})
 	p.Event(&buildv1.BuildEvent{Event: &buildv1.BuildEvent_ActionFinished_{ActionFinished: &buildv1.BuildEvent_ActionFinished{Result: &buildv1.ActionResult{
 		Label: "//:custom.tidy", Outcome: buildv1.Outcome_OUTCOME_PASSED, Message: "wrote gone.txt",
@@ -97,7 +97,7 @@ func TestAnActionWithNothingToDoIsSaidAndCounted(t *testing.T) {
 		Label: "//hello:go.test/tagged", Outcome: buildv1.Outcome_OUTCOME_IDLE, Message: "not run: //hello:go.compile-tests left no _tests/0/tagged.test, and it has nothing to do without it",
 	}}}})
 	printer.Event(&buildv1.BuildEvent{Event: &buildv1.BuildEvent_Finished_{Finished: &buildv1.BuildEvent_Finished{Build: &buildv1.Build{
-		ExitCode: &buildv1.ExitCode{Name: "SUCCESS"}, Counts: &buildv1.Counts{Total: 2, Passed: 1, Idle: 1},
+		ExitCode: buildv1.ExitCode_EXIT_CODE_SUCCESS, Counts: &buildv1.Counts{Total: 2, Passed: 1, Idle: 1},
 	}}}})
 	for _, said := range []string{"idle    //hello:go.test/tagged  not run: //hello:go.compile-tests left no _tests/0/tagged.test", "passed 1, failed 0, errored 0, skipped 0, idle 1"} {
 		if !strings.Contains(out.String(), said) {
@@ -107,7 +107,7 @@ func TestAnActionWithNothingToDoIsSaidAndCounted(t *testing.T) {
 	// The control: a run with none says nothing of them.
 	out.Reset()
 	printer.Event(&buildv1.BuildEvent{Event: &buildv1.BuildEvent_Finished_{Finished: &buildv1.BuildEvent_Finished{Build: &buildv1.Build{
-		ExitCode: &buildv1.ExitCode{Name: "SUCCESS"}, Counts: &buildv1.Counts{Total: 1, Passed: 1},
+		ExitCode: buildv1.ExitCode_EXIT_CODE_SUCCESS, Counts: &buildv1.Counts{Total: 1, Passed: 1},
 	}}}})
 	if strings.Contains(out.String(), "idle") {
 		t.Errorf("a run with nothing idle printed %q", out.String())
@@ -122,14 +122,14 @@ func TestNothingOfARunsLinesIsActedOnByATerminal(t *testing.T) {
 	var out bytes.Buffer
 	p := plain.Printer{Out: &out}
 	label := "//a:go.test\x1b[2J\rpassed  //b:go.test"
-	for _, outcome := range []buildv1.Outcome{buildv1.Outcome_OUTCOME_PASSED, buildv1.Outcome_OUTCOME_FAILED, buildv1.Outcome_OUTCOME_IDLE, buildv1.Outcome_OUTCOME_REWRITE, buildv1.Outcome_OUTCOME_ERROR} {
+	for _, outcome := range []buildv1.Outcome{buildv1.Outcome_OUTCOME_PASSED, buildv1.Outcome_OUTCOME_FAILED, buildv1.Outcome_OUTCOME_IDLE, buildv1.Outcome_OUTCOME_REWRITTEN, buildv1.Outcome_OUTCOME_ERRORED} {
 		p.Event(&buildv1.BuildEvent{Event: &buildv1.BuildEvent_ActionFinished_{ActionFinished: &buildv1.BuildEvent_ActionFinished{Result: &buildv1.ActionResult{
 			Outcome: outcome, Label: label,
 			Rewrites: []*buildv1.Rewrite{{Location: &typev1.SourceLocation{Path: "a.go\x1b]0;owned\x07\nwrote b.go"}}},
 		}}}})
 	}
 	p.Event(&buildv1.BuildEvent{Event: &buildv1.BuildEvent_StartedOver_{StartedOver: &buildv1.BuildEvent_StartedOver{Label: label, Reason: "gone\x1b[1A\nrun_9  EXIT_SUCCESS"}}})
-	p.Event(&buildv1.BuildEvent{Event: &buildv1.BuildEvent_Finished_{Finished: &buildv1.BuildEvent_Finished{Build: &buildv1.Build{Id: "run_1\x1b[2K\rrun_2", ExitCode: &buildv1.ExitCode{Name: "SUCCESS\x1b[2K\rrun_3"}}}}})
+	p.Event(&buildv1.BuildEvent{Event: &buildv1.BuildEvent_Finished_{Finished: &buildv1.BuildEvent_Finished{Build: &buildv1.Build{Id: "run_1\x1b[2K\rrun_2", ExitCode: buildv1.ExitCode_EXIT_CODE_SUCCESS}}}})
 	printed := out.String()
 	for _, hidden := range []string{"\x1b", "\x07", "\r"} {
 		if strings.Contains(printed, hidden) {
@@ -137,7 +137,7 @@ func TestNothingOfARunsLinesIsActedOnByATerminal(t *testing.T) {
 		}
 	}
 	for _, line := range strings.Split(printed, "\n") {
-		for _, forged := range []string{"passed  //b", "wrote b.go", "run_9", "run_2", "run_3"} {
+		for _, forged := range []string{"passed  //b", "wrote b.go", "run_9", "run_2"} {
 			if strings.HasPrefix(strings.TrimSpace(line), forged) {
 				t.Errorf("a line of the daemon's reads as the printer's: %q", line)
 			}
@@ -156,7 +156,7 @@ func TestASkippedActionIsSaidToBeSkipped(t *testing.T) {
 	printer := plain.Printer{Out: &out}
 
 	printer.Event(&buildv1.BuildEvent{Event: &buildv1.BuildEvent_ActionFinished_{ActionFinished: &buildv1.BuildEvent_ActionFinished{Result: &buildv1.ActionResult{Label: "//a:b", Outcome: buildv1.Outcome_OUTCOME_SKIPPED, Message: "not run: //a:c failed"}}}})
-	printer.Event(&buildv1.BuildEvent{Event: &buildv1.BuildEvent_ActionFinished_{ActionFinished: &buildv1.BuildEvent_ActionFinished{Result: &buildv1.ActionResult{Label: "//a:d", Outcome: buildv1.Outcome_OUTCOME_ERROR, Message: "the grid could not stage it"}}}})
+	printer.Event(&buildv1.BuildEvent{Event: &buildv1.BuildEvent_ActionFinished_{ActionFinished: &buildv1.BuildEvent_ActionFinished{Result: &buildv1.ActionResult{Label: "//a:d", Outcome: buildv1.Outcome_OUTCOME_ERRORED, Message: "the grid could not stage it"}}}})
 
 	want := "skipped //a:b  not run: //a:c failed\nERROR   //a:d  the grid could not stage it\n"
 	if got := out.String(); got != want {
@@ -168,11 +168,11 @@ func TestASkippedActionIsSaidToBeSkipped(t *testing.T) {
 // contract does not name is said by its number.
 func TestAnEnumsValueIsSaidInWords(t *testing.T) {
 	for want, value := range map[string]protoreflect.Enum{
-		"ready":       workspacev1.WorkspaceStatus_STATE_READY,
-		"own change":  buildv1.ReasonKind_REASON_KIND_OWN_CHANGE,
-		"grid cache":  buildv1.Provenance_PROVENANCE_GRID_CACHE,
-		"unpublished": buildv1.Release_STATE_UNPUBLISHED,
-		"99":          buildv1.Outcome(99),
+		"ready":      workspacev1.WorkspaceStatus_STATE_READY,
+		"own change": buildv1.ReasonKind_REASON_KIND_OWN_CHANGE,
+		"grid cache": buildv1.Provenance_PROVENANCE_GRID_CACHE,
+		"unpushed":   buildv1.Release_STATE_UNPUSHED,
+		"99":         buildv1.Outcome(99),
 	} {
 		if got := plain.Word(value); got != want {
 			t.Errorf("%v is said %q, want %q", value, got, want)
@@ -189,7 +189,7 @@ func TestACachedActionAndABuildsFindingsAreSaid(t *testing.T) {
 
 	printer.Event(&buildv1.BuildEvent{Event: &buildv1.BuildEvent_ActionFinished_{ActionFinished: &buildv1.BuildEvent_ActionFinished{Result: &buildv1.ActionResult{Label: "//a:b", Outcome: buildv1.Outcome_OUTCOME_PASSED, Provenance: buildv1.Provenance_PROVENANCE_GRID_CACHE}}}})
 	printer.Event(&buildv1.BuildEvent{Event: &buildv1.BuildEvent_Finished_{Finished: &buildv1.BuildEvent_Finished{Build: &buildv1.Build{
-		ExitCode:    &buildv1.ExitCode{Name: "BUILD_FAILURE", Code: 1},
+		ExitCode:    buildv1.ExitCode_EXIT_CODE_BUILD_FAILURE,
 		Diagnostics: []*typev1.Diagnostic{{RuleId: "catalog/duplicate-entity", Message: "gateway is described twice", SourceLocation: &typev1.SourceLocation{Path: "catalog-info.yaml", Line: 3}}},
 	}}}})
 

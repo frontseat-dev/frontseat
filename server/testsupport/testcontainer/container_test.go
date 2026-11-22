@@ -114,9 +114,9 @@ func TestAClientBuildsInASandboxFromOutsideItAndFromInside(t *testing.T) {
 		t.Fatal(err)
 	}
 	ended := wait(t, runs, created.GetBuild().GetId())
-	if ended.GetExitCode().GetName() != "SUCCESS" || ended.GetCounts().GetPassed() != 3 {
+	if ended.GetExitCode() != buildv1.ExitCode_EXIT_CODE_SUCCESS || ended.GetCounts().GetPassed() != 3 {
 		actions, _ := runs.ListBuildActions(ctx, &buildv1.ListBuildActionsRequest{BuildId: ended.GetId()})
-		t.Fatalf("from outside, the run ended %s with %d actions passed, want SUCCESS and 3: %v", ended.GetExitCode().GetName(), ended.GetCounts().GetPassed(), actions.GetActions())
+		t.Fatalf("from outside, the run ended %s with %d actions passed, want SUCCESS and 3: %v", ended.GetExitCode(), ended.GetCounts().GetPassed(), actions.GetActions())
 	}
 
 	// From inside: the client in the box, over loopback.

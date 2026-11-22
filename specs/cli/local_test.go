@@ -139,8 +139,8 @@ func TestAWorkspaceClonesARepositoryAndBuildsIt(t *testing.T) {
 		t.Errorf("the build API is at %s, want it beneath the workspace's name", daemon)
 	}
 	ended, labels := buildIn(t, made)
-	if ended.GetExitCode().GetName() != "SUCCESS" || ended.GetCounts().GetPassed() != 3 {
-		t.Errorf("the build ended %s with %d actions passed (%s), want SUCCESS and 3", ended.GetExitCode().GetName(), ended.GetCounts().GetPassed(), labels)
+	if ended.GetExitCode() != buildv1.ExitCode_EXIT_CODE_SUCCESS || ended.GetCounts().GetPassed() != 3 {
+		t.Errorf("the build ended %s with %d actions passed (%s), want SUCCESS and 3", ended.GetExitCode(), ended.GetCounts().GetPassed(), labels)
 	}
 }
 
@@ -324,8 +324,8 @@ func TestAWorkspaceOpenedByEntityClonesWhatItsBackstageSays(t *testing.T) {
 		}
 	}
 	ended, labels := buildIn(t, made)
-	if ended.GetExitCode().GetName() != "SUCCESS" || ended.GetCounts().GetPassed() != 6 {
-		t.Errorf("the build ended %s with %d actions passed, want SUCCESS and 6", ended.GetExitCode().GetName(), ended.GetCounts().GetPassed())
+	if ended.GetExitCode() != buildv1.ExitCode_EXIT_CODE_SUCCESS || ended.GetCounts().GetPassed() != 6 {
+		t.Errorf("the build ended %s with %d actions passed, want SUCCESS and 6", ended.GetExitCode(), ended.GetCounts().GetPassed())
 	}
 	if !strings.Contains(labels, "//platform/gateway:go.compile") || !strings.Contains(labels, "//services/greet:go.compile") {
 		t.Errorf("the build ran %s, want the entities' modules, one in each repository", labels)

@@ -485,7 +485,7 @@ func TestWhatAnEntityIsPartOfThatTheWorkspaceDoesNotHoldIsRefusedByName(t *testi
 // are built for production and tagged, in the daemon's checkout, and
 // each tag is pushed to where its repository was brought from. A release
 // whose tags are all there has succeeded; one of a commit made in the
-// workspace and pushed nowhere keeps its tag there, and is unpublished.
+// workspace and pushed nowhere keeps its tag there, and is unpushed.
 // Releasing a plan / A release builds what moves for production and tags it, at the commit it was planned from.
 func TestAReleaseBuildsWhatMovesForProductionAndTagsItAtTheCommitItWasPlannedFrom(t *testing.T) {
 	t.Parallel()
@@ -499,7 +499,7 @@ func TestAReleaseBuildsWhatMovesForProductionAndTagsItAtTheCommitItWasPlannedFro
 	// The commit was made in the workspace and pushed nowhere: it is
 	// built and tagged there, and its tag is not sent with a commit the
 	// remote has not.
-	spec.Expect(shipped.state()).To(Equal("unpublished"), shipped.release.GetFailure())
+	spec.Expect(shipped.state()).To(Equal("unpushed"), shipped.release.GetFailure())
 	spec.Expect(shipped.release.GetFailure()).To(ContainSubstring("greet/v1.0.0 was not pushed from services"))
 	spec.Expect(shipped.release.GetFailure()).To(ContainSubstring("is on no branch of the remote"))
 	spec.Expect(shipped.tagsOf("greet")).To(Equal([]string{"services:greet/v1.0.0"}))
@@ -600,7 +600,7 @@ func TestReleasingAPlanAPlanWhoseSourceMovedSinceIsRefusedAndPlannedAgainItIsRel
 	spec.Expect(refusal).To(BeRefusedSaying("the plan is no longer what releasing would do; plan again"))
 	spec.Expect(spec.refusedAs(refusal)).To(Equal("aborted"))
 	// What moved it is a commit of the workspace's own, pushed nowhere.
-	spec.Expect(fresh.state()).To(Equal("unpublished"))
+	spec.Expect(fresh.state()).To(Equal("unpushed"))
 }
 
 // Releasing a plan / What is not committed is not released: the repository is refused until it is its commit.
@@ -618,7 +618,7 @@ func TestWhatIsNotCommittedIsNotReleasedTheRepositoryIsRefusedUntilItIsItsCommit
 	spec.Expect(refusal).To(BeRefusedSaying("services has changes that are not committed (greet/greet.go); a release is of a commit"))
 	spec.Expect(spec.refusedAs(refusal)).To(Equal("failed_precondition"))
 	// Its commit is the workspace's own, pushed nowhere: tagged, not sent.
-	spec.Expect(shipped.state()).To(Equal("unpublished"), shipped.release.GetFailure())
+	spec.Expect(shipped.state()).To(Equal("unpushed"), shipped.release.GetFailure())
 }
 
 // Releasing a plan / A unit whose production build fails is not tagged, and the release says which build.

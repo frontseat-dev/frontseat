@@ -84,7 +84,7 @@ func TestWhatAReleaseBuildsIsGivenItsVersion(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if ended := wait(t, c.runs, made.GetBuild().GetId()); ended.GetState() != buildv1.Build_STATE_FINISHED || ended.GetExitCode().GetCode() != 0 {
+		if ended := wait(t, c.runs, made.GetBuild().GetId()); ended.GetState() != buildv1.Build_STATE_SUCCEEDED || ended.GetExitCode() != buildv1.ExitCode_EXIT_CODE_SUCCESS {
 			t.Fatalf("%s: a build ended %v", when, ended.GetState())
 		}
 		if sent := grid.last(t, says); !strings.HasSuffix(sent, "echo 0.0.0-dev   ") {

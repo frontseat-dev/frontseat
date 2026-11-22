@@ -22,12 +22,12 @@ func TestRetainedRunFiltersAndGlobalRefusalThroughAPI(t *testing.T) {
 		got := wait(t, c.runs, made.Build.Id)
 		listed := actions(t, c, got)
 		if len(only) > 0 && only[0] == "unknown" {
-			if got.GetExitCode().GetName() != "BUILD_FAILURE" || len(listed) != 0 {
+			if got.GetExitCode() != buildv1.ExitCode_EXIT_CODE_BUILD_FAILURE || len(listed) != 0 {
 				t.Fatalf("unknown filter accepted or executed actions: %v %v", got.GetFailure(), listed)
 			}
 			continue
 		}
-		if got.GetExitCode().GetName() != "SUCCESS" {
+		if got.GetExitCode() != buildv1.ExitCode_EXIT_CODE_SUCCESS {
 			t.Fatalf("filter %v: %v", only, got.GetFailure())
 		}
 		want := 1
@@ -55,7 +55,7 @@ func TestRetainedRunFiltersAndGlobalRefusalThroughAPI(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := wait(t, c.runs, made.Build.Id)
-	if got.GetExitCode().GetName() != "BUILD_FAILURE" || len(actions(t, c, got)) != 0 {
+	if got.GetExitCode() != buildv1.ExitCode_EXIT_CODE_BUILD_FAILURE || len(actions(t, c, got)) != 0 {
 		t.Fatal("retained filtered run hid invalid actions outside target")
 	}
 	write(t, root, "outside/catalog-info.yaml", `apiVersion: backstage.io/v1alpha1

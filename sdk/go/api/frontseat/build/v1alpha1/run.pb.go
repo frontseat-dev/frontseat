@@ -56,8 +56,9 @@ const (
 	Run_STATE_BUILDING Run_State = 1
 	// STATE_RUNNING: the program was started and has not ended.
 	Run_STATE_RUNNING Run_State = 2
-	// STATE_EXITED: the program ended by itself; exit_code says how.
-	Run_STATE_EXITED Run_State = 3
+	// STATE_SUCCEEDED: the program ended by itself; exit_code says how,
+	// and is the program's own to give a meaning.
+	Run_STATE_SUCCEEDED Run_State = 3
 	// STATE_CANCELLED: the run was cancelled, by CancelRun or by
 	// the daemon ending.
 	Run_STATE_CANCELLED Run_State = 4
@@ -73,7 +74,7 @@ var (
 		0: "STATE_UNSPECIFIED",
 		1: "STATE_BUILDING",
 		2: "STATE_RUNNING",
-		3: "STATE_EXITED",
+		3: "STATE_SUCCEEDED",
 		4: "STATE_CANCELLED",
 		5: "STATE_FAILED",
 	}
@@ -81,7 +82,7 @@ var (
 		"STATE_UNSPECIFIED": 0,
 		"STATE_BUILDING":    1,
 		"STATE_RUNNING":     2,
-		"STATE_EXITED":      3,
+		"STATE_SUCCEEDED":   3,
 		"STATE_CANCELLED":   4,
 		"STATE_FAILED":      5,
 	}
@@ -877,7 +878,7 @@ var File_frontseat_build_v1alpha1_run_proto protoreflect.FileDescriptor
 
 const file_frontseat_build_v1alpha1_run_proto_rawDesc = "" +
 	"\n" +
-	"\"frontseat/build/v1alpha1/run.proto\x12\x18frontseat.build.v1alpha1\x1a#frontseat/type/v1alpha1/types.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa1\x05\n" +
+	"\"frontseat/build/v1alpha1/run.proto\x12\x18frontseat.build.v1alpha1\x1a#frontseat/type/v1alpha1/types.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa5\x05\n" +
 	"\x03Run\x12\x14\n" +
 	"\x02id\x18\x01 \x01(\tB\x04\xe2A\x01\x03R\x02id\x12\x1c\n" +
 	"\x06target\x18\x02 \x01(\tB\x04\xe2A\x01\x03R\x06target\x12\"\n" +
@@ -893,12 +894,12 @@ const file_frontseat_build_v1alpha1_run_proto_rawDesc = "" +
 	"createTime\x12?\n" +
 	"\n" +
 	"start_time\x18\v \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\tstartTime\x12;\n" +
-	"\bend_time\x18\f \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\aendTime\"~\n" +
+	"\bend_time\x18\f \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\aendTime\"\x81\x01\n" +
 	"\x05State\x12\x15\n" +
 	"\x11STATE_UNSPECIFIED\x10\x00\x12\x12\n" +
 	"\x0eSTATE_BUILDING\x10\x01\x12\x11\n" +
-	"\rSTATE_RUNNING\x10\x02\x12\x10\n" +
-	"\fSTATE_EXITED\x10\x03\x12\x13\n" +
+	"\rSTATE_RUNNING\x10\x02\x12\x13\n" +
+	"\x0fSTATE_SUCCEEDED\x10\x03\x12\x13\n" +
 	"\x0fSTATE_CANCELLED\x10\x04\x12\x10\n" +
 	"\fSTATE_FAILED\x10\x05\"\xa9\x01\n" +
 	"\x10CreateRunRequest\x12\x1c\n" +

@@ -10,7 +10,7 @@ import (
 // run or a release is. Each is the API's own value: GetState() of what a
 // call hands back is compared with them.
 //
-//	if build.GetState() == frontseat.BuildFinished { ... }
+//	if build.GetState() == frontseat.BuildSucceeded { ... }
 
 // WorkspaceState is where a workspace is.
 type WorkspaceState = workspacev1.WorkspaceStatus_State
@@ -31,7 +31,8 @@ type BuildState = buildv1.Build_State
 // Where a build is.
 const (
 	BuildRunning   = buildv1.Build_STATE_RUNNING
-	BuildFinished  = buildv1.Build_STATE_FINISHED
+	BuildSucceeded = buildv1.Build_STATE_SUCCEEDED
+	BuildFailed    = buildv1.Build_STATE_FAILED
 	BuildCancelled = buildv1.Build_STATE_CANCELLED
 )
 
@@ -42,7 +43,7 @@ type RunState = buildv1.Run_State
 const (
 	RunBuilding  = buildv1.Run_STATE_BUILDING
 	RunRunning   = buildv1.Run_STATE_RUNNING
-	RunExited    = buildv1.Run_STATE_EXITED
+	RunSucceeded = buildv1.Run_STATE_SUCCEEDED
 	RunCancelled = buildv1.Run_STATE_CANCELLED
 	RunFailed    = buildv1.Run_STATE_FAILED
 )
@@ -52,11 +53,11 @@ type ReleaseState = buildv1.Release_State
 
 // Where a release is.
 const (
-	ReleaseBuilding    = buildv1.Release_STATE_BUILDING
-	ReleaseTagging     = buildv1.Release_STATE_TAGGING
-	ReleasePushing     = buildv1.Release_STATE_PUSHING
-	ReleasePublishing  = buildv1.Release_STATE_PUBLISHING
-	ReleaseSucceeded   = buildv1.Release_STATE_SUCCEEDED
-	ReleaseUnpublished = buildv1.Release_STATE_UNPUBLISHED
-	ReleaseFailed      = buildv1.Release_STATE_FAILED
+	ReleaseBuilding   = buildv1.Release_STATE_BUILDING
+	ReleaseTagging    = buildv1.Release_STATE_TAGGING
+	ReleasePushing    = buildv1.Release_STATE_PUSHING
+	ReleasePublishing = buildv1.Release_STATE_PUBLISHING
+	ReleaseSucceeded  = buildv1.Release_STATE_SUCCEEDED
+	ReleaseUnpushed   = buildv1.Release_STATE_UNPUSHED
+	ReleaseFailed     = buildv1.Release_STATE_FAILED
 )

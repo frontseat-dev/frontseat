@@ -57,8 +57,8 @@ func BenchmarkRetainedRunAPI(b *testing.B) {
 					return fmt.Errorf("CreateBuild: %w", err)
 				}
 				finished := wait(b, clients.runs, created.GetBuild().GetId())
-				if finished.GetExitCode().GetName() != "SUCCESS" {
-					return fmt.Errorf("run ended %s: %s", finished.GetExitCode().GetName(), finished.GetFailure())
+				if finished.GetExitCode() != buildv1.ExitCode_EXIT_CODE_SUCCESS {
+					return fmt.Errorf("run ended %s: %s", finished.GetExitCode(), finished.GetFailure())
 				}
 				listed, err := clients.runs.ListBuildActions(ctx, &buildv1.ListBuildActionsRequest{BuildId: finished.GetId()})
 				if err != nil {

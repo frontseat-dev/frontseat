@@ -333,14 +333,14 @@ the change that fixes it.
   the workspace's own git and what its sandbox was told. A push goes to
   the remote git was given and sends and runs nothing the repository's
   own settings add (`server/git`). A release that could not send a tag
-  keeps its tags and ends unpublished, saying which and why, and
+  keeps its tags and ends unpushed, saying which and why, and
   `frontseat ship` exits 1; made again at the same commit it sends what
   was not. Held by:
   `TestAReleasePushesItsTagsAndSaysWhichItCouldNot`,
   `TestATagIsPushedAloneAndNeverOverAnother` and
   `TestAPushGoesToTheRemoteGivenAndSaysNothingTheRepositoryAdds`. Not
   held: the daemon is not told whether it may push, and tries, so a
-  workspace opened without `--push` ends unpublished by its gateway's
+  workspace opened without `--push` ends unpushed by its gateway's
   refusal, which no test makes; of several tags, those sent before one is
   refused stay sent, and those after it are not tried; a remote given
   as a directory runs its own hooks as the daemon; why a push failed

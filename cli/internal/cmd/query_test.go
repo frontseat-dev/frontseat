@@ -71,7 +71,7 @@ func (g *graphed) CreateBuild(_ context.Context, request *buildv1.CreateBuildReq
 }
 
 func (g *graphed) StreamBuildEvents(_ context.Context, _ *buildv1.StreamBuildEventsRequest, stream buildv1alpha1connect.BuildServiceStreamBuildEventsServerStream) error {
-	return stream.Send(&buildv1.StreamBuildEventsResponse{Events: []*buildv1.BuildEvent{{Event: &buildv1.BuildEvent_Finished_{Finished: &buildv1.BuildEvent_Finished{Build: &buildv1.Build{Id: "build_1", ExitCode: &buildv1.ExitCode{Name: "TESTS_FAILED", Code: 3}}}}}}})
+	return stream.Send(&buildv1.StreamBuildEventsResponse{Events: []*buildv1.BuildEvent{{Event: &buildv1.BuildEvent_Finished_{Finished: &buildv1.BuildEvent_Finished{Build: &buildv1.Build{Id: "build_1", ExitCode: buildv1.ExitCode_EXIT_CODE_TESTS_FAILED}}}}}})
 }
 
 // asking runs the command line against the graphed daemon.
@@ -266,7 +266,7 @@ func TestTestRunsTheTestActionsOfWhatItIsPointedAt(t *testing.T) {
 type noTests struct{ graphed }
 
 func (n *noTests) StreamBuildEvents(_ context.Context, _ *buildv1.StreamBuildEventsRequest, stream buildv1alpha1connect.BuildServiceStreamBuildEventsServerStream) error {
-	return stream.Send(&buildv1.StreamBuildEventsResponse{Events: []*buildv1.BuildEvent{{Event: &buildv1.BuildEvent_Finished_{Finished: &buildv1.BuildEvent_Finished{Build: &buildv1.Build{Id: "build_1", Failure: "nothing ledger points at runs tests", ExitCode: &buildv1.ExitCode{Name: "NO_TESTS_FOUND", Code: 4}}}}}}})
+	return stream.Send(&buildv1.StreamBuildEventsResponse{Events: []*buildv1.BuildEvent{{Event: &buildv1.BuildEvent_Finished_{Finished: &buildv1.BuildEvent_Finished{Build: &buildv1.Build{Id: "build_1", Failure: "nothing ledger points at runs tests", ExitCode: buildv1.ExitCode_EXIT_CODE_NO_TESTS_FOUND}}}}}})
 }
 
 // test of what holds no tests exits 4 and says so, as Bazel does; the

@@ -45,7 +45,7 @@ func (l *programs) CreateRun(_ context.Context, request *buildv1.CreateRunReques
 }
 
 func (l *programs) StreamBuildEvents(_ context.Context, _ *buildv1.StreamBuildEventsRequest, stream buildv1alpha1connect.BuildServiceStreamBuildEventsServerStream) error {
-	return stream.Send(&buildv1.StreamBuildEventsResponse{Events: []*buildv1.BuildEvent{{Event: &buildv1.BuildEvent_Finished_{Finished: &buildv1.BuildEvent_Finished{Build: &buildv1.Build{Id: "build_1", ExitCode: &buildv1.ExitCode{Name: "SUCCESS"}}}}}}})
+	return stream.Send(&buildv1.StreamBuildEventsResponse{Events: []*buildv1.BuildEvent{{Event: &buildv1.BuildEvent_Finished_{Finished: &buildv1.BuildEvent_Finished{Build: &buildv1.Build{Id: "build_1", ExitCode: buildv1.ExitCode_EXIT_CODE_SUCCESS}}}}}})
 }
 
 func (l *programs) StreamRunLogs(ctx context.Context, _ *buildv1.StreamRunLogsRequest, stream buildv1alpha1connect.RunServiceStreamRunLogsServerStream) error {
@@ -96,7 +96,7 @@ func (l *programs) CancelBuild(_ context.Context, request *buildv1.CancelBuildRe
 func (l *programs) ListRuns(context.Context, *buildv1.ListRunsRequest) (*buildv1.ListRunsResponse, error) {
 	return &buildv1.ListRunsResponse{Runs: []*buildv1.Run{
 		{Id: "run_2", Target: "//x:go.run/x", Arguments: []string{"--port", "1"}, State: buildv1.Run_STATE_RUNNING},
-		{Id: "run_1", Target: "//x:go.run/y", State: buildv1.Run_STATE_EXITED, ExitCode: 3},
+		{Id: "run_1", Target: "//x:go.run/y", State: buildv1.Run_STATE_SUCCEEDED, ExitCode: 3},
 		{Id: "run_0", Target: "//x:go.compile", State: buildv1.Run_STATE_FAILED, Failure: "it is no program\x1b[2J"},
 	}}, nil
 }
@@ -125,7 +125,7 @@ func stoppedTheRunItMade(t *testing.T, l *programs) {
 // the program prints as text, and exits as the program did.
 func TestRunGivesTheProgramWhatFollowsAndExitsAsItDid(t *testing.T) {
 	l := &programs{
-		ends:   &buildv1.Run{Id: "run_1", State: buildv1.Run_STATE_EXITED, ExitCode: 3},
+		ends:   &buildv1.Run{Id: "run_1", State: buildv1.Run_STATE_SUCCEEDED, ExitCode: 3},
 		prints: []string{"hello", "moves \x1b[2J the screen"},
 	}
 	printed, code, err := running(t, context.Background(), l, "run", "--profile", "production", "//x:go.run/x", "--", "--name", "two words", "--endpoint", "its own")
@@ -230,7 +230,7 @@ func TestWhatFollowsAProgramIsItsOwn(t *testing.T) {
 		{"--", "--profile", "production"},
 		{"--", "--", "x"},
 	} {
-		l := &programs{ends: &buildv1.Run{Id: "run_1", State: buildv1.Run_STATE_EXITED}}
+		l := &programs{ends: &buildv1.Run{Id: "run_1", State: buildv1.Run_STATE_SUCCEEDED}}
 		printed, code, err := running(t, context.Background(), l, append([]string{"run", "//x:go.run/x"}, after...)...)
 		if err != nil || code != 0 || len(l.created) != 1 {
 			t.Errorf("%v: exit %d, %v, asked %d runs\n%s", after, code, err, len(l.created), printed)

@@ -85,11 +85,11 @@ func ExampleWorkspace_Build() {
 		fmt.Println(err)
 		return
 	}
-	fmt.Println(build.ID(), ended.GetExitCode().GetName())
+	fmt.Println(build.ID(), ended.GetExitCode())
 	// Output:
 	// //services/greeter:go.compile true
 	// //services/greeter:go.test true
-	// build_1 SUCCESS
+	// build_1 EXIT_CODE_SUCCESS
 }
 
 // A release is planned first, which changes nothing; the plan's etag
@@ -190,7 +190,7 @@ type builder struct {
 }
 
 // passed is the examples' one build, as it ended.
-var passed = &buildv1.Build{Id: "build_1", State: buildv1.Build_STATE_FINISHED, ExitCode: &buildv1.ExitCode{Name: "SUCCESS"}}
+var passed = &buildv1.Build{Id: "build_1", State: buildv1.Build_STATE_SUCCEEDED, ExitCode: buildv1.ExitCode_EXIT_CODE_SUCCESS}
 
 func (builder) CreateBuild(_ context.Context, asked *buildv1.CreateBuildRequest) (*buildv1.CreateBuildResponse, error) {
 	if asked.GetProfile() != typev1.Profile_PROFILE_UNSPECIFIED {

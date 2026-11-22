@@ -9,6 +9,7 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 
+	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testbudget"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testpins"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testworkload"
@@ -65,8 +66,8 @@ func daemonOver(b testing.TB, workspace string) (clients, *tracetest.SpanRecorde
 func build(b testing.TB, c clients) {
 	b.Helper()
 	run := wait(b, c.runs, create(b, c.runs).GetId())
-	if run.GetExitCode().GetName() != "SUCCESS" {
-		b.Fatalf("the run ended %v %s: %s", run.GetState(), run.GetExitCode().GetName(), run.GetFailure())
+	if run.GetExitCode() != buildv1.ExitCode_EXIT_CODE_SUCCESS {
+		b.Fatalf("the run ended %v %s: %s", run.GetState(), run.GetExitCode(), run.GetFailure())
 	}
 }
 

@@ -48,8 +48,8 @@ func TestARunIsEndedOnlyByTheDaemonThatRunsIt(t *testing.T) {
 
 			close(gate)
 			ended := wait(t, first.runs, id)
-			if ended.GetExitCode().GetName() != "SUCCESS" {
-				t.Fatalf("the daemon that ran it says it ended %s (%s)", ended.GetExitCode().GetName(), ended.GetFailure())
+			if ended.GetExitCode() != buildv1.ExitCode_EXIT_CODE_SUCCESS {
+				t.Fatalf("the daemon that ran it says it ended %s (%s)", ended.GetExitCode(), ended.GetFailure())
 			}
 			first.daemon.Close()
 
@@ -58,8 +58,8 @@ func TestARunIsEndedOnlyByTheDaemonThatRunsIt(t *testing.T) {
 			if err != nil {
 				t.Fatalf("the daemon after has no such run: %v", err)
 			}
-			if said.GetBuild().GetExitCode().GetName() != "SUCCESS" {
-				t.Errorf("the daemon after says the run ended %s (%s); the daemon that ran it said SUCCESS", said.GetBuild().GetExitCode().GetName(), said.GetBuild().GetFailure())
+			if said.GetBuild().GetExitCode() != buildv1.ExitCode_EXIT_CODE_SUCCESS {
+				t.Errorf("the daemon after says the run ended %s (%s); the daemon that ran it said SUCCESS", said.GetBuild().GetExitCode(), said.GetBuild().GetFailure())
 			}
 		})
 	}
@@ -106,8 +106,8 @@ func TestWhoeverMadeARunLearnsHowItEnded(t *testing.T) {
 					t.Errorf("the daemon lists %d runs, want the %d that have only just ended", len(listed), clientsAtOnce)
 				}
 				for _, run := range listed {
-					if run.GetExitCode().GetName() != "SUCCESS" {
-						t.Errorf("%s ended %s (%s)", run.GetId(), run.GetExitCode().GetName(), run.GetFailure())
+					if run.GetExitCode() != buildv1.ExitCode_EXIT_CODE_SUCCESS {
+						t.Errorf("%s ended %s (%s)", run.GetId(), run.GetExitCode(), run.GetFailure())
 					}
 					printed, err := logsOf(c.runs, run.GetId(), "//hello:go.lint")
 					if err != nil || len(printed) != 3 {

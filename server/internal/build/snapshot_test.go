@@ -127,20 +127,20 @@ func TestARunIsOfTheFilesAsTheyWereWhenItBegan(t *testing.T) {
 				switch {
 				case strings.Contains(action.GetMessage(), "changed while the run was under way"):
 					changed++
-					if action.GetOutcome() != buildv1.Outcome_OUTCOME_ERROR || action.GetProvenance() != buildv1.Provenance_PROVENANCE_UNSPECIFIED {
+					if action.GetOutcome() != buildv1.Outcome_OUTCOME_ERRORED || action.GetProvenance() != buildv1.Provenance_PROVENANCE_UNSPECIFIED {
 						t.Errorf("%s ended %s, from %s; want an error no worker had part in", label, action.GetOutcome(), action.GetProvenance())
 					}
-				case action.GetOutcome() == buildv1.Outcome_OUTCOME_ERROR:
+				case action.GetOutcome() == buildv1.Outcome_OUTCOME_ERRORED:
 					t.Errorf("%s: %s", label, action.GetMessage())
 				}
 			}
 			if edit && changed == 0 {
-				t.Errorf("no action said a file had changed; the run ended %s", run.GetExitCode().GetName())
+				t.Errorf("no action said a file had changed; the run ended %s", run.GetExitCode())
 			}
-			if !edit && (changed != 0 || run.GetExitCode().GetCode() != 0) {
-				t.Errorf("%d actions said a file had changed and the run ended %s; want it to pass", changed, run.GetExitCode().GetName())
+			if !edit && (changed != 0 || run.GetExitCode() != buildv1.ExitCode_EXIT_CODE_SUCCESS) {
+				t.Errorf("%d actions said a file had changed and the run ended %s; want it to pass", changed, run.GetExitCode())
 			}
-			if edit && run.GetExitCode().GetCode() == 0 {
+			if edit && run.GetExitCode() == buildv1.ExitCode_EXIT_CODE_SUCCESS {
 				t.Error("the run passed; want it to fail")
 			}
 		})

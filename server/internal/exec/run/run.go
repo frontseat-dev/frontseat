@@ -199,7 +199,7 @@ func (ing running) Run(ctx context.Context, action plan.Action, handed []schedul
 			Label:   action.Label.String(),
 			Entity:  ing.events.owner(action),
 			Name:    action.Name(),
-			Outcome: buildv1.Outcome_OUTCOME_ERROR,
+			Outcome: buildv1.Outcome_OUTCOME_ERRORED,
 			Message: refused,
 		})
 		return schedule.Ending{Outcome: schedule.Errored}
@@ -267,10 +267,10 @@ func (ing running) Skip(action plan.Action, need model.Label, how schedule.Outco
 // out of step did what it does, and left what it leaves: what needs it
 // runs, and the run fails all the same.
 var ended = map[buildv1.Outcome]schedule.Outcome{
-	buildv1.Outcome_OUTCOME_PASSED:  schedule.Passed,
-	buildv1.Outcome_OUTCOME_FAILED:  schedule.Failed,
-	buildv1.Outcome_OUTCOME_REWRITE: schedule.Passed,
-	buildv1.Outcome_OUTCOME_ERROR:   schedule.Errored,
+	buildv1.Outcome_OUTCOME_PASSED:    schedule.Passed,
+	buildv1.Outcome_OUTCOME_FAILED:    schedule.Failed,
+	buildv1.Outcome_OUTCOME_REWRITTEN: schedule.Passed,
+	buildv1.Outcome_OUTCOME_ERRORED:   schedule.Errored,
 }
 
 // stopped says, of an action that did not pass, what it did instead, to
@@ -476,7 +476,7 @@ func (runner Runner) run(ctx context.Context, events Events, snapshot *source.Sn
 			result := &buildv1.ActionResult{
 				Label: label, Entity: events.owner(action), Name: action.Name(),
 				Provenance: buildv1.Provenance_PROVENANCE_DAEMON,
-				Outcome:    buildv1.Outcome_OUTCOME_ERROR, Message: err.Error(),
+				Outcome:    buildv1.Outcome_OUTCOME_ERRORED, Message: err.Error(),
 				Duration: durationpb.New(time.Since(started)),
 			}
 			for _, each := range proposals {
@@ -577,7 +577,7 @@ func (runner Runner) run(ctx context.Context, events Events, snapshot *source.Sn
 	}
 	switch {
 	case err != nil:
-		result.Outcome, result.Message = buildv1.Outcome_OUTCOME_ERROR, err.Error()
+		result.Outcome, result.Message = buildv1.Outcome_OUTCOME_ERRORED, err.Error()
 	case clash != "":
 		result.Outcome, result.Message = buildv1.Outcome_OUTCOME_FAILED, clash
 	case done.ExitCode != 0:
@@ -592,7 +592,7 @@ func (runner Runner) run(ctx context.Context, events Events, snapshot *source.Sn
 	case missing != "":
 		result.Outcome, result.Message = buildv1.Outcome_OUTCOME_FAILED, "it left no "+missing+", which it says it writes"
 	case len(drifted) > 0 && !runner.Fix:
-		result.Outcome, result.Message = buildv1.Outcome_OUTCOME_REWRITE, changed(action, drifted)+": not what it generated, which the checkout's copy should say: frontseat build --fix writes it"
+		result.Outcome, result.Message = buildv1.Outcome_OUTCOME_REWRITTEN, changed(action, drifted)+": not what it generated, which the checkout's copy should say: frontseat build --fix writes it"
 	case len(drifted) > 0:
 		result.Outcome, result.Message = buildv1.Outcome_OUTCOME_PASSED, "wrote "+changed(action, drifted)
 	case len(proposals) > 0:
@@ -633,7 +633,7 @@ func (runner Runner) deliver(ctx context.Context, events Events, snapshot *sourc
 	}
 	switch {
 	case err != nil:
-		result.Outcome, result.Message = buildv1.Outcome_OUTCOME_ERROR, err.Error()
+		result.Outcome, result.Message = buildv1.Outcome_OUTCOME_ERRORED, err.Error()
 	case clash != "":
 		result.Outcome, result.Message = buildv1.Outcome_OUTCOME_FAILED, clash
 	default:

@@ -92,7 +92,7 @@ func TestRetainedWorkspacesAreIsolatedAndReconstructAfterRestart(t *testing.T) {
 	recorded, err := buildsAt(first.Build).DescribeBuild(context.Background(), &buildv1.DescribeBuildRequest{BuildId: warm.run.GetId()})
 	spec.Expect(err).NotTo(HaveOccurred())
 	spec.Expect(recorded.GetBuild().GetId()).To(Equal(warm.run.GetId()))
-	spec.Expect(recorded.GetBuild().GetExitCode().GetName()).To(Equal("SUCCESS"))
+	spec.Expect(recorded.GetBuild().GetExitCode()).To(Equal(buildv1.ExitCode_EXIT_CODE_SUCCESS))
 	first.delete()
 	other.delete()
 }

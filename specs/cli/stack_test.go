@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	connect "connectrpc.com/connect/v2"
+	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testrequired"
 	"os/exec"
 	"testing"
@@ -84,8 +85,8 @@ func TestTheStackMakesAWorkspaceWithNothingStartedByHand(t *testing.T) {
 
 	made, _ := madeWorkspace(t, sdkClient(t, stack, owner), frontseat.WorkspaceSpec{Image: image, Repositories: cloned(t, checkout)})
 	run, labels := buildIn(t, made)
-	if run.GetExitCode().GetName() != "SUCCESS" || run.GetCounts().GetPassed() == 0 {
-		t.Fatalf("the build ended %s with %d actions passed (%s), want SUCCESS", run.GetExitCode().GetName(), run.GetCounts().GetPassed(), labels)
+	if run.GetExitCode() != buildv1.ExitCode_EXIT_CODE_SUCCESS || run.GetCounts().GetPassed() == 0 {
+		t.Fatalf("the build ended %s with %d actions passed (%s), want SUCCESS", run.GetExitCode(), run.GetCounts().GetPassed(), labels)
 	}
 }
 

@@ -77,14 +77,14 @@ func TestEveryRunAsksTheGridWhereItsToolsAre(t *testing.T) {
 
 	first := wait(t, c.runs, create(t, c.runs).GetId())
 	trees, installs := grid.took()
-	if first.GetExitCode().GetName() != "SUCCESS" || len(trees) != 1 || trees[0] != fmt.Sprintf("%064d", 1) || installs != 1 {
-		t.Fatalf("the first run ended %s, its actions handed Go at %v after %d installs; want all of them handed the one tree the grid installed, once", first.GetExitCode().GetName(), trees, installs)
+	if first.GetExitCode() != buildv1.ExitCode_EXIT_CODE_SUCCESS || len(trees) != 1 || trees[0] != fmt.Sprintf("%064d", 1) || installs != 1 {
+		t.Fatalf("the first run ended %s, its actions handed Go at %v after %d installs; want all of them handed the one tree the grid installed, once", first.GetExitCode(), trees, installs)
 	}
 
 	second := wait(t, c.runs, create(t, c.runs).GetId())
 	trees, installs = grid.took()
-	if second.GetExitCode().GetName() != "SUCCESS" || len(trees) != 1 || trees[0] != fmt.Sprintf("%064d", 2) || installs != 2 {
-		t.Errorf("the second run ended %s, its actions handed Go at %v after %d installs in all; want it to have asked the grid again, and all of them handed where Go is now", second.GetExitCode().GetName(), trees, installs)
+	if second.GetExitCode() != buildv1.ExitCode_EXIT_CODE_SUCCESS || len(trees) != 1 || trees[0] != fmt.Sprintf("%064d", 2) || installs != 2 {
+		t.Errorf("the second run ended %s, its actions handed Go at %v after %d installs in all; want it to have asked the grid again, and all of them handed where Go is now", second.GetExitCode(), trees, installs)
 	}
 }
 
@@ -134,8 +134,8 @@ func TestARunStartsOverWhenTheGridLetGoOfWhatAnActionWasHanded(t *testing.T) {
 
 	run := wait(t, c.runs, create(t, c.runs).GetId())
 
-	if run.GetExitCode().GetName() != "SUCCESS" || run.GetCounts().GetPassed() != 3 || run.GetCounts().GetErrored() != 0 || run.GetCounts().GetTotal() != 3 {
-		t.Errorf("the run ended %s with %v; want SUCCESS, its three actions passed and none in error", run.GetExitCode().GetName(), run.GetCounts())
+	if run.GetExitCode() != buildv1.ExitCode_EXIT_CODE_SUCCESS || run.GetCounts().GetPassed() != 3 || run.GetCounts().GetErrored() != 0 || run.GetCounts().GetTotal() != 3 {
+		t.Errorf("the run ended %s with %v; want SUCCESS, its three actions passed and none in error", run.GetExitCode(), run.GetCounts())
 	}
 	over, planned := startedOver(t, c, run.GetId())
 	if len(over) != 1 || over[0].GetLabel() != "//hello:go.lint" || !strings.Contains(over[0].GetReason(), "keeps nothing under that digest") {
@@ -163,7 +163,7 @@ func TestARunStartsOverNoMoreThanOnce(t *testing.T) {
 		t.Errorf("the run started over %d times, want once", len(over))
 	}
 	lint := actions(t, c, run)["//hello:go.lint"]
-	if run.GetExitCode().GetName() == "SUCCESS" || lint.GetOutcome() != buildv1.Outcome_OUTCOME_ERROR || !strings.Contains(lint.GetMessage(), "keeps nothing under that digest") {
-		t.Errorf("the run ended %s, its lint %s (%s); want the run not to succeed and the lint in error for what the grid let go", run.GetExitCode().GetName(), lint.GetOutcome(), lint.GetMessage())
+	if run.GetExitCode() == buildv1.ExitCode_EXIT_CODE_SUCCESS || lint.GetOutcome() != buildv1.Outcome_OUTCOME_ERRORED || !strings.Contains(lint.GetMessage(), "keeps nothing under that digest") {
+		t.Errorf("the run ended %s, its lint %s (%s); want the run not to succeed and the lint in error for what the grid let go", run.GetExitCode(), lint.GetOutcome(), lint.GetMessage())
 	}
 }

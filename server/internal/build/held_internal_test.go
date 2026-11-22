@@ -115,7 +115,7 @@ func TestARunOfManyActionsOutlivesItsDaemon(t *testing.T) {
 			got := reloaded(t, kept).snapshot()
 
 			if !proto.Equal(got, want) {
-				t.Errorf("the next daemon says the run is %s %s (%s), %d actions; the daemon that ran it said %s %s, %d actions", got.GetState(), got.GetExitCode().GetName(), got.GetFailure(), got.GetCounts().GetTotal(), want.GetState(), want.GetExitCode().GetName(), want.GetCounts().GetTotal())
+				t.Errorf("the next daemon says the run is %s %s (%s), %d actions; the daemon that ran it said %s %s, %d actions", got.GetState(), got.GetExitCode(), got.GetFailure(), got.GetCounts().GetTotal(), want.GetState(), want.GetExitCode(), want.GetCounts().GetTotal())
 			}
 			after, _ := os.Stat(filepath.Join(dir, "build_0123456789ab", recordFile))
 			if after.Size() < before.Size() {
@@ -150,8 +150,8 @@ func TestARunWhoseRecordCouldNotBeKeptDoesNotEndWell(t *testing.T) {
 			if r.lost == nil {
 				t.Fatal("the run lost nothing; the test's disk did not refuse")
 			}
-			if ended.GetExitCode().GetName() != "INTERNAL_ERROR" {
-				t.Errorf("the run ended %s (%q) though its record could not be kept (%v); want INTERNAL_ERROR", ended.GetExitCode().GetName(), ended.GetFailure(), r.lost)
+			if ended.GetExitCode() != buildv1.ExitCode_EXIT_CODE_INTERNAL_ERROR {
+				t.Errorf("the run ended %s (%q) though its record could not be kept (%v); want INTERNAL_ERROR", ended.GetExitCode(), ended.GetFailure(), r.lost)
 			}
 		})
 	}
@@ -180,7 +180,7 @@ func crafted(t *testing.T, dir, id string, messages ...proto.Message) {
 func whole(id string, minute int, endedAs string) []proto.Message {
 	made := &buildv1.Build{Id: id, State: buildv1.Build_STATE_RUNNING, CreateTime: timestamppb.New(time.Date(2026, 11, 6, 10, minute, 0, 0, time.UTC)), Counts: &buildv1.Counts{}, Cost: &buildv1.Cost{}}
 	final := proto.Clone(made).(*buildv1.Build)
-	final.Id, final.State, final.LastSequence = endedAs, buildv1.Build_STATE_FINISHED, 1
+	final.Id, final.State, final.LastSequence = endedAs, buildv1.Build_STATE_SUCCEEDED, 1
 	return []proto.Message{made, &buildv1.BuildEvent{Sequence: 1, Event: &buildv1.BuildEvent_Finished_{Finished: &buildv1.BuildEvent_Finished{Build: final}}}}
 }
 
@@ -311,11 +311,11 @@ func TestARecordCutAnywhereIsARunOrNone(t *testing.T) {
 						t.Errorf("cut at %d: event %d has sequence %d", cut, i+1, event.GetSequence())
 					}
 				}
-				if cut == len(bytes) && got.snapshot().GetExitCode().GetName() != "SUCCESS" {
-					t.Errorf("the whole record reads as %s", got.snapshot().GetExitCode().GetName())
+				if cut == len(bytes) && got.snapshot().GetExitCode() != buildv1.ExitCode_EXIT_CODE_SUCCESS {
+					t.Errorf("the whole record reads as %s", got.snapshot().GetExitCode())
 				}
-				if cut < len(bytes) && got.snapshot().GetExitCode().GetName() != "INTERNAL_ERROR" {
-					t.Errorf("cut at %d: the run ended %s", cut, got.snapshot().GetExitCode().GetName())
+				if cut < len(bytes) && got.snapshot().GetExitCode() != buildv1.ExitCode_EXIT_CODE_INTERNAL_ERROR {
+					t.Errorf("cut at %d: the run ended %s", cut, got.snapshot().GetExitCode())
 				}
 			}
 			rs.stop()
@@ -426,7 +426,7 @@ func TestWaitingOnARunARecordSaysEndedReturns(t *testing.T) {
 	id := "build_0123456789ab"
 	ended := whole(id, 0, id)
 	said := proto.Clone(ended[0]).(*buildv1.Build)
-	said.State = buildv1.Build_STATE_FINISHED
+	said.State = buildv1.Build_STATE_SUCCEEDED
 	for name, messages := range map[string][]proto.Message{
 		"control: ended by its last event": ended,
 		"said to have ended, by no event":  {said, plannedOf(1)},
@@ -438,7 +438,7 @@ func TestWaitingOnARunARecordSaysEndedReturns(t *testing.T) {
 			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 			defer cancel()
 			got, err := service.WaitBuild(ctx, &buildv1.WaitBuildRequest{BuildId: id})
-			if err != nil || got.GetBuild().GetState() != buildv1.Build_STATE_FINISHED {
+			if err != nil || got.GetBuild().GetState() != buildv1.Build_STATE_SUCCEEDED {
 				t.Fatalf("waiting on the run: %v, %v", got, err)
 			}
 		})

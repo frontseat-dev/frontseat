@@ -69,7 +69,7 @@ func TestARunSaysWhichActionStoppedItsBuild(t *testing.T) {
 	for want, results := range map[string][]*buildv1.ActionResult{
 		"":                          {passed},
 		": //m:go.compile failed":   {passed, {Label: "//m:go.compile", Outcome: buildv1.Outcome_OUTCOME_FAILED}, {Label: "//m:go.run/x", Outcome: buildv1.Outcome_OUTCOME_SKIPPED}},
-		": //m:go.run/x: no such p": {passed, {Label: "//m:go.run/x", Outcome: buildv1.Outcome_OUTCOME_ERROR, Message: "no such p"}},
+		": //m:go.run/x: no such p": {passed, {Label: "//m:go.run/x", Outcome: buildv1.Outcome_OUTCOME_ERRORED, Message: "no such p"}},
 	} {
 		if got := stoppedBy(results); got != want {
 			t.Errorf("stopped by %q, want %q", got, want)

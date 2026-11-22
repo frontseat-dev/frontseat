@@ -35,7 +35,7 @@ var errReleaseNotFound = errors.New("no release has that id")
 // that moves, in the daemon's checkout, once the build has passed.
 // Each tag is then pushed to where its repository was brought from, and
 // nothing else leaves the checkout: a release whose tags are not all
-// there ends unpublished, and says why.
+// there ends unpushed, and says why.
 //
 // A daemon makes one release at a time. What it remembers of them it
 // remembers while it runs; what a release did that lasts is the tags.
@@ -278,8 +278,8 @@ func (rs *releases) carryOut(m *made, planned *release.Planned, built *run) {
 			fail("the daemon ended before its units were built; nothing is tagged")
 			return
 		}
-		if ran := built.snapshot(); ran.GetExitCode().GetCode() != 0 {
-			fail("the production build %s ended %s; nothing is tagged", ran.GetId(), ran.GetExitCode().GetName())
+		if ran := built.snapshot(); ran.GetExitCode() != exitSuccess {
+			fail("the production build %s ended %s; nothing is tagged", ran.GetId(), bazelName(ran.GetExitCode()))
 			return
 		}
 	}
@@ -393,7 +393,7 @@ func (rs *releases) carryOut(m *made, planned *release.Planned, built *run) {
 	for _, unit := range m.snapshot().GetUnits() {
 		for _, tag := range unit.GetTags() {
 			if ctx.Err() != nil {
-				end(buildv1.Release_STATE_UNPUBLISHED, "the daemon ended before every tag was pushed; its tags are in the workspace")
+				end(buildv1.Release_STATE_UNPUSHED, "the daemon ended before every tag was pushed; its tags are in the workspace")
 				return
 			}
 			// A remote that takes a push and never answers would hold
@@ -402,7 +402,7 @@ func (rs *releases) carryOut(m *made, planned *release.Planned, built *run) {
 			err := workspace.PushTag(pushing, tag.GetRepository(), tag.GetName())
 			cancel()
 			if err != nil {
-				end(buildv1.Release_STATE_UNPUBLISHED, fmt.Sprintf("%s was not pushed from %s: %v; its tags are in the workspace, and the release made again sends them", tag.GetName(), tag.GetRepository(), err))
+				end(buildv1.Release_STATE_UNPUSHED, fmt.Sprintf("%s was not pushed from %s: %v; its tags are in the workspace, and the release made again sends them", tag.GetName(), tag.GetRepository(), err))
 				return
 			}
 		}
