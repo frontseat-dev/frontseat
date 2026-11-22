@@ -11,6 +11,7 @@ import (
 	"path"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -42,16 +43,21 @@ import (
 	"github.com/frontseat-dev/frontseat/server/telemetry"
 )
 
-// How a run ends, in Bazel's names and numbers.
-var (
-	exitSuccess      = &buildv1.ExitCode{Name: "SUCCESS", Code: 0}
-	exitBuildFailure = &buildv1.ExitCode{Name: "BUILD_FAILURE", Code: 1}
-	exitTestsFailed  = &buildv1.ExitCode{Name: "TESTS_FAILED", Code: 3}
+// How a run ends, in Bazel's names.
+const (
+	exitSuccess      = buildv1.ExitCode_EXIT_CODE_SUCCESS
+	exitBuildFailure = buildv1.ExitCode_EXIT_CODE_BUILD_FAILURE
+	exitTestsFailed  = buildv1.ExitCode_EXIT_CODE_TESTS_FAILED
 	// exitNoTests is Bazel's for a test of what holds no tests.
-	exitNoTests     = &buildv1.ExitCode{Name: "NO_TESTS_FOUND", Code: 4}
-	exitInterrupted = &buildv1.ExitCode{Name: "INTERRUPTED", Code: 8}
-	exitInternal    = &buildv1.ExitCode{Name: "INTERNAL_ERROR", Code: 37}
+	exitNoTests     = buildv1.ExitCode_EXIT_CODE_NO_TESTS_FOUND
+	exitInterrupted = buildv1.ExitCode_EXIT_CODE_INTERRUPTED
+	exitInternal    = buildv1.ExitCode_EXIT_CODE_INTERNAL_ERROR
 )
+
+// bazelName is how a run ended, by Bazel's name for it: SUCCESS.
+func bazelName(code buildv1.ExitCode) string {
+	return strings.TrimPrefix(code.String(), "EXIT_CODE_")
+}
 
 // errNotFound is a run that does not exist.
 var errNotFound = errors.New("no build has that id")
@@ -376,10 +382,10 @@ func (rs *runs) execute(ctx context.Context, r *run) {
 		result = semconv.CICDPipelineResultCancellation
 	case code == exitInternal:
 		result = semconv.CICDPipelineResultError
-		errorType = code.GetName()
-	case code.GetCode() != 0:
+		errorType = bazelName(code)
+	case code != exitSuccess:
 		result = semconv.CICDPipelineResultFailure
-		errorType = code.GetName()
+		errorType = bazelName(code)
 	}
 	if errorType != "" {
 		severity = log.SeverityError
@@ -394,7 +400,7 @@ func (rs *runs) execute(ctx context.Context, r *run) {
 
 // work does what a run does and returns how it ended, why where it
 // ended before anything ran, and whether it was cancelled.
-func (rs *runs) work(ctx context.Context, r *run) (code *buildv1.ExitCode, failure error, cancelled bool) {
+func (rs *runs) work(ctx context.Context, r *run) (code buildv1.ExitCode, failure error, cancelled bool) {
 	r.stage(buildv1.Build_STAGE_EVALUATING)
 	rs.answered.Begin()
 	tree, err := sourceOf(rs.workspace)
@@ -466,8 +472,8 @@ func (rs *runs) work(ctx context.Context, r *run) (code *buildv1.ExitCode, failu
 	defer func() {
 		execution.SetAttributes(attribute.Int("read", snapshot.Hashed()-read))
 		var failed error
-		if code != nil && code.GetCode() != 0 {
-			failed = errors.New(code.GetName())
+		if code != buildv1.ExitCode_EXIT_CODE_UNSPECIFIED && code != exitSuccess {
+			failed = fmt.Errorf("%s", bazelName(code))
 		}
 		telemetry.End(execution, failed)
 	}()
@@ -753,9 +759,11 @@ func (r *run) apply(e *buildv1.BuildEvent) {
 		switch result.GetOutcome() {
 		case buildv1.Outcome_OUTCOME_PASSED:
 			r.state.Counts.Passed++
-		case buildv1.Outcome_OUTCOME_FAILED, buildv1.Outcome_OUTCOME_REWRITE:
+		case buildv1.Outcome_OUTCOME_FAILED:
 			r.state.Counts.Failed++
-		case buildv1.Outcome_OUTCOME_ERROR:
+		case buildv1.Outcome_OUTCOME_REWRITTEN:
+			r.state.Counts.Rewritten++
+		case buildv1.Outcome_OUTCOME_ERRORED:
 			r.state.Counts.Errored++
 		case buildv1.Outcome_OUTCOME_SKIPPED:
 			r.state.Counts.Skipped++
@@ -847,7 +855,7 @@ func (r *run) finished(result *buildv1.ActionResult) {
 }
 
 // exitCode is how a run that ran to its end ended.
-func (r *run) exitCode() *buildv1.ExitCode {
+func (r *run) exitCode() buildv1.ExitCode {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	code := exitSuccess
@@ -874,7 +882,7 @@ func (r *run) exitCode() *buildv1.ExitCode {
 // finish ends the run: at a time, with how it ended and why. A run
 // whose record could not be kept does not end well, whatever its
 // actions did: what is asked of it afterwards could not be answered.
-func (r *run) finish(at time.Time, code *buildv1.ExitCode, failure *statuspb.Status, cancelled bool) {
+func (r *run) finish(at time.Time, code buildv1.ExitCode, failure *statuspb.Status, cancelled bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	// Every event before the last is in the record by now, or the run
@@ -883,23 +891,34 @@ func (r *run) finish(at time.Time, code *buildv1.ExitCode, failure *statuspb.Sta
 		r.lost = r.record.Written()
 	}
 	final := proto.Clone(r.state).(*buildv1.Build)
-	final.State = buildv1.Build_STATE_FINISHED
 	switch {
 	case cancelled:
-		final.State, code, failure = buildv1.Build_STATE_CANCELLED, exitInterrupted, nil
+		code, failure = exitInterrupted, nil
 	case r.lost != nil:
 		code, failure = exitInternal, failureOf(fmt.Errorf("the run's record could not be kept: %w", r.lost), codes.Internal)
 	}
+	final.State = endedAs(code)
 	final.Stage = buildv1.Build_STAGE_UNSPECIFIED
 	final.ExitCode = code
 	final.Failure, final.Diagnostics = explained(failure)
 	final.EndTime = timestamppb.New(at)
 	final.Cost.WallTime = durationpb.New(at.Sub(final.GetCreateTime().AsTime()))
-	// What a cancelled run never reached did not run either.
-	final.Counts.Skipped += final.Counts.Total - int32(len(r.results))
+	// What a cancelled run never reached is counted as such.
+	final.Counts.Unreached = final.Counts.Total - int32(len(r.results))
 	// The last event carries the run as it ended, and is counted in it.
 	final.LastSequence = int64(len(r.events) + 1)
 	r.appendLocked(&buildv1.BuildEvent{Event: &buildv1.BuildEvent_Finished_{Finished: &buildv1.BuildEvent_Finished{Build: final}}})
+}
+
+// endedAs is the state of a build that ended with a code.
+func endedAs(code buildv1.ExitCode) buildv1.Build_State {
+	switch code {
+	case exitSuccess:
+		return buildv1.Build_STATE_SUCCEEDED
+	case exitInterrupted:
+		return buildv1.Build_STATE_CANCELLED
+	}
+	return buildv1.Build_STATE_FAILED
 }
 
 // newID returns a new id: a prefix, and so many random bytes in

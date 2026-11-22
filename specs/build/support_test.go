@@ -893,7 +893,9 @@ func (b *Build) cancel() *Build {
 
 // outcome is how the build ended, in Bazel's names: SUCCESS,
 // BUILD_FAILURE, TESTS_FAILED, INTERRUPTED.
-func (b *Build) outcome() string { return b.run.GetExitCode().GetName() }
+func (b *Build) outcome() string {
+	return strings.TrimPrefix(b.run.GetExitCode().String(), "EXIT_CODE_")
+}
 
 // says is what the build says of why it ended as it did.
 func (b *Build) says() string { return b.run.GetFailure() }

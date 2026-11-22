@@ -40,7 +40,7 @@ func TestKeepsACommandSRunActionLogsAndMetricExemplarsInOneTrace(t *testing.T) {
 		got, err := created.Describe(ctx)
 		spec.Expect(err).NotTo(HaveOccurred())
 		if got.GetState() != buildv1.Build_STATE_RUNNING {
-			spec.Expect(got.GetExitCode().GetCode()).To(BeZero())
+			spec.Expect(got.GetExitCode()).To(Equal(buildv1.ExitCode_EXIT_CODE_SUCCESS))
 		}
 		return got.GetState()
 	}, 2*time.Minute, 100*time.Millisecond).ShouldNot(Equal(buildv1.Build_STATE_RUNNING))

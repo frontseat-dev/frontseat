@@ -265,7 +265,7 @@ message Release {
   // Units say what became of each unit that moves.
   repeated ReleasedUnit units = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Failure says why a release that failed did, where no unit says, and
-  // why one that is unpublished is.
+  // why one that is unpushed is.
   string failure = 6 [(google.api.field_behavior) = OUTPUT_ONLY];
   // `create_time` is when it was made.
   google.protobuf.Timestamp create_time = 7 [(google.api.field_behavior) = OUTPUT_ONLY];
@@ -295,12 +295,12 @@ message Release {
     // from, and what was shipped is being published, each publish of
     // each unit in turn.
     STATE_PUBLISHING = 7;
-    // STATE_UNPUBLISHED: its units are tagged in the daemon's checkout,
+    // STATE_UNPUSHED: its units are tagged in the daemon's checkout,
     // and not every tag is where its repository was cloned from: a
     // workspace that may not push leaves them all there, and failure
     // says which tag was not sent and why. Released again, at the same
     // commit, it sends them.
-    STATE_UNPUBLISHED = 4;
+    STATE_UNPUSHED = 4;
     // STATE_FAILED: it ended before all of that was done; its units say
     // what was. Where the build fails, no unit is tagged. Where a
     // publish fails, its unit says which, and its tags stay pushed.

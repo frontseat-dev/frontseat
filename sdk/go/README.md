@@ -69,7 +69,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(ended.GetExitCode().GetName())
+	fmt.Println(ended.GetExitCode())
 }
 ```
 
@@ -104,8 +104,8 @@ contract into the packages beneath `sdk/go/api` (for a build,
 `sdk/go/api/frontseat/build/v1alpha1`). Their comments are the
 contract's. `v1alpha1` in an import path is the API's version, and will
 change. The states a caller switches on are named by the SDK
-(`frontseat.WorkspaceReady`, `frontseat.BuildFinished`,
-`frontseat.RunExited`, `frontseat.ReleaseSucceeded` and the rest, of the
+(`frontseat.WorkspaceReady`, `frontseat.BuildSucceeded`,
+`frontseat.RunSucceeded`, `frontseat.ReleaseSucceeded` and the rest, of the
 types `WorkspaceState`, `BuildState`, `RunState`, `ReleaseState`), so a
 program that only reads where something is imports no generated package.
 

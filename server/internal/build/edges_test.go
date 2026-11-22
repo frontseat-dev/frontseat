@@ -26,7 +26,7 @@ func TestAWorkspaceGivenThroughALinkIsBuilt(t *testing.T) {
 			run := wait(t, c.runs, create(t, c.runs).GetId())
 
 			if ran := len(actions(t, c, run)); ran == 0 {
-				t.Errorf("the run ended %s (%q) with %d actions; want the module's actions", run.GetExitCode().GetName(), run.GetFailure(), ran)
+				t.Errorf("the run ended %s (%q) with %d actions; want the module's actions", run.GetExitCode(), run.GetFailure(), ran)
 			}
 		})
 	}

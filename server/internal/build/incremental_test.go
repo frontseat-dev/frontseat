@@ -100,11 +100,11 @@ func costing(t *testing.T, workspace string) (func() cost, *tracetest.SpanRecord
 func succeeded(t *testing.T, c clients, created *buildv1.Build) *buildv1.Build {
 	t.Helper()
 	run := wait(t, c.runs, created.GetId())
-	if run.GetExitCode().GetName() != "SUCCESS" {
+	if run.GetExitCode() != buildv1.ExitCode_EXIT_CODE_SUCCESS {
 		for label, action := range actions(t, c, run) {
 			t.Logf("%s: %s %s", label, action.GetOutcome(), action.GetMessage())
 		}
-		t.Fatalf("the run ended %v %s with %v: %s", run.GetState(), run.GetExitCode().GetName(), run.GetCounts(), run.GetFailure())
+		t.Fatalf("the run ended %v %s with %v: %s", run.GetState(), run.GetExitCode(), run.GetCounts(), run.GetFailure())
 	}
 	return run
 }
@@ -251,8 +251,8 @@ func TestARunThatStartsOverAsksTheGridAboutEverything(t *testing.T) {
 	workspace := twoModules(t)
 	asked, lost := &ran{}, &atomic.Bool{}
 	c := serve(t, losing{asking: asking{edited: &sync.Once{}, ran: asked}, lost: lost}, workspace, true)
-	if run := wait(t, c.runs, create(t, c.runs).GetId()); run.GetExitCode().GetName() != "SUCCESS" {
-		t.Fatalf("the first run ended %s", run.GetExitCode().GetName())
+	if run := wait(t, c.runs, create(t, c.runs).GetId()); run.GetExitCode() != buildv1.ExitCode_EXIT_CODE_SUCCESS {
+		t.Fatalf("the first run ended %s", run.GetExitCode())
 	}
 	asked.since()
 
@@ -323,8 +323,8 @@ func TestARunAsksTheGridAboutEveryActionThatIsReady(t *testing.T) {
 	grid := &crowded{together: make(chan struct{}), want: 15}
 	c := serve(t, grid, workspace, true)
 
-	if run := wait(t, c.runs, create(t, c.runs).GetId()); run.GetExitCode().GetName() != "SUCCESS" {
-		t.Fatalf("the run ended %s: %s", run.GetExitCode().GetName(), run.GetFailure())
+	if run := wait(t, c.runs, create(t, c.runs).GetId()); run.GetExitCode() != buildv1.ExitCode_EXIT_CODE_SUCCESS {
+		t.Fatalf("the run ended %s: %s", run.GetExitCode(), run.GetFailure())
 	}
 
 	if grid.most != 15 {

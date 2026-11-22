@@ -90,7 +90,7 @@ func (p Printer) action(result *buildv1.ActionResult) {
 		// Not run, for what it needed did not pass: what stopped it is
 		// said, and it is no error of its own.
 		fmt.Fprintf(p.Out, "skipped %s  %s\n", shown(result.GetLabel()), shown(result.GetMessage()))
-	case buildv1.Outcome_OUTCOME_REWRITE:
+	case buildv1.Outcome_OUTCOME_REWRITTEN:
 		fmt.Fprintf(p.Out, "REWRITE %s  %s\n", shown(result.GetLabel()), took)
 		fmt.Fprintf(p.Out, "        %s\n", shown(result.GetMessage()))
 	default:
@@ -113,13 +113,19 @@ func (p Printer) action(result *buildv1.ActionResult) {
 
 func (p Printer) finished(build *buildv1.Build) {
 	c := build.GetCounts()
-	// How many had nothing to do is said where any had.
-	idle := ""
-	if c.GetIdle() > 0 {
-		idle = fmt.Sprintf(", idle %d", c.GetIdle())
+	// How many had nothing to do, would rewrite the source, or were
+	// never come to is said where any were.
+	more := ""
+	for _, count := range []struct {
+		name string
+		n    int32
+	}{{"rewritten", c.GetRewritten()}, {"idle", c.GetIdle()}, {"unreached", c.GetUnreached()}} {
+		if count.n > 0 {
+			more += fmt.Sprintf(", %s %d", count.name, count.n)
+		}
 	}
 	fmt.Fprintf(p.Out, "%s  %s  passed %d, failed %d, errored %d, skipped %d%s  in %s\n",
-		shown(build.GetId()), shown(build.GetExitCode().GetName()), c.GetPassed(), c.GetFailed(), c.GetErrored(), c.GetSkipped(), idle,
+		shown(build.GetId()), Ended(build.GetExitCode()), c.GetPassed(), c.GetFailed(), c.GetErrored(), c.GetSkipped(), more,
 		build.GetCost().GetWallTime().AsDuration().Round(time.Millisecond))
 	if build.GetFailure() != "" {
 		fmt.Fprintln(p.Out, shown(build.GetFailure()))
@@ -147,6 +153,15 @@ func (p Printer) Printed(lines []*typev1.LogLine) {
 // could not be read, and why.
 func (p Printer) Unread(err error) {
 	fmt.Fprintf(p.Out, "        what it printed could not be read: %s\n", shown(err.Error()))
+}
+
+// Ended is how a build ended, by Bazel's name for it: SUCCESS, or
+// BUILD_FAILURE; empty where it has not.
+func Ended(code buildv1.ExitCode) string {
+	if code == buildv1.ExitCode_EXIT_CODE_UNSPECIFIED {
+		return ""
+	}
+	return strings.TrimPrefix(code.String(), "EXIT_CODE_")
 }
 
 // found writes what was found, each where it was found.

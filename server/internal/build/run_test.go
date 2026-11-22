@@ -309,8 +309,8 @@ func TestARunIsMadeAtOnceAndGoesOnWithoutItsCaller(t *testing.T) {
 	close(gate)
 
 	ended := wait(t, client, created.GetBuild().GetId())
-	if ended.GetState() != buildv1.Build_STATE_FINISHED || ended.GetExitCode().GetName() != "SUCCESS" {
-		t.Errorf("the run ended %v %s, want finished SUCCESS", ended.GetState(), ended.GetExitCode().GetName())
+	if ended.GetState() != buildv1.Build_STATE_SUCCEEDED || ended.GetExitCode() != buildv1.ExitCode_EXIT_CODE_SUCCESS {
+		t.Errorf("the run ended %v %s, want finished SUCCESS", ended.GetState(), ended.GetExitCode())
 	}
 }
 
@@ -399,11 +399,11 @@ spec:
 	}
 
 	ended := wait(t, client, run.GetId())
-	if ended.GetState() != buildv1.Build_STATE_CANCELLED || ended.GetExitCode().GetCode() != 8 {
-		t.Errorf("the run ended %v with exit %d, want cancelled with 8", ended.GetState(), ended.GetExitCode().GetCode())
+	if ended.GetState() != buildv1.Build_STATE_CANCELLED || ended.GetExitCode() != buildv1.ExitCode_EXIT_CODE_INTERRUPTED {
+		t.Errorf("the run ended %v %v, want cancelled and interrupted", ended.GetState(), ended.GetExitCode())
 	}
-	if ended.GetCounts().GetSkipped() != 1 {
-		t.Errorf("%d actions were skipped, want the 1 that never started", ended.GetCounts().GetSkipped())
+	if ended.GetCounts().GetUnreached() != 1 || ended.GetCounts().GetSkipped() != 0 {
+		t.Errorf("%d actions were unreached and %d skipped, want the 1 that never started unreached", ended.GetCounts().GetUnreached(), ended.GetCounts().GetSkipped())
 	}
 }
 
@@ -412,8 +412,8 @@ func TestAFailedActionFailsTheRunAndTheOthersStillRun(t *testing.T) {
 	run := create(t, client)
 
 	ended := wait(t, client, run.GetId())
-	if ended.GetExitCode().GetName() != "BUILD_FAILURE" || ended.GetCounts().GetPassed() != 2 || ended.GetCounts().GetFailed() != 1 {
-		t.Errorf("the run ended %s with %d passed and %d failed, want BUILD_FAILURE with 2 and 1", ended.GetExitCode().GetName(), ended.GetCounts().GetPassed(), ended.GetCounts().GetFailed())
+	if ended.GetState() != buildv1.Build_STATE_FAILED || ended.GetExitCode() != buildv1.ExitCode_EXIT_CODE_BUILD_FAILURE || ended.GetCounts().GetPassed() != 2 || ended.GetCounts().GetFailed() != 1 {
+		t.Errorf("the run ended %s, %s with %d passed and %d failed, want failed, BUILD_FAILURE with 2 and 1", ended.GetState(), ended.GetExitCode(), ended.GetCounts().GetPassed(), ended.GetCounts().GetFailed())
 	}
 
 	listed, err := client.ListBuildActions(context.Background(), &buildv1.ListBuildActionsRequest{BuildId: run.GetId()})
@@ -448,17 +448,17 @@ func TestARunExecutesItsActionsOnTheGridAndTheNextIsAnsweredFromWhatItKept(t *te
 	client := serve(t, grid, workspace, true).runs
 
 	first := wait(t, client, create(t, client).GetId())
-	if first.GetExitCode().GetName() != "SUCCESS" {
+	if first.GetExitCode() != buildv1.ExitCode_EXIT_CODE_SUCCESS {
 		actions, _ := client.ListBuildActions(context.Background(), &buildv1.ListBuildActionsRequest{BuildId: first.GetId()})
-		t.Fatalf("the run ended %s (%s): %v", first.GetExitCode().GetName(), first.GetFailure(), actions.GetActions())
+		t.Fatalf("the run ended %s (%s): %v", first.GetExitCode(), first.GetFailure(), actions.GetActions())
 	}
 	if first.GetCost().GetActionsExecuted() != 3 {
 		t.Errorf("%d actions were executed, want 3", first.GetCost().GetActionsExecuted())
 	}
 
 	second := wait(t, client, create(t, client).GetId())
-	if second.GetExitCode().GetName() != "SUCCESS" || second.GetCounts().GetPassed() != 3 || second.GetCost().GetActionsExecuted() != 0 {
-		t.Errorf("the second run ended %s with %d passed and %d executed; want all 3 answered from the grid's cache", second.GetExitCode().GetName(), second.GetCounts().GetPassed(), second.GetCost().GetActionsExecuted())
+	if second.GetExitCode() != buildv1.ExitCode_EXIT_CODE_SUCCESS || second.GetCounts().GetPassed() != 3 || second.GetCost().GetActionsExecuted() != 0 {
+		t.Errorf("the second run ended %s with %d passed and %d executed; want all 3 answered from the grid's cache", second.GetExitCode(), second.GetCounts().GetPassed(), second.GetCost().GetActionsExecuted())
 	}
 	t.Logf("first run %s, second %s", first.GetCost().GetWallTime().AsDuration().Round(time.Millisecond), second.GetCost().GetWallTime().AsDuration().Round(time.Millisecond))
 }

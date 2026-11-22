@@ -40,13 +40,13 @@ const (
 	// OUTCOME_SKIPPED: it did not run, because something it needs did not
 	// pass.
 	Outcome_OUTCOME_SKIPPED Outcome = 3
-	// OUTCOME_ERROR: it could not be run: the grid, the sandbox or staging
-	// failed, not the action.
-	Outcome_OUTCOME_ERROR Outcome = 4
-	// OUTCOME_REWRITE: a check that can rewrite the source ran, and would
-	// change it: the source is not as the check would leave it. It is
-	// counted among a build's failed actions.
-	Outcome_OUTCOME_REWRITE Outcome = 5
+	// OUTCOME_ERRORED: it could not be run: the grid, the sandbox or
+	// staging failed, not the action.
+	Outcome_OUTCOME_ERRORED Outcome = 4
+	// OUTCOME_REWRITTEN: a check that can rewrite the source ran, and
+	// would change it: the source is not as the check would leave it. It
+	// fails the build as an action that failed does.
+	Outcome_OUTCOME_REWRITTEN Outcome = 5
 	// OUTCOME_IDLE: it was not run, having nothing to do: an optional
 	// output of an action before it, which this one reads, was not made.
 	// It fails nothing; its message says what was not made.
@@ -60,8 +60,8 @@ var (
 		1: "OUTCOME_PASSED",
 		2: "OUTCOME_FAILED",
 		3: "OUTCOME_SKIPPED",
-		4: "OUTCOME_ERROR",
-		5: "OUTCOME_REWRITE",
+		4: "OUTCOME_ERRORED",
+		5: "OUTCOME_REWRITTEN",
 		6: "OUTCOME_IDLE",
 	}
 	Outcome_value = map[string]int32{
@@ -69,8 +69,8 @@ var (
 		"OUTCOME_PASSED":      1,
 		"OUTCOME_FAILED":      2,
 		"OUTCOME_SKIPPED":     3,
-		"OUTCOME_ERROR":       4,
-		"OUTCOME_REWRITE":     5,
+		"OUTCOME_ERRORED":     4,
+		"OUTCOME_REWRITTEN":   5,
 		"OUTCOME_IDLE":        6,
 	}
 )
@@ -284,14 +284,14 @@ const file_frontseat_build_v1alpha1_types_proto_rawDesc = "" +
 	"\x06Digest\x12\x18\n" +
 	"\x04hash\x18\x01 \x01(\tB\x04\xe2A\x01\x03R\x04hash\x12#\n" +
 	"\n" +
-	"size_bytes\x18\x02 \x01(\x03B\x04\xe2A\x01\x03R\tsizeBytes*\x99\x01\n" +
+	"size_bytes\x18\x02 \x01(\x03B\x04\xe2A\x01\x03R\tsizeBytes*\x9d\x01\n" +
 	"\aOutcome\x12\x17\n" +
 	"\x13OUTCOME_UNSPECIFIED\x10\x00\x12\x12\n" +
 	"\x0eOUTCOME_PASSED\x10\x01\x12\x12\n" +
 	"\x0eOUTCOME_FAILED\x10\x02\x12\x13\n" +
-	"\x0fOUTCOME_SKIPPED\x10\x03\x12\x11\n" +
-	"\rOUTCOME_ERROR\x10\x04\x12\x13\n" +
-	"\x0fOUTCOME_REWRITE\x10\x05\x12\x10\n" +
+	"\x0fOUTCOME_SKIPPED\x10\x03\x12\x13\n" +
+	"\x0fOUTCOME_ERRORED\x10\x04\x12\x15\n" +
+	"\x11OUTCOME_REWRITTEN\x10\x05\x12\x10\n" +
 	"\fOUTCOME_IDLE\x10\x06*s\n" +
 	"\n" +
 	"Provenance\x12\x1a\n" +

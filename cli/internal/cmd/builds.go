@@ -94,7 +94,7 @@ func follow(cmd *cobra.Command, build *frontseat.Build, from int64) (int, error)
 		}
 		next = e.GetSequence() + 1
 		if ended := e.GetFinished().GetBuild(); ended != nil {
-			return int(ended.GetExitCode().GetCode()), nil
+			return exitOf(ended.GetExitCode()), nil
 		}
 	}
 	// A build is followed to the event that says how it ended: a stream
@@ -106,5 +106,26 @@ func state(b *buildv1.Build) string {
 	if b.GetState() == buildv1.Build_STATE_RUNNING {
 		return "running"
 	}
-	return b.GetExitCode().GetName()
+	return plain.Ended(b.GetExitCode())
+}
+
+// exits are the numbers the command line exits with for how a build
+// ended: Bazel's, so that a script reads `frontseat build` as it reads
+// `bazel build`.
+var exits = map[buildv1.ExitCode]int{
+	buildv1.ExitCode_EXIT_CODE_SUCCESS:        0,
+	buildv1.ExitCode_EXIT_CODE_BUILD_FAILURE:  1,
+	buildv1.ExitCode_EXIT_CODE_TESTS_FAILED:   3,
+	buildv1.ExitCode_EXIT_CODE_NO_TESTS_FOUND: 4,
+	buildv1.ExitCode_EXIT_CODE_INTERRUPTED:    8,
+	buildv1.ExitCode_EXIT_CODE_INTERNAL_ERROR: 37,
+}
+
+// exitOf is the number the command line exits with for how a build
+// ended; INTERNAL_ERROR's for one it does not know.
+func exitOf(code buildv1.ExitCode) int {
+	if n, ok := exits[code]; ok {
+		return n
+	}
+	return exits[buildv1.ExitCode_EXIT_CODE_INTERNAL_ERROR]
 }

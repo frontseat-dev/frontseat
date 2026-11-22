@@ -18,7 +18,7 @@ func retainedRun(t *testing.T, c clients, request *buildv1.CreateBuildRequest) *
 		t.Fatal(err)
 	}
 	got := wait(t, c.runs, made.Build.Id)
-	if got.GetExitCode().GetName() != "SUCCESS" {
+	if got.GetExitCode() != buildv1.ExitCode_EXIT_CODE_SUCCESS {
 		t.Fatalf("run failed: %v", got.GetFailure())
 	}
 	return got

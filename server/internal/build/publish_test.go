@@ -85,13 +85,13 @@ func TestAReleasePublishesWhatItShippedWhereTheDaemonIs(t *testing.T) {
 	c, clone, remote := givenACheckoutWith(t, bringing{}, "release/1.0", publishingSource(t, into, false, false), 3)
 	c.daemon.releases.graph.runs.given = []string{"RELEASE_TOKEN"}
 	// A build is of everything, and publishes nothing.
-	if ended := wait(t, c.runs, create(t, c.runs).GetId()); ended.GetExitCode().GetCode() != 0 || readAt(t, into, "greet_v1.0.0") != "" {
-		t.Fatalf("a build ended %s, and published %q", ended.GetExitCode().GetName(), readAt(t, into, "greet_v1.0.0"))
+	if ended := wait(t, c.runs, create(t, c.runs).GetId()); ended.GetExitCode() != buildv1.ExitCode_EXIT_CODE_SUCCESS || readAt(t, into, "greet_v1.0.0") != "" {
+		t.Fatalf("a build ended %s, and published %q", ended.GetExitCode(), readAt(t, into, "greet_v1.0.0"))
 	}
 	refusal := ""
 	if pointed, err := c.runs.CreateBuild(context.Background(), &buildv1.CreateBuildRequest{Targets: []string{"//greet:custom.publish/release"}}); err != nil {
 		refusal = err.Error()
-	} else if ended := wait(t, c.runs, pointed.GetBuild().GetId()); ended.GetExitCode().GetCode() != 0 {
+	} else if ended := wait(t, c.runs, pointed.GetBuild().GetId()); ended.GetExitCode() != buildv1.ExitCode_EXIT_CODE_SUCCESS {
 		refusal = ended.GetFailure()
 	}
 	if !strings.Contains(refusal, "publishes, which no build runs") || readAt(t, into, "greet_v1.0.0") != "" {
@@ -221,8 +221,8 @@ func TestTheGitHubPluginsPublishIsRunByARelease(t *testing.T) {
 		}
 	}
 	c, _, remote := givenACheckoutWith(t, bringing{}, "release/1.0", listing("  github: {}\n", true), 4)
-	if ended := wait(t, c.runs, create(t, c.runs).GetId()); ended.GetExitCode().GetCode() != 0 {
-		t.Fatalf("a build ended %s (%s)", ended.GetExitCode().GetName(), ended.GetFailure())
+	if ended := wait(t, c.runs, create(t, c.runs).GetId()); ended.GetExitCode() != buildv1.ExitCode_EXIT_CODE_SUCCESS {
+		t.Fatalf("a build ended %s (%s)", ended.GetExitCode(), ended.GetFailure())
 	}
 	s := &releaseService{graph: c.daemon.releases.graph, releases: c.daemon.releases}
 	release := releaseEnded(t, s, releaseBegun(t, s, "greet").GetId())
@@ -237,8 +237,8 @@ func TestTheGitHubPluginsPublishIsRunByARelease(t *testing.T) {
 		t.Errorf("the remote has the tags %q", tagsOf(t, remote))
 	}
 	unpinned, bare, _ := givenACheckoutWith(t, bringing{}, "release/1.0", listing("  github: {}\n", false), 4)
-	if ended := wait(t, unpinned.runs, create(t, unpinned.runs).GetId()); ended.GetExitCode().GetCode() == 0 || !strings.Contains(ended.GetFailure(), "pins no gh") || tagsOf(t, bare) != "" {
-		t.Errorf("a build of a repository that pins no gh ended %s (%s), with the tags %q", ended.GetExitCode().GetName(), ended.GetFailure(), tagsOf(t, bare))
+	if ended := wait(t, unpinned.runs, create(t, unpinned.runs).GetId()); ended.GetExitCode() == buildv1.ExitCode_EXIT_CODE_SUCCESS || !strings.Contains(ended.GetFailure(), "pins no gh") || tagsOf(t, bare) != "" {
+		t.Errorf("a build of a repository that pins no gh ended %s (%s), with the tags %q", ended.GetExitCode(), ended.GetFailure(), tagsOf(t, bare))
 	}
 	control, _, _ := givenACheckoutWith(t, bringing{}, "release/1.0", listing("", false), 3)
 	if _, plain := releasedAlone(t, control, "greet"); len(plain.GetUnits()[0].GetPublished()) != 0 {

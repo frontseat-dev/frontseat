@@ -333,7 +333,7 @@ func remoteOf(t *testing.T, clone string) string {
 // A release sends each tag it writes to where its repository was
 // brought from, the tag alone, and has then nothing left to do. A tag
 // that cannot be sent, as one the remote has at another commit, leaves
-// the release unpublished, saying which and why, with its tag in the
+// the release unpushed, saying which and why, with its tag in the
 // workspace; and the release made again, once it can be, sends it.
 func TestAReleasePushesItsTagsAndSaysWhichItCouldNot(t *testing.T) {
 	s, _, clone := releasingDaemon(t, scripted{})
@@ -353,7 +353,7 @@ func TestAReleasePushesItsTagsAndSaysWhichItCouldNot(t *testing.T) {
 	commits.Git(t, remote, "tag", "log/v1.0.0")
 	elsewhere := commits.Git(t, remote, "rev-parse", "log/v1.0.0^{commit}")
 	refused := releaseEnded(t, s, releaseBegun(t, s, "log").GetId())
-	if refused.GetState() != buildv1.Release_STATE_UNPUBLISHED || !strings.Contains(refused.GetFailure(), "log/v1.0.0 was not pushed from services") || !strings.Contains(refused.GetFailure(), "the release made again sends them") {
+	if refused.GetState() != buildv1.Release_STATE_UNPUSHED || !strings.Contains(refused.GetFailure(), "log/v1.0.0 was not pushed from services") || !strings.Contains(refused.GetFailure(), "the release made again sends them") {
 		t.Errorf("a release whose tag the remote has at another commit ended %v (%s)", refused.GetState(), refused.GetFailure())
 	}
 	if at := commits.Git(t, remote, "rev-parse", "log/v1.0.0^{commit}"); at != elsewhere || !strings.Contains(tagsOf(t, clone), "log/v1.0.0") {

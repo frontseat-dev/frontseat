@@ -7,6 +7,8 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega"
+
+	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 )
 
 // A module's tests are not one action. The go command's own unit of
@@ -58,7 +60,7 @@ func TestATestOfWhatHoldsNoTestsEndsNoTestsFoundAndOfWhatHoldsThemRunsThem(t *te
 
 	none := workspace.build(of("//lab/fixtures:go.compile"), testsOnly())
 	spec.Expect(none.outcome()).To(Equal("NO_TESTS_FOUND"), none.diagnostics())
-	spec.Expect(none.run.GetExitCode().GetCode()).To(BeEquivalentTo(4))
+	spec.Expect(none.run.GetExitCode()).To(Equal(buildv1.ExitCode_EXIT_CODE_NO_TESTS_FOUND))
 	spec.Expect(none.run.GetFailure()).To(ContainSubstring("nothing //lab/fixtures:go.compile points at runs tests"))
 	spec.Expect(none.actions()).To(BeEmpty())
 

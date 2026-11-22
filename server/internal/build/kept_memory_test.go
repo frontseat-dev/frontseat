@@ -73,8 +73,8 @@ func TestRunsAndGraphQueriesAtOnce(t *testing.T) {
 					profile = typev1.Profile_PROFILE_PRODUCTION
 				}
 				run := wait(t, c.runs, createAs(t, c.runs, profile).GetId())
-				if run.GetExitCode().GetName() != "SUCCESS" {
-					t.Errorf("round %d: a run ended %s: %s", round, run.GetExitCode().GetName(), run.GetFailure())
+				if run.GetExitCode() != buildv1.ExitCode_EXIT_CODE_SUCCESS {
+					t.Errorf("round %d: a run ended %s: %s", round, run.GetExitCode(), run.GetFailure())
 				}
 			})
 			all.Go(func() {
@@ -104,8 +104,8 @@ func TestAModuleThatComesWhereThePluginLookedIsFound(t *testing.T) {
 	if got := projectsOf(t, graph); fmt.Sprint(got) != "[hello]" {
 		t.Fatalf("the control: the projects are %v; want only hello", got)
 	}
-	if run := wait(t, c.runs, create(t, c.runs).GetId()); run.GetExitCode().GetName() != "SUCCESS" {
-		t.Fatalf("the first run ended %s: %s", run.GetExitCode().GetName(), run.GetFailure())
+	if run := wait(t, c.runs, create(t, c.runs).GetId()); run.GetExitCode() != buildv1.ExitCode_EXIT_CODE_SUCCESS {
+		t.Fatalf("the first run ended %s: %s", run.GetExitCode(), run.GetFailure())
 	}
 
 	write(t, workspace, "tools/gen/go.mod", "module example.com/gen\n\ngo 1.27\n")
@@ -130,8 +130,8 @@ func TestAnAnswerAskedForInEveryBuildIsKept(t *testing.T) {
 	c := serveAs(t, configuration{Workspace: workspace, Mounted: true, Executor: asking{edited: &sync.Once{}}, Telemetry: signals})
 	for build := 1; build <= 12; build++ {
 		run := wait(t, c.runs, create(t, c.runs).GetId())
-		if run.GetExitCode().GetName() != "SUCCESS" {
-			t.Fatalf("build %d ended %s: %s", build, run.GetExitCode().GetName(), run.GetFailure())
+		if run.GetExitCode() != buildv1.ExitCode_EXIT_CODE_SUCCESS {
+			t.Fatalf("build %d ended %s: %s", build, run.GetExitCode(), run.GetFailure())
 		}
 		if cost := costOf(t, recorder); build > 1 && (cost.asked != 0 || cost.readEvaluating != 0) {
 			t.Errorf("build %d, with nothing changed, cost %+v; want no plugin asked and no file read", build, cost)
@@ -169,8 +169,8 @@ func TestARunCancelledWhileEvaluatingLeavesTheNextOneWhole(t *testing.T) {
 	}
 
 	run := wait(t, c.runs, create(t, c.runs).GetId())
-	if run.GetExitCode().GetName() != "SUCCESS" || run.GetCounts().GetPassed() != 903 {
-		t.Errorf("the run after ended %s with %v: %s; want SUCCESS and 903 actions passed", run.GetExitCode().GetName(), run.GetCounts(), run.GetFailure())
+	if run.GetExitCode() != buildv1.ExitCode_EXIT_CODE_SUCCESS || run.GetCounts().GetPassed() != 903 {
+		t.Errorf("the run after ended %s with %v: %s; want SUCCESS and 903 actions passed", run.GetExitCode(), run.GetCounts(), run.GetFailure())
 	}
 	if got := projectsOf(t, graph); len(got) != 301 {
 		t.Errorf("the graph holds %d projects; want 301", len(got))
@@ -185,19 +185,19 @@ func TestABrokenManifestIsRefusedThoughItWasAnsweredForBefore(t *testing.T) {
 	c := serve(t, asking{edited: &sync.Once{}, ran: asked}, workspace, true)
 	good := "module example.com/hello\n\ngo 1.27\n"
 
-	if run := wait(t, c.runs, create(t, c.runs).GetId()); run.GetExitCode().GetName() != "SUCCESS" {
-		t.Fatalf("the first run ended %s: %s", run.GetExitCode().GetName(), run.GetFailure())
+	if run := wait(t, c.runs, create(t, c.runs).GetId()); run.GetExitCode() != buildv1.ExitCode_EXIT_CODE_SUCCESS {
+		t.Fatalf("the first run ended %s: %s", run.GetExitCode(), run.GetFailure())
 	}
 	write(t, workspace, "hello/go.mod", good+"\nnonsense here\n")
 	for range 2 {
-		if run := wait(t, c.runs, create(t, c.runs).GetId()); run.GetExitCode().GetName() != "BUILD_FAILURE" || !strings.Contains(run.GetFailure(), "hello/go.mod") {
-			t.Errorf("with a broken go.mod the run ended %s: %s; want BUILD_FAILURE naming the file", run.GetExitCode().GetName(), run.GetFailure())
+		if run := wait(t, c.runs, create(t, c.runs).GetId()); run.GetExitCode() != buildv1.ExitCode_EXIT_CODE_BUILD_FAILURE || !strings.Contains(run.GetFailure(), "hello/go.mod") {
+			t.Errorf("with a broken go.mod the run ended %s: %s; want BUILD_FAILURE naming the file", run.GetExitCode(), run.GetFailure())
 		}
 	}
 	asked.since()
 	write(t, workspace, "hello/go.mod", good)
-	if run := wait(t, c.runs, create(t, c.runs).GetId()); run.GetExitCode().GetName() != "SUCCESS" {
-		t.Errorf("mended, the run ended %s: %s", run.GetExitCode().GetName(), run.GetFailure())
+	if run := wait(t, c.runs, create(t, c.runs).GetId()); run.GetExitCode() != buildv1.ExitCode_EXIT_CODE_SUCCESS {
+		t.Errorf("mended, the run ended %s: %s", run.GetExitCode(), run.GetFailure())
 	}
 }
 

@@ -41,6 +41,79 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// ExitCode is how a build ended, by Bazel's names. The command line
+// exits with Bazel's number for each: 0, 1, 3, 4, 8 and 37, in the
+// order below. A client must accept a value it does not know.
+type ExitCode int32
+
+const (
+	// EXIT_CODE_UNSPECIFIED: it has not ended.
+	ExitCode_EXIT_CODE_UNSPECIFIED ExitCode = 0
+	// EXIT_CODE_SUCCESS: every action it selected passed or had nothing
+	// to do.
+	ExitCode_EXIT_CODE_SUCCESS ExitCode = 1
+	// EXIT_CODE_BUILD_FAILURE: an action other than a test did not pass,
+	// or the build could not be planned.
+	ExitCode_EXIT_CODE_BUILD_FAILURE ExitCode = 2
+	// EXIT_CODE_TESTS_FAILED: everything was built, and a test failed.
+	ExitCode_EXIT_CODE_TESTS_FAILED ExitCode = 3
+	// EXIT_CODE_NO_TESTS_FOUND: a test build selected no test.
+	ExitCode_EXIT_CODE_NO_TESTS_FOUND ExitCode = 4
+	// EXIT_CODE_INTERRUPTED: it was cancelled.
+	ExitCode_EXIT_CODE_INTERRUPTED ExitCode = 5
+	// EXIT_CODE_INTERNAL_ERROR: the daemon failed it, not its actions.
+	ExitCode_EXIT_CODE_INTERNAL_ERROR ExitCode = 6
+)
+
+// Enum value maps for ExitCode.
+var (
+	ExitCode_name = map[int32]string{
+		0: "EXIT_CODE_UNSPECIFIED",
+		1: "EXIT_CODE_SUCCESS",
+		2: "EXIT_CODE_BUILD_FAILURE",
+		3: "EXIT_CODE_TESTS_FAILED",
+		4: "EXIT_CODE_NO_TESTS_FOUND",
+		5: "EXIT_CODE_INTERRUPTED",
+		6: "EXIT_CODE_INTERNAL_ERROR",
+	}
+	ExitCode_value = map[string]int32{
+		"EXIT_CODE_UNSPECIFIED":    0,
+		"EXIT_CODE_SUCCESS":        1,
+		"EXIT_CODE_BUILD_FAILURE":  2,
+		"EXIT_CODE_TESTS_FAILED":   3,
+		"EXIT_CODE_NO_TESTS_FOUND": 4,
+		"EXIT_CODE_INTERRUPTED":    5,
+		"EXIT_CODE_INTERNAL_ERROR": 6,
+	}
+)
+
+func (x ExitCode) Enum() *ExitCode {
+	p := new(ExitCode)
+	*p = x
+	return p
+}
+
+func (x ExitCode) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ExitCode) Descriptor() protoreflect.EnumDescriptor {
+	return file_frontseat_build_v1alpha1_build_proto_enumTypes[0].Descriptor()
+}
+
+func (ExitCode) Type() protoreflect.EnumType {
+	return &file_frontseat_build_v1alpha1_build_proto_enumTypes[0]
+}
+
+func (x ExitCode) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ExitCode.Descriptor instead.
+func (ExitCode) EnumDescriptor() ([]byte, []int) {
+	return file_frontseat_build_v1alpha1_build_proto_rawDescGZIP(), []int{0}
+}
+
 // State is where a build is.
 type Build_State int32
 
@@ -49,10 +122,15 @@ const (
 	Build_STATE_UNSPECIFIED Build_State = 0
 	// STATE_RUNNING: it has not ended.
 	Build_STATE_RUNNING Build_State = 1
-	// STATE_FINISHED: it ended, and exit_code says how.
-	Build_STATE_FINISHED Build_State = 2
-	// STATE_CANCELLED: it was cancelled before it ended.
+	// STATE_SUCCEEDED: it ended, and every action it selected passed or
+	// had nothing to do (EXIT_CODE_SUCCESS).
+	Build_STATE_SUCCEEDED Build_State = 2
+	// STATE_CANCELLED: it was cancelled before it ended
+	// (EXIT_CODE_INTERRUPTED).
 	Build_STATE_CANCELLED Build_State = 3
+	// STATE_FAILED: it ended otherwise; exit_code says how, and failure
+	// why where no action explains it.
+	Build_STATE_FAILED Build_State = 4
 )
 
 // Enum value maps for Build_State.
@@ -60,14 +138,16 @@ var (
 	Build_State_name = map[int32]string{
 		0: "STATE_UNSPECIFIED",
 		1: "STATE_RUNNING",
-		2: "STATE_FINISHED",
+		2: "STATE_SUCCEEDED",
 		3: "STATE_CANCELLED",
+		4: "STATE_FAILED",
 	}
 	Build_State_value = map[string]int32{
 		"STATE_UNSPECIFIED": 0,
 		"STATE_RUNNING":     1,
-		"STATE_FINISHED":    2,
+		"STATE_SUCCEEDED":   2,
 		"STATE_CANCELLED":   3,
+		"STATE_FAILED":      4,
 	}
 )
 
@@ -82,11 +162,11 @@ func (x Build_State) String() string {
 }
 
 func (Build_State) Descriptor() protoreflect.EnumDescriptor {
-	return file_frontseat_build_v1alpha1_build_proto_enumTypes[0].Descriptor()
+	return file_frontseat_build_v1alpha1_build_proto_enumTypes[1].Descriptor()
 }
 
 func (Build_State) Type() protoreflect.EnumType {
-	return &file_frontseat_build_v1alpha1_build_proto_enumTypes[0]
+	return &file_frontseat_build_v1alpha1_build_proto_enumTypes[1]
 }
 
 func (x Build_State) Number() protoreflect.EnumNumber {
@@ -135,11 +215,11 @@ func (x Build_Stage) String() string {
 }
 
 func (Build_Stage) Descriptor() protoreflect.EnumDescriptor {
-	return file_frontseat_build_v1alpha1_build_proto_enumTypes[1].Descriptor()
+	return file_frontseat_build_v1alpha1_build_proto_enumTypes[2].Descriptor()
 }
 
 func (Build_Stage) Type() protoreflect.EnumType {
-	return &file_frontseat_build_v1alpha1_build_proto_enumTypes[1]
+	return &file_frontseat_build_v1alpha1_build_proto_enumTypes[2]
 }
 
 func (x Build_Stage) Number() protoreflect.EnumNumber {
@@ -193,11 +273,11 @@ func (x Rewrite_Kind) String() string {
 }
 
 func (Rewrite_Kind) Descriptor() protoreflect.EnumDescriptor {
-	return file_frontseat_build_v1alpha1_build_proto_enumTypes[2].Descriptor()
+	return file_frontseat_build_v1alpha1_build_proto_enumTypes[3].Descriptor()
 }
 
 func (Rewrite_Kind) Type() protoreflect.EnumType {
-	return &file_frontseat_build_v1alpha1_build_proto_enumTypes[2]
+	return &file_frontseat_build_v1alpha1_build_proto_enumTypes[3]
 }
 
 func (x Rewrite_Kind) Number() protoreflect.EnumNumber {
@@ -220,9 +300,9 @@ type Build struct {
 	State Build_State `protobuf:"varint,5,opt,name=state,proto3,enum=frontseat.build.v1alpha1.Build_State" json:"state,omitempty"`
 	// Stage is what a running build is doing now.
 	Stage Build_Stage `protobuf:"varint,6,opt,name=stage,proto3,enum=frontseat.build.v1alpha1.Build_Stage" json:"stage,omitempty"`
-	// `exit_code` is how the build ended, in Bazel's names and numbers; unset
+	// `exit_code` is how the build ended, by Bazel's names; unspecified
 	// until it has.
-	ExitCode *ExitCode `protobuf:"bytes,7,opt,name=exit_code,json=exitCode,proto3" json:"exit_code,omitempty"`
+	ExitCode ExitCode `protobuf:"varint,7,opt,name=exit_code,json=exitCode,proto3,enum=frontseat.build.v1alpha1.ExitCode" json:"exit_code,omitempty"`
 	// Failure says, for a build that ended in an error no action explains,
 	// what went wrong. Describing a failed build still succeeds. Empty for a
 	// build that did not so fail.
@@ -306,11 +386,11 @@ func (x *Build) GetStage() Build_Stage {
 	return Build_STAGE_UNSPECIFIED
 }
 
-func (x *Build) GetExitCode() *ExitCode {
+func (x *Build) GetExitCode() ExitCode {
 	if x != nil {
 		return x.ExitCode
 	}
-	return nil
+	return ExitCode_EXIT_CODE_UNSPECIFIED
 }
 
 func (x *Build) GetFailure() string {
@@ -369,25 +449,29 @@ func (x *Build) GetLastSequence() int64 {
 	return 0
 }
 
-// Counts are a build's actions by outcome. Once the build has ended,
-// passed, failed, skipped, errored and idle add up to total.
+// Counts are a build's actions by outcome, each count one outcome. Once
+// the build has ended, the counts add up to total.
 type Counts struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Total is how many actions the build selected.
 	Total int32 `protobuf:"varint,1,opt,name=total,proto3" json:"total,omitempty"`
 	// Passed is how many passed (OUTCOME_PASSED).
 	Passed int32 `protobuf:"varint,2,opt,name=passed,proto3" json:"passed,omitempty"`
-	// Failed is how many ran and did not pass (OUTCOME_FAILED), and how
-	// many checks would rewrite the source (OUTCOME_REWRITE).
+	// Failed is how many ran and did not pass (OUTCOME_FAILED).
 	Failed int32 `protobuf:"varint,3,opt,name=failed,proto3" json:"failed,omitempty"`
 	// Skipped is how many did not run because something they need did not
-	// pass (OUTCOME_SKIPPED), and, once the build has ended, how many it
-	// never reached, as when it was cancelled.
+	// pass (OUTCOME_SKIPPED).
 	Skipped int32 `protobuf:"varint,4,opt,name=skipped,proto3" json:"skipped,omitempty"`
-	// Errored is how many could not be run (OUTCOME_ERROR).
+	// Errored is how many could not be run (OUTCOME_ERRORED).
 	Errored int32 `protobuf:"varint,5,opt,name=errored,proto3" json:"errored,omitempty"`
 	// Idle is how many were not run, having nothing to do (OUTCOME_IDLE).
-	Idle          int32 `protobuf:"varint,6,opt,name=idle,proto3" json:"idle,omitempty"`
+	Idle int32 `protobuf:"varint,6,opt,name=idle,proto3" json:"idle,omitempty"`
+	// Rewritten is how many checks would rewrite the source
+	// (OUTCOME_REWRITTEN).
+	Rewritten int32 `protobuf:"varint,7,opt,name=rewritten,proto3" json:"rewritten,omitempty"`
+	// Unreached is how many the build never came to, as when it was
+	// cancelled: counted once it has ended.
+	Unreached     int32 `protobuf:"varint,8,opt,name=unreached,proto3" json:"unreached,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -460,6 +544,20 @@ func (x *Counts) GetErrored() int32 {
 func (x *Counts) GetIdle() int32 {
 	if x != nil {
 		return x.Idle
+	}
+	return 0
+}
+
+func (x *Counts) GetRewritten() int32 {
+	if x != nil {
+		return x.Rewritten
+	}
+	return 0
+}
+
+func (x *Counts) GetUnreached() int32 {
+	if x != nil {
+		return x.Unreached
 	}
 	return 0
 }
@@ -822,8 +920,8 @@ type CreateBuildRequest struct {
 	// Tests keeps the actions that run tests, as the plugin that declared
 	// each says (its test flag), of whatever the targets point at, and
 	// what they need. Where they hold none, the build runs nothing and
-	// ends with the exit code NO_TESTS_FOUND, 4, saying so in its failure,
-	// as Bazel ends `bazel test` with no test targets.
+	// ends EXIT_CODE_NO_TESTS_FOUND, saying so in its failure, as Bazel
+	// ends `bazel test` with no test targets.
 	Tests bool `protobuf:"varint,15,opt,name=tests,proto3" json:"tests,omitempty"`
 	// `request_id` makes a retry return the build the first call made: a
 	// client that lost the answer sends the same request again with it.
@@ -1858,63 +1956,6 @@ func (*BuildEvent_Finished_) isBuildEvent_Event() {}
 
 func (*BuildEvent_StartedOver_) isBuildEvent_Event() {}
 
-// ExitCode is how a build ended, in Bazel's names and numbers.
-type ExitCode struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Name is Bazel's name for it. A daemon says SUCCESS (0), BUILD_FAILURE
-	// (1), TESTS_FAILED (3), NO_TESTS_FOUND (4), INTERRUPTED (8) and
-	// INTERNAL_ERROR (37); a client must accept one it does not know.
-	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// Code is the process exit code, e.g. 0 for SUCCESS.
-	Code          int32 `protobuf:"varint,2,opt,name=code,proto3" json:"code,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ExitCode) Reset() {
-	*x = ExitCode{}
-	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[22]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ExitCode) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ExitCode) ProtoMessage() {}
-
-func (x *ExitCode) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[22]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ExitCode.ProtoReflect.Descriptor instead.
-func (*ExitCode) Descriptor() ([]byte, []int) {
-	return file_frontseat_build_v1alpha1_build_proto_rawDescGZIP(), []int{22}
-}
-
-func (x *ExitCode) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-func (x *ExitCode) GetCode() int32 {
-	if x != nil {
-		return x.Code
-	}
-	return 0
-}
-
 // StageChanged is the build moving to another stage.
 type BuildEvent_StageChanged struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1926,7 +1967,7 @@ type BuildEvent_StageChanged struct {
 
 func (x *BuildEvent_StageChanged) Reset() {
 	*x = BuildEvent_StageChanged{}
-	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[23]
+	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1938,7 +1979,7 @@ func (x *BuildEvent_StageChanged) String() string {
 func (*BuildEvent_StageChanged) ProtoMessage() {}
 
 func (x *BuildEvent_StageChanged) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[23]
+	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1975,7 +2016,7 @@ type BuildEvent_Planned struct {
 
 func (x *BuildEvent_Planned) Reset() {
 	*x = BuildEvent_Planned{}
-	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[24]
+	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1987,7 +2028,7 @@ func (x *BuildEvent_Planned) String() string {
 func (*BuildEvent_Planned) ProtoMessage() {}
 
 func (x *BuildEvent_Planned) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[24]
+	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2034,7 +2075,7 @@ type BuildEvent_PlannedAction struct {
 
 func (x *BuildEvent_PlannedAction) Reset() {
 	*x = BuildEvent_PlannedAction{}
-	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[25]
+	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2046,7 +2087,7 @@ func (x *BuildEvent_PlannedAction) String() string {
 func (*BuildEvent_PlannedAction) ProtoMessage() {}
 
 func (x *BuildEvent_PlannedAction) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[25]
+	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2102,7 +2143,7 @@ type BuildEvent_ActionStarted struct {
 
 func (x *BuildEvent_ActionStarted) Reset() {
 	*x = BuildEvent_ActionStarted{}
-	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[26]
+	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2114,7 +2155,7 @@ func (x *BuildEvent_ActionStarted) String() string {
 func (*BuildEvent_ActionStarted) ProtoMessage() {}
 
 func (x *BuildEvent_ActionStarted) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[26]
+	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2148,7 +2189,7 @@ type BuildEvent_ActionFinished struct {
 
 func (x *BuildEvent_ActionFinished) Reset() {
 	*x = BuildEvent_ActionFinished{}
-	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[27]
+	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2160,7 +2201,7 @@ func (x *BuildEvent_ActionFinished) String() string {
 func (*BuildEvent_ActionFinished) ProtoMessage() {}
 
 func (x *BuildEvent_ActionFinished) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[27]
+	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2196,7 +2237,7 @@ type BuildEvent_Patched struct {
 
 func (x *BuildEvent_Patched) Reset() {
 	*x = BuildEvent_Patched{}
-	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[28]
+	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2208,7 +2249,7 @@ func (x *BuildEvent_Patched) String() string {
 func (*BuildEvent_Patched) ProtoMessage() {}
 
 func (x *BuildEvent_Patched) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[28]
+	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2257,7 +2298,7 @@ type BuildEvent_StartedOver struct {
 
 func (x *BuildEvent_StartedOver) Reset() {
 	*x = BuildEvent_StartedOver{}
-	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[29]
+	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2269,7 +2310,7 @@ func (x *BuildEvent_StartedOver) String() string {
 func (*BuildEvent_StartedOver) ProtoMessage() {}
 
 func (x *BuildEvent_StartedOver) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[29]
+	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2310,7 +2351,7 @@ type BuildEvent_Finished struct {
 
 func (x *BuildEvent_Finished) Reset() {
 	*x = BuildEvent_Finished{}
-	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[30]
+	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2322,7 +2363,7 @@ func (x *BuildEvent_Finished) String() string {
 func (*BuildEvent_Finished) ProtoMessage() {}
 
 func (x *BuildEvent_Finished) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[30]
+	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2349,13 +2390,13 @@ var File_frontseat_build_v1alpha1_build_proto protoreflect.FileDescriptor
 
 const file_frontseat_build_v1alpha1_build_proto_rawDesc = "" +
 	"\n" +
-	"$frontseat/build/v1alpha1/build.proto\x12\x18frontseat.build.v1alpha1\x1a$frontseat/build/v1alpha1/types.proto\x1a(frontseat/type/v1alpha1/diagnostic.proto\x1a#frontseat/type/v1alpha1/types.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x85\a\n" +
+	"$frontseat/build/v1alpha1/build.proto\x12\x18frontseat.build.v1alpha1\x1a$frontseat/build/v1alpha1/types.proto\x1a(frontseat/type/v1alpha1/diagnostic.proto\x1a#frontseat/type/v1alpha1/types.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x98\a\n" +
 	"\x05Build\x12\x14\n" +
 	"\x02id\x18\x01 \x01(\tB\x04\xe2A\x01\x03R\x02id\x12\x1e\n" +
 	"\atargets\x18\x03 \x03(\tB\x04\xe2A\x01\x03R\atargets\x12A\n" +
 	"\x05state\x18\x05 \x01(\x0e2%.frontseat.build.v1alpha1.Build.StateB\x04\xe2A\x01\x03R\x05state\x12A\n" +
 	"\x05stage\x18\x06 \x01(\x0e2%.frontseat.build.v1alpha1.Build.StageB\x04\xe2A\x01\x03R\x05stage\x12E\n" +
-	"\texit_code\x18\a \x01(\v2\".frontseat.build.v1alpha1.ExitCodeB\x04\xe2A\x01\x03R\bexitCode\x12\x1e\n" +
+	"\texit_code\x18\a \x01(\x0e2\".frontseat.build.v1alpha1.ExitCodeB\x04\xe2A\x01\x03R\bexitCode\x12\x1e\n" +
 	"\afailure\x18\x12 \x01(\tB\x04\xe2A\x01\x03R\afailure\x12K\n" +
 	"\vdiagnostics\x18\x13 \x03(\v2#.frontseat.type.v1alpha1.DiagnosticB\x04\xe2A\x01\x03R\vdiagnostics\x12A\n" +
 	"\vcreate_time\x18\v \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\n" +
@@ -2364,23 +2405,26 @@ const file_frontseat_build_v1alpha1_build_proto_rawDesc = "" +
 	"\x06counts\x18\r \x01(\v2 .frontseat.build.v1alpha1.CountsB\x04\xe2A\x01\x03R\x06counts\x128\n" +
 	"\x04cost\x18\x0f \x01(\v2\x1e.frontseat.build.v1alpha1.CostB\x04\xe2A\x01\x03R\x04cost\x12@\n" +
 	"\aprofile\x18\x11 \x01(\x0e2 .frontseat.type.v1alpha1.ProfileB\x04\xe2A\x01\x03R\aprofile\x12)\n" +
-	"\rlast_sequence\x18\x10 \x01(\x03B\x04\xe2A\x01\x03R\flastSequence\"Z\n" +
+	"\rlast_sequence\x18\x10 \x01(\x03B\x04\xe2A\x01\x03R\flastSequence\"m\n" +
 	"\x05State\x12\x15\n" +
 	"\x11STATE_UNSPECIFIED\x10\x00\x12\x11\n" +
-	"\rSTATE_RUNNING\x10\x01\x12\x12\n" +
-	"\x0eSTATE_FINISHED\x10\x02\x12\x13\n" +
-	"\x0fSTATE_CANCELLED\x10\x03\"I\n" +
+	"\rSTATE_RUNNING\x10\x01\x12\x13\n" +
+	"\x0fSTATE_SUCCEEDED\x10\x02\x12\x13\n" +
+	"\x0fSTATE_CANCELLED\x10\x03\x12\x10\n" +
+	"\fSTATE_FAILED\x10\x04\"I\n" +
 	"\x05Stage\x12\x15\n" +
 	"\x11STAGE_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10STAGE_EVALUATING\x10\x01\x12\x13\n" +
-	"\x0fSTAGE_EXECUTING\x10\x03\"\xba\x01\n" +
+	"\x0fSTAGE_EXECUTING\x10\x03\"\x82\x02\n" +
 	"\x06Counts\x12\x1a\n" +
 	"\x05total\x18\x01 \x01(\x05B\x04\xe2A\x01\x03R\x05total\x12\x1c\n" +
 	"\x06passed\x18\x02 \x01(\x05B\x04\xe2A\x01\x03R\x06passed\x12\x1c\n" +
 	"\x06failed\x18\x03 \x01(\x05B\x04\xe2A\x01\x03R\x06failed\x12\x1e\n" +
 	"\askipped\x18\x04 \x01(\x05B\x04\xe2A\x01\x03R\askipped\x12\x1e\n" +
 	"\aerrored\x18\x05 \x01(\x05B\x04\xe2A\x01\x03R\aerrored\x12\x18\n" +
-	"\x04idle\x18\x06 \x01(\x05B\x04\xe2A\x01\x03R\x04idle\"\xb7\x01\n" +
+	"\x04idle\x18\x06 \x01(\x05B\x04\xe2A\x01\x03R\x04idle\x12\"\n" +
+	"\trewritten\x18\a \x01(\x05B\x04\xe2A\x01\x03R\trewritten\x12\"\n" +
+	"\tunreached\x18\b \x01(\x05B\x04\xe2A\x01\x03R\tunreached\"\xb7\x01\n" +
 	"\x04Cost\x12/\n" +
 	"\x10actions_executed\x18\x01 \x01(\x05B\x04\xe2A\x01\x03R\x0factionsExecuted\x12@\n" +
 	"\vworker_time\x18\x02 \x01(\v2\x19.google.protobuf.DurationB\x04\xe2A\x01\x03R\n" +
@@ -2503,10 +2547,15 @@ const file_frontseat_build_v1alpha1_build_proto_rawDesc = "" +
 	"\x06reason\x18\x02 \x01(\tB\x04\xe2A\x01\x03R\x06reason\x1aG\n" +
 	"\bFinished\x12;\n" +
 	"\x05build\x18\x01 \x01(\v2\x1f.frontseat.build.v1alpha1.BuildB\x04\xe2A\x01\x03R\x05buildB\a\n" +
-	"\x05event\">\n" +
-	"\bExitCode\x12\x18\n" +
-	"\x04name\x18\x01 \x01(\tB\x04\xe2A\x01\x03R\x04name\x12\x18\n" +
-	"\x04code\x18\x02 \x01(\x05B\x04\xe2A\x01\x03R\x04code2\xc0\a\n" +
+	"\x05event*\xcc\x01\n" +
+	"\bExitCode\x12\x19\n" +
+	"\x15EXIT_CODE_UNSPECIFIED\x10\x00\x12\x15\n" +
+	"\x11EXIT_CODE_SUCCESS\x10\x01\x12\x1b\n" +
+	"\x17EXIT_CODE_BUILD_FAILURE\x10\x02\x12\x1a\n" +
+	"\x16EXIT_CODE_TESTS_FAILED\x10\x03\x12\x1c\n" +
+	"\x18EXIT_CODE_NO_TESTS_FOUND\x10\x04\x12\x19\n" +
+	"\x15EXIT_CODE_INTERRUPTED\x10\x05\x12\x1c\n" +
+	"\x18EXIT_CODE_INTERNAL_ERROR\x10\x062\xc0\a\n" +
 	"\fBuildService\x12j\n" +
 	"\vCreateBuild\x12,.frontseat.build.v1alpha1.CreateBuildRequest\x1a-.frontseat.build.v1alpha1.CreateBuildResponse\x12u\n" +
 	"\rDescribeBuild\x12..frontseat.build.v1alpha1.DescribeBuildRequest\x1a/.frontseat.build.v1alpha1.DescribeBuildResponse\"\x03\x90\x02\x01\x12l\n" +
@@ -2532,35 +2581,35 @@ func file_frontseat_build_v1alpha1_build_proto_rawDescGZIP() []byte {
 	return file_frontseat_build_v1alpha1_build_proto_rawDescData
 }
 
-var file_frontseat_build_v1alpha1_build_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_frontseat_build_v1alpha1_build_proto_msgTypes = make([]protoimpl.MessageInfo, 31)
+var file_frontseat_build_v1alpha1_build_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
+var file_frontseat_build_v1alpha1_build_proto_msgTypes = make([]protoimpl.MessageInfo, 30)
 var file_frontseat_build_v1alpha1_build_proto_goTypes = []any{
-	(Build_State)(0),                  // 0: frontseat.build.v1alpha1.Build.State
-	(Build_Stage)(0),                  // 1: frontseat.build.v1alpha1.Build.Stage
-	(Rewrite_Kind)(0),                 // 2: frontseat.build.v1alpha1.Rewrite.Kind
-	(*Build)(nil),                     // 3: frontseat.build.v1alpha1.Build
-	(*Counts)(nil),                    // 4: frontseat.build.v1alpha1.Counts
-	(*Cost)(nil),                      // 5: frontseat.build.v1alpha1.Cost
-	(*ActionResult)(nil),              // 6: frontseat.build.v1alpha1.ActionResult
-	(*Rewrite)(nil),                   // 7: frontseat.build.v1alpha1.Rewrite
-	(*CreateBuildRequest)(nil),        // 8: frontseat.build.v1alpha1.CreateBuildRequest
-	(*CreateBuildResponse)(nil),       // 9: frontseat.build.v1alpha1.CreateBuildResponse
-	(*DescribeBuildRequest)(nil),      // 10: frontseat.build.v1alpha1.DescribeBuildRequest
-	(*DescribeBuildResponse)(nil),     // 11: frontseat.build.v1alpha1.DescribeBuildResponse
-	(*ListBuildsRequest)(nil),         // 12: frontseat.build.v1alpha1.ListBuildsRequest
-	(*ListBuildsResponse)(nil),        // 13: frontseat.build.v1alpha1.ListBuildsResponse
-	(*CancelBuildRequest)(nil),        // 14: frontseat.build.v1alpha1.CancelBuildRequest
-	(*CancelBuildResponse)(nil),       // 15: frontseat.build.v1alpha1.CancelBuildResponse
-	(*WaitBuildRequest)(nil),          // 16: frontseat.build.v1alpha1.WaitBuildRequest
-	(*WaitBuildResponse)(nil),         // 17: frontseat.build.v1alpha1.WaitBuildResponse
-	(*StreamBuildEventsRequest)(nil),  // 18: frontseat.build.v1alpha1.StreamBuildEventsRequest
-	(*StreamBuildEventsResponse)(nil), // 19: frontseat.build.v1alpha1.StreamBuildEventsResponse
-	(*ListBuildActionsRequest)(nil),   // 20: frontseat.build.v1alpha1.ListBuildActionsRequest
-	(*ListBuildActionsResponse)(nil),  // 21: frontseat.build.v1alpha1.ListBuildActionsResponse
-	(*StreamBuildLogsRequest)(nil),    // 22: frontseat.build.v1alpha1.StreamBuildLogsRequest
-	(*StreamBuildLogsResponse)(nil),   // 23: frontseat.build.v1alpha1.StreamBuildLogsResponse
-	(*BuildEvent)(nil),                // 24: frontseat.build.v1alpha1.BuildEvent
-	(*ExitCode)(nil),                  // 25: frontseat.build.v1alpha1.ExitCode
+	(ExitCode)(0),                     // 0: frontseat.build.v1alpha1.ExitCode
+	(Build_State)(0),                  // 1: frontseat.build.v1alpha1.Build.State
+	(Build_Stage)(0),                  // 2: frontseat.build.v1alpha1.Build.Stage
+	(Rewrite_Kind)(0),                 // 3: frontseat.build.v1alpha1.Rewrite.Kind
+	(*Build)(nil),                     // 4: frontseat.build.v1alpha1.Build
+	(*Counts)(nil),                    // 5: frontseat.build.v1alpha1.Counts
+	(*Cost)(nil),                      // 6: frontseat.build.v1alpha1.Cost
+	(*ActionResult)(nil),              // 7: frontseat.build.v1alpha1.ActionResult
+	(*Rewrite)(nil),                   // 8: frontseat.build.v1alpha1.Rewrite
+	(*CreateBuildRequest)(nil),        // 9: frontseat.build.v1alpha1.CreateBuildRequest
+	(*CreateBuildResponse)(nil),       // 10: frontseat.build.v1alpha1.CreateBuildResponse
+	(*DescribeBuildRequest)(nil),      // 11: frontseat.build.v1alpha1.DescribeBuildRequest
+	(*DescribeBuildResponse)(nil),     // 12: frontseat.build.v1alpha1.DescribeBuildResponse
+	(*ListBuildsRequest)(nil),         // 13: frontseat.build.v1alpha1.ListBuildsRequest
+	(*ListBuildsResponse)(nil),        // 14: frontseat.build.v1alpha1.ListBuildsResponse
+	(*CancelBuildRequest)(nil),        // 15: frontseat.build.v1alpha1.CancelBuildRequest
+	(*CancelBuildResponse)(nil),       // 16: frontseat.build.v1alpha1.CancelBuildResponse
+	(*WaitBuildRequest)(nil),          // 17: frontseat.build.v1alpha1.WaitBuildRequest
+	(*WaitBuildResponse)(nil),         // 18: frontseat.build.v1alpha1.WaitBuildResponse
+	(*StreamBuildEventsRequest)(nil),  // 19: frontseat.build.v1alpha1.StreamBuildEventsRequest
+	(*StreamBuildEventsResponse)(nil), // 20: frontseat.build.v1alpha1.StreamBuildEventsResponse
+	(*ListBuildActionsRequest)(nil),   // 21: frontseat.build.v1alpha1.ListBuildActionsRequest
+	(*ListBuildActionsResponse)(nil),  // 22: frontseat.build.v1alpha1.ListBuildActionsResponse
+	(*StreamBuildLogsRequest)(nil),    // 23: frontseat.build.v1alpha1.StreamBuildLogsRequest
+	(*StreamBuildLogsResponse)(nil),   // 24: frontseat.build.v1alpha1.StreamBuildLogsResponse
+	(*BuildEvent)(nil),                // 25: frontseat.build.v1alpha1.BuildEvent
 	(*BuildEvent_StageChanged)(nil),   // 26: frontseat.build.v1alpha1.BuildEvent.StageChanged
 	(*BuildEvent_Planned)(nil),        // 27: frontseat.build.v1alpha1.BuildEvent.Planned
 	(*BuildEvent_PlannedAction)(nil),  // 28: frontseat.build.v1alpha1.BuildEvent.PlannedAction
@@ -2581,14 +2630,14 @@ var file_frontseat_build_v1alpha1_build_proto_goTypes = []any{
 	(*v1alpha1.LogLine)(nil),          // 43: frontseat.type.v1alpha1.LogLine
 }
 var file_frontseat_build_v1alpha1_build_proto_depIdxs = []int32{
-	0,  // 0: frontseat.build.v1alpha1.Build.state:type_name -> frontseat.build.v1alpha1.Build.State
-	1,  // 1: frontseat.build.v1alpha1.Build.stage:type_name -> frontseat.build.v1alpha1.Build.Stage
-	25, // 2: frontseat.build.v1alpha1.Build.exit_code:type_name -> frontseat.build.v1alpha1.ExitCode
+	1,  // 0: frontseat.build.v1alpha1.Build.state:type_name -> frontseat.build.v1alpha1.Build.State
+	2,  // 1: frontseat.build.v1alpha1.Build.stage:type_name -> frontseat.build.v1alpha1.Build.Stage
+	0,  // 2: frontseat.build.v1alpha1.Build.exit_code:type_name -> frontseat.build.v1alpha1.ExitCode
 	34, // 3: frontseat.build.v1alpha1.Build.diagnostics:type_name -> frontseat.type.v1alpha1.Diagnostic
 	35, // 4: frontseat.build.v1alpha1.Build.create_time:type_name -> google.protobuf.Timestamp
 	35, // 5: frontseat.build.v1alpha1.Build.end_time:type_name -> google.protobuf.Timestamp
-	4,  // 6: frontseat.build.v1alpha1.Build.counts:type_name -> frontseat.build.v1alpha1.Counts
-	5,  // 7: frontseat.build.v1alpha1.Build.cost:type_name -> frontseat.build.v1alpha1.Cost
+	5,  // 6: frontseat.build.v1alpha1.Build.counts:type_name -> frontseat.build.v1alpha1.Counts
+	6,  // 7: frontseat.build.v1alpha1.Build.cost:type_name -> frontseat.build.v1alpha1.Cost
 	36, // 8: frontseat.build.v1alpha1.Build.profile:type_name -> frontseat.type.v1alpha1.Profile
 	37, // 9: frontseat.build.v1alpha1.Cost.worker_time:type_name -> google.protobuf.Duration
 	37, // 10: frontseat.build.v1alpha1.Cost.wall_time:type_name -> google.protobuf.Duration
@@ -2602,18 +2651,18 @@ var file_frontseat_build_v1alpha1_build_proto_depIdxs = []int32{
 	41, // 18: frontseat.build.v1alpha1.ActionResult.stdout:type_name -> frontseat.build.v1alpha1.Digest
 	41, // 19: frontseat.build.v1alpha1.ActionResult.stderr:type_name -> frontseat.build.v1alpha1.Digest
 	34, // 20: frontseat.build.v1alpha1.ActionResult.diagnostics:type_name -> frontseat.type.v1alpha1.Diagnostic
-	7,  // 21: frontseat.build.v1alpha1.ActionResult.rewrites:type_name -> frontseat.build.v1alpha1.Rewrite
+	8,  // 21: frontseat.build.v1alpha1.ActionResult.rewrites:type_name -> frontseat.build.v1alpha1.Rewrite
 	42, // 22: frontseat.build.v1alpha1.Rewrite.location:type_name -> frontseat.type.v1alpha1.SourceLocation
-	2,  // 23: frontseat.build.v1alpha1.Rewrite.kind:type_name -> frontseat.build.v1alpha1.Rewrite.Kind
+	3,  // 23: frontseat.build.v1alpha1.Rewrite.kind:type_name -> frontseat.build.v1alpha1.Rewrite.Kind
 	41, // 24: frontseat.build.v1alpha1.Rewrite.content:type_name -> frontseat.build.v1alpha1.Digest
 	36, // 25: frontseat.build.v1alpha1.CreateBuildRequest.profile:type_name -> frontseat.type.v1alpha1.Profile
-	3,  // 26: frontseat.build.v1alpha1.CreateBuildResponse.build:type_name -> frontseat.build.v1alpha1.Build
-	3,  // 27: frontseat.build.v1alpha1.DescribeBuildResponse.build:type_name -> frontseat.build.v1alpha1.Build
-	3,  // 28: frontseat.build.v1alpha1.ListBuildsResponse.builds:type_name -> frontseat.build.v1alpha1.Build
-	3,  // 29: frontseat.build.v1alpha1.CancelBuildResponse.build:type_name -> frontseat.build.v1alpha1.Build
-	3,  // 30: frontseat.build.v1alpha1.WaitBuildResponse.build:type_name -> frontseat.build.v1alpha1.Build
-	24, // 31: frontseat.build.v1alpha1.StreamBuildEventsResponse.events:type_name -> frontseat.build.v1alpha1.BuildEvent
-	6,  // 32: frontseat.build.v1alpha1.ListBuildActionsResponse.actions:type_name -> frontseat.build.v1alpha1.ActionResult
+	4,  // 26: frontseat.build.v1alpha1.CreateBuildResponse.build:type_name -> frontseat.build.v1alpha1.Build
+	4,  // 27: frontseat.build.v1alpha1.DescribeBuildResponse.build:type_name -> frontseat.build.v1alpha1.Build
+	4,  // 28: frontseat.build.v1alpha1.ListBuildsResponse.builds:type_name -> frontseat.build.v1alpha1.Build
+	4,  // 29: frontseat.build.v1alpha1.CancelBuildResponse.build:type_name -> frontseat.build.v1alpha1.Build
+	4,  // 30: frontseat.build.v1alpha1.WaitBuildResponse.build:type_name -> frontseat.build.v1alpha1.Build
+	25, // 31: frontseat.build.v1alpha1.StreamBuildEventsResponse.events:type_name -> frontseat.build.v1alpha1.BuildEvent
+	7,  // 32: frontseat.build.v1alpha1.ListBuildActionsResponse.actions:type_name -> frontseat.build.v1alpha1.ActionResult
 	43, // 33: frontseat.build.v1alpha1.StreamBuildLogsResponse.lines:type_name -> frontseat.type.v1alpha1.LogLine
 	35, // 34: frontseat.build.v1alpha1.BuildEvent.time:type_name -> google.protobuf.Timestamp
 	26, // 35: frontseat.build.v1alpha1.BuildEvent.stage_changed:type_name -> frontseat.build.v1alpha1.BuildEvent.StageChanged
@@ -2623,27 +2672,27 @@ var file_frontseat_build_v1alpha1_build_proto_depIdxs = []int32{
 	31, // 39: frontseat.build.v1alpha1.BuildEvent.patched:type_name -> frontseat.build.v1alpha1.BuildEvent.Patched
 	33, // 40: frontseat.build.v1alpha1.BuildEvent.finished:type_name -> frontseat.build.v1alpha1.BuildEvent.Finished
 	32, // 41: frontseat.build.v1alpha1.BuildEvent.started_over:type_name -> frontseat.build.v1alpha1.BuildEvent.StartedOver
-	1,  // 42: frontseat.build.v1alpha1.BuildEvent.StageChanged.stage:type_name -> frontseat.build.v1alpha1.Build.Stage
+	2,  // 42: frontseat.build.v1alpha1.BuildEvent.StageChanged.stage:type_name -> frontseat.build.v1alpha1.Build.Stage
 	28, // 43: frontseat.build.v1alpha1.BuildEvent.Planned.actions:type_name -> frontseat.build.v1alpha1.BuildEvent.PlannedAction
 	38, // 44: frontseat.build.v1alpha1.BuildEvent.PlannedAction.entity:type_name -> frontseat.type.v1alpha1.EntityRef
-	6,  // 45: frontseat.build.v1alpha1.BuildEvent.ActionFinished.result:type_name -> frontseat.build.v1alpha1.ActionResult
-	3,  // 46: frontseat.build.v1alpha1.BuildEvent.Finished.build:type_name -> frontseat.build.v1alpha1.Build
-	8,  // 47: frontseat.build.v1alpha1.BuildService.CreateBuild:input_type -> frontseat.build.v1alpha1.CreateBuildRequest
-	10, // 48: frontseat.build.v1alpha1.BuildService.DescribeBuild:input_type -> frontseat.build.v1alpha1.DescribeBuildRequest
-	12, // 49: frontseat.build.v1alpha1.BuildService.ListBuilds:input_type -> frontseat.build.v1alpha1.ListBuildsRequest
-	14, // 50: frontseat.build.v1alpha1.BuildService.CancelBuild:input_type -> frontseat.build.v1alpha1.CancelBuildRequest
-	16, // 51: frontseat.build.v1alpha1.BuildService.WaitBuild:input_type -> frontseat.build.v1alpha1.WaitBuildRequest
-	18, // 52: frontseat.build.v1alpha1.BuildService.StreamBuildEvents:input_type -> frontseat.build.v1alpha1.StreamBuildEventsRequest
-	20, // 53: frontseat.build.v1alpha1.BuildService.ListBuildActions:input_type -> frontseat.build.v1alpha1.ListBuildActionsRequest
-	22, // 54: frontseat.build.v1alpha1.BuildService.StreamBuildLogs:input_type -> frontseat.build.v1alpha1.StreamBuildLogsRequest
-	9,  // 55: frontseat.build.v1alpha1.BuildService.CreateBuild:output_type -> frontseat.build.v1alpha1.CreateBuildResponse
-	11, // 56: frontseat.build.v1alpha1.BuildService.DescribeBuild:output_type -> frontseat.build.v1alpha1.DescribeBuildResponse
-	13, // 57: frontseat.build.v1alpha1.BuildService.ListBuilds:output_type -> frontseat.build.v1alpha1.ListBuildsResponse
-	15, // 58: frontseat.build.v1alpha1.BuildService.CancelBuild:output_type -> frontseat.build.v1alpha1.CancelBuildResponse
-	17, // 59: frontseat.build.v1alpha1.BuildService.WaitBuild:output_type -> frontseat.build.v1alpha1.WaitBuildResponse
-	19, // 60: frontseat.build.v1alpha1.BuildService.StreamBuildEvents:output_type -> frontseat.build.v1alpha1.StreamBuildEventsResponse
-	21, // 61: frontseat.build.v1alpha1.BuildService.ListBuildActions:output_type -> frontseat.build.v1alpha1.ListBuildActionsResponse
-	23, // 62: frontseat.build.v1alpha1.BuildService.StreamBuildLogs:output_type -> frontseat.build.v1alpha1.StreamBuildLogsResponse
+	7,  // 45: frontseat.build.v1alpha1.BuildEvent.ActionFinished.result:type_name -> frontseat.build.v1alpha1.ActionResult
+	4,  // 46: frontseat.build.v1alpha1.BuildEvent.Finished.build:type_name -> frontseat.build.v1alpha1.Build
+	9,  // 47: frontseat.build.v1alpha1.BuildService.CreateBuild:input_type -> frontseat.build.v1alpha1.CreateBuildRequest
+	11, // 48: frontseat.build.v1alpha1.BuildService.DescribeBuild:input_type -> frontseat.build.v1alpha1.DescribeBuildRequest
+	13, // 49: frontseat.build.v1alpha1.BuildService.ListBuilds:input_type -> frontseat.build.v1alpha1.ListBuildsRequest
+	15, // 50: frontseat.build.v1alpha1.BuildService.CancelBuild:input_type -> frontseat.build.v1alpha1.CancelBuildRequest
+	17, // 51: frontseat.build.v1alpha1.BuildService.WaitBuild:input_type -> frontseat.build.v1alpha1.WaitBuildRequest
+	19, // 52: frontseat.build.v1alpha1.BuildService.StreamBuildEvents:input_type -> frontseat.build.v1alpha1.StreamBuildEventsRequest
+	21, // 53: frontseat.build.v1alpha1.BuildService.ListBuildActions:input_type -> frontseat.build.v1alpha1.ListBuildActionsRequest
+	23, // 54: frontseat.build.v1alpha1.BuildService.StreamBuildLogs:input_type -> frontseat.build.v1alpha1.StreamBuildLogsRequest
+	10, // 55: frontseat.build.v1alpha1.BuildService.CreateBuild:output_type -> frontseat.build.v1alpha1.CreateBuildResponse
+	12, // 56: frontseat.build.v1alpha1.BuildService.DescribeBuild:output_type -> frontseat.build.v1alpha1.DescribeBuildResponse
+	14, // 57: frontseat.build.v1alpha1.BuildService.ListBuilds:output_type -> frontseat.build.v1alpha1.ListBuildsResponse
+	16, // 58: frontseat.build.v1alpha1.BuildService.CancelBuild:output_type -> frontseat.build.v1alpha1.CancelBuildResponse
+	18, // 59: frontseat.build.v1alpha1.BuildService.WaitBuild:output_type -> frontseat.build.v1alpha1.WaitBuildResponse
+	20, // 60: frontseat.build.v1alpha1.BuildService.StreamBuildEvents:output_type -> frontseat.build.v1alpha1.StreamBuildEventsResponse
+	22, // 61: frontseat.build.v1alpha1.BuildService.ListBuildActions:output_type -> frontseat.build.v1alpha1.ListBuildActionsResponse
+	24, // 62: frontseat.build.v1alpha1.BuildService.StreamBuildLogs:output_type -> frontseat.build.v1alpha1.StreamBuildLogsResponse
 	55, // [55:63] is the sub-list for method output_type
 	47, // [47:55] is the sub-list for method input_type
 	47, // [47:47] is the sub-list for extension type_name
@@ -2671,8 +2720,8 @@ func file_frontseat_build_v1alpha1_build_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_frontseat_build_v1alpha1_build_proto_rawDesc), len(file_frontseat_build_v1alpha1_build_proto_rawDesc)),
-			NumEnums:      3,
-			NumMessages:   31,
+			NumEnums:      4,
+			NumMessages:   30,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

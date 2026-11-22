@@ -87,7 +87,7 @@ func TestWhatWasCutShortIsTakenOffTheRecord(t *testing.T) {
 		t.Errorf("the record is %d bytes after the second daemon read it, err %v; want the %d the first left, a run that had ended", now.Size(), err, left.Size())
 	}
 
-	if len(next.list()) != 1 || !proto.Equal(next.list()[0].snapshot(), said) || said.GetState() != buildv1.Build_STATE_FINISHED {
+	if len(next.list()) != 1 || !proto.Equal(next.list()[0].snapshot(), said) || said.GetState() != buildv1.Build_STATE_FAILED {
 		t.Errorf("the daemon after says %v; want what the daemon before it said, which ended the run: %v", next.list(), said)
 	}
 	if events := len(next.list()[0].events); events != 2 {

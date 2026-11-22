@@ -744,7 +744,9 @@ func (w *Workspace) checkedThenFixed(target, path, unformatted string) *buildv1.
 }
 
 // outcome is how the build ended, in Bazel's names.
-func (b *Build) outcome() string { return b.run.GetExitCode().GetName() }
+func (b *Build) outcome() string {
+	return strings.TrimPrefix(b.run.GetExitCode().String(), "EXIT_CODE_")
+}
 
 // passed is how many of its actions passed.
 func (b *Build) passed() int { return int(b.run.GetCounts().GetPassed()) }

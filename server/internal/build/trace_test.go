@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/telemetry"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testforge"
@@ -41,8 +42,8 @@ func TestARunIsOneTraceOfWhatItDid(t *testing.T) {
 
 	run := wait(t, c.runs, create(t, c.runs).GetId())
 
-	if run.GetExitCode().GetName() != "SUCCESS" {
-		t.Fatalf("the run ended %v %s", run.GetState(), run.GetExitCode().GetName())
+	if run.GetExitCode() != buildv1.ExitCode_EXIT_CODE_SUCCESS {
+		t.Fatalf("the run ended %v %s", run.GetState(), run.GetExitCode())
 	}
 	all := recorder.Ended()
 	var pipeline sdktrace.ReadOnlySpan

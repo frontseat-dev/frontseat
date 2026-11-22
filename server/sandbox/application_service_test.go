@@ -303,7 +303,7 @@ func runArtifact(t *testing.T, root, target string) (*buildv1.ActionResult, stri
 			action = candidate
 		}
 	}
-	if last == nil || last.GetState() != buildv1.Build_STATE_FINISHED || last.GetFailure() != "" || last.GetExitCode() == nil || last.GetExitCode().GetCode() != 0 {
+	if last == nil || last.GetState() != buildv1.Build_STATE_SUCCEEDED || last.GetFailure() != "" || last.GetExitCode() != buildv1.ExitCode_EXIT_CODE_SUCCESS {
 		return nil, fmt.Sprintf("run=%v actions=%v", last, actions)
 	}
 	return action, fmt.Sprintf("run=%v actions=%v", last, actions)

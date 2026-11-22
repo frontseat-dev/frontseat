@@ -77,16 +77,16 @@ func TestAReleasePrintsWhatItTaggedAndHowItEnded(t *testing.T) {
 		want    string
 	}{
 		"tagged and not published": {
-			&buildv1.Release{Id: "rel_1", State: buildv1.Release_STATE_UNPUBLISHED, Units: tagged},
-			"greet  0.77.1  tagged greet/v0.77.1 in services  (3f2a9c1d5e6f)\nlog  0.77.0  was tagged already log/v0.77.0 in services  (3f2a9c1d5e6f)\nrel_1  unpublished: its tags are in the workspace and are not pushed\n",
+			&buildv1.Release{Id: "rel_1", State: buildv1.Release_STATE_UNPUSHED, Units: tagged},
+			"greet  0.77.1  tagged greet/v0.77.1 in services  (3f2a9c1d5e6f)\nlog  0.77.0  was tagged already log/v0.77.0 in services  (3f2a9c1d5e6f)\nrel_1  unpushed: its tags are in the workspace and are not pushed\n",
 		},
 		"tagged and pushed": {
 			&buildv1.Release{Id: "rel_5", State: buildv1.Release_STATE_SUCCEEDED, Units: tagged[:1]},
 			"greet  0.77.1  tagged greet/v0.77.1 in services  (3f2a9c1d5e6f)\nrel_5  succeeded: its tags are pushed\n",
 		},
 		"tagged, and one not pushed": {
-			&buildv1.Release{Id: "rel_6", State: buildv1.Release_STATE_UNPUBLISHED, Units: tagged[:1], Failure: "greet/v0.77.1 was not pushed from services: refused"},
-			"greet  0.77.1  tagged greet/v0.77.1 in services  (3f2a9c1d5e6f)\nrel_6  unpublished: its tags are in the workspace and are not pushed: greet/v0.77.1 was not pushed from services: refused\n",
+			&buildv1.Release{Id: "rel_6", State: buildv1.Release_STATE_UNPUSHED, Units: tagged[:1], Failure: "greet/v0.77.1 was not pushed from services: refused"},
+			"greet  0.77.1  tagged greet/v0.77.1 in services  (3f2a9c1d5e6f)\nrel_6  unpushed: its tags are in the workspace and are not pushed: greet/v0.77.1 was not pushed from services: refused\n",
 		},
 		"with what it built to ship": {
 			&buildv1.Release{Id: "rel_7", State: buildv1.Release_STATE_SUCCEEDED, Units: []*buildv1.ReleasedUnit{{
@@ -126,7 +126,7 @@ func TestWhatADaemonSaysCannotBeTakenForALineOfThePrinters(t *testing.T) {
 		Entity: unit("greet"), LastVersion: "1.0.0", NextVersion: "1.0.1", Tag: "greet/v1.0.1", Branch: "release/1.0",
 		Reasons: []*buildv1.ReleaseReason{{Kind: buildv1.ReasonKind_REASON_KIND_OWN_CHANGE, Summary: "fix: x\x1b[2J\x1b]0;owned\x07\rrel_9  succeeded", Commit: &buildv1.RepositoryCommit{Commit: "abc"}}},
 	}}})
-	p.Release(&buildv1.Release{Id: "rel_1", State: buildv1.Release_STATE_FAILED, Failure: "boom\nrel_1  unpublished: all is well"})
+	p.Release(&buildv1.Release{Id: "rel_1", State: buildv1.Release_STATE_FAILED, Failure: "boom\nrel_1  unpushed: all is well"})
 	p.Event(&buildv1.BuildEvent{Event: &buildv1.BuildEvent_ActionFinished_{ActionFinished: &buildv1.BuildEvent_ActionFinished{Result: &buildv1.ActionResult{Outcome: buildv1.Outcome_OUTCOME_FAILED, Label: "//a:go.test", Message: "bad\npassed  //a:go.test"}}}})
 	printed := out.String()
 	for _, hidden := range []string{"\x1b", "\x07", "\r"} {
@@ -138,7 +138,7 @@ func TestWhatADaemonSaysCannotBeTakenForALineOfThePrinters(t *testing.T) {
 	if len(lines) != 6 {
 		t.Fatalf("it printed %d lines, want 6:\n%s", len(lines), printed)
 	}
-	for _, forged := range []string{"plan forged", "rel_9  succeeded", "rel_1  unpublished", "passed  //a:go.test"} {
+	for _, forged := range []string{"plan forged", "rel_9  succeeded", "rel_1  unpushed", "passed  //a:go.test"} {
 		for _, line := range lines {
 			if strings.HasPrefix(line, forged) {
 				t.Errorf("a line of the daemon's reads as the printer's: %q", line)

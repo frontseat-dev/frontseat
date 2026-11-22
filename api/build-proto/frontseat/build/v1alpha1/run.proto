@@ -153,8 +153,9 @@ message Run {
     STATE_BUILDING = 1;
     // STATE_RUNNING: the program was started and has not ended.
     STATE_RUNNING = 2;
-    // STATE_EXITED: the program ended by itself; exit_code says how.
-    STATE_EXITED = 3;
+    // STATE_SUCCEEDED: the program ended by itself; exit_code says how,
+    // and is the program's own to give a meaning.
+    STATE_SUCCEEDED = 3;
     // STATE_CANCELLED: the run was cancelled, by CancelRun or by
     // the daemon ending.
     STATE_CANCELLED = 4;

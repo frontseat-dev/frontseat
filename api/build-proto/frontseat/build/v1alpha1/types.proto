@@ -28,13 +28,13 @@ enum Outcome {
   // OUTCOME_SKIPPED: it did not run, because something it needs did not
   // pass.
   OUTCOME_SKIPPED = 3;
-  // OUTCOME_ERROR: it could not be run: the grid, the sandbox or staging
-  // failed, not the action.
-  OUTCOME_ERROR = 4;
-  // OUTCOME_REWRITE: a check that can rewrite the source ran, and would
-  // change it: the source is not as the check would leave it. It is
-  // counted among a build's failed actions.
-  OUTCOME_REWRITE = 5;
+  // OUTCOME_ERRORED: it could not be run: the grid, the sandbox or
+  // staging failed, not the action.
+  OUTCOME_ERRORED = 4;
+  // OUTCOME_REWRITTEN: a check that can rewrite the source ran, and
+  // would change it: the source is not as the check would leave it. It
+  // fails the build as an action that failed does.
+  OUTCOME_REWRITTEN = 5;
   // OUTCOME_IDLE: it was not run, having nothing to do: an optional
   // output of an action before it, which this one reads, was not made.
   // It fails nothing; its message says what was not made.

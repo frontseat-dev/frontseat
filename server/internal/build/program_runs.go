@@ -249,11 +249,11 @@ func (rs *programRuns) carryOut(ctx context.Context, r *programRun, built *run, 
 	}
 	ran := built.snapshot()
 	switch {
-	case ran.GetExitCode().GetCode() != 0 && ran.GetFailure() != "":
+	case ran.GetExitCode() != exitSuccess && ran.GetFailure() != "":
 		fail("%s", ran.GetFailure())
 		return
-	case ran.GetExitCode().GetCode() != 0:
-		fail("the build %s of what it is made of ended %s%s", ran.GetId(), ran.GetExitCode().GetName(), stoppedBy(built.actions()))
+	case ran.GetExitCode() != exitSuccess:
+		fail("the build %s of what it is made of ended %s%s", ran.GetId(), bazelName(ran.GetExitCode()), stoppedBy(built.actions()))
 		return
 	}
 	brought := bringing.take()
@@ -280,7 +280,7 @@ func (rs *programRuns) carryOut(ctx context.Context, r *programRun, built *run, 
 	r.change(func(s *buildv1.Run) {
 		s.State, s.StartTime = buildv1.Run_STATE_RUNNING, started
 	})
-	state, failure := buildv1.Run_STATE_EXITED, ""
+	state, failure := buildv1.Run_STATE_SUCCEEDED, ""
 	select {
 	case <-running.Ended():
 	case <-r.stop:
@@ -302,7 +302,7 @@ func (rs *programRuns) carryOut(ctx context.Context, r *programRun, built *run, 
 func stoppedBy(actions []*buildv1.ActionResult) string {
 	for _, action := range actions {
 		switch action.GetOutcome() {
-		case buildv1.Outcome_OUTCOME_FAILED, buildv1.Outcome_OUTCOME_ERROR, buildv1.Outcome_OUTCOME_REWRITE:
+		case buildv1.Outcome_OUTCOME_FAILED, buildv1.Outcome_OUTCOME_ERRORED, buildv1.Outcome_OUTCOME_REWRITTEN:
 			if action.GetMessage() == "" {
 				return fmt.Sprintf(": %s failed", action.GetLabel())
 			}

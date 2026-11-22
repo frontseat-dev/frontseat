@@ -56,7 +56,7 @@ func (runner Runner) inStep(events Events, snapshot *source.Snapshot, action pla
 	switch {
 	case step.Fixed == nil:
 	case !runner.Fix:
-		result.Outcome = buildv1.Outcome_OUTCOME_REWRITE
+		result.Outcome = buildv1.Outcome_OUTCOME_REWRITTEN
 		result.Message = strings.Join(says, "; ") + ", which is what the source says: frontseat build --fix writes it"
 	default:
 		// What is written was worked out from what the run read of the
@@ -66,7 +66,7 @@ func (runner Runner) inStep(events Events, snapshot *source.Snapshot, action pla
 			err = snapshot.Apply(action.Repository, source.Change{Path: step.File, Kind: source.Replace, Content: step.Fixed, From: step.From, Executable: executable})
 		}
 		if err != nil {
-			result.Outcome, result.Message = buildv1.Outcome_OUTCOME_ERROR, err.Error()
+			result.Outcome, result.Message = buildv1.Outcome_OUTCOME_ERRORED, err.Error()
 			break
 		}
 		result.Message = fmt.Sprintf("wrote %s: %s", shown, strings.Join(wrote, "; "))

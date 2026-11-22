@@ -241,9 +241,9 @@ func TestAWorkspaceOfEntitiesInSeveralRepositoriesBuildsOnTheGrid(t *testing.T) 
 	c := serve(t, grid, t.TempDir(), false)
 	ended := ranGateway(t, c, forge)
 
-	if ended.GetExitCode().GetName() != "SUCCESS" || ended.GetCounts().GetPassed() != 6 {
+	if ended.GetExitCode() != buildv1.ExitCode_EXIT_CODE_SUCCESS || ended.GetCounts().GetPassed() != 6 {
 		actions, _ := c.runs.ListBuildActions(context.Background(), &buildv1.ListBuildActionsRequest{BuildId: ended.GetId()})
-		t.Fatalf("the run ended %s (%s) with %d passed, want SUCCESS and 6: %v", ended.GetExitCode().GetName(), ended.GetFailure(), ended.GetCounts().GetPassed(), actions.GetActions())
+		t.Fatalf("the run ended %s (%s) with %d passed, want SUCCESS and 6: %v", ended.GetExitCode(), ended.GetFailure(), ended.GetCounts().GetPassed(), actions.GetActions())
 	}
 }
 
