@@ -18,6 +18,9 @@
 // contract into the packages beneath api/; they stay there for a
 // program that wants the wire itself, which Received and Listed read to
 // their ends.
+//
+// What a server refuses by name is read with Reason. The examples run
+// against a server of their own on this machine.
 package frontseat
 
 import (
@@ -47,7 +50,10 @@ func WithToken(token string) Option {
 // with an HTTP client of the caller's: one its program instruments, or
 // one that trusts another certificate. Without it, requests are made
 // with Go's own transport and carry the trace of the context they are
-// made in.
+// made in. The client given is not changed. A Client that presents a
+// token (WithToken) follows no redirect, whatever the caller's client
+// says of redirects; one that presents none follows them as the
+// caller's client does.
 func WithHTTPClient(client *http.Client) Option {
 	return Option{apply: func(r *transport.Reach) { r.HTTP = client }}
 }

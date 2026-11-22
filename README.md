@@ -26,6 +26,7 @@ Get started at [frontseat.dev](https://www.frontseat.dev).
 
 ## Community
 
+- **Go SDK:** Calling Frontseat from your own programs? See the [Go SDK](sdk/go/README.md).
 - **Contributing:** Want to help build Frontseat? See [CONTRIBUTING.md](CONTRIBUTING.md).
 - **Security:** Found a vulnerability? Please report it privately following [SECURITY.md](SECURITY.md), not through public issues.
 - **License:** [Apache License 2.0](LICENSE).
