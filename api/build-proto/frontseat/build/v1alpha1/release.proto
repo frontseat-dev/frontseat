@@ -251,8 +251,9 @@ message Release {
   ReleasePlan plan = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
   // State is where it is.
   State state = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // `build_id` is the production build of its units, a build of BuildService,
-  // made with the release; empty for a plan that builds nothing.
+  // `build_id` is the production build of its units, a build of
+  // BuildService, made with the release; empty for a plan that builds
+  // nothing.
   string build_id = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Units say what became of each unit that moves.
   repeated ReleasedUnit units = 5 [(google.api.field_behavior) = OUTPUT_ONLY];

@@ -204,8 +204,8 @@ func (x *SetCredentialResponse) GetCredential() *Credential {
 // ListCredentialsRequest asks for a page of the caller's credentials.
 type ListCredentialsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// `page_size` is the most credentials to return; zero is a hundred, and more
-	// than a thousand is a thousand.
+	// `page_size` is the most credentials to return; zero is a hundred,
+	// and more than a thousand is a thousand.
 	PageSize int32 `protobuf:"varint,1,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
 	// `page_token` is the next_page_token of the page before; empty for the
 	// first page.

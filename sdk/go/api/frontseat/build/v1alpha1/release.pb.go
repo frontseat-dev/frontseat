@@ -816,8 +816,9 @@ type Release struct {
 	Plan *ReleasePlan `protobuf:"bytes,2,opt,name=plan,proto3" json:"plan,omitempty"`
 	// State is where it is.
 	State Release_State `protobuf:"varint,3,opt,name=state,proto3,enum=frontseat.build.v1alpha1.Release_State" json:"state,omitempty"`
-	// `build_id` is the production build of its units, a build of BuildService,
-	// made with the release; empty for a plan that builds nothing.
+	// `build_id` is the production build of its units, a build of
+	// BuildService, made with the release; empty for a plan that builds
+	// nothing.
 	BuildId string `protobuf:"bytes,4,opt,name=build_id,json=buildId,proto3" json:"build_id,omitempty"`
 	// Units say what became of each unit that moves.
 	Units []*ReleasedUnit `protobuf:"bytes,5,rep,name=units,proto3" json:"units,omitempty"`

@@ -147,8 +147,8 @@ type BuildServiceClient interface {
 	//   ready to build (WORKSPACE_NOT_READY).
 	// - UNAVAILABLE: the daemon is ending (DAEMON_ENDING).
 	CreateBuild(context.Context, *v1alpha1.CreateBuildRequest) (*v1alpha1.CreateBuildResponse, error)
-	// DescribeBuild returns one build, as it is now. Use ListBuildActions for what
-	// each of its actions did.
+	// DescribeBuild returns one build, as it is now. Use ListBuildActions
+	// for what each of its actions did.
 	//
 	// ### Errors
 	// - NOT_FOUND: no build has that id (BUILD_NOT_FOUND).
@@ -189,7 +189,10 @@ type BuildServiceClient interface {
 	// ListBuildActions returns what each of a build's actions did: its outcome,
 	// where its result came from, how long it took, and the digests of what
 	// it printed. This is the build's checks: one entry per action. While
-	// the build runs, an action's entry changes as the action ends.
+	// the build runs, an action's entry changes as the action ends. A page
+	// token names a position in that list: where the build starts over
+	// between two pages, the next page may repeat an action or leave one
+	// out.
 	//
 	// ### Errors
 	// - INVALID_ARGUMENT: the page token is not one this call gave
@@ -284,8 +287,8 @@ type BuildServiceHandler interface {
 	//   ready to build (WORKSPACE_NOT_READY).
 	// - UNAVAILABLE: the daemon is ending (DAEMON_ENDING).
 	CreateBuild(context.Context, *v1alpha1.CreateBuildRequest) (*v1alpha1.CreateBuildResponse, error)
-	// DescribeBuild returns one build, as it is now. Use ListBuildActions for what
-	// each of its actions did.
+	// DescribeBuild returns one build, as it is now. Use ListBuildActions
+	// for what each of its actions did.
 	//
 	// ### Errors
 	// - NOT_FOUND: no build has that id (BUILD_NOT_FOUND).
@@ -326,7 +329,10 @@ type BuildServiceHandler interface {
 	// ListBuildActions returns what each of a build's actions did: its outcome,
 	// where its result came from, how long it took, and the digests of what
 	// it printed. This is the build's checks: one entry per action. While
-	// the build runs, an action's entry changes as the action ends.
+	// the build runs, an action's entry changes as the action ends. A page
+	// token names a position in that list: where the build starts over
+	// between two pages, the next page may repeat an action or leave one
+	// out.
 	//
 	// ### Errors
 	// - INVALID_ARGUMENT: the page token is not one this call gave

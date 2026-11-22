@@ -45,9 +45,10 @@ type Entity struct {
 	// describes.
 	Manifest string `protobuf:"bytes,7,opt,name=manifest,proto3" json:"manifest,omitempty"`
 	// Relations are what its catalog file says it is related to, and what
-	// other entities' catalog files say of it, sorted by type and target.
-	// What a Component needs to build is not read from them: depends_on
-	// says that, from what its projects require.
+	// other entities' catalog files say of it, except between two
+	// Components: there dependsOn and dependencyOf are what depends_on
+	// says, from what their projects require, and never what a catalog
+	// file says. They are sorted by type and target.
 	Relations []*EntityRelation `protobuf:"bytes,8,rep,name=relations,proto3" json:"relations,omitempty"`
 	// Release is how it is released, as its settings resolve: for an
 	// entity that owns projects, and for a system or a domain, whose
@@ -158,7 +159,8 @@ type EntityRelease struct {
 	// Initial is the version of its first release.
 	Initial string `protobuf:"bytes,5,opt,name=initial,proto3" json:"initial,omitempty"`
 	// `versioning_strategy` is the versioning strategy its unit's next
-	// version is asked of, as "<plugin>:<name>": "release:conventional-commits".
+	// version is asked of, as "<plugin>:<name>":
+	// "release:conventional-commits".
 	VersioningStrategy string `protobuf:"bytes,8,opt,name=versioning_strategy,json=versioningStrategy,proto3" json:"versioning_strategy,omitempty"`
 	// `branching_strategy` is the branching strategy that says what a branch
 	// releases of it, as "<plugin>:<name>": "release:github-flow".

@@ -90,7 +90,9 @@ type CredentialServiceClient interface {
 	//   says (CREDENTIAL_HOST_INVALID); the username is not one, as
 	//   Credential.username says (CREDENTIAL_USERNAME_INVALID); or no
 	//   secret is given, or one longer than 4096 bytes or of more than one
-	//   line (CREDENTIAL_SECRET_INVALID).
+	//   line (CREDENTIAL_SECRET_INVALID). Or what keeps credentials
+	//   outside the sandboxes finds the credential not well formed; no
+	//   reason is given then.
 	// - UNIMPLEMENTED: this control plane's sandboxes keep no credential
 	//   outside them. No reason is given.
 	// - UNAVAILABLE: it could not be kept. No reason is given.
@@ -113,6 +115,8 @@ type CredentialServiceClient interface {
 	// - FAILED_PRECONDITION: a workspace of the caller's still uses it; it
 	//   can be deleted once those workspaces have ended
 	//   (CREDENTIAL_IN_USE).
+	// - UNIMPLEMENTED: this control plane's sandboxes keep no credential
+	//   outside them. No reason is given.
 	// - UNAVAILABLE: it could not be removed. No reason is given.
 	DeleteCredential(context.Context, *v1alpha1.DeleteCredentialRequest) (*v1alpha1.DeleteCredentialResponse, error)
 }
@@ -137,7 +141,9 @@ type CredentialServiceHandler interface {
 	//   says (CREDENTIAL_HOST_INVALID); the username is not one, as
 	//   Credential.username says (CREDENTIAL_USERNAME_INVALID); or no
 	//   secret is given, or one longer than 4096 bytes or of more than one
-	//   line (CREDENTIAL_SECRET_INVALID).
+	//   line (CREDENTIAL_SECRET_INVALID). Or what keeps credentials
+	//   outside the sandboxes finds the credential not well formed; no
+	//   reason is given then.
 	// - UNIMPLEMENTED: this control plane's sandboxes keep no credential
 	//   outside them. No reason is given.
 	// - UNAVAILABLE: it could not be kept. No reason is given.
@@ -160,6 +166,8 @@ type CredentialServiceHandler interface {
 	// - FAILED_PRECONDITION: a workspace of the caller's still uses it; it
 	//   can be deleted once those workspaces have ended
 	//   (CREDENTIAL_IN_USE).
+	// - UNIMPLEMENTED: this control plane's sandboxes keep no credential
+	//   outside them. No reason is given.
 	// - UNAVAILABLE: it could not be removed. No reason is given.
 	DeleteCredential(context.Context, *v1alpha1.DeleteCredentialRequest) (*v1alpha1.DeleteCredentialResponse, error)
 }
