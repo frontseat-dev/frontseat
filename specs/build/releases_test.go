@@ -400,7 +400,7 @@ func TestAFirstVersionIsASemanticVersion(t *testing.T) {
 
 	_, refusal := workspace.planning(spec.releaseOf("greet"))
 
-	spec.Expect(refusal).To(BeRefusedSaying("spec.frontseat.release.initial: 1.0 is no semantic version"))
+	spec.Expect(refusal).To(BeRefusedSaying("spec.frontseat.release.initial is no semantic version"))
 }
 
 // Releases / Releasing / A release tags each unit that moves, at the commit it was planned from.

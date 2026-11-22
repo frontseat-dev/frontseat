@@ -83,29 +83,85 @@ func TestAServiceIsReadIntoTheShapeAServiceHas(t *testing.T) {
 // no way to say the plugin's own.
 func TestWhatAServiceCannotCarryIsRefusedWhereItIsRead(t *testing.T) {
 	for says, service := range map[string]string{
-		"does not say what it is: write as":                              "      image: x\n",
-		"service takes no key privileged":                                "      as: container\n      privileged: true\n",
-		"service.ports is not names, each with its port, a whole number": "      as: postgres\n      ports: {sql: 4294974296}\n",
-		"service.ports: sql 65536 is not a name and a port":              "      as: postgres\n      ports: {sql: 65536}\n",
-		"service.ports: sql 0 is not a name and a port":                  "      as: postgres\n      ports: {sql: 0}\n",
-		"service.ports: SQL 5432 is not a name and a port":               "      as: postgres\n      ports: {SQL: 5432}\n",
-		"service.timeout is not a whole number of seconds":               "      as: postgres\n      timeout: 4294967301\n",
-		"service.timeout is a number of seconds":                         "      as: postgres\n      timeout: -5\n",
-		"3601 seconds is more than the hour":                             "      as: postgres\n      timeout: 3601\n",
-		"service.ready[0] is one of port, http or command":               "      as: postgres\n      ready: [{port: sql, command: [\"true\"]}]\n",
-		"service.ready[1] is one of port, http or command":               "      as: postgres\n      ready: [{port: sql}, {}]\n",
-		"service.exports is written and says nothing":                    "      as: postgres\n      exports: {}\n",
-		"service.args is written and says nothing":                       "      as: postgres\n      args: []\n",
-		"service.env is written and says nothing":                        "      as: postgres\n      env: {}\n",
-		"service.ports is written and says nothing":                      "      as: postgres\n      ports: {}\n",
-		"service.ready is written and says nothing":                      "      as: postgres\n      ready: []\n",
-		"service.timeout is written and says nothing":                    "      as: postgres\n      timeout: 0\n",
-		"service.image is written and says nothing":                      "      as: postgres\n      image: \"\"\n",
-		"\"A-B\" is not a name the shell can export":                     "      as: postgres\n      exports: {A-B: x}\n",
+		"does not say what it is: write as":                                                          "      image: x\n",
+		"service takes no key privileged":                                                            "      as: container\n      privileged: true\n",
+		"service.ports is not names, each with its port, a whole number":                             "      as: postgres\n      ports: {sql: 4294974296}\n",
+		"service.ports: a name in lower-case letters, digits and dashes, and a port from 1 to 65535": "      as: postgres\n      ports: {sql: 65536}\n",
+		"and a port from 1 to 65535":                                                                 "      as: postgres\n      ports: {sql: 0}\n",
+		"service.timeout is not a whole number of seconds":                                           "      as: postgres\n      timeout: 4294967301\n",
+		"service.timeout is a number of seconds":                                                     "      as: postgres\n      timeout: -5\n",
+		"service.timeout is more than the hour":                                                      "      as: postgres\n      timeout: 3601\n",
+		"service.ready[0] is one of port, http or command":                                           "      as: postgres\n      ready: [{port: sql, command: [\"true\"]}]\n",
+		"service.ready[1] is one of port, http or command":                                           "      as: postgres\n      ready: [{port: sql}, {}]\n",
+		"service.exports is written and says nothing":                                                "      as: postgres\n      exports: {}\n",
+		"service.args is written and says nothing":                                                   "      as: postgres\n      args: []\n",
+		"service.env is written and says nothing":                                                    "      as: postgres\n      env: {}\n",
+		"service.ports is written and says nothing":                                                  "      as: postgres\n      ports: {}\n",
+		"service.ready is written and says nothing":                                                  "      as: postgres\n      ready: []\n",
+		"service.timeout is written and says nothing":                                                "      as: postgres\n      timeout: 0\n",
+		"service.image is written and says nothing":                                                  "      as: postgres\n      image: \"\"\n",
 	} {
 		_, err := config.Read(t.Context(), "repo", resourceWith(service))
 		if err == nil || !strings.Contains(err.Error(), says) || !strings.Contains(err.Error(), "catalog-info.yaml") {
 			t.Errorf("want a mistake in catalog-info.yaml saying %q, got %v", says, err)
 		}
+	}
+}
+
+// Where a service asks for text, text is what it takes: a number or a
+// switch written there is refused by its key, as a test's environment
+// and an action's command refuse one, and is never turned into its
+// letters. The control is each written as text.
+func TestAServiceTakesOnlyTextWhereItAsksForText(t *testing.T) {
+	for key, service := range map[string]string{
+		"as":        "      as: 1\n",
+		"image":     "      as: container\n      image: 1.5\n",
+		"args":      "      as: container\n      args: [1]\n",
+		"env":       "      as: container\n      env: {DEBUG: true}\n",
+		"exports":   "      as: container\n      exports: {A: 1}\n",
+		"endpoints": "      as: container\n      endpoints: {a: 1}\n",
+		"user":      "      as: container\n      user: 70\n",
+		"writable":  "      as: container\n      writable: [1]\n",
+		"ready":     "      as: container\n      ready: [{command: [sleep, 1]}]\n",
+		"ports":     "      as: container\n      ports: {a: \"80\"}\n",
+		"program":   "      program: true\n",
+	} {
+		_, err := config.Read(t.Context(), "repo", resourceWith(service))
+		if err == nil || !strings.Contains(err.Error(), "service."+key+" is not ") {
+			t.Errorf("%s: want it refused by its key, got %v", key, err)
+		}
+	}
+	if _, err := config.Read(t.Context(), "repo", resourceWith(`      as: "1"
+      image: "1.5"
+      args: ["1"]
+      env: {DEBUG: "true"}
+      exports: {A: "1"}
+      user: "70"
+      writable: ["/1"]
+      ready: [{command: [sleep, "1"]}, {http: {port: a, path: /, body: "1"}}]
+      ports: {a: 80}
+`)); err != nil {
+		t.Errorf("control, each written as text: %v", err)
+	}
+}
+
+// What a service refuses of a file it does not repeat: the kind of an
+// entity that is none started, a name no shell exports, a port that is
+// none.
+func TestWhatAServiceRefusesIsNotRepeated(t *testing.T) {
+	for service, says := range map[string]string{
+		"      as: postgres\n      exports: {SECRET-A: x}\n": "service.exports: a name the shell can export",
+		"      as: postgres\n      env: {SECRET-A: x}\n":     "service.env: a name the shell can export",
+		"      as: postgres\n      ports: {SECRET: 5432}\n":  "service.ports: a name in lower-case letters, digits and dashes, and a port from 1 to 65535",
+	} {
+		_, err := config.Read(t.Context(), "repo", resourceWith(service))
+		if err == nil || !strings.Contains(err.Error(), says) || strings.Contains(err.Error(), "SECRET") {
+			t.Errorf("want a mistake saying %q and nothing of what was written, got %v", says, err)
+		}
+	}
+	system := resourceWith("      as: postgres\n")
+	system["catalog-info.yaml"] = strings.Replace(system["catalog-info.yaml"], "kind: Resource", "kind: Secret", 1)
+	if _, err := config.Read(t.Context(), "repo", system); err == nil || !strings.Contains(err.Error(), "only a Resource or Component is started as a service") || strings.Contains(err.Error(), "Secret") {
+		t.Errorf("a service said by another kind: %v", err)
 	}
 }

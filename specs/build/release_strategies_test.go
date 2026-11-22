@@ -71,7 +71,7 @@ func TestAStrategyIsNamedWithItsPlugin(t *testing.T) {
 
 	_, refusal := workspace.planning(spec.releaseOf("greet"))
 
-	spec.Expect(refusal).To(BeRefusedSaying("spec.frontseat.release.versioning conventional-commits must be <plugin>:<name>"))
+	spec.Expect(refusal).To(BeRefusedSaying("spec.frontseat.release.versioning must be <plugin>:<name>"))
 }
 
 // Release strategies / GitHub Flow / The default branch releases what it releases as stable.
