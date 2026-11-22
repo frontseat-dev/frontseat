@@ -72,11 +72,11 @@ as far as the credential the control plane keeps lets it.`,
 		}
 		open := opened
 		if open.Directory == "" {
-			run, err := os.Getwd()
+			directory, err := os.Getwd()
 			if err != nil {
 				return err
 			}
-			open.Directory = run
+			open.Directory = directory
 		}
 		got, err := machine.OpenCheckout(ctx, fs, open, machine.Checkout())
 		if err := kept(fs, got.Opened, err); err != nil {
