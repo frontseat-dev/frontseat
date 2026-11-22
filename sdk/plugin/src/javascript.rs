@@ -118,7 +118,7 @@ mod tests {
             Some("web")
         );
         for blank in ["", " \\t\\n "] {
-            let refused = package(blank).err().expect("a blank name is refused");
+            let refused = package(blank).expect_err("a blank name is refused");
             assert_eq!(refused.line(), 2, "{blank:?}");
             assert!(
                 refused
