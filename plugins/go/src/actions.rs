@@ -245,13 +245,14 @@ pub(super) fn actions(
     let timeout = repo.string(plugin::TEST_TIMEOUT)?;
     // The go command's own reading, before a worker is asked: what it
     // would not read fails every test of the module, far from where it
-    // was set. The value is not repeated.
-    if crate::duration::nanoseconds(timeout).is_none() {
+    // was set. Less than nothing is no limit to the go command, which
+    // is written 0: it is refused too. The value is not repeated.
+    if crate::duration::nanoseconds(timeout).is_none_or(|nanoseconds| nanoseconds < 0) {
         return Err(Error::invalid(
             "invalid-test-timeout",
             &join(root, "go.mod"),
-            "test-timeout for this module is no length of time as the go command writes one",
-            "Set test-timeout to a number and a unit, as 90s, 10m or 1h30m, in frontseat.yaml or the entity's catalog file.",
+            "test-timeout for this module is no length of time as the go command writes one, or is less than nothing",
+            "Set test-timeout to a number and a unit, as 90s, 10m or 1h30m, or to 0 for no limit, in frontseat.yaml or the entity's catalog file.",
         ));
     }
     let fetches: Vec<Action> = locked.entries.iter().map(fetch).collect();
@@ -1216,6 +1217,47 @@ mod tests {
             .unwrap()
             .arguments;
         assert_eq!(arguments.last().map(String::as_str), Some("./..."));
+    }
+
+    /// A test-timeout the go command would not read, or would read as
+    /// less than nothing, is refused where the module is read, by the
+    /// option's name and without the value; the control is one it reads,
+    /// which every test of the module is started with.
+    #[test]
+    fn a_test_timeout_that_is_no_duration_is_refused_by_name() {
+        let plugin = TestPlugin::new(crate::served());
+        let host = TestHost::new(
+            frontseat_plugin_test::Files::new()
+                .with("app/go.mod", "module example.com/hello\n\ngo 1.27\n")
+                .with("app/hello.go", "package hello\n")
+                .with("app/hello_test.go", "package hello\nfunc TestA() {}\n"),
+        );
+        let timed = |timeout: &str| {
+            let context = plugin
+                .context(Profile::Development)
+                .option("test-timeout", Value::String(timeout.into()));
+            plugin.analyze(&host, &context, &["app"])
+        };
+        let answered = timed("1h30m").answered();
+        let test = answered.analyses[0].projects[0]
+            .actions
+            .iter()
+            .find(|action| action.name == "test/.")
+            .expect("the module's own package has a test");
+        assert!(test
+            .command
+            .as_ref()
+            .unwrap()
+            .arguments
+            .contains(&"-test.timeout=1h30m".to_string()));
+        // No limit is written 0, and is read.
+        timed("0").answered();
+        for written in ["ten-minutes-of-secret", "10", "", "-5m"] {
+            let refused = timed(written).refused("invalid-test-timeout");
+            assert_eq!(refused.path, "app/go.mod");
+            assert!(refused.message.contains("test-timeout"));
+            assert!(!refused.message.contains("secret") && !refused.help.contains("secret"));
+        }
     }
 }
 

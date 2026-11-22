@@ -29,7 +29,8 @@ impl Plugin for GoPlugin {
                 // package's tests or one shard of them, as the go
                 // command writes a duration: every test program is
                 // started with it, and 0 is no limit, as it is the go
-                // command's.
+                // command's. What the go command would not read, or
+                // would read as less than nothing, is refused.
                 PluginOption {
                     name: TEST_TIMEOUT,
                     default: Value::String("10m".into()),

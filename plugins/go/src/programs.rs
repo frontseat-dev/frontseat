@@ -81,6 +81,22 @@ pub(super) struct Built<'a> {
     pub(super) go_minor: Option<u32>,
 }
 
+/// The go command a differential test holds the plugin to, as the
+/// test is given it: it fetches nothing, takes no other toolchain and
+/// no workspace, and keeps what it keeps where it is told.
+#[cfg(test)]
+pub(super) fn go_command(kept: &std::path::Path) -> std::process::Command {
+    let mut go = std::process::Command::new("go");
+    go.envs([
+        ("GOWORK", "off"),
+        ("GOPROXY", "off"),
+        ("GOTOOLCHAIN", "local"),
+    ])
+    .env("GOCACHE", kept.join("cache"))
+    .env("GOPATH", kept.join("path"));
+    go
+}
+
 // What follows reads every Go file of every module, in every plugin
 // module that is loaded: it is written over bytes with plain loops, and
 // kept small, since each function of a module is paid for when the
@@ -980,7 +996,7 @@ mod tests {
             walk(&root, &root, minor, &mut here);
             let mut there = BTreeSet::new();
             for arch in ["arm64", "amd64"] {
-                let listed = std::process::Command::new(go)
+                let listed = super::go_command(&kept)
                     .args([
                         "list",
                         "-e",
@@ -995,14 +1011,12 @@ mod tests {
                         ("GOARCH", arch),
                         ("CGO_ENABLED", "0"),
                         ("GOFLAGS", "-mod=mod"),
-                        ("GOWORK", "off"),
-                        ("GOPROXY", "off"),
-                        ("GOTOOLCHAIN", "local"),
                     ])
-                    .env("GOCACHE", kept.join("cache"))
-                    .env("GOPATH", kept.join("path"))
                     .output()
                     .unwrap();
+                if !listed.status.success() {
+                    let _ = std::fs::remove_dir_all(&tricky);
+                }
                 assert!(
                     listed.status.success(),
                     "the go command lists nothing: {}",

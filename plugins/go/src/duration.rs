@@ -2,7 +2,13 @@
 //! what a test program's `-test.timeout` takes. Ported from
 //! time.ParseDuration in Go 1.27.3 (src/time/format.go; copyright and
 //! license in ../LICENSE.go.txt), and held to the table Go holds its own
-//! to (src/time/time_test.go).
+//! to (src/time/time_test.go) and to the go command itself
+//! (`reads_every_duration_as_the_go_command_does`).
+//!
+//! It is a port because no crate the workspace locks reads this
+//! syntax: prost-types reads protobuf's JSON form of a duration
+//! (seconds alone, "3.5s"), and nothing else in Cargo.lock reads a
+//! length of time.
 
 /// One more than the most nanoseconds a duration holds: what the least
 /// one holds, below nothing.
@@ -60,7 +66,9 @@ pub(super) fn nanoseconds(written: &str) -> Option<i64> {
                 return None;
             }
         }
-        total += value;
+        // Go's sum wraps where it is past what a number holds, and so
+        // does this one, in every build.
+        total = total.wrapping_add(value);
         if total > MOST {
             return None;
         }
@@ -131,139 +139,233 @@ fn part(text: &[u8]) -> (u64, f64, &[u8]) {
 #[cfg(test)]
 mod tests {
     use super::nanoseconds;
-    use frontseat_plugin::prelude::*;
-    use frontseat_plugin_test::{Files, TestHost, TestPlugin};
 
     const SECOND: i64 = 1_000_000_000;
     const MINUTE: i64 = 60 * SECOND;
     const HOUR: i64 = 60 * MINUTE;
 
     /// Go's own table of what it reads (parseDurationTests), whole.
-    #[test]
-    fn a_duration_is_read_as_go_reads_it() {
-        for (written, nanos) in [
-            ("0", 0),
-            ("5s", 5 * SECOND),
-            ("30s", 30 * SECOND),
-            ("1478s", 1478 * SECOND),
-            ("-5s", -5 * SECOND),
-            ("+5s", 5 * SECOND),
-            ("-0", 0),
-            ("+0", 0),
-            ("5.0s", 5 * SECOND),
-            ("5.6s", 5 * SECOND + 600_000_000),
-            ("5.s", 5 * SECOND),
-            (".5s", 500_000_000),
-            ("1.0s", SECOND),
-            ("1.00s", SECOND),
-            ("1.004s", SECOND + 4_000_000),
-            ("1.0040s", SECOND + 4_000_000),
-            ("100.00100s", 100 * SECOND + 1_000_000),
-            ("10ns", 10),
-            ("11us", 11_000),
-            ("12\u{b5}s", 12_000),
-            ("12\u{3bc}s", 12_000),
-            ("13ms", 13_000_000),
-            ("14s", 14 * SECOND),
-            ("15m", 15 * MINUTE),
-            ("16h", 16 * HOUR),
-            ("3h30m", 3 * HOUR + 30 * MINUTE),
-            ("10.5s4m", 4 * MINUTE + 10 * SECOND + 500_000_000),
-            ("-2m3.4s", -(2 * MINUTE + 3 * SECOND + 400_000_000)),
-            (
-                "1h2m3s4ms5us6ns",
-                HOUR + 2 * MINUTE + 3 * SECOND + 4_005_006,
-            ),
-            (
-                "39h9m14.425s",
-                39 * HOUR + 9 * MINUTE + 14 * SECOND + 425_000_000,
-            ),
-            ("52763797000ns", 52_763_797_000),
-            ("0.3333333333333333333h", 20 * MINUTE),
-            ("9007199254740993ns", (1 << 53) + 1),
-            ("9223372036854775807ns", i64::MAX),
-            ("9223372036854775.807us", i64::MAX),
-            ("9223372036s854ms775us807ns", i64::MAX),
-            ("-9223372036854775808ns", i64::MIN),
-            ("-9223372036854775.808us", i64::MIN),
-            ("-9223372036s854ms775us808ns", i64::MIN),
-            ("-2562047h47m16.854775808s", i64::MIN),
-            ("0.100000000000000000000h", 6 * MINUTE),
-            (
-                "0.830103483285477580700h",
-                49 * MINUTE + 48 * SECOND + 372_539_827,
-            ),
-        ] {
-            assert_eq!(nanoseconds(written), Some(nanos), "{written}");
-        }
-    }
+    const READ: &[(&str, i64)] = &[
+        ("0", 0),
+        ("5s", 5 * SECOND),
+        ("30s", 30 * SECOND),
+        ("1478s", 1478 * SECOND),
+        ("-5s", -5 * SECOND),
+        ("+5s", 5 * SECOND),
+        ("-0", 0),
+        ("+0", 0),
+        ("5.0s", 5 * SECOND),
+        ("5.6s", 5 * SECOND + 600_000_000),
+        ("5.s", 5 * SECOND),
+        (".5s", 500_000_000),
+        ("1.0s", SECOND),
+        ("1.00s", SECOND),
+        ("1.004s", SECOND + 4_000_000),
+        ("1.0040s", SECOND + 4_000_000),
+        ("100.00100s", 100 * SECOND + 1_000_000),
+        ("10ns", 10),
+        ("11us", 11_000),
+        ("12\u{b5}s", 12_000),
+        ("12\u{3bc}s", 12_000),
+        ("13ms", 13_000_000),
+        ("14s", 14 * SECOND),
+        ("15m", 15 * MINUTE),
+        ("16h", 16 * HOUR),
+        ("3h30m", 3 * HOUR + 30 * MINUTE),
+        ("10.5s4m", 4 * MINUTE + 10 * SECOND + 500_000_000),
+        ("-2m3.4s", -(2 * MINUTE + 3 * SECOND + 400_000_000)),
+        (
+            "1h2m3s4ms5us6ns",
+            HOUR + 2 * MINUTE + 3 * SECOND + 4_005_006,
+        ),
+        (
+            "39h9m14.425s",
+            39 * HOUR + 9 * MINUTE + 14 * SECOND + 425_000_000,
+        ),
+        ("52763797000ns", 52_763_797_000),
+        ("0.3333333333333333333h", 20 * MINUTE),
+        ("9007199254740993ns", (1 << 53) + 1),
+        ("9223372036854775807ns", i64::MAX),
+        ("9223372036854775.807us", i64::MAX),
+        ("9223372036s854ms775us807ns", i64::MAX),
+        ("-9223372036854775808ns", i64::MIN),
+        ("-9223372036854775.808us", i64::MIN),
+        ("-9223372036s854ms775us808ns", i64::MIN),
+        ("-2562047h47m16.854775808s", i64::MIN),
+        ("0.100000000000000000000h", 6 * MINUTE),
+        (
+            "0.830103483285477580700h",
+            49 * MINUTE + 48 * SECOND + 372_539_827,
+        ),
+    ];
 
     /// Go's own table of what it refuses (parseDurationErrorTests), but
     /// the entries that are no text: an option's value is text.
+    const REFUSED: &[&str] = &[
+        "",
+        "3",
+        "-",
+        "s",
+        ".",
+        "-.",
+        ".s",
+        "+.s",
+        "1d",
+        "\u{fffd}",
+        "\u{fffd} hello \u{fffd} world",
+        "9223372036854775810ns",
+        "9223372036854775808ns",
+        "-9223372036854775809ns",
+        "9223372036854776us",
+        "3000000h",
+        "9223372036854775.808us",
+        "9223372036854ms775us808ns",
+        "ten minutes",
+        "10 m",
+    ];
+
+    /// Two numbers that are each the most a duration holds and one
+    /// more: Go's sum of them wraps to nothing, which it reads as 0.
+    const WRAPPED: &[&str] = &[
+        "9223372036854775808ns9223372036854775808ns",
+        "-9223372036854775808ns9223372036854775808ns",
+    ];
+
+    #[test]
+    fn a_duration_is_read_as_go_reads_it() {
+        for (written, nanos) in READ {
+            assert_eq!(nanoseconds(written), Some(*nanos), "{written}");
+        }
+    }
+
     #[test]
     fn what_go_reads_as_no_duration_is_none() {
-        for written in [
-            "",
-            "3",
-            "-",
-            "s",
-            ".",
-            "-.",
-            ".s",
-            "+.s",
-            "1d",
-            "\u{fffd}",
-            "\u{fffd} hello \u{fffd} world",
-            "9223372036854775810ns",
-            "9223372036854775808ns",
-            "-9223372036854775809ns",
-            "9223372036854776us",
-            "3000000h",
-            "9223372036854775.808us",
-            "9223372036854ms775us808ns",
-            "ten minutes",
-            "10 m",
-        ] {
+        for written in REFUSED {
             assert_eq!(nanoseconds(written), None, "{written}");
         }
     }
 
-    /// A test-timeout the go command would not read is refused where
-    /// the module is read, by the option's name and without the value;
-    /// the control is one it reads, which every test of the module is
-    /// started with.
     #[test]
-    fn a_test_timeout_that_is_no_duration_is_refused_by_name() {
-        let plugin = TestPlugin::new(crate::served());
-        let host = TestHost::new(
-            Files::new()
-                .with("app/go.mod", "module example.com/hello\n\ngo 1.27\n")
-                .with("app/hello.go", "package hello\n")
-                .with("app/hello_test.go", "package hello\nfunc TestA() {}\n"),
-        );
-        let timed = |timeout: &str| {
-            let context = plugin
-                .context(Profile::Development)
-                .option("test-timeout", Value::String(timeout.into()));
-            plugin.analyze(&host, &context, &["app"])
-        };
-        let answered = timed("1h30m").answered();
-        let test = answered.analyses[0].projects[0]
-            .actions
-            .iter()
-            .find(|action| action.name == "test/.")
-            .expect("the module's own package has a test");
-        assert!(test
-            .command
-            .as_ref()
-            .unwrap()
-            .arguments
-            .contains(&"-test.timeout=1h30m".to_string()));
-        for written in ["ten-minutes-of-secret", "10", ""] {
-            let refused = timed(written).refused("invalid-test-timeout");
-            assert_eq!(refused.path, "app/go.mod");
-            assert!(refused.message.contains("test-timeout"));
-            assert!(!refused.message.contains("secret") && !refused.help.contains("secret"));
+    fn a_sum_past_what_a_number_holds_wraps_as_gos_does() {
+        for written in WRAPPED {
+            assert_eq!(nanoseconds(written), Some(0), "{written}");
         }
+    }
+
+    /// The go program the differential run asks: for each line it is
+    /// given, the nanoseconds time.ParseDuration reads, or "none".
+    const ASKED: &str = r#"package main
+
+import (
+	"bufio"
+	"fmt"
+	"os"
+	"time"
+)
+
+func main() {
+	lines := bufio.NewScanner(os.Stdin)
+	out := bufio.NewWriter(os.Stdout)
+	defer out.Flush()
+	for lines.Scan() {
+		if d, err := time.ParseDuration(lines.Text()); err != nil {
+			fmt.Fprintln(out, "none")
+		} else {
+			fmt.Fprintln(out, int64(d))
+		}
+	}
+}
+"#;
+
+    /// The differential run that holds the port to time.ParseDuration
+    /// itself, of the go command the test is given
+    /// (`spec.frontseat.test.tools` of the plugin's catalog file, and
+    /// mise): both of Go's tables, the sums that wrap, and twenty
+    /// thousand texts made of what a duration is written with, the same
+    /// on every run.
+    #[test]
+    fn reads_every_duration_as_the_go_command_does() {
+        use std::io::Write;
+        const PIECES: &[&str] = &[
+            "0",
+            "1",
+            "9",
+            ".",
+            "s",
+            "m",
+            "h",
+            "n",
+            "u",
+            "\u{b5}",
+            "\u{3bc}",
+            "-",
+            "+",
+            " ",
+            "5",
+            "d",
+            "922337203685477580",
+            "8",
+            "7",
+        ];
+        let mut written: Vec<String> = READ
+            .iter()
+            .map(|(written, _)| *written)
+            .chain(REFUSED.iter().copied())
+            .chain(WRAPPED.iter().copied())
+            .map(str::to_string)
+            .collect();
+        // A linear congruential generator (Knuth's MMIX), so that every
+        // run asks the same.
+        let mut state: u64 = 1;
+        let mut next = |below: usize| {
+            state = state
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            (state >> 33) as usize % below
+        };
+        for _ in 0..20_000 {
+            let pieces = 1 + next(8);
+            written.push((0..pieces).map(|_| PIECES[next(PIECES.len())]).collect());
+        }
+        let module = std::env::temp_dir().join(format!("go-durations-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&module);
+        std::fs::create_dir_all(&module).unwrap();
+        std::fs::write(
+            module.join("go.mod"),
+            "module example.com/durations\n\ngo 1.21\n",
+        )
+        .unwrap();
+        std::fs::write(module.join("main.go"), ASKED).unwrap();
+        let mut go = crate::programs::go_command(&module.join("_kept"))
+            .args(["run", "."])
+            .current_dir(&module)
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .expect("the go command this test holds the plugin to is not found");
+        let mut asked = go.stdin.take().unwrap();
+        let lines = written.join("\n") + "\n";
+        let writer = std::thread::spawn(move || asked.write_all(lines.as_bytes()));
+        let answered = go.wait_with_output().unwrap();
+        let _ = writer.join();
+        let _ = std::fs::remove_dir_all(&module);
+        assert!(
+            answered.status.success(),
+            "the go command reads nothing: {}",
+            String::from_utf8_lossy(&answered.stderr)
+        );
+        let answers = String::from_utf8(answered.stdout).unwrap();
+        let answers: Vec<&str> = answers.lines().collect();
+        assert_eq!(answers.len(), written.len());
+        let differences: Vec<String> = written
+            .iter()
+            .zip(answers)
+            .filter_map(|(written, go)| {
+                let here = nanoseconds(written).map_or("none".to_string(), |n| n.to_string());
+                (here != go).then(|| format!("{written:?}: {here} here, {go} to the go command"))
+            })
+            .collect();
+        assert!(differences.is_empty(), "{}", differences.join("\n"));
     }
 }
