@@ -1361,7 +1361,9 @@ func (spec *scenario) ownCheckout() *Workspace {
 	spec.Expect(err).NotTo(HaveOccurred())
 	cargo, err := testmodule.Plugin("cargo")
 	spec.Expect(err).NotTo(HaveOccurred())
-	return &Workspace{scenario: spec, directory: directory, at: buildtest.Mounted(spec.TB, directory, buf, cargo)}
+	github, err := testmodule.Plugin("github")
+	spec.Expect(err).NotTo(HaveOccurred())
+	return &Workspace{scenario: spec, directory: directory, at: buildtest.Mounted(spec.TB, directory, buf, cargo, github)}
 }
 
 func (spec *scenario) nativeRuntimeInputs() *Workspace {

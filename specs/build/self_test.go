@@ -157,9 +157,16 @@ func TestIsTheDomainItsCatalogFilesDeclareWhoseComponentsOwnEveryProject(t *test
 	} {
 		spec.Expect(spec.catalogRelation(entities[edge[0]], edge[1], edge[2])).To(BeTrue(), "%v", edge)
 	}
+	// The GitHub plugin's one project, at the repository's root, is the
+	// repository's and no Component's (plugins/github): its publish is each
+	// unit's of the repository. Every other project is a Component's.
 	for _, project := range workspace.projects() {
 		named := project.GetRepository() + "/" + project.GetRoot()
-		spec.Expect(components).To(ContainElement(workspace.ownerOf(named)), named)
+		if project.GetPlugin() == "github" && project.GetRoot() == "" {
+			spec.Expect(written(project.GetOwner())).To(BeEmpty(), named)
+			continue
+		}
+		spec.Expect(components).To(ContainElement(written(project.GetOwner())), named)
 	}
 }
 
