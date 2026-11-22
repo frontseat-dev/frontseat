@@ -78,6 +78,10 @@ type Plugin struct {
 
 	rt       wazero.Runtime
 	compiled wazero.CompiledModule
+	// config is what every instance of the module is made with, but
+	// where it prints to standard error: made once, as the module is
+	// loaded, since each of wazero's With calls copies it.
+	config wazero.ModuleConfig
 }
 
 // Named is the plugin of a name among those loaded, the last loaded of
@@ -139,7 +143,7 @@ func (h *Host) Load(ctx context.Context, module []byte) (*Plugin, error) {
 		_ = compiled.Close(ctx)
 		return nil, fmt.Errorf("pluginhost: %s is not a plugin: %w", digest[:12], err)
 	}
-	p := &Plugin{Digest: digest, rt: h.rt, compiled: compiled}
+	p := &Plugin{Digest: digest, rt: h.rt, compiled: compiled, config: instanceConfig(compiled)}
 	instance, err := p.instantiate(ctx, io.Discard)
 	if err != nil {
 		_ = compiled.Close(ctx)
@@ -169,16 +173,27 @@ func (h *Host) Load(ctx context.Context, module []byte) (*Plugin, error) {
 	return p, nil
 }
 
+// instanceConfig is what an instance of a module is made with: no name,
+// nothing kept of what it prints to standard output, and started by its
+// _initialize where it exports one, as a WASI reactor is. A module that
+// exports none is not asked for it: wazero would look it up on every
+// instance and make an error of its absence each time.
+func instanceConfig(compiled wazero.CompiledModule) wazero.ModuleConfig {
+	var start []string
+	if _, exported := compiled.ExportedFunctions()["_initialize"]; exported {
+		start = []string{"_initialize"}
+	}
+	return wazero.NewModuleConfig().
+		WithName("").
+		WithStartFunctions(start...).
+		WithStdout(io.Discard)
+}
+
 // instantiate returns an instance of the module: its own memory, with
 // nothing in it of any call before. What the instance prints to
 // standard error is written to stderr.
 func (p *Plugin) instantiate(ctx context.Context, stderr io.Writer) (api.Module, error) {
-	config := wazero.NewModuleConfig().
-		WithName("").
-		WithStartFunctions("_initialize").
-		WithStdout(io.Discard).
-		WithStderr(stderr)
-	return p.rt.InstantiateModule(ctx, p.compiled, config)
+	return p.rt.InstantiateModule(ctx, p.compiled, p.config.WithStderr(stderr))
 }
 
 // printedAtMost is how much is kept of what a module printed to standard

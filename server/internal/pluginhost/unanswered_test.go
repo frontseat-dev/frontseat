@@ -109,6 +109,13 @@ func moduleThat(t *testing.T, otherwise []byte, printed string, asked []byte) []
 // given, which leave the address it gives.
 func moduleGiving(t *testing.T, alloc, otherwise []byte, printed string, asked []byte) []byte {
 	t.Helper()
+	return moduleStarting(t, nil, alloc, otherwise, printed, asked)
+}
+
+// moduleStarting is moduleGiving that exports _initialize, the
+// instructions given, where they are not nil, as a WASI reactor does.
+func moduleStarting(t *testing.T, initialize, alloc, otherwise []byte, printed string, asked []byte) []byte {
+	t.Helper()
 	description, err := proto.Marshal(&pluginv1.DescribeResponse{Name: "hand"})
 	if err != nil {
 		t.Fatal(err)
@@ -150,19 +157,28 @@ func moduleGiving(t *testing.T, alloc, otherwise []byte, printed string, asked [
 	answer := append([]byte{0x42}, sleb(int64(replyAt)<<32|int64(len(reply)))...)
 	call := body(describe, []byte{0x04, i64}, answer, []byte{0x05}, otherwise, []byte{0x0b})
 
+	functions := [][]byte{{0}, {1}, {2}, {3}}
+	exports := [][]byte{exported("memory", 0x02, 0), exported("frontseat_abi", 0x00, 2), exported("frontseat_alloc", 0x00, 3), exported("frontseat_free", 0x00, 4), exported("frontseat_call", 0x00, 5)}
+	bodies := [][]byte{body(constant(pluginhost.MaxABI)), body(alloc), body(), call}
+	if initialize != nil {
+		functions = append(functions, []byte{5})
+		exports = append(exports, exported("_initialize", 0x00, 6))
+		bodies = append(bodies, body(initialize))
+	}
 	module := []byte{0, 'a', 's', 'm', 1, 0, 0, 0}
 	for _, each := range [][]byte{
 		section(1,
-			function(nil, i32),                         // frontseat_abi
-			function([]byte{i32}, i32),                 // frontseat_alloc
-			function([]byte{i32, i32}),                 // frontseat_free
-			function([]byte{i32, i32}, i64),            // frontseat_call, and the host's read
-			function([]byte{i32, i32, i32, i32}, i32)), // fd_write
+			function(nil, i32),                        // frontseat_abi
+			function([]byte{i32}, i32),                // frontseat_alloc
+			function([]byte{i32, i32}),                // frontseat_free
+			function([]byte{i32, i32}, i64),           // frontseat_call, and the host's read
+			function([]byte{i32, i32, i32, i32}, i32), // fd_write
+			function(nil)),                            // _initialize
 		section(2, imported("wasi_snapshot_preview1", "fd_write", 4), imported("frontseat", "read", 3)),
-		section(3, []byte{0}, []byte{1}, []byte{2}, []byte{3}),
+		section(3, functions...),
 		section(5, []byte{0x00, 0x01}),
-		section(7, exported("memory", 0x02, 0), exported("frontseat_abi", 0x00, 2), exported("frontseat_alloc", 0x00, 3), exported("frontseat_free", 0x00, 4), exported("frontseat_call", 0x00, 5)),
-		section(10, body(constant(pluginhost.MaxABI)), body(alloc), body(), call),
+		section(7, exports...),
+		section(10, bodies...),
 		section(11, data(vectorAt, vector), data(printedAt, []byte(printed)), data(askedAt, asked), data(replyAt, reply)),
 	} {
 		module = append(module, each...)
@@ -354,5 +370,24 @@ func TestUnimplementedIsAMethodUnservedOnlyForTheMethodsOwnReason(t *testing.T) 
 	instructions, held := answering(t, codes.FailedPrecondition, "REPORT_NOT_SERVED")
 	if err := report(t, t.Context(), moduleThat(t, instructions, "", held), files{}); errors.Is(err, pluginhost.ErrUnsupported) {
 		t.Errorf("a failed precondition is read as a method unserved: %v", err)
+	}
+}
+
+// A module that exports _initialize, as a WASI reactor does, is started
+// by it before it is asked anything: one whose _initialize traps is not
+// loaded, and the same module whose _initialize returns is, as is one
+// that exports none.
+func TestAReactorIsStartedByItsInitialize(t *testing.T) {
+	if _, err := loadModule(t, moduleStarting(t, unreachable, constant(givenAt), unreachable, "", nil)); err == nil || !strings.Contains(err.Error(), "instantiating") {
+		t.Errorf("a module whose _initialize traps was loaded: %v", err)
+	}
+	for name, module := range map[string][]byte{
+		"returns": moduleStarting(t, []byte{}, constant(givenAt), unreachable, "", nil),
+		"is none": moduleThat(t, unreachable, "", nil),
+	} {
+		plugin, err := loadModule(t, module)
+		if err != nil || plugin.Description.GetName() != "hand" {
+			t.Errorf("a module whose _initialize %s was not loaded: %v", name, err)
+		}
 	}
 }
