@@ -1125,12 +1125,22 @@ var programName = regexp.MustCompile(`^run/[A-Za-z0-9._-]+$`)
 // refused by name, so that nothing said is taken and ignored.
 func checkProgram(action *pluginv1.Action) error {
 	n := action.GetName()
-	arguments := action.GetCommand().GetArguments()
 	switch {
 	case len(n) > SharedNameAtMost:
 		return fmt.Errorf("the program name %.40q... is %d bytes, more than the %d allowed", n, len(n), SharedNameAtMost)
 	case !programName.MatchString(n) || strings.HasSuffix(n, "/.") || strings.HasSuffix(n, "/.."):
 		return fmt.Errorf("the action %q is a program to run, and is not named run, a slash and what it runs", n)
+	}
+	return programBody(action)
+}
+
+// programBody holds a program to what a program is, whatever it is
+// named: a plugin's program is named run/<what>, and an entity's own as
+// it is written.
+func programBody(action *pluginv1.Action) error {
+	n := action.GetName()
+	arguments := action.GetCommand().GetArguments()
+	switch {
 	case action.GetShared() || action.GetFetch() || action.GetTest() || action.GetCheck():
 		return fmt.Errorf("the action %q is a program to run, and says it is a step of a build too", n)
 	case action.GetFix() != nil || len(action.GetRewrites()) > 0:
@@ -1168,9 +1178,10 @@ func checkProgram(action *pluginv1.Action) error {
 	return nil
 }
 
-// CheckProgram applies the program contract to explicitly authored custom
-// programs too, after their ordinary input and output validation.
-func CheckProgram(action *pluginv1.Action) error { return checkProgram(action) }
+// CheckProgram applies the program contract, but for its name, to an
+// entity's own programs, after their ordinary input and output
+// validation: an entity's own action is named as it is written.
+func CheckProgram(action *pluginv1.Action) error { return programBody(action) }
 
 // CheckFix holds an action's fix to its check: a fix runs something, is
 // of a check, and says what it may change; what may be changed is of a

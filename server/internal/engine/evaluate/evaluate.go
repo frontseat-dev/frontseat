@@ -697,10 +697,10 @@ func custom(repository string, own config.Action) (plan.Action, error) {
 			Name:      own.Name,
 			Command:   &pluginv1.Command{Arguments: own.Command},
 			Tools:     own.Tools,
-			Check:     own.Check,
+			Check:     own.Kind == config.KindCheck,
 			Rewrites:  own.Rewrites,
 			Versioned: own.Versioned,
-			Package:   own.Package,
+			Package:   own.Kind == config.KindPackage,
 		},
 	}
 	if len(own.Fix) > 0 {
@@ -718,21 +718,19 @@ func custom(repository string, own config.Action) (plan.Action, error) {
 	for _, output := range own.Outputs {
 		action.Declared.Outputs = append(action.Declared.Outputs, &pluginv1.Output{Path: output})
 	}
-	if own.Program {
-		action.Label.Name = "run/" + own.Name
-		action.Declared.Name = action.Label.Name
+	// It is named as it is written, whatever its kind: the name in the
+	// file is the name on the command line.
+	if own.Kind == config.KindProgram {
 		action.Declared.Program = true
 		if err := pluginhost.CheckProgram(action.Declared); err != nil {
 			return plan.Action{}, &model.Mistake{File: own.File, Message: err.Error()}
 		}
 	}
-	if own.Publish {
+	if own.Kind == config.KindPublish {
 		// What it reads is nothing: it is given its unit's artifacts.
 		if len(own.Inputs) > 0 || len(own.Needs) > 0 {
 			return plan.Action{}, &model.Mistake{File: own.File, Message: what + " publishes and says what it reads: it is given its unit's artifacts, and reads nothing else"}
 		}
-		action.Label.Name = "publish/" + own.Name
-		action.Declared.Name = action.Label.Name
 		action.Declared.Publish = &pluginv1.Publish{Environment: own.InheritEnvironment}
 		if err := pluginhost.CheckPublish(what, action.Declared); err != nil {
 			return plan.Action{}, &model.Mistake{File: own.File, Message: err.Error()}

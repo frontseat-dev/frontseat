@@ -33,7 +33,7 @@ func publishingSource(t *testing.T, into string, fails bool, atRoot bool) func(r
 	if fails {
 		failing = "        inherit-environment: [RELEASE_TOKEN, OTHER_TOKEN, FAILS]\n"
 	}
-	publish := "      release:\n        command: [sh, -c, '" + publisher + "', publish, " + into + ", '{frontseat.tag}', '{frontseat.version}', '{frontseat.notes}', '{frontseat.remote}', 'prerelease={frontseat.prerelease}', '{frontseat.artifacts}']\n        publish: true\n"
+	publish := "      release:\n        command: [sh, -c, '" + publisher + "', publish, " + into + ", '{frontseat.tag}', '{frontseat.version}', '{frontseat.notes}', '{frontseat.remote}', 'prerelease={frontseat.prerelease}', '{frontseat.artifacts}']\n        kind: publish\n"
 	if !fails {
 		publish += "        inherit-environment: [RELEASE_TOKEN, OTHER_TOKEN]\n"
 	}
@@ -50,7 +50,7 @@ func publishingSource(t *testing.T, into string, fails bool, atRoot bool) func(r
 			if atRoot {
 				system = "  system: both\n"
 			}
-			actions := "    actions:\n      pack:\n        command: [tool, pack]\n        outputs: [out/" + name + "-linux-amd64, out/" + name + ".tgz]\n        package: true\n"
+			actions := "    actions:\n      pack:\n        command: [tool, pack]\n        outputs: [out/" + name + "-linux-amd64, out/" + name + ".tgz]\n        kind: package\n"
 			if name == "greet" {
 				actions += own
 			}
@@ -86,7 +86,7 @@ func TestAReleasePublishesWhatItShippedWhereTheDaemonIs(t *testing.T) {
 		t.Fatalf("a build ended %s, and published %q", ended.GetExitCode().GetName(), readAt(t, into, "greet_v1.0.0"))
 	}
 	refusal := ""
-	if pointed, err := c.runs.CreateBuild(context.Background(), &buildv1.CreateBuildRequest{Targets: []string{"//services/greet:custom.publish/release"}}); err != nil {
+	if pointed, err := c.runs.CreateBuild(context.Background(), &buildv1.CreateBuildRequest{Targets: []string{"//services/greet:custom.release"}}); err != nil {
 		refusal = err.Error()
 	} else if ended := wait(t, c.runs, pointed.GetBuild().GetId()); ended.GetExitCode().GetCode() != 0 {
 		refusal = ended.GetFailure()
@@ -96,7 +96,7 @@ func TestAReleasePublishesWhatItShippedWhereTheDaemonIs(t *testing.T) {
 	}
 	s, release := releasedAlone(t, c, "greet")
 	published := release.GetUnits()[0].GetPublished()
-	if len(published) != 1 || published[0].GetLabel() != "//services/greet:custom.publish/release" || published[0].GetFailure() != "" {
+	if len(published) != 1 || published[0].GetLabel() != "//services/greet:custom.release" || published[0].GetFailure() != "" {
 		t.Errorf("the unit says it was published as %v", published)
 	}
 	got := strings.Split(strings.TrimSpace(readAt(t, into, "greet_v1.0.0")), "\n")
@@ -139,7 +139,7 @@ func TestAPublishThatFailsFailsTheReleaseAndItsTagsStay(t *testing.T) {
 	c.daemon.releases.graph.runs.given = []string{"RELEASE_TOKEN", "FAILS"}
 	s := &releaseService{graph: c.daemon.releases.graph, releases: c.daemon.releases}
 	release := releaseEnded(t, s, releaseBegun(t, s, "greet").GetId())
-	if release.GetState() != buildv1.Release_STATE_FAILED || !strings.Contains(release.GetFailure(), "//services/greet:custom.publish/release of greet could not be published; every tag is pushed") {
+	if release.GetState() != buildv1.Release_STATE_FAILED || !strings.Contains(release.GetFailure(), "//services/greet:custom.release of greet could not be published; every tag is pushed") {
 		t.Fatalf("the release ended %v (%s)", release.GetState(), release.GetFailure())
 	}
 	published := release.GetUnits()[0].GetPublished()
@@ -173,7 +173,7 @@ func TestAPublishNoEntityOwnsPublishesEachUnitOfItsRepository(t *testing.T) {
 		}
 	}
 	for _, unit := range release.GetUnits() {
-		if len(unit.GetPublished()) != 1 || unit.GetPublished()[0].GetLabel() != "//services:custom.publish/release" || unit.GetPublished()[0].GetFailure() != "" {
+		if len(unit.GetPublished()) != 1 || unit.GetPublished()[0].GetLabel() != "//services:custom.release" || unit.GetPublished()[0].GetFailure() != "" {
 			t.Errorf("%s says it was published as %v", unit.GetEntity().GetName(), unit.GetPublished())
 		}
 	}
@@ -186,10 +186,10 @@ func TestAPublishNoEntityOwnsPublishesEachUnitOfItsRepository(t *testing.T) {
 func TestAnArtifactAPublishCannotBeGivenFailsTheReleaseBeforeItTags(t *testing.T) {
 	source := func(publishes string) func(remote string) {
 		return func(remote string) {
-			write(t, remote, "greet/catalog-info.yaml", "apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata:\n  name: greet\nspec:\n  type: library\n  lifecycle: production\n  owner: team\n  frontseat:\n    actions:\n      pack:\n        command: [tool, pack]\n        outputs: [out/checksums.txt]\n        package: true\n"+publishes)
+			write(t, remote, "greet/catalog-info.yaml", "apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata:\n  name: greet\nspec:\n  type: library\n  lifecycle: production\n  owner: team\n  frontseat:\n    actions:\n      pack:\n        command: [tool, pack]\n        outputs: [out/checksums.txt]\n        kind: package\n"+publishes)
 		}
 	}
-	c, clone := releasingClients(t, bringing{}, "release/1.0", source("      release:\n        command: [sh, -c, 'exit 0']\n        publish: true\n"))
+	c, clone := releasingClients(t, bringing{}, "release/1.0", source("      release:\n        command: [sh, -c, 'exit 0']\n        kind: publish\n"))
 	s := &releaseService{graph: c.daemon.releases.graph, releases: c.daemon.releases}
 	release := releaseEnded(t, s, releaseBegun(t, s, "greet").GetId())
 	if release.GetState() != buildv1.Release_STATE_FAILED || !strings.Contains(release.GetFailure(), "//services/greet:custom.pack left what cannot be published: an artifact is named checksums.txt") || !strings.Contains(release.GetFailure(), "nothing is tagged") || tagsOf(t, clone) != "" {

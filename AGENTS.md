@@ -330,7 +330,7 @@ the change that fixes it.
   is what git said, the remote's own words among it.
 - A release publishes with actions, and with each tool's own way of
   publishing: an action says it publishes (the contract's
-  `Action.publish`; `publish: true` on an entity's own action) and runs
+  `Action.publish`; `kind: publish` on an entity's own action) and runs
   a forge's command line or a registry's client. Nothing of Frontseat's
   speaks to a forge or a registry. No build runs it. A release runs it
   once every tag is pushed, where the daemon is

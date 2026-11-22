@@ -21,12 +21,12 @@ spec:
   frontseat:
     actions:
       serve:
-        program: true
+        kind: program
         tools: [caddy]
         command: [caddy, run, --config, primary.json]
         inputs: [primary.json]
     service:
-      program: ":custom.run/serve"
+      program: ":custom.serve"
       ports: {http: 8080}
       ready: [{port: http}]
 `
@@ -39,7 +39,7 @@ spec:
   frontseat:
     actions:
       serve:
-        program: true
+        kind: program
         tools: [caddy]
         command: [caddy, run, --config, replacement.json]
         inputs: [replacement.json]
