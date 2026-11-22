@@ -10,8 +10,10 @@ package buildtest
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -96,10 +98,16 @@ func start(t testing.TB, workspace string, mounted bool, rewrites map[string]str
 	if buildErr != nil {
 		t.Fatal(buildErr)
 	}
+	// A test's rewrites are tried in the order of their expressions: no
+	// test gives two that match one download.
+	ordered := make([]build.Rewrite, 0, len(rewrites))
+	for _, from := range slices.Sorted(maps.Keys(rewrites)) {
+		ordered = append(ordered, build.Rewrite{From: from, To: rewrites[from]})
+	}
 	daemon, err := build.New(ctx, build.Config{
 		Workspace: workspace, Mounted: mounted,
 		Plugins:  append(append([][]byte(nil), modules...), additionalPlugins...),
-		Grid:     build.Grid{Address: testgrid.Address(t), Assets: testgrid.Assets(t), Rewrites: rewrites},
+		Grid:     build.Grid{Address: testgrid.Address(t), Assets: testgrid.Assets(t), Rewrites: ordered},
 		Platform: testgrid.Platform(), Builds: t.TempDir(), Telemetry: signals,
 	})
 	if err != nil {

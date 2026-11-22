@@ -60,14 +60,14 @@ func (s *service) requests() []*remoteasset.FetchBlobRequest {
 }
 
 // serve starts the stand-in and returns a client of it over the rewrites.
-func serve(t *testing.T, s *service, rewrites map[string]string) *download.Client {
+func serve(t *testing.T, s *service, rewrites []download.Rewrite) *download.Client {
 	t.Helper()
 	return serveAs(t, s, "lab", rewrites)
 }
 
 // serveAs starts an asset service and returns a client of it, of the
 // instance named, over the rewrites.
-func serveAs(t *testing.T, s remoteasset.FetchServer, instance string, rewrites map[string]string) *download.Client {
+func serveAs(t *testing.T, s remoteasset.FetchServer, instance string, rewrites []download.Rewrite) *download.Client {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -116,7 +116,7 @@ const (
 	sum     = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 )
 
-var rewrites = map[string]string{`^https://static\.crates\.io/crates/([^/]+)/([^/]+)/download$`: "http://artifacts:8080/api/cargo/crates/api/v1/crates/$1/$2/download"}
+var rewrites = []download.Rewrite{{From: `^https://static\.crates\.io/crates/([^/]+)/([^/]+)/download$`, To: "http://artifacts:8080/api/cargo/crates/api/v1/crates/$1/$2/download"}}
 
 // A download is asked of the asset service by the proxy's address for it,
 // with its sha256 as the checksum the service must see, and the answer
@@ -212,6 +212,36 @@ func TestWhatIsNotADownloadOfTheProxysIsRefused(t *testing.T) {
 	}
 }
 
+// A URL may hold a password, or a token among what it asks for: one
+// that is refused is not repeated to whoever is told of the refusal.
+// The control is the same URL without the user, which is asked as it is.
+func TestARefusedDownloadsAddressIsNotRepeated(t *testing.T) {
+	const asked = "https://example.com/x?sig=tok3n"
+	s := &service{by: map[string]*remoteexecution.Digest{asked: {Hash: sum, SizeBytes: 1}}}
+	client := serve(t, s, rewrites)
+	for name, url := range map[string]string{
+		"a user and a password": "https://me:s3cret@example.com/x?sig=tok3n",
+		"a host of no site":     "https://tok3n/x?sig=tok3n",
+		"a host not plain":      "https://tok3n．internal/x",
+		"no URL":                "https://example.com/%zz?sig=tok3n",
+		"not https":             "http://example.com/x?sig=tok3n",
+	} {
+		_, err := client.Fetch(t.Context(), url, sum)
+		if err == nil {
+			t.Errorf("%s was asked", name)
+			continue
+		}
+		for _, held := range []string{"tok3n", "s3cret"} {
+			if strings.Contains(err.Error(), held) {
+				t.Errorf("%s: the refusal repeats what it refused: %v", name, err)
+			}
+		}
+	}
+	if _, err := client.Fetch(t.Context(), asked, sum); err != nil {
+		t.Errorf("the same address with no user: %v", err)
+	}
+}
+
 // A public site's URL no rule maps is asked of the service as it is: no
 // proxy is needed to download. The control is a URL a rule maps, asked by
 // the proxy's address.
@@ -233,10 +263,36 @@ func TestAPublicSitesURLNoRuleMapsIsAskedAsItIs(t *testing.T) {
 	}
 }
 
+// A rule for some of a site is given before the rule for the rest of
+// it, as Bazel's downloader configuration is read from its top: the
+// first that matches, in the order given, is taken, whatever order the
+// text of the expressions sorts in.
+func TestTheFirstRewriteGivenThatMatchesIsTaken(t *testing.T) {
+	const some, rest = `^https://github\.com/acme/(.*)$`, `^https://github\.com/(.*)$`
+	held := &remoteexecution.Digest{Hash: sum, SizeBytes: 3}
+	for name, c := range map[string]struct {
+		given []download.Rewrite
+		asked string
+	}{
+		"the rule for some of it first": {[]download.Rewrite{{From: some, To: "http://acme/$1"}, {From: rest, To: "http://mirror/$1"}}, "http://acme/tool.tgz"},
+		"the rule for all of it first":  {[]download.Rewrite{{From: rest, To: "http://mirror/$1"}, {From: some, To: "http://acme/$1"}}, "http://mirror/acme/tool.tgz"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			s := &service{by: map[string]*remoteexecution.Digest{"http://acme/tool.tgz": held, "http://mirror/acme/tool.tgz": held}}
+			if _, err := serve(t, s, c.given).Fetch(t.Context(), "https://github.com/acme/tool.tgz", sum); err != nil {
+				t.Fatal(err)
+			}
+			if asked := s.requests(); len(asked) != 1 || asked[0].GetUris()[0] != c.asked {
+				t.Errorf("asked %v; want %s alone", asked, c.asked)
+			}
+		})
+	}
+}
+
 // A rewrite that is no regular expression is refused when the daemon
 // starts, not at the first download.
 func TestARewriteThatIsNoExpressionIsRefusedAtTheStart(t *testing.T) {
-	_, err := download.Dial(t.Context(), download.Config{Address: "127.0.0.1:1", Rewrites: map[string]string{"^https://(": "x"}})
+	_, err := download.Dial(t.Context(), download.Config{Address: "127.0.0.1:1", Rewrites: []download.Rewrite{{From: "^https://(", To: "x"}}})
 	if err == nil || !strings.Contains(err.Error(), "download rewrite") {
 		t.Errorf("err = %v", err)
 	}
@@ -478,7 +534,7 @@ func TestTheAssetServiceIsAskedAsItsGridIs(t *testing.T) {
 	held := &remoteexecution.Digest{Hash: sum, SizeBytes: 3}
 	fetching := &service{by: map[string]*remoteexecution.Digest{"http://proxy/one": held, "http://proxy/two": held, "http://proxy/three": held}}
 	door := &reapitest.Answering{Certificate: &known.Server, Admits: "Bearer aaa.bbb.ccc", Also: func(server *grpc.Server) { remoteasset.RegisterFetchServer(server, fetching) }}
-	rewrites := map[string]string{`^https://example\.com/(.*)$`: "http://proxy/$1"}
+	rewrites := []download.Rewrite{{From: `^https://example\.com/(.*)$`, To: "http://proxy/$1"}}
 	client, err := download.Dial(t.Context(), download.Config{Address: door.Serve(t), Rewrites: rewrites, Access: access.Config{Authorities: known.File, Token: file}})
 	if err != nil {
 		t.Fatal(err)
@@ -521,7 +577,7 @@ func TestAnAssetServiceThatCannotBeAskedOverTLSIsSaidSo(t *testing.T) {
 	known, other := testauthority.New(t), testauthority.New(t)
 	sum := strings.Repeat("ab", 32)
 	fetching := &service{by: map[string]*remoteexecution.Digest{"http://proxy/one": {Hash: sum, SizeBytes: 3}}}
-	rewrites := map[string]string{`^https://example\.com/(.*)$`: "http://proxy/$1"}
+	rewrites := []download.Rewrite{{From: `^https://example\.com/(.*)$`, To: "http://proxy/$1"}}
 	ask := func(address string) error {
 		t.Helper()
 		client, err := download.Dial(t.Context(), download.Config{Address: address, Rewrites: rewrites, Access: access.Config{Authorities: known.File}})

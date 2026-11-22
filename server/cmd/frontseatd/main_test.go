@@ -4,9 +4,11 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
+	"github.com/frontseat-dev/frontseat/server/internal/build"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testauthority"
 )
 
@@ -39,10 +41,11 @@ func TestAPlatformThatIsNotPropertiesIsRefused(t *testing.T) {
 
 // Which proxy stands in for a download's site is read strictly: a flag
 // that is not a pattern, a space and an address is refused at the
-// start, not found out at the first download.
+// start, not found out at the first download. They are kept in the order
+// given, which is the order they are tried in.
 func TestTheDownloadRewritesAreReadStrictly(t *testing.T) {
-	rewrites, err := rewritesOf([]string{`^https://a\.example/(.*)$ http://proxy/$1`, `^https://b c/(.*)$ http://other/$1`})
-	if err != nil || rewrites[`^https://a\.example/(.*)$`] != "http://proxy/$1" || rewrites[`^https://b c/(.*)$`] != "http://other/$1" {
+	rewrites, err := rewritesOf([]string{`^https://b c/(.*)$ http://other/$1`, `^https://a\.example/(.*)$ http://proxy/$1`})
+	if want := []build.Rewrite{{From: `^https://b c/(.*)$`, To: "http://other/$1"}, {From: `^https://a\.example/(.*)$`, To: "http://proxy/$1"}}; err != nil || !slices.Equal(rewrites, want) {
 		t.Fatalf("sound rewrites: %v, %v", rewrites, err)
 	}
 	if rewrites, err := rewritesOf(nil); err != nil || rewrites != nil {
