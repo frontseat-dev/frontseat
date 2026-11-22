@@ -68,7 +68,9 @@ pub(super) fn of(manifest: &Manifest) -> (Vec<Action>, Vec<GeneratedSource>) {
 
 /// What buf lint found: it prints each finding on a line of its own,
 /// `path:line:column:message`, the path relative to the workspace. Any
-/// other line is no finding.
+/// other line is no finding, and neither is one of a file whose name
+/// holds a colon. A file that does not compile is printed the same way,
+/// and is a finding of the same rule.
 pub(super) fn linted(root: &str, printed: &Printed) -> Vec<Diagnostic> {
     const LINTED: Finding = Finding {
         rule_id: "buf/lint",
