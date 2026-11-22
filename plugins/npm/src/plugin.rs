@@ -18,8 +18,8 @@ impl Plugin for NpmPlugin {
                 provides: vec![Provide {
                     coordinate: Some(package.installation()),
                     artifacts: vec![Produced {
-                        action: "install".into(),
-                        output: "node_modules/".into(),
+                        action: crate::actions::INSTALL.into(),
+                        output: crate::actions::INSTALLED.into(),
                     }],
                     ..Default::default()
                 }],

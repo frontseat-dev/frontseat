@@ -16,18 +16,13 @@ impl Plugin for ReleasePlugin {
 
     // The SDK asks Branch and Version only of a strategy the plugin
     // says it serves, and refuses any other (`unclaimed-strategy`) before
-    // the plugin is asked; what is left of each match is never reached.
+    // the plugin is asked: it serves one of each, so the one is what it
+    // is asked.
     fn branch(&self, request: &BranchRequest) -> Result<BranchResponse, Error> {
-        match request.strategy.as_str() {
-            branching::RELEASE_FLOW => Ok(branching::release_flow(request)),
-            other => Err(Error::not_served("branching-strategy", other)),
-        }
+        Ok(branching::release_flow(request))
     }
 
     fn version(&self, request: &VersionRequest) -> Result<VersionResponse, Error> {
-        match request.strategy.as_str() {
-            versioning::CONVENTIONAL_COMMITS => versioning::conventional_commits(request),
-            other => Err(Error::not_served("versioning-strategy", other)),
-        }
+        versioning::conventional_commits(request)
     }
 }

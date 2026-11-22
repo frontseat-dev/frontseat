@@ -1,4 +1,5 @@
 use frontseat_plugin::prelude::*;
+use frontseat_plugin::version;
 
 pub(crate) struct GitHubPlugin;
 
@@ -16,19 +17,20 @@ const TOKEN: &str = "GH_TOKEN";
 /// seen half made. The tag must be there already, as the release that
 /// runs this pushed it: gh makes none. A release there already for the
 /// tag is an error.
-const CREATE: [&str; 12] = [
+const CREATE: [&str; 13] = [
     "gh",
     "release",
     "create",
-    "{frontseat.tag}",
+    version::TAG,
     "{frontseat.artifacts}",
     "--repo",
     "{frontseat.remote}",
     "--verify-tag",
     "--title",
-    "{frontseat.tag}",
+    version::TAG,
     "--notes-file",
     "{frontseat.notes}",
+    "--prerelease={frontseat.prerelease}",
 ];
 
 impl Plugin for GitHubPlugin {
@@ -54,15 +56,13 @@ impl Plugin for GitHubPlugin {
         // anything is built or tagged, as every plugin refuses one that
         // pins none of what its actions run.
         repo.pinned(TOOL, &manifest)?;
-        let mut arguments: Vec<String> = CREATE.iter().map(|each| each.to_string()).collect();
-        arguments.push("--prerelease={frontseat.prerelease}".into());
         Ok(Analysis {
             projects: vec![Project {
                 root: root.into(),
                 kind: "github-repository".into(),
                 name: "github".into(),
                 manifest,
-                actions: vec![Action::new("publish/release", Command::new(arguments))
+                actions: vec![Action::new("publish/release", Command::new(CREATE))
                     .tool(TOOL)
                     .publishes([TOKEN])],
                 ..Default::default()
