@@ -63,3 +63,6 @@ mod tests {
             .refused("unclaimed-service");
     }
 }
+
+#[cfg(test)]
+frontseat_plugin_test::readme_says_the_options!();

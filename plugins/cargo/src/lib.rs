@@ -9,3 +9,6 @@ frontseat_plugin::serve!(plugin::CargoPlugin);
 
 #[cfg(test)]
 mod composition_tests;
+
+#[cfg(test)]
+frontseat_plugin_test::readme_says_the_options!();

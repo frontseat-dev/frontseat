@@ -3,3 +3,6 @@
 mod plugin;
 
 frontseat_plugin::serve!(plugin::GitHubPlugin);
+
+#[cfg(test)]
+frontseat_plugin_test::readme_says_the_options!();
