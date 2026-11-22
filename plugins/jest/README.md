@@ -51,4 +51,4 @@ plugins:
 
 | Key | Read by | What it does |
 |---|---|---|
-| `spec.frontseat.test` | the host | What the Component's tests are given beyond what the plugin gives them: `inputs` (files, each a path from the repository's root written `/…`), `tools` (pinned tools) and `environment` (variables). |
+| `spec.frontseat.test` | the host | What the Component's tests are given beyond what the plugin gives them: `inputs` (files, each relative to the catalog file, or from the repository's root written `/…`), `tools` (pinned tools) and `environment` (variables). |

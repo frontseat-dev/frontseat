@@ -84,7 +84,7 @@ is not shared. Warm builds come from the grid's action cache.
 | Key | Read by | What it does |
 |---|---|---|
 | `spec.frontseat.plugins.cargo` | the host | A Component's own setting of an option above, for its directory and what is beneath it, in place of the repository's. |
-| `spec.frontseat.test` | the host | What the Component's tests are given beyond what the plugin gives them: `inputs` (files, each a path from the repository's root written `/…`), `tools` (pinned tools) and `environment` (variables). |
+| `spec.frontseat.test` | the host | What the Component's tests are given beyond what the plugin gives them: `inputs` (files, each relative to the catalog file, or from the repository's root written `/…`), `tools` (pinned tools) and `environment` (variables). |
 
 ```yaml
 # catalog-info.yaml
