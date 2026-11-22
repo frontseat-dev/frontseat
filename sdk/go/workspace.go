@@ -67,15 +67,23 @@ var workspaceName = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,46}[a-z0-9])?$`)
 // client may say so before it asks.
 func IsWorkspaceName(name string) bool { return workspaceName.MatchString(name) }
 
-// Repository is a repository to clone: its remote, over http or https,
-// and the branch or tag to stand at, empty for its default branch.
+// Repository is a repository to clone.
 type Repository struct {
-	Remote, Ref string
+	// Remote is where it is cloned from, over http or https. It names no
+	// user and holds no password or token: a credential for its host is
+	// the control plane's to keep (Credentials).
+	Remote string
+	// Ref is the branch or tag to stand at; empty for the remote's
+	// default branch.
+	Ref string
 }
 
 // Author is who what is committed in a workspace is by.
 type Author struct {
-	Name, Email string
+	// Name is the author's name, as a commit says it.
+	Name string
+	// Email is the author's address, as a commit says it.
+	Email string
 }
 
 // proto is the spec as the API carries it.
@@ -193,7 +201,9 @@ func (c *Client) Open(ctx context.Context, spec Spec) (Opened, error) {
 }
 
 // Workspace is a workspace the control plane keeps, by its name. Nothing
-// is asked of the control plane until a call is made.
+// is asked of the control plane until a call is made. A name is given:
+// with none, every call fails before anything is asked, and the
+// workspace a daemon's Client is in is Here, never an empty name.
 func (c *Client) Workspace(name string) *Workspace {
 	return &Workspace{client: c, name: name}
 }
@@ -204,7 +214,7 @@ func (c *Client) Workspace(name string) *Workspace {
 // is described, filled, ended and opened a shell in from outside, by its
 // name, and Here refuses each of those by name (ErrHere).
 func (c *Client) Here() *Workspace {
-	return &Workspace{client: c, daemon: c.api}
+	return &Workspace{client: c, here: true, daemon: c.api}
 }
 
 func (c *Client) workspaces() workspacev1alpha1connect.WorkspaceServiceClient {
@@ -217,6 +227,8 @@ type Workspace struct {
 	client *Client
 	// name is the workspace's name; empty for the one Here is.
 	name string
+	// here is whether it is the one Here is, asked by no name.
+	here bool
 
 	mu     sync.Mutex
 	daemon *connect.Client
@@ -230,11 +242,28 @@ func (w *Workspace) Name() string { return w.name }
 // from outside it, and inside a workspace's sandbox its source is fixed.
 var ErrHere = errors.New("inside a workspace's sandbox its source is fixed, and its daemon is asked to build, run and release alone: describe, fill, end and open a shell in a workspace from outside it, by its name")
 
+// errUnnamed is what a workspace given no name is refused with: nothing
+// is asked of a control plane for it.
+var errUnnamed = errors.New("a workspace is asked for by its name, and this one was given none")
+
+// named refuses what is asked of a workspace by its name where it has
+// none: the one Here is (ErrHere), and one the caller named with
+// nothing, which is no workspace and not the one Here is.
+func (w *Workspace) named() error {
+	switch {
+	case w.here:
+		return ErrHere
+	case w.name == "":
+		return errUnnamed
+	}
+	return nil
+}
+
 // Describe returns the workspace as it is now: what it was asked for,
 // what it holds and where it is.
 func (w *Workspace) Describe(ctx context.Context) (*workspacev1.Workspace, error) {
-	if w.name == "" {
-		return nil, ErrHere
+	if err := w.named(); err != nil {
+		return nil, err
 	}
 	said, err := w.client.workspaces().DescribeWorkspace(ctx, &workspacev1.DescribeWorkspaceRequest{Name: w.name})
 	return said.GetWorkspace(), err
@@ -244,8 +273,8 @@ func (w *Workspace) Describe(ctx context.Context) (*workspacev1.Workspace, error
 // was asked for, and it is waited for until it can be worked in again.
 // Only the source more names is read of it.
 func (w *Workspace) Add(ctx context.Context, more Spec) error {
-	if w.name == "" {
-		return ErrHere
+	if err := w.named(); err != nil {
+		return err
 	}
 	api := w.client.workspaces()
 	said, err := api.DescribeWorkspace(ctx, &workspacev1.DescribeWorkspaceRequest{Name: w.name})
@@ -281,6 +310,10 @@ func (w *Workspace) Add(ctx context.Context, more Spec) error {
 	return ready(w.name, last.GetWorkspace())
 }
 
+// askedAgain is how long Delete asks, once whoever waited has given up,
+// what keeps the workspace it ended.
+const askedAgain = 5 * time.Second
+
 // Delete ends the workspace, and returns when it is gone and its
 // sandbox with it, so that what is done next, stopping the control
 // plane among it, leaves no sandbox behind. What was changed in it and
@@ -288,8 +321,8 @@ func (w *Workspace) Add(ctx context.Context, more Spec) error {
 // Whoever gives up waiting is told what the control plane says keeps the
 // workspace, where it says anything, and the workspace goes on ending.
 func (w *Workspace) Delete(ctx context.Context) error {
-	if w.name == "" {
-		return ErrHere
+	if err := w.named(); err != nil {
+		return err
 	}
 	api := w.client.workspaces()
 	if _, err := api.DeleteWorkspace(ctx, &workspacev1.DeleteWorkspaceRequest{Name: w.name}); err != nil {
@@ -305,7 +338,7 @@ func (w *Workspace) Delete(ctx context.Context) error {
 		if ctx.Err() == nil {
 			return err
 		}
-		asking, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		asking, cancel := context.WithTimeout(context.WithoutCancel(ctx), askedAgain)
 		defer cancel()
 		still, described := api.DescribeWorkspace(asking, &workspacev1.DescribeWorkspaceRequest{Name: w.name})
 		if why := still.GetWorkspace().GetStatus().GetFailure(); described == nil && why != "" {
@@ -328,8 +361,8 @@ func (w *Workspace) Delete(ctx context.Context) error {
 // in with a key the workspace was made to let in (Spec.AuthorizedKey).
 // The connection lasts as long as the context.
 func (w *Workspace) Shell(ctx context.Context) (net.Conn, error) {
-	if w.name == "" {
-		return nil, ErrHere
+	if err := w.named(); err != nil {
+		return nil, err
 	}
 	return transport.Tunnel(ctx, w.client.server+"/workspaces/"+url.PathEscape(w.name)+"/shell", w.client.reach)
 }
