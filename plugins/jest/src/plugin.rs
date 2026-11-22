@@ -8,6 +8,9 @@ fn invalid(path: &str, message: impl Into<String>) -> Error {
     Error::invalid("invalid-manifest", path, message, HELP)
 }
 
+/// The one action of a suite: its tests, which are what is arranged.
+const TEST: &str = "test";
+
 const HELP: &str = "Declare Jest as a direct dependency and scripts.test as jest; keep options in native Jest configuration. One configured suite is one piece.";
 
 /// What a package says that Jest runs and this plugin does not run yet.
@@ -60,7 +63,7 @@ impl Plugin for JestPlugin {
             }),
             version: String::new(),
         };
-        let test = Action::new("test", Command::new(script))
+        let test = Action::new(TEST, Command::new(script))
             .tool("node")
             .inputs([
                 Input::source("**"),
@@ -94,7 +97,7 @@ impl Plugin for JestPlugin {
         let package = repo
             .json_document::<Package>(&manifest)?
             .ok_or_else(|| invalid(&manifest, "the Jest package is missing"))?;
-        if actions != ["test"] {
+        if actions != [TEST] {
             return Err(invalid(
                 &manifest,
                 "only the declared Jest test action can be arranged",

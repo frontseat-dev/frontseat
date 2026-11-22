@@ -14,6 +14,9 @@ pub(super) const WASM: &str = "wasm";
 /// repository pins beside Rust where it builds one.
 const WASM_STD: &str = "rust-std-wasm32-wasip1";
 const WASM_TARGET: &str = "wasm32-wasip1";
+/// The checks of a package, by the names their findings are asked by.
+const LINT: &str = "lint";
+const FORMAT: &str = "format";
 
 /// Where cargo reads crates from when the whole lock is fetched at once:
 /// crates.io, replaced by the registry the worker names `frontseat`,
@@ -131,7 +134,7 @@ pub(super) fn actions(
     // clippy's findings are read from what it prints, a line each, and
     // a warning fails the check as an error does.
     let lint = action(
-        "lint",
+        LINT,
         &[
             "clippy",
             "--locked",
@@ -148,7 +151,7 @@ pub(super) fn actions(
     // rustfmt names what it would change and writes nothing: a check.
     // Its fix, cargo fmt, runs where the checkout is and nowhere else.
     // Formatting reads no dependency, so it reads nothing of a fetch.
-    let format = Action::new("format", cargo(&["fmt", "--", "--check"]))
+    let format = Action::new(FORMAT, cargo(&["fmt", "--", "--check"]))
         .tool(RUST)
         .inputs([Input::set("package"), Input::dependencies("{root}")])
         .check()
@@ -223,8 +226,8 @@ pub(super) fn report(
     printed: &Printed,
 ) -> Vec<Diagnostic> {
     match action {
-        "lint" => clippy(workspace, printed),
-        "format" => unformatted(root, printed),
+        LINT => clippy(workspace, printed),
+        FORMAT => unformatted(root, printed),
         _ => Vec::new(),
     }
 }
