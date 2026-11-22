@@ -114,3 +114,42 @@ func TestAWorkspaceThatBringsRepositoriesNeedsAVersionControlSystem(t *testing.T
 		t.Errorf("a mounted checkout names a repository %q", got)
 	}
 }
+
+// A remote may hold a token, and a refusal reaches the workspace's
+// status: the workspace that holds a repository from one remote and is
+// asked for it from another says so without repeating either. Asked for
+// it from the remote it has, it takes it.
+func TestARefusedSecondRemoteOfARepositoryIsNotRepeated(t *testing.T) {
+	w, err := source.Open(t.TempDir(), false, &tapes{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Close()
+	holds := []record.Checkout{{Name: "reels", Remote: "https://x:tok3n-held@vault/reels"}}
+	bring := func(asked []record.Checkout) error {
+		err := w.Populate(1, asked, nil)
+		for err == nil {
+			now, changed := w.Now()
+			if now.State != source.Populating {
+				break
+			}
+			<-changed
+		}
+		return err
+	}
+	if err := bring(holds); err != nil {
+		t.Fatal(err)
+	}
+
+	err = bring([]record.Checkout{{Name: "reels", Remote: "https://x:tok3n-asked@vault/reels"}})
+
+	if err == nil {
+		t.Fatal("a second remote of a repository the workspace holds was taken")
+	}
+	if strings.Contains(err.Error(), "tok3n") || !strings.Contains(err.Error(), "reels") {
+		t.Errorf("the refusal is %q, want the repository named and neither remote repeated", err)
+	}
+	if err := bring(holds); err != nil {
+		t.Errorf("the control, the remote it holds: %v", err)
+	}
+}

@@ -1,8 +1,9 @@
 package record
 
 import (
-	"github.com/frontseat-dev/frontseat/sdk/go/entity"
 	"path"
+
+	"github.com/frontseat-dev/frontseat/sdk/go/entity"
 )
 
 // Located is an entity and where it lives in a workspace.

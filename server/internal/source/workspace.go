@@ -5,18 +5,18 @@
 // its own.
 package source
 
-import "github.com/frontseat-dev/frontseat/server/internal/source/record"
-
 import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/frontseat-dev/frontseat/server/internal/source/internal/vcs/git"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/frontseat-dev/frontseat/server/internal/source/internal/manifest"
 	"github.com/frontseat-dev/frontseat/server/internal/source/internal/populate"
+	"github.com/frontseat-dev/frontseat/server/internal/source/internal/vcs/git"
+	"github.com/frontseat-dev/frontseat/server/internal/source/record"
 	"github.com/frontseat-dev/frontseat/server/internal/source/vcs"
 )
 
@@ -44,8 +44,17 @@ type Workspace struct {
 	// repository with no name, which the daemon neither clones nor
 	// records.
 	mounted bool
+	// within is how long one repository may take to be brought.
+	within time.Duration
+	// bringing ends when the workspace is closed, by stop: every pass
+	// that brings repositories runs under it, and passes joins them.
+	bringing context.Context
+	stop     context.CancelFunc
+	passes   sync.WaitGroup
 
-	mu       sync.Mutex
+	mu sync.Mutex
+	// closed says the workspace was closed: no pass starts after it.
+	closed   bool
 	manifest manifest.Manifest
 	state    State
 	message  string
@@ -56,12 +65,20 @@ type Workspace struct {
 	changed chan struct{}
 }
 
+// broughtWithin is how long one repository may take to be brought. A
+// version control system that fetches over a network waits for its
+// remote without a limit of its own, and one that accepts a connection
+// and answers nothing would leave the workspace being populated for
+// ever, which refuses every later source.
+const broughtWithin = 30 * time.Minute
+
 // Open returns the workspace in a directory: a mounted checkout, or what
 // the directory's manifest records, or nothing yet. Its repositories are
 // brought with a version control system, which a mounted checkout, that
-// brings none, does without.
+// brings none, does without. Close it when the daemon stops.
 func Open(root string, mounted bool, system vcs.System) (*Workspace, error) {
-	w := &Workspace{root: root, mounted: mounted, system: system, changed: make(chan struct{})}
+	w := &Workspace{root: root, mounted: mounted, system: system, within: broughtWithin, changed: make(chan struct{})}
+	w.bringing, w.stop = context.WithCancel(context.Background())
 	if mounted {
 		w.state = Ready
 		return w, nil
@@ -77,6 +94,17 @@ func Open(root string, mounted bool, system vcs.System) (*Workspace, error) {
 		w.manifest, w.state = recorded, Ready
 	}
 	return w, nil
+}
+
+// Close stops what is bringing the workspace's repositories and returns
+// once it has stopped: a repository half brought is left out, and the
+// workspace says it failed and why. Nothing is brought after it.
+func (w *Workspace) Close() {
+	w.mu.Lock()
+	w.closed = true
+	w.mu.Unlock()
+	w.stop()
+	w.passes.Wait()
 }
 
 // history returns what tells the history of one of the workspace's
@@ -278,7 +306,9 @@ func (w *Workspace) set(state State, message string) {
 // located is. It returns once that is under way; Now tells whoever waits
 // how it ends. Whether it may start and its starting are one step, so
 // that of two asked at once, one is refused; the generation is the one
-// it holds once it starts.
+// it holds once it starts. Each repository is brought within a bound,
+// and none once the workspace is closed: either ends the pass as a
+// failure that says so.
 func (w *Workspace) Populate(generation int64, checkouts []record.Checkout, located []record.Located) error {
 	if w.mounted {
 		return errMounted
@@ -308,11 +338,19 @@ func (w *Workspace) Populate(generation int64, checkouts []record.Checkout, loca
 		}
 	}
 	w.generation = generation
+	if w.closed {
+		w.set(Failed, errClosed.Error())
+		w.mu.Unlock()
+		return nil
+	}
 	w.set(Populating, "")
+	// Counted with the lock held, as Close reads closed: no pass is
+	// counted once Close waits for them.
+	w.passes.Add(1)
 	w.mu.Unlock()
 
 	go func() {
-		ctx := context.Background()
+		defer w.passes.Done()
 		fail := func(err error) {
 			w.mu.Lock()
 			w.set(Failed, err.Error())
@@ -325,6 +363,7 @@ func (w *Workspace) Populate(generation int64, checkouts []record.Checkout, loca
 					at = i
 				}
 			}
+			ctx, done := context.WithTimeout(w.bringing, w.within)
 			var err error
 			if at < 0 {
 				var cloned record.Repository
@@ -337,6 +376,16 @@ func (w *Workspace) Populate(generation int64, checkouts []record.Checkout, loca
 					held[at] = widened
 				}
 			}
+			// What ended it is said, and not what its version control
+			// system said of being stopped.
+			switch {
+			case err == nil:
+			case w.bringing.Err() != nil:
+				err = fmt.Errorf("the repository %s: %w", c.Name, errClosed)
+			case ctx.Err() != nil:
+				err = fmt.Errorf("the repository %s was not brought within %s", c.Name, w.within)
+			}
+			done()
 			if err != nil {
 				// What was cloned by now is the workspace's, and is
 				// recorded: whoever asks again finishes the job.
@@ -379,6 +428,10 @@ func (w *Workspace) Populate(generation int64, checkouts []record.Checkout, loca
 // told again once that is done.
 var errPopulating = errors.New("the workspace is being populated already")
 
+// errClosed is a source told to a daemon that is stopping, or one it
+// was bringing when it stopped.
+var errClosed = errors.New("the daemon stopped before the workspace was populated")
+
 // errMounted is a source told to a daemon that was given a checkout.
 var errMounted = errors.New("the workspace is a checkout the sandbox was given; nothing is cloned into it")
 
@@ -391,7 +444,8 @@ func another(held []record.Repository, c record.Checkout) error {
 		switch {
 		case r.Name != c.Name:
 		case r.Remote != c.Remote:
-			return fmt.Errorf("the workspace holds %s from %s, and it was asked for from %s: a workspace holds one checkout of a repository", r.Name, r.Remote, c.Remote)
+			// Neither remote is repeated: an address may hold a token.
+			return fmt.Errorf("the workspace holds %s from another remote than the one it was asked for from: a workspace holds one checkout of a repository", r.Name)
 		case r.Ref != c.Ref:
 			return fmt.Errorf("the workspace holds %s at %s, and it was asked for at %s: a workspace holds one checkout of a repository", r.Name, at(r.Ref), at(c.Ref))
 		}
