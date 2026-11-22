@@ -52,6 +52,27 @@ const exportable = "letters, digits and underscores, beginning with no digit"
 // variable of an environment is named by, wherever one is set.
 func Exportable(name string) bool { return variable.MatchString(name) }
 
+// Variable holds a name written under a key of a service (exports,
+// env) to one the shell can export.
+func Variable(key, name string) error {
+	if !Exportable(name) {
+		return fmt.Errorf("service.%s: a name the shell can export is %s", key, exportable)
+	}
+	return nil
+}
+
+// Port holds one port of a service to what a port is: a name an address
+// can name it by, and a number a listener is given.
+func Port(name string, number int32) error {
+	switch {
+	case !portName.MatchString(name):
+		return errors.New("service.ports: a port is named in lower-case letters, digits and dashes, beginning with a letter")
+	case number < 1 || number > 65535:
+		return errors.New("service.ports: a port is a number from 1 to 65535")
+	}
+	return nil
+}
+
 // Named reports whether a name can name a service in a sandbox: lower-case
 // letters, digits and dashes, and not "main", which is the sandbox's own
 // first container.
@@ -104,22 +125,22 @@ func Shaped(l *typev1.Service) error {
 			}
 		}
 	}
-	for name := range l.GetExports() {
-		if !Exportable(name) {
-			return fmt.Errorf("service.exports: a name the shell can export is %s", exportable)
+	for _, name := range slices.Sorted(maps.Keys(l.GetExports())) {
+		if err := Variable("exports", name); err != nil {
+			return err
 		}
 	}
 	// What it starts with is named as what it exports is: a name that is
 	// none would be the runtime's to refuse, when the test is started,
 	// and one with an equals sign in it would set another.
-	for name := range l.GetEnvironment() {
-		if !Exportable(name) {
-			return fmt.Errorf("service.env: a name the shell can export is %s", exportable)
+	for _, name := range slices.Sorted(maps.Keys(l.GetEnvironment())) {
+		if err := Variable("env", name); err != nil {
+			return err
 		}
 	}
-	for name, port := range l.GetPorts() {
-		if !portName.MatchString(name) || port < 1 || port > 65535 {
-			return errors.New("service.ports: a name in lower-case letters, digits and dashes, and a port from 1 to 65535")
+	for _, name := range slices.Sorted(maps.Keys(l.GetPorts())) {
+		if err := Port(name, l.GetPorts()[name]); err != nil {
+			return err
 		}
 	}
 	for i, ready := range l.GetReady() {
@@ -167,7 +188,7 @@ func Check(l *typev1.Service) error {
 		return err
 	}
 	if _, err := image.Read(l.GetImage()); err != nil {
-		return fmt.Errorf("service.image: %v", err)
+		return fmt.Errorf("service.image %v", err)
 	}
 	return endpoints(l)
 }
@@ -194,7 +215,7 @@ func endpoints(l *typev1.Service) error {
 	for i, ready := range l.GetReady() {
 		if port := PortOf(ready); port != "" {
 			if _, served := l.GetPorts()[port]; !served {
-				return fmt.Errorf("service.ready[%d] names a port %s it does not serve", i, port)
+				return fmt.Errorf("service.ready[%d] names a port it does not serve", i)
 			}
 		}
 	}

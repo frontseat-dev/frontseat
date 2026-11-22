@@ -66,7 +66,7 @@ a registry the worker names), since only cargo fetches from those.
 
 | Option | Kind | Default | Set by | What it does |
 |---|---|---|---|---|
-| `wasm` | bool | false | the repository or an entity | Builds a library and the examples that are a `cdylib` to wasm32-wasip1 modules too (`wasm`, `wasm-examples`), with the `rust-std-wasm32-wasip1` the repository pins beside Rust; a package that has one, where the option is set and that standard library is not pinned, is refused (`unpinned-tool`). |
+| `wasm` | bool | false | the repository or a Component | Builds a library and the examples that are a `cdylib` to wasm32-wasip1 modules too (`wasm`, `wasm-examples`), with the `rust-std-wasm32-wasip1` the repository pins beside Rust; a package that has one, where the option is set and that standard library is not pinned, is refused (`unpinned-tool`). |
 
 ```yaml
 # frontseat.yaml

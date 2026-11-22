@@ -87,8 +87,8 @@ func TestAnActionSInputsArePatternsBeneathTheEntityOrWhatAnotherActionLeft(t *te
 
 		spec.Expect(build.says()).To(ContainSubstring(says), input)
 	}
-	refused("../go.mod", `the action report holds "../go.mod", which is not a pattern of files beneath the project`)
-	refused("=sources", `the action report names the input set "sources", which the project does not declare`)
+	refused("../go.mod", `the action report: its input 1 is not a pattern of files beneath the project`)
+	refused("=sources", `the action report: its input 1 names an input set, which a catalog file declares none of`)
 	refused(":", `the action report: the input ":" names nothing after the colon`)
 	refused("//lab/chain", `the action report: the input "//lab/chain" names a project and nothing of it`)
 	// The control: a pattern beneath the entity, and what another

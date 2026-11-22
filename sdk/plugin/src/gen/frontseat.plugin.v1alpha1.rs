@@ -279,8 +279,8 @@ pub struct Option {
     /// Default is its value where nothing sets it.
     #[prost(message, optional, tag = "4")]
     pub default: ::core::option::Option<super::super::r#type::v1alpha1::OptionValue>,
-    /// Entity_settable says an entity may set it, for its own directory and beneath;
-    /// unset, only a repository may.
+    /// Entity_settable says a Component may set it, for its own directory and
+    /// beneath; unset, only a repository may.
     #[prost(bool, tag = "5")]
     pub entity_settable: bool,
 }

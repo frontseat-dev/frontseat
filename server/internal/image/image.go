@@ -5,7 +5,7 @@
 package image
 
 import (
-	"fmt"
+	"errors"
 	"strings"
 
 	"github.com/distribution/reference"
@@ -26,25 +26,27 @@ type Pinned struct {
 // be another's image; a name with no digest could be another image
 // tomorrow; and what is not a reference could be read by a command line
 // as its options. An image a build made, named by a label, is not
-// started yet.
+// started yet. A refusal says what an image's name takes and never the
+// name: one may be written with a credential in it.
 func Read(written string) (Pinned, error) {
 	if written == "" {
-		return Pinned{}, fmt.Errorf("names no image; an image is named with its registry and digest")
+		return Pinned{}, errors.New("names no image; an image is named with its registry and digest")
 	}
 	if strings.HasPrefix(written, "//") {
-		return Pinned{}, fmt.Errorf("%q is an image the build makes, which is not started yet; name an image with its registry and digest", written)
+		return Pinned{}, errors.New("is an image the build makes, which is not started yet; name an image with its registry and digest")
 	}
+	// The parser's own refusal repeats the name's parts, and is left out.
 	named, err := reference.ParseNormalizedNamed(written)
 	if err != nil {
-		return Pinned{}, fmt.Errorf("%q is not an image's reference: %v", written, err)
+		return Pinned{}, errors.New("is not an image's reference, as Docker reads one")
 	}
 	registry := reference.Domain(named)
 	if !strings.HasPrefix(written, registry+"/") {
-		return Pinned{}, fmt.Errorf("%q does not name its registry", written)
+		return Pinned{}, errors.New("does not name its registry")
 	}
 	digested, ok := named.(reference.Digested)
 	if !ok {
-		return Pinned{}, fmt.Errorf("%q is not named by its digest", written)
+		return Pinned{}, errors.New("is not named by its digest")
 	}
 	return Pinned{Registry: registry, Path: reference.Path(named), Digest: digested.Digest().String()}, nil
 }

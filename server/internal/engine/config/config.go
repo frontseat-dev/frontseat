@@ -548,7 +548,7 @@ func (r *Repository) settle(plugin string, declared []*pluginv1.Option, entity *
 			return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: the %s plugin takes no option %s%s", node.Line, plugin, name, taken(declared))}
 		}
 		if entity != nil && !option.GetEntitySettable() {
-			return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: %s is set for a repository, in %s, and not by an entity", node.Line, name, File)}
+			return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: %s is set for a repository, in %s, and not by a Component", node.Line, name, File)}
 		}
 		value, err := valueOf(option, node)
 		if err != nil {

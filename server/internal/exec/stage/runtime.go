@@ -41,7 +41,7 @@ func Runtimes(action exec.Action, description *runnerv1.RunnerSandbox, programs 
 		action.Prepared[root] = program
 		runtimeImage := strings.TrimPrefix(program.Platform["container-image"], "docker://")
 		if _, err := image.Read(runtimeImage); err != nil {
-			return exec.Action{}, fmt.Errorf("program preparation image: %w", err)
+			return exec.Action{}, fmt.Errorf("the image a program is prepared in %w", err)
 		}
 		service.Program = &runnerv1.RunnerProgram{Root: root, Directory: path.Clean(program.WorkingDirectory), Arguments: program.Arguments, Image: runtimeImage, Platform: maps.Clone(program.Platform)}
 		// Program environment is encoded inside its confinement command,
