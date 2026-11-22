@@ -818,7 +818,7 @@ func TestWideningARepositoryRunsNothingItNames(t *testing.T) {
 		refused  string
 	}{
 		"a remote that is a command":        {[][2]string{{"remote.origin.url", "ext::sh -c echo% ext>>" + ran}, {"protocol.ext.allow", "always"}}, "ext", true, ""},
-		"a program to ask the remote with":  {[][2]string{{"remote.origin.uploadpack", "sh -c 'echo upload-pack >> " + ran + "; git-upload-pack \"$@\"' x"}}, "upload-pack", false, "remote.origin.uploadpack"},
+		"a program to ask the remote with":  {[][2]string{{"remote.origin.uploadpack", "sh -c 'echo upload-pack >> " + ran + "; git-upload-pack \"$@\"' x"}}, "upload-pack", false, "remote.<name>.uploadpack"},
 		"an SSH client":                     {[][2]string{{"remote.origin.url", "ssh://example.invalid/x"}, {"core.sshCommand", "sh -c 'echo ssh >> " + ran + "' x"}}, "ssh", true, ""},
 		"an address rewritten to a command": {[][2]string{{"url.ext::sh -c echo% rewritten>>" + ran + "% .insteadOf", "file://"}, {"protocol.ext.allow", "always"}}, "rewritten", false, "url.<address>.insteadof"},
 		"a helper the repository names":     {[][2]string{{"remote.origin.vcs", "planted"}}, "remote-helper", false, ""},
