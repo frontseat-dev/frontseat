@@ -22,7 +22,8 @@ impl Plugin for BufPlugin {
         printed: &Printed,
     ) -> Result<Vec<Diagnostic>, Error> {
         Ok(match action {
-            "format" => actions::unformatted(root, printed),
+            actions::LINT => actions::linted(root, printed),
+            actions::FORMAT => actions::unformatted(root, printed),
             _ => Vec::new(),
         })
     }
