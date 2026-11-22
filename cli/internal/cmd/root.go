@@ -10,8 +10,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/netip"
-	"net/url"
 	"os"
 	"strings"
 
@@ -110,21 +108,6 @@ func asked() (*frontseat.Workspace, error) {
 	return fs.Workspace(held.Workspace), nil
 }
 
-// local is whether an address is of this machine: a loopback address,
-// or localhost.
-func local(at string) bool {
-	parsed, err := url.Parse(at)
-	if err != nil {
-		return false
-	}
-	host := parsed.Hostname()
-	if host == "localhost" {
-		return true
-	}
-	address, err := netip.ParseAddr(host)
-	return err == nil && address.IsLoopback()
-}
-
 // workspaceFlag is the workspace a command asks, where a command is told it.
 var workspaceFlag string
 
@@ -146,7 +129,8 @@ The server: every command asks one control plane, the one
 ~/.config/frontseat/local/server names (beneath $XDG_CONFIG_HOME where
 it is set), or else the local stack's, http://127.0.0.1:7700. The token
 beside it, ~/.config/frontseat/local/token, is presented to that control
-plane and to no other address.
+plane and to no other address. A control plane on another machine is
+named with https, and is asked over nothing else.
 
 The workspace: a command that asks a workspace takes --workspace NAME.
 Without it, it asks the workspace last opened.

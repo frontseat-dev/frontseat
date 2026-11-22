@@ -269,6 +269,8 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		{"cli/internal/machine/token.go", "local", false},
 		{"server/testsupport/testcontainer/container_test.go", "local/ports", true},
 		{"server/testsupport/testcontainer/container_test.go", "local/stack", false},
+		{"cli/internal/machine/token.go", "sdk/go/bearer", true},
+		{"cli/internal/machine/token.go", "sdk/go/internal/transport", false},
 		{"local/stack.go", "local/ports", true},
 		{"local/ports/ports.go", "local", false},
 		{"local/stack.go", "server/telemetry", false},
