@@ -70,11 +70,11 @@ impl crate::Plugin for Counted {
         self.0.set(self.0.get() + 1);
         crate::Description {
             name: "counted".into(),
-            options: vec![crate::PluginOption {
-                name: "strict",
-                default: true.into(),
-                entity_settable: false,
-            }],
+            options: vec![crate::PluginOption::new(
+                "strict",
+                "Whether a missing manifest is refused.",
+                true,
+            )],
             ..Default::default()
         }
     }

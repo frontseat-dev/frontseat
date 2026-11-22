@@ -29,12 +29,15 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"go.yaml.in/yaml/v4"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/frontseat-dev/frontseat/server/internal/model"
 	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
+	"github.com/frontseat-dev/frontseat/server/internal/pluginoption"
 )
 
 // File is the file a repository says how it is built in, at its root.
@@ -541,6 +544,9 @@ func (r *Repository) settle(plugin string, declared []*pluginv1.Option, entity *
 			return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: %s is set for a repository, in %s, and not by an entity", node.Line, name, File)}
 		}
 		value, err := valueOf(option, node)
+		if err == nil {
+			err = pluginoption.Takes(option, value)
+		}
 		if err != nil {
 			return nil, &model.Mistake{File: file, Message: fmt.Sprintf("line %d: %s", node.Line, err)}
 		}
@@ -598,6 +604,27 @@ func valueOf(option *pluginv1.Option, node *yaml.Node) (*typev1.OptionValue, err
 			items = append(items, item.Value)
 		}
 		return &typev1.OptionValue{Value: &typev1.OptionValue_StringListValue{StringListValue: &typev1.OptionValue_StringList{Values: items}}}, nil
+	case pluginv1.Option_KIND_DURATION:
+		// A length of time says its unit, as Go writes one: 90s, 10m,
+		// 1h30m. A bare number says none, and is refused.
+		length, err := time.ParseDuration(node.Value)
+		if !scalar("!!str") || err != nil || length < 0 {
+			return nil, fmt.Errorf("%s is a length of time, not below zero, as 90s or 10m", name)
+		}
+		return &typev1.OptionValue{Value: &typev1.OptionValue_DurationValue{DurationValue: durationpb.New(length)}}, nil
+	case pluginv1.Option_KIND_STRING_MAP:
+		if node.Kind != yaml.MappingNode {
+			return nil, fmt.Errorf("%s is a map of text by name", name)
+		}
+		values := make(map[string]string, len(node.Content)/2)
+		for i := 0; i+1 < len(node.Content); i += 2 {
+			key, value := node.Content[i], node.Content[i+1]
+			if key.Kind != yaml.ScalarNode || key.ShortTag() != "!!str" || value.Kind != yaml.ScalarNode || value.ShortTag() != "!!str" {
+				return nil, fmt.Errorf("%s is a map of text by name", name)
+			}
+			values[key.Value] = value.Value
+		}
+		return &typev1.OptionValue{Value: &typev1.OptionValue_StringMapValue{StringMapValue: &typev1.OptionValue_StringMap{Values: values}}}, nil
 	}
 	return nil, fmt.Errorf("the plugin does not say what kind of value %s takes", name)
 }

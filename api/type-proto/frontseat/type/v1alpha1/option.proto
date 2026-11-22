@@ -3,8 +3,11 @@ syntax = "proto3";
 
 package frontseat.type.v1alpha1;
 
+import "google/protobuf/duration.proto";
+
 // OptionValue preserves an option's kind and exact value across every API.
-// An unset value is invalid. An empty string or list, false and zero are values.
+// An unset value is invalid. An empty string, list or map, false and zero
+// are values.
 message OptionValue {
   // Value is exactly one supported kind; integers never pass through a float.
   oneof value {
@@ -16,11 +19,22 @@ message OptionValue {
     int64 int_value = 3;
     // String_list_value is an ordered list of text; entries retain punctuation.
     StringList string_list_value = 4;
+    // Duration_value is a length of time, never below zero: written
+    // "90s", "10m" or "1h30m" where it is set.
+    google.protobuf.Duration duration_value = 5;
+    // String_map_value is text by name, each name said once.
+    StringMap string_map_value = 6;
   }
 
   // StringList carries a list as one option value, including an empty list.
   message StringList {
     // Values are the entries, in their declared order.
     repeated string values = 1;
+  }
+
+  // StringMap carries a map as one option value, including an empty map.
+  message StringMap {
+    // Values are the entries, by name.
+    map<string, string> values = 1;
   }
 }

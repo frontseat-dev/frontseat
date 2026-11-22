@@ -34,8 +34,10 @@ profile and option access, and structured errors. The host owns authoritative
 contract validation and tracking/invalidation of repository reads. Go supplies
 only ecosystem behavior. Do not copy common logic into a new plugin.
 
-The plugin ABI uses `PluginOption` declarations with `String`, `Bool`, `Int` and
-`StringList` values. The SDK rejects unknown, missing and mistyped options
+The plugin ABI uses `PluginOption` declarations, each saying what it does in
+one sentence, with `String`, `Bool`, `Int`, `StringList`, `Duration` and
+`StringMap` values, and the bounds and words a value may be, which the host
+holds what a repository sets to, at its line. The SDK rejects unknown, missing and mistyped options
 before ecosystem code reads source. Integer values remain exact signed int64s;
 lists retain individual entries, including empty strings and commas.
 

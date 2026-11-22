@@ -305,17 +305,84 @@ pub struct Description {
     pub services: Vec<String>,
 }
 
-/// An option a plugin takes: its name, and the value it has where nothing
-/// sets it. The value's kind is the option's kind.
+/// An option a plugin takes: its name, what it does, the value it has
+/// where nothing sets it, and what a value may be. The value's kind is
+/// the option's kind. The host holds whatever sets it to what it takes,
+/// and refuses anything else at the file and line that wrote it, so a
+/// plugin need not check the kind, the bounds or the words again.
+///
+/// ```
+/// # use frontseat_plugin::prelude::*;
+/// let shards = PluginOption::new("test-shards", "How many shards each piece of the tests is cut into.", 1)
+///     .entity_settable()
+///     .at_least(1);
+/// assert_eq!(shards.minimum, Some(1));
+/// ```
 #[derive(Clone, Debug, PartialEq)]
 pub struct PluginOption {
     /// What it is set by, lower-case `[a-z0-9-]`.
     pub name: &'static str,
+    /// What it does, in one sentence of at most 200 bytes: what whoever
+    /// sets it reads of it. Required.
+    pub description: &'static str,
     /// Its value where nothing sets it.
     pub default: Value,
     /// Whether an entity may set it, for its own directory and beneath;
     /// otherwise only a repository may.
     pub entity_settable: bool,
+    /// The least an integer may be; `None`, no least.
+    pub minimum: Option<i64>,
+    /// The most an integer may be; `None`, no most.
+    pub maximum: Option<i64>,
+    /// The words a value may be: the text of a string, each entry of a
+    /// list, each value of a map. Empty, any text.
+    pub allowed: &'static [&'static str],
+}
+
+impl PluginOption {
+    /// An option of a name, what it does and its default, which only a
+    /// repository may set, and which takes any value of its kind.
+    pub fn new(name: &'static str, description: &'static str, default: impl Into<Value>) -> Self {
+        Self {
+            name,
+            description,
+            default: default.into(),
+            entity_settable: false,
+            minimum: None,
+            maximum: None,
+            allowed: &[],
+        }
+    }
+
+    /// The same option, which an entity may set too, for its own
+    /// directory and beneath.
+    #[must_use]
+    pub fn entity_settable(mut self) -> Self {
+        self.entity_settable = true;
+        self
+    }
+
+    /// The same integer option, at least this.
+    #[must_use]
+    pub fn at_least(mut self, minimum: i64) -> Self {
+        self.minimum = Some(minimum);
+        self
+    }
+
+    /// The same integer option, at most this.
+    #[must_use]
+    pub fn at_most(mut self, maximum: i64) -> Self {
+        self.maximum = Some(maximum);
+        self
+    }
+
+    /// The same option of text, whose value (or each entry, or each
+    /// value of a map) is one of these words.
+    #[must_use]
+    pub fn one_of(mut self, allowed: &'static [&'static str]) -> Self {
+        self.allowed = allowed;
+        self
+    }
 }
 
 /// The value of an option.
@@ -329,6 +396,10 @@ pub enum Value {
     Int(i64),
     /// A list of text. A setting replaces the whole list.
     StringList(Vec<String>),
+    /// A length of time, never below zero, written `90s` or `10m`.
+    Duration(std::time::Duration),
+    /// Text by name. A setting replaces the whole map.
+    StringMap(std::collections::BTreeMap<String, String>),
 }
 
 impl From<&str> for Value {
@@ -361,15 +432,32 @@ impl From<Vec<String>> for Value {
     }
 }
 
+impl From<std::time::Duration> for Value {
+    fn from(length: std::time::Duration) -> Self {
+        Value::Duration(length)
+    }
+}
+
+impl From<std::collections::BTreeMap<String, String>> for Value {
+    fn from(map: std::collections::BTreeMap<String, String>) -> Self {
+        Value::StringMap(map)
+    }
+}
+
 impl From<Value> for crate::OptionValue {
     fn from(value: Value) -> Self {
-        use crate::option_value::{StringList, Value as WireValue};
+        use crate::option_value::{StringList, StringMap, Value as WireValue};
         Self {
             value: Some(match value {
                 Value::String(value) => WireValue::StringValue(value),
                 Value::Bool(value) => WireValue::BoolValue(value),
                 Value::Int(value) => WireValue::IntValue(value),
                 Value::StringList(values) => WireValue::StringListValue(StringList { values }),
+                Value::Duration(length) => WireValue::DurationValue(crate::Duration {
+                    seconds: i64::try_from(length.as_secs()).unwrap_or(i64::MAX),
+                    nanos: i32::try_from(length.subsec_nanos()).unwrap_or(0),
+                }),
+                Value::StringMap(values) => WireValue::StringMapValue(StringMap { values }),
             }),
         }
     }
@@ -384,6 +472,8 @@ impl PluginOption {
             Value::Bool(_) => Kind::Bool,
             Value::Int(_) => Kind::Int,
             Value::StringList(_) => Kind::StringList,
+            Value::Duration(_) => Kind::Duration,
+            Value::StringMap(_) => Kind::StringMap,
         }
     }
 }

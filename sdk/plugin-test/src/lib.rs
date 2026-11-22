@@ -757,11 +757,11 @@ mod tests {
         fn describe(&self) -> Description {
             Description {
                 name: "manifests".into(),
-                options: vec![PluginOption {
-                    name: "strict",
-                    default: Value::Bool(true),
-                    entity_settable: false,
-                }],
+                options: vec![PluginOption::new(
+                    "strict",
+                    "Whether a missing manifest is refused.",
+                    true,
+                )],
                 ..Default::default()
             }
         }

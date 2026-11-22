@@ -123,6 +123,12 @@ const (
 	Option_KIND_INT Option_Kind = 3
 	// KIND_STRING_LIST: a list of text. A setting replaces the whole list.
 	Option_KIND_STRING_LIST Option_Kind = 4
+	// KIND_DURATION: a length of time, never below zero, written as Go's
+	// time.ParseDuration reads one: "90s", "10m", "1h30m".
+	Option_KIND_DURATION Option_Kind = 5
+	// KIND_STRING_MAP: text by name, written as a YAML map, each name
+	// said once. A setting replaces the whole map.
+	Option_KIND_STRING_MAP Option_Kind = 6
 )
 
 // Enum value maps for Option_Kind.
@@ -133,6 +139,8 @@ var (
 		2: "KIND_BOOL",
 		3: "KIND_INT",
 		4: "KIND_STRING_LIST",
+		5: "KIND_DURATION",
+		6: "KIND_STRING_MAP",
 	}
 	Option_Kind_value = map[string]int32{
 		"KIND_UNSPECIFIED": 0,
@@ -140,6 +148,8 @@ var (
 		"KIND_BOOL":        2,
 		"KIND_INT":         3,
 		"KIND_STRING_LIST": 4,
+		"KIND_DURATION":    5,
+		"KIND_STRING_MAP":  6,
 	}
 )
 
@@ -255,22 +265,39 @@ func (x *Context) GetPlatforms() []string {
 
 // Option is an option a plugin takes: something a repository, or an
 // entity, may set of how the plugin builds. The host checks what is set
-// against it, and hands the plugin every option it declared, each with
-// the value that holds where the plugin is asked.
+// against it, where it is written, and hands the plugin every option it
+// declared, each with the value that holds where the plugin is asked. A
+// value the option does not take is refused at the file and line that
+// wrote it, so a plugin need not check its kind, its bounds or the
+// words it allows.
 type Option struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Name is what it is set by, lower-case words of [a-z0-9] joined by
 	// single hyphens.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Description says what it does, in one sentence of printable text of
+	// at most 200 bytes: what whoever sets it reads of it. It is required.
+	Description string `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
 	// Kind is the kind of value it takes.
 	Kind Option_Kind `protobuf:"varint,3,opt,name=kind,proto3,enum=frontseat.plugin.v1alpha1.Option_Kind" json:"kind,omitempty"`
-	// Default is its value where nothing sets it.
+	// Default is its value where nothing sets it, and is held to what the
+	// option takes, as a value set is.
 	Default *v1alpha1.OptionValue `protobuf:"bytes,4,opt,name=default,proto3" json:"default,omitempty"`
-	// Entity_settable says an entity may set it, for its own directory and beneath;
-	// unset, only a repository may.
+	// Entity_settable says a Component may set it, for its own directory and
+	// beneath; unset, only a repository may.
 	EntitySettable bool `protobuf:"varint,5,opt,name=entity_settable,json=entitySettable,proto3" json:"entity_settable,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Minimum is the least an integer (KIND_INT) may be; unset, no least.
+	// Only an integer says one.
+	Minimum *int64 `protobuf:"varint,6,opt,name=minimum,proto3,oneof" json:"minimum,omitempty"`
+	// Maximum is the most an integer may be; unset, no most. It is not
+	// below minimum.
+	Maximum *int64 `protobuf:"varint,7,opt,name=maximum,proto3,oneof" json:"maximum,omitempty"`
+	// Allowed are the words a value may be, each said once: the text of a
+	// KIND_STRING, each entry of a KIND_STRING_LIST, each value of a
+	// KIND_STRING_MAP. Empty, any text. Only those three kinds say them.
+	Allowed       []string `protobuf:"bytes,8,rep,name=allowed,proto3" json:"allowed,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Option) Reset() {
@@ -310,6 +337,13 @@ func (x *Option) GetName() string {
 	return ""
 }
 
+func (x *Option) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
 func (x *Option) GetKind() Option_Kind {
 	if x != nil {
 		return x.Kind
@@ -329,6 +363,27 @@ func (x *Option) GetEntitySettable() bool {
 		return x.EntitySettable
 	}
 	return false
+}
+
+func (x *Option) GetMinimum() int64 {
+	if x != nil && x.Minimum != nil {
+		return *x.Minimum
+	}
+	return 0
+}
+
+func (x *Option) GetMaximum() int64 {
+	if x != nil && x.Maximum != nil {
+		return *x.Maximum
+	}
+	return 0
+}
+
+func (x *Option) GetAllowed() []string {
+	if x != nil {
+		return x.Allowed
+	}
+	return nil
 }
 
 // DescribeRequest asks a plugin what it is. The ABI a module speaks is
@@ -3514,18 +3569,28 @@ const file_frontseat_plugin_v1alpha1_plugin_proto_rawDesc = "" +
 	"\n" +
 	"ToolsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xa3\x02\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xde\x03\n" +
 	"\x06Option\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\x12:\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x02 \x01(\tR\vdescription\x12:\n" +
 	"\x04kind\x18\x03 \x01(\x0e2&.frontseat.plugin.v1alpha1.Option.KindR\x04kind\x12>\n" +
 	"\adefault\x18\x04 \x01(\v2$.frontseat.type.v1alpha1.OptionValueR\adefault\x12'\n" +
-	"\x0fentity_settable\x18\x05 \x01(\bR\x0eentitySettable\"`\n" +
+	"\x0fentity_settable\x18\x05 \x01(\bR\x0eentitySettable\x12\x1d\n" +
+	"\aminimum\x18\x06 \x01(\x03H\x00R\aminimum\x88\x01\x01\x12\x1d\n" +
+	"\amaximum\x18\a \x01(\x03H\x01R\amaximum\x88\x01\x01\x12\x18\n" +
+	"\aallowed\x18\b \x03(\tR\aallowed\"\x88\x01\n" +
 	"\x04Kind\x12\x14\n" +
 	"\x10KIND_UNSPECIFIED\x10\x00\x12\x0f\n" +
 	"\vKIND_STRING\x10\x01\x12\r\n" +
 	"\tKIND_BOOL\x10\x02\x12\f\n" +
 	"\bKIND_INT\x10\x03\x12\x14\n" +
-	"\x10KIND_STRING_LIST\x10\x04\"\x11\n" +
+	"\x10KIND_STRING_LIST\x10\x04\x12\x11\n" +
+	"\rKIND_DURATION\x10\x05\x12\x13\n" +
+	"\x0fKIND_STRING_MAP\x10\x06B\n" +
+	"\n" +
+	"\b_minimumB\n" +
+	"\n" +
+	"\b_maximum\"\x11\n" +
 	"\x0fDescribeRequest\"\x8d\x02\n" +
 	"\x10DescribeResponse\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1c\n" +
@@ -3890,6 +3955,7 @@ func file_frontseat_plugin_v1alpha1_plugin_proto_init() {
 		return
 	}
 	file_frontseat_plugin_v1alpha1_release_proto_init()
+	file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[1].OneofWrappers = []any{}
 	file_frontseat_plugin_v1alpha1_plugin_proto_msgTypes[21].OneofWrappers = []any{
 		(*Action_Build)(nil),
 		(*Action_Test)(nil),

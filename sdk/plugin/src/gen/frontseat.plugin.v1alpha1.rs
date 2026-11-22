@@ -265,24 +265,45 @@ pub struct Context {
 }
 /// Option is an option a plugin takes: something a repository, or an
 /// entity, may set of how the plugin builds. The host checks what is set
-/// against it, and hands the plugin every option it declared, each with
-/// the value that holds where the plugin is asked.
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+/// against it, where it is written, and hands the plugin every option it
+/// declared, each with the value that holds where the plugin is asked. A
+/// value the option does not take is refused at the file and line that
+/// wrote it, so a plugin need not check its kind, its bounds or the
+/// words it allows.
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Option {
     /// Name is what it is set by, lower-case words of \[a-z0-9\] joined by
     /// single hyphens.
     #[prost(string, tag = "1")]
     pub name: ::prost::alloc::string::String,
+    /// Description says what it does, in one sentence of printable text of
+    /// at most 200 bytes: what whoever sets it reads of it. It is required.
+    #[prost(string, tag = "2")]
+    pub description: ::prost::alloc::string::String,
     /// Kind is the kind of value it takes.
     #[prost(enumeration = "option::Kind", tag = "3")]
     pub kind: i32,
-    /// Default is its value where nothing sets it.
+    /// Default is its value where nothing sets it, and is held to what the
+    /// option takes, as a value set is.
     #[prost(message, optional, tag = "4")]
     pub default: ::core::option::Option<super::super::r#type::v1alpha1::OptionValue>,
-    /// Entity_settable says an entity may set it, for its own directory and beneath;
-    /// unset, only a repository may.
+    /// Entity_settable says a Component may set it, for its own directory and
+    /// beneath; unset, only a repository may.
     #[prost(bool, tag = "5")]
     pub entity_settable: bool,
+    /// Minimum is the least an integer (KIND_INT) may be; unset, no least.
+    /// Only an integer says one.
+    #[prost(int64, optional, tag = "6")]
+    pub minimum: ::core::option::Option<i64>,
+    /// Maximum is the most an integer may be; unset, no most. It is not
+    /// below minimum.
+    #[prost(int64, optional, tag = "7")]
+    pub maximum: ::core::option::Option<i64>,
+    /// Allowed are the words a value may be, each said once: the text of a
+    /// KIND_STRING, each entry of a KIND_STRING_LIST, each value of a
+    /// KIND_STRING_MAP. Empty, any text. Only those three kinds say them.
+    #[prost(string, repeated, tag = "8")]
+    pub allowed: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// Nested message and enum types in `Option`.
 pub mod option {
@@ -310,6 +331,12 @@ pub mod option {
         Int = 3,
         /// KIND_STRING_LIST: a list of text. A setting replaces the whole list.
         StringList = 4,
+        /// KIND_DURATION: a length of time, never below zero, written as Go's
+        /// time.ParseDuration reads one: "90s", "10m", "1h30m".
+        Duration = 5,
+        /// KIND_STRING_MAP: text by name, written as a YAML map, each name
+        /// said once. A setting replaces the whole map.
+        StringMap = 6,
     }
     impl Kind {
         /// String value of the enum field names used in the ProtoBuf definition.
@@ -323,6 +350,8 @@ pub mod option {
                 Self::Bool => "KIND_BOOL",
                 Self::Int => "KIND_INT",
                 Self::StringList => "KIND_STRING_LIST",
+                Self::Duration => "KIND_DURATION",
+                Self::StringMap => "KIND_STRING_MAP",
             }
         }
         /// Creates an enum from field names used in the ProtoBuf definition.
@@ -333,6 +362,8 @@ pub mod option {
                 "KIND_BOOL" => Some(Self::Bool),
                 "KIND_INT" => Some(Self::Int),
                 "KIND_STRING_LIST" => Some(Self::StringList),
+                "KIND_DURATION" => Some(Self::Duration),
+                "KIND_STRING_MAP" => Some(Self::StringMap),
                 _ => None,
             }
         }

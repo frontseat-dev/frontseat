@@ -40,11 +40,12 @@ impl Plugin for CargoPlugin {
             ]
             .map(str::to_string)
             .to_vec(),
-            options: vec![PluginOption {
-                name: WASM,
-                default: frontseat_plugin::Value::Bool(false),
-                entity_settable: true,
-            }],
+            options: vec![PluginOption::new(
+                WASM,
+                "Whether each cdylib crate is also built to wasm32-wasip1.",
+                false,
+            )
+            .entity_settable()],
             ..Default::default()
         }
     }

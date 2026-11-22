@@ -134,19 +134,36 @@ enum Profile {
 
 // Option is an option a plugin takes: something a repository, or an
 // entity, may set of how the plugin builds. The host checks what is set
-// against it, and hands the plugin every option it declared, each with
-// the value that holds where the plugin is asked.
+// against it, where it is written, and hands the plugin every option it
+// declared, each with the value that holds where the plugin is asked. A
+// value the option does not take is refused at the file and line that
+// wrote it, so a plugin need not check its kind, its bounds or the
+// words it allows.
 message Option {
   // Name is what it is set by, lower-case words of [a-z0-9] joined by
   // single hyphens.
   string name = 1;
+  // Description says what it does, in one sentence of printable text of
+  // at most 200 bytes: what whoever sets it reads of it. It is required.
+  string description = 2;
   // Kind is the kind of value it takes.
   Kind kind = 3;
-  // Default is its value where nothing sets it.
+  // Default is its value where nothing sets it, and is held to what the
+  // option takes, as a value set is.
   frontseat.type.v1alpha1.OptionValue default = 4;
-  // Entity_settable says an entity may set it, for its own directory and beneath;
-  // unset, only a repository may.
+  // Entity_settable says a Component may set it, for its own directory and
+  // beneath; unset, only a repository may.
   bool entity_settable = 5;
+  // Minimum is the least an integer (KIND_INT) may be; unset, no least.
+  // Only an integer says one.
+  optional int64 minimum = 6;
+  // Maximum is the most an integer may be; unset, no most. It is not
+  // below minimum.
+  optional int64 maximum = 7;
+  // Allowed are the words a value may be, each said once: the text of a
+  // KIND_STRING, each entry of a KIND_STRING_LIST, each value of a
+  // KIND_STRING_MAP. Empty, any text. Only those three kinds say them.
+  repeated string allowed = 8;
 
   // Kind is a kind of value an option takes.
   enum Kind {
@@ -160,6 +177,12 @@ message Option {
     KIND_INT = 3;
     // KIND_STRING_LIST: a list of text. A setting replaces the whole list.
     KIND_STRING_LIST = 4;
+    // KIND_DURATION: a length of time, never below zero, written as Go's
+    // time.ParseDuration reads one: "90s", "10m", "1h30m".
+    KIND_DURATION = 5;
+    // KIND_STRING_MAP: text by name, written as a YAML map, each name
+    // said once. A setting replaces the whole map.
+    KIND_STRING_MAP = 6;
   }
 }
 

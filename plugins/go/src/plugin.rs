@@ -18,36 +18,33 @@ impl Plugin for GoPlugin {
                 .map(str::to_string)
                 .to_vec(),
             options: vec![
-                // How long a module's tests may run, as the go command writes
-                // a duration.
-                PluginOption {
-                    name: "test-timeout",
-                    default: Value::String("10m".into()),
-                    entity_settable: true,
-                },
-                // Into how many actions a package's tests are cut at most,
-                // each running a share of them.
-                PluginOption {
-                    name: "test-shards",
-                    default: Value::Int(1),
-                    entity_settable: true,
-                },
-                // The build tags a module is linted, compiled and tested with.
-                PluginOption {
-                    name: "tags",
-                    default: Value::StringList(Vec::new()),
-                    entity_settable: true,
-                },
-                // The variables a module's programs say their version by,
-                // each "<package>.<variable>=<what>": a string variable of
+                PluginOption::new(
+                    "test-timeout",
+                    "How long each test action may run, as the go command writes a duration (10m).",
+                    "10m",
+                )
+                .entity_settable(),
+                PluginOption::new(
+                    "test-shards",
+                    "Into how many actions each package's tests are cut at most, each running a share.",
+                    1,
+                )
+                .entity_settable(),
+                PluginOption::new(
+                    "tags",
+                    "The build tags a module is linted, compiled and tested with.",
+                    Vec::<String>::new(),
+                )
+                .entity_settable(),
+                // Each "<package>.<variable>=<what>": a string variable of
                 // a package, by its import path, and what of the release
-                // it is set to when the program is linked: version, tag,
-                // commit or unit.
-                PluginOption {
-                    name: "version",
-                    default: Value::StringList(Vec::new()),
-                    entity_settable: true,
-                },
+                // it is set to when the program is linked.
+                PluginOption::new(
+                    "version",
+                    "Variables a module's programs say their version by, each <package>.<variable>=<version|tag|commit|unit>.",
+                    Vec::<String>::new(),
+                )
+                .entity_settable(),
             ],
             ..Default::default()
         }

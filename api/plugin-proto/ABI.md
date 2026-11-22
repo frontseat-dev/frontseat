@@ -151,10 +151,20 @@ as that, whatever the module did after.
 - **Describe reads nothing.** A read through the host during Describe
   fails the call.
 - **Options retain their types.** Defaults, call contexts and graph views use
-  `frontseat.type.v1alpha1.OptionValue`. The SDK checks every declared option
-  before ecosystem code runs. Missing, unknown, unset and mistyped values fail;
-  empty strings/lists, false and zero are present values. All signed int64
-  values are carried exactly, without floating-point conversion.
+  `frontseat.type.v1alpha1.OptionValue`: text, a switch, an integer, a list of
+  text, a length of time or a map of text by name. The SDK checks every
+  declared option before ecosystem code runs. Missing, unknown, unset and
+  mistyped values fail; empty strings/lists/maps, false and zero are present
+  values. All signed int64 values are carried exactly, without floating-point
+  conversion.
+- **An option says what it does and what it takes.** Each has a description,
+  one sentence of at most 200 bytes, and may bound an integer (`minimum`,
+  `maximum`) or allow only some words of a text, of each entry of a list or of
+  each value of a map (`allowed`). The host refuses a plugin whose declaration
+  does not hold together, or whose default it does not take, at load; and a
+  value a repository or an entity sets that the option does not take, at the
+  file and line that set it, naming the option and the rule and never the
+  value. A plugin need not check these again.
 - **Profiles are explicit.** Analyze, Arrange, Report and Reconcile
   require development or production. The SDK rejects unspecified and unknown values before source
   access, just as it validates options before ecosystem code.

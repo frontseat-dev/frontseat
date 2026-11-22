@@ -854,6 +854,7 @@ mise run docs:serve       # serve the TechDocs site on http://localhost:8000
 | `server/telemetry` | OpenTelemetry providers, propagation, logs, measurements |
 | `server/internal/model`, `.../wire` | Build labels, coordinates; their protobuf conversion |
 | `server/internal/pluginhost` | Wasm calls, read tracking, plugin-answer validation |
+| `server/internal/pluginoption` | What a plugin's option takes: its declaration held to the contract, and a value, default or set, held to it |
 | `server/internal/httpserver` | A server command's HTTP listener and request lifetime |
 | `server/internal/image` | An image's reference, read by Docker's own parser |
 | `server/internal/testservice` | What a service for tests is held to, for the daemon and the runner |

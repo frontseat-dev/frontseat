@@ -10,6 +10,7 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
+	"github.com/frontseat-dev/frontseat/server/internal/pluginoption"
 	"github.com/frontseat-dev/frontseat/server/internal/testservice"
 	"path"
 	"path/filepath"
@@ -69,7 +70,8 @@ func checkDescription(d *pluginv1.DescribeResponse) error {
 	}
 	// What a repository sets is checked against the options a plugin
 	// declares, so the declarations are checked first: each has a name
-	// of its own, a kind, and a default of that kind.
+	// of its own, says what it does and what it takes, and has a default
+	// it takes.
 	declared := map[string]bool{}
 	for _, option := range d.GetOptions() {
 		switch {
@@ -77,31 +79,16 @@ func checkDescription(d *pluginv1.DescribeResponse) error {
 			return fmt.Errorf("plugin %s declares the option %q, whose name is not lower-case [a-z0-9-]", d.GetName(), option.GetName())
 		case declared[option.GetName()]:
 			return fmt.Errorf("plugin %s declares the option %s twice", d.GetName(), option.GetName())
-		case !ofKind(option.GetKind(), option.GetDefault()):
-			return fmt.Errorf("plugin %s declares the option %s with a kind and a default that do not agree: a kind is a string, a bool, an int or a string list, and a default is a value of it", d.GetName(), option.GetName())
+		}
+		if err := pluginoption.Declared(option); err != nil {
+			return fmt.Errorf("plugin %s: %w", d.GetName(), err)
+		}
+		if err := pluginoption.Takes(option, option.GetDefault()); err != nil {
+			return fmt.Errorf("plugin %s declares the option %s with a default it does not take: %w", d.GetName(), option.GetName(), err)
 		}
 		declared[option.GetName()] = true
 	}
 	return nil
-}
-
-// ofKind reports whether a value is one of a kind an option takes.
-func ofKind(kind pluginv1.Option_Kind, value *typev1.OptionValue) bool {
-	switch kind {
-	case pluginv1.Option_KIND_STRING:
-		_, is := value.GetValue().(*typev1.OptionValue_StringValue)
-		return is
-	case pluginv1.Option_KIND_BOOL:
-		_, is := value.GetValue().(*typev1.OptionValue_BoolValue)
-		return is
-	case pluginv1.Option_KIND_INT:
-		_, is := value.GetValue().(*typev1.OptionValue_IntValue)
-		return is
-	case pluginv1.Option_KIND_STRING_LIST:
-		list, is := value.GetValue().(*typev1.OptionValue_StringListValue)
-		return is && list.StringListValue != nil
-	}
-	return false
 }
 
 // CheckAnalysis holds an Analyze answer to the contract, for the roots

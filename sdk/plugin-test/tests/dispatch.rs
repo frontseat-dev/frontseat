@@ -63,11 +63,11 @@ fn integer_options_round_trip_without_float_conversion() {
         fn describe(&self) -> Description {
             Description {
                 name: "integers".into(),
-                options: vec![PluginOption {
-                    name: "number",
-                    default: Value::Int(9_007_199_254_740_993),
-                    entity_settable: false,
-                }],
+                options: vec![PluginOption::new(
+                    "number",
+                    "An option of the fixture.",
+                    Value::Int(9_007_199_254_740_993),
+                )],
                 ..Default::default()
             }
         }
@@ -114,26 +114,20 @@ impl Plugin for Example {
         Description {
             name: "example".into(),
             options: vec![
-                PluginOption {
-                    name: "text",
-                    default: Value::String("value".into()),
-                    entity_settable: true,
-                },
-                PluginOption {
-                    name: "switch",
-                    default: Value::Bool(true),
-                    entity_settable: false,
-                },
-                PluginOption {
-                    name: "number",
-                    default: Value::Int(7),
-                    entity_settable: false,
-                },
-                PluginOption {
-                    name: "list",
-                    default: Value::StringList(vec!["a".into()]),
-                    entity_settable: true,
-                },
+                PluginOption::new(
+                    "text",
+                    "An option of the fixture.",
+                    Value::String("value".into()),
+                )
+                .entity_settable(),
+                PluginOption::new("switch", "An option of the fixture.", Value::Bool(true)),
+                PluginOption::new("number", "An option of the fixture.", Value::Int(7)),
+                PluginOption::new(
+                    "list",
+                    "An option of the fixture.",
+                    Value::StringList(vec!["a".into()]),
+                )
+                .entity_settable(),
             ],
             ..Default::default()
         }

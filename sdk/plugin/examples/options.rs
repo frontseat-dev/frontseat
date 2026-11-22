@@ -11,26 +11,12 @@ impl Plugin for Options {
         Description {
             name: "options".into(),
             options: vec![
-                PluginOption {
-                    name: "int",
-                    default: Value::Int(0),
-                    entity_settable: true,
-                },
-                PluginOption {
-                    name: "bool",
-                    default: Value::Bool(false),
-                    entity_settable: true,
-                },
-                PluginOption {
-                    name: "string",
-                    default: Value::String(String::new()),
-                    entity_settable: true,
-                },
-                PluginOption {
-                    name: "list",
-                    default: Value::StringList(Vec::new()),
-                    entity_settable: true,
-                },
+                PluginOption::new("int", "A whole number.", Value::Int(0)).entity_settable(),
+                PluginOption::new("bool", "True or false.", Value::Bool(false)).entity_settable(),
+                PluginOption::new("string", "Text.", Value::String(String::new()))
+                    .entity_settable(),
+                PluginOption::new("list", "A list of text.", Value::StringList(Vec::new()))
+                    .entity_settable(),
             ],
             ..Default::default()
         }

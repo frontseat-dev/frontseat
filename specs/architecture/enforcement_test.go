@@ -76,6 +76,12 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		{"cli/cmd/frontseat/main.go", "sdk/go", false},
 		// The plugin contract's Go is the daemon's: it is generated into
 		// the build's internal packages, and the SDK has none of it.
+		// What an option takes is held in one place, which the host and
+		// the repository's reader both ask, and which asks neither.
+		{"server/internal/engine/config/config.go", "server/internal/pluginoption", true},
+		{"server/internal/pluginhost/check.go", "server/internal/pluginoption", true},
+		{"server/internal/pluginoption/pluginoption.go", "server/internal/engine/config", false},
+		{"server/internal/pluginoption/pluginoption.go", "server/internal/pluginhost", false},
 		{"server/internal/pluginhost/host.go", "server/internal/pluginapi/frontseat/plugin/v1alpha1", true},
 		{"server/internal/pluginapi/frontseat/plugin/v1alpha1/plugin.pb.go", "sdk/go/api/frontseat/build/v1alpha1", true},
 		{"server/internal/source/workspace.go", "server/internal/pluginapi/frontseat/plugin/v1alpha1", false},

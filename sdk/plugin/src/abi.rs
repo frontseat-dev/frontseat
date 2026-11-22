@@ -80,9 +80,13 @@ fn describe(d: Description, request: &[u8]) -> Result<Vec<u8>, Error> {
         .into_iter()
         .map(|o| wire::Option {
             name: o.name.into(),
+            description: o.description.into(),
             kind: o.kind() as i32,
             default: Some(o.default.into()),
             entity_settable: o.entity_settable,
+            minimum: o.minimum,
+            maximum: o.maximum,
+            allowed: o.allowed.iter().map(|word| word.to_string()).collect(),
         })
         .collect();
     let mut interests = d.interests;

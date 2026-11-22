@@ -41,6 +41,8 @@ impl<'a> Repository<'a> {
                 Kind::Bool if !matches!(value, Value::BoolValue(_)) => "a bool",
                 Kind::Int if !matches!(value, Value::IntValue(_)) => "an int",
                 Kind::StringList if !matches!(value, Value::StringListValue(_)) => "a string list",
+                Kind::Duration if !matches!(value, Value::DurationValue(_)) => "a duration",
+                Kind::StringMap if !matches!(value, Value::StringMapValue(_)) => "a string map",
                 _ => continue,
             };
             return Err(Self::not_of_kind(option.name, kind));
@@ -92,7 +94,8 @@ impl<'a> Repository<'a> {
     }
 
     /// An option given as another kind than declared. The kinds are named
-    /// as the contract names them: string, bool, int, string list.
+    /// as the contract names them: string, bool, int, string list,
+    /// duration, string map.
     fn not_of_kind(name: &str, kind: &str) -> crate::Error {
         Self::invalid_option(format!("option {name} is not {kind}"))
     }
@@ -126,6 +129,35 @@ impl<'a> Repository<'a> {
         match self.option(name)? {
             crate::option_value::Value::StringListValue(value) => Ok(&value.values),
             _ => Err(Self::not_of_kind(name, "a string list")),
+        }
+    }
+
+    /// Returns a length of time an option holds, refusing one below zero
+    /// or of nanoseconds out of range, which the host never sends.
+    pub fn duration(&self, name: &str) -> Result<std::time::Duration, crate::Error> {
+        match self.option(name)? {
+            crate::option_value::Value::DurationValue(value) => {
+                match (u64::try_from(value.seconds), u32::try_from(value.nanos)) {
+                    (Ok(seconds), Ok(nanos)) if nanos < 1_000_000_000 => {
+                        Ok(std::time::Duration::new(seconds, nanos))
+                    }
+                    _ => Err(Self::invalid_option(format!(
+                        "option {name} is a length of time below zero"
+                    ))),
+                }
+            }
+            _ => Err(Self::not_of_kind(name, "a duration")),
+        }
+    }
+
+    /// Returns a map option, by name.
+    pub fn string_map(
+        &self,
+        name: &str,
+    ) -> Result<&std::collections::BTreeMap<String, String>, crate::Error> {
+        match self.option(name)? {
+            crate::option_value::Value::StringMapValue(value) => Ok(&value.values),
+            _ => Err(Self::not_of_kind(name, "a string map")),
         }
     }
 

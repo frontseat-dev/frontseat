@@ -11,6 +11,7 @@ package typev1alpha1
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	durationpb "google.golang.org/protobuf/types/known/durationpb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -24,7 +25,8 @@ const (
 )
 
 // OptionValue preserves an option's kind and exact value across every API.
-// An unset value is invalid. An empty string or list, false and zero are values.
+// An unset value is invalid. An empty string, list or map, false and zero
+// are values.
 type OptionValue struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Value is exactly one supported kind; integers never pass through a float.
@@ -35,6 +37,8 @@ type OptionValue struct {
 	//	*OptionValue_BoolValue
 	//	*OptionValue_IntValue
 	//	*OptionValue_StringListValue
+	//	*OptionValue_DurationValue
+	//	*OptionValue_StringMapValue
 	Value         isOptionValue_Value `protobuf_oneof:"value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -113,6 +117,24 @@ func (x *OptionValue) GetStringListValue() *OptionValue_StringList {
 	return nil
 }
 
+func (x *OptionValue) GetDurationValue() *durationpb.Duration {
+	if x != nil {
+		if x, ok := x.Value.(*OptionValue_DurationValue); ok {
+			return x.DurationValue
+		}
+	}
+	return nil
+}
+
+func (x *OptionValue) GetStringMapValue() *OptionValue_StringMap {
+	if x != nil {
+		if x, ok := x.Value.(*OptionValue_StringMapValue); ok {
+			return x.StringMapValue
+		}
+	}
+	return nil
+}
+
 type isOptionValue_Value interface {
 	isOptionValue_Value()
 }
@@ -137,6 +159,17 @@ type OptionValue_StringListValue struct {
 	StringListValue *OptionValue_StringList `protobuf:"bytes,4,opt,name=string_list_value,json=stringListValue,proto3,oneof"`
 }
 
+type OptionValue_DurationValue struct {
+	// Duration_value is a length of time, never below zero: written
+	// "90s", "10m" or "1h30m" where it is set.
+	DurationValue *durationpb.Duration `protobuf:"bytes,5,opt,name=duration_value,json=durationValue,proto3,oneof"`
+}
+
+type OptionValue_StringMapValue struct {
+	// String_map_value is text by name, each name said once.
+	StringMapValue *OptionValue_StringMap `protobuf:"bytes,6,opt,name=string_map_value,json=stringMapValue,proto3,oneof"`
+}
+
 func (*OptionValue_StringValue) isOptionValue_Value() {}
 
 func (*OptionValue_BoolValue) isOptionValue_Value() {}
@@ -144,6 +177,10 @@ func (*OptionValue_BoolValue) isOptionValue_Value() {}
 func (*OptionValue_IntValue) isOptionValue_Value() {}
 
 func (*OptionValue_StringListValue) isOptionValue_Value() {}
+
+func (*OptionValue_DurationValue) isOptionValue_Value() {}
+
+func (*OptionValue_StringMapValue) isOptionValue_Value() {}
 
 // StringList carries a list as one option value, including an empty list.
 type OptionValue_StringList struct {
@@ -191,20 +228,73 @@ func (x *OptionValue_StringList) GetValues() []string {
 	return nil
 }
 
+// StringMap carries a map as one option value, including an empty map.
+type OptionValue_StringMap struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Values are the entries, by name.
+	Values        map[string]string `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *OptionValue_StringMap) Reset() {
+	*x = OptionValue_StringMap{}
+	mi := &file_frontseat_type_v1alpha1_option_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OptionValue_StringMap) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OptionValue_StringMap) ProtoMessage() {}
+
+func (x *OptionValue_StringMap) ProtoReflect() protoreflect.Message {
+	mi := &file_frontseat_type_v1alpha1_option_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OptionValue_StringMap.ProtoReflect.Descriptor instead.
+func (*OptionValue_StringMap) Descriptor() ([]byte, []int) {
+	return file_frontseat_type_v1alpha1_option_proto_rawDescGZIP(), []int{0, 1}
+}
+
+func (x *OptionValue_StringMap) GetValues() map[string]string {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
 var File_frontseat_type_v1alpha1_option_proto protoreflect.FileDescriptor
 
 const file_frontseat_type_v1alpha1_option_proto_rawDesc = "" +
 	"\n" +
-	"$frontseat/type/v1alpha1/option.proto\x12\x17frontseat.type.v1alpha1\"\x80\x02\n" +
+	"$frontseat/type/v1alpha1/option.proto\x12\x17frontseat.type.v1alpha1\x1a\x1egoogle/protobuf/duration.proto\"\xbd\x04\n" +
 	"\vOptionValue\x12#\n" +
 	"\fstring_value\x18\x01 \x01(\tH\x00R\vstringValue\x12\x1f\n" +
 	"\n" +
 	"bool_value\x18\x02 \x01(\bH\x00R\tboolValue\x12\x1d\n" +
 	"\tint_value\x18\x03 \x01(\x03H\x00R\bintValue\x12]\n" +
-	"\x11string_list_value\x18\x04 \x01(\v2/.frontseat.type.v1alpha1.OptionValue.StringListH\x00R\x0fstringListValue\x1a$\n" +
+	"\x11string_list_value\x18\x04 \x01(\v2/.frontseat.type.v1alpha1.OptionValue.StringListH\x00R\x0fstringListValue\x12B\n" +
+	"\x0eduration_value\x18\x05 \x01(\v2\x19.google.protobuf.DurationH\x00R\rdurationValue\x12Z\n" +
+	"\x10string_map_value\x18\x06 \x01(\v2..frontseat.type.v1alpha1.OptionValue.StringMapH\x00R\x0estringMapValue\x1a$\n" +
 	"\n" +
 	"StringList\x12\x16\n" +
-	"\x06values\x18\x01 \x03(\tR\x06valuesB\a\n" +
+	"\x06values\x18\x01 \x03(\tR\x06values\x1a\x9a\x01\n" +
+	"\tStringMap\x12R\n" +
+	"\x06values\x18\x01 \x03(\v2:.frontseat.type.v1alpha1.OptionValue.StringMap.ValuesEntryR\x06values\x1a9\n" +
+	"\vValuesEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\a\n" +
 	"\x05valueB\xfc\x01\n" +
 	"\x1bcom.frontseat.type.v1alpha1B\vOptionProtoP\x01ZRgithub.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1;typev1alpha1\xa2\x02\x03FTX\xaa\x02\x17Frontseat.Type.V1alpha1\xca\x02\x17Frontseat\\Type\\V1alpha1\xe2\x02#Frontseat\\Type\\V1alpha1\\GPBMetadata\xea\x02\x19Frontseat::Type::V1alpha1b\x06proto3"
 
@@ -220,18 +310,24 @@ func file_frontseat_type_v1alpha1_option_proto_rawDescGZIP() []byte {
 	return file_frontseat_type_v1alpha1_option_proto_rawDescData
 }
 
-var file_frontseat_type_v1alpha1_option_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_frontseat_type_v1alpha1_option_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_frontseat_type_v1alpha1_option_proto_goTypes = []any{
 	(*OptionValue)(nil),            // 0: frontseat.type.v1alpha1.OptionValue
 	(*OptionValue_StringList)(nil), // 1: frontseat.type.v1alpha1.OptionValue.StringList
+	(*OptionValue_StringMap)(nil),  // 2: frontseat.type.v1alpha1.OptionValue.StringMap
+	nil,                            // 3: frontseat.type.v1alpha1.OptionValue.StringMap.ValuesEntry
+	(*durationpb.Duration)(nil),    // 4: google.protobuf.Duration
 }
 var file_frontseat_type_v1alpha1_option_proto_depIdxs = []int32{
 	1, // 0: frontseat.type.v1alpha1.OptionValue.string_list_value:type_name -> frontseat.type.v1alpha1.OptionValue.StringList
-	1, // [1:1] is the sub-list for method output_type
-	1, // [1:1] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	4, // 1: frontseat.type.v1alpha1.OptionValue.duration_value:type_name -> google.protobuf.Duration
+	2, // 2: frontseat.type.v1alpha1.OptionValue.string_map_value:type_name -> frontseat.type.v1alpha1.OptionValue.StringMap
+	3, // 3: frontseat.type.v1alpha1.OptionValue.StringMap.values:type_name -> frontseat.type.v1alpha1.OptionValue.StringMap.ValuesEntry
+	4, // [4:4] is the sub-list for method output_type
+	4, // [4:4] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_frontseat_type_v1alpha1_option_proto_init() }
@@ -244,6 +340,8 @@ func file_frontseat_type_v1alpha1_option_proto_init() {
 		(*OptionValue_BoolValue)(nil),
 		(*OptionValue_IntValue)(nil),
 		(*OptionValue_StringListValue)(nil),
+		(*OptionValue_DurationValue)(nil),
+		(*OptionValue_StringMapValue)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -251,7 +349,7 @@ func file_frontseat_type_v1alpha1_option_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_frontseat_type_v1alpha1_option_proto_rawDesc), len(file_frontseat_type_v1alpha1_option_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

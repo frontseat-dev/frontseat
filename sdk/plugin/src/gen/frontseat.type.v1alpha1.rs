@@ -139,11 +139,12 @@ pub struct Diagnostic {
     pub help: ::prost::alloc::string::String,
 }
 /// OptionValue preserves an option's kind and exact value across every API.
-/// An unset value is invalid. An empty string or list, false and zero are values.
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+/// An unset value is invalid. An empty string, list or map, false and zero
+/// are values.
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct OptionValue {
     /// Value is exactly one supported kind; integers never pass through a float.
-    #[prost(oneof = "option_value::Value", tags = "1, 2, 3, 4")]
+    #[prost(oneof = "option_value::Value", tags = "1, 2, 3, 4, 5, 6")]
     pub value: ::core::option::Option<option_value::Value>,
 }
 /// Nested message and enum types in `OptionValue`.
@@ -155,8 +156,18 @@ pub mod option_value {
         #[prost(string, repeated, tag = "1")]
         pub values: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     }
+    /// StringMap carries a map as one option value, including an empty map.
+    #[derive(Clone, PartialEq, ::prost::Message)]
+    pub struct StringMap {
+        /// Values are the entries, by name.
+        #[prost(btree_map = "string, string", tag = "1")]
+        pub values: ::prost::alloc::collections::BTreeMap<
+            ::prost::alloc::string::String,
+            ::prost::alloc::string::String,
+        >,
+    }
     /// Value is exactly one supported kind; integers never pass through a float.
-    #[derive(Clone, PartialEq, Eq, Hash, ::prost::Oneof)]
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Value {
         /// String_value is text.
         #[prost(string, tag = "1")]
@@ -170,6 +181,13 @@ pub mod option_value {
         /// String_list_value is an ordered list of text; entries retain punctuation.
         #[prost(message, tag = "4")]
         StringListValue(StringList),
+        /// Duration_value is a length of time, never below zero: written
+        /// "90s", "10m" or "1h30m" where it is set.
+        #[prost(message, tag = "5")]
+        DurationValue(::prost_types::Duration),
+        /// String_map_value is text by name, each name said once.
+        #[prost(message, tag = "6")]
+        StringMapValue(StringMap),
     }
 }
 /// Service is how something a test needs is started beside it: the one
