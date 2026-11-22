@@ -179,7 +179,7 @@ func (s *buildService) logs(ctx context.Context, req *buildv1.StreamBuildLogsReq
 		}{{of: typev1.LogStream_LOG_STREAM_STDOUT, digest: action.GetStdout()}, {of: typev1.LogStream_LOG_STREAM_STDERR, digest: action.GetStderr()}}
 		for i := range streams {
 			if streams[i].from, err = r.printed(streams[i].digest); err != nil {
-				return connect.NewError(connect.CodeInternal, fmt.Sprintf("what %s printed: %v", action.GetLabel(), err))
+				return refuse(connect.CodeNotFound, "LOG_NOT_KEPT", fmt.Sprintf("what %s printed is no longer kept", action.GetLabel()))
 			}
 			if streams[i].from != nil {
 				defer streams[i].from.Close()

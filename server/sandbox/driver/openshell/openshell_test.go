@@ -333,7 +333,7 @@ func TestASandboxFetchesAPrivateRepositoryAndNeverHoldsItsPassword(t *testing.T)
 	}
 	// It is never moved to another host, which a sandbox let through with
 	// it would send the new secret to; the control is the one above.
-	if err := d.Credential(ctx, id, drivertest.Endpoint(t, "elsewhere.example"), "someone", password); !errors.Is(err, driver.ErrInvalid) {
+	if err := d.Credential(ctx, id, drivertest.Endpoint(t, "elsewhere.example"), "someone", password); !errors.Is(err, driver.ErrTaken) {
 		t.Errorf("a credential moved to another host: %v, want it refused", err)
 	}
 	record := box(t, "frontseat-openshell-fetch")

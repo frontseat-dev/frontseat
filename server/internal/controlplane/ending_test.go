@@ -160,8 +160,8 @@ func TestAWorkspaceIsNotGoneWhileItsSandboxIsStillEnding(t *testing.T) {
 			t.Fatalf("the workspace, while the driver still holds its sandbox %s: %v, %v, want it there and ending", first, now.GetWorkspace().GetStatus(), err)
 		}
 	}
-	if _, err := client.CreateWorkspace(ctx, asked); connect.CodeOf(err) != connect.CodeAlreadyExists {
-		t.Errorf("its name, asked for while it ends: %v, want it refused as there already", err)
+	if _, err := client.CreateWorkspace(ctx, asked); connect.CodeOf(err) != connect.CodeFailedPrecondition || func() string { why, _ := reason(t, err); return why }() != "WORKSPACE_ENDING" {
+		t.Errorf("its name, asked for while it ends: %v, want it refused as ending", err)
 	}
 
 	// The provider lets go by itself.

@@ -20,9 +20,12 @@ import (
 	"connectrpc.com/connect/v2/connectproto"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 
+	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
+	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1/buildv1alpha1connect"
 	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1/workspacev1alpha1connect"
 	"github.com/frontseat-dev/frontseat/server/internal/controlplane/identity"
+	"github.com/frontseat-dev/frontseat/server/internal/refusal"
 	sandboxv1 "github.com/frontseat-dev/frontseat/server/sandbox/api/frontseat/sandbox/v1alpha1"
 )
 
@@ -202,8 +205,8 @@ func TestACallWithoutTheOwnersTokenIsRefused(t *testing.T) {
 	} {
 		_, err := of(refused.token).ListWorkspaces(ctx, &workspacev1.ListWorkspacesRequest{})
 		why, domain := reason(t, err)
-		if connect.CodeOf(err) != connect.CodeUnauthenticated || why != refused.reason || domain != "workspace.frontseat.dev" {
-			t.Errorf("ListWorkspaces with %s: %v (%s, %s), want unauthenticated, %s, workspace.frontseat.dev", refused.what, err, why, domain, refused.reason)
+		if connect.CodeOf(err) != connect.CodeUnauthenticated || why != refused.reason || domain != "frontseat.dev" {
+			t.Errorf("ListWorkspaces with %s: %v (%s, %s), want unauthenticated, %s, frontseat.dev", refused.what, err, why, domain, refused.reason)
 		}
 		if err != nil {
 			refusals += err.Error()
@@ -308,5 +311,29 @@ func TestTheBuildRouteLeadsToTheBuildServicesAlone(t *testing.T) {
 	}
 	if len(carried) != 0 {
 		t.Errorf("what the caller is known by was led into the sandbox: %d times", len(carried))
+	}
+}
+
+// A call sent to a workspace's build API address that is no call of the
+// build API is refused as not served, by its reason in the workspace
+// API's domain, and is not forwarded. The control is a call of the build
+// API, at the same address, which is.
+func TestACallThatIsNotTheBuildAPIsIsRefusedAsNotServed(t *testing.T) {
+	s, client := made(t, "code", of("https://forge.example/acme/code.git"))
+	ready := waited(t, client, "code")
+	at := ready.GetStatus().GetBuildUri()
+	other := workspacev1alpha1connect.NewWorkspaceServiceClient(connect.NewClient(connecthttp.NewTransport(bearing(owner), at)))
+	_, err := other.DescribeWorkspace(context.Background(), &workspacev1.DescribeWorkspaceRequest{Name: "code"})
+	if !refusedAsNotServed(err, "CALL_NOT_SERVED") {
+		why, in := reason(t, err)
+		t.Errorf("a workspace call at the build API's address: %v (%s, %s), want unimplemented, CALL_NOT_SERVED, %s", err, why, in, refusal.Workspace)
+	}
+	builds := buildv1alpha1connect.NewBuildServiceClient(connect.NewClient(connecthttp.NewTransport(bearing(owner), at)))
+	_, _ = builds.ListBuilds(context.Background(), &buildv1.ListBuildsRequest{})
+	s.mu.Lock()
+	led := slices.Clone(s.led)
+	s.mu.Unlock()
+	if want := []string{"sbx_1:7600/frontseat.build.v1alpha1.BuildService/ListBuilds"}; !slices.Equal(led, want) {
+		t.Errorf("led on %v, want %v", led, want)
 	}
 }

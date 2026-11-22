@@ -8,13 +8,19 @@ const (
 	ReasonActionNotFound = "ACTION_NOT_FOUND"
 	// ReasonBuildNotFound: no build has the id.
 	ReasonBuildNotFound = "BUILD_NOT_FOUND"
-	// ReasonCallNotLed: a call to a workspace's build API is none of its
-	// calls.
-	ReasonCallNotLed = "CALL_NOT_LED"
+	// ReasonCallNotServed: a call to a workspace's build API is none of
+	// its calls.
+	ReasonCallNotServed = "CALL_NOT_SERVED"
 	// ReasonConflictingOwnership: two entities own one directory.
 	ReasonConflictingOwnership = "CONFLICTING_OWNERSHIP"
 	// ReasonCredentialHostInvalid: a credential's host is not one.
 	ReasonCredentialHostInvalid = "CREDENTIAL_HOST_INVALID"
+	// ReasonCredentialNotKept: what keeps credentials outside the
+	// sandboxes could not keep or let go of the credential.
+	ReasonCredentialNotKept = "CREDENTIAL_NOT_KEPT"
+	// ReasonCredentialsNotServed: the control plane's sandboxes keep no
+	// credential outside them.
+	ReasonCredentialsNotServed = "CREDENTIALS_NOT_SERVED"
 	// ReasonCredentialInUse: a workspace is let through with the
 	// credential, which is not let go of.
 	ReasonCredentialInUse = "CREDENTIAL_IN_USE"
@@ -63,6 +69,9 @@ const (
 	ReasonImageNotServed = "IMAGE_NOT_SERVED"
 	// ReasonLifetimeInvalid: a workspace's lifetime is not one.
 	ReasonLifetimeInvalid = "LIFETIME_INVALID"
+	// ReasonLogNotKept: the daemon no longer keeps what an action
+	// printed.
+	ReasonLogNotKept = "LOG_NOT_KEPT"
 	// ReasonNameInvalid: a workspace's name is not one.
 	ReasonNameInvalid = "NAME_INVALID"
 	// ReasonNotOwner: the workspace is another's.

@@ -206,6 +206,9 @@ func (s *Server) CreateSandbox(ctx context.Context, req *sandboxv1.CreateSandbox
 	if _, err := wanted(spec); err != nil {
 		return nil, refuse(connect.CodeInvalidArgument, "SPEC_INVALID", err.Error())
 	}
+	if len(req.GetRequestId()) > refusal.RequestIDMost {
+		return nil, refuse(connect.CodeInvalidArgument, "REQUEST_ID_INVALID", "a request id is at most 128 bytes")
+	}
 	// A request sent again, as after a lost answer or beside itself,
 	// finds the sandbox it made the first time. The request is taken
 	// before anything is made, so that two of them never both make one.
@@ -949,8 +952,14 @@ func (s *Server) SetCredential(ctx context.Context, req *sandboxv1.SetCredential
 	if err := credentialOf("SetCredential", given.GetName()); err != nil {
 		return nil, err
 	}
-	if given.GetHost() == "" || given.GetSecret() == "" {
-		return nil, refuse(connect.CodeInvalidArgument, "CREDENTIAL_INVALID", "SetCredential is given a host and a secret")
+	if given.GetHost() == "" {
+		return nil, refuse(connect.CodeInvalidArgument, "CREDENTIAL_HOST_INVALID", "SetCredential is given the host the credential is for")
+	}
+	if given.GetUsername() != "" && !plain.Username(given.GetUsername()) {
+		return nil, refuse(connect.CodeInvalidArgument, "CREDENTIAL_USERNAME_INVALID", "a username is letters, digits and . _ @ -, at most 128")
+	}
+	if !plain.Secret(given.GetSecret()) {
+		return nil, refuse(connect.CodeInvalidArgument, "CREDENTIAL_SECRET_INVALID", "a credential's secret is given, on one line of at most 4096 bytes")
 	}
 	keeps, err := s.credentialed()
 	if err != nil {
@@ -958,9 +967,15 @@ func (s *Server) SetCredential(ctx context.Context, req *sandboxv1.SetCredential
 	}
 	host, err := driver.ParseEndpoint(given.GetHost())
 	if err != nil {
-		return nil, said(err)
+		return nil, refuse(connect.CodeInvalidArgument, "CREDENTIAL_HOST_INVALID", err.Error())
 	}
 	if err := keeps.Credential(ctx, given.GetName(), host, given.GetUsername(), given.GetSecret()); err != nil {
+		switch {
+		case errors.Is(err, driver.ErrHostInvalid):
+			return nil, refuse(connect.CodeInvalidArgument, "CREDENTIAL_HOST_INVALID", err.Error())
+		case errors.Is(err, driver.ErrTaken):
+			return nil, refuse(connect.CodeAlreadyExists, "CREDENTIAL_NAME_TAKEN", err.Error())
+		}
 		return nil, said(err)
 	}
 	// What is said back is what is kept, as DescribeCredential says it.

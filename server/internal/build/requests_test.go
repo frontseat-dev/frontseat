@@ -36,7 +36,7 @@ func TestARunAskedAgainWithItsRequestIDIsTheRunTheFirstMade(t *testing.T) {
 	if none, more := ask(""), ask(""); none == more || none == first {
 		t.Errorf("two calls with no request id made %s and %s; want two runs of their own", none, more)
 	}
-	_, err := c.runs.CreateBuild(context.Background(), &buildv1.CreateBuildRequest{RequestId: strings.Repeat("r", requestIDMost+1)})
+	_, err := c.runs.CreateBuild(context.Background(), &buildv1.CreateBuildRequest{RequestId: strings.Repeat("r", refusal.RequestIDMost+1)})
 	if reason, domain := frontseat.Reason(err); connect.CodeOf(err) != connect.CodeInvalidArgument || reason != "REQUEST_ID_INVALID" || domain != refusal.Build {
 		t.Errorf("a request id too long: %v (%s, %s); want it refused by name", err, reason, domain)
 	}

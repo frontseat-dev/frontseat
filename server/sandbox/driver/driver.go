@@ -54,6 +54,14 @@ var ErrEnding = errors.New("driver: the sandbox is ending")
 // take. It is the asker's to mend, where another failure is not.
 var ErrInvalid = errors.New("driver: what was asked is not well formed")
 
+// ErrHostInvalid is what a driver says of a credential's host that is
+// no host's name. It is ErrInvalid too.
+var ErrHostInvalid = fmt.Errorf("%w: the host is no host's name", ErrInvalid)
+
+// ErrTaken is what a driver says of a credential kept under an id for
+// another host than the one it is asked to keep one for.
+var ErrTaken = errors.New("driver: the credential is kept for another host")
+
 // ErrInUse is what a driver says of a credential a sandbox is still let
 // through with: it is let go of once those sandboxes have ended.
 var ErrInUse = errors.New("driver: a sandbox is still let through with the credential")
@@ -65,10 +73,11 @@ var ErrInUse = errors.New("driver: a sandbox is still let through with the crede
 type Credentialed interface {
 	// Credential keeps a credential for a host under an id, in place of
 	// the one it held under the id for the same host; one held under the
-	// id for another host is ErrInvalid. What a driver holds is the host and the port the credential goes
-	// to, and the requests it goes with; that a request to a host kept
-	// for https is encrypted is held only where the driver says so. The
-	// OpenShell driver does not: see its package.
+	// id for another host is ErrTaken, and a host the driver cannot send
+	// it to is ErrHostInvalid. What a driver holds is the host and the
+	// port the credential goes to, and the requests it goes with; that a
+	// request to a host kept for https is encrypted is held only where the
+	// driver says so. The OpenShell driver does not: see its package.
 	Credential(ctx context.Context, id string, host Endpoint, username, secret string) error
 	// Forget lets go of the credential under an id; one it holds none
 	// under is no error, and one a sandbox is still let through with is

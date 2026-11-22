@@ -15,6 +15,7 @@ import (
 	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1/workspacev1alpha1connect"
 	"github.com/frontseat-dev/frontseat/server/internal/controlplane/identity"
+	"github.com/frontseat-dev/frontseat/server/internal/refusal"
 )
 
 // people knows a test's people, each by a token of their own.
@@ -305,5 +306,41 @@ func TestARedirectFromABoxIsNotSaidOn(t *testing.T) {
 	s.mu.Unlock()
 	if status, said := asked(t, "POST", ready.GetStatus().GetBuildUri()+"/frontseat.build.v1alpha1.BuildService/ListBuilds", owner, "{}"); status != http.StatusOK {
 		t.Errorf("the plain answer: %d %s", status, said)
+	}
+}
+
+// What the sandbox service refuses of a credential the control plane
+// asks it to keep is said in the credential service's domain, each by a
+// reason its contract names: what was not well formed by the sandbox
+// service's own reason, a driver that keeps no credential as not
+// served, and anything else as not kept. The control is a credential
+// kept, which is refused nothing.
+func TestWhatTheSandboxesRefuseOfACredentialIsSaidByItsReason(t *testing.T) {
+	s := over(t)
+	_, credentials := servedToPeople(t, s)
+	set := func() error {
+		_, err := credentials(owner).SetCredential(context.Background(), &credentialv1.SetCredentialRequest{Credential: &credentialv1.Credential{Host: "forge.example", Secret: "adas-secret"}})
+		return err
+	}
+	if err := set(); err != nil {
+		t.Fatalf("the control: %v", err)
+	}
+	for _, c := range []struct {
+		refused error
+		code    connect.Code
+		reason  string
+	}{
+		{refusal.New(refusal.Sandbox, connect.CodeInvalidArgument, "CREDENTIAL_HOST_INVALID", "no host"), connect.CodeInvalidArgument, "CREDENTIAL_HOST_INVALID"},
+		{refusal.New(refusal.Sandbox, connect.CodeInvalidArgument, "CREDENTIAL_SECRET_INVALID", "no secret"), connect.CodeInvalidArgument, "CREDENTIAL_SECRET_INVALID"},
+		{refusal.New(refusal.Sandbox, connect.CodeUnimplemented, "CAPABILITY_NOT_SERVED", "none kept"), connect.CodeUnimplemented, "CREDENTIALS_NOT_SERVED"},
+		{connect.NewError(connect.CodeUnavailable, "the gateway did not answer"), connect.CodeUnavailable, "CREDENTIAL_NOT_KEPT"},
+	} {
+		s.mu.Lock()
+		s.keepsNot = c.refused
+		s.mu.Unlock()
+		err := set()
+		if why, in := reason(t, err); connect.CodeOf(err) != c.code || why != c.reason || in != refusal.Credential {
+			t.Errorf("%v is said as %v (%s, %s), want %v, %s, %s", c.refused, err, why, in, c.code, c.reason, refusal.Credential)
+		}
 	}
 }

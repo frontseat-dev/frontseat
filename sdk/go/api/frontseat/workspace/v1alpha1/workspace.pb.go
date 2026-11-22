@@ -17,18 +17,19 @@
 // present as a bearer token. A call that presents none is refused
 // UNAUTHENTICATED with the reason IDENTITY_MISSING, and one whose token
 // the control plane does not know with IDENTITY_INVALID, each in
-// ErrorInfo of the domain workspace.frontseat.dev; a call forwarded to
-// a workspace's build API, and a connection to its shell, are held to
-// the same. A workspace belongs to its owner, the caller who asked for
-// it first. Its name is unique among all the workspaces of a control
-// plane, whoever owns them. A caller who names a workspace that is
-// another's is refused PERMISSION_DENIED with the reason NOT_OWNER, by
-// every call of this service, and no caller is listed another's
-// workspaces. What this service refuses by name carries ErrorInfo of
+// ErrorInfo of the control plane's own domain, frontseat.dev, in which
+// every service it serves refuses a caller it does not know; a call
+// forwarded to a workspace's build API, and a connection to its shell,
+// are held to the same. A workspace belongs to its owner, the caller
+// who asked for it first. Its name is unique among all the workspaces of
+// a control plane, whoever owns them. A caller who names a workspace
+// that is another's is refused PERMISSION_DENIED with the reason
+// NOT_OWNER, by every call of this service, and no caller is listed
+// another's workspaces. What this service refuses by name carries ErrorInfo of
 // the domain workspace.frontseat.dev, with the reason each call names.
 // A call sent to a workspace's build API address that is not a call of
 // the build API is not forwarded: it is refused UNIMPLEMENTED with the
-// reason CALL_NOT_LED.
+// reason CALL_NOT_SERVED.
 //
 // A workspace is kept as what was asked for, its spec, and what is so,
 // its status. A call writes the spec and returns; the control plane then

@@ -12,9 +12,12 @@ import (
 
 // The domains of the services that refuse by name.
 const (
+	// ControlPlane is the control plane's own, beside the services it
+	// serves: a caller it does not know is refused in it, by every one.
+	ControlPlane = "frontseat.dev"
 	// Build is the build API's: builds, runs, releases and the graph.
 	Build = "build.frontseat.dev"
-	// Workspace is the workspace API's, and the control plane's own.
+	// Workspace is the workspace API's.
 	Workspace = "workspace.frontseat.dev"
 	// Credential is the credential API's.
 	Credential = "credential.frontseat.dev"
@@ -28,6 +31,10 @@ const (
 // PageTokenInvalid is the reason of every List call that is given a page
 // token it did not give.
 const PageTokenInvalid = "PAGE_TOKEN_INVALID"
+
+// RequestIDMost is the longest request id a Create takes, in bytes:
+// each service refuses a longer one REQUEST_ID_INVALID, in its domain.
+const RequestIDMost = 128
 
 // New is a refusal of a code, with its reason, in a domain.
 func New(domain string, code connect.Code, reason, message string) *connect.Error {

@@ -167,7 +167,7 @@ func Serve(c Config) (*Plane, error) {
 	mux.HandleFunc("/workspaces/{name}/build/{rest...}", func(w http.ResponseWriter, r *http.Request) {
 		rest := r.PathValue("rest")
 		if !builds[rest] || r.URL.EscapedPath() != "/workspaces/"+r.PathValue("name")+"/build/"+rest {
-			_ = refusals.Write(w, r, refusedFor(connect.CodeUnimplemented, "CALL_NOT_LED", "a workspace's build API is led to, and this is none of its calls"))
+			_ = refusals.Write(w, r, refusedFor(connect.CodeUnimplemented, "CALL_NOT_SERVED", "the control plane forwards the calls of a workspace's build API, and this is none of them"))
 			return
 		}
 		if id, ok := s.sandboxOf(w, r); ok {
@@ -264,7 +264,7 @@ func (s *service) known(next http.Handler) http.Handler {
 			if errors.Is(err, identity.ErrMissing) {
 				reason, said = "IDENTITY_MISSING", "the call presents no token: give the owner's, as a bearer token"
 			}
-			_ = refusals.Write(w, r, refusedFor(connect.CodeUnauthenticated, reason, said))
+			_ = refusals.Write(w, r, refusal.New(refusal.ControlPlane, connect.CodeUnauthenticated, reason, said))
 			return
 		}
 		next.ServeHTTP(w, r.WithContext(identity.With(r.Context(), caller)))
@@ -518,7 +518,7 @@ func (s *service) CreateWorkspace(ctx context.Context, req *workspacev1.CreateWo
 		ending := there.ending
 		there.pass.Unlock()
 		if ending {
-			return nil, refusedFor(connect.CodeAlreadyExists, "WORKSPACE_ENDING", fmt.Sprintf("the workspace %s is ending: it is asked for again once it is gone", called))
+			return nil, refusedFor(connect.CodeFailedPrecondition, "WORKSPACE_ENDING", fmt.Sprintf("the workspace %s is ending: it is asked for again once it is gone", called))
 		}
 		if differs := more(was, spec); differs != "" {
 			return nil, refusedFor(connect.CodeAlreadyExists, "WORKSPACE_DIFFERS", fmt.Sprintf("the workspace %s is there, and %s: it is not made again, so ask for it as it is, or give another name", called, differs))
