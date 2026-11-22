@@ -250,8 +250,8 @@ func besideOf(component entity.Ref, file string, declared map[entity.Ref][]entit
 				return nil, l.Mistake(err)
 			}
 		}
-		for name, value := range said.Environment {
-			if said.Environment[name], err = fill(value); err != nil {
+		for _, name := range slices.Sorted(maps.Keys(said.Environment)) {
+			if said.Environment[name], err = fill(said.Environment[name]); err != nil {
 				return nil, l.Mistake(err)
 			}
 		}

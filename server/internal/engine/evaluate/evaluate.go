@@ -233,6 +233,10 @@ func evaluate(ctx context.Context, src Source, plugins []*pluginhost.Plugin, ans
 			started[ref] = l
 		}
 	}
+	labels := make(map[model.Label]bool, len(out.Actions))
+	if err := distinct(labels, out.Actions); err != nil {
+		return out, err
+	}
 	var err error
 	known := make([]catalog.Entity, 0, len(entities))
 	for _, entity := range entities {
@@ -292,8 +296,28 @@ func evaluate(ctx context.Context, src Source, plugins []*pluginhost.Plugin, ans
 	if err != nil {
 		return out, err
 	}
+	if err := distinct(labels, inStep); err != nil {
+		return out, err
+	}
 	out.Actions = append(out.Actions, inStep...)
 	return out, nil
+}
+
+// distinct holds a label to one action, whatever declared each: a
+// plugin's project, a catalog file, the host. Two of one label are
+// refused before anything is resolved by label: a need would be met by
+// whichever was read last, and the other never run. A plugin is named
+// as it names itself, and may take the name the host gives the actions
+// of a catalog file (Custom) or its own (Catalog). seen holds the labels
+// already taken, and is given those of actions.
+func distinct(seen map[model.Label]bool, actions []plan.Action) error {
+	for _, action := range actions {
+		if seen[action.Label] {
+			return &model.Mistake{Message: fmt.Sprintf("%s is declared more than once: a label is one action's", action.Label)}
+		}
+		seen[action.Label] = true
+	}
+	return nil
 }
 
 // Catalog is the plugin the host's own actions over catalog files are
