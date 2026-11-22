@@ -84,7 +84,7 @@ program, every file of its package's directory and its `testdata`, and
 the modules its module's compile is given, for a test that runs the go
 command itself. A test that opens a file anywhere else does not find it,
 unless its Component's catalog file names it (`spec.frontseat.test.inputs`,
-a path from the repository's root written `/…`). A directory with tests is handed to the
+relative to it, or from the repository's root written `/…`). A directory with tests is handed to the
 go command as a pattern where no package this reading sees is beneath it,
 so one it has nothing to build of is passed by, and outright where
 packages are beneath it, so that it never reaches one analysis does not
@@ -174,7 +174,7 @@ plugins:
 |---|---|---|
 | `spec.frontseat.plugins.go` | the host | A Component's own setting of any option above, for its directory and what is beneath it, in place of the repository's. A list set there is the whole list. |
 | `spec.frontseat.platforms` | the plugin | The systems a Component ships for, each `<os>/<arch>`: in the production profile each program of its modules is packaged for each (`package/<program>-<os>-<arch>`). Where it says none, nothing is packaged. |
-| `spec.frontseat.test` | the host | What the Component's tests are given beyond what the plugin gives them: `inputs` (files, each a path from the repository's root written `/…`), `tools` (pinned tools) and `environment` (variables). |
+| `spec.frontseat.test` | the host | What the Component's tests are given beyond what the plugin gives them: `inputs` (files, each relative to the catalog file, or from the repository's root written `/…`), `tools` (pinned tools) and `environment` (variables). |
 
 ```yaml
 # catalog-info.yaml

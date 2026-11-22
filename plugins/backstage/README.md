@@ -66,6 +66,7 @@ writes one, and nothing beneath `spec.frontseat`, which is the host's.
 | `metadata` (`title`, `description`, `labels`, `annotations`, `tags`, `links`) | the plugin | Held to the shape Backstage gives each, and otherwise kept as written. |
 | `spec.type`, `spec.lifecycle`, `spec.owner`, `spec.definition` | the plugin | Required of the kinds Backstage requires them of. |
 | `spec.owner`, `spec.system`, `spec.domain`, `spec.subdomainOf`, `spec.subcomponentOf`, `spec.providesApis`, `spec.consumesApis`, `spec.dependsOn`, `spec.dependencyOf`, `spec.parent`, `spec.children`, `spec.members`, `spec.memberOf` | the plugin | The entity's relations, each with its inverse, as Backstage maps them. `dependsOn` and `dependencyOf` between Components are held to what the source says. |
+| `metadata.uid`, `metadata.etag`, a Location's `spec.target`, `spec.targets` and `spec.presence`, a Group's `spec.profile`, among others | the plugin | Held to the shape Backstage gives each. |
 
 ```yaml
 # catalog-info.yaml
