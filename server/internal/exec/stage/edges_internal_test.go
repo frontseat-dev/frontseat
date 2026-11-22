@@ -23,7 +23,7 @@ func TestAProjectsFilesAreThoseOfItsOwnDirectory(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			snapshot := sourcetest.Taken(t, map[string]string{c.project + "/own.go": "package p\n", c.other + "/others.go": "package p\n"})
 
-			files, err := named(context.Background(), snapshot, "", c.project, []string{"*.go"})
+			files, err := snapshot.Within(context.Background(), "", c.project, []string{"*.go"})
 
 			if want := []string{c.project + "/own.go"}; err != nil || !reflect.DeepEqual(files, want) {
 				t.Errorf("the project in %q is sent %q, err %v; want %q", c.project, files, err, want)

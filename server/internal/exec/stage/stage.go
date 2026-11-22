@@ -3,14 +3,14 @@ package stage
 import (
 	"context"
 	"fmt"
-	"github.com/frontseat-dev/frontseat/server/telemetry"
-	"go.opentelemetry.io/otel/attribute"
 	"maps"
 	"path"
 	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
+
+	"go.opentelemetry.io/otel/attribute"
 
 	"github.com/frontseat-dev/frontseat/server/internal/confine"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/plan"
@@ -19,6 +19,7 @@ import (
 	"github.com/frontseat-dev/frontseat/server/internal/exec/download"
 	"github.com/frontseat-dev/frontseat/server/internal/exec/tools"
 	"github.com/frontseat-dev/frontseat/server/internal/testservice"
+	"github.com/frontseat-dev/frontseat/server/telemetry"
 )
 
 // Of describes an action as the grid runs it: the files of the workspace
@@ -104,7 +105,7 @@ func of(ctx context.Context, snapshot *source.Snapshot, action plan.Action, prov
 		if len(handed.Patterns) == 0 {
 			continue
 		}
-		files, err := named(ctx, snapshot, handed.Repository, handed.Root, handed.Patterns)
+		files, err := snapshot.Within(ctx, handed.Repository, handed.Root, handed.Patterns)
 		if err != nil {
 			return exec.Action{}, err
 		}
@@ -173,7 +174,7 @@ func of(ctx context.Context, snapshot *source.Snapshot, action plan.Action, prov
 			if err != nil {
 				return exec.Action{}, fmt.Errorf("%s: %w", action.Label, err)
 			}
-			at := path.Join(path.Dir(tools.Home), "downloads", digest.Hash)
+			at := path.Join(tools.Downloads, digest.Hash)
 			held[at] = exec.Held{Digest: digest}
 			archive, err := filepath.Rel(filepath.FromSlash("/"+path.Join(repository, action.ProjectRoot)), filepath.FromSlash("/"+at))
 			if err != nil {
@@ -493,11 +494,4 @@ func Place(repository, projectRoot, output string) string {
 		return path.Join(tools.Home, rest)
 	}
 	return path.Join(repository, projectRoot, output)
-}
-
-// named returns the files of a repository that patterns name, the
-// patterns being relative to a project's directory there. The directory
-// is a name and no pattern, whatever characters it holds.
-func named(ctx context.Context, snapshot *source.Snapshot, repository, root string, patterns []string) ([]string, error) {
-	return snapshot.Within(ctx, repository, root, patterns)
 }

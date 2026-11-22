@@ -13,7 +13,6 @@ import (
 	"github.com/frontseat-dev/frontseat/server/internal/engine/source"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/source/sourcetest"
 	"github.com/frontseat-dev/frontseat/server/internal/exec/fix"
-	"github.com/frontseat-dev/frontseat/server/internal/exec/here"
 	"github.com/frontseat-dev/frontseat/server/internal/exec/reapi/reapitest"
 	"github.com/frontseat-dev/frontseat/server/internal/exec/tools"
 	"github.com/frontseat-dev/frontseat/server/internal/model"
@@ -25,7 +24,7 @@ import (
 // daemon is on another platform: nothing else is run in their place.
 func TestAFixWithToolsOfAnotherPlatformIsRefused(t *testing.T) {
 	other := map[string]string{"OSFamily": "linux", "ISA": "x86-64"}
-	if tools.Here() == tools.PlatformName(other) {
+	if tools.DaemonPlatform() == tools.PlatformName(other) {
 		other = map[string]string{"OSFamily": "linux", "ISA": "aarch64"}
 	}
 	snapshot := sourcetest.Taken(t, nil)
@@ -35,7 +34,7 @@ func TestAFixWithToolsOfAnotherPlatformIsRefused(t *testing.T) {
 	}
 	runner := fix.Runner{Tools: &tools.Provisioner{Platform: other}, Kept: t.TempDir()}
 	_, err := runner.Run(context.Background(), snapshot, action)
-	var refused *here.OtherPlatform
+	var refused *tools.OtherPlatform
 	if !errors.As(err, &refused) || !strings.Contains(err.Error(), runtime.GOOS) || !strings.Contains(err.Error(), "go") {
 		t.Fatalf("a fix with another platform's tools was not refused by name: %v", err)
 	}
@@ -47,7 +46,7 @@ func TestAFixWithToolsOfAnotherPlatformIsRefused(t *testing.T) {
 func TestAFixRunsWithNothingOfTheDaemonsEnvironment(t *testing.T) {
 	t.Setenv("PATH", "/nowhere/of/the/daemon:"+t.TempDir())
 	t.Setenv("INJECTED", "yes")
-	env := here.Environment("/h", "/t")
+	env := tools.Local("/h", "/t")
 	for _, line := range env {
 		if strings.Contains(line, "nowhere") || strings.HasPrefix(line, "INJECTED=") {
 			t.Fatalf("the daemon's environment reached the fix: %q", line)

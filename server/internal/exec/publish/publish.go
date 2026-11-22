@@ -147,7 +147,7 @@ func (r Runner) Run(ctx context.Context, snapshot *source.Snapshot, action plan.
 			return fmt.Errorf("%s: two artifacts are named %s", what, each.Name)
 		case each.Held.Directory:
 			return fmt.Errorf("%s: the artifact %s is a directory", what, each.Name)
-		case !here.Hex64(each.Held.Digest.Hash):
+		case !each.Held.Digest.Valid():
 			return fmt.Errorf("%s: the artifact %s is held by what is no sha256", what, each.Name)
 		}
 		if err := r.Grid.Materialize(ctx, each.Held, filepath.Join(given, each.Name)); err != nil {

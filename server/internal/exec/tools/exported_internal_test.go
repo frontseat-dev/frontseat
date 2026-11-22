@@ -175,3 +175,22 @@ func TestAnActionsOwnEnvironmentDoesNotMoveItsHome(t *testing.T) {
 		}
 	}
 }
+
+// An action's tools are where the confiner looks for them: the two say
+// the directory apart, since the confiner is of the standard library
+// alone.
+func TestTheToolsAreKeptWhereTheConfinerLooksForThem(t *testing.T) {
+	if got := data + "/installs"; got != confine.MiseInstalls {
+		t.Errorf("mise keeps the tools in %s, and the confiner looks in %s", got, confine.MiseInstalls)
+	}
+}
+
+// A platform mise has no name of its own for is named as the grid names
+// it: a lock that pins nothing for it then says which platform.
+func TestAPlatformMiseDoesNotNameIsNamedAsTheGridNamesIt(t *testing.T) {
+	for platform, want := range map[string]string{"aarch64": "linux-arm64", "x86-64": "linux-x64", "RISCV64": "linux-riscv64"} {
+		if got := PlatformName(map[string]string{"OSFamily": "Linux", "ISA": platform}); got != want {
+			t.Errorf("%s is named %q, want %q", platform, got, want)
+		}
+	}
+}
