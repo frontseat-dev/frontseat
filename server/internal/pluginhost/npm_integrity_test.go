@@ -11,7 +11,7 @@ import (
 	"github.com/frontseat-dev/frontseat/server/testsupport/testmodule"
 )
 
-func TestNpmReviewRequiresAVerifiableNativeLockIntegrity(t *testing.T) {
+func TestNpmRequiresAVerifiableNativeLockIntegrity(t *testing.T) {
 	module, err := testmodule.Plugin("npm")
 	if err != nil {
 		t.Fatal(err)

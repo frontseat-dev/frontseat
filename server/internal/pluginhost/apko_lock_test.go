@@ -43,7 +43,7 @@ func reviewApkoActions(t *testing.T, source files) ([]*pluginv1.Action, error) {
 // every lock apko writes of an Alpine image is refused, and the README's
 // list of what is refused ("another scheme, a port, a query, an escape")
 // does not say so. The control is the same lock with Wolfi's key.
-func TestReviewApkoTakesTheLockApkoWritesOfAnAlpineImage(t *testing.T) {
+func TestApkoTakesTheLockApkoWritesOfAnAlpineImage(t *testing.T) {
 	const apk = "https://dl-cdn.alpinelinux.org/alpine/v3.22/main/aarch64/musl-1.2.5-r10.apk"
 	config := "contents:\n  repositories:\n    - https://dl-cdn.alpinelinux.org/alpine/v3.22/main\n  packages: [musl]\n"
 	with := func(key string) files {
@@ -63,7 +63,7 @@ func TestReviewApkoTakesTheLockApkoWritesOfAnAlpineImage(t *testing.T) {
 // stands (trim_end_matches). For x.apk.apk apko reads .../x.apk/ and the
 // fetch leaves .../x/, so the offline build finds nothing; and x.apk and
 // x.apk.apk get one fetch name.
-func TestReviewApkoKeepsAPackageWhereApkoLooksWhateverItsName(t *testing.T) {
+func TestApkoKeepsAPackageWhereApkoLooksWhateverItsName(t *testing.T) {
 	actions, err := reviewApkoActions(t, files{
 		"app/apko.yaml":      "contents:\n  packages: [a]\n",
 		"app/apko.lock.json": reviewApkoLock("apko.yaml", "", "https://packages.wolfi.dev/os/aarch64/a-1-r0.apk.apk"),
@@ -85,7 +85,7 @@ func TestReviewApkoKeepsAPackageWhereApkoLooksWhateverItsName(t *testing.T) {
 // patterns ("!" excludes, "[1]" is a class, ":" a reference). A
 // configuration named apko[1].yaml is read by config.rs by its name, and
 // the build is then given its neighbour apko1.yaml and not itself.
-func TestReviewApkoHandsTheConfigurationByItsNameNotAsAPattern(t *testing.T) {
+func TestApkoHandsTheConfigurationByItsNameNotAsAPattern(t *testing.T) {
 	config := "contents:\n  packages: [a]\n"
 	for name, neighbour := range map[string]string{"apko[1].yaml": "apko1.yaml", "apko?.yaml": "apko2.yaml", "a*.yaml": "another.yaml"} {
 		t.Run(name, func(t *testing.T) {
