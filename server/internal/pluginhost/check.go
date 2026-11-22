@@ -1278,7 +1278,7 @@ func CheckService(plugin string, request *pluginv1.ServiceRequest, response *plu
 	case len(written.GetEnvironment()) > 0 && !maps.Equal(answered.GetEnvironment(), written.GetEnvironment()):
 		return changed("environment")
 	case written.GetTimeout() != nil && !proto.Equal(answered.GetTimeout(), written.GetTimeout()):
-		return changed("timeout")
+		return changed("ready-timeout")
 	case len(written.GetExports()) > 0 && !maps.Equal(answered.GetExports(), written.GetExports()):
 		return changed("exports")
 	case len(written.GetEndpoints()) > 0 && !maps.Equal(answered.GetEndpoints(), written.GetEndpoints()):

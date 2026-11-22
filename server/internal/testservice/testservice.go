@@ -172,9 +172,9 @@ func Shaped(l *typev1.Service) error {
 	if t := l.GetTimeout(); t != nil {
 		switch given := t.AsDuration(); {
 		case !t.IsValid() || given < 0 || given%time.Second != 0:
-			return errors.New("service.timeout is a number of seconds")
+			return errors.New("service.ready-timeout is a length of time more than zero, in whole seconds")
 		case given > MostReady:
-			return errors.New("service.timeout is more than the hour a service may be given to be ready")
+			return errors.New("service.ready-timeout is more than the hour a service may be given to be ready")
 		}
 	}
 	return nil

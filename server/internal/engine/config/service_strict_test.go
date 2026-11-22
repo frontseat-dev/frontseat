@@ -27,8 +27,8 @@ func TestANullAmongAServiceSListsIsNotDroppedWithoutAWord(t *testing.T) {
 // key takes: no line of anything else, and nothing of how it is read.
 func TestAServiceMistakeNamesOnlyTheLineItIsWrittenOn(t *testing.T) {
 	for name, text := range map[string]string{
-		"timeout": "      as: container\n      timeout: \"30\"\n",
-		"http":    "      as: container\n      ready: [{http: {port: a, path: /, x: 1}}]\n",
+		"ready-timeout": "      as: container\n      ready-timeout: 30\n",
+		"http":          "      as: container\n      ready: [{http: {port: a, path: /, x: 1}}]\n",
 	} {
 		_, err := config.Read(t.Context(), "repo", resourceWith(text))
 		if err == nil || strings.Contains(err.Error(), "line 1:") || strings.Contains(err.Error(), "struct {") {
