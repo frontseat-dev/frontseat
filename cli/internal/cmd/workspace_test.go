@@ -168,6 +168,27 @@ func TestWholeIsSaidOfEntitiesAlone(t *testing.T) {
 	}
 }
 
+// --whole is said of the entities a workspace is given more of: with
+// repositories alone it is refused before anything is asked, never
+// dropped and never said of what the workspace held already. The
+// control is an entity added, which the workspace is told whole.
+func TestWholeIsSaidOfTheEntitiesAddedAlone(t *testing.T) {
+	plane := &told{keeping: keeping{daemon: func() string { return "" }}}
+	at := serving(t, func(api *connect.Server) { workspacev1alpha1connect.RegisterWorkspaceServiceHandler(api, plane) })
+	serverAt(t, at)
+	lastOpened(t, at, "named")
+	_, _, err := runAt(t, context.Background(), "", "workspace", "add", "--whole", "--repository", "https://forge.example/acme/more.git")
+	if err == nil || !strings.Contains(err.Error(), "--whole") {
+		t.Errorf("--whole with a repository alone: %v, want it refused by the flag's name", err)
+	}
+	if plane.changes() != 0 {
+		t.Errorf("what was refused told the control plane %d changes", plane.changes())
+	}
+	if _, _, err := runAt(t, context.Background(), "", "workspace", "add", "--whole", "--entity", "component:payments"); err != nil || plane.changes() != 1 || !plane.updated[0].GetWhole() {
+		t.Errorf("the control: --whole with an entity: %v, told %v", err, plane.updated)
+	}
+}
+
 // Flags that say two things at once are refused, and neither is done:
 // a credential let go of and said to be someone's, an SSH client's
 // connection carried and its host printed, a host printed and a command
@@ -179,6 +200,7 @@ func TestFlagsThatDoNotGoTogetherAreRefused(t *testing.T) {
 		{"workspace", "credential", "forge.example", "--forget", "--username", "someone"},
 		{"workspace", "ssh", "--stdio", "--config"},
 		{"workspace", "ssh", "--config", "ls"},
+		{"workspace", "ssh", "--stdio", "ls"},
 	} {
 		printed, _, err := runAt(t, context.Background(), "", command...)
 		if err == nil || printed != "" {

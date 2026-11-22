@@ -19,9 +19,9 @@ import (
 
 var sshStdio, sshConfig bool
 
-// sshCmd opens the workspace's sandbox over SSH. The connection goes through the server that made the
-// sandbox, by this same command with --stdio as the SSH client's proxy;
-// an editor is given the same.
+// sshCmd opens the workspace's sandbox over SSH. The connection goes
+// through the server that made the sandbox, by this same command with
+// --stdio as the SSH client's proxy; an editor is given the same.
 var sshCmd = &cobra.Command{
 	Use:   "ssh [COMMAND...]",
 	Short: "A shell in the sandbox, or a command",
