@@ -123,6 +123,17 @@ func BenchmarkAnalyze(b *testing.B) {
 // that code smaller took it from 34,648 and no further. The allocation
 // allowance for loading is raised to 37,600 (about 10% headroom), on the
 // owner's word (2026-11-12). The time allowance is unchanged.
+//
+// Measured 2026-11-22 with `go test -run '^$' -bench 'BenchmarkAnalyze$'
+// -benchmem -count=3 ./internal/pluginhost`: analysis had come to 800
+// allocations on arm64 and 802 on amd64 (801 on the grid's x86-64
+// workers), at and over the allowance. Each instance was made with a
+// configuration built anew, copied by each of wazero's With calls, and
+// asked to start with an _initialize no module exports, of whose absence
+// wazero made an error each time. Made once as a module is loaded, and
+// asking for _initialize only of a module that exports it, analysis
+// takes 790 allocations on arm64 and 791 on amd64. Neither allowance is
+// raised.
 
 func TestBudgetOfLoadingAPlugin(t *testing.T) {
 	testbudget.Hold(t, testbudget.Budget{Time: 280 * time.Millisecond, Allocs: 37600}, BenchmarkLoad)
