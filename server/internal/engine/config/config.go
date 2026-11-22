@@ -483,7 +483,7 @@ type Option struct {
 
 // Check holds everything set of a plugin, anywhere in the repository, to
 // the options the plugin declared.
-func (r *Repository) Check(plugin string, declared []*pluginv1.Option) error {
+func (r *Repository) Check(plugin string, declared []*pluginv1.OptionDeclaration) error {
 	if _, err := r.settle(plugin, declared, nil); err != nil {
 		return err
 	}
@@ -504,7 +504,7 @@ func (r *Repository) Check(plugin string, declared []*pluginv1.Option) error {
 
 // Options returns every option a plugin declared, each as it holds for a
 // directory of the repository, sorted by name.
-func (r *Repository) Options(plugin string, declared []*pluginv1.Option, directory string) ([]Option, error) {
+func (r *Repository) Options(plugin string, declared []*pluginv1.OptionDeclaration, directory string) ([]Option, error) {
 	held := map[string]Option{}
 	for _, option := range declared {
 		held[option.GetName()] = Option{Name: option.GetName(), Value: option.GetDefault()}
@@ -538,7 +538,7 @@ func (r *Repository) Options(plugin string, declared []*pluginv1.Option, directo
 
 // settle reads what one place sets of a plugin, the repository's file or
 // an entity's, against what the plugin declared.
-func (r *Repository) settle(plugin string, declared []*pluginv1.Option, entity *scope) (map[string]Option, error) {
+func (r *Repository) settle(plugin string, declared []*pluginv1.OptionDeclaration, entity *scope) (map[string]Option, error) {
 	file, set := r.origin(File), r.repository[plugin]
 	if entity != nil {
 		file, set = entity.file, entity.plugins[plugin]
@@ -547,7 +547,7 @@ func (r *Repository) settle(plugin string, declared []*pluginv1.Option, entity *
 	// The first by name is the one refused, whenever it is read.
 	for _, name := range slices.Sorted(maps.Keys(set)) {
 		node := set[name]
-		var option *pluginv1.Option
+		var option *pluginv1.OptionDeclaration
 		for _, d := range declared {
 			if d.GetName() == name {
 				option = d
@@ -569,7 +569,7 @@ func (r *Repository) settle(plugin string, declared []*pluginv1.Option, entity *
 }
 
 // taken says which options a plugin takes, for whoever misspelt one.
-func taken(declared []*pluginv1.Option) string {
+func taken(declared []*pluginv1.OptionDeclaration) string {
 	if len(declared) == 0 {
 		return "; it takes none"
 	}
@@ -582,17 +582,17 @@ func taken(declared []*pluginv1.Option) string {
 }
 
 // valueOf reads a value as the kind its option takes.
-func valueOf(option *pluginv1.Option, node *yaml.Node) (*typev1.OptionValue, error) {
+func valueOf(option *pluginv1.OptionDeclaration, node *yaml.Node) (*typev1.OptionValue, error) {
 	name := option.GetName()
 	scalar := func(tag string) bool { return node.Kind == yaml.ScalarNode && node.ShortTag() == tag }
 	switch option.GetKind() {
-	case pluginv1.Option_KIND_STRING:
+	case pluginv1.OptionDeclaration_KIND_STRING:
 		value, ok := text(node)
 		if !ok {
 			return nil, fmt.Errorf("%s is text", name)
 		}
 		return &typev1.OptionValue{Value: &typev1.OptionValue_StringValue{StringValue: value}}, nil
-	case pluginv1.Option_KIND_BOOL:
+	case pluginv1.OptionDeclaration_KIND_BOOL:
 		// YAML writes true as true, True or TRUE: what was meant is read
 		// from the value, not from how it was spelt.
 		var on bool
@@ -600,13 +600,13 @@ func valueOf(option *pluginv1.Option, node *yaml.Node) (*typev1.OptionValue, err
 			return nil, fmt.Errorf("%s is true or false", name)
 		}
 		return &typev1.OptionValue{Value: &typev1.OptionValue_BoolValue{BoolValue: on}}, nil
-	case pluginv1.Option_KIND_INT:
+	case pluginv1.OptionDeclaration_KIND_INT:
 		number, ok := whole[int64](node)
 		if !ok {
 			return nil, fmt.Errorf("%s is a whole number", name)
 		}
 		return &typev1.OptionValue{Value: &typev1.OptionValue_IntValue{IntValue: number}}, nil
-	case pluginv1.Option_KIND_STRING_LIST:
+	case pluginv1.OptionDeclaration_KIND_STRING_LIST:
 		items, wrong := textList(node)
 		switch {
 		case wrong == node:

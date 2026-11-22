@@ -10,7 +10,7 @@ import (
 func TestAProvidedArtifactNamesAnOutputOfItsOwnProject(t *testing.T) {
 	sound := func() *pluginv1.Project {
 		return &pluginv1.Project{Root: "app", Kind: "fixture", Name: "app", Manifest: "app/package.json",
-			Provides: []*pluginv1.Provide{{Coordinate: &pluginv1.Coordinate{Ecosystem: "fixture", Name: "app"}, Artifacts: []*pluginv1.Produced{{Action: "install", Output: "modules/"}}}},
+			Provides: []*pluginv1.Provision{{Coordinate: &pluginv1.Coordinate{Ecosystem: "fixture", Name: "app"}, Artifacts: []*pluginv1.OutputRef{{Action: "install", Output: "modules/"}}}},
 			Actions:  []*pluginv1.Action{{Name: "install", Command: &pluginv1.Command{Arguments: []string{"fixture"}}, Outputs: []*pluginv1.Output{{Path: "modules/"}}, Kind: &pluginv1.Action_Build{Build: &pluginv1.Build{}}}},
 		}
 	}
@@ -39,7 +39,7 @@ func TestAProvidedArtifactNamesAnOutputOfItsOwnProject(t *testing.T) {
 		},
 		"overlap": func(p *pluginv1.Project) {
 			p.Actions[0].Outputs = append(p.Actions[0].Outputs, &pluginv1.Output{Path: "modules/nested/"})
-			p.Provides[0].Artifacts = append(p.Provides[0].Artifacts, &pluginv1.Produced{Action: "install", Output: "modules/nested/"})
+			p.Provides[0].Artifacts = append(p.Provides[0].Artifacts, &pluginv1.OutputRef{Action: "install", Output: "modules/nested/"})
 		},
 	} {
 		t.Run(name, func(t *testing.T) {

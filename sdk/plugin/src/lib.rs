@@ -55,9 +55,9 @@ pub use prost_types::Duration;
 pub use wire::action::Kind as ActionKind;
 pub use wire::{
     Action, Analysis, BranchRequest, BranchResponse, Command, Coordinate, DependencyInput,
-    Download, Edit, Entity, EntityRelation, File, GeneratedSource, Handed, Input, InputSet, Origin,
-    Output, Part, Produced, Project, Provide, ReleaseCommit, Requirement, Resolved, VersionReason,
-    VersionRequest, VersionResponse,
+    Download, Edit, Entity, EntityDependencies, EntityRelation, File, GeneratedSource, Handoff,
+    Input, InputSet, Origin, Output, OutputRef, Part, Project, Provision, ReleaseCommit,
+    Requirement, VersionReason, VersionRequest, VersionResponse,
 };
 /// What a call is told beside its request, and what the calls answer as
 /// the host reads them: what a test of a plugin is answered

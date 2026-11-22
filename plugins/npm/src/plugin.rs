@@ -15,9 +15,9 @@ impl Plugin for NpmPlugin {
         Ok(Analysis {
             projects: vec![Project {
                 root: root.into(),
-                provides: vec![Provide {
+                provides: vec![Provision {
                     coordinate: Some(package.installation()),
-                    artifacts: vec![Produced {
+                    artifacts: vec![OutputRef {
                         action: crate::actions::INSTALL.into(),
                         output: crate::actions::INSTALLED.into(),
                     }],

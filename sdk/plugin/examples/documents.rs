@@ -1,5 +1,5 @@
 //! Real-Wasm fixture for shared document readers; no ecosystem build behavior.
-use frontseat_plugin::{Analysis, Description, Error, File, Handed, Plugin, Repository};
+use frontseat_plugin::{Analysis, Description, Error, File, Handoff, Plugin, Repository};
 
 struct Documents;
 
@@ -21,7 +21,7 @@ impl Plugin for Documents {
         repo: &Repository,
         root: &str,
         _: &[String],
-        _: &[Handed],
+        _: &[Handoff],
     ) -> Result<Vec<File>, Error> {
         let output = if root.ends_with(".toml") {
             repo.toml(root)?.map(|table| format!("{table:?}"))

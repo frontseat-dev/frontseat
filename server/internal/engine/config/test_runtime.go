@@ -37,7 +37,7 @@ func readTestRuntime(file, directory string, ref entity.Ref, node *yaml.Node) (T
 		key, said := node.Content[i], node.Content[i+1]
 		switch key.Value {
 		case "inputs", "tools":
-			read, err := valueOf(&pluginv1.Option{Name: "test." + key.Value, Kind: pluginv1.Option_KIND_STRING_LIST}, said)
+			read, err := valueOf(&pluginv1.OptionDeclaration{Name: "test." + key.Value, Kind: pluginv1.OptionDeclaration_KIND_STRING_LIST}, said)
 			if err != nil {
 				return wrong(said.Line, "%v", err)
 			}

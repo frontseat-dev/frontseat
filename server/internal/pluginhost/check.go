@@ -86,18 +86,18 @@ func checkDescription(d *pluginv1.DescribeResponse) error {
 }
 
 // ofKind reports whether a value is one of a kind an option takes.
-func ofKind(kind pluginv1.Option_Kind, value *typev1.OptionValue) bool {
+func ofKind(kind pluginv1.OptionDeclaration_Kind, value *typev1.OptionValue) bool {
 	switch kind {
-	case pluginv1.Option_KIND_STRING:
+	case pluginv1.OptionDeclaration_KIND_STRING:
 		_, is := value.GetValue().(*typev1.OptionValue_StringValue)
 		return is
-	case pluginv1.Option_KIND_BOOL:
+	case pluginv1.OptionDeclaration_KIND_BOOL:
 		_, is := value.GetValue().(*typev1.OptionValue_BoolValue)
 		return is
-	case pluginv1.Option_KIND_INT:
+	case pluginv1.OptionDeclaration_KIND_INT:
 		_, is := value.GetValue().(*typev1.OptionValue_IntValue)
 		return is
-	case pluginv1.Option_KIND_STRING_LIST:
+	case pluginv1.OptionDeclaration_KIND_STRING_LIST:
 		list, is := value.GetValue().(*typev1.OptionValue_StringListValue)
 		return is && list.StringListValue != nil
 	}
@@ -597,7 +597,7 @@ func checkProject(plugin, root string, project *pluginv1.Project, found map[stri
 // Each provided artifact is one declared output of the provider itself.
 // Consumers know the coordinate, never these private action names.
 func checkProvidedArtifacts(project *pluginv1.Project) error {
-	if !slices.ContainsFunc(project.GetProvides(), func(p *pluginv1.Provide) bool { return len(p.GetArtifacts()) > 0 }) {
+	if !slices.ContainsFunc(project.GetProvides(), func(p *pluginv1.Provision) bool { return len(p.GetArtifacts()) > 0 }) {
 		return nil
 	}
 	actions := make(map[string]*pluginv1.Action, len(project.GetActions()))

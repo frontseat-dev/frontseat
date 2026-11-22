@@ -30,7 +30,7 @@ func backstageFixture(t *testing.T) conformance.Fixture {
 		// document gets spec.dependsOn, written bare as billing is of the
 		// gateway's own namespace, and no dependencyOf, which it does not
 		// state.
-		Reconcile: &pluginv1.ReconcileRequest{Context: context, Root: "app", Entities: []*pluginv1.Resolved{{
+		Reconcile: &pluginv1.ReconcileRequest{Context: context, Root: "app", Entities: []*pluginv1.EntityDependencies{{
 			Ref: &typev1.EntityRef{Kind: "component", Namespace: "edge", Name: "gateway"}, Manifest: "app/catalog-info.yaml",
 			DependsOn:    []*typev1.EntityRef{{Kind: "component", Namespace: "edge", Name: "billing"}},
 			DependencyOf: []*typev1.EntityRef{{Kind: "component", Namespace: "edge", Name: "portal"}},

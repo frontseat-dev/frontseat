@@ -195,7 +195,7 @@ names. The contract carries this in three places. `Project.workspace_files`
 names literal files above the project, relative to the repository, that
 every action of the project reads where they are. A dependency input's
 `into` may be `{root}`, and what is handed is then placed at its
-own root in the repository; `Handed.into` tells the plugin the way there
+own root in the repository; `Handoff.into` tells the plugin the way there
 from the project, such as `../greet`. A file an Arrange writes may sit
 directly in a directory above the project, never beside it, for the
 workspace, in place of the repository's own
@@ -537,7 +537,7 @@ runs.
 
 ## Artifacts
 
-`Provide.artifacts` names exact outputs of the provider's own finite
+`Provision.artifacts` names exact outputs of the provider's own finite
 actions, handed to consumers through their coordinates and dependency
 placement. Outputs are worker-owned immutable artifacts; source patterns
 never select them. Optionality is the producer's output's: an absent

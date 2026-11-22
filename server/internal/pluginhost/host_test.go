@@ -270,7 +270,7 @@ func TestAPluginToldWhatAProjectWasHandedWritesWhatItsToolNeeds(t *testing.T) {
 		Context: &pluginv1.Context{Profile: typev1.Profile_PROFILE_DEVELOPMENT, Options: goContext().Options, Tools: map[string]string{"go": "1.27.3"}},
 		Root:    "services/hello",
 		Actions: []string{"compile"},
-		Handed: []*pluginv1.Handed{
+		Handed: []*pluginv1.Handoff{
 			{Coordinate: &pluginv1.Coordinate{Ecosystem: "go", Name: "example.com/greet"}, Into: ".frontseat/go/example.com/greet"},
 			{Coordinate: &pluginv1.Coordinate{Ecosystem: "go", Name: "example.com/log"}, Into: ".frontseat/go/example.com/log"},
 		},
@@ -290,7 +290,7 @@ func TestAWorkspaceIsNotWrittenForAGoNobodyPinned(t *testing.T) {
 	_, err := plugin.Call(context.Background(), files{}, "Arrange", &pluginv1.ArrangeRequest{
 		Context: goContext(),
 		Root:    "services/hello",
-		Handed:  []*pluginv1.Handed{{Coordinate: &pluginv1.Coordinate{Ecosystem: "go", Name: "example.com/greet"}, Into: ".frontseat/go/example.com/greet"}},
+		Handed:  []*pluginv1.Handoff{{Coordinate: &pluginv1.Coordinate{Ecosystem: "go", Name: "example.com/greet"}, Into: ".frontseat/go/example.com/greet"}},
 	}, &pluginv1.ArrangeResponse{})
 	if err == nil || !strings.Contains(err.Error(), "pins no go") {
 		t.Errorf("err = %v, want the plugin to say the repository pins no go", err)

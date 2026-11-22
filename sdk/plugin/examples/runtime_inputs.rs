@@ -4,8 +4,9 @@
 mod fixture;
 
 use frontseat_plugin::{
-    Action, ActionKind, Analysis, Code, Command, Coordinate, Description, Error, File, Handed,
-    Input, InputSet, Origin, Output, Plugin, Produced, Project, Provide, Repository, Requirement,
+    Action, ActionKind, Analysis, Code, Command, Coordinate, Description, Error, File, Handoff,
+    Input, InputSet, Origin, Output, OutputRef, Plugin, Project, Provision, Repository,
+    Requirement,
 };
 
 struct RuntimeInputs;
@@ -66,7 +67,7 @@ impl Plugin for RuntimeInputs {
                     inputs: vec![Input::source(":source.txt")],
                     ..Default::default()
                 }];
-                project.provides = vec![Provide {
+                project.provides = vec![Provision {
                     coordinate: Some(coordinate("source")),
                     sources: "data".into(),
                     ..Default::default()
@@ -79,9 +80,9 @@ impl Plugin for RuntimeInputs {
                     vec![Input::source("=fixture.txt")],
                     Some("fixture.out"),
                 )];
-                project.provides = vec![Provide {
+                project.provides = vec![Provision {
                     coordinate: Some(coordinate("runtime")),
-                    artifacts: vec![Produced {
+                    artifacts: vec![OutputRef {
                         action: "compile".into(),
                         output: "fixture.out".into(),
                     }],
@@ -138,7 +139,7 @@ impl Plugin for RuntimeInputs {
         _: &Repository,
         root: &str,
         actions: &[String],
-        handed: &[Handed],
+        handed: &[Handoff],
     ) -> Result<Vec<File>, Error> {
         let expected = match actions {
             [name] if name == "compile" => "source",

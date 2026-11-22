@@ -188,7 +188,7 @@ pub struct VersionRequest {
     #[prost(message, repeated, tag = "5")]
     pub commits: ::prost::alloc::vec::Vec<ReleaseCommit>,
     /// Branch is what the branch releases, as Branch answered.
-    #[prost(message, optional, tag = "8")]
+    #[prost(message, optional, tag = "6")]
     pub branch: ::core::option::Option<BranchResponse>,
 }
 /// ReleaseCommit is one commit, as far as it concerns a unit.
@@ -234,10 +234,10 @@ pub struct VersionReason {
     #[prost(string, tag = "1")]
     pub commit: ::prost::alloc::string::String,
     /// Bump is what this reason alone is worth.
-    #[prost(enumeration = "super::super::r#type::v1alpha1::Bump", tag = "3")]
+    #[prost(enumeration = "super::super::r#type::v1alpha1::Bump", tag = "2")]
     pub bump: i32,
     /// Summary says it in a line: "feat: trim the greeting".
-    #[prost(string, tag = "4")]
+    #[prost(string, tag = "3")]
     pub summary: ::prost::alloc::string::String,
 }
 /// Context is what every call but Describe carries of the repository. The
@@ -261,7 +261,7 @@ pub struct Context {
     /// Profile is the way the source is to be built. A plugin declares the
     /// commands of that way: its compiler flags and its tools' own switches.
     /// It is never unspecified.
-    #[prost(enumeration = "super::super::r#type::v1alpha1::Profile", tag = "7")]
+    #[prost(enumeration = "super::super::r#type::v1alpha1::Profile", tag = "3")]
     pub profile: i32,
     /// Platforms are the platforms what the plugin is asked about is
     /// shipped for, as its entity says (spec.frontseat.platforms), each an
@@ -269,32 +269,32 @@ pub struct Context {
     /// project's package actions are made for. None, where its entity says
     /// none; a plugin whose tool makes what is the same on every platform
     /// makes nothing of them.
-    #[prost(string, repeated, tag = "8")]
+    #[prost(string, repeated, tag = "4")]
     pub platforms: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
-/// Option is an option a plugin takes: something a repository, or an
+/// OptionDeclaration is an option a plugin takes: something a repository, or an
 /// entity, may set of how the plugin builds. The host checks what is set
 /// against it, and hands the plugin every option it declared, each with
 /// the value that holds where the plugin is asked.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct Option {
+pub struct OptionDeclaration {
     /// Name is what it is set by, lower-case words of \[a-z0-9\] joined by
     /// single hyphens.
     #[prost(string, tag = "1")]
     pub name: ::prost::alloc::string::String,
     /// Kind is the kind of value it takes.
-    #[prost(enumeration = "option::Kind", tag = "3")]
+    #[prost(enumeration = "option_declaration::Kind", tag = "2")]
     pub kind: i32,
     /// Default is its value where nothing sets it.
-    #[prost(message, optional, tag = "4")]
+    #[prost(message, optional, tag = "3")]
     pub default: ::core::option::Option<super::super::r#type::v1alpha1::OptionValue>,
     /// Entity_settable says a Component may set it, for its own directory and
     /// beneath; unset, only a repository may.
-    #[prost(bool, tag = "5")]
+    #[prost(bool, tag = "4")]
     pub entity_settable: bool,
 }
-/// Nested message and enum types in `Option`.
-pub mod option {
+/// Nested message and enum types in `OptionDeclaration`.
+pub mod option_declaration {
     /// Kind is a kind of value an option takes.
     #[derive(
         Clone,
@@ -362,25 +362,25 @@ pub struct DescribeResponse {
     /// Interests are patterns of the files it reads, relative to a
     /// repository, in the pattern language host.proto says. The host calls
     /// Analyze only for a directory that holds a file they select.
-    #[prost(string, repeated, tag = "5")]
+    #[prost(string, repeated, tag = "2")]
     pub interests: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     /// Options are the options it takes. A repository or an entity can set
     /// these and no others.
-    #[prost(message, repeated, tag = "6")]
-    pub options: ::prost::alloc::vec::Vec<Option>,
+    #[prost(message, repeated, tag = "3")]
+    pub options: ::prost::alloc::vec::Vec<OptionDeclaration>,
     /// Generates_sources says Analyze declares generated source regions from
     /// committed manifests. The host asks these plugins before other plugins and
     /// refuses discovery that reads any generated region. No action runs during
     /// analysis; generated files cannot supply analysis metadata.
-    #[prost(bool, tag = "7")]
+    #[prost(bool, tag = "4")]
     pub generates_sources: bool,
     /// Release is what it serves of releasing; unset, nothing.
-    #[prost(message, optional, tag = "8")]
+    #[prost(message, optional, tag = "5")]
     pub release: ::core::option::Option<ReleaseRoles>,
     /// Services are the names it answers Service for, as an entity's
     /// service names what it is, lower-case \[a-z0-9-\]: "postgres". The
     /// host refuses a name two plugins of a repository claim.
-    #[prost(string, repeated, tag = "9")]
+    #[prost(string, repeated, tag = "6")]
     pub services: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// ServiceRequest asks how a service of a name the plugin claims is
@@ -489,11 +489,11 @@ pub struct ArrangeRequest {
     /// Handed is what they were handed, in the order it was found: what the
     /// project requires first, then what that requires.
     #[prost(message, repeated, tag = "4")]
-    pub handed: ::prost::alloc::vec::Vec<Handed>,
+    pub handed: ::prost::alloc::vec::Vec<Handoff>,
 }
-/// Handed is something a project was handed.
+/// Handoff is something a project was handed.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct Handed {
+pub struct Handoff {
     /// Coordinate is what it is required by.
     #[prost(message, optional, tag = "1")]
     pub coordinate: ::core::option::Option<Coordinate>,
@@ -532,7 +532,7 @@ pub struct Project {
     /// Provides are the coordinates it can be required by, each with what
     /// a project that requires it is handed.
     #[prost(message, repeated, tag = "5")]
-    pub provides: ::prost::alloc::vec::Vec<Provide>,
+    pub provides: ::prost::alloc::vec::Vec<Provision>,
     /// Requires are what it needs of other projects and of the world.
     #[prost(message, repeated, tag = "6")]
     pub requires: ::prost::alloc::vec::Vec<Requirement>,
@@ -611,12 +611,12 @@ pub struct Coordinate {
     #[prost(string, tag = "2")]
     pub name: ::prost::alloc::string::String,
 }
-/// Provide is a coordinate a project can be required by, and what a
+/// Provision is a coordinate a project can be required by, and what a
 /// project that requires it is handed. A plugin never names another
 /// project's files: it says what its own project hands over, and the host
 /// hands it to whatever requires the coordinate.
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct Provide {
+pub struct Provision {
     /// Coordinate is what it is required by.
     #[prost(message, optional, tag = "1")]
     pub coordinate: ::core::option::Option<Coordinate>,
@@ -632,12 +632,12 @@ pub struct Provide {
     /// a missing optional output contributes no files. Home outputs and shared
     /// fetches are not served here.
     #[prost(message, repeated, tag = "3")]
-    pub artifacts: ::prost::alloc::vec::Vec<Produced>,
+    pub artifacts: ::prost::alloc::vec::Vec<OutputRef>,
 }
-/// Produced selects one declared output, without exposing another plugin's
+/// OutputRef selects one declared output, without exposing another plugin's
 /// action names to consumers of the providing coordinate.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct Produced {
+pub struct OutputRef {
     /// Action is the producing action's name in the providing project.
     #[prost(string, tag = "1")]
     pub action: ::prost::alloc::string::String,
@@ -657,14 +657,14 @@ pub struct Requirement {
     /// the host refuses a requirement without a file and a line. An edge
     /// is shown with it, so that whoever asks why one project needs another
     /// is pointed at the line.
-    #[prost(message, optional, tag = "5")]
+    #[prost(message, optional, tag = "2")]
     pub origin: ::core::option::Option<Origin>,
     /// Version is the version the project's own files resolve it to, as the
     /// ecosystem spells it: v1.2.3 for Go (its go.mod, whose versions the
     /// go.sum locks), 1.2.3 for Cargo (Cargo.lock). Empty where they say
     /// none. Where the workspace provides it, what is built is the
     /// provider's source, whatever this says.
-    #[prost(string, tag = "6")]
+    #[prost(string, tag = "3")]
     pub version: ::prost::alloc::string::String,
 }
 /// Origin is a place in a file of the repository.
@@ -1014,7 +1014,7 @@ pub struct DependencyInput {
     /// Into is required: a directory relative to the consuming project, with
     /// {name} replaced by each handed coordinate's name, or {root} alone to
     /// preserve the provider's directory in the same repository. The host tells
-    /// the plugin the resolved relative directory in Handed.into. Artifact-only
+    /// the plugin the resolved relative directory in Handoff.into. Artifact-only
     /// handoffs at the same root may use "."; sources may not cover their own
     /// root. Artifact paths retain their provider-relative layout beneath Into.
     #[prost(string, tag = "3")]
@@ -1154,14 +1154,14 @@ pub struct Output {
     /// which every action has of its own: where a tool keeps what it
     /// fetched, and where an action that needs it finds it without being
     /// told.
-    #[prost(string, tag = "2")]
+    #[prost(string, tag = "1")]
     pub path: ::prost::alloc::string::String,
     /// Optional says the action may pass without leaving it: its tool
     /// writes it for some of what it is given and not for the rest, and
     /// what was given cannot be told apart beforehand. An action that
     /// needs this one then finds nothing there. Without it, an action that
     /// passes and does not leave an output has failed.
-    #[prost(bool, tag = "3")]
+    #[prost(bool, tag = "2")]
     pub optional: bool,
 }
 /// InputSet is inputs declared once, by name.
@@ -1173,7 +1173,7 @@ pub struct InputSet {
     /// Inputs are patterns relative to the project, or other sets. A set
     /// is of source: what an action left is named in an action's own
     /// inputs, never in a set.
-    #[prost(message, repeated, tag = "4")]
+    #[prost(message, repeated, tag = "2")]
     pub inputs: ::prost::alloc::vec::Vec<Input>,
     /// Accepts_generated includes generated contributions selected by these
     /// patterns. Nested sets retain their own selections; exclusions in the
@@ -1216,12 +1216,13 @@ pub struct ReconcileRequest {
     /// Entities are the entities of files out of step, with what the
     /// source says of each.
     #[prost(message, repeated, tag = "3")]
-    pub entities: ::prost::alloc::vec::Vec<Resolved>,
+    pub entities: ::prost::alloc::vec::Vec<EntityDependencies>,
 }
-/// Resolved is an entity and what the source says of it: components only,
-/// since only components are inferred.
+/// EntityDependencies is an entity and what the source says it depends on
+/// and is depended on by: components only, since only components are
+/// inferred.
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct Resolved {
+pub struct EntityDependencies {
     /// Ref is the entity, as the plugin answered it.
     #[prost(message, optional, tag = "1")]
     pub r#ref: ::core::option::Option<super::super::r#type::v1alpha1::EntityRef>,
