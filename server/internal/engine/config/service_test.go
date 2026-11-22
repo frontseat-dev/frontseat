@@ -40,7 +40,7 @@ func TestAServiceIsReadIntoTheShapeAServiceHas(t *testing.T) {
         - port: redis
         - http: {port: redis, path: /health, body: ok}
         - command: [redis-cli, ping]
-      timeout: 3600
+      ready-timeout: 1h
       exports: {REDIS: "{host}:{port.redis}"}
       user: "999"
       writable: [/data]
@@ -84,23 +84,26 @@ func TestAServiceIsReadIntoTheShapeAServiceHas(t *testing.T) {
 // no way to say the plugin's own.
 func TestWhatAServiceCannotCarryIsRefusedWhereItIsRead(t *testing.T) {
 	for says, service := range map[string]string{
-		"does not say what it is: write as":                              "      image: x\n",
-		"service takes no key privileged":                                "      as: container\n      privileged: true\n",
-		"service.ports is not names, each with its port, a whole number": "      as: postgres\n      ports: {sql: 4294974296}\n",
-		"service.ports: a port is a number from 1 to 65535":              "      as: postgres\n      ports: {sql: 65536}\n",
-		"a port is a number from 1 to 65535":                             "      as: postgres\n      ports: {sql: 0}\n",
-		"service.timeout is not a whole number of seconds":               "      as: postgres\n      timeout: 4294967301\n",
-		"service.timeout is a number of seconds":                         "      as: postgres\n      timeout: -5\n",
-		"service.timeout is more than the hour":                          "      as: postgres\n      timeout: 3601\n",
-		"service.ready[0] is one of port, http or command":               "      as: postgres\n      ready: [{port: sql, command: [\"true\"]}]\n",
-		"service.ready[1] is one of port, http or command":               "      as: postgres\n      ready: [{port: sql}, {}]\n",
-		"service.exports is written and says nothing":                    "      as: postgres\n      exports: {}\n",
-		"service.arguments is written and says nothing":                  "      as: postgres\n      arguments: []\n",
-		"service.environment is written and says nothing":                "      as: postgres\n      environment: {}\n",
-		"service.ports is written and says nothing":                      "      as: postgres\n      ports: {}\n",
-		"service.ready is written and says nothing":                      "      as: postgres\n      ready: []\n",
-		"service.timeout is written and says nothing":                    "      as: postgres\n      timeout: 0\n",
-		"service.image is written and says nothing":                      "      as: postgres\n      image: \"\"\n",
+		"does not say what it is: write as":                                          "      image: x\n",
+		"service takes no key privileged":                                            "      as: container\n      privileged: true\n",
+		"service.ports is not names, each with its port, a whole number":             "      as: postgres\n      ports: {sql: 4294974296}\n",
+		"service.ports: a port is a number from 1 to 65535":                          "      as: postgres\n      ports: {sql: 65536}\n",
+		"a port is a number from 1 to 65535":                                         "      as: postgres\n      ports: {sql: 0}\n",
+		"service takes no key timeout; it takes":                                     "      as: postgres\n      timeout: 120\n",
+		"service.ready-timeout is not a length of time":                              "      as: postgres\n      ready-timeout: 120\n",
+		"service.ready-timeout is not a length of time, written":                     "      as: postgres\n      ready-timeout: 2 minutes\n",
+		"service.ready-timeout is a length of time more than zero":                   "      as: postgres\n      ready-timeout: -5s\n",
+		"service.ready-timeout is a length of time more than zero, in whole seconds": "      as: postgres\n      ready-timeout: 1500ms\n",
+		"service.ready-timeout is more than the hour":                                "      as: postgres\n      ready-timeout: 61m\n",
+		"service.ready[0] is one of port, http or command":                           "      as: postgres\n      ready: [{port: sql, command: [\"true\"]}]\n",
+		"service.ready[1] is one of port, http or command":                           "      as: postgres\n      ready: [{port: sql}, {}]\n",
+		"service.exports is written and says nothing":                                "      as: postgres\n      exports: {}\n",
+		"service.arguments is written and says nothing":                              "      as: postgres\n      arguments: []\n",
+		"service.environment is written and says nothing":                            "      as: postgres\n      environment: {}\n",
+		"service.ports is written and says nothing":                                  "      as: postgres\n      ports: {}\n",
+		"service.ready is written and says nothing":                                  "      as: postgres\n      ready: []\n",
+		"service.ready-timeout is written and says nothing":                          "      as: postgres\n      ready-timeout: 0s\n",
+		"service.image is written and says nothing":                                  "      as: postgres\n      image: \"\"\n",
 	} {
 		_, err := config.Read(t.Context(), "repo", resourceWith(service))
 		if err == nil || !strings.Contains(err.Error(), says) || !strings.Contains(err.Error(), "catalog-info.yaml") {

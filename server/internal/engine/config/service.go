@@ -56,19 +56,19 @@ func (service Service) Mistake(err error) error {
 // serviceValues is what each key of a service takes, as a mistake says
 // it; a key it does not hold is refused, with the keys it holds.
 var serviceValues = map[string]string{
-	"as":          "a name: what a plugin of the repository starts",
-	"endpoints":   "names, each with an address of {host} and one of its ports",
-	"program":     "an action reference naming one program",
-	"apis":        "provided API references, each with a port and exports",
-	"image":       "text: an image, named with its registry and digest",
-	"arguments":   "a list of text",
-	"environment": "names, each with its value as text",
-	"exports":     "names, each with its value as text",
-	"ports":       "names, each with its port, a whole number",
-	"timeout":     "a whole number of seconds",
-	"ready":       "a list of checks, each one of port: <name>, http: {port, path, body} or command: [...]",
-	"user":        "text: the user its image runs as, by number, never 0, written in quotes, as \"70\"",
-	"writable":    "a list of the directories of its image it writes, each an absolute path",
+	"as":            "a name: what a plugin of the repository starts",
+	"endpoints":     "names, each with an address of {host} and one of its ports",
+	"program":       "an action reference naming one program",
+	"apis":          "provided API references, each with a port and exports",
+	"image":         "text: an image, named with its registry and digest",
+	"arguments":     "a list of text",
+	"environment":   "names, each with its value as text",
+	"exports":       "names, each with its value as text",
+	"ports":         "names, each with its port, a whole number",
+	"ready-timeout": "a length of time, written as Go writes one: 90s, 2m",
+	"ready":         "a list of checks, each one of port: <name>, http: {port, path, body} or command: [...]",
+	"user":          "text: the user its image runs as, by number, never 0, written in quotes, as \"70\"",
+	"writable":      "a list of the directories of its image it writes, each an absolute path",
 }
 
 // null reports whether a node is a null: a key written with no value.
@@ -207,9 +207,9 @@ func readService(file, directory string, ref entity.Ref, node *yaml.Node) (Servi
 			return mistake(within.Line, "service.%s holds a null: say what it is, or leave it out", key.Value)
 		}
 		var (
-			checks  []ready
-			seconds int32
-			wrong   *yaml.Node
+			checks []ready
+			ready  time.Duration
+			wrong  *yaml.Node
 			// read is whether the value is what its key takes, and
 			// nothing whether it then says nothing.
 			read, nothing = true, false
@@ -271,11 +271,16 @@ func readService(file, directory string, ref entity.Ref, node *yaml.Node) (Servi
 				said.Ports, read = mapOf(val, whole[int32])
 			}
 			nothing = len(said.Ports) == 0
-		case "timeout":
+		case "ready-timeout":
 			if written {
-				seconds, read = whole[int32](val)
+				var said string
+				if said, read = text(val); read {
+					var err error
+					ready, err = time.ParseDuration(said)
+					read = err == nil
+				}
 			}
-			nothing = seconds == 0
+			nothing = ready == 0
 		case "ready":
 			if written {
 				checks, read = readReady(val)
@@ -319,8 +324,8 @@ func readService(file, directory string, ref entity.Ref, node *yaml.Node) (Servi
 		if key.Value == "apis" {
 			said.Apis = apis
 		}
-		if key.Value == "timeout" {
-			said.Timeout = durationpb.New(time.Duration(seconds) * time.Second)
+		if key.Value == "ready-timeout" {
+			said.Timeout = durationpb.New(ready)
 		}
 		for n, c := range checks {
 			check := &typev1.ServiceReady{}
