@@ -1,16 +1,17 @@
 package runner
 
 import (
-	runnerv1 "github.com/frontseat-dev/frontseat/server/internal/runnerapi/frontseat/runner/v1alpha1"
-	"google.golang.org/protobuf/types/known/durationpb"
 	"runtime"
 	"testing"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
+
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/confine"
+	runnerv1 "github.com/frontseat-dev/frontseat/server/internal/runnerapi/frontseat/runner/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/testservice"
-	"google.golang.org/protobuf/proto"
 )
 
 func apiDescription(t *testing.T) *runnerv1.RunnerSandbox {

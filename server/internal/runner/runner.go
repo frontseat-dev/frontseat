@@ -29,8 +29,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/frontseat-dev/frontseat/server/internal/confine"
-	runnerv1 "github.com/frontseat-dev/frontseat/server/internal/runnerapi/frontseat/runner/v1alpha1"
 	"io"
 	"log"
 	"net"
@@ -48,10 +46,6 @@ import (
 
 	connect "connectrpc.com/connect/v2"
 	"connectrpc.com/connect/v2/connecthttp"
-	"github.com/frontseat-dev/frontseat/sdk/go"
-	sandboxv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/sandbox/v1alpha1"
-	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/sandbox/v1alpha1/sandboxv1alpha1connect"
-	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"golang.org/x/sync/semaphore"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -60,8 +54,14 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	"github.com/frontseat-dev/frontseat/sdk/go"
+	sandboxv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/sandbox/v1alpha1"
+	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/sandbox/v1alpha1/sandboxv1alpha1connect"
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
+	"github.com/frontseat-dev/frontseat/server/internal/confine"
 	"github.com/frontseat-dev/frontseat/server/internal/httpserver"
 	"github.com/frontseat-dev/frontseat/server/internal/image"
+	runnerv1 "github.com/frontseat-dev/frontseat/server/internal/runnerapi/frontseat/runner/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/testservice"
 	"github.com/frontseat-dev/frontseat/server/sandbox"
 )
@@ -106,7 +106,7 @@ type Config struct {
 	// Runtime is its container runtime's command line (podman), asked
 	// what an image is started with.
 	Gateway, Identity, Runtime string
-	// BB is the directory bb_runner and the confiners are in, as the
+	// BB is the directory the runner and the confiners are in, as the
 	// container runtime sees it.
 	BB string
 	// Registries maps each registry an image may come from to the
@@ -143,8 +143,11 @@ func Serve(ctx context.Context, config Config) error {
 	// Anyone may add to the worker's directory: what is there by the
 	// name is used only where it is a directory of root's, not a link
 	// another put there.
-	if info, err := os.Lstat(r.own); err != nil || !info.IsDir() || info.Sys().(*syscall.Stat_t).Uid != 0 {
-		return fmt.Errorf("%s is not a directory of root's: %v", r.own, err)
+	switch info, err := os.Lstat(r.own); {
+	case err != nil:
+		return fmt.Errorf("the runner's own directory: %w", err)
+	case !info.IsDir() || info.Sys().(*syscall.Stat_t).Uid != 0:
+		return fmt.Errorf("%s is not a directory of root's", r.own)
 	}
 	if err := os.Chmod(r.own, 0o711); err != nil {
 		return err
@@ -276,8 +279,6 @@ func (r *runner) handle(_ any, stream grpc.ServerStream) error {
 	return status.Errorf(codes.Unimplemented, "frontseat-runner serves no %s", method)
 }
 
-// run makes the action's runner sandbox, has its runner run the action,
-// and removes the sandbox once the answer is on its way.
 // described reads what the action's root says its sandbox holds, within
 // that root, and checks it.
 func (r *runner) described(root string) (*runnerv1.RunnerSandbox, error) {
@@ -381,7 +382,12 @@ func (a *attempt) ready(ctx context.Context, sb string, s *runnerv1.RunnerServic
 		case *typev1.ServiceReady_Port:
 			try = func() error { return reached(ctx, socket) }
 		case *typev1.ServiceReady_Http:
-			try = func() error { return answered(ctx, socket, c.Http.GetPath(), c.Http.GetBody()) }
+			// The expression is read once, not at every try.
+			matches, err := regexp.Compile(c.Http.GetBody())
+			if err != nil {
+				return err
+			}
+			try = func() error { return answered(ctx, socket, c.Http.GetPath(), matches) }
 		case *typev1.ServiceReady_Command:
 			args := c.Command.GetArguments()
 			if s.Program != nil {
@@ -449,14 +455,13 @@ func reached(ctx context.Context, socket string) error {
 	return nil
 }
 
+// saidOf is how much of what a service answered a failed check repeats.
+const saidOf = 512
+
 // answered says whether a service answers a request for a path with
 // success and a body the expression matches, over HTTP through the socket
 // of its route.
-func answered(ctx context.Context, socket, path, body string) error {
-	matches, err := regexp.Compile(body)
-	if err != nil {
-		return err
-	}
+func answered(ctx context.Context, socket, path string, matches *regexp.Regexp) error {
 	// One connection for one request, closed with it: a check tried again
 	// and again keeps nothing open.
 	client := &http.Client{Timeout: 5 * time.Second, Transport: &http.Transport{DisableKeepAlives: true, DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
@@ -476,7 +481,9 @@ func answered(ctx context.Context, socket, path, body string) error {
 		return err
 	}
 	if response.StatusCode >= 400 || !matches.Match(said) {
-		return fmt.Errorf("GET %s: %s: %s", path, response.Status, strings.TrimSpace(string(said)))
+		// The beginning of what it answered says why; the rest is the
+		// service's to keep.
+		return fmt.Errorf("GET %s: %s: %s", path, response.Status, strings.TrimSpace(string(said[:min(len(said), saidOf)])))
 	}
 	return nil
 }
@@ -541,7 +548,7 @@ func pathsOf(request []byte) (paths, error) {
 	}
 	directory, _, _ := strings.Cut(found[4], "/")
 	if directory == "" || directory == "." || directory == ".." || strings.ContainsAny(directory, `\`) {
-		return paths{}, fmt.Errorf("the request names no directory of the build directory: %q", found[4])
+		return paths{}, errors.New("the request's output is in no directory of the build directory")
 	}
 	for number := protowire.Number(4); number <= 8; number++ {
 		p, ok := found[number]
@@ -549,7 +556,7 @@ func pathsOf(request []byte) (paths, error) {
 			return paths{}, fmt.Errorf("the request names no field %d", number)
 		}
 		if !strings.HasPrefix(p, directory+"/") || path.Clean(p) != p || strings.Contains(p, "..") {
-			return paths{}, fmt.Errorf("field %d (%q) is outside the directory %q", number, p, directory)
+			return paths{}, fmt.Errorf("the path of field %d is outside the request's directory, or not written plainly", number)
 		}
 	}
 	return paths{directory: directory, root: found[6]}, nil

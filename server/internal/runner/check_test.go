@@ -1,13 +1,14 @@
 package runner
 
 import (
-	runnerv1 "github.com/frontseat-dev/frontseat/server/internal/runnerapi/frontseat/runner/v1alpha1"
-	"google.golang.org/protobuf/types/known/durationpb"
 	"strings"
 	"testing"
 	"time"
 
+	"google.golang.org/protobuf/types/known/durationpb"
+
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
+	runnerv1 "github.com/frontseat-dev/frontseat/server/internal/runnerapi/frontseat/runner/v1alpha1"
 )
 
 const busybox = "docker.io/library/busybox:1.37@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec"
@@ -31,7 +32,7 @@ func TestWhatTheActionsRootSaysToStartIsChecked(t *testing.T) {
 
 	// The control: the daemon's own, named as the proxy serves it.
 	good := service(nil)
-	if err := r.check([]*runnerv1.RunnerService{good}); err != nil {
+	if err := r.checkDescription(&runnerv1.RunnerSandbox{Services: []*runnerv1.RunnerService{good}}); err != nil {
 		t.Fatalf("a service the daemon would write: %v", err)
 	}
 	if want := "localhost:8081/dockerhub/library/busybox@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec"; good.GetService().GetImage() != want {
@@ -74,7 +75,7 @@ func TestWhatTheActionsRootSaysToStartIsChecked(t *testing.T) {
 		})},
 	}
 	for what, services := range refused {
-		if err := r.check(services); err == nil {
+		if err := r.checkDescription(&runnerv1.RunnerSandbox{Services: services}); err == nil {
 			t.Errorf("%s: allowed; want refused", what)
 		} else if what == "an image that is an option of docker's" && !strings.Contains(err.Error(), "not an image's reference") {
 			t.Errorf("%s: refused for %v; want it refused as no image", what, err)

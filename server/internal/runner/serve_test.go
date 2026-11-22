@@ -2,7 +2,6 @@ package runner
 
 import (
 	"context"
-	"github.com/frontseat-dev/frontseat/server/internal/confine"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -14,6 +13,8 @@ import (
 	bbrunner "github.com/buildbarn/bb-remote-execution/pkg/proto/runner"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	"github.com/frontseat-dev/frontseat/server/internal/confine"
 )
 
 // aForm is a confiner's form, as its name holds it.

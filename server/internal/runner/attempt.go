@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	runnerv1 "github.com/frontseat-dev/frontseat/server/internal/runnerapi/frontseat/runner/v1alpha1"
 	"log"
 	"net"
 	"os"
@@ -16,16 +15,17 @@ import (
 	"time"
 
 	connect "connectrpc.com/connect/v2"
-
-	sandboxv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/sandbox/v1alpha1"
-	"github.com/frontseat-dev/frontseat/server/internal/confine"
-	"github.com/frontseat-dev/frontseat/server/internal/httpserver"
-	"github.com/frontseat-dev/frontseat/server/internal/testservice"
 	"golang.org/x/sync/semaphore"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
+
+	sandboxv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/sandbox/v1alpha1"
+	"github.com/frontseat-dev/frontseat/server/internal/confine"
+	"github.com/frontseat-dev/frontseat/server/internal/httpserver"
+	runnerv1 "github.com/frontseat-dev/frontseat/server/internal/runnerapi/frontseat/runner/v1alpha1"
+	"github.com/frontseat-dev/frontseat/server/internal/testservice"
 )
 
 const attemptLabel = "dev.frontseat.runner-attempt"
@@ -186,6 +186,8 @@ func (a *attempt) remove(ctx context.Context) bool {
 			}
 		}
 		if removed {
+			// Its own to delete: the directory this attempt made, under
+			// its own random name, which no sandbox holds any more.
 			if err := os.RemoveAll(a.mine); err != nil {
 				log.Printf("frontseat-runner: removing attempt files: %v", err)
 				return false

@@ -1,10 +1,8 @@
 package runner
 
 import (
-	"errors"
 	"log"
 	"os"
-	"syscall"
 	"time"
 
 	"golang.org/x/sys/unix"
@@ -56,7 +54,7 @@ const endWithin = 30 * time.Second
 func reapEnded() {
 	for {
 		pid, err := unix.Wait4(-1, nil, unix.WNOHANG, nil)
-		if pid <= 0 || errors.Is(err, syscall.ECHILD) || err != nil {
+		if pid <= 0 || err != nil {
 			return
 		}
 	}

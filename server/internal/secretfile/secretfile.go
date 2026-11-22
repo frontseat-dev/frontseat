@@ -48,7 +48,7 @@ func Read(file, what string, limit int64) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%s in %s: %w", what, file, err)
 	}
-	if !there.Mode().IsRegular() || !os.SameFile(there, info) || info.Mode().Perm()&0o077 != 0 {
+	if !os.SameFile(there, info) || info.Mode().Perm()&0o077 != 0 {
 		return nil, fmt.Errorf("%s in %s can be read by others, or is no file of its own (%s): it is this server's alone (chmod 600)", what, file, there.Mode())
 	}
 	raw, err := io.ReadAll(io.LimitReader(opened, limit))

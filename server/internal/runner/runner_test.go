@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -83,7 +84,7 @@ func without(n protowire.Number) map[protowire.Number]string {
 	return m
 }
 
-func TestActionDirectory(t *testing.T) {
+func TestARequestIsHeldToOneDirectoryOfTheBuildDirectory(t *testing.T) {
 	// The control: what the worker sends is allowed, and names its directory.
 	if got, err := pathsOf(request(good())); err != nil || got.directory != "165" || got.root != "165/root" {
 		t.Fatalf("the worker's own request: %+v, %v; want 165 and its root allowed", got, err)
@@ -122,10 +123,10 @@ func TestActionDirectory(t *testing.T) {
 	}
 }
 
-// FuzzActionDirectory holds the check to the real parser: whatever it
+// FuzzARequestIsHeldToOneDirectoryOfTheBuildDirectory holds the check to the real parser: whatever it
 // allows, protobuf reads as a RunRequest, and every path that request
 // gives the runner is within the one directory the check named.
-func FuzzActionDirectory(f *testing.F) {
+func FuzzARequestIsHeldToOneDirectoryOfTheBuildDirectory(f *testing.F) {
 	f.Add(request(good()))
 	f.Add(request(with(6, "165/../166/root")))
 	f.Add(request(without(7)))
@@ -176,13 +177,42 @@ func TestAServiceIsCheckedReadyThroughItsOwnSocketAndNoLink(t *testing.T) {
 	if err := reached(t.Context(), link); err == nil {
 		t.Error("a port was reached through a link")
 	}
-	if err := answered(t.Context(), link, "/", "ok"); err == nil {
+	if err := answered(t.Context(), link, "/", regexp.MustCompile("ok")); err == nil {
 		t.Error("a request was answered through a link")
 	}
 	if err := reached(t.Context(), socket); err != nil {
 		t.Errorf("the control, the socket itself, was not reached: %v", err)
 	}
-	if err := answered(t.Context(), socket, "/", "ok"); err != nil {
+	if err := answered(t.Context(), socket, "/", regexp.MustCompile("ok")); err != nil {
 		t.Errorf("the control, the socket itself, did not answer: %v", err)
+	}
+}
+
+// A check that fails says the beginning of what the service answered,
+// and no more: a service answers what it likes, at any length.
+func TestAFailedCheckRepeatsOnlyTheBeginningOfWhatAServiceAnswered(t *testing.T) {
+	dir, err := os.MkdirTemp("", "ready")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(dir) })
+	socket := filepath.Join(dir, "socket")
+	listener, err := net.Listen("unix", socket)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("starting" + strings.Repeat("x", 64<<10)))
+	})}
+	go func() { _ = server.Serve(listener) }()
+	t.Cleanup(func() { server.Close() })
+
+	err = answered(t.Context(), socket, "/", regexp.MustCompile("^ready$"))
+
+	if err == nil || !strings.Contains(err.Error(), "starting") {
+		t.Fatalf("a check the answer does not match: %v", err)
+	}
+	if len(err.Error()) > 1024 {
+		t.Errorf("the failure repeats %d bytes of what the service answered", len(err.Error()))
 	}
 }

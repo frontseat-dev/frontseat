@@ -2,7 +2,6 @@ package runner
 
 import (
 	"fmt"
-	runnerv1 "github.com/frontseat-dev/frontseat/server/internal/runnerapi/frontseat/runner/v1alpha1"
 	"path"
 	"path/filepath"
 	"runtime"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/frontseat-dev/frontseat/sdk/go/entity"
 	"github.com/frontseat-dev/frontseat/server/internal/confine"
+	runnerv1 "github.com/frontseat-dev/frontseat/server/internal/runnerapi/frontseat/runner/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/testservice"
 )
 
@@ -71,12 +71,6 @@ func (r *runner) checkDescription(d *runnerv1.RunnerSandbox) error {
 	return nil
 }
 
-// check also serves the image-only checks: the full descriptor always goes
-// through checkDescription before any runtime is created.
-func (r *runner) check(services []*runnerv1.RunnerService) error {
-	return r.checkDescription(&runnerv1.RunnerSandbox{Services: services})
-}
-
 func (r *runner) checkProgram(s *runnerv1.RunnerService) error {
 	if len(s.GetService().GetEnvironment()) != 0 {
 		return fmt.Errorf("a prepared program sets its environment only inside confinement")
@@ -99,7 +93,7 @@ func (r *runner) checkProgram(s *runnerv1.RunnerService) error {
 			continue
 		}
 		if key != "container-image" && key != "OSFamily" && key != "ISA" {
-			return fmt.Errorf("program platform property %q is not supported", key)
+			return fmt.Errorf("a program's platform has a property that is not its image, system or architecture")
 		}
 	}
 	layout, err := confine.ProgramLayout(p.Arguments)
