@@ -405,7 +405,7 @@ func checkProject(plugin, root string, project *pluginv1.Project, found map[stri
 		// A name is what a person points at and what the graph prints:
 		// a project at the repository's root has one as any other has.
 		return wrong("it has no name: a project is named, at the repository's root too")
-	case !plain(project.GetName()) || len(project.GetName()) > ProjectNameAtMost:
+	case !printable(project.GetName()) || len(project.GetName()) > ProjectNameAtMost:
 		return wrong("its name is not one line of printable text of at most %d bytes", ProjectNameAtMost)
 	case !name.MatchString(project.GetKind()) || len(project.GetKind()) > ProjectNameAtMost:
 		return wrong("its kind is not lower-case words of [a-z0-9] joined by single hyphens, of at most %d bytes", ProjectNameAtMost)
@@ -456,7 +456,7 @@ func checkProject(plugin, root string, project *pluginv1.Project, found map[stri
 		}
 		// A version is what a lock spells, printed as it is: one word of
 		// printable text, or none.
-		if version := requirement.GetVersion(); version != "" && (len(version) > VersionAtMost || !plain(version) || strings.ContainsAny(version, " \t")) {
+		if version := requirement.GetVersion(); version != "" && (len(version) > VersionAtMost || !printable(version) || strings.ContainsAny(version, " \t")) {
 			return wrong("it requires %s at a version that is not one word of printable text of at most %d bytes", requirement.GetCoordinate().GetName(), VersionAtMost)
 		}
 	}
@@ -1249,7 +1249,7 @@ func CheckReconciliation(plugin string, request *pluginv1.ReconcileRequest, resp
 			return wrong("it edits %s at a path of %d keys; one to sixteen are allowed", edit.GetPath(), len(edit.GetKeys()))
 		}
 		for _, key := range edit.GetKeys() {
-			if !plain(key) || len(key) > 256 {
+			if !printable(key) || len(key) > 256 {
 				return wrong("it edits %s at a key %q, which is not a plain key", edit.GetPath(), key)
 			}
 		}
@@ -1257,7 +1257,7 @@ func CheckReconciliation(plugin string, request *pluginv1.ReconcileRequest, resp
 			return wrong("it sets %d values at %s, more than the %d allowed", len(edit.GetValues()), edit.GetPath(), ValuesAtMost)
 		}
 		for _, value := range edit.GetValues() {
-			if !plain(value) || len(value) > 4096 {
+			if !printable(value) || len(value) > 4096 {
 				return wrong("it sets %q at %s, which is not a plain string", value, edit.GetPath())
 			}
 		}
@@ -1270,8 +1270,8 @@ func CheckReconciliation(plugin string, request *pluginv1.ReconcileRequest, resp
 	return nil
 }
 
-// plain reports whether a string is one line of printable text.
-func plain(s string) bool {
+// printable reports whether a string is one line of printable text.
+func printable(s string) bool {
 	if s == "" {
 		return false
 	}

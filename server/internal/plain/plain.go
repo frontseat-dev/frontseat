@@ -4,7 +4,8 @@
 // control plane holds what a version control system answers to it, and
 // the gateway's driver what it keeps and what it is asked to let
 // through; the sandbox service and a test's services, who a sandbox runs
-// as and what of its image it writes.
+// as and what of its image it writes. It says too what of a text from
+// outside is shown to a person (Shown).
 package plain
 
 import (
@@ -12,7 +13,26 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"unicode"
 )
+
+// Shown is a text as it is shown where a person or a terminal reads it:
+// its lines and tabs kept, what is not UTF-8 written U+FFFD, and nothing
+// else in it that is acted on and not read: no control character, the
+// one-rune escapes above ASCII among them, no format character, as
+// those that turn the direction of a line, and no separator of lines or
+// paragraphs but the newline.
+func Shown(text string) string {
+	return strings.Map(func(r rune) rune {
+		switch {
+		case r == '\n' || r == '\t':
+			return r
+		case unicode.IsControl(r), unicode.In(r, unicode.Cf, unicode.Zl, unicode.Zp):
+			return -1
+		}
+		return r
+	}, strings.ToValidUTF8(text, "\uFFFD"))
+}
 
 // Text is whether a text is something, and every character of it one of
 // a path written plainly: letters, digits and . _ - + /.
