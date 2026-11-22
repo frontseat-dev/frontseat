@@ -355,7 +355,7 @@ func Run(t *testing.T, f Fixture) {
 	})
 	t.Run("profiles are checked before ecosystem code", func(t *testing.T) {
 		for _, method := range []string{"Analyze", "Arrange"} {
-			for _, profile := range []pluginv1.Profile{pluginv1.Profile_PROFILE_DEVELOPMENT, pluginv1.Profile(0), pluginv1.Profile(-1), pluginv1.Profile(999), pluginv1.Profile_PROFILE_PRODUCTION} {
+			for _, profile := range []typev1.Profile{typev1.Profile_PROFILE_DEVELOPMENT, typev1.Profile(0), typev1.Profile(-1), typev1.Profile(999), typev1.Profile_PROFILE_PRODUCTION} {
 				var request, response proto.Message
 				if method == "Analyze" {
 					r := proto.Clone(f.Analyze).(*pluginv1.AnalyzeRequest)
@@ -368,7 +368,7 @@ func Run(t *testing.T, f Fixture) {
 				}
 				source := &pluginhost.Recorder{Source: f.Source}
 				_, err := plugin.Call(t.Context(), source, method, request, response)
-				if profile == pluginv1.Profile_PROFILE_DEVELOPMENT || profile == pluginv1.Profile_PROFILE_PRODUCTION {
+				if profile == typev1.Profile_PROFILE_DEVELOPMENT || profile == typev1.Profile_PROFILE_PRODUCTION {
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -539,7 +539,7 @@ func runStrategy(t *testing.T, plugin *pluginhost.Plugin, f Fixture) {
 		}
 	})
 	t.Run("it finds nothing and reads nothing", func(t *testing.T) {
-		for _, profile := range []pluginv1.Profile{pluginv1.Profile_PROFILE_DEVELOPMENT, pluginv1.Profile_PROFILE_PRODUCTION} {
+		for _, profile := range []typev1.Profile{typev1.Profile_PROFILE_DEVELOPMENT, typev1.Profile_PROFILE_PRODUCTION} {
 			answer := new(pluginv1.AnalyzeResponse)
 			request := &pluginv1.AnalyzeRequest{Context: &pluginv1.Context{Profile: profile}, Roots: []string{"", "app"}}
 			if err := ask(t.Context(), "Analyze", request, answer); err != nil {
@@ -555,8 +555,8 @@ func runStrategy(t *testing.T, plugin *pluginhost.Plugin, f Fixture) {
 			}
 		}
 		for method, request := range map[string]proto.Message{
-			"Report":    &pluginv1.ReportRequest{Context: &pluginv1.Context{Profile: pluginv1.Profile_PROFILE_DEVELOPMENT}, Action: "lint", ExitCode: 1},
-			"Reconcile": &pluginv1.ReconcileRequest{Context: &pluginv1.Context{Profile: pluginv1.Profile_PROFILE_DEVELOPMENT}},
+			"Report":    &pluginv1.ReportRequest{Context: &pluginv1.Context{Profile: typev1.Profile_PROFILE_DEVELOPMENT}, Action: "lint", ExitCode: 1},
+			"Reconcile": &pluginv1.ReconcileRequest{Context: &pluginv1.Context{Profile: typev1.Profile_PROFILE_DEVELOPMENT}},
 		} {
 			answer := map[string]proto.Message{"Report": new(pluginv1.ReportResponse), "Reconcile": new(pluginv1.ReconcileResponse)}[method]
 			if err := ask(t.Context(), method, request, answer); !errors.Is(err, pluginhost.ErrUnsupported) {

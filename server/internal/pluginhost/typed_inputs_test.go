@@ -49,7 +49,7 @@ func TestTypedDependencyInputsAreHeldToTheirProject(t *testing.T) {
 		"missing kind":          {},
 		"nil dependency":        {Kind: &pluginv1.Input_Dependency{}},
 		"missing selection":     {Kind: &pluginv1.Input_Dependency{Dependency: &pluginv1.DependencyInput{Into: "deps"}}},
-		"false all":             {Kind: &pluginv1.Input_Dependency{Dependency: &pluginv1.DependencyInput{Selection: &pluginv1.DependencyInput_All{}, Into: "deps"}}},
+		"an unset all":          {Kind: &pluginv1.Input_Dependency{Dependency: &pluginv1.DependencyInput{Selection: &pluginv1.DependencyInput_All{}, Into: "deps"}}},
 		"empty coordinate":      pluginhost.DependencyInput(&pluginv1.Coordinate{}, "deps"),
 		"undeclared coordinate": pluginhost.DependencyInput(&pluginv1.Coordinate{Ecosystem: "go", Name: "unknown"}, "deps"),
 		"empty placement":       pluginhost.DependencyInput(coordinate, ""),

@@ -14,6 +14,7 @@ fn corrupt_host_replies_are_errors_and_empty_replies_remain_valid() {
     let empty = wire::ReadResponse {
         found: true,
         content: vec![],
+        too_large: false,
     };
     assert_eq!(
         crate::abi::decode_host_reply::<wire::ReadResponse>(&empty.encode_to_vec()).unwrap(),

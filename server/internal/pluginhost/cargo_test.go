@@ -18,8 +18,8 @@ func cargoFixture(t *testing.T) conformance.Fixture {
 	tools := map[string]string{"rust": "1.99.1"}
 	// Its one option, wasm, at its default: nothing is built for wasm.
 	options := map[string]*typev1.OptionValue{"wasm": {Value: &typev1.OptionValue_BoolValue{BoolValue: false}}}
-	with := &pluginv1.Context{Profile: pluginv1.Profile_PROFILE_DEVELOPMENT, Tools: tools, Options: options}
-	without := &pluginv1.Context{Profile: pluginv1.Profile_PROFILE_DEVELOPMENT, Options: options}
+	with := &pluginv1.Context{Profile: typev1.Profile_PROFILE_DEVELOPMENT, Tools: tools, Options: options}
+	without := &pluginv1.Context{Profile: typev1.Profile_PROFILE_DEVELOPMENT, Options: options}
 	narrowed := "[workspace]\nmembers = [\"greet\", \"hello\"]\nresolver = \"2\"\n\n[workspace.dependencies]\nitoa = \"1\"\n\n[workspace.package]\nedition = \"2021\"\nversion = \"0.1.0\"\n"
 	return conformance.Fixture{
 		ABI: 25, Description: &pluginv1.DescribeResponse{Name: "cargo", Interests: []string{"**/Cargo.toml", "**/Cargo.lock", "**/*.rs", "**/.cargo/config.toml", "**/rustfmt.toml", "**/.rustfmt.toml", "**/clippy.toml", "**/.clippy.toml", "!**/target/**", "!**/testdata/**"}, Options: []*pluginv1.Option{{Name: "wasm", Kind: pluginv1.Option_KIND_BOOL, Default: &typev1.OptionValue{Value: &typev1.OptionValue_BoolValue{BoolValue: false}}, EntitySettable: true}}},

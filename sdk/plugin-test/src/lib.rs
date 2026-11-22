@@ -260,6 +260,13 @@ impl Host for TestHost {
             path: path.into(),
             found: found.is_some(),
         });
+        // The host answers a file larger than a plugin takes as too
+        // large, and the SDK says so to the plugin, which may go on.
+        let most =
+            usize::try_from(frontseat_plugin::repository::READ_AT_MOST).unwrap_or(usize::MAX);
+        if found.as_ref().is_some_and(|content| content.len() > most) {
+            return Err(frontseat_plugin::repository::too_large(path));
+        }
         Ok(found)
     }
 

@@ -39,8 +39,8 @@ func selectedHandoffs(resolved *graph.Graph, project graph.Project, inputs []*pl
 		}
 		switch choice := input.GetSelection().(type) {
 		case *pluginv1.DependencyInput_All:
-			if !choice.All {
-				return nil, fmt.Errorf("a dependency input selects all with false")
+			if choice.All == nil {
+				return nil, fmt.Errorf("a dependency input selects all with nothing")
 			}
 			groups[index].all = true
 		case *pluginv1.DependencyInput_Coordinate:

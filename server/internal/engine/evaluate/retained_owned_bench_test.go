@@ -3,8 +3,8 @@ package evaluate
 import (
 	"context"
 	"fmt"
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/source"
-	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
 	"os"
 	"runtime"
 	"sync/atomic"
@@ -31,9 +31,9 @@ func BenchmarkRetainedOwned(b *testing.B) {
 						var err error
 						switch mode {
 						case "current":
-							_, err = retainedFresh(b.Context(), snapshot, pluginv1.Profile_PROFILE_DEVELOPMENT, nil, answers)
+							_, err = retainedFresh(b.Context(), snapshot, typev1.Profile_PROFILE_DEVELOPMENT, nil, answers)
 						case "retained":
-							_, err = retained.run(b.Context(), snapshot, pluginv1.Profile_PROFILE_DEVELOPMENT, nil)
+							_, err = retained.run(b.Context(), snapshot, typev1.Profile_PROFILE_DEVELOPMENT, nil)
 						}
 						if err != nil {
 							b.Fatal(err)
@@ -232,9 +232,9 @@ func TestRetainedOwnedHeap(t *testing.T) {
 	heapCheckpoints(t, files, root, report, func(snapshot Source) (err error) {
 		switch mode {
 		case "current":
-			result, err = retainedFresh(t.Context(), snapshot, pluginv1.Profile_PROFILE_DEVELOPMENT, nil, answers)
+			result, err = retainedFresh(t.Context(), snapshot, typev1.Profile_PROFILE_DEVELOPMENT, nil, answers)
 		case "retained":
-			result, err = retained.run(t.Context(), snapshot, pluginv1.Profile_PROFILE_DEVELOPMENT, nil)
+			result, err = retained.run(t.Context(), snapshot, typev1.Profile_PROFILE_DEVELOPMENT, nil)
 		}
 		return err
 	})

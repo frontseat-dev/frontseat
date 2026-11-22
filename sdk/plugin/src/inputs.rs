@@ -27,7 +27,9 @@ impl Input {
     pub fn dependencies(into: impl Into<String>) -> Self {
         Self {
             kind: Some(wire::input::Kind::Dependency(DependencyInput {
-                selection: Some(wire::dependency_input::Selection::All(true)),
+                selection: Some(wire::dependency_input::Selection::All(
+                    wire::AllRequirements {},
+                )),
                 into: into.into(),
             })),
         }

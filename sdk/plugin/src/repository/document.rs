@@ -7,8 +7,9 @@ use serde::de::DeserializeOwned;
 pub use toml::Table as TomlTable;
 
 // Manifest limits are shared by all plugins, rather than accepting input that
-// exhausts the Wasm instance before it can return a useful diagnostic.
-const MAX_DOCUMENT_BYTES: usize = 4 * 1024 * 1024;
+// exhausts the Wasm instance before it can return a useful diagnostic. A
+// document is at most what a read takes (super::READ_AT_MOST): the host
+// says a larger file is too large, and copies none of it.
 const MAX_YAML_EVENTS: usize = 100_000;
 const MAX_YAML_DEPTH: usize = 64;
 
@@ -135,19 +136,7 @@ impl Repository<'_> {
     }
 
     fn document_text(&self, path: &str) -> Result<Option<String>, Error> {
-        let text = self.text(path)?;
-        if text
-            .as_ref()
-            .is_some_and(|text| text.len() > MAX_DOCUMENT_BYTES)
-        {
-            return Err(Error::invalid(
-                "document-too-large",
-                path,
-                "the manifest exceeds the 4 MiB document limit",
-                "Split the manifest into smaller ecosystem documents.",
-            ));
-        }
-        Ok(text)
+        self.text(path)
     }
 }
 

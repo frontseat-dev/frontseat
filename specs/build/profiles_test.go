@@ -1,8 +1,11 @@
 package build_test
 
 import (
-	. "github.com/onsi/gomega"
 	"testing"
+
+	. "github.com/onsi/gomega"
+
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 )
 
 // Source is built in one of two ways.
@@ -15,10 +18,9 @@ import (
 // its own tools, which compiler flags and which of the tool's own
 // switches, so "production" means the same thing in every repository.
 //
-// A profile has a name, and these two are the ones frontseat comes with.
-// A repository will be able to name profiles of its own, each built on
-// one of the two. None is needed yet, so today there are these two, and
-// asking for any other is refused.
+// These two are the profiles there are, an enum of the contracts' shared
+// types that a build, a run and a plugin all say; a number that is
+// neither is refused.
 //
 // A build is a development build, and a release builds for production
 // (releases_test.go). You can also ask for a production build without
@@ -36,7 +38,7 @@ func TestABuildIsADevelopmentBuild(t *testing.T) {
 
 	build := spec.workspaceOf("gateway").build()
 
-	spec.Expect(build.profile()).To(Equal("development"))
+	spec.Expect(build.profile()).To(Equal(typev1.Profile_PROFILE_DEVELOPMENT))
 }
 
 // Profiles / A production build can be asked for without releasing.
@@ -46,7 +48,7 @@ func TestAProductionBuildCanBeAskedForWithoutReleasing(t *testing.T) {
 
 	build := spec.workspaceOf("gateway").build(production())
 
-	spec.Expect(build.profile()).To(Equal("production"))
+	spec.Expect(build.profile()).To(Equal(typev1.Profile_PROFILE_PRODUCTION))
 }
 
 // Profiles / Source that builds for development builds for production.
@@ -59,14 +61,14 @@ func TestSourceThatBuildsForDevelopmentBuildsForProduction(t *testing.T) {
 	spec.Expect(build.outcome()).To(Equal("SUCCESS"))
 }
 
-// Profiles / A profile nobody defined is refused by name.
-func TestAProfileNobodyDefinedIsRefusedByName(t *testing.T) {
+// Profiles / A number that is no profile is refused by name.
+func TestANumberThatIsNoProfileIsRefusedByName(t *testing.T) {
 	t.Parallel()
 	spec := newScenario(t)
 
-	_, refusal := spec.workspaceOf("gateway").ask(withProfile("staging"))
+	_, refusal := spec.workspaceOf("gateway").ask(withProfile(typev1.Profile(7)))
 
-	spec.Expect(refusal).To(BeRefusedSaying("there is no profile of the name asked for"))
+	spec.Expect(refusal).To(BeRefusedSaying("the number asked for is no profile"))
 }
 
 // Profiles / Each profile compiles in its own way.

@@ -37,7 +37,7 @@ service BuildService {
   // made, and ends at once as a build that failed, saying what is wrong.
   //
   // ### Errors
-  // - INVALID_ARGUMENT: the profile is one nobody defined
+  // - INVALID_ARGUMENT: the profile is a number that is no profile
   //   (PROFILE_UNKNOWN), or the request_id is longer than 128 bytes
   //   (REQUEST_ID_INVALID).
   // - FAILED_PRECONDITION: the workspace holds no repository that is
@@ -167,9 +167,8 @@ message Build {
   Counts counts = 13 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Cost is what the build used.
   Cost cost = 15 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // Profile is the name of the profile the source was built with: never
-  // empty.
-  string profile = 17 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Profile is the profile the source was built with: never unspecified.
+  frontseat.type.v1alpha1.Profile profile = 17 [(google.api.field_behavior) = OUTPUT_ONLY];
   // `last_sequence` is the sequence of the build's latest event.
   int64 last_sequence = 16 [(google.api.field_behavior) = OUTPUT_ONLY];
 
@@ -307,12 +306,10 @@ message CreateBuildRequest {
   // is, before the check, and what it changes written to the daemon's
   // checkout; without it a check only reports, and fails the build.
   bool fix = 5;
-  // Profile is the name of the profile the source is built with. Empty,
-  // it is `development`. A build may ask for `production`, to see that
-  // what will be released builds: a release builds with it. Those two
-  // are the profiles frontseat defines; any other name is refused
-  // (PROFILE_UNKNOWN).
-  string profile = 12;
+  // Profile is the profile the source is built with. Unspecified, it is
+  // PROFILE_DEVELOPMENT. A build may ask for PROFILE_PRODUCTION, to see
+  // that what will be released builds: a release builds with it.
+  frontseat.type.v1alpha1.Profile profile = 12;
   // Only keeps the actions that have one of these names, such as
   // "lint", of whatever the targets point at. Empty keeps every action.
   // A name no action has fails the build, which says so in its failure.

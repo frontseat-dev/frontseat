@@ -2,6 +2,7 @@ package pluginhost_test
 
 import (
 	"errors"
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/pluginhost"
 	"github.com/frontseat-dev/frontseat/server/internal/pluginhost/conformance"
@@ -17,7 +18,7 @@ const npmIntegrity = "sha512-41Cifkg6e8TylSpdtTpeLVMqvSBEVzTttHvERD741+pnZ8ANv00
 const npmLock = `{"lockfileVersion":3,"packages":{"":{},"node_modules/jest":{"resolved":"https://registry.npmjs.org/jest/-/jest-30.5.2.tgz","integrity":"` + npmIntegrity + `"}}}`
 
 func npmContext() *pluginv1.Context {
-	return &pluginv1.Context{Profile: pluginv1.Profile_PROFILE_DEVELOPMENT}
+	return &pluginv1.Context{Profile: typev1.Profile_PROFILE_DEVELOPMENT}
 }
 
 func npmFixture() conformance.Fixture {

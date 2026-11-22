@@ -78,6 +78,67 @@ func (LogStream) EnumDescriptor() ([]byte, []int) {
 	return file_frontseat_type_v1alpha1_types_proto_rawDescGZIP(), []int{0}
 }
 
+// Profile is one of the two ways source is built, which every profile is
+// at its base. A plugin knows what each means for its own tools: the
+// compiler flags and the tools' own switches. A profile is part of what
+// an action is, so the two never share an answer.
+//
+// A build and a run name their profile, and a plugin is told it; the two
+// here are the ones frontseat defines.
+type Profile int32
+
+const (
+	// PROFILE_UNSPECIFIED: not said.
+	Profile_PROFILE_UNSPECIFIED Profile = 0
+	// PROFILE_DEVELOPMENT: for whoever is working on the source: quick to
+	// build and easy to debug.
+	Profile_PROFILE_DEVELOPMENT Profile = 1
+	// PROFILE_PRODUCTION: for what is shipped: compiled for speed and for
+	// safety.
+	Profile_PROFILE_PRODUCTION Profile = 2
+)
+
+// Enum value maps for Profile.
+var (
+	Profile_name = map[int32]string{
+		0: "PROFILE_UNSPECIFIED",
+		1: "PROFILE_DEVELOPMENT",
+		2: "PROFILE_PRODUCTION",
+	}
+	Profile_value = map[string]int32{
+		"PROFILE_UNSPECIFIED": 0,
+		"PROFILE_DEVELOPMENT": 1,
+		"PROFILE_PRODUCTION":  2,
+	}
+)
+
+func (x Profile) Enum() *Profile {
+	p := new(Profile)
+	*p = x
+	return p
+}
+
+func (x Profile) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (Profile) Descriptor() protoreflect.EnumDescriptor {
+	return file_frontseat_type_v1alpha1_types_proto_enumTypes[1].Descriptor()
+}
+
+func (Profile) Type() protoreflect.EnumType {
+	return &file_frontseat_type_v1alpha1_types_proto_enumTypes[1]
+}
+
+func (x Profile) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use Profile.Descriptor instead.
+func (Profile) EnumDescriptor() ([]byte, []int) {
+	return file_frontseat_type_v1alpha1_types_proto_rawDescGZIP(), []int{1}
+}
+
 // Bump is how far a version moves, by semantic versioning.
 type Bump int32
 
@@ -124,11 +185,11 @@ func (x Bump) String() string {
 }
 
 func (Bump) Descriptor() protoreflect.EnumDescriptor {
-	return file_frontseat_type_v1alpha1_types_proto_enumTypes[1].Descriptor()
+	return file_frontseat_type_v1alpha1_types_proto_enumTypes[2].Descriptor()
 }
 
 func (Bump) Type() protoreflect.EnumType {
-	return &file_frontseat_type_v1alpha1_types_proto_enumTypes[1]
+	return &file_frontseat_type_v1alpha1_types_proto_enumTypes[2]
 }
 
 func (x Bump) Number() protoreflect.EnumNumber {
@@ -137,7 +198,7 @@ func (x Bump) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Bump.Descriptor instead.
 func (Bump) EnumDescriptor() ([]byte, []int) {
-	return file_frontseat_type_v1alpha1_types_proto_rawDescGZIP(), []int{1}
+	return file_frontseat_type_v1alpha1_types_proto_rawDescGZIP(), []int{2}
 }
 
 // LogLine is one line of a log.
@@ -295,7 +356,11 @@ const file_frontseat_type_v1alpha1_types_proto_rawDesc = "" +
 	"\tLogStream\x12\x1a\n" +
 	"\x16LOG_STREAM_UNSPECIFIED\x10\x00\x12\x15\n" +
 	"\x11LOG_STREAM_STDOUT\x10\x01\x12\x15\n" +
-	"\x11LOG_STREAM_STDERR\x10\x02*[\n" +
+	"\x11LOG_STREAM_STDERR\x10\x02*S\n" +
+	"\aProfile\x12\x17\n" +
+	"\x13PROFILE_UNSPECIFIED\x10\x00\x12\x17\n" +
+	"\x13PROFILE_DEVELOPMENT\x10\x01\x12\x16\n" +
+	"\x12PROFILE_PRODUCTION\x10\x02*[\n" +
 	"\x04Bump\x12\x14\n" +
 	"\x10BUMP_UNSPECIFIED\x10\x00\x12\r\n" +
 	"\tBUMP_NONE\x10\x01\x12\x0e\n" +
@@ -320,17 +385,18 @@ func file_frontseat_type_v1alpha1_types_proto_rawDescGZIP() []byte {
 	return file_frontseat_type_v1alpha1_types_proto_rawDescData
 }
 
-var file_frontseat_type_v1alpha1_types_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_frontseat_type_v1alpha1_types_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
 var file_frontseat_type_v1alpha1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_frontseat_type_v1alpha1_types_proto_goTypes = []any{
 	(LogStream)(0),                // 0: frontseat.type.v1alpha1.LogStream
-	(Bump)(0),                     // 1: frontseat.type.v1alpha1.Bump
-	(*LogLine)(nil),               // 2: frontseat.type.v1alpha1.LogLine
-	(*EntityRef)(nil),             // 3: frontseat.type.v1alpha1.EntityRef
-	(*timestamppb.Timestamp)(nil), // 4: google.protobuf.Timestamp
+	(Profile)(0),                  // 1: frontseat.type.v1alpha1.Profile
+	(Bump)(0),                     // 2: frontseat.type.v1alpha1.Bump
+	(*LogLine)(nil),               // 3: frontseat.type.v1alpha1.LogLine
+	(*EntityRef)(nil),             // 4: frontseat.type.v1alpha1.EntityRef
+	(*timestamppb.Timestamp)(nil), // 5: google.protobuf.Timestamp
 }
 var file_frontseat_type_v1alpha1_types_proto_depIdxs = []int32{
-	4, // 0: frontseat.type.v1alpha1.LogLine.time:type_name -> google.protobuf.Timestamp
+	5, // 0: frontseat.type.v1alpha1.LogLine.time:type_name -> google.protobuf.Timestamp
 	0, // 1: frontseat.type.v1alpha1.LogLine.stream:type_name -> frontseat.type.v1alpha1.LogStream
 	2, // [2:2] is the sub-list for method output_type
 	2, // [2:2] is the sub-list for method input_type
@@ -349,7 +415,7 @@ func file_frontseat_type_v1alpha1_types_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_frontseat_type_v1alpha1_types_proto_rawDesc), len(file_frontseat_type_v1alpha1_types_proto_rawDesc)),
-			NumEnums:      2,
+			NumEnums:      3,
 			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   0,

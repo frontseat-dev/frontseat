@@ -5,8 +5,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/source"
-	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testpins"
 	"google.golang.org/protobuf/proto"
 	"os"
@@ -22,7 +22,7 @@ func retainedSuccess(t *testing.T, p retainedRunner, tree source.Tree, files *so
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := p.run(t.Context(), snapshot, pluginv1.Profile_PROFILE_DEVELOPMENT, targets)
+	got, err := p.run(t.Context(), snapshot, typev1.Profile_PROFILE_DEVELOPMENT, targets)
 	if err != nil {
 		t.Fatalf("retained must succeed: %v", err)
 	}
@@ -30,7 +30,7 @@ func retainedSuccess(t *testing.T, p retainedRunner, tree source.Tree, files *so
 	if err != nil {
 		t.Fatal(err)
 	}
-	want, err := retainedFresh(t.Context(), fresh, pluginv1.Profile_PROFILE_DEVELOPMENT, targets, &Answers{})
+	want, err := retainedFresh(t.Context(), fresh, typev1.Profile_PROFILE_DEVELOPMENT, targets, &Answers{})
 	if err != nil {
 		t.Fatalf("fresh control must succeed: %v", err)
 	}
@@ -115,7 +115,7 @@ func TestRetainedRepositoryMembershipAndTargetRepair(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = p.run(t.Context(), snapshot, pluginv1.Profile_PROFILE_DEVELOPMENT, targets); err == nil {
+	if _, err = p.run(t.Context(), snapshot, typev1.Profile_PROFILE_DEVELOPMENT, targets); err == nil {
 		t.Fatal("unknown target was accepted")
 	}
 	retainedSuccess(t, p, tree, files, []string{"a/"})
@@ -152,7 +152,7 @@ func TestRetainedQueuedCancellationDoesNotAbortActiveReuse(t *testing.T) {
 	retainedSuccess(t, p, tree, files, nil)
 	gate := &retainedDigestGate{Source: retainedTake(t, files, root), started: make(chan struct{}), release: make(chan struct{})}
 	active := make(chan error, 1)
-	go func() { _, err := p.run(t.Context(), gate, pluginv1.Profile_PROFILE_DEVELOPMENT, nil); active <- err }()
+	go func() { _, err := p.run(t.Context(), gate, typev1.Profile_PROFILE_DEVELOPMENT, nil); active <- err }()
 	select {
 	case <-gate.started:
 	case <-time.After(5 * time.Second):
@@ -161,7 +161,7 @@ func TestRetainedQueuedCancellationDoesNotAbortActiveReuse(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	queued := make(chan error, 1)
 	go func() {
-		_, err := p.run(ctx, retainedTake(t, &source.Keeper{}, root), pluginv1.Profile_PROFILE_DEVELOPMENT, nil)
+		_, err := p.run(ctx, retainedTake(t, &source.Keeper{}, root), typev1.Profile_PROFILE_DEVELOPMENT, nil)
 		queued <- err
 	}()
 	cancel()
@@ -191,11 +191,11 @@ func TestRetainedReplayErrorDoesNotPublishOrPoisonRepair(t *testing.T) {
 	p, files := newRetainedEngine(), &source.Keeper{}
 	retainedSuccess(t, p, tree, files, nil)
 	failure := errors.New("review validation failure")
-	_, err := p.run(t.Context(), retainedFailedDigest{Source: retainedTake(t, files, root), failure: failure}, pluginv1.Profile_PROFILE_DEVELOPMENT, nil)
+	_, err := p.run(t.Context(), retainedFailedDigest{Source: retainedTake(t, files, root), failure: failure}, typev1.Profile_PROFILE_DEVELOPMENT, nil)
 	if !errors.Is(err, failure) {
 		t.Fatalf("validation error replaced by %v", err)
 	}
-	if _, again := p.run(t.Context(), retainedFailedDigest{Source: retainedTake(t, files, root), failure: failure}, pluginv1.Profile_PROFILE_DEVELOPMENT, nil); !errors.Is(again, failure) {
+	if _, again := p.run(t.Context(), retainedFailedDigest{Source: retainedTake(t, files, root), failure: failure}, typev1.Profile_PROFILE_DEVELOPMENT, nil); !errors.Is(again, failure) {
 		t.Fatalf("a failed evaluation was answered from what was kept: %v", again)
 	}
 	retainedSuccess(t, p, tree, files, nil)

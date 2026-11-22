@@ -87,7 +87,11 @@ const (
 type ReadRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Path is the file, relative to the repository.
-	Path          string `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	Path string `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	// Most_bytes is the most of the file the plugin takes, more than none
+	// and at most 4 MiB (4194304): a file larger is answered too_large,
+	// with no content, and is never copied into the module. Zero is 4 MiB.
+	MostBytes     uint32 `protobuf:"varint,2,opt,name=most_bytes,json=mostBytes,proto3" json:"most_bytes,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -129,14 +133,24 @@ func (x *ReadRequest) GetPath() string {
 	return ""
 }
 
+func (x *ReadRequest) GetMostBytes() uint32 {
+	if x != nil {
+		return x.MostBytes
+	}
+	return 0
+}
+
 // ReadResponse is a file of the repository.
 type ReadResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Found is whether the file is there. A file that is not is not an
 	// error.
 	Found bool `protobuf:"varint,1,opt,name=found,proto3" json:"found,omitempty"`
-	// Content is its bytes.
-	Content       []byte `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
+	// Content is its bytes; none where the file is too large.
+	Content []byte `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
+	// Too_large says the file is there and holds more than most_bytes:
+	// its content is not sent.
+	TooLarge      bool `protobuf:"varint,3,opt,name=too_large,json=tooLarge,proto3" json:"too_large,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -183,6 +197,13 @@ func (x *ReadResponse) GetContent() []byte {
 		return x.Content
 	}
 	return nil
+}
+
+func (x *ReadResponse) GetTooLarge() bool {
+	if x != nil {
+		return x.TooLarge
+	}
+	return false
 }
 
 // GlobRequest selects files beneath a literal repository directory.
@@ -293,12 +314,15 @@ var File_frontseat_plugin_v1alpha1_host_proto protoreflect.FileDescriptor
 
 const file_frontseat_plugin_v1alpha1_host_proto_rawDesc = "" +
 	"\n" +
-	"$frontseat/plugin/v1alpha1/host.proto\x12\x19frontseat.plugin.v1alpha1\"!\n" +
+	"$frontseat/plugin/v1alpha1/host.proto\x12\x19frontseat.plugin.v1alpha1\"@\n" +
 	"\vReadRequest\x12\x12\n" +
-	"\x04path\x18\x01 \x01(\tR\x04path\">\n" +
+	"\x04path\x18\x01 \x01(\tR\x04path\x12\x1d\n" +
+	"\n" +
+	"most_bytes\x18\x02 \x01(\rR\tmostBytes\"[\n" +
 	"\fReadResponse\x12\x14\n" +
 	"\x05found\x18\x01 \x01(\bR\x05found\x12\x18\n" +
-	"\acontent\x18\x02 \x01(\fR\acontent\"G\n" +
+	"\acontent\x18\x02 \x01(\fR\acontent\x12\x1b\n" +
+	"\ttoo_large\x18\x03 \x01(\bR\btooLarge\"G\n" +
 	"\vGlobRequest\x12\x1a\n" +
 	"\bpatterns\x18\x01 \x03(\tR\bpatterns\x12\x1c\n" +
 	"\tdirectory\x18\x02 \x01(\tR\tdirectory\"$\n" +

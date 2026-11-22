@@ -128,11 +128,11 @@ func (e *Evaluation) count(again bool) {
 //
 // A mistake in what a repository or an entity says, or two projects that
 // provide one coordinate, is a *model.Mistake.
-func Evaluate(ctx context.Context, src Source, plugins []*pluginhost.Plugin, answers *Answers, profile pluginv1.Profile, entities []record.Located) (Evaluation, error) {
+func Evaluate(ctx context.Context, src Source, plugins []*pluginhost.Plugin, answers *Answers, profile typev1.Profile, entities []record.Located) (Evaluation, error) {
 	return evaluate(ctx, src, plugins, answers, profile, entities)
 }
 
-func evaluate(ctx context.Context, src Source, plugins []*pluginhost.Plugin, answers asking, profile pluginv1.Profile, entities []record.Located) (Evaluation, error) {
+func evaluate(ctx context.Context, src Source, plugins []*pluginhost.Plugin, answers asking, profile typev1.Profile, entities []record.Located) (Evaluation, error) {
 	out := Evaluation{Entities: entities, Listed: map[string][]string{}}
 	started := map[entity.Ref]config.Service{}
 	tests := map[string][]config.TestRuntime{}
@@ -562,7 +562,7 @@ func tools(ctx context.Context, repository string, files config.Reader) (map[str
 // asks the action's plugin to arrange it: to write what its tool must be
 // told so that it finds what was handed. Two projects that provide one
 // coordinate are a *model.Mistake. It returns what provides what.
-func hand(ctx context.Context, src Source, plugins []*pluginhost.Plugin, answers asking, profile pluginv1.Profile, pinned map[string]map[string]string, out *Evaluation) (*graph.Graph, error) {
+func hand(ctx context.Context, src Source, plugins []*pluginhost.Plugin, answers asking, profile typev1.Profile, pinned map[string]map[string]string, out *Evaluation) (*graph.Graph, error) {
 	resolved, err := graph.Resolve(out.Projects)
 	if err != nil {
 		return nil, err
@@ -810,7 +810,7 @@ func mistaken(repository string, err error) error {
 
 // analyze asks one plugin about one repository: about each directory
 // that holds a file the plugin looks for, on its own.
-func analyze(ctx context.Context, view repositoryView, plugin *pluginhost.Plugin, answers asking, configured *config.Repository, profile pluginv1.Profile, pinned map[string]string, out *Evaluation) error {
+func analyze(ctx context.Context, view repositoryView, plugin *pluginhost.Plugin, answers asking, configured *config.Repository, profile typev1.Profile, pinned map[string]string, out *Evaluation) error {
 	name := plugin.Description.GetName()
 	declared := plugin.Description.GetOptions()
 	// Discover roots against the original snapshot, so a claimed manifest cannot

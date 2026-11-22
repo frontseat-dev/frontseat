@@ -132,7 +132,7 @@ func ExampleError() {
 	defer server.Close()
 
 	ws := fs.Workspace("services-main")
-	_, err := ws.Build(context.Background(), frontseat.BuildRequest{Profile: "nightly"})
+	_, err := ws.Build(context.Background(), frontseat.BuildRequest{Profile: typev1.Profile(7)})
 	var refused *frontseat.Error
 	if errors.As(err, &refused) && refused.Reason == frontseat.ReasonProfileUnknown {
 		fmt.Println(refused.Code, refused.Reason, refused.Domain)
@@ -193,7 +193,7 @@ type builder struct {
 var passed = &buildv1.Build{Id: "build_1", State: buildv1.Build_STATE_FINISHED, ExitCode: &buildv1.ExitCode{Name: "SUCCESS"}}
 
 func (builder) CreateBuild(_ context.Context, asked *buildv1.CreateBuildRequest) (*buildv1.CreateBuildResponse, error) {
-	if asked.GetProfile() != "" {
+	if asked.GetProfile() != typev1.Profile_PROFILE_UNSPECIFIED {
 		named, err := connectproto.NewErrorDetail(&errdetails.ErrorInfo{Reason: "PROFILE_UNKNOWN", Domain: "build.frontseat.dev"})
 		if err != nil {
 			return nil, err

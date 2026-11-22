@@ -1,6 +1,7 @@
 package evaluate
 
 import (
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/graph"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/plan"
 	"github.com/frontseat-dev/frontseat/server/internal/model"
@@ -24,7 +25,7 @@ func TestProvidedArtifactColocationUsesCanonicalProjectRoots(t *testing.T) {
 				}
 			}
 			out := Evaluation{Projects: []graph.Project{provider, consumer}, Actions: []plan.Action{{Label: model.Label{Path: consumer.Path(), Plugin: "framework", Name: "test"}, ProjectRoot: consumer.Root, Declared: &pluginv1.Action{Name: "test", Inputs: append([]*pluginv1.Input{}, pluginhosttest.AllDependencies("{root}"))}}}}
-			if _, err := hand(t.Context(), nil, nil, nil, pluginv1.Profile_PROFILE_DEVELOPMENT, nil, &out); err != nil {
+			if _, err := hand(t.Context(), nil, nil, nil, typev1.Profile_PROFILE_DEVELOPMENT, nil, &out); err != nil {
 				t.Fatalf("same canonical project root refused: %v", err)
 			}
 			if h := out.Actions[0].Handed; len(h) != 1 || h[0].Into != "." {

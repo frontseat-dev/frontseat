@@ -29,6 +29,7 @@ syntax = "proto3";
 package frontseat.plugin.v1alpha1;
 
 import "frontseat/type/v1alpha1/types.proto";
+import "google/protobuf/timestamp.proto";
 
 // ReleaseRoles is what a plugin serves of releasing, said in Describe.
 message ReleaseRoles {
@@ -125,8 +126,8 @@ message ReleaseCommit {
   string message = 3;
   // Members are the unit's members whose files it changed.
   repeated frontseat.type.v1alpha1.EntityRef members = 4;
-  // Time is when it was committed, in seconds since the epoch.
-  int64 time = 5;
+  // Commit_time is when it was committed.
+  google.protobuf.Timestamp commit_time = 5;
 }
 
 // VersionResponse is a unit's next version.

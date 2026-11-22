@@ -3,8 +3,8 @@ package evaluate
 import (
 	"bytes"
 	"context"
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/source"
-	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
 	"strings"
 	"sync"
 	"testing"
@@ -38,7 +38,7 @@ type hintedRunner struct {
 	value  bool
 }
 
-func (p hintedRunner) run(ctx context.Context, src Source, profile pluginv1.Profile, targets []string) (retainedResult, error) {
+func (p hintedRunner) run(ctx context.Context, src Source, profile typev1.Profile, targets []string) (retainedResult, error) {
 	return p.engine.run(ctx, misleadingHints{Source: src, value: p.value}, profile, targets)
 }
 
@@ -51,7 +51,7 @@ func TestRetainedHintsAreNeverEvidenceOfFreshness(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			root := retainedFixture(t, 3)
 			p, files := hintedRunner{engine: newRetainedEngine(), value: value}, &source.Keeper{}
-			profile := pluginv1.Profile_PROFILE_DEVELOPMENT
+			profile := typev1.Profile_PROFILE_DEVELOPMENT
 			retainedOracle(t, p, files, root, profile, nil)
 			retainedWrite(t, root, "m0001/main.go", "package library\nfunc Exported() {}\n")
 			retainedOracle(t, p, files, root, profile, nil)
@@ -95,7 +95,7 @@ func TestRetainedHintsCheckTheChangedAnalysisFirst(t *testing.T) {
 	// Keeper does not retain metadata from a file's first 20 milliseconds.
 	time.Sleep(30 * time.Millisecond)
 	p, files := newRetainedEngine(), &source.Keeper{}
-	profile := pluginv1.Profile_PROFILE_DEVELOPMENT
+	profile := typev1.Profile_PROFILE_DEVELOPMENT
 	retainedOracle(t, p, files, root, profile, nil)
 	var changed, analyses, arrangements []retainedQuery
 	for _, q := range p.trace.queries {

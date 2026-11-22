@@ -57,7 +57,7 @@ func TestBackstageBuiltinValidation(t *testing.T) {
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			out := new(pluginv1.AnalyzeResponse)
-			_, err := p.Call(t.Context(), files{"app/catalog-info.yaml": c.source}, "Analyze", &pluginv1.AnalyzeRequest{Roots: []string{"app"}, Context: &pluginv1.Context{Profile: pluginv1.Profile_PROFILE_DEVELOPMENT}}, out)
+			_, err := p.Call(t.Context(), files{"app/catalog-info.yaml": c.source}, "Analyze", &pluginv1.AnalyzeRequest{Roots: []string{"app"}, Context: &pluginv1.Context{Profile: typev1.Profile_PROFILE_DEVELOPMENT}}, out)
 			if c.refuse && err == nil {
 				t.Fatalf("invalid known catalog field accepted: %v", out)
 			}

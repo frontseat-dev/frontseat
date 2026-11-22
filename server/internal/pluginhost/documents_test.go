@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"strings"
 	"testing"
 	"time"
@@ -59,7 +60,7 @@ func TestSDKDocumentsThroughWasm(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			source := files{test.path: test.source}
 			out := new(pluginv1.ArrangeResponse)
-			reads, err := plugin.Call(t.Context(), source, "Arrange", &pluginv1.ArrangeRequest{Context: &pluginv1.Context{Profile: pluginv1.Profile_PROFILE_DEVELOPMENT}, Root: test.path}, out)
+			reads, err := plugin.Call(t.Context(), source, "Arrange", &pluginv1.ArrangeRequest{Context: &pluginv1.Context{Profile: typev1.Profile_PROFILE_DEVELOPMENT}, Root: test.path}, out)
 			if test.reason != "" {
 				var failure *pluginhost.Error
 				if !errors.As(err, &failure) || failure.Reason != test.reason {
@@ -76,7 +77,7 @@ func TestSDKDocumentsThroughWasm(t *testing.T) {
 				if strings.HasSuffix(test.path, ".toml") {
 					source[test.path] = "name = 'repaired'\n"
 				}
-				reads, err = plugin.Call(t.Context(), source, "Arrange", &pluginv1.ArrangeRequest{Context: &pluginv1.Context{Profile: pluginv1.Profile_PROFILE_DEVELOPMENT}, Root: test.path}, out)
+				reads, err = plugin.Call(t.Context(), source, "Arrange", &pluginv1.ArrangeRequest{Context: &pluginv1.Context{Profile: typev1.Profile_PROFILE_DEVELOPMENT}, Root: test.path}, out)
 			}
 			if err != nil {
 				t.Fatal(err)
@@ -101,7 +102,7 @@ func TestSDKDocumentsThroughWasm(t *testing.T) {
 				source[path] = ""
 			}
 			out := new(pluginv1.ArrangeResponse)
-			reads, err := plugin.Call(t.Context(), source, "Arrange", &pluginv1.ArrangeRequest{Context: &pluginv1.Context{Profile: pluginv1.Profile_PROFILE_DEVELOPMENT}, Root: path}, out)
+			reads, err := plugin.Call(t.Context(), source, "Arrange", &pluginv1.ArrangeRequest{Context: &pluginv1.Context{Profile: typev1.Profile_PROFILE_DEVELOPMENT}, Root: path}, out)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -121,7 +122,7 @@ func TestSDKYAMLAliasExpansionIsBounded(t *testing.T) {
 			fmt.Fprintf(&input, "a%d: &a%d [*a%d, *a%d]\n", level, level, level-1, level-1)
 		}
 		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
-		_, err := plugin.Call(ctx, files{"catalog-info.yaml": input.String()}, "Arrange", &pluginv1.ArrangeRequest{Context: &pluginv1.Context{Profile: pluginv1.Profile_PROFILE_DEVELOPMENT}, Root: "catalog-info.yaml"}, new(pluginv1.ArrangeResponse))
+		_, err := plugin.Call(ctx, files{"catalog-info.yaml": input.String()}, "Arrange", &pluginv1.ArrangeRequest{Context: &pluginv1.Context{Profile: typev1.Profile_PROFILE_DEVELOPMENT}, Root: "catalog-info.yaml"}, new(pluginv1.ArrangeResponse))
 		cancel()
 		if depth == 4 {
 			if err != nil {
@@ -159,7 +160,7 @@ var documentBenchmarks = []struct{ path, source string }{
 func benchmarkDocumentParsing(b *testing.B, path, text string) {
 	plugin := documentPlugin(b)
 	source := files{path: text}
-	request := &pluginv1.ArrangeRequest{Context: &pluginv1.Context{Profile: pluginv1.Profile_PROFILE_DEVELOPMENT}, Root: path}
+	request := &pluginv1.ArrangeRequest{Context: &pluginv1.Context{Profile: typev1.Profile_PROFILE_DEVELOPMENT}, Root: path}
 	for b.Loop() {
 		if _, err := plugin.Call(b.Context(), source, "Arrange", request, new(pluginv1.ArrangeResponse)); err != nil {
 			b.Fatal(err)

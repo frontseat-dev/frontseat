@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"testing"
 
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/source"
-	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
 )
 
 func lifetimeOracle(t testing.TB, p *retainedEngine, files *source.Keeper, root string) selectedPlan {
 	t.Helper()
-	profile := pluginv1.Profile_PROFILE_DEVELOPMENT
+	profile := typev1.Profile_PROFILE_DEVELOPMENT
 	targets := []string{"m0001/"}
 	return planMatches(t, p, files, root, profile, targets, "eviction changed the execution payload")
 }

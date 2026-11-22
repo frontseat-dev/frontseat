@@ -10,7 +10,7 @@ import (
 )
 
 func backstageFixture(t *testing.T) conformance.Fixture {
-	context := &pluginv1.Context{Profile: pluginv1.Profile_PROFILE_DEVELOPMENT}
+	context := &pluginv1.Context{Profile: typev1.Profile_PROFILE_DEVELOPMENT}
 	return arrangingNothing(context, conformance.Fixture{
 		Name: "backstage", ABI: 25, Description: &pluginv1.DescribeResponse{Name: "backstage", Interests: []string{"**/catalog-info.yaml", "!**/testdata/**"}},
 		Source: fixtureSource(t, "backstage", "valid"), Absent: files{}, Malformed: fixtureSource(t, "backstage", "malformed"), ErrorCode: "INVALID_CATALOG",
@@ -42,7 +42,7 @@ func backstageFixture(t *testing.T) conformance.Fixture {
 func BenchmarkCatalogAnalyze(b *testing.B) {
 	plugin := conformance.Plugin(b, "backstage")
 	source := fixtureSource(b, "backstage", "valid")
-	request := &pluginv1.AnalyzeRequest{Context: &pluginv1.Context{Profile: pluginv1.Profile_PROFILE_DEVELOPMENT}, Roots: []string{"app"}}
+	request := &pluginv1.AnalyzeRequest{Context: &pluginv1.Context{Profile: typev1.Profile_PROFILE_DEVELOPMENT}, Roots: []string{"app"}}
 	benchmarkAnalysis(b, plugin, "backstage", source, request)
 }
 

@@ -140,7 +140,7 @@ type BuildServiceClient interface {
 	// made, and ends at once as a build that failed, saying what is wrong.
 	//
 	// ### Errors
-	// - INVALID_ARGUMENT: the profile is one nobody defined
+	// - INVALID_ARGUMENT: the profile is a number that is no profile
 	//   (PROFILE_UNKNOWN), or the request_id is longer than 128 bytes
 	//   (REQUEST_ID_INVALID).
 	// - FAILED_PRECONDITION: the workspace holds no repository that is
@@ -280,7 +280,7 @@ type BuildServiceHandler interface {
 	// made, and ends at once as a build that failed, saying what is wrong.
 	//
 	// ### Errors
-	// - INVALID_ARGUMENT: the profile is one nobody defined
+	// - INVALID_ARGUMENT: the profile is a number that is no profile
 	//   (PROFILE_UNKNOWN), or the request_id is longer than 128 bytes
 	//   (REQUEST_ID_INVALID).
 	// - FAILED_PRECONDITION: the workspace holds no repository that is

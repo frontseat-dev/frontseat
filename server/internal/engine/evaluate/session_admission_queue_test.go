@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -146,7 +146,7 @@ func TestRetainedAdmissionCloseJoinsProviderCleanupAndBothQueues(t *testing.T) {
 				}
 				for range buildWaiters {
 					go func() {
-						_, err := s.Build(context.Background(), nil, pluginv1.Profile_PROFILE_DEVELOPMENT, nil, nil, nil)
+						_, err := s.Build(context.Background(), nil, typev1.Profile_PROFILE_DEVELOPMENT, nil, nil, nil)
 						results <- err
 					}()
 				}
@@ -287,7 +287,7 @@ func TestRetainedAdmissionQueuedGraphTakesFreshSourceAfterRefusal(t *testing.T) 
 	if acquired.Load() != 2 {
 		t.Fatalf("expected one fresh acquisition per admitted request, got %d", acquired.Load())
 	}
-	want := projectionFresh(t, retainedTake(t, &source.Keeper{}, root), pluginv1.Profile_PROFILE_DEVELOPMENT).ProjectList()
+	want := projectionFresh(t, retainedTake(t, &source.Keeper{}, root), typev1.Profile_PROFILE_DEVELOPMENT).ProjectList()
 	if !proto.Equal(got.projects, want) {
 		t.Fatal("queued caller returned pre-admission facts")
 	}

@@ -3,9 +3,9 @@ package evaluate
 import (
 	"context"
 	"errors"
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/plan"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/source"
-	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/pluginhost"
 	"os"
 	"path/filepath"
@@ -111,7 +111,7 @@ func TestRetainedHintsLiteralNamesAndMissingHintInterface(t *testing.T) {
 			}
 			p, files := newRetainedEngine(), &source.Keeper{}
 			runner := hintsOrderRunner{engine: p, mode: mode}
-			profile := pluginv1.Profile_PROFILE_DEVELOPMENT
+			profile := typev1.Profile_PROFILE_DEVELOPMENT
 			retainedOracle(t, runner, files, root, profile, nil)
 			retainedWrite(t, root, "pkg[1]/main.go", "package library\nfunc Exported() {}\n")
 			retainedOracle(t, runner, files, root, profile, nil)
@@ -131,7 +131,7 @@ type hintsOrderRunner struct {
 	mode   string
 }
 
-func (p hintsOrderRunner) run(ctx context.Context, src Source, profile pluginv1.Profile, targets []string) (retainedResult, error) {
+func (p hintsOrderRunner) run(ctx context.Context, src Source, profile typev1.Profile, targets []string) (retainedResult, error) {
 	if p.mode == "interface absent" {
 		return p.engine.run(ctx, struct{ Source }{src}, profile, targets)
 	}

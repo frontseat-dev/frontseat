@@ -30,7 +30,7 @@ func (s *buildService) CreateBuild(ctx context.Context, req *buildv1.CreateBuild
 	if _, err := sourceOf(s.runs.workspace); err != nil {
 		return nil, refuse(connect.CodeFailedPrecondition, "WORKSPACE_NOT_READY", err.Error())
 	}
-	profile, base, err := profileOf(req.GetProfile())
+	profile, err := profileOf(req.GetProfile())
 	if err != nil {
 		return nil, refuse(connect.CodeInvalidArgument, "PROFILE_UNKNOWN", err.Error())
 	}
@@ -39,7 +39,7 @@ func (s *buildService) CreateBuild(ctx context.Context, req *buildv1.CreateBuild
 		return r, err == nil
 	}
 	r, err := once(&s.asked, req.GetRequestId(), find, func() (*run, string, error) {
-		r, err := s.runs.create(ctx, profile, base, req.GetTargets(), req.GetOnly(), req.GetFix(), req.GetTests(), nil, nil)
+		r, err := s.runs.create(ctx, profile, req.GetTargets(), req.GetOnly(), req.GetFix(), req.GetTests(), nil, nil)
 		switch {
 		case errors.Is(err, errStopped):
 			return nil, "", refuse(connect.CodeUnavailable, "DAEMON_ENDING", err.Error())

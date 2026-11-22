@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/plan"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/source"
 	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
@@ -44,7 +45,7 @@ func TestRetainedQuerySemanticAndWireEquality(t *testing.T) {
 		}
 		t.Run(name, func(t *testing.T) {
 			root, p, files := warmRetained(t, 1)
-			profile := pluginv1.Profile_PROFILE_DEVELOPMENT
+			profile := typev1.Profile_PROFILE_DEVELOPMENT
 			q := queryProbe(t, p)
 			original := q.value
 			var alternate []byte
@@ -90,7 +91,7 @@ func TestRetainedQueryEqualReplyReplacesAnswerAndReads(t *testing.T) {
 	root := retainedFixture(t, 1)
 	retainedWrite(t, root, ".probe/new-input", "blue")
 	p, files := newRetainedEngine(), &source.Keeper{}
-	profile := pluginv1.Profile_PROFILE_DEVELOPMENT
+	profile := typev1.Profile_PROFILE_DEVELOPMENT
 	retainedOracle(t, p, files, root, profile, nil)
 	q := queryProbe(t, p)
 	old := q.value
@@ -138,7 +139,7 @@ func TestRetainedQueryCachedBytesAndExpiry(t *testing.T) {
 	p, files := newRetainedEngine(), &source.Keeper{}
 	now := time.Date(2026, 11, 14, 0, 0, 0, 0, time.UTC)
 	p.answers.now = func() time.Time { return now }
-	profile := pluginv1.Profile_PROFILE_DEVELOPMENT
+	profile := typev1.Profile_PROFILE_DEVELOPMENT
 	retainedOracle(t, p, files, root, profile, nil)
 	q := queryProbe(t, p)
 	old := q.value
@@ -189,7 +190,7 @@ func (s *queryReadGate) Read(ctx context.Context, repository, path string) ([]by
 
 func TestRetainedQueryWarmCancellationClearsPublishedState(t *testing.T) {
 	root, p, files := warmRetained(t, 2)
-	profile := pluginv1.Profile_PROFILE_DEVELOPMENT
+	profile := typev1.Profile_PROFILE_DEVELOPMENT
 	retainedWrite(t, root, "m0000/go.mod", "module example.com/m0000\n\ngo 1.27\n// changed\n")
 	gate := &queryReadGate{Source: retainedTake(t, files, root), started: make(chan struct{})}
 	ctx, cancel := context.WithCancel(t.Context())
@@ -217,7 +218,7 @@ func TestRetainedQueryWarmCancellationClearsPublishedState(t *testing.T) {
 func TestRetainedQueryGuardsAndUnsupportedViews(t *testing.T) {
 	root := retainedFixture(t, 1)
 	p := newRetainedEngine()
-	retainedOracle(t, p, &source.Keeper{}, root, pluginv1.Profile_PROFILE_DEVELOPMENT, nil)
+	retainedOracle(t, p, &source.Keeper{}, root, typev1.Profile_PROFILE_DEVELOPMENT, nil)
 	q := queryProbe(t, p)
 	plugin := q.plugin
 	request := new(pluginv1.AnalyzeRequest)

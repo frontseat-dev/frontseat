@@ -40,7 +40,7 @@ service RunService {
   //
   // ### Errors
   // - INVALID_ARGUMENT: no target is given (TARGET_MISSING), the profile
-  //   is one nobody defined (PROFILE_UNKNOWN), or the request_id is
+  //   is a number that is no profile (PROFILE_UNKNOWN), or the request_id is
   //   longer than 128 bytes (REQUEST_ID_INVALID).
   // - FAILED_PRECONDITION: the daemon holds no workspace to build
   //   (WORKSPACE_NOT_READY).
@@ -118,8 +118,9 @@ message Run {
   string target = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Arguments are what the program was given after its own.
   repeated string arguments = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // Profile is the name of the profile the program was built with.
-  string profile = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Profile is the profile the program was built with: never
+  // unspecified.
+  frontseat.type.v1alpha1.Profile profile = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
   // State is where it is.
   State state = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
   // `build_id` is the build of what the program is made of, a build of
@@ -170,9 +171,9 @@ message CreateRunRequest {
   string target = 1 [(google.api.field_behavior) = REQUIRED];
   // Arguments are given to the program after what its plugin gives it.
   repeated string arguments = 2;
-  // Profile is the name of the profile the program is built with. Empty,
-  // it is `development`.
-  string profile = 3;
+  // Profile is the profile the program is built with. Unspecified, it is
+  // PROFILE_DEVELOPMENT.
+  frontseat.type.v1alpha1.Profile profile = 3;
   // `request_id` makes a retry return the run the first call made: a
   // client that lost the answer sends the same request again with it.
   // It is at most 128 bytes; a UUID serves. The daemon remembers the

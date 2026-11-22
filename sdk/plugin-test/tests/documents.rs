@@ -105,8 +105,8 @@ fn manifest_size_limit_has_an_allowed_boundary_control() {
             assert!(toml.unwrap().unwrap().is_empty());
             assert!(yaml.unwrap().unwrap().is_empty());
         } else {
-            assert_eq!(toml.unwrap_err().reason, "document-too-large");
-            assert_eq!(yaml.unwrap_err().reason, "document-too-large");
+            assert_eq!(toml.unwrap_err().reason, "file-too-large");
+            assert_eq!(yaml.unwrap_err().reason, "file-too-large");
         }
     }
 }
@@ -206,5 +206,5 @@ fn typed_json_preserves_values_and_refuses_what_is_not_the_document() {
     let error = Repository::new(&*documents(large), None)
         .json_document::<Manifest>("lock.json")
         .unwrap_err();
-    assert_eq!(error.reason, "document-too-large");
+    assert_eq!(error.reason, "file-too-large");
 }

@@ -3,9 +3,9 @@ package evaluate
 import (
 	"context"
 	"fmt"
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/plan"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/source"
-	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
 	"os"
 	"runtime"
 	"testing"
@@ -15,7 +15,7 @@ import (
 // plan.Of. Projected additionally copies the retained plan's mutable payloads.
 // Both return the complete execution plan, not the smaller run-event summary.
 func projectionRun(ctx context.Context, src Source, mode, operation string, answers *Answers, retained *retainedEngine) (out testProjection, err error) {
-	profile := pluginv1.Profile_PROFILE_DEVELOPMENT
+	profile := typev1.Profile_PROFILE_DEVELOPMENT
 	var targets []string
 	if operation == "selected" {
 		targets = []string{"m0501/"}

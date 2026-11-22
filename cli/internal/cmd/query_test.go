@@ -253,7 +253,7 @@ func TestTestRunsTheTestActionsOfWhatItIsPointedAt(t *testing.T) {
 	if err != nil || code != 3 || !strings.Contains(printed, "TESTS_FAILED") {
 		t.Fatalf("test ended %d, %v, printing\n%s", code, err, printed)
 	}
-	if len(g.built) != 1 || !g.built[0].GetTests() || len(g.built[0].GetOnly()) != 0 || strings.Join(g.built[0].GetTargets(), ",") != "gateway,platform/" || g.built[0].GetProfile() != "production" || g.built[0].GetFix() {
+	if len(g.built) != 1 || !g.built[0].GetTests() || len(g.built[0].GetOnly()) != 0 || strings.Join(g.built[0].GetTargets(), ",") != "gateway,platform/" || g.built[0].GetProfile() != typev1.Profile_PROFILE_PRODUCTION || g.built[0].GetFix() {
 		t.Errorf("test asked for %v", g.built)
 	}
 	if _, _, err := asking(t, g, "build", "gateway"); err != nil || len(g.built) != 2 || len(g.built[1].GetOnly()) != 0 || g.built[1].GetTests() {

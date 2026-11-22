@@ -3,9 +3,9 @@ package evaluate
 import (
 	"bytes"
 	"fmt"
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/plan"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/source"
-	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
 	"testing"
 )
 
@@ -14,9 +14,9 @@ func TestRetainedBuildFiltersArePartOfSelection(t *testing.T) {
 	s, files := buildingSession(t), &source.Keeper{}
 	for i, only := range [][]string{nil, {"compile"}, {"format"}, {"compile"}, {"unknown"}, {"lint"}, nil} {
 		targets := []string{"m0001/"}
-		profile := pluginv1.Profile_PROFILE_DEVELOPMENT
+		profile := typev1.Profile_PROFILE_DEVELOPMENT
 		if i == 3 {
-			profile = pluginv1.Profile_PROFILE_PRODUCTION
+			profile = typev1.Profile_PROFILE_PRODUCTION
 		}
 		got, gotErr := s.Build(t.Context(), retainedTake(t, files, root), profile, nil, targets, only)
 		fresh := projectionFresh(t, retainedTake(t, &source.Keeper{}, root), profile)

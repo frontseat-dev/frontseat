@@ -7,6 +7,7 @@ import (
 
 	"connectrpc.com/connect/v2"
 
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
 )
 
@@ -18,7 +19,7 @@ import (
 func TestARefusalIsAnErrorThatCanBeMatched(t *testing.T) {
 	here := servedDaemon(t, &daemon{})
 	ctx := context.Background()
-	_, err := here.Build(ctx, BuildRequest{Profile: "nobodys"})
+	_, err := here.Build(ctx, BuildRequest{Profile: typev1.Profile(7)})
 	var refusedBy *Error
 	if !errors.As(err, &refusedBy) {
 		t.Fatalf("the refusal %v is no Error", err)
