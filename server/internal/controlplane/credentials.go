@@ -4,27 +4,20 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io/fs"
-	"net"
-	"net/url"
-	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 	"sync"
 
 	connect "connectrpc.com/connect/v2"
-	"github.com/google/renameio/v2"
-
 	credentialv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/credential/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/credential/v1alpha1/credentialv1alpha1connect"
 	sandboxv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/sandbox/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/controlplane/identity"
 	"github.com/frontseat-dev/frontseat/server/internal/page"
 	"github.com/frontseat-dev/frontseat/server/internal/plain"
+	"github.com/frontseat-dev/frontseat/server/internal/records"
 	"github.com/frontseat-dev/frontseat/server/internal/refusal"
 )
 
@@ -35,12 +28,15 @@ import (
 // and no other. The control plane keeps no secret: what it keeps is who
 // keeps a credential for which host, and who it is of, to say back.
 type credentials struct {
-	credentialv1alpha1connect.UnimplementedCredentialServiceHandler
 	s *service
 
 	// mu is held while the record is read and written.
 	mu sync.Mutex
 }
+
+// Every call of the contract is served: one added to it is not built
+// until it is.
+var _ credentialv1alpha1connect.CredentialServiceHandler = (*credentials)(nil)
 
 // credentialID is the id a person's credential for a host is kept under
 // by the sandbox service: of the digest of both, so that one person's
@@ -61,29 +57,16 @@ func besideID(owner, host, beside string) string {
 }
 
 // credentialHost is a host as a credential is kept for it, and as a
-// sandbox's rule names it: name:port, over https, or http://name:port,
-// over http. A host is a name, never an address, and nothing more. What
-// was written is not said back: a user written before a host is a
-// secret as often as not.
+// sandbox's rule names it (plain.Ruled): name:port, over https, or
+// http://name:port, over http. A host is a name, never an address, and
+// nothing more. What was written is not said back: a host written with
+// a user before it may hold a token.
 func credentialHost(written string) (string, error) {
-	refused := errors.New("the host is no host's name, as a credential is kept for one: write it as forge.example, forge.example:8443 or http://forge.example:8080, with no user, path or address")
-	scheme, rest := "https", strings.TrimPrefix(written, "https://")
-	if plain, ok := strings.CutPrefix(written, "http://"); ok {
-		scheme, rest = "http", plain
-	}
-	at, err := url.Parse(scheme + "://" + rest)
-	if err != nil || at.User != nil || (at.Path != "" && at.Path != "/") || at.RawQuery != "" || at.Fragment != "" || at.Hostname() == "" || net.ParseIP(at.Hostname()) != nil || strings.ContainsAny(rest, "/@") {
-		return "", refused
-	}
-	port, ok := portOf(at.Port(), map[string]string{"http": "80", "https": "443"}[scheme])
+	at, ok := plain.Ruled(written)
 	if !ok {
-		return "", refused
+		return "", errors.New("the host is no host's name, as a credential is kept for one: write it as forge.example, forge.example:8443 or http://forge.example:8080, with no user, path or address")
 	}
-	name := strings.TrimSuffix(strings.ToLower(at.Hostname()), ".")
-	if !plain.Text(name) || strings.Contains(name, "..") {
-		return "", refused
-	}
-	return origin{scheme: scheme, host: net.JoinHostPort(name, port)}.rule(), nil
+	return at.Rule(), nil
 }
 
 // beside are the hosts a credential for a host is kept for beside it:
@@ -94,12 +77,12 @@ func (c *credentials) beside(host string) ([]string, error) {
 	if c.s.Releasing == nil {
 		return nil, nil
 	}
-	at := origin{scheme: "https", host: host}
-	if plainly, ok := strings.CutPrefix(host, "http://"); ok {
-		at = origin{scheme: "http", host: plainly}
+	at, ok := plain.Ruled(host)
+	if !ok {
+		return nil, errors.New("a credential is kept for what is no host")
 	}
 	var out []string
-	for _, each := range c.s.Releasing.Beside(at.address()) {
+	for _, each := range c.s.Releasing.Beside(at.Address()) {
 		kept, err := credentialHost(each)
 		if err != nil {
 			return nil, fmt.Errorf("the forge says a credential for %s serves a host that is none: %w", host, err)
@@ -113,23 +96,24 @@ func (c *credentials) beside(host string) ([]string, error) {
 // host, who each is of.
 type credentialRecord map[string]map[string]string
 
-// file is where the record is kept: in a directory of its own beside
-// the workspaces' records, which no workspace's name is.
-func (c *credentials) file() string {
-	return filepath.Join(c.s.State, "credentials", "record.json")
+// recorded is the one record of the credentials kept, named so in a
+// directory of its own beside the workspaces' records, which no
+// workspace's name is.
+const recorded = "record"
+
+// records are where the record is kept.
+func (c *credentials) records() (records.Dir, error) {
+	return records.Open(filepath.Join(c.s.State, "credentials"))
 }
 
 // read is the record, under mu.
 func (c *credentials) read() (credentialRecord, error) {
-	raw, err := os.ReadFile(c.file())
-	if errors.Is(err, fs.ErrNotExist) {
-		return credentialRecord{}, nil
-	}
+	dir, err := c.records()
 	if err != nil {
 		return nil, err
 	}
 	out := credentialRecord{}
-	if err := json.Unmarshal(raw, &out); err != nil {
+	if _, err := dir.Read(recorded, &out); err != nil {
 		return nil, fmt.Errorf("the record of the credentials kept is not one: %w", err)
 	}
 	return out, nil
@@ -137,14 +121,11 @@ func (c *credentials) read() (credentialRecord, error) {
 
 // write keeps the record, whole or as it was, under mu.
 func (c *credentials) write(record credentialRecord) error {
-	raw, err := json.Marshal(record)
+	dir, err := c.records()
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(c.file()), 0o700); err != nil {
-		return err
-	}
-	return renameio.WriteFile(c.file(), raw, 0o600)
+	return dir.Keep(recorded, record)
 }
 
 // caller is who asks, as the endpoint found them.
@@ -155,9 +136,6 @@ func caller(ctx context.Context) (string, error) {
 	}
 	return who.Subject, nil
 }
-
-// longest is how long a secret may be.
-const longest = 4096
 
 // holding does what a call does with the record of the credentials kept,
 // under mu, as the caller, and for the host the call names where it
@@ -187,7 +165,7 @@ func (c *credentials) SetCredential(ctx context.Context, req *credentialv1.SetCr
 	if given.GetUsername() != "" && !plain.Username(given.GetUsername()) {
 		return nil, refusal.New(refusal.Credential, connect.CodeInvalidArgument, "CREDENTIAL_USERNAME_INVALID", "a username is letters, digits and . _ @ -")
 	}
-	if secret := given.GetSecret(); secret == "" || len(secret) > longest || strings.ContainsAny(secret, "\r\n\x00") {
+	if !plain.Secret(given.GetSecret()) {
 		return nil, refusal.New(refusal.Credential, connect.CodeInvalidArgument, "CREDENTIAL_SECRET_INVALID", "a credential's secret is given, on one line of no great length")
 	}
 	out := &credentialv1.SetCredentialResponse{}

@@ -124,6 +124,16 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		{"server/sandbox/driver/openshell/fetch.go", "server/internal/plain", true},
 		{"server/testsupport/testcontainer/container.go", "server/internal/plain", false},
 		{"server/internal/plain/plain.go", "server/sandbox", false},
+		// What a server keeps to find again is kept by one store: the
+		// control plane's workspaces and credentials, the sandbox
+		// service's sandboxes and a workspace's manifest; the store knows
+		// none of them.
+		{"server/internal/controlplane/credentials.go", "server/internal/records", true},
+		{"server/sandbox/kept.go", "server/internal/records", true},
+		{"server/internal/source/internal/manifest/manifest.go", "server/internal/records", true},
+		{"server/internal/records/records.go", "server/internal/plain", false},
+		{"server/internal/records/records.go", "server/sandbox", false},
+		{"cli/internal/cmd/root.go", "server/internal/records", false},
 		// A process group is ended by one implementation, which a
 		// sandbox's refusal of a signal to a group does not stop: the
 		// confiner's, which git, a program and a workspace's shell use.

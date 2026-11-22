@@ -401,51 +401,6 @@ func programs(named []string) []client.PolicyNetworkBinary {
 	return out
 }
 
-// reached reads a host a sandbox may reach: a name, or a name and a
-// port; without a port, 443. An address is refused here, in any spelling
-// of one, so that a rule is always of a name and what the name resolves
-// to is the gateway's to check: it refuses the loopback, link-local and
-// unspecified addresses, and lets a name resolve to a private one.
-func reached(allowed string) (string, uint32, error) {
-	host, port := allowed, "443"
-	if h, p, err := net.SplitHostPort(allowed); err == nil {
-		host, port = h, p
-	}
-	number, err := strconv.ParseUint(port, 10, 16)
-	if err != nil || number == 0 {
-		return "", 0, errors.New("openshell: a host is written with no port a sandbox may reach")
-	}
-	host = strings.ToLower(strings.TrimSuffix(host, "."))
-	if !hostname(host) {
-		return "", 0, errors.New("openshell: a host is not written as a host's name: a sandbox is let reach a name, never an address")
-	}
-	return host, uint32(number), nil
-}
-
-// hostname is whether a host is written as a name is: labels of letters,
-// digits and hyphens, the last of them not a number, as no address is.
-func hostname(host string) bool {
-	if host == "" || len(host) > 253 {
-		return false
-	}
-	labels := strings.Split(host, ".")
-	for _, each := range labels {
-		if each == "" || len(each) > 63 || each[0] == '-' || each[len(each)-1] == '-' {
-			return false
-		}
-		for _, r := range each {
-			if !(r >= 'a' && r <= 'z') && !(r >= '0' && r <= '9') && r != '-' {
-				return false
-			}
-		}
-	}
-	last := labels[len(labels)-1]
-	if _, err := strconv.ParseUint(last, 0, 64); err == nil {
-		return false
-	}
-	return last[0] < '0' || last[0] > '9'
-}
-
 func (d *Driver) Observe(ctx context.Context, id string) (driver.Sandbox, error) {
 	held, err := d.find(ctx, id)
 	if err != nil {

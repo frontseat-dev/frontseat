@@ -871,7 +871,8 @@ mise run docs:serve       # serve the TechDocs site on http://localhost:8000
 | `server/internal/testservice` | What a service for tests is held to, for the daemon and the runner |
 | `server/internal/confine` | How a worker starts and confines an action (`frontseat-action`) |
 | `server/internal/exec/here` | A command made ready to run where the daemon is, with the grid's tools: a fix, and what publishes |
-| `server/internal/plain` | Text and names that every reader reads alike |
+| `server/internal/plain` | Text and names that every reader reads alike: the one reader of a name from outside, a host (`Hostname`), its origin (`OriginOf`, `Ruled`), a path, a program, a parameter, a secret |
+| `server/internal/records` | A directory of records, each written whole and read strictly: the control plane's workspaces and credentials, the sandbox service's sandboxes, a workspace's manifest (`Write`) |
 | `server/internal/secretfile` | A secret read from a file and a directory that are the server's alone |
 | `server/internal/backstage` | The Backstage catalog the control plane resolves entities through |
 | `server/internal/refusal` | A refusal by name: its code, `ErrorInfo` reason and the domain of each service |

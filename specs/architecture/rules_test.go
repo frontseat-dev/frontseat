@@ -98,9 +98,14 @@ var policies = []policy{
 	{"server/internal/httpserver", []string{}},
 	{"server/internal/image", []string{}},
 	{"server/internal/confine", []string{}},
-	// Whether what leads out of a sandbox is written plainly: one check,
-	// for the control plane and the gateway's driver.
+	// Whether what leads out of a sandbox is written plainly: one reader
+	// of a host, an origin, a path and a program, for the control plane
+	// and the gateway's driver.
 	{"server/internal/plain", []string{}},
+	// A directory of records, each written whole and read strictly: one
+	// store, for the workspaces, the sandboxes, the credentials and a
+	// workspace's manifest.
+	{"server/internal/records", []string{}},
 	// A secret kept in a file that is the server's alone: the owner's
 	// token, and the token presented to Backstage.
 	{"server/internal/secretfile", []string{}},
@@ -161,7 +166,7 @@ var policies = []policy{
 	{"server/internal/exec/fix", []string{"server/telemetry", "server/internal/exec", "server/internal/exec/here", "server/internal/exec/tools", "server/internal/engine/plan", "server/internal/engine/source", "server/internal/model", "server/internal/pattern", "server/internal/pins"}},
 	{"server/internal/exec/program", []string{"sdk/go/api/**", "server/internal/pluginapi/**", "server/internal/exec", "server/internal/exec/tools", "server/internal/engine/plan", "server/internal/model", "server/internal/confine"}},
 	{"server/internal/exec/run", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/pluginapi/**", "server/telemetry", "server/internal/exec", "server/internal/exec/download", "server/internal/exec/tools", "server/internal/exec/fix", "server/internal/exec/stage", "server/internal/exec/schedule", "server/internal/engine/plan", "server/internal/engine/source", "server/internal/model", "server/internal/runnerapi/**"}},
-	{"server/internal/source/**", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/source/**", "server/internal/refusal", "server/internal/sourceapi/**", "server/internal/confine"}},
+	{"server/internal/source/**", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/source/**", "server/internal/refusal", "server/internal/sourceapi/**", "server/internal/confine", "server/internal/records"}},
 	{"server/internal/source/record", []string{"sdk/go/entity", "server/internal/source/record"}},
 	// A daemon told, for a test, what the control plane would tell it:
 	// its entities resolved through a fake Backstage.
@@ -175,7 +180,7 @@ var policies = []policy{
 	// A sandbox is the isolation and knows nothing of what lives in one.
 	// A driver's tests, and the service's, are held to the conformance
 	// and run over the driver held in memory (drivertest).
-	{"server/sandbox/**", []string{"sdk/go/api/**", "server/sandbox/**", "server/internal/image", "server/testsupport/drivertest", "server/internal/page", "server/internal/refusal", "server/internal/plain"}},
+	{"server/sandbox/**", []string{"sdk/go/api/**", "server/sandbox/**", "server/internal/image", "server/testsupport/drivertest", "server/internal/page", "server/internal/refusal", "server/internal/plain", "server/internal/records"}},
 	{"server/sandbox/driver/openshell", []string{"sdk/go/api/**", "server/sandbox/**", "server/testsupport/drivertest", "server/internal/plain", "local/ports"}},
 	// A driver of the container runtime, for tests alone: what an image
 	// starts is asked through the image package, as the gateway's way
@@ -192,7 +197,7 @@ var policies = []policy{
 	// (local/ports), and is told nothing of the stack.
 	// It resolves entities through the Backstage its operator gives it
 	// (server/internal/backstage), held over a fake one in its tests.
-	{"server/internal/controlplane/**", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/controlplane/**", "server/sandbox", "server/internal/backstage", "server/internal/secretfile", "server/internal/source/record", "server/internal/source/vcs", "server/internal/source/told", "server/internal/sourceapi/**", "server/testsupport/drivertest", "server/testsupport/backstagetest", "server/internal/plain", "local/ports", "sdk/go", "server/internal/page", "server/internal/refusal", "server/internal/forge"}},
+	{"server/internal/controlplane/**", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/controlplane/**", "server/sandbox", "server/internal/backstage", "server/internal/secretfile", "server/internal/source/record", "server/internal/source/vcs", "server/internal/source/told", "server/internal/sourceapi/**", "server/testsupport/drivertest", "server/testsupport/backstagetest", "server/internal/plain", "local/ports", "sdk/go", "server/internal/page", "server/internal/refusal", "server/internal/forge", "server/internal/records"}},
 	// A test starts a daemon as frontseatd does, and a control plane as
 	// frontseat-local does, each with the test support beside it.
 	{"server/testsupport/buildtest", []string{"server/internal/build", "server/telemetry", "server/testsupport/**", "sdk/go/api/**", "server/internal/source", "server/internal/source/told", "server/internal/source/told/toldtest", "server/internal/sourceapi/**"}},

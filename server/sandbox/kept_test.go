@@ -130,10 +130,11 @@ func TestARecordThisServerCannotReadIsNamedByItsFile(t *testing.T) {
 	if err := os.WriteFile(file, []byte(`{"spec":{"image":"example.com/box@sha256:`+strings.Repeat("a", 64)+`"},"created":"2026-11-01T00:00:00Z"}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := open(state); err != nil {
+	files, err := open(state)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if records, err := (kept{dir: state}).all(); err != nil || len(records) != 1 {
+	if records, err := files.all(); err != nil || len(records) != 1 {
 		t.Errorf("the record without the field is read as %v, %v", records, err)
 	}
 }

@@ -1,11 +1,16 @@
 package manifest
 
 import (
+	"bytes"
 	"errors"
-	"go.yaml.in/yaml/v4"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
+
+	"go.yaml.in/yaml/v4"
+
+	"github.com/frontseat-dev/frontseat/server/internal/records"
 )
 
 // Read returns the manifest of the workspace in a directory, and whether
@@ -20,8 +25,12 @@ func Read(dir string, revision func(name string) error) (Manifest, bool, error) 
 	if err != nil {
 		return Manifest{}, false, err
 	}
+	// Read strictly: a key this reader does not know was written by
+	// something else, and the file is not read in part.
 	var m Manifest
-	if err := yaml.Unmarshal(raw, &m); err != nil {
+	reader := yaml.NewDecoder(bytes.NewReader(raw))
+	reader.KnownFields(true)
+	if err := reader.Decode(&m); err != nil && !errors.Is(err, io.EOF) {
 		return Manifest{}, false, err
 	}
 	if err := m.Within(revision); err != nil {
@@ -30,7 +39,8 @@ func Read(dir string, revision func(name string) error) (Manifest, bool, error) 
 	return m, true, nil
 }
 
-// Write keeps the manifest in the workspace's directory.
+// Write keeps the manifest in the workspace's directory, whole or as it
+// was: whoever reads it finds all of it or the one before.
 func Write(dir string, m Manifest) error {
 	m.Version = 1
 	raw, err := yaml.Marshal(m)
@@ -41,5 +51,5 @@ func Write(dir string, m Manifest) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
-	return os.WriteFile(path, raw, 0o644)
+	return records.Write(path, raw, 0o644)
 }

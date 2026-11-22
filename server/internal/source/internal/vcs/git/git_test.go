@@ -1523,3 +1523,35 @@ func TestADirectoryWithinARepositoryIsNotOne(t *testing.T) {
 		t.Errorf("the repository's own directory: %v", err)
 	}
 }
+
+// A remote is cloned in a sandbox over http or https, as git's package
+// reads it: one written for ssh is cloned over https from the same host
+// and path, and what no sandbox clones is refused without being
+// repeated, since it may hold a token.
+func TestWhereASandboxClonesARemoteFrom(t *testing.T) {
+	for remote, want := range map[string]string{
+		"https://forge.example/acme/code.git":     "https://forge.example/acme/code.git",
+		"http://forge.example:8080/acme/code":     "http://forge.example:8080/acme/code",
+		"git@forge.example:acme/code.git":         "https://forge.example/acme/code.git",
+		"ssh://git@forge.example/acme/code.git":   "https://forge.example/acme/code.git",
+		"https://someone@forge.example/acme/code": "https://forge.example/acme/code",
+	} {
+		if got, err := (git.System{}).Cloned(remote); err != nil || got != want {
+			t.Errorf("Cloned(%q) = %q, %v; want %q", remote, got, err, want)
+		}
+	}
+	const refusedValue = "v4lue-of-adas"
+	for _, remote := range []string{
+		"https://forge.example/acme/code.git?access_token=" + refusedValue,
+		"https://someone:" + refusedValue + "@forge.example/acme/code",
+		"http://2130706433/" + refusedValue,
+		"file:///remotes/" + refusedValue,
+		"/remotes/" + refusedValue,
+	} {
+		if got, err := (git.System{}).Cloned(remote); err == nil {
+			t.Errorf("Cloned(%q) = %q, want it refused", remote, got)
+		} else if strings.Contains(err.Error(), refusedValue) {
+			t.Errorf("the refusal of a remote repeats it: %v", err)
+		}
+	}
+}

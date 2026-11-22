@@ -4,13 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"net/url"
-	"path"
 	"regexp"
 	"slices"
 	"sort"
-	"strconv"
 	"strings"
 
 	connect "connectrpc.com/connect/v2"
@@ -52,60 +49,56 @@ func unserved(reason, format string, a ...any) error {
 	return &unmet{connect.CodeUnimplemented, reason, fmt.Sprintf(format, a...)}
 }
 
-// origin is where a repository is fetched from over HTTP: its scheme, its
-// host as a name and a port, and its path there.
-type origin struct {
-	scheme, host, path string
-}
+// errAddress is what is said of an address that is none a sandbox
+// fetches a repository from. It says nothing of what was written.
+var errAddress = errors.New("a repository is fetched over http or https from a host's name, by a path written plainly, in letters, digits and . _ - + /, with no user, query or fragment")
 
-// address is the host as it is reached and a forge names it: its scheme
-// and its name, with its port where that is not the scheme's own.
-func (o origin) address() string {
-	name, port, _ := net.SplitHostPort(o.host)
-	if port == map[string]string{"http": "80", "https": "443"}[o.scheme] {
-		return o.scheme + "://" + name
+// fetched reads an address a repository is fetched from: the origin it
+// is fetched from over HTTP, at a host's name (plain.OriginOf), and its
+// path there (plain.Path). An address is that and nothing more: one
+// with a user, a query or a fragment, or of an address in place of a
+// name, is none.
+func fetched(address string) (plain.Origin, string, error) {
+	at, err := url.Parse(address)
+	if err != nil || at.User != nil || at.RawQuery != "" || at.ForceQuery || at.Fragment != "" || at.Opaque != "" {
+		return plain.Origin{}, "", errAddress
 	}
-	return o.scheme + "://" + o.host
-}
-
-// rule is the host as a sandbox's rule names it.
-func (o origin) rule() string {
-	if o.scheme == "http" {
-		return "http://" + o.host
-	}
-	return o.host
-}
-
-// fetched reads where a repository is fetched from, and whether it is
-// fetched over HTTP from a host's name at all: one that is not is the
-// daemon's to refuse when it brings it.
-func fetched(remote string) (origin, bool) {
-	at, err := url.Parse(remote)
-	if err != nil || (at.Scheme != "http" && at.Scheme != "https") || at.Hostname() == "" || net.ParseIP(at.Hostname()) != nil {
-		return origin{}, false
-	}
-	port, ok := portOf(at.Port(), map[string]string{"http": "80", "https": "443"}[at.Scheme])
-	if !ok {
-		return origin{}, false
-	}
+	origin, ok := plain.OriginOf(at.Scheme, at.Hostname(), at.Port())
 	where := strings.TrimSuffix(at.EscapedPath(), "/")
-	if where == "" {
-		return origin{}, false
+	if !ok || !plain.Path(where) {
+		return plain.Origin{}, "", errAddress
 	}
-	return origin{scheme: at.Scheme, host: net.JoinHostPort(strings.TrimSuffix(strings.ToLower(at.Hostname()), "."), port), path: where}, true
+	return origin, where, nil
 }
 
-// portOf is a port as a rule names it: its number, written plainly, or
-// the one given where none is written; and whether it is a port at all.
-func portOf(written, byDefault string) (string, bool) {
-	if written == "" {
-		written = byDefault
+// cloned reads where a sandbox clones a repository from, as its remote
+// is written: the address the version control system says the remote is
+// cloned from, which it converts where the remote is written for
+// another transport, read as an address is (fetched). The daemon in the
+// sandbox reads the remote by the same system, so what is refused here
+// is what it would refuse, and what a rule is written for is what it
+// asks. With no system, a remote is read as it is written.
+func (s *service) cloned(remote string) (plain.Origin, string, error) {
+	address := remote
+	if s.Fetching != nil {
+		var err error
+		if address, err = s.Fetching.Cloned(remote); err != nil {
+			return plain.Origin{}, "", err
+		}
 	}
-	number, err := strconv.Atoi(written)
-	if err != nil || number < 1 || number > 65535 {
-		return "", false
+	return fetched(address)
+}
+
+// addressed holds every repository a workspace is asked for to an
+// address a sandbox clones it from, before anything of it is kept or
+// said back: what is refused is not repeated.
+func (s *service) addressed(spec *workspacev1.WorkspaceSpec) error {
+	for _, repository := range spec.GetRepositories() {
+		if _, _, err := s.cloned(repository.GetRemote()); err != nil {
+			return malformed("a repository's address is none a sandbox clones from: %v", err)
+		}
 	}
-	return strconv.Itoa(number), true
+	return nil
 }
 
 // sandbox is the sandbox a workspace lives in, written in the sandbox
@@ -147,7 +140,7 @@ func (s *service) sandbox(ctx context.Context, name, owner string, spec *workspa
 	if s.Fetching != nil {
 		authoring := s.Fetching.Authoring(spec.GetAuthor().GetName(), spec.GetAuthor().GetEmail())
 		for told, value := range authoring {
-			if strings.ContainsAny(value, "\r\n\x00") || told == "" || strings.HasPrefix(told, "FRONTSEAT_") || strings.HasPrefix(told, "LD_") {
+			if strings.ContainsAny(value, "\r\n\x00") || told == "" || others(told) {
 				return nil, fmt.Errorf("the version control system would tell its program %q of who commits, which is not its to say", told)
 			}
 			environment[told] = value
@@ -171,38 +164,33 @@ func (s *service) sandbox(ctx context.Context, name, owner string, spec *workspa
 	// The hosts repositories are fetched from, each with the paths of its
 	// repositories, in the order named.
 	paths := map[string][]string{}
-	origins := map[string]origin{}
+	origins := map[string]plain.Origin{}
 	var order []string
-	fetchable := 0
 	// A push is to a repository the workspace was asked for by its
 	// address, and never to one a catalog named.
 	pushed := map[string]bool{}
 	for _, remote := range remotesOf(spec, resolved) {
-		at, is := fetched(remote)
-		if !is {
-			continue
+		at, where, err := s.cloned(remote)
+		if err != nil {
+			return nil, malformed("a repository's address is none a sandbox clones from: %v", err)
 		}
+		host := at.Host()
 		if slices.ContainsFunc(spec.GetRepositories(), func(r *workspacev1.RepositorySource) bool { return r.GetRemote() == remote }) {
-			pushed[at.host+at.path] = true
+			pushed[host+where] = true
 		}
-		if origins[at.host].scheme != "" && origins[at.host].scheme != at.scheme {
-			return nil, malformed("%s is fetched from over both http and https", at.host)
+		if origins[host].Scheme != "" && origins[host].Scheme != at.Scheme {
+			return nil, malformed("%s is fetched from over both http and https", host)
 		}
-		if _, seen := origins[at.host]; !seen {
-			order = append(order, at.host)
+		if _, seen := origins[host]; !seen {
+			order = append(order, host)
 		}
-		origins[at.host] = at
-		if !slices.Contains(paths[at.host], at.path) {
-			paths[at.host] = append(paths[at.host], at.path)
-		}
-	}
-	for _, repository := range spec.GetRepositories() {
-		if _, is := fetched(repository.GetRemote()); is {
-			fetchable++
+		origins[host] = at
+		if !slices.Contains(paths[host], where) {
+			paths[host] = append(paths[host], where)
 		}
 	}
-	if spec.GetPush() && (fetchable == 0 || fetchable != len(spec.GetRepositories())) {
-		return nil, unserved("PUSH_NOT_SERVED", "a workspace pushes to repositories it is given by their address over http or https, and each of these is not one")
+	if spec.GetPush() && len(spec.GetRepositories()) == 0 {
+		return nil, unserved("PUSH_NOT_SERVED", "a workspace pushes to repositories it is given by their address, and this one is given none so")
 	}
 	if len(order) > 0 && s.Fetching == nil {
 		return nil, unserved("FETCH_NOT_SERVED", "the control plane was told of no version control system, and so lets no workspace fetch a repository")
@@ -214,13 +202,11 @@ func (s *service) sandbox(ctx context.Context, name, owner string, spec *workspa
 		if err := fetchedBy(programs); err != nil {
 			return nil, err
 		}
-		rule := &sandboxv1.EgressRule{Host: at.rule(), Programs: programs}
+		rule := &sandboxv1.EgressRule{Host: at.Rule(), Programs: programs}
 		for _, repository := range paths[host] {
 			// A repository is asked for as it is spelled, and not by another
-			// spelling, which a forge may hold as another repository.
-			if !plain.Text(repository) || strings.Contains(repository, "..") || strings.Contains(repository, "//") {
-				return nil, malformed("a repository's path on %s is no one repository's, written plainly, in letters, digits and . _ - + /", at.host)
-			}
+			// spelling, which a forge may hold as another repository: its
+			// path is one written plainly (fetched).
 			asked := s.Fetching.Requests(repository)
 			if err := asking("a fetch", repository, asked); err != nil {
 				return nil, err
@@ -240,7 +226,7 @@ func (s *service) sandbox(ctx context.Context, name, owner string, spec *workspa
 		// let through with it, and the system's program is told to present
 		// the stand-in as its password. Another's credential is never
 		// asked after.
-		said, err := s.Sandboxes.DescribeCredential(ctx, &sandboxv1.DescribeCredentialRequest{Name: credentialID(owner, at.rule())})
+		said, err := s.Sandboxes.DescribeCredential(ctx, &sandboxv1.DescribeCredentialRequest{Name: credentialID(owner, at.Rule())})
 		kept := said.GetCredential()
 		switch connect.CodeOf(err) {
 		case connect.CodeNotFound, connect.CodeUnimplemented:
@@ -256,11 +242,11 @@ func (s *service) sandbox(ctx context.Context, name, owner string, spec *workspa
 			// What another service says is held before it reaches a
 			// program's configuration: a variable's name and a username are
 			// each one word, and the credential is the one for this host.
-			if !variable.MatchString(kept.GetVariable()) || !plain.Username(kept.GetUsername()) || kept.GetHost() != at.rule() {
-				return nil, fmt.Errorf("the sandbox service says of the credential for %s what is no username and variable of a credential for that host", at.host)
+			if !variable.MatchString(kept.GetVariable()) || !plain.Username(kept.GetUsername()) || kept.GetHost() != at.Rule() {
+				return nil, fmt.Errorf("the sandbox service says of the credential for %s what is no username and variable of a credential for that host", host)
 			}
 			rule.Credential = kept.GetName()
-			presenting, err := s.Fetching.Presenting(environment, at.scheme+"://"+at.host, kept.GetUsername(), kept.GetVariable())
+			presenting, err := s.Fetching.Presenting(environment, at.URL(), kept.GetUsername(), kept.GetVariable())
 			if err != nil {
 				return nil, malformed("%v", err)
 			}
@@ -286,7 +272,7 @@ func (s *service) sandbox(ctx context.Context, name, owner string, spec *workspa
 				if !pushed[host+repository] {
 					continue
 				}
-				asked, known := s.Releasing.Releases(origins[host].address(), repository)
+				asked, known := s.Releasing.Releases(origins[host].Address(), repository)
 				if !known {
 					continue
 				}
@@ -332,11 +318,11 @@ func asking(what, repository string, requests []vcs.Request) error {
 	}
 	for _, asked := range requests {
 		beneath, is := strings.CutPrefix(asked.Path, repository+"/")
-		if (asked.Method != "GET" && asked.Method != "POST") || !is || !plain.Text(beneath) || strings.Contains(beneath, "..") || strings.Contains(beneath, "//") {
+		if (asked.Method != "GET" && asked.Method != "POST") || !is || !plain.Path("/"+beneath) {
 			return fmt.Errorf("the version control system says %s of %s asks %s %q, which is no request beneath that repository", what, repository, asked.Method, asked.Path)
 		}
 		for parameter, value := range asked.Query {
-			if !plain.Text(parameter) || !plain.Text(value) || strings.Contains(parameter+value, "/") {
+			if !plain.Parameter(parameter, value) {
 				return fmt.Errorf("the version control system says %s of %s asks with %q=%q, which is no parameter", what, repository, parameter, value)
 			}
 		}
@@ -351,7 +337,7 @@ func fetchedBy(programs []string) error {
 		return errors.New("the version control system names no program that fetches")
 	}
 	for _, program := range programs {
-		if !strings.HasPrefix(program, "/") || path.Clean(program) != program || program == "/" || !plain.Text(program) {
+		if !plain.Program(program) {
 			return fmt.Errorf("the version control system names %q as a program that fetches, which is no one program's path", program)
 		}
 	}
@@ -370,10 +356,8 @@ func telling(told map[string]string, own string) error {
 			named = false
 		}
 	}
-	for _, others := range []string{"FRONTSEAT_", "OPENSHELL_", "LD_", "DYLD_", "MISE_", "NONO_", "XDG_"} {
-		if strings.HasPrefix(own, others) || strings.HasPrefix(others, own) {
-			named = false
-		}
+	if others(own) || slices.ContainsFunc(othersBegin, func(other string) bool { return strings.HasPrefix(other, own) }) {
+		named = false
 	}
 	if !named {
 		return fmt.Errorf("the version control system says its variables begin with %q, which is no beginning of its own", own)
@@ -392,18 +376,20 @@ func telling(told map[string]string, own string) error {
 	return nil
 }
 
+// othersBegin are what the variables of this server, the gateway, the
+// loader and the tools a box runs begin with: none is a version control
+// system's to say, whether of who commits or of how a fetch is let
+// through, and nothing it says begins so.
+var othersBegin = []string{"FRONTSEAT_", "OPENSHELL_", "LD_", "DYLD_", "MISE_", "NONO_", "XDG_"}
+
+// others is whether a variable's name begins as another's do
+// (othersBegin), or is PATH, which a program is found by.
+func others(name string) bool {
+	return name == "PATH" || slices.ContainsFunc(othersBegin, func(other string) bool { return strings.HasPrefix(name, other) })
+}
+
 // variable is a variable's name, as one is written in an environment.
 var variable = regexp.MustCompile(`^[A-Z_][A-Z0-9_]{0,127}$`)
-
-// ruleOf is the rule a sandbox spec has for a host; nil where it has none.
-func ruleOf(spec *sandboxv1.SandboxSpec, host string) *sandboxv1.EgressRule {
-	for _, rule := range spec.GetEgress().GetRules() {
-		if rule.GetHost() == host || rule.GetHost() == "http://"+host {
-			return rule
-		}
-	}
-	return nil
-}
 
 // remotesOf are the remotes of the repositories a workspace holds: those
 // it is asked for, and those its entities resolved to.
@@ -449,9 +435,9 @@ func reaches(made *workspacev1.WorkspaceSpec, was told.Resolved, wanted *workspa
 // control system says is, before any of it is kept: a host by its name,
 // reached over http or https, and requests that read, make or change,
 // each of a path written plainly, a part of which may be any one part.
-func (s *service) publishing(ctx context.Context, out *sandboxv1.SandboxSpec, owner string, home origin, repository string, reached forge.Host) (string, error) {
-	at, is := fetched(reached.Origin + "/a")
-	if !is || at.address() != reached.Origin {
+func (s *service) publishing(ctx context.Context, out *sandboxv1.SandboxSpec, owner string, home plain.Origin, repository string, reached forge.Host) (string, error) {
+	at, _, err := fetched(reached.Origin + "/a")
+	if err != nil || at.Address() != reached.Origin {
 		return "", fmt.Errorf("the forge says a release of %s is published at %q, which is no host reached over http or https by its name", repository, reached.Origin)
 	}
 	if len(reached.Requests) == 0 {
@@ -467,7 +453,7 @@ func (s *service) publishing(ctx context.Context, out *sandboxv1.SandboxSpec, ow
 	}
 	var rule *sandboxv1.EgressRule
 	for _, each := range out.Egress.Rules {
-		if each.GetHost() == at.rule() {
+		if each.GetHost() == at.Rule() {
 			rule = each
 		}
 	}
@@ -476,16 +462,16 @@ func (s *service) publishing(ctx context.Context, out *sandboxv1.SandboxSpec, ow
 	// something else is fetched from is another matter: its rule is
 	// that fetch's, with whatever credential the person gave for it,
 	// and a release is not asked through it.
-	if rule != nil && at.rule() != home.rule() {
-		return "", malformed("a release of %s is published at %s, which a repository of this workspace is fetched from: a workspace is not asked for both", repository, at.host)
+	if rule != nil && at.Rule() != home.Rule() {
+		return "", malformed("a release of %s is published at %s, which a repository of this workspace is fetched from: a workspace is not asked for both", repository, at.Host())
 	}
 	if rule == nil {
-		rule = &sandboxv1.EgressRule{Host: at.rule()}
+		rule = &sandboxv1.EgressRule{Host: at.Rule()}
 		out.Egress.Rules = append(out.Egress.Rules, rule)
 		// The credential is the one its owner gave for the host the
 		// repository is fetched from, as it is kept for this host.
 		// Another's is never asked after.
-		said, err := s.Sandboxes.DescribeCredential(ctx, &sandboxv1.DescribeCredentialRequest{Name: besideID(owner, home.rule(), at.rule())})
+		said, err := s.Sandboxes.DescribeCredential(ctx, &sandboxv1.DescribeCredentialRequest{Name: besideID(owner, home.Rule(), at.Rule())})
 		switch connect.CodeOf(err) {
 		case connect.CodeNotFound, connect.CodeUnimplemented:
 		default:
@@ -493,8 +479,8 @@ func (s *service) publishing(ctx context.Context, out *sandboxv1.SandboxSpec, ow
 				return "", err
 			}
 			if kept := said.GetCredential(); kept != nil {
-				if kept.GetHost() != at.rule() {
-					return "", fmt.Errorf("the sandbox service says the credential for %s is for another host", at.host)
+				if kept.GetHost() != at.Rule() {
+					return "", fmt.Errorf("the sandbox service says the credential for %s is for another host", at.Host())
 				}
 				rule.Credential = kept.GetName()
 			}
@@ -510,5 +496,5 @@ func (s *service) publishing(ctx context.Context, out *sandboxv1.SandboxSpec, ow
 			rule.Requests = append(rule.Requests, &sandboxv1.EgressRequest{Method: asked.Method, Path: asked.Path})
 		}
 	}
-	return at.host, nil
+	return at.Host(), nil
 }
