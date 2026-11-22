@@ -29,7 +29,8 @@ APIs through the same runtime mechanism as other tests.
 
 The plugin takes no option: a suite is one piece, never cut into shards. It
 refuses a test script that is not `jest`, or that passes arguments
-(`invalid-manifest`). Valid and not run yet, and refused `UNIMPLEMENTED` by
+(`invalid-manifest`), and a `package.json` whose name is missing, empty or
+blank (`invalid-json`). Valid and not run yet, and refused `UNIMPLEMENTED` by
 name: pretest/posttest hooks (`test-hooks-not-served`), npm workspaces
 (`workspaces-not-served`) and an explicit `packageManager` selection
 (`package-manager-not-served`). pnpm, Yarn, JUnit and Playwright adapters and

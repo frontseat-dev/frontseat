@@ -21,7 +21,9 @@ pub fn description(name: &str) -> crate::Description {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Package {
-    /// The package's name.
+    /// The package's name: text other than white space, as npm requires
+    /// one.
+    #[serde(deserialize_with = "named")]
     pub name: String,
     /// Its scripts, each by its name: `"test": "jest"`.
     #[serde(default)]
@@ -37,6 +39,20 @@ pub struct Package {
     pub workspaces: Option<IgnoredAny>,
     /// The package manager it names (`packageManager`), if it names one.
     pub package_manager: Option<String>,
+}
+
+/// Reads a package's name, refusing one that is empty or white space
+/// alone as a mistake of the file, without repeating what was written.
+/// The line said is where the JSON reader stopped: the name's own where
+/// a key follows it.
+fn named<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<String, D::Error> {
+    let name = String::deserialize(deserializer)?;
+    if name.trim().is_empty() {
+        return Err(serde::de::Error::custom(
+            "the package's name is empty: name it, as npm requires",
+        ));
+    }
+    Ok(name)
 }
 
 impl Package {
@@ -80,5 +96,36 @@ impl Package {
             .chain(arguments.iter().copied())
             .map(String::from)
             .collect())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Package;
+
+    /// A name that is empty or white space alone is refused at its line
+    /// where a key follows it, saying nothing of what was written; the
+    /// control is a name.
+    #[test]
+    fn a_package_is_named() {
+        let package = |name: &str| {
+            serde_json::from_str::<Package>(&format!(
+                "{{\n  \"name\": \"{name}\",\n  \"version\": \"1.0.0\"\n}}"
+            ))
+        };
+        assert_eq!(
+            package("web").map(|package| package.name).ok().as_deref(),
+            Some("web")
+        );
+        for blank in ["", " \\t\\n "] {
+            let refused = package(blank).err().expect("a blank name is refused");
+            assert_eq!(refused.line(), 2, "{blank:?}");
+            assert!(
+                refused
+                    .to_string()
+                    .starts_with("the package's name is empty"),
+                "{refused}"
+            );
+        }
     }
 }
