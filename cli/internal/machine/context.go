@@ -9,6 +9,8 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+
+	"github.com/frontseat-dev/frontseat/local"
 )
 
 // Context is the workspace last opened, and the control plane that keeps
@@ -25,18 +27,10 @@ type Context struct {
 // context (frontseat/context.json), this machine's key for its
 // sandboxes (frontseat/id_ed25519) and the local stack's owner's token,
 // which the stack lays out (frontseat/local/token), are there, and
-// nothing of the command line's is anywhere else.
+// nothing of the command line's is anywhere else. The stack and the
+// test support find it as the command line does (local.Config).
 func root() (string, error) {
-	// A relative directory is ignored, as the specification says.
-	config := os.Getenv("XDG_CONFIG_HOME")
-	if !filepath.IsAbs(config) {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return "", err
-		}
-		config = filepath.Join(home, ".config")
-	}
-	return filepath.Join(config, "frontseat"), nil
+	return local.Config()
 }
 
 // beneath is the path of a file kept beneath the root.

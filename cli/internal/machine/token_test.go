@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/frontseat-dev/frontseat/local"
 )
 
 // A token is the control plane's to make and to know: the command line
@@ -12,7 +14,7 @@ import (
 // than one word, is refused.
 func TestATokenIsReadAsTheControlPlaneWroteIt(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-	path, err := tokenFile()
+	path, err := local.TokenFile()
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -6,6 +6,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/frontseat-dev/frontseat/local"
 )
 
 // The context is whole or not there: a command that reads it while
@@ -89,7 +91,7 @@ func TestWhatTheCommandLineKeepsIsBeneathOneDirectory(t *testing.T) {
 			t.Errorf("%s is not beneath the root: %v", kept, err)
 		}
 	}
-	if at, err := tokenFile(); err != nil || at != filepath.Join(config, "frontseat", "local", "token") {
+	if at, err := local.TokenFile(); err != nil || at != filepath.Join(config, "frontseat", "local", "token") {
 		t.Errorf("the token is looked for at %s (%v), want beneath the root", at, err)
 	}
 	t.Setenv("XDG_CONFIG_HOME", "")

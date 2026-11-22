@@ -28,7 +28,7 @@ var public = map[string]string{
 	"server/sandbox/driver/openshell": "the one OpenShell driver, which frontseat-enterprise composes around and never copies (owner's ruling)",
 	"server/git":                      "git, run hardened: the command line's version control runs it too",
 	"server/telemetry":                "OpenTelemetry: the command line instruments what it asks with it",
-	"local":                           "what the local stack is, read from its files: the box's build, the stack's control plane and the test support read it; and the checkout a program is started at (Checkout), which the stack's program, the gate and what prepares the plugins find alike",
+	"local":                           "what the local stack is, read from its files: the box's build, the stack's control plane and the test support read it; and the checkout a program is started at (Checkout), which the stack's program, the gate and what prepares the plugins find alike; and the directory the command line keeps what it keeps in (Config), where the stack lays out its owner's token and the command line and the test support read it",
 	"local/ports":                     "the ports a box and the local stack are reached on, each said once: the server, the command line and the test support read them",
 	"local/box":                       "the box's one build: the stack's program (frontseat-local box, up) and the gate build it here, and a spec holds it to what it was built with",
 	"local/stack":                     "the local stack brought up and down from a checkout: the stack's program (frontseat-local up, down) runs it",

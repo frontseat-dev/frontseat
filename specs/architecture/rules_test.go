@@ -50,7 +50,7 @@ var policies = []policy{
 	// What the command line keeps and reads on this machine; what it asks
 	// of a version control system about a checkout, and git, which
 	// answers it.
-	{"cli/internal/machine", []string{"sdk/go/api/**", "sdk/go", "sdk/go/bearer", "cli/internal/vcs", "cli/internal/vcs/git", "local/ports"}},
+	{"cli/internal/machine", []string{"sdk/go/api/**", "sdk/go", "sdk/go/bearer", "cli/internal/vcs", "cli/internal/vcs/git", "local", "local/ports"}},
 	{"cli/internal/vcs", []string{}},
 	{"cli/internal/vcs/git", []string{"cli/internal/vcs", "server/git"}},
 	{"cli/internal/ui/**", []string{"sdk/go/api/**", "sdk/go/entity", "cli/internal/ui/**"}},
@@ -81,7 +81,7 @@ var policies = []policy{
 	{"server/testsupport/testidentity", []string{"sdk/go"}},
 	// The owner's token is a person's own: a test presents it as the
 	// SDK does, to its origin alone and following no redirect.
-	{"server/testsupport/testowner", []string{"local/ports", "sdk/go/bearer"}},
+	{"server/testsupport/testowner", []string{"local", "local/ports", "sdk/go/bearer"}},
 	// The sandbox API is no part of the SDK: a test asks it, and opens a
 	// tunnel to a sandbox's port, through this.
 	{"server/testsupport/testsandbox", []string{"sdk/go/api/**", "server/testsupport/testwire"}},

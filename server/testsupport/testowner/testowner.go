@@ -6,6 +6,9 @@
 package testowner
 
 import (
+	"errors"
+	"fmt"
+	"io/fs"
 	"net"
 	"net/http"
 	"os"
@@ -14,6 +17,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/frontseat-dev/frontseat/local"
 	"github.com/frontseat-dev/frontseat/local/ports"
 	"github.com/frontseat-dev/frontseat/sdk/go/bearer"
 )
@@ -23,21 +27,14 @@ import (
 var Stack = "http://" + net.JoinHostPort("127.0.0.1", strconv.Itoa(ports.ControlPlane))
 
 // File is where the local stack lays out its owner's token, as the
-// command line reads it: frontseat/local/token in the configuration
-// directory of the XDG base directory specification, which takes
-// XDG_CONFIG_HOME only where it is an absolute path, as the command line
-// does (cli/internal/machine).
+// command line reads it (local.TokenFile).
 func File(t testing.TB) string {
 	t.Helper()
-	config := os.Getenv("XDG_CONFIG_HOME")
-	if !filepath.IsAbs(config) {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			t.Fatal(err)
-		}
-		config = filepath.Join(home, ".config")
+	file, err := local.TokenFile()
+	if err != nil {
+		t.Fatal(err)
 	}
-	return filepath.Join(config, "frontseat", "local", "token")
+	return file
 }
 
 // LayOut makes a directory for the command line to keep what it keeps
@@ -72,18 +69,43 @@ func LayOut(t testing.TB, token, server string) string {
 }
 
 // Token is the local stack's owner's token. The test fails where the
-// stack laid out none, or one others could read; the token is never said.
+// stack laid out none, or one others could read, and where the command
+// line is told of another control plane (local.ServerFile), whose token
+// it then is; the token is never said.
 func Token(t testing.TB) string {
 	t.Helper()
-	file := File(t)
+	token, err := held()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return token
+}
+
+// held is the token laid out for the local stack's control plane.
+func held() (string, error) {
+	server, err := local.ServerFile()
+	if err != nil {
+		return "", err
+	}
+	named, err := os.ReadFile(server)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return "", err
+	}
+	if at := strings.TrimSpace(string(named)); at != "" && at != Stack {
+		return "", fmt.Errorf("%s names another control plane than the local stack's, and the token beside it is for that one", server)
+	}
+	file, err := local.TokenFile()
+	if err != nil {
+		return "", err
+	}
 	raw, err := os.ReadFile(file)
 	if err != nil {
-		t.Fatalf("the local stack laid out no owner's token (mise start lays it out): %v", err)
+		return "", fmt.Errorf("the local stack laid out no owner's token (mise start lays it out): %w", err)
 	}
 	if info, err := os.Stat(file); err != nil || info.Mode().Perm()&0o077 != 0 {
-		t.Fatalf("the local stack's owner's token %s can be read by others, or not at all: %v", file, err)
+		return "", fmt.Errorf("the local stack's owner's token %s can be read by others, or not at all: %v", file, err)
 	}
-	return strings.TrimSpace(string(raw))
+	return strings.TrimSpace(string(raw)), nil
 }
 
 // Client is an HTTP client that presents a token, as a bearer's, to the

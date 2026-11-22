@@ -13,23 +13,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/frontseat-dev/frontseat/local"
 	"github.com/frontseat-dev/frontseat/local/ports"
 	"github.com/frontseat-dev/frontseat/sdk/go/bearer"
 )
-
-// tokenFile is where the local stack lays out its owner's token
-// (frontseat-local up): frontseat/local/token.
-func tokenFile() (string, error) {
-	return beneath("local", "token")
-}
-
-// serverFile names the control plane the command line asks, where it
-// is not the local stack's: frontseat/local/server. Whoever lays out a
-// token for another control plane writes it beside the token, and the
-// local stack removes it when it lays out its own.
-func serverFile() (string, error) {
-	return beneath("local", "server")
-}
 
 // written is a token as its file holds it: one word of what a header
 // carries as it is, on one line. Its form is the control plane's to
@@ -45,7 +32,7 @@ var Stack = "http://" + net.JoinHostPort("127.0.0.1", strconv.Itoa(ports.Control
 // none was. One another could read, or a file that holds no token, is
 // an error, which never says the token.
 func Token() (string, error) {
-	path, err := tokenFile()
+	path, err := local.TokenFile()
 	if err != nil {
 		return "", err
 	}
@@ -84,7 +71,7 @@ func Token() (string, error) {
 // what vouches for a sandbox's host key. One on this machine is written
 // with http as well.
 func Server() (string, error) {
-	path, err := serverFile()
+	path, err := local.ServerFile()
 	if err != nil {
 		return "", err
 	}
