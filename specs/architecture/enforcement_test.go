@@ -69,6 +69,10 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		// SDK's client is no test support's to reach through it.
 		{"server/testsupport/testowner/testowner.go", "sdk/go/bearer", true},
 		{"server/testsupport/testowner/testowner.go", "sdk/go", false},
+		// What the command line keeps is where it, the stack and the test
+		// support find it alike (local.Config).
+		{"server/testsupport/testowner/testowner.go", "local", true},
+		{"cli/internal/machine/context.go", "local", true},
 		{"server/testsupport/testgrid/testgrid.go", "sdk/go/bearer", false},
 		{"server/testsupport/testgrid/testgrid.go", "sdk/go", false},
 		// The command line hands the SDK its telemetry; the SDK takes it
@@ -271,11 +275,11 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		{"server/internal/daemon/daemon.go", "local/ports", true},
 		{"server/internal/daemon/daemon.go", "local", false},
 		{"cli/internal/machine/token.go", "local/ports", true},
-		{"cli/internal/machine/token.go", "local", false},
-		{"server/testsupport/testcontainer/container_test.go", "local/ports", true},
-		{"server/testsupport/testcontainer/container_test.go", "local/stack", false},
+		{"cli/internal/machine/token.go", "local/stack", false},
 		{"cli/internal/machine/token.go", "sdk/go/bearer", true},
 		{"cli/internal/machine/token.go", "sdk/go/internal/transport", false},
+		{"server/testsupport/testcontainer/container_test.go", "local/ports", true},
+		{"server/testsupport/testcontainer/container_test.go", "local/stack", false},
 		{"local/stack.go", "local/ports", true},
 		{"local/ports/ports.go", "local", false},
 		{"local/stack.go", "server/telemetry", false},

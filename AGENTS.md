@@ -900,7 +900,7 @@ mise run docs:serve       # serve the TechDocs site on http://localhost:8000
 | `server/internal/page` | A List cut into pages, by `page_size` and `page_token` |
 | `server/internal/source/vcs` | What a workspace asks of a version control system |
 | `server/internal/forge` | What publishing a release asks of a forge: its hosts and the requests of each |
-| `local` | What the local stack is, read from its files: the workers' image and platform, what a sandbox is told; the checkout a program is started at (`Checkout`) |
+| `local` | What the local stack is, read from its files: the workers' image and platform, what a sandbox is told; the checkout a program is started at (`Checkout`); the directory the command line keeps what it keeps in, and the owner's token and server files beneath it (`Config`, `TokenFile`, `ServerFile`) |
 | `local/ports` | Every port a box and the local stack are reached on |
 | `server/testsupport/*` | Test facilities: pins, Wasm modules, the grid, fixtures (`testfiles`, `testforge`, `commits`), budgets |
 | `server/testsupport/buildtest`, `server/testsupport/controlplanetest` | A daemon and a control plane started for a test, as `frontseatd` and `frontseat-local` start them |

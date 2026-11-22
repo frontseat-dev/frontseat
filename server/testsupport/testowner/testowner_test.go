@@ -1,30 +1,33 @@
-package testowner_test
+package testowner
 
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
-
-	"github.com/frontseat-dev/frontseat/server/testsupport/testowner"
 )
 
-// The owner's token is looked for where the command line reads it: a
-// configuration directory that is no absolute path is ignored, as the
-// XDG specification says and the command line does, and the one beneath
-// the person's home is read. The control is an absolute one, which is
-// read.
-func TestARelativeConfigurationDirectoryIsIgnoredAsTheCommandLineIgnoresIt(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	t.Setenv("XDG_CONFIG_HOME", "relative")
-	if got, want := testowner.File(t), filepath.Join(home, ".config", "frontseat", "local", "token"); got != want {
-		t.Errorf("with a relative configuration directory the token is looked for at %s, want %s", got, want)
+// The owner's token is the local stack's where the command line is
+// told of no other control plane, and refused where it is told of
+// another, since the token beside that is for it. The control is a
+// server file that names the local stack's own.
+func TestATokenForAnotherControlPlaneIsRefused(t *testing.T) {
+	const token = "a-token-of-this-test"
+	written := filepath.Join(t.TempDir(), "token")
+	if err := os.WriteFile(written, []byte(token+"\n"), 0o600); err != nil {
+		t.Fatal(err)
 	}
-	absolute := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", absolute)
-	if got, want := testowner.File(t), filepath.Join(absolute, "frontseat", "local", "token"); got != want {
-		t.Errorf("the control: with an absolute configuration directory the token is looked for at %s, want %s", got, want)
+	for server, refused := range map[string]bool{"": false, Stack: false, "https://frontseat.example": true} {
+		t.Setenv("XDG_CONFIG_HOME", LayOut(t, written, server))
+		got, err := held()
+		if refused && (err == nil || got != "" || strings.Contains(err.Error(), token)) {
+			t.Errorf("with the server %q the token was read (%v), or the refusal said it", server, err)
+		}
+		if !refused && (err != nil || got != token) {
+			t.Errorf("the control: with the server %q the token was not read: %v", server, err)
+		}
 	}
 }
 
@@ -45,7 +48,7 @@ func TestTheOwnersTokenIsPresentedToItsOriginAlone(t *testing.T) {
 
 	const token = "a-token-of-this-test"
 	for _, at := range []string{origin.URL, elsewhere.URL} {
-		response, err := testowner.Client(token, origin.URL).Get(at)
+		response, err := Client(token, origin.URL).Get(at)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -57,7 +60,7 @@ func TestTheOwnersTokenIsPresentedToItsOriginAlone(t *testing.T) {
 	if other != "" {
 		t.Error("another origin was presented the token")
 	}
-	response, err := testowner.Client(token, redirecting.URL).Get(redirecting.URL)
+	response, err := Client(token, redirecting.URL).Get(redirecting.URL)
 	if err != nil {
 		t.Fatal(err)
 	}

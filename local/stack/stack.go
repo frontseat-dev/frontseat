@@ -220,15 +220,15 @@ func (s Stack) layOut(ctx context.Context) error {
 	if err != nil {
 		return errors.New("reading the owner's token the control plane minted failed")
 	}
-	config := os.Getenv("XDG_CONFIG_HOME")
-	if config == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return err
-		}
-		config = filepath.Join(home, ".config")
+	held, err := local.TokenFile()
+	if err != nil {
+		return err
 	}
-	kept := filepath.Join(config, "frontseat", "local")
+	server, err := local.ServerFile()
+	if err != nil {
+		return err
+	}
+	kept := filepath.Dir(held)
 	if err := os.MkdirAll(kept, 0o700); err != nil {
 		return err
 	}
@@ -247,10 +247,10 @@ func (s Stack) layOut(ctx context.Context) error {
 	// The token is the stack's, and is presented to the stack's control
 	// plane: what named another server (frontseat/local/server) is not
 	// left beside it.
-	if err := os.Remove(filepath.Join(kept, "server")); err != nil && !errors.Is(err, os.ErrNotExist) {
+	if err := os.Remove(server); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
-	return os.Rename(laying, filepath.Join(kept, "token"))
+	return os.Rename(laying, held)
 }
 
 // run runs the container runtime's command.
