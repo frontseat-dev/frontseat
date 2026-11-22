@@ -3,6 +3,7 @@ package telemetry_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"go.opentelemetry.io/otel/codes"
@@ -55,5 +56,50 @@ func TestASpanIsBeneathTheOneItsContextCarriesAndSaysWhatWentWrong(t *testing.T)
 	}
 	if ended[1].Status().Code == codes.Error {
 		t.Error("run ended as an error, and nothing went wrong in it")
+	}
+}
+
+// What went wrong is said as one of a few kinds, the same whatever Go
+// type the error is of: a span's error.type is a dimension, and a type's
+// name, which is nearly always that of a wrapped error, says nothing.
+func TestWhatWentWrongInASpanIsOneOfAFewKinds(t *testing.T) {
+	recorder := tracetest.NewSpanRecorder()
+	provider := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder))
+	defer func() { _ = provider.Shutdown(context.Background()) }()
+	ctx, run := telemetry.Root(context.Background(), provider, "run")
+	wrong := []struct {
+		err  error
+		kind string
+	}{
+		{errors.New("it broke"), "error"},
+		{fmt.Errorf("the action: %w", errors.New("it broke")), "error"},
+		{fmt.Errorf("the action: %w", context.Canceled), "cancelled"},
+		{fmt.Errorf("the action: %w", context.DeadlineExceeded), "timeout"},
+	}
+	for _, each := range wrong {
+		_, work := telemetry.Start(ctx, "work")
+		telemetry.End(work, each.err)
+	}
+	telemetry.End(run, nil)
+
+	ended := recorder.Ended()
+	if len(ended) != len(wrong)+1 {
+		t.Fatalf("%d spans ended, want %d", len(ended), len(wrong)+1)
+	}
+	for i, each := range wrong {
+		var kind string
+		for _, attribute := range ended[i].Attributes() {
+			if attribute.Key == "error.type" {
+				kind = attribute.Value.AsString()
+			}
+		}
+		if kind != each.kind {
+			t.Errorf("%v is said as %q, want %q", each.err, kind, each.kind)
+		}
+	}
+	for _, attribute := range ended[len(wrong)].Attributes() {
+		if attribute.Key == "error.type" {
+			t.Errorf("run, in which nothing went wrong, says %q went wrong", attribute.Value.AsString())
+		}
 	}
 }
