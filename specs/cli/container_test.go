@@ -3,15 +3,18 @@ package e2e
 import (
 	"context"
 	"encoding/json"
-	"github.com/frontseat-dev/frontseat/local/box"
-	"github.com/frontseat-dev/frontseat/local/ports"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/frontseat-dev/frontseat/local/box"
+	"github.com/frontseat-dev/frontseat/local/ports"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testbox"
+	"github.com/frontseat-dev/frontseat/server/testsupport/testfiles"
+	"github.com/frontseat-dev/frontseat/server/testsupport/testforge"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testrequired"
 )
 
@@ -28,7 +31,7 @@ func TestTheStackBootsAsOneContainer(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	answered := func(token string) string {
-		status, _ := asked(ctx, own, plain, token, "ListWorkspaces", "{}")
+		status, _ := asked(ctx, own, plain, token, workspaces+"ListWorkspaces", "{}")
 		return status
 	}
 	token := ownerOf(ctx, own, answered)
@@ -99,18 +102,27 @@ func TestTheStackBootsAsOneContainer(t *testing.T) {
 	}
 }
 
+// The services of the API the specs of the stack's container ask, as a
+// call is named after them.
+const (
+	workspaces  = "frontseat.workspace.v1alpha1.WorkspaceService/"
+	credentials = "frontseat.credential.v1alpha1.CredentialService/"
+)
+
 // asked asks the control plane of a stack's container one call of the
-// workspace API, as whoever holds the token given, or no one's, and
+// API (a service's name and the call's, as workspaces and credentials
+// begin them), as whoever holds the token given, or no one's, and
 // returns the status it answered with and what it answered. What asks is
 // the workers' own image, which holds curl, in the container's network:
-// a test's stack publishes nothing.
+// a test's stack publishes nothing. A call that is not answered within
+// ten minutes ends with the status curl gives one, 000.
 func asked(ctx context.Context, own, plain, token, call, request string) (status string, answer []byte) {
 	arguments := []string{"run", "--rm", "--pull=never", "--network", "container:" + own, "--entrypoint", "curl", plain,
-		"-s", "-w", "\n%{http_code}", "-X", "POST", "-H", "Content-Type: application/json", "-d", request}
+		"-s", "--max-time", "600", "-w", "\n%{http_code}", "-X", "POST", "-H", "Content-Type: application/json", "-d", request}
 	if token != "" {
 		arguments = append(arguments, "-H", "Authorization: Bearer "+token)
 	}
-	out, _ := exec.CommandContext(ctx, "docker", append(arguments, "http://127.0.0.1:"+port+"/frontseat.workspace.v1alpha1.WorkspaceService/"+call)...).Output()
+	out, _ := exec.CommandContext(ctx, "docker", append(arguments, "http://127.0.0.1:"+port+"/"+call)...).Output()
 	at := strings.LastIndexByte(string(out), '\n')
 	if at < 0 {
 		return strings.TrimSpace(string(out)), nil
@@ -136,60 +148,77 @@ func ownerOf(ctx context.Context, own string, answered func(token string) string
 }
 
 // A stack whose container is made anew, as bringing it up always makes
-// it, opens a workspace as it did before: the gateway's key, which it
-// encrypts what it keeps with, is on the stack's volume beside what it
-// encrypts, and not in the container's home, where a new container
-// found none and made another, and OpenShell's supervisor refused every
-// workspace's sandbox ("encrypted with a different key-encryption key").
+// it, still lets a workspace through with a credential kept before: the
+// gateway's key, which it encrypts the credentials it keeps with, is on
+// the stack's volume beside what it encrypts, and not in the
+// container's home, where a new container found none and made another,
+// and OpenShell refused every sandbox let through with a credential
+// ("encrypted with a different key-encryption key").
 //
-// The control is the same stack with its key gone, as it went with the
-// container that held it: a workspace asked of it then does not come to
-// be worked in.
+// The credential is kept through Frontseat's own call, for a forge that
+// serves no one without it, so that a workspace that clones from the
+// forge is made only where the gateway decrypts it. The control is the
+// same stack with its key gone, as it went with a container that held it
+// in its home: the workspace asked of it then is not ready, and the
+// stack says why, the key.
 func TestAStackMadeAnewOpensAWorkspaceAsItDidBefore(t *testing.T) {
 	testrequired.Stack(t)
 	own := testbox.Stack(t)
 	plain := testbox.Plain(t)
 	image := testbox.Image(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Minute)
 	defer cancel()
-	remote := cloned(t, helloModule(t))[0].Remote
 
-	// opened asks the stack as it is now for a workspace of a name and
-	// returns where it came to: its state, and what it says went wrong.
-	opened := func(name string) (state, failure string) {
+	// A forge that serves no one without the password, which is the
+	// test's own making.
+	root := t.TempDir()
+	code := filepath.Join(root, "code")
+	testfiles.Tree(t, code, map[string]string{"README": "private source\n"})
+	testforge.Committed(t, code)
+	const password = "a-password-of-the-tests-own"
+	forge := testforge.ServeGuarded(t, root, "someone", password)
+
+	// token is the owner's, once the stack as it is now answers them.
+	token := func() string {
 		t.Helper()
 		// The box a workspace's sandbox runs is handed to the container's
 		// Podman, as bringing the stack up hands it.
 		if err := box.GiveTo(ctx, own, image); err != nil {
 			t.Fatal(err)
 		}
-		token := ownerOf(ctx, own, func(token string) string {
-			status, _ := asked(ctx, own, plain, token, "ListWorkspaces", "{}")
+		return ownerOf(ctx, own, func(token string) string {
+			status, _ := asked(ctx, own, plain, token, workspaces+"ListWorkspaces", "{}")
 			return status
 		})
+	}
+	// opened asks the stack as it is now for a workspace of a name that
+	// clones from the forge, and returns where it came to: its state,
+	// and what it says went wrong. One the control plane does not take,
+	// or does not say the end of, is in no state.
+	opened := func(owner, name string) (state, failure string) {
+		t.Helper()
 		create, err := json.Marshal(map[string]any{"name": name, "spec": map[string]any{
 			"image":        image,
-			"repositories": []map[string]string{{"remote": remote}},
+			"repositories": []map[string]string{{"remote": forge + "/code"}},
 		}})
 		if err != nil {
 			t.Fatal(err)
 		}
-		if status, answer := asked(ctx, own, plain, token, "CreateWorkspace", string(create)); status != "200" {
-			logs, _ := exec.Command("docker", "logs", "--tail", "200", own).CombinedOutput()
-			t.Fatalf("the workspace %s was not taken (%s): %s\n%s", name, status, answer, logs)
+		if status, answer := asked(ctx, own, plain, owner, workspaces+"CreateWorkspace", string(create)); status != "200" {
+			return "", "not taken (" + status + "): " + string(answer)
 		}
 		wait, err := json.Marshal(map[string]string{"name": name})
 		if err != nil {
 			t.Fatal(err)
 		}
-		status, answer := asked(ctx, own, plain, token, "WaitWorkspace", string(wait))
+		status, answer := asked(ctx, own, plain, owner, workspaces+"WaitWorkspace", string(wait))
 		var waited struct {
 			Workspace struct {
 				Status struct{ State, Failure string }
 			}
 		}
 		if err := json.Unmarshal(answer, &waited); status != "200" || err != nil {
-			t.Fatalf("waiting for the workspace %s ended %s: %s %v", name, status, answer, err)
+			return "", "waiting ended " + status + ": " + string(answer)
 		}
 		return waited.Workspace.Status.State, waited.Workspace.Status.Failure
 	}
@@ -202,9 +231,21 @@ func TestAStackMadeAnewOpensAWorkspaceAsItDidBefore(t *testing.T) {
 		}
 		return strings.Fields(string(out))
 	}
+	logs := func() string {
+		out, _ := exec.Command("docker", "logs", "--tail", "400", own).CombinedOutput()
+		return string(out)
+	}
 
-	if state, failure := opened("before"); state != "STATE_READY" {
-		t.Fatalf("the workspace asked of the stack as it was started is %s (%s), want it ready", state, failure)
+	owner := token()
+	set, err := json.Marshal(map[string]any{"credential": map[string]string{"host": forge, "username": "someone", "secret": password}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status, answer := asked(ctx, own, plain, owner, credentials+"SetCredential", string(set)); status != "200" {
+		t.Fatalf("the credential for the forge was not kept (%s): %s", status, answer)
+	}
+	if state, failure := opened(owner, "before"); state != "STATE_READY" {
+		t.Fatalf("the workspace asked of the stack as it was started is %s (%s), want it ready\n%s", state, failure, logs())
 	}
 	kept := keys("/var/lib/frontseat")
 	if inHome := keys("/home"); len(kept) != 1 || len(inHome) != 0 {
@@ -212,18 +253,22 @@ func TestAStackMadeAnewOpensAWorkspaceAsItDidBefore(t *testing.T) {
 	}
 
 	testbox.Anew(t, own)
-	if state, failure := opened("after"); state != "STATE_READY" {
-		t.Errorf("the workspace asked of the stack made anew is %s (%s), want it ready as the one before", state, failure)
+	if state, failure := opened(token(), "after"); state != "STATE_READY" {
+		t.Errorf("the workspace asked of the stack made anew is %s (%s), want it let through with the credential kept before\n%s", state, failure, logs())
 	}
 
-	// The control: the key gone, as with the container that held it. It
-	// is the test's own stack's, on the test's own volume.
+	// The control: the key gone, as with a container that held it. It is
+	// the test's own stack's, on the test's own volume.
 	if out, err := exec.CommandContext(ctx, "docker", "exec", own, "rm", kept[0]).CombinedOutput(); err != nil {
 		t.Fatalf("%v\n%s", err, out)
 	}
 	testbox.Anew(t, own)
-	if state, _ := opened("keyless"); state == "STATE_READY" {
+	state, failure := opened(token(), "keyless")
+	if state == "STATE_READY" {
 		t.Error("a workspace asked of a stack whose key is gone is ready: the spec would not see a key kept in the container")
+	}
+	if said := failure + "\n" + logs(); !strings.Contains(said, "key-encryption key") {
+		t.Errorf("the workspace asked of a stack whose key is gone is %s, and nothing says the key is why (%s)", state, said)
 	}
 }
 
