@@ -43,8 +43,11 @@ spec:
       # tells a test its repository is (FRONTSEAT_TEST_SRCDIR): the Go
       # SDK's module files, which a generated fixture is laid out with;
       # the repository's tool pins, which a fixture is pinned with; and
-      # the plugins, by their crates, and their fixtures.
+      # the plugins, by their crates, and their fixtures; and the
+      # configuration reference, whose examples the configuration's
+      # reader is held to.
       inputs:
+        - /docs/configuration.md
         - /sdk/go/go.mod
         - /sdk/go/go.sum
         - /mise.toml
