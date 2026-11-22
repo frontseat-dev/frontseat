@@ -67,8 +67,10 @@ git push -u origin your-change
 frontseat workspace open
 ```
 
-At a terminal, `workspace open` leaves you in a shell in the workspace. Build there,
-or from your own shell with `--workspace NAME`:
+At a terminal, `workspace open` leaves you in a shell in the workspace
+(`--no-shell` opens it and returns). Build there, or from your own shell
+with `--workspace NAME`; `frontseat workspace delete NAME` ends it, and
+asks first:
 
 ```sh
 frontseat build --only compile --only lint --only generate-sdk --only generate-daemon --only generate-runner --only generate-source --only wasm --only depends-on

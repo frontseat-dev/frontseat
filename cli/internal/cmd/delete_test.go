@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -64,7 +65,7 @@ func TestDeletingAWorkspaceReturnsWhenItIsGone(t *testing.T) {
 	lastOpened(t, at, "named")
 	deleted := make(chan error, 1)
 	go func() {
-		_, err := Execute(context.Background(), []string{"workspace", "delete"})
+		_, err := Execute(context.Background(), []string{"workspace", "delete", "named", "--yes"})
 		deleted <- err
 	}()
 	select {
@@ -92,4 +93,66 @@ func TestDeletingAWorkspaceReturnsWhenItIsGone(t *testing.T) {
 	if held, found, err := machine.ReadContext(); err != nil || found {
 		t.Fatalf("a workspace that is gone is still the one the other commands ask: %+v, %v", held, err)
 	}
+}
+
+// A workspace is deleted by its name, once someone is asked, or once
+// --yes says no one is: at a terminal what it holds is shown and an
+// answer other than yes deletes nothing; where no one is at one, it is
+// refused without --yes. The controls are yes at a terminal, and --yes
+// where no one is, each of which deletes it, and says so.
+func TestAWorkspaceIsDeletedOnceSomeoneIsAskedOrTheyAreNotThere(t *testing.T) {
+	wasAt, wasAnswers := atTerminal, answers
+	t.Cleanup(func() { atTerminal, answers = wasAt, wasAnswers })
+	for name, c := range map[string]struct {
+		terminal bool
+		answer   string
+		args     []string
+		deleted  bool
+	}{
+		"no one there, no --yes":   {false, "", []string{"named"}, false},
+		"at a terminal, no":        {true, "n\n", []string{"named"}, false},
+		"at a terminal, nothing":   {true, "\n", []string{"named"}, false},
+		"at a terminal, yes":       {true, "yes\n", []string{"named"}, true},
+		"no one there, with --yes": {false, "", []string{"named", "--yes"}, true},
+	} {
+		plane := endingPlane{asked: make(chan struct{}), gone: make(chan struct{})}
+		close(plane.gone)
+		plane.gone = make(chan struct{})
+		at := serving(t, func(api *connect.Server) {
+			workspacev1alpha1connect.RegisterWorkspaceServiceHandler(api, describedEnding{endingPlane: plane})
+		})
+		serverAt(t, at)
+		atTerminal = func() bool { return c.terminal }
+		answers = strings.NewReader(c.answer)
+		go func() { <-plane.asked; close(plane.gone) }()
+		printed, _, err := runAt(t, context.Background(), "", append([]string{"workspace", "delete"}, c.args...)...)
+		select {
+		case <-plane.asked:
+			if !c.deleted {
+				t.Errorf("%s: the workspace was deleted", name)
+			}
+			if err != nil || printed != "deleted named\n" {
+				t.Errorf("%s: printed %q, %v; want deleted named", name, printed, err)
+			}
+		default:
+			if c.deleted {
+				t.Errorf("%s: the workspace was not deleted: %v", name, err)
+			} else if err == nil {
+				t.Errorf("%s: nothing was deleted and nothing said so", name)
+			}
+		}
+		if c.terminal && !strings.Contains(complaints.String(), "named  ready") {
+			t.Errorf("%s: what the workspace holds was not shown before asking: %q", name, complaints.String())
+		}
+	}
+	if _, _, err := runAt(t, context.Background(), "", "workspace", "delete"); err == nil {
+		t.Error("delete with no name was taken")
+	}
+}
+
+// describedEnding is an ending plane that describes its workspace.
+type describedEnding struct{ endingPlane }
+
+func (describedEnding) DescribeWorkspace(context.Context, *workspacev1.DescribeWorkspaceRequest) (*workspacev1.DescribeWorkspaceResponse, error) {
+	return &workspacev1.DescribeWorkspaceResponse{Workspace: &workspacev1.Workspace{Name: "named", Status: &workspacev1.WorkspaceStatus{State: workspacev1.WorkspaceStatus_STATE_READY}}}, nil
 }

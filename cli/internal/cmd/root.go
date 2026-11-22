@@ -240,6 +240,8 @@ func fresh(cmd *cobra.Command, ctx context.Context) {
 	}
 	cmd.Flags().VisitAll(reset)
 	cmd.PersistentFlags().VisitAll(reset)
+	// Where -- was is forgotten too: Init keeps the flags, and forgets it.
+	cmd.Flags().Init(cmd.Flags().Name(), pflag.ContinueOnError)
 	for _, sub := range cmd.Commands() {
 		fresh(sub, ctx)
 	}

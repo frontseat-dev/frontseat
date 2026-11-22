@@ -1,55 +1,79 @@
 package cmd
 
 import (
-	"errors"
+	"bufio"
+	"fmt"
+	"io"
+	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/frontseat-dev/frontseat/cli/internal/machine"
 )
 
+// deleteYes deletes with no one asked.
+var deleteYes bool
+
+// answers is where a person's answer to a question is read: standard
+// input, where a test does not say otherwise.
+var answers io.Reader = os.Stdin
+
 // deleteCmd ends a workspace.
 var deleteCmd = &cobra.Command{
-	Use:   "delete [WORKSPACE]",
+	Use:   "delete NAME",
 	Short: "End a workspace, with what it holds",
-	Long: `End the workspace the other commands ask, or the one named, and its
-sandbox with it. It returns when they are gone.
+	Long: `End the workspace named, and its sandbox with it. It returns when they
+are gone, and prints deleted NAME.
 
-What was changed in a workspace and not pushed goes with it.`,
-	Args: cobra.MaximumNArgs(1),
+What was changed in a workspace and not pushed goes with it. At a
+terminal, what the workspace holds is shown and you are asked first;
+anything else, a script or an agent, gives --yes, and is refused
+without it.`,
+	Example: `  frontseat workspace delete services-main
+  frontseat workspace delete services-main --yes`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		held, found, err := machine.ReadContext()
+		name := args[0]
+		w, err := subject(args)
 		if err != nil {
 			return err
 		}
-		fs, err := server()
-		if err != nil {
-			return err
-		}
-		name := ""
-		switch {
-		case len(args) == 1:
-			name = args[0]
-		case found && held.Server == fs.Server():
-			// The one the other commands ask is ended where it is kept.
-			name = held.Workspace
-		default:
-			return errors.New("there is no workspace to delete: name one, as `frontseat workspace list` lists them")
+		if !deleteYes {
+			if !atTerminal() {
+				return fmt.Errorf("deleting %s ends what it holds, and what was not pushed with it: where no one is asked, give --yes", name)
+			}
+			held, err := w.Describe(cmd.Context())
+			if err != nil {
+				return err
+			}
+			printWorkspace(errOut, held)
+			fmt.Fprintf(errOut, "Delete %s, and what was not pushed of it? [y/N] ", name)
+			answer, _ := bufio.NewReader(answers).ReadString('\n')
+			if a := strings.ToLower(strings.TrimSpace(answer)); a != "y" && a != "yes" {
+				return fmt.Errorf("%s was not deleted", name)
+			}
 		}
 		// Until it is gone: what is done next, stopping the control plane
 		// among it, leaves no sandbox behind.
-		if err := fs.Workspace(name).Delete(cmd.Context()); err != nil {
+		if err := w.Delete(cmd.Context()); err != nil {
 			return err
 		}
 		// The workspace the other commands ask is forgotten where it was
 		// this one.
-		if found && held.Workspace == name && held.Server == fs.Server() {
-			return machine.ForgetContext()
+		if held, found, err := machine.ReadContext(); err != nil {
+			return err
+		} else if fs, _ := server(); found && fs != nil && held.Workspace == name && held.Server == fs.Server() {
+			if err := machine.ForgetContext(); err != nil {
+				return err
+			}
 		}
+		said("deleted %s", name)
 		return nil
 	},
 }
 
 func init() {
 	workspaceCmd.AddCommand(deleteCmd)
+	deleteCmd.Flags().BoolVar(&deleteYes, "yes", false, "delete with no one asked, as a script or an agent does")
 }

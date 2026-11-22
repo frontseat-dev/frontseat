@@ -320,18 +320,24 @@ func TestACommandIsNamedWithoutWhatItWasGiven(t *testing.T) {
 	}
 }
 
-// What follows the command to run over SSH is that command's, flags and
-// all: it is not read as this command's.
+// What follows -- over SSH is the command's, flags and all: it is not
+// read as this command's, and what comes before it is the workspace's
+// name.
 func TestWhatFollowsACommandOverSSHIsItsOwn(t *testing.T) {
-	if err := sshCmd.ParseFlags([]string{"--config"}); err != nil || !sshConfig {
-		t.Fatalf("--config before the command is this command's: %v", err)
+	if err := sshCmd.ParseFlags([]string{"payments", "--config"}); err != nil || !sshConfig {
+		t.Fatalf("--config beside the name is this command's: %v", err)
 	}
 	sshConfig = false
-	if err := sshCmd.ParseFlags([]string{"ls", "--config", "-la"}); err != nil {
+	if err := sshCmd.ParseFlags([]string{"payments", "--", "ls", "--config", "-la"}); err != nil {
 		t.Fatal(err)
 	}
-	if sshConfig || strings.Join(sshCmd.Flags().Args(), " ") != "ls --config -la" {
-		t.Errorf("after the command, its flags were read as ours: config %v, args %v", sshConfig, sshCmd.Flags().Args())
+	if sshConfig || strings.Join(sshCmd.Flags().Args(), " ") != "payments ls --config -la" || sshCmd.Flags().ArgsLenAtDash() != 1 {
+		t.Errorf("after --, the command's flags were read as ours: config %v, args %v", sshConfig, sshCmd.Flags().Args())
+	}
+	for _, args := range [][]string{{"workspace", "ssh", "payments", "ls"}, {"workspace", "ssh", "a", "b", "--", "ls"}} {
+		if _, _, err := runAt(t, context.Background(), "", args...); err == nil || !strings.Contains(err.Error(), "follows --") {
+			t.Errorf("%v: %v, want a command told to follow --", args, err)
+		}
 	}
 }
 
@@ -463,7 +469,7 @@ func TestAWorkspaceIsNamedAndNotAddressed(t *testing.T) {
 			t.Errorf("%v took a flag it has none of: %v", args, err)
 		}
 	}
-	for _, path := range [][]string{{"workspace", "describe"}, {"workspace", "add"}, {"build"}, {"test"}, {"query"}, {"build", "list"}, {"build", "describe"}, {"build", "events"}, {"build", "actions"}, {"build", "logs"}, {"build", "cancel"}, {"run"}, {"run", "list"}, {"run", "describe"}, {"run", "logs"}, {"run", "cancel"}, {"ship"}} {
+	for _, path := range [][]string{{"build"}, {"test"}, {"query"}, {"build", "list"}, {"build", "describe"}, {"build", "events"}, {"build", "actions"}, {"build", "logs"}, {"build", "cancel"}, {"run"}, {"run", "list"}, {"run", "describe"}, {"run", "logs"}, {"run", "cancel"}, {"ship"}} {
 		sub, _, err := rootCmd.Find(path)
 		if err != nil || sub.Flags().Lookup("workspace") == nil {
 			t.Errorf("%v asks a workspace and takes no --workspace", path)
