@@ -28,7 +28,8 @@ import (
 // seconds where its times are told in whole seconds. What was read
 // sooner is not kept for the run after, which reads the file again,
 // and the run that read it reads it again whenever it is asked, until
-// it has settled: by then a change to it shows. Git holds its index to the same ("racily clean" entries), and
+// it has settled: by then a change to it shows. Git holds its index to
+// the same ("racily clean" entries), and
 // Bazel waits the moment out at the end of a build
 // (TimestampGranularityMonitor).
 type Keeper struct {
@@ -95,12 +96,23 @@ func (k *Keeper) kept(at string, as looked) (kept, bool) {
 // settled reports whether a file that looks so has settled by now: the
 // moment its times are told in has passed since it was last written or
 // changed, so that a write from now on shows in how it looks.
+//
+// A file said to be written at a time still to come is gone by when it
+// last changed: that time is set only by changing the file, which the
+// disk dates itself, so it would otherwise be read for every ask until
+// the day it names. Not held: the daemon's clock is held against the
+// disk's, and a disk whose clock runs behind the daemon's by more than
+// the moment (a remote one) has a file settle too soon.
 func (k *Keeper) settled(as looked) bool {
 	now := time.Now
 	if k.now != nil {
 		now = k.now
 	}
-	return now().UnixNano()-newest(as) >= int64(settles(as))
+	at, last := now().UnixNano(), newest(as)
+	if as.written > at && as.changed <= at {
+		last = as.changed
+	}
+	return at-last >= int64(settles(as))
 }
 
 // keep records what a file held, and how it looked; or lets go of what

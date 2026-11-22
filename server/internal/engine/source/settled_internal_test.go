@@ -92,3 +92,56 @@ func TestWhatARunReadOfAFileSettles(t *testing.T) {
 		t.Fatalf("read later: err %v, settled %v; want it read again and settled", err, held().settled)
 	}
 }
+
+// Whether a file has settled is asked before it is read, and not once
+// it has been: a file written again while it is read, within the moment
+// its times are told in, looks afterwards as it did before. A read that
+// began before the file had settled is of a file that had not, however
+// long the read took.
+func TestWhetherAFileHadSettledIsAskedBeforeItIsRead(t *testing.T) {
+	tree, _ := one(t)
+	clock := time.Now
+	keeper := &Keeper{now: func() time.Time { return clock() }}
+	run := take(t, keeper, tree)
+
+	_, found, err := run.ask("", "file", func(file *os.File) (string, int64, error) {
+		// The read takes an hour.
+		clock = later
+		return "what it read", 8, nil
+	})
+
+	run.mu.Lock()
+	defer run.mu.Unlock()
+	if known := run.repositories[""].held["file"]; err != nil || !found || known.settled {
+		t.Errorf("found %v, err %v, settled %v; want it read, and not as a file that had settled", found, err, known.settled)
+	}
+}
+
+// When a file last changed is what a file has settled by, and not when
+// it says it was written, which whoever writes it sets: one made to say
+// it was written long ago has still only just changed, and one that
+// says it will be written an hour from now settles by when it changed,
+// and is not read for every ask until then.
+func TestAFileSettlesByWhenItChangedWhateverItSaysOfWhenItWasWritten(t *testing.T) {
+	for name, written := range map[string]time.Time{"long ago": time.Now().Add(-24 * time.Hour), "an hour from now": time.Now().Add(time.Hour)} {
+		t.Run(name, func(t *testing.T) {
+			_, file := one(t)
+			if err := os.Chtimes(file, time.Time{}, written); err != nil {
+				t.Fatal(err)
+			}
+			info, err := os.Stat(file)
+			if err != nil {
+				t.Fatal(err)
+			}
+			as := look(info)
+			if (&Keeper{}).settled(as) {
+				t.Error("a file that has only just changed has settled")
+			}
+			// Control: the same file, half a minute on.
+			soon := &Keeper{now: func() time.Time { return time.Now().Add(30 * time.Second) }}
+			if !soon.settled(as) {
+				t.Error("half a minute after it changed, the file has not settled")
+			}
+		})
+	}
+}
