@@ -35,8 +35,8 @@ import (
 // not reach another.
 //
 // The specs use the company's source, changed where a spec says so. The
-// Go plugin takes the option test-timeout, how long a module's tests may
-// run, which is 10m unless set, and tags, a list of build tags.
+// Go plugin takes the option test-timeout, how long each of a module's test
+// actions may run, which is 10m unless set, and tags, a list of build tags.
 // The settings of test-timeout the specs read: the plugin's own, the
 // platform repository's and gateway's.
 var (
