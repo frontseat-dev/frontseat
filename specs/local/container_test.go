@@ -268,8 +268,12 @@ func TestAStackMadeAnewOpensAWorkspaceAsItDidBefore(t *testing.T) {
 	if state == "STATE_READY" {
 		t.Error("a workspace asked of a stack whose key is gone is ready: the spec would not see a key kept in the container")
 	}
-	if said := failure + "\n" + logs(); !strings.Contains(said, "key-encryption key") {
-		t.Errorf("the workspace asked of a stack whose key is gone is %s, and nothing says the key is why (%s)", state, said)
+	// Everything the stack said since it was made anew, and not its
+	// last lines alone: beside other specs asking the gateway, why a
+	// sandbox failed is soon far above them.
+	whole, _ := exec.Command("docker", "logs", own).CombinedOutput()
+	if said := failure + "\n" + string(whole); !strings.Contains(said, "key-encryption key") {
+		t.Errorf("the workspace asked of a stack whose key is gone is %s (%s), and nothing the stack said names the key\n%s", state, failure, logs())
 	}
 }
 
