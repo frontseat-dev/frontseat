@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"connectrpc.com/connect/v2"
 	"connectrpc.com/connect/v2/connecthttp"
 
+	"github.com/frontseat-dev/frontseat/cli/internal/machine"
 	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1/workspacev1alpha1connect"
 )
@@ -48,7 +50,7 @@ func (k *told) changes() int {
 // plane is told; and, inside, a release planned, which the daemon there
 // is asked.
 func TestInsideAWorkspaceItsSourceIsFixed(t *testing.T) {
-	plane := &told{keeping: keeping{daemon: func() string { return "" }}}
+	plane := &told{keeping: keeping{}}
 	mux := http.NewServeMux()
 	api := connect.NewServer()
 	workspacev1alpha1connect.RegisterWorkspaceServiceHandler(api, plane)
@@ -83,7 +85,7 @@ func TestInsideAWorkspaceItsSourceIsFixed(t *testing.T) {
 	if asked != 0 || plane.changes() != 0 {
 		t.Fatalf("inside, the control plane was asked %d times, and told %d changes", asked, plane.changes())
 	}
-	// Inside, the daemon there is asked what it builds and releases.
+	// Inside, the build daemon there is asked what it builds and releases.
 	if _, code, err := run(t, d, "ship", "plan", "greet"); err != nil || code != 0 || len(d.planned) != 1 {
 		t.Errorf("inside, a plan ended %d (%v), and the daemon was asked %d times", code, err, len(d.planned))
 	}
@@ -93,5 +95,44 @@ func TestInsideAWorkspaceItsSourceIsFixed(t *testing.T) {
 	}
 	if plane.changes() != 1 {
 		t.Errorf("outside, the control plane was told %d changes, want the one added", plane.changes())
+	}
+}
+
+// Inside a workspace's sandbox, a command that builds asks the build
+// daemon of the workspace's directory, as it asks the one of its
+// directory outside: one the command line starts there for itself, told
+// that it is inside, and no daemon of the sandbox's at a port of its
+// own. A workspace that was told nothing to hold has no directory to
+// build, and a sandbox told no grid no settings: each is said as what it
+// is, of the workspace, and never as a machine with no workspace open.
+// The control is the same command where the workspace holds something
+// and was told its grid, which asks the daemon
+// (TestInsideAWorkspaceItsSourceIsFixed).
+func TestInsideAWorkspaceABuildAsksTheBuildDaemonOfItsDirectory(t *testing.T) {
+	d := &daemonOf{}
+	if _, code, err := run(t, d, "ship", "plan", "greet"); err != nil || code != 0 || len(d.planned) != 1 {
+		t.Fatalf("the control: inside, a plan ended %d (%v), and the build daemon was asked %d times", code, err, len(d.planned))
+	}
+
+	found, stood := builder, directory
+	inside = func() bool { return true }
+	t.Cleanup(func() { inside, builder, directory = outside, found, stood })
+	started := 0
+	builder = func(context.Context, string, bool) (machine.Builder, error) {
+		started++
+		return machine.Builder{}, machine.ErrNoSettings
+	}
+	// A workspace that holds nothing yet: the real reading of where the
+	// command stands, in a directory that is no workspace's.
+	t.Chdir(t.TempDir())
+	_, err := Execute(context.Background(), []string{"build"})
+	if err == nil || !strings.Contains(err.Error(), "nothing to build here") || !strings.Contains(err.Error(), "this workspace's") || strings.Contains(err.Error(), "frontseat.yaml") || started != 0 {
+		t.Errorf("inside, in a directory that is no workspace's: %v, after %d daemons asked for; want it said that the workspace holds nothing here, and none started", err, started)
+	}
+	// A sandbox told no grid.
+	directory = func(bool) (string, error) { return besideDirectory, nil }
+	_, err = Execute(context.Background(), []string{"build"})
+	if err == nil || !strings.Contains(err.Error(), "sandbox was told no grid") || errors.Is(err, errNoWorkspace) || strings.Contains(err.Error(), "workspace open") || started != 1 {
+		t.Errorf("inside a sandbox told no grid: %v, after %d daemons asked for; want it said of the sandbox, and no workspace to open", err, started)
 	}
 }

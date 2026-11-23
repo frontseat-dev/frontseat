@@ -4,13 +4,15 @@
 // writer of what a workspace is asked for. A workspace is kept as what
 // was asked for; the control plane then works until what is so says the
 // same: it makes the workspace one sandbox, written in the sandbox
-// layer's own terms, tells the daemon there what the workspace is to
-// hold through the daemon's source API (frontseat.source.v1alpha1), at a
-// generation it keeps, and reads back what the daemon holds. It goes on
-// from what was asked for after it or the daemon was stopped. A client
-// is led to a workspace's build API by the workspace's name, and its
-// owner is carried, as bytes, to its shell and to a port of its sandbox;
-// to the daemon's source API, no one is.
+// layer's own terms, tells the supervisor there what the workspace is to
+// hold through the supervisor's source API (frontseat.source.v1alpha1),
+// at a generation it keeps, and reads back what the supervisor holds. It
+// goes on from what was asked for after it or the supervisor was
+// stopped. A workspace's owner is carried, as bytes, to its shell and to
+// a port of its sandbox; to the supervisor's source API, no one is. The
+// control plane neither serves nor forwards the build API: a workspace
+// is built from inside it, by a build daemon the command line starts
+// there.
 //
 // Every call is from someone: a call that presents no token its
 // Authenticator knows is refused before anything is asked of it. The
@@ -41,8 +43,6 @@ import (
 	"connectrpc.com/connect/v2/connecthttp"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/reflect/protoreflect"
-	"google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/frontseat-dev/frontseat/common/record/records"
@@ -58,7 +58,6 @@ import (
 	"github.com/frontseat-dev/frontseat/sandbox"
 	sandboxv1 "github.com/frontseat-dev/frontseat/sandbox/api/frontseat/sandbox/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go"
-	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/credential/v1alpha1/credentialv1alpha1connect"
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
@@ -85,10 +84,11 @@ type Config struct {
 	// Box is the image a workspace's sandbox runs where none is asked
 	// for; empty where one must be.
 	Box string
-	// Daemon is where the daemon's program is in a box: the program a
+	// Builder is where the program that builds is in a box: the command
+	// line, which is the build daemon it starts too, and the program a
 	// workspace's way to the grid is for.
-	Daemon string
-	// Grid is the grid every workspace's daemon builds on.
+	Builder string
+	// Grid is the grid every workspace is built on.
 	Grid Grid
 	// Environment is what every workspace's sandbox is given beside, by
 	// its operator: what the programs there read of their environment
@@ -125,8 +125,7 @@ type Entities interface {
 // Plane is a control plane that is serving.
 type Plane struct {
 	// Handler serves its API to callers it knows: workspaces, and the
-	// ways to each workspace's build API, its shell and the ports of
-	// its sandbox.
+	// ways to each workspace's shell and the ports of its sandbox.
 	http.Handler
 	// Sandboxes is the sandbox service it makes sandboxes with, for the
 	// process that serves it, and never served by it.
@@ -165,24 +164,6 @@ func Serve(c Config) (*Plane, error) {
 	workspacev1alpha1connect.RegisterWorkspaceServiceHandler(api, s)
 	credentialv1alpha1connect.RegisterCredentialServiceHandler(api, &credentials{s: s})
 	connecthttp.Mount(mux, api)
-	// A workspace's build API, and nothing else its daemon serves: a call
-	// is led on where it is one of the build API's, spelled as the
-	// contract spells it, and without what its caller is known by.
-	mux.HandleFunc("/workspaces/{name}/build/{rest...}", func(w http.ResponseWriter, r *http.Request) {
-		rest := r.PathValue("rest")
-		if !builds[rest] || r.URL.EscapedPath() != "/workspaces/"+r.PathValue("name")+"/build/"+rest {
-			_ = refusals.Write(w, r, refusedFor(connect.CodeUnimplemented, "CALL_NOT_SERVED", "the control plane forwards the calls of a workspace's build API, and this is none of them"))
-			return
-		}
-		if id, ok := s.sandboxOf(w, r); ok {
-			for _, kept := range []string{"Authorization", "Proxy-Authorization", "Cookie"} {
-				r.Header.Del(kept)
-			}
-			// What the box answers is said on as it is, but a redirect,
-			// which would lead the caller, its token with it, elsewhere.
-			c.Sandboxes.Proxy(&unredirected{ResponseWriter: w}, r, id, ports.Daemon, rest)
-		}
-	})
 	// A workspace's shell, and a port of its sandbox: bytes, carried to
 	// its owner alone, by one way.
 	mux.HandleFunc("/workspaces/{name}/shell", s.carried(func(*http.Request) (int, bool) { return ports.Shell, true }))
@@ -195,56 +176,6 @@ func Serve(c Config) (*Plane, error) {
 	}()
 	return &Plane{Handler: s.known(mux), Sandboxes: c.Sandboxes, stop: func() { cancel(); <-done; s.working.Wait() }}, nil
 }
-
-// unredirected answers what a box answers, but a redirect, which is
-// answered as a bad gateway with nothing of where it led.
-type unredirected struct {
-	http.ResponseWriter
-	refused bool
-}
-
-func (u *unredirected) WriteHeader(code int) {
-	if code >= 300 && code < 400 {
-		u.refused = true
-		u.ResponseWriter.Header().Del("Location")
-		u.ResponseWriter.WriteHeader(http.StatusBadGateway)
-		return
-	}
-	u.ResponseWriter.WriteHeader(code)
-}
-
-func (u *unredirected) Write(p []byte) (int, error) {
-	if u.refused {
-		return len(p), nil
-	}
-	return u.ResponseWriter.Write(p)
-}
-
-// Flush passes a stream on as it is written.
-func (u *unredirected) Flush() {
-	if flusher, ok := u.ResponseWriter.(http.Flusher); ok && !u.refused {
-		flusher.Flush()
-	}
-}
-
-// builds are the calls of the build API, each as its path is spelled
-// beneath a workspace's way to it: the calls of every service of
-// frontseat.build.v1alpha1, as the contract declares them.
-var builds = func() map[string]bool {
-	out := map[string]bool{}
-	// The package is registered once its Go is linked in.
-	_ = buildv1.File_frontseat_build_v1alpha1_run_proto
-	protoregistry.GlobalFiles.RangeFilesByPackage("frontseat.build.v1alpha1", func(file protoreflect.FileDescriptor) bool {
-		for i := range file.Services().Len() {
-			service := file.Services().Get(i)
-			for j := range service.Methods().Len() {
-				out[string(service.FullName())+"/"+string(service.Methods().Get(j).Name())] = true
-			}
-		}
-		return true
-	})
-	return out
-}()
 
 // refusals writes a refusal as the caller's protocol says it.
 var refusals = connecthttp.NewErrorWriter()
@@ -380,8 +311,9 @@ type held struct {
 	settled time.Time
 
 	// seen is the workspace as the last pass found it, for whoever asks,
-	// and living the sandbox it lived in then: what its build route and
-	// shell lead to, which its status does not say.
+	// and living the sandbox it lived in then: what its shell and the
+	// ports its owner is carried to lead to, which its status does not
+	// say.
 	seen   atomic.Pointer[workspacev1.Workspace]
 	living atomic.Pointer[string]
 }
@@ -572,9 +504,6 @@ func (s *service) CreateWorkspace(ctx context.Context, req *workspacev1.CreateWo
 // and a status.
 func (s *service) view(h *held, status *workspacev1.WorkspaceStatus) *workspacev1.Workspace {
 	out := proto.Clone(h.workspace).(*workspacev1.Workspace)
-	if h.sandbox != "" {
-		status.BuildUri = s.PublicURL + "/workspaces/" + h.workspace.GetName() + "/build"
-	}
 	status.Entities = told.Entities(h.resolved)
 	out.Status, out.Owner = status, h.owner
 	return out
@@ -1289,21 +1218,28 @@ func (s *service) recover() error {
 	return nil
 }
 
-// Grid is the grid every workspace's daemon builds on, as whoever serves
-// the control plane says it: the control plane knows no grid of its own.
+// Grid is the grid every workspace is built on, as whoever serves the
+// control plane says it: the control plane knows no grid of its own.
 type Grid struct {
-	// Hosts are where the daemon reaches it, each host:port: the grid,
-	// and its asset service. A workspace's sandbox reaches them by its
-	// daemon's program.
+	// Hosts are where a build reaches it, each host:port: the grid, and
+	// its asset service. A workspace's sandbox reaches them by the
+	// program that builds there (Builder).
 	Hosts []string
-	// Arguments are the daemon's flags that tell it of the grid
-	// (frontseatd --help), each one argument written with its "=".
+	// Arguments are the flags that tell a box's supervisor of the grid
+	// (frontseat-box --help), each one argument written with its "=":
+	// the supervisor writes them where a build in the box reads its
+	// settings.
 	Arguments []string
 }
 
-// Daemon is where the daemon's program is in a box (stack/box.Dockerfile):
-// the program a workspace's way to the grid is for.
-const Daemon = "/opt/frontseat/bin/frontseatd"
+// Builder is where the program that builds is in a box
+// (stack/box.Dockerfile): the command line, frontseat, which is the
+// build daemon it starts there too (frontseat daemon). It is the program
+// a workspace's way to the grid is for: the gateway lets a connection
+// through for that program or any that started it, so the build daemon
+// and what it starts reach the grid, and the box's supervisor and a
+// shell it serves do not.
+const Builder = "/opt/frontseat/bin/frontseat"
 
 // Gateway is an OpenShell gateway that makes sandboxes: where it is
 // asked, over https, the directory holding what it is known by and knows
@@ -1316,25 +1252,27 @@ type Gateway struct {
 
 // OverGateway serves a control plane whose workspaces live in sandboxes
 // an OpenShell gateway makes: what frontseat-server serves. What runs in
-// a workspace's sandbox may write the workspace and what the daemon
-// keeps, and nowhere else. A gateway that does not answer is an error
+// a workspace's sandbox may write the workspace and what its supervisor
+// and its builds keep, and nowhere else. A gateway that does not answer is an error
 // here, and nothing is served over it.
 //
 // It is configured as any control plane is, but that its sandbox
-// service is made here, over the gateway, and its daemon's program is a
-// box's. The state is a directory of the control plane's own: its
+// service is made here, over the gateway, and the program that builds
+// is a box's. The state is a directory of the control plane's own: its
 // sandboxes' records are kept there, and its workspaces' beneath it.
 func OverGateway(c Config, gateway Gateway) (*Plane, error) {
 	sandboxes, err := sandbox.New(sandbox.Options{PublicURL: c.PublicURL, State: c.State, Gateway: &sandbox.Gateway{Address: gateway.Address, Identity: gateway.Identity, Runtime: gateway.Runtime, Writable: written}})
 	if err != nil {
 		return nil, err
 	}
-	c.Sandboxes, c.Daemon, c.State = sandboxes, Daemon, filepath.Join(c.State, "workspaces")
+	c.Sandboxes, c.Builder, c.State = sandboxes, Builder, filepath.Join(c.State, "workspaces")
 	return Serve(c)
 }
 
 // written is what runs in a workspace's sandbox may write of a box
-// (stack/box.Dockerfile): the workspace, and what the daemon keeps.
+// (stack/box.Dockerfile): the workspace, and what the box's supervisor
+// and the build daemons started there keep (ports.Lock, ports.Settings,
+// ports.Builds).
 var written = []string{"/work", "/var/lib/frontseat"}
 
 // relayed is a daemon's refusal as the control plane says it on: what

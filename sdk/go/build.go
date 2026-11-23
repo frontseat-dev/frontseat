@@ -156,7 +156,7 @@ func (b *Build) Logs(ctx context.Context, label string) iter.Seq2[*typev1.LogLin
 }
 
 func (w *Workspace) builds(ctx context.Context) (buildv1alpha1connect.BuildServiceClient, error) {
-	daemon, err := w.at(ctx)
+	daemon, err := w.at()
 	if err != nil {
 		return nil, err
 	}

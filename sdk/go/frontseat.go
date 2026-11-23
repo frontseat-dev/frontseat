@@ -2,17 +2,26 @@
 // server, from which everything is reached.
 //
 //	fs, err := frontseat.New("https://frontseat.example", frontseat.WithToken(token))
-//	ws := fs.Workspace("payments")
-//	build, err := ws.Build(ctx, frontseat.BuildRequest{Targets: []string{"gateway"}})
+//	opened, err := fs.Open(ctx, frontseat.WorkspaceSpec{Entities: patterns})
+//	shell, err := opened.Workspace.Shell(ctx)
+//
+// A Client is of a control plane, which keeps workspaces (Workspace,
+// Open, Workspaces) and a person's credentials (Credentials), and
+// carries its owner to a workspace's shell and to a port of its sandbox
+// (Shell, Forward). A workspace is built from inside it: there, as on
+// any machine, a build daemon serves the build API on the loopback, and
+// a Client made for that daemon, with the daemon's token, reaches what
+// it builds with Here:
+//
+//	daemon, err := frontseat.New("http://127.0.0.1:"+port, frontseat.WithToken(daemonToken))
+//	build, err := daemon.Here().Build(ctx, frontseat.BuildRequest{Targets: []string{"gateway"}})
 //	for event, err := range build.Events(ctx, 0) { ... }
 //	ended, err := build.Wait(ctx)
 //
-// A Client is of a control plane, which keeps workspaces (Workspace,
-// Open, Workspaces) and a person's credentials (Credentials). A
-// Workspace builds (Build, Test), runs programs (Run), releases
-// (PlanRelease, Release), and says what it is made of (Entities,
-// Projects). Inside a workspace's sandbox, a Client of the daemon there
-// reaches its workspace with Here.
+// The workspace Here is builds (Build, Test), runs programs (Run),
+// releases (PlanRelease, Release), and says what it is made of
+// (Entities, Projects). A workspace a control plane keeps does none of
+// that, and says so (ErrBuiltInside).
 //
 // What the SDK hands back is the API's own messages, generated from its
 // contract into the packages beneath api/; they stay there for a
@@ -66,8 +75,8 @@ func WithHTTPClient(client *http.Client) Option {
 	return Option{apply: func(r *transport.Reach) { r.HTTP = client }}
 }
 
-// Client is a client of one Frontseat server: a control plane, or,
-// inside a workspace's sandbox, the daemon there.
+// Client is a client of one Frontseat server: a control plane, or a
+// build daemon, inside a workspace's sandbox or on any machine.
 type Client struct {
 	server *url.URL
 	reach  transport.Reach
@@ -123,12 +132,3 @@ func address(server string) (*url.URL, error) {
 // Server is the address the Client was made for, as New read it:
 // http://127.0.0.1:7700.
 func (c *Client) Server() string { return c.server.String() }
-
-// at is a connection to an address the server gave, presenting the
-// Client's token where the address is of the server's origin alone.
-func (c *Client) at(address string) *connect.Client {
-	if address == c.Server() {
-		return c.api
-	}
-	return transport.New(address, c.reach, errorsRead)
-}

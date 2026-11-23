@@ -113,10 +113,12 @@ func (f Files) Grid(address string) (Grid, error) {
 	return Grid{Address: address, Assets: net.JoinHostPort(host, strconv.Itoa(ports.Assets)), Platform: platform}, nil
 }
 
-// Arguments are the daemon's flags that tell it of the grid (frontseatd
-// --help): --grid and --assets, where each is known, and a --platform for
-// each property, as name=value, in order. Each is one argument, written
-// with its "=", so that no value is read as a flag.
+// Arguments are the flags that tell a box's supervisor of the grid a
+// build in its workspace runs on (frontseat-box --help), which it writes
+// where a build there reads its settings: --grid and --assets, where
+// each is known, and a --platform for each property, as name=value, in
+// order. Each is one argument, written with its "=", so that no value is
+// read as a flag.
 func (g Grid) Arguments() []string {
 	var arguments []string
 	if g.Address != "" {
@@ -131,7 +133,7 @@ func (g Grid) Arguments() []string {
 	return arguments
 }
 
-// Hosts are where a daemon reaches the grid, each host:port: the grid,
+// Hosts are where a build reaches the grid, each host:port: the grid,
 // and its asset service, where each is known.
 func (g Grid) Hosts() []string {
 	var hosts []string

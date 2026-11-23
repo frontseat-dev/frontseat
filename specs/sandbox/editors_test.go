@@ -90,7 +90,9 @@ func TestAPortInsideTheSandboxIsReachedFromYourMachine(t *testing.T) {
 
 	workspace := spec.theWorkspace()
 
-	spec.Expect(workspace.answersOnPort(ports.Daemon)).To(BeTrue())
+	// The port of the box's own that answers HTTP, forwarded over the
+	// shell from inside the sandbox: its supervisor's.
+	spec.Expect(workspace.answersOnPort(ports.Source)).To(BeTrue())
 }
 
 // Opening a workspace in an editor / Every reverse-forwarded port is released when its editor disconnects.

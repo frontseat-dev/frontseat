@@ -82,7 +82,7 @@ func TestASandboxHoldsOneSupervisor(t *testing.T) {
 	}
 	// A second is refused whatever it was told, a name or none.
 	for _, told := range []string{"payments", "", "another"} {
-		if _, err := supervisor.Sole(lock, told); err == nil || !strings.Contains(err.Error(), "payments") || !strings.Contains(err.Error(), "one daemon") {
+		if _, err := supervisor.Sole(lock, told); err == nil || !strings.Contains(err.Error(), "payments") || !strings.Contains(err.Error(), "one supervisor") {
 			t.Fatalf("a second in the sandbox, told %q: %v, want it refused, naming the workspace", told, err)
 		}
 	}
@@ -91,7 +91,7 @@ func TestASandboxHoldsOneSupervisor(t *testing.T) {
 	if err != nil {
 		t.Fatalf("one started once the first was gone was refused: %v", err)
 	}
-	if _, err := supervisor.Sole(lock, "payments"); err == nil || !strings.Contains(err.Error(), "one daemon") {
+	if _, err := supervisor.Sole(lock, "payments"); err == nil || !strings.Contains(err.Error(), "one supervisor") {
 		t.Fatalf("one beside another told no workspace: %v, want it refused", err)
 	}
 	again()

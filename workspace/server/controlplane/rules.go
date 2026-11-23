@@ -116,8 +116,8 @@ func (s *service) addressed(spec *workspacev1.WorkspaceSpec) error {
 }
 
 // sandbox is the sandbox a workspace lives in, written in the sandbox
-// layer's own terms: a box that serves the daemon's build API, its source
-// API and the shell, is told
+// layer's own terms: a box whose supervisor serves its source API and
+// the shell, is told
 // the workspace's name, who commits and whose key gets in, and reaches
 // what its rules say and no more. The rules are this layer's to write,
 // since the sandbox layer knows no repository:
@@ -127,7 +127,7 @@ func (s *service) addressed(spec *workspacev1.WorkspaceSpec) error {
 //     repository named makes, and a push where the workspace pushes, with
 //     its owner's credential for the host where they keep one, and with
 //     no one else's;
-//   - the grid and its asset service, by the daemon's program.
+//   - the grid and its asset service, by the program that builds.
 //
 // The repositories are those the workspace is asked for and those its
 // entities resolved to, alike: each is fetched by its host's rule, with
@@ -144,11 +144,12 @@ func (s *service) sandbox(ctx context.Context, name, owner string, spec *workspa
 	for told, value := range s.Environment {
 		environment[told] = value
 	}
-	// The daemon is told by its flags, after those the box starts it
-	// with: the grid it builds on, and which workspace it manages, whose
-	// name is for what it shows and records and makes it the sandbox's
-	// one daemon. Each is one argument, written with its "=", so that no
-	// value is read as a flag.
+	// The box's supervisor is told by its flags, after those the box
+	// starts it with: the grid a build there runs on, which it writes
+	// where a build reads its settings, and which workspace it manages,
+	// whose name makes it the sandbox's one supervisor. Each is one
+	// argument, written with its "=", so that no value is read as a
+	// flag.
 	arguments := slices.Clone(s.Grid.Arguments)
 	arguments = append(arguments, "--name="+name)
 	if s.Fetching != nil {
@@ -169,7 +170,7 @@ func (s *service) sandbox(ctx context.Context, name, owner string, spec *workspa
 	out := &sandboxv1.SandboxSpec{
 		Image:     image,
 		Arguments: arguments,
-		Ports:     []int32{ports.Daemon, ports.Source, ports.Shell},
+		Ports:     []int32{ports.Source, ports.Shell},
 		Labels:    map[string]string{Named: name},
 		Egress:    &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_LISTED},
 	}
@@ -274,14 +275,15 @@ func (s *service) sandbox(ctx context.Context, name, owner string, spec *workspa
 		out.Egress.Rules = append(out.Egress.Rules, rule)
 		ruled[host] = true
 	}
-	// The grid and its asset service, for the daemon and what it starts.
+	// The grid and its asset service, for the program that builds and
+	// what it starts.
 	for _, address := range s.Grid.Hosts {
 		if address == "" || ruled[address] {
 			continue
 		}
 		rule := &sandboxv1.EgressRule{Host: address}
-		if s.Daemon != "" {
-			rule.Programs = []string{s.Daemon}
+		if s.Builder != "" {
+			rule.Programs = []string{s.Builder}
 		}
 		out.Egress.Rules = append(out.Egress.Rules, rule)
 		ruled[address] = true

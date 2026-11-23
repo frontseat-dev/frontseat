@@ -31,8 +31,9 @@ import (
 	"github.com/frontseat-dev/frontseat/testsupport/testrequired"
 )
 
-// The port the daemon in a box serves the build API on.
-const buildPort = ports.Daemon
+// The port of a box that answers whoever reaches it: its supervisor's
+// source API, which the box was made to open.
+const answeringPort = ports.Source
 
 // driven returns a driver over the local stack's gateway, and skips the
 // test where none answers.
@@ -89,7 +90,8 @@ func driven(t *testing.T) *openshell.Driver {
 }
 
 // box is a sandbox the driver can make, of an id of the name given that
-// is this run's own (drivertest.ID): the box image, let reach the grid
+// is this run's own (drivertest.ID): the box image, its supervisor told
+// a workspace's name, as the control plane tells one, let reach the grid
 // it is told of and nothing else.
 func box(t *testing.T, name string) driver.Sandbox {
 	t.Helper()
@@ -97,8 +99,8 @@ func box(t *testing.T, name string) driver.Sandbox {
 	return drivertest.Labelled(driver.Sandbox{
 		ID:        testrun.ID(t, name),
 		Image:     testbox.Image(t),
-		Arguments: grid.Arguments(),
-		Ports:     []int{buildPort},
+		Arguments: append(grid.Arguments(), "--name=a-driven-workspace"),
+		Ports:     []int{answeringPort},
 		// What a test adds to its environment, a credential's stand-in
 		// among it, is added here.
 		Environment: map[string]string{},
@@ -127,20 +129,21 @@ func TestASandboxThatReachesAnythingIsRefused(t *testing.T) {
 }
 
 // What a box serves is asked over a port reached through the gateway,
-// one request after another, as the sandbox API asks a daemon.
+// one request after another, as the control plane asks a box's
+// supervisor.
 func TestABoxIsAskedThroughTheGateway(t *testing.T) {
 	d := driven(t)
 	record := box(t, "frontseat-openshell-asked")
 	running(t, d, record)
 	through := &http.Client{Timeout: 20 * time.Second, Transport: &http.Transport{
-		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) { return d.Dial(ctx, record.ID, buildPort) },
+		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) { return d.Dial(ctx, record.ID, answeringPort) },
 	}}
 	deadline := time.Now().Add(time.Minute)
 	for asked := 0; asked < 3; {
 		response, err := through.Get("http://sandbox/")
 		if err != nil {
 			if time.Now().After(deadline) {
-				t.Fatalf("the daemon in the box does not answer: %v", err)
+				t.Fatalf("the supervisor in the box does not answer: %v", err)
 			}
 			time.Sleep(200 * time.Millisecond)
 			continue
@@ -296,7 +299,7 @@ func TestTwoIdsOfOneNameAreNotOneSandbox(t *testing.T) {
 	if _, err := d.Observe(ctx, second.ID); !errors.Is(err, driver.ErrNotFound) {
 		t.Errorf("the second id was found as a sandbox: %v", err)
 	}
-	if _, err := d.Dial(ctx, second.ID, buildPort); !errors.Is(err, driver.ErrNotFound) {
+	if _, err := d.Dial(ctx, second.ID, answeringPort); !errors.Is(err, driver.ErrNotFound) {
 		t.Errorf("the second id reached a port of the first: %v", err)
 	}
 	if err := d.Delete(ctx, second.ID); err != nil {

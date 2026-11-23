@@ -12,15 +12,16 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/frontseat-dev/frontseat/sdk/go"
+	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/entity"
 )
 
 // A workspace has one writer of what it holds: the control plane, which
-// keeps what it was asked for and tells its daemon. Inside its sandbox
-// its source is fixed, and the command line there asks its daemon to
-// build, run and release alone; it is filled from outside, by its name.
-// The daemon's source API, through which the control plane tells it, is
+// keeps what it was asked for and tells its box's supervisor. Inside its
+// sandbox its source is fixed, and the command line there builds, runs
+// and releases alone; it is filled from outside, by its name. The
+// supervisor's source API, through which the control plane tells it, is
 // led to by no route of the control plane's.
 
 // Workspaces in sandboxes / Inside a workspace its source is fixed, and it is filled from outside.
@@ -43,7 +44,8 @@ func TestInsideAWorkspaceItsSourceIsFixedAndItIsFilledFromOutside(t *testing.T) 
 	inside := spec.describedAt(ctx, workspace)
 	spec.Expect(inside.GetSpec().GetEntities()).To(HaveLen(1))
 	spec.Expect(repositoriesOf(inside)).To(Equal(repositoriesOf(before)))
-	// The command line inside still asks the daemon there to build.
+	// The command line inside still builds, through the build daemon it
+	// starts there.
 	spec.Expect(workspace.exits("frontseat build list")).To(Equal(0))
 
 	// The control: the same request from outside is kept in the spec the
@@ -60,25 +62,32 @@ func TestInsideAWorkspaceItsSourceIsFixedAndItIsFilledFromOutside(t *testing.T) 
 	spec.Expect(locatedOf(before)).NotTo(ContainElement("chain@lab/chain"))
 }
 
-// Workspaces in sandboxes / The daemon's source API is the control plane's alone: no route leads a caller there.
-func TestTheDaemonsSourceAPIIsTheControlPlanesAlone(t *testing.T) {
+// Workspaces in sandboxes / The supervisor's source API is the control plane's alone: no route leads a caller there.
+func TestTheSupervisorsSourceAPIIsTheControlPlanesAlone(t *testing.T) {
 	spec := newScenario(t)
 
 	workspace := spec.theWorkspace()
 
-	// Through the workspace's build route, as its owner, a call of the
-	// source API is not led on, refused as no call of the route's; one
-	// of the build API is.
+	// At the control plane, as the workspace's owner, a call of the
+	// source API leads nowhere, beneath the workspace's name or at the
+	// control plane's own address: it is no path the control plane has.
 	for _, call := range []string{"SetSource", "WaitSource"} {
-		status, said := spec.postAs(workspace.Build+"/frontseat.source.v1alpha1.SourceService/"+call, ownerToken(workspace.Server))
-		spec.Expect(status).To(Equal(http.StatusNotImplemented), call+": "+said)
-		spec.Expect(said).To(ContainSubstring("and this is none of them"), call)
+		for _, beneath := range []string{"", "/workspaces/" + workspace.Workspace + "/build", "/workspaces/" + workspace.Workspace + "/source"} {
+			status, said := spec.postAs(workspace.Server+beneath+"/frontseat.source.v1alpha1.SourceService/"+call, ownerToken(workspace.Server))
+			spec.Expect(status).To(Equal(http.StatusNotFound), beneath+" "+call+": "+said)
+		}
 	}
-	status, said := spec.postAs(workspace.Build+"/frontseat.build.v1alpha1.BuildService/ListBuilds", ownerToken(workspace.Server))
-	spec.Expect(status).To(Equal(http.StatusOK), said)
-	// Inside the sandbox, the daemon's build port serves no source API.
-	spec.Expect(workspace.prints("curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{}' http://127.0.0.1:7600/frontseat.source.v1alpha1.SourceService/WaitSource")).To(Equal("404"))
-	// The control: the control plane told the daemon what to hold
+	// The build daemon in the sandbox, which a caller is carried to,
+	// serves no source API; the control is a call of the build API,
+	// which it answers.
+	daemon := workspace.daemon()
+	answer, err := daemon.HTTP.Post(daemon.Address+"/frontseat.source.v1alpha1.SourceService/WaitSource", "application/json", strings.NewReader("{}"))
+	spec.Expect(err).NotTo(HaveOccurred())
+	answer.Body.Close()
+	spec.Expect(answer.StatusCode).To(Equal(http.StatusNotFound))
+	_, err = buildsAt(workspace.reached).ListBuilds(context.Background(), &buildv1.ListBuildsRequest{PageSize: 1})
+	spec.Expect(err).NotTo(HaveOccurred())
+	// The control: the control plane told the supervisor what to hold
 	// through it, and reads back what it holds.
 	held := spec.describedAt(context.Background(), workspace)
 	spec.Expect(held.GetStatus().GetState()).To(Equal(workspacev1.WorkspaceStatus_STATE_READY))

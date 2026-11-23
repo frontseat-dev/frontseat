@@ -59,13 +59,15 @@ func ExampleClient_Open() {
 }
 
 // A build is started, followed by its events to the one that says how it
-// ended, and waited for. It goes on whether or not it is followed.
+// ended, and waited for. It goes on whether or not it is followed. It is
+// asked of a build daemon, which a Client is made for as it is for a
+// control plane: what the daemon builds is Here.
 func ExampleWorkspace_Build() {
-	fs, server := standIn()
+	daemon, server := standIn()
 	defer server.Close()
 	ctx := context.Background()
 
-	ws := fs.Workspace("services-main")
+	ws := daemon.Here()
 	build, err := ws.Build(ctx, frontseat.BuildRequest{Targets: []string{"greeter"}})
 	if err != nil {
 		fmt.Println(err)
@@ -96,11 +98,11 @@ func ExampleWorkspace_Build() {
 // then releases that plan and no other, and is refused where the
 // workspace has moved since.
 func ExampleWorkspace_Release() {
-	fs, server := standIn()
+	daemon, server := standIn()
 	defer server.Close()
 	ctx := context.Background()
 
-	ws := fs.Workspace("services-main")
+	ws := daemon.Here()
 	plan, err := ws.PlanRelease(ctx, frontseat.ReleaseRequest{Entities: []entity.Pattern{{Kind: "component", Name: "greeter"}}})
 	if err != nil {
 		fmt.Println(err)
@@ -128,10 +130,10 @@ func ExampleWorkspace_Release() {
 // What a server refuses by name is read by its reason, which each call's
 // contract lists, and never by its message, which is for a person.
 func ExampleError() {
-	fs, server := standIn()
+	daemon, server := standIn()
 	defer server.Close()
 
-	ws := fs.Workspace("services-main")
+	ws := daemon.Here()
 	_, err := ws.Build(context.Background(), frontseat.BuildRequest{Profile: typev1.Profile(7)})
 	var refused *frontseat.Error
 	if errors.As(err, &refused) && refused.Reason == frontseat.ReasonProfileUnknown {
@@ -141,14 +143,14 @@ func ExampleError() {
 }
 
 // standIn serves, on this machine, what the examples ask a control plane
-// and a workspace's daemon: one workspace, services-main, whose daemon
-// is at the same address, one build of two actions that pass, and one
+// and a build daemon, at one address for the examples' sake: one
+// workspace, services-main, one build of two actions that pass, and one
 // release of one unit; and a Client of it.
 func standIn() (*frontseat.Client, *httptest.Server) {
 	mux := http.NewServeMux()
 	server := httptest.NewServer(mux)
 	api := connect.NewServer()
-	workspacev1alpha1connect.RegisterWorkspaceServiceHandler(api, plane{daemon: server.URL})
+	workspacev1alpha1connect.RegisterWorkspaceServiceHandler(api, plane{})
 	buildv1alpha1connect.RegisterBuildServiceHandler(api, builder{})
 	buildv1alpha1connect.RegisterReleaseServiceHandler(api, releaser{})
 	connecthttp.Mount(mux, api)
@@ -162,12 +164,11 @@ func standIn() (*frontseat.Client, *httptest.Server) {
 // plane is the examples' control plane.
 type plane struct {
 	workspacev1alpha1connect.UnimplementedWorkspaceServiceHandler
-	daemon string
 }
 
 func (p plane) held(state workspacev1.WorkspaceStatus_State) *workspacev1.Workspace {
 	return &workspacev1.Workspace{Name: "services-main", Status: &workspacev1.WorkspaceStatus{
-		State: state, BuildUri: p.daemon,
+		State:        state,
 		Repositories: []*workspacev1.Repository{{Name: "services", Remote: "https://forge.example/acme/services.git"}},
 	}}
 }

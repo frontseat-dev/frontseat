@@ -53,3 +53,11 @@ plugins that are not there is a mistake, and nothing is built. A path is
 from the file's own directory. The file holds no secret: a token is the
 path of its file. A daemon whose file has changed is started again by
 the next command.
+
+What a daemon keeps, its builds and what it says of where it serves
+(`daemon.json`: its address on the loopback and the token it is asked
+with, its user's alone to read), is in a directory named for the
+directory it builds: beneath `build/` beside the file, and in a
+workspace's sandbox beneath `/var/lib/frontseat/build`. In a sandbox the
+command line starts the daemon as it does anywhere, for the workspace's
+directory: its supervisor writes the file and builds nothing.

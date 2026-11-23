@@ -93,7 +93,7 @@ func TestAPortOfAWorkspacesSandboxIsCarriedToItsOwnerAlone(t *testing.T) {
 	}
 
 	// Its owner is carried to a port, and what is written comes back.
-	for _, port := range []int{8080, 1, 65535, ports.Daemon, ports.Source - 1, ports.Source + 1} {
+	for _, port := range []int{8080, 1, 65535, 443, ports.Source - 1, ports.Source + 1} {
 		conn, err := as(owner).Forward(ctx, port)
 		if err != nil {
 			t.Fatalf("the port %d, for its owner: %v", port, err)

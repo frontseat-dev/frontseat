@@ -81,7 +81,7 @@ func overRealServed(t *testing.T) (workspacev1alpha1connect.WorkspaceServiceClie
 	sandboxes := sandboxv1alpha1connect.NewSandboxServiceClient(connect.NewClient(connecthttp.NewTransport(under.Client(), under.URL)))
 	client, address, _ := serve(t, func(address string) Config {
 		return Config{
-			Sandboxes: real{client: sandboxes}, PublicURL: address, State: t.TempDir(), Box: "registry.example/acme/box:1", Daemon: "/opt/a/daemon",
+			Sandboxes: real{client: sandboxes}, PublicURL: address, State: t.TempDir(), Box: "registry.example/acme/box:1", Builder: "/opt/a/builder",
 			Fetching: system{}, Every: 10 * time.Millisecond, Answers: time.Minute, Callers: knowing(t),
 		}
 	})
@@ -100,7 +100,7 @@ func madeX(t *testing.T, client workspacev1alpha1connect.WorkspaceServiceClient,
 
 // inSandbox waits for a workspace to be in a sandbox, and returns which,
 // as the sandbox service beneath the control plane says: the workspace's
-// status says where its build API is, and nothing of its sandbox.
+// status says nothing of its sandbox.
 func inSandbox(t *testing.T, client workspacev1alpha1connect.WorkspaceServiceClient, sandboxes sandboxv1alpha1connect.SandboxServiceClient, name string) string {
 	t.Helper()
 	for until := time.Now().Add(5 * time.Second); ; time.Sleep(10 * time.Millisecond) {
@@ -108,15 +108,13 @@ func inSandbox(t *testing.T, client workspacev1alpha1connect.WorkspaceServiceCli
 		if err != nil {
 			t.Fatal(err)
 		}
-		if now.GetWorkspace().GetStatus().GetBuildUri() != "" {
-			listed, err := sandboxes.ListSandboxes(context.Background(), &sandboxv1.ListSandboxesRequest{Labels: map[string]string{Named: name}})
-			if err != nil {
-				t.Fatal(err)
-			}
-			for i := len(listed.GetSandboxes()) - 1; i >= 0; i-- {
-				if each := listed.GetSandboxes()[i]; each.GetState() != sandboxv1.Sandbox_STATE_ENDING {
-					return each.GetId()
-				}
+		listed, err := sandboxes.ListSandboxes(context.Background(), &sandboxv1.ListSandboxesRequest{Labels: map[string]string{Named: name}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for i := len(listed.GetSandboxes()) - 1; i >= 0; i-- {
+			if each := listed.GetSandboxes()[i]; each.GetState() != sandboxv1.Sandbox_STATE_ENDING {
+				return each.GetId()
 			}
 		}
 		if time.Now().After(until) {

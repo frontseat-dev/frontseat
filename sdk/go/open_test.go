@@ -30,7 +30,6 @@ type plane struct {
 	// kept is what the workspace there is was made with; nil for none.
 	kept *workspacev1.WorkspaceSpec
 
-	url     string
 	mu      sync.Mutex
 	created []*workspacev1.CreateWorkspaceRequest
 	deleted []string
@@ -43,15 +42,11 @@ func (p *plane) CreateWorkspace(_ context.Context, asked *workspacev1.CreateWork
 	if p.answers == nil {
 		return nil, p.refused
 	}
-	if p.answers.Workspace.Status == nil {
-		p.answers.Workspace.Status = &workspacev1.WorkspaceStatus{}
-	}
-	p.answers.Workspace.Status.BuildUri = p.url + "/workspaces/" + p.answers.GetWorkspace().GetName() + "/build"
 	return p.answers, nil
 }
 
 func (p *plane) WaitWorkspace(_ context.Context, _ *workspacev1.WaitWorkspaceRequest) (*workspacev1.WaitWorkspaceResponse, error) {
-	status := &workspacev1.WorkspaceStatus{State: workspacev1.WorkspaceStatus_STATE_READY, BuildUri: p.answers.GetWorkspace().GetStatus().GetBuildUri()}
+	status := &workspacev1.WorkspaceStatus{State: workspacev1.WorkspaceStatus_STATE_READY}
 	for _, remote := range p.holds {
 		status.Repositories = append(status.Repositories, &workspacev1.Repository{Name: "code", Remote: remote})
 	}
@@ -73,7 +68,6 @@ func served(t *testing.T, p *plane) string {
 	connecthttp.Mount(mux, api)
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
-	p.url = srv.URL
 	return srv.URL
 }
 

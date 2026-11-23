@@ -314,7 +314,8 @@ func TestPerf(t *testing.T) {
 // first build by: of its runs, the one that ran the most.
 func ranOnTheGrid(t *testing.T, fs tool) []*repb.Digest {
 	t.Helper()
-	listed, err := frontseat.Collect(fs.fixture.Builds(context.Background()))
+	built := fs.built(t)
+	listed, err := frontseat.Collect(built.Builds(context.Background()))
 	if err != nil || len(listed) == 0 {
 		t.Fatalf("no run to read: %v", err)
 	}
@@ -324,7 +325,7 @@ func ranOnTheGrid(t *testing.T, fs tool) []*repb.Digest {
 			most = run
 		}
 	}
-	actions, err := frontseat.Collect(fs.fixture.BuildByID(most.GetId()).Actions(context.Background()))
+	actions, err := frontseat.Collect(built.BuildByID(most.GetId()).Actions(context.Background()))
 	if err != nil {
 		t.Fatal(err)
 	}

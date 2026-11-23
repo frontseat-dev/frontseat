@@ -32,7 +32,6 @@ var said = []struct {
 	{"image/rootfs/etc/s6-overlay/s6-rc.d/controlplane/run", "--grid host.openshell.internal:%d\n", ports.Grid},
 	{"image/rootfs/etc/s6-overlay/s6-rc.d/pool/run", "--gateway https://127.0.0.1:%d ", ports.OpenShell},
 	{"image/rootfs/etc/s6-overlay/s6-rc.d/services/run", "--gateway https://127.0.0.1:%d ", ports.OpenShell},
-	{"box.Dockerfile", `"--listen", "0.0.0.0:%d"`, ports.Daemon},
 	{"box.Dockerfile", `"--source", "0.0.0.0:%d"`, ports.Source},
 	{"box.Dockerfile", `"--shell", "0.0.0.0:%d"`, ports.Shell},
 }
@@ -78,7 +77,7 @@ func TestEveryFileThatCannotReadThePortsSaysThemAsTheyAre(t *testing.T) {
 	if !slices.Equal(moved, []string{said[2].file}) {
 		t.Errorf("a moved grid port was found in %v, want %s", moved, said[2].file)
 	}
-	// And a box's: its daemon told to serve its source API elsewhere.
+	// And a box's: its supervisor told to serve its source API elsewhere.
 	moved, err = saidElsewhere(func(file string) ([]byte, error) {
 		content, err := ofTheStack(file)
 		if file == "box.Dockerfile" {

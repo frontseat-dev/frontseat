@@ -36,10 +36,8 @@ func TestAWorkspaceIsAskedForByWhatItHoldsIsNamedByItAndIsReachedByItsName(t *te
 	// It is named by the repository and where it stands.
 	described := made.GetWorkspace()
 	spec.Expect(described.GetName()).To(Equal("code-main"))
-	// Its build API is asked where the control plane says, by the
-	// workspace's name, and it holds what was asked for, as the control
-	// plane says by its name.
-	spec.Expect(described.GetStatus().GetBuildUri()).To(Equal(server + "/workspaces/code-main/build"))
+	// It holds what was asked for, as the control plane says by its
+	// name.
 	held, err := workspacesAt(server).DescribeWorkspace(ctx, &workspacev1.DescribeWorkspaceRequest{Name: "code-main"})
 	spec.Expect(err).NotTo(HaveOccurred())
 	spec.Expect(held.GetWorkspace().GetName()).To(Equal("code-main"))

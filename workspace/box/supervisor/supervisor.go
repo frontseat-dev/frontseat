@@ -217,9 +217,9 @@ func Sole(path, workspace string) (func(), error) {
 		held, _ := io.ReadAll(io.LimitReader(file, 256))
 		_ = file.Close()
 		if managed := strings.TrimSpace(string(held)); managed != "" {
-			return nil, fmt.Errorf("a daemon already manages the workspace %s in this sandbox: a sandbox holds one daemon", managed)
+			return nil, fmt.Errorf("a supervisor already manages the workspace %s in this sandbox: a sandbox holds one supervisor, and one workspace", managed)
 		}
-		return nil, fmt.Errorf("a daemon already runs in this sandbox: a sandbox holds one daemon")
+		return nil, fmt.Errorf("a supervisor already runs in this sandbox: a sandbox holds one supervisor, and one workspace")
 	}
 	said := []byte(workspace + "\n")
 	if _, err = file.WriteAt(said, 0); err == nil {

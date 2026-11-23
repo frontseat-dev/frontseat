@@ -51,7 +51,7 @@ func TestAProgramOfAModuleIsBuiltOnTheGridAndRunWhereTheDaemonIsWithWhatItIsGive
 	)))
 	// What it is made of was built by a run, on the grid; the program
 	// itself is the daemon's, and no action of the grid.
-	actions, err := buildsAt(workspace.Build).ListBuildActions(context.Background(), &buildv1.ListBuildActionsRequest{PageSize: 1000, BuildId: run.ended.GetBuildId()})
+	actions, err := buildsAt(workspace.reached).ListBuildActions(context.Background(), &buildv1.ListBuildActionsRequest{PageSize: 1000, BuildId: run.ended.GetBuildId()})
 	spec.Expect(err).NotTo(HaveOccurred())
 	provenance := map[string]buildv1.Provenance{}
 	for _, action := range actions.GetActions() {
@@ -65,7 +65,7 @@ func TestAProgramOfAModuleIsBuiltOnTheGridAndRunWhereTheDaemonIsWithWhatItIsGive
 	// The module has a test, which a build of it runs: its absence
 	// above is the run's doing.
 	built := workspace.build()
-	listed, err := buildsAt(workspace.Build).ListBuildActions(context.Background(), &buildv1.ListBuildActionsRequest{PageSize: 1000, BuildId: built.run.GetId()})
+	listed, err := buildsAt(workspace.reached).ListBuildActions(context.Background(), &buildv1.ListBuildActionsRequest{PageSize: 1000, BuildId: built.run.GetId()})
 	spec.Expect(err).NotTo(HaveOccurred())
 	var labels []string
 	for _, action := range listed.GetActions() {
@@ -103,7 +103,7 @@ func main() {
 	time.Sleep(time.Hour)
 }
 `)
-	runs := runsAt(workspace.Build)
+	runs := runsAt(workspace.reached)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	created, err := runs.CreateRun(ctx, &buildv1.CreateRunRequest{Target: "//code/hello:go.run/hello"})
@@ -157,7 +157,7 @@ func TestNoBuildRunsAProgram(t *testing.T) {
 	// A build of everything builds the module, and not its program.
 	built := workspace.build()
 	spec.Expect(built.outcome()).To(Equal("SUCCESS"), built.run.String())
-	actions, err := buildsAt(workspace.Build).ListBuildActions(context.Background(), &buildv1.ListBuildActionsRequest{PageSize: 1000, BuildId: built.run.GetId()})
+	actions, err := buildsAt(workspace.reached).ListBuildActions(context.Background(), &buildv1.ListBuildActionsRequest{PageSize: 1000, BuildId: built.run.GetId()})
 	spec.Expect(err).NotTo(HaveOccurred())
 	var labels []string
 	for _, action := range actions.GetActions() {
@@ -190,7 +190,7 @@ func TestWhatIsNoProgramIsNotRunAndSaysWhatIs(t *testing.T) {
 	spec.Expect(mistyped.ended.GetState()).To(Equal(buildv1.Run_STATE_FAILED))
 	spec.Expect(mistyped.ended.GetFailure()).To(And(ContainSubstring("there is no program"), ContainSubstring("//code/hello:go.run/hello")))
 	// Nothing was named.
-	_, err := runsAt(workspace.Build).CreateRun(context.Background(), &buildv1.CreateRunRequest{})
+	_, err := runsAt(workspace.reached).CreateRun(context.Background(), &buildv1.CreateRunRequest{})
 	spec.Expect(err).To(BeRefusedSaying("name the program to run"))
 	// The control: the program itself is run.
 	spec.Expect(workspace.runProgram("//code/hello:go.run/hello").ended.GetState()).To(Equal(buildv1.Run_STATE_SUCCEEDED))
@@ -251,7 +251,7 @@ func (w *Workspace) runProgram(target string, arguments ...string) *Run {
 	w.scenario.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
-	runs := runsAt(w.Build)
+	runs := runsAt(w.reached)
 	created, err := runs.CreateRun(ctx, &buildv1.CreateRunRequest{Target: target, Arguments: arguments})
 	w.scenario.Expect(err).NotTo(HaveOccurred())
 	id := created.GetRun().GetId()

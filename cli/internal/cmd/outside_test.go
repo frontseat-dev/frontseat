@@ -25,7 +25,7 @@ import (
 func counted(t *testing.T) (string, *atomic.Int32) {
 	t.Helper()
 	api := connect.NewServer()
-	workspacev1alpha1connect.RegisterWorkspaceServiceHandler(api, keeping{daemon: func() string { return "" }})
+	workspacev1alpha1connect.RegisterWorkspaceServiceHandler(api, keeping{})
 	mux := http.NewServeMux()
 	connecthttp.Mount(mux, api)
 	asked := &atomic.Int32{}
@@ -52,7 +52,7 @@ func noDaemon(t *testing.T) *int {
 	asked := new(int)
 	before := builder
 	t.Cleanup(func() { builder = before })
-	builder = func(context.Context, string) (machine.Builder, error) {
+	builder = func(context.Context, string, bool) (machine.Builder, error) {
 		*asked++
 		return machine.Builder{}, errors.New("the build daemon of the directory was asked for")
 	}
@@ -213,7 +213,7 @@ func TestNoCommandThatBuildsTakesAWorkspace(t *testing.T) {
 	}
 	// With none selected, on a machine told nothing of its grid.
 	lastOpened(t, plane, "")
-	builder = func(context.Context, string) (machine.Builder, error) {
+	builder = func(context.Context, string, bool) (machine.Builder, error) {
 		return machine.Builder{}, machine.ErrNoSettings
 	}
 	if _, _, err := runAt(t, context.Background(), "", "build"); err == nil || !strings.Contains(err.Error(), "no workspace to talk to: open one with `frontseat workspace open`; or, to build") || strings.Contains(err.Error(), "name one") {

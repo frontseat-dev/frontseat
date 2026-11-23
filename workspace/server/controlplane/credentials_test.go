@@ -2,7 +2,6 @@ package controlplane
 
 import (
 	"context"
-	"net/http"
 	"slices"
 	"strings"
 	"testing"
@@ -39,12 +38,20 @@ const third = "746869726420706572736f6e2773206f776e20746f6b656e2c206e6f206f6e65"
 // workspaces and credentials.
 func servedToPeople(t *testing.T, s *sandboxes) (func(token string) workspacev1alpha1connect.WorkspaceServiceClient, func(token string) credentialv1alpha1connect.CredentialServiceClient) {
 	t.Helper()
+	workspaces, credentials, _ := servedToPeopleAt(t, s)
+	return workspaces, credentials
+}
+
+// servedToPeopleAt is servedToPeople, and returns too the address the
+// control plane is asked at.
+func servedToPeopleAt(t *testing.T, s *sandboxes) (func(token string) workspacev1alpha1connect.WorkspaceServiceClient, func(token string) credentialv1alpha1connect.CredentialServiceClient, string) {
+	t.Helper()
 	_, address, _ := served(t, s, t.TempDir(), func(c *Config) { c.Callers = people{owner: "ada", another: "bea", third: "cy"} })
 	return func(token string) workspacev1alpha1connect.WorkspaceServiceClient {
 			return workspacev1alpha1connect.NewWorkspaceServiceClient(connect.NewClient(connecthttp.NewTransport(bearing(token), address)))
 		}, func(token string) credentialv1alpha1connect.CredentialServiceClient {
 			return credentialv1alpha1connect.NewCredentialServiceClient(connect.NewClient(connecthttp.NewTransport(bearing(token), address)))
-		}
+		}, address
 }
 
 // listedFor are the hosts a person's credentials are listed for, in the
@@ -200,14 +207,11 @@ func TestAPersonsCredentialsAreTheirsAlone(t *testing.T) {
 // person's client of it, and the address it is asked at.
 func adas(t *testing.T, s *sandboxes) (func(token string) workspacev1alpha1connect.WorkspaceServiceClient, string) {
 	t.Helper()
-	workspaces, _ := servedToPeople(t, s)
+	workspaces, _, address := servedToPeopleAt(t, s)
 	if _, err := workspaces(owner).CreateWorkspace(context.Background(), &workspacev1.CreateWorkspaceRequest{Name: "adas", Spec: of("https://forge.example/acme/code.git")}); err != nil {
 		t.Fatal(err)
 	}
-	address, found := strings.CutSuffix(waited(t, workspaces(owner), "adas").GetStatus().GetBuildUri(), "/workspaces/adas/build")
-	if !found {
-		t.Fatalf("its build API is not said to be beneath its name: %q", address)
-	}
+	waited(t, workspaces(owner), "adas")
 	return workspaces, address
 }
 
@@ -237,7 +241,7 @@ func TestAWorkspaceIsItsOwners(t *testing.T) {
 	notOwner("waiting for", err)
 	_, err = workspaces(another).DeleteWorkspace(ctx, &workspacev1.DeleteWorkspaceRequest{Name: "adas"})
 	notOwner("ending", err)
-	for _, path := range []string{"/workspaces/adas/build/frontseat.build.v1alpha1.BuildService/ListBuilds", "/workspaces/adas/shell", "/workspaces/adas/ports/8080"} {
+	for _, path := range []string{"/workspaces/adas/shell", "/workspaces/adas/ports/8080"} {
 		if status, said := asked(t, "POST", address+path, another, "{}"); status != 403 {
 			t.Errorf("Bea reaching %s: %d %s, want it refused", path, status, said)
 		}
@@ -255,8 +259,8 @@ func TestAWorkspaceIsItsOwners(t *testing.T) {
 	if listed, err := workspaces(owner).ListWorkspaces(ctx, &workspacev1.ListWorkspacesRequest{}); err != nil || len(listed.GetWorkspaces()) != 1 {
 		t.Errorf("Ada is listed %v (%v), want her workspace", listed.GetWorkspaces(), err)
 	}
-	if status, said := asked(t, "POST", address+"/workspaces/adas/build/frontseat.build.v1alpha1.BuildService/ListBuilds", owner, "{}"); status != 200 {
-		t.Errorf("Ada reaching her build API: %d %s", status, said)
+	if status, said := asked(t, "POST", address+"/workspaces/adas/shell", owner, "{}"); status != 200 {
+		t.Errorf("Ada reaching her shell: %d %s", status, said)
 	}
 	if _, err := workspaces(owner).DeleteWorkspace(ctx, &workspacev1.DeleteWorkspaceRequest{Name: "adas"}); err != nil {
 		t.Errorf("Ada ending her workspace: %v", err)
@@ -289,34 +293,6 @@ func TestAControlPlaneThatKeepsACredentialStartsAgain(t *testing.T) {
 	// A port is one however it is written.
 	if err != nil || len(listed.GetCredentials()) != 1 || listed.GetCredentials()[0].GetHost() != "forge.example:443" {
 		t.Errorf("the credentials after the control plane started again: %v, %v", listed, err)
-	}
-}
-
-// What a box answers through the way to its build API is said on, but a
-// redirect: one would lead the caller, and the token it presents, where
-// the box chose. The control is the same call answered plainly.
-func TestARedirectFromABoxIsNotSaidOn(t *testing.T) {
-	s, client := made(t, "code", of("https://forge.example/acme/code.git"))
-	ready := waited(t, client, "code")
-	s.mu.Lock()
-	s.redirect = "https://elsewhere.example/collect"
-	s.mu.Unlock()
-	req, _ := http.NewRequest("POST", ready.GetStatus().GetBuildUri()+"/frontseat.build.v1alpha1.BuildService/ListBuilds", strings.NewReader("{}"))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+owner)
-	got, err := (&http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}).Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	got.Body.Close()
-	if got.StatusCode != http.StatusBadGateway || got.Header.Get("Location") != "" {
-		t.Errorf("a box's redirect was said on: %d, to %q", got.StatusCode, got.Header.Get("Location"))
-	}
-	s.mu.Lock()
-	s.redirect = ""
-	s.mu.Unlock()
-	if status, said := asked(t, "POST", ready.GetStatus().GetBuildUri()+"/frontseat.build.v1alpha1.BuildService/ListBuilds", owner, "{}"); status != http.StatusOK {
-		t.Errorf("the plain answer: %d %s", status, said)
 	}
 }
 

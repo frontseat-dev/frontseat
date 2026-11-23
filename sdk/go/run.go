@@ -133,7 +133,7 @@ func (r *Run) Logs(ctx context.Context) iter.Seq2[*typev1.LogLine, error] {
 }
 
 func (w *Workspace) runs(ctx context.Context) (buildv1alpha1connect.RunServiceClient, error) {
-	daemon, err := w.at(ctx)
+	daemon, err := w.at()
 	if err != nil {
 		return nil, err
 	}

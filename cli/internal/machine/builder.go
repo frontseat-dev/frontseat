@@ -25,9 +25,10 @@ type Builder struct {
 	Address, Token string
 }
 
-// ErrNoSettings is a machine that was told nothing of how it builds:
-// there is no file of settings, and so no build daemon.
-var ErrNoSettings = errors.New("this machine was told nothing of the grid it builds on: there is no build.yaml in frontseat's configuration directory")
+// ErrNoSettings is a machine, or a workspace's sandbox, that was told
+// nothing of how it builds: there is no file of settings, and so no
+// build daemon. Whoever asked says which it is, and how it is told.
+var ErrNoSettings = errors.New("nothing was told of the grid to build on: there is no file of build settings")
 
 // startsWithin is how long a daemon is given to serve once it is
 // started: it loads its plugins and reaches its grid first.
@@ -43,17 +44,20 @@ var (
 
 // BuildDaemon returns the build daemon of a directory, starting one
 // where none serves: each directory has its own, in a state directory
-// beneath the command line's that is that directory's alone. One that
+// that is that directory's alone, beneath the command line's outside a
+// sandbox and beneath the sandbox's inside one, where its settings are
+// those the sandbox's supervisor wrote (keeps). One that
 // serves is taken where it is the daemon this command would start, of
 // this program, told the settings as they are now, for this directory,
 // with what a publish may be given as it is here;
 // any other is asked to stop, and another is started. It is known to
 // serve by answering to its token, never by what it left behind.
-func BuildDaemon(ctx context.Context, directory string) (Builder, error) {
-	settings, err := beneath("build.yaml")
+func BuildDaemon(ctx context.Context, directory string, inside bool) (Builder, error) {
+	where, err := keeps(inside)
 	if err != nil {
 		return Builder{}, err
 	}
+	settings := where.settings
 	if _, err := os.Stat(settings); errors.Is(err, fs.ErrNotExist) {
 		return Builder{}, ErrNoSettings
 	}
@@ -65,10 +69,7 @@ func BuildDaemon(ctx context.Context, directory string) (Builder, error) {
 	if err != nil {
 		return Builder{}, err
 	}
-	state, err := stateOf(directory)
-	if err != nil {
-		return Builder{}, err
-	}
+	state := where.of(directory)
 	is, err := version()
 	if err != nil {
 		return Builder{}, err
@@ -102,11 +103,11 @@ func BuildDaemon(ctx context.Context, directory string) (Builder, error) {
 // logFile is, in a daemon's state directory, what it printed.
 const logFile = "daemon.log"
 
-// stateOf is the state directory of a directory's build daemon: beneath
-// the command line's one root, named by the directory.
-func stateOf(directory string) (string, error) {
+// of is the state directory of a directory's build daemon: beneath the
+// one place they are kept, named by the directory.
+func (k kept) of(directory string) string {
 	named := sha256.Sum256([]byte(directory))
-	return beneath("build", hex.EncodeToString(named[:8]))
+	return filepath.Join(k.state, hex.EncodeToString(named[:8]))
 }
 
 // serves says whether the daemon that said where it serves answers

@@ -10,7 +10,6 @@ import (
 	"regexp"
 	"slices"
 	"strconv"
-	"sync"
 	"time"
 
 	"connectrpc.com/connect/v2"
@@ -222,37 +221,41 @@ func (c *Client) Open(ctx context.Context, spec WorkspaceSpec) (OpenResult, erro
 // Workspace is a workspace the control plane keeps, by its name. Nothing
 // is asked of the control plane until a call is made. A name is given:
 // with none, every call fails with ErrWorkspaceUnnamed before anything is asked,
-// and the workspace a daemon's Client is in is Here, never an empty
-// name.
+// and the workspace a build daemon's Client is in is Here, never an
+// empty name. It is described, filled, ended and reached, by its shell
+// and its ports, through the control plane; it is built from inside it,
+// and what builds, runs or releases is refused of it (ErrBuiltInside).
 func (c *Client) Workspace(name string) *Workspace {
 	return &Workspace{client: c, name: name}
 }
 
-// Here is the workspace whose daemon the Client was made for: inside a
-// workspace's sandbox, the one workspace there is, whose daemon is asked
-// to build, run and release what it holds. Its source is fixed there: it
-// is described, filled, ended and opened a shell in from outside, by its
-// name, and Here refuses each of those by name (ErrHere).
+// Here is what the build daemon the Client was made for builds: inside
+// a workspace's sandbox, the one workspace there is, and on any other
+// machine the directory the daemon was started for. The daemon is asked
+// to build, run and release what it holds, at the address it says it
+// serves at, on the loopback, with its token (WithToken). A workspace's
+// source is fixed there: it is described, filled, ended and opened a
+// shell in from outside, by its name, and Here refuses each of those by
+// name (ErrHere).
 func (c *Client) Here() *Workspace {
-	return &Workspace{client: c, here: true, daemon: c.api}
+	return &Workspace{client: c, here: true}
 }
 
 func (c *Client) workspaces() workspacev1alpha1connect.WorkspaceServiceClient {
 	return workspacev1alpha1connect.NewWorkspaceServiceClient(c.api)
 }
 
-// Workspace is one workspace: what it holds, and the daemon in it that
-// builds, runs and releases what it holds.
+// Workspace is one workspace: what a control plane keeps of it, by its
+// name, or, for the one Here is, what a build daemon builds, runs and
+// releases.
 type Workspace struct {
 	client *Client
 	// name is the workspace's name; empty for the one Here is, and for
 	// one given none.
 	name string
-	// here is whether it is the one Here is, asked by no name.
+	// here is whether it is the one Here is, asked by no name: the one
+	// the Client's server, a build daemon, builds.
 	here bool
-
-	mu     sync.Mutex
-	daemon *connect.Client
 }
 
 // Name is the workspace's name; empty for the one Here is, and for one
@@ -262,7 +265,7 @@ func (w *Workspace) Name() string { return w.name }
 // ErrHere is what the workspace Here is refuses to do: what changes or
 // describes a workspace is asked of the control plane that keeps it,
 // from outside it, and inside a workspace's sandbox its source is fixed.
-var ErrHere = errors.New("inside a workspace's sandbox its source is fixed, and its daemon is asked to build, run and release alone: describe, fill, end and open a shell in a workspace from outside it, by its name")
+var ErrHere = errors.New("inside a workspace's sandbox its source is fixed, and a build daemon is asked to build, run and release alone: describe, fill, end and open a shell in a workspace from outside it, by its name")
 
 // ErrWorkspaceUnnamed is what a workspace given no name is refused
 // with: nothing is asked of a control plane for it.
@@ -409,7 +412,7 @@ var ErrPortInvalid = errors.New("a port of a workspace's sandbox is a number fro
 // ways, when either end does: it carries no closing of one direction
 // alone.
 //
-// The control plane carries no one to the port of the daemon's source
+// The control plane carries no one to the port of the supervisor's source
 // API, which is its own: that is refused with ReasonPortNotServed. A
 // port nothing listens on in the sandbox is no refusal by name: the
 // control plane says it could not reach it.
@@ -436,32 +439,25 @@ func (w *Workspace) tunnel(ctx context.Context, to string) (net.Conn, error) {
 	return conn, nil
 }
 
-// at is the connection to the workspace's daemon: the Client's own for
-// Here, or else the address the control plane says the daemon is at,
-// asked once.
-func (w *Workspace) at(ctx context.Context) (*connect.Client, error) {
-	w.mu.Lock()
-	known := w.daemon
-	w.mu.Unlock()
-	if known != nil {
-		return known, nil
+// ErrBuiltInside is what a workspace a control plane keeps refuses to
+// do: build, test, run, release and say what it is made of. A workspace
+// is built from inside it. The build API is served there, by a build
+// daemon on the sandbox's loopback, and is asked of a Client made for
+// that daemon's address, with its token (Here); a control plane neither
+// serves it nor forwards a call of it, and nothing is asked of one.
+var ErrBuiltInside = errors.New("a workspace is built from inside it: the build API is asked of a build daemon there, through a Client made for that daemon (Here), and of no control plane")
+
+// at is the connection to the build daemon the workspace is built by:
+// the Client's own for Here, and none for a workspace a control plane
+// keeps, which is refused before anything is asked.
+func (w *Workspace) at() (*connect.Client, error) {
+	switch {
+	case w.here:
+		return w.client.api, nil
+	case w.name == "":
+		return nil, ErrWorkspaceUnnamed
 	}
-	// Asked in the caller's own context, with no lock held: a lookup that
-	// fails keeps nothing, and the next call asks again.
-	held, err := w.Describe(ctx)
-	if err != nil {
-		return nil, err
-	}
-	address := held.GetStatus().GetBuildUri()
-	if address == "" {
-		return nil, notReady(nil, "the workspace %s is %s, and has no daemon to ask yet", w.name, stateOf(held))
-	}
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	if w.daemon == nil {
-		w.daemon = w.client.at(address)
-	}
-	return w.daemon, nil
+	return nil, ErrBuiltInside
 }
 
 // ready says why a workspace that waiting ended on cannot be worked in;

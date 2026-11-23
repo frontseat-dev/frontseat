@@ -55,7 +55,7 @@ func (r Release) String() string {
 // library registers with the process's flags is one of them.
 func Run(ctx context.Context, args []string, built Release) error {
 	flags := flag.NewFlagSet("frontseatd", flag.ContinueOnError)
-	listen := flags.String("listen", net.JoinHostPort("127.0.0.1", strconv.Itoa(ports.Daemon)), "the address to serve the build API on")
+	listen := flags.String("listen", "127.0.0.1:7600", "the address to serve the build API on")
 	sourceAddress := flags.String("source", net.JoinHostPort("127.0.0.1", strconv.Itoa(ports.Source)), "the address to serve the source API on: what the control plane tells the daemon to hold, which no route of the control plane's leads a caller to")
 	workspace := flags.String("workspace", ".", "the workspace's directory")
 	checkout := flags.Bool("checkout", false, "the workspace's directory is a checkout the daemon was given, as a job's is: one repository, which it builds and releases from as it is, bringing nothing into it; its tags are pushed to where the checkout says it was brought from; it is given with --name, by which the command line finds it (default: the daemon brings what it is told to hold, and is given none)")

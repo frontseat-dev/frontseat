@@ -195,7 +195,7 @@ func TestWholeIsSaidOfEntitiesAlone(t *testing.T) {
 // dropped and never said of what the workspace held already. The
 // control is an entity added, which the workspace is told whole.
 func TestWholeIsSaidOfTheEntitiesAddedAlone(t *testing.T) {
-	plane := &told{keeping: keeping{daemon: func() string { return "" }}}
+	plane := &told{keeping: keeping{}}
 	at := serving(t, func(api *connect.Server) { workspacev1alpha1connect.RegisterWorkspaceServiceHandler(api, plane) })
 	serverAt(t, at)
 	lastOpened(t, at, "named")
