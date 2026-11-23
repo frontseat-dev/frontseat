@@ -9,6 +9,7 @@ spec:
   lifecycle: experimental
   owner: jbadeau
   system: grid
+  dependsOn: [component:api, component:confine, component:core, component:go-sdk, component:testsupport]
   frontseat:
     # On the grid there is no local stack to reach: a test that needs one
     # says so first and is skipped, said why, as `mise run check` skips
@@ -16,7 +17,7 @@ spec:
     # The stack's tests read its image's files,
     # above their package.
     test:
-      inputs: [image/**]
+      inputs: [image/**, box.Dockerfile]
       environment: {FRONTSEAT_TEST_STACK: none}
 ---
 # What the code relies on that frontseat does not build: the local

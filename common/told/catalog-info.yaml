@@ -9,7 +9,7 @@ spec:
   lifecycle: experimental
   owner: jbadeau
   system: workspaces
-  dependsOn: [component:api, component:apko-plugin, component:backstage-plugin, component:buf-plugin, component:cargo-plugin, component:container-plugin, component:github-plugin, component:go-plugin, component:go-sdk, component:jest-plugin, component:npm-plugin, component:plugin-sdk, component:postgres-plugin, component:record, component:release-plugin]
+  dependsOn: [component:api, component:go-sdk, component:record]
   frontseat:
     # Generated here by the contracts' Buf workspace (api/buf.gen.*.yaml),
     # and nowhere else of this Component.

@@ -9,7 +9,7 @@ spec:
   lifecycle: experimental
   owner: jbadeau
   system: build
-  dependsOn: [component:apko-plugin, component:backstage-plugin, component:buf-plugin, component:cargo-plugin, component:container-plugin, component:github-plugin, component:go-plugin, component:go-sdk, component:jest-plugin, component:npm-plugin, component:plugin-sdk, component:postgres-plugin, component:release-plugin]
+  dependsOn: [component:api, component:apko-plugin, component:backstage-plugin, component:buf-plugin, component:cargo-plugin, component:container-plugin, component:github-plugin, component:go-plugin, component:go-sdk, component:jest-plugin, component:npm-plugin, component:plugin-sdk, component:postgres-plugin, component:release-plugin]
   frontseat:
     # The plugin host's tests, and those that load a plugin, run each
     # plugin's wasm module, from where its crate's wasm action left it
