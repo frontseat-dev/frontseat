@@ -311,3 +311,6 @@ func stoppedBy(actions []*buildv1.ActionResult) string {
 	}
 	return ""
 }
+
+// busy says whether a program's run has not ended.
+func (rs *runs) busy() bool { return anyGoing(&rs.mu, rs.made) }

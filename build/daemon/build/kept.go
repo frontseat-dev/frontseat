@@ -35,6 +35,18 @@ func (l *lasting[M]) change(change func(M)) {
 }
 
 // over reports whether it has ended.
+// anyGoing says whether one of what a daemon remembers has not ended.
+func anyGoing[T interface{ over() bool }](mu *sync.Mutex, made []T) bool {
+	mu.Lock()
+	defer mu.Unlock()
+	for _, each := range made {
+		if !each.over() {
+			return true
+		}
+	}
+	return false
+}
+
 func (l *lasting[M]) over() bool {
 	select {
 	case <-l.ended:

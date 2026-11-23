@@ -596,3 +596,6 @@ func publishedBy(actions []plan.Action, entities []record.Located, planned *rele
 	}
 	return "", false
 }
+
+// busy says whether a release has not ended.
+func (rs *releases) busy() bool { return anyGoing(&rs.mu, rs.made) }

@@ -87,6 +87,14 @@ func (d *Daemon) Close() {
 	})
 }
 
+// Busy says whether the daemon has anything in hand: a build, a run of a
+// program or a release that has not ended. Each was asked for and is
+// answered later, with no call waiting on it meanwhile, so a daemon that
+// ends itself when it has nothing to do asks this first.
+func (d *Daemon) Busy() bool {
+	return d.runs.busy() || d.programs.busy() || d.releases.busy()
+}
+
 // newDaemon composes the APIs over the supplied services. Close it when done.
 func newDaemon(config configuration) (*Daemon, error) {
 	held, err := directory.Open(config.Workspace, config.Mounted, config.System)
