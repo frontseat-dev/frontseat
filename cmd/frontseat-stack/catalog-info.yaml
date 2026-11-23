@@ -1,0 +1,53 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: frontseat-stack
+  namespace: frontseat
+  description: "The local stack brought up and down from a checkout, and the box and the stack's image built"
+spec:
+  type: service
+  lifecycle: experimental
+  owner: jbadeau
+  system: grid
+  dependsOn: [component:apko-plugin, component:backstage-plugin, component:buf-plugin, component:cargo-plugin, component:confine, component:container-plugin, component:core, component:git, component:github-plugin, component:go-plugin, component:go-sdk, component:jest-plugin, component:stack, component:npm-plugin, component:plugin-sdk, component:postgres-plugin, component:record, component:release-plugin, component:sandbox, component:testsupport, component:told, component:vcs, component:workspace-server]
+  frontseat:
+    # The program is shipped for where it runs: each platform is a file
+    # of its own in a release, frontseat-stack-<os>-<arch>.
+    platforms: [linux/amd64, linux/arm64, darwin/arm64]
+    # The plugin host's tests, and those that load a plugin, run each
+    # plugin's wasm module, from where its crate's wasm action left it
+    # (testsupport/testmodule), against each plugin's fixtures; the
+    # matcher's test holds it to the testkit's shared cases.
+    # On the grid there is no local stack to reach: a test that needs one
+    # says so first and is skipped, said why, as `mise run check` skips
+    # it (testsupport/testrequired); `mise run test` runs it.
+    test:
+      environment: {FRONTSEAT_TEST_STACK: none}
+      # What the tests read of other Components, found where Frontseat
+      # tells a test its repository is (FRONTSEAT_TEST_SRCDIR): the Go
+      # SDK's module files, which a generated fixture is laid out with;
+      # the repository's tool pins, which a fixture is pinned with; and
+      # the plugins, by their crates, and their fixtures; and the
+      # configuration reference, whose examples the configuration's
+      # reader is held to.
+      inputs:
+        - /docs/configuration.md
+        - /sdk/go/go.mod
+        - /sdk/go/go.sum
+        - /mise.toml
+        - /mise.lock
+        - /plugins/*/Cargo.toml
+        - /plugins/*/testdata/**
+        - /sdk/plugin-test/testdata/**
+        - //plugins/apko:cargo.package/wasm32-wasip1
+        - //plugins/backstage:cargo.package/wasm32-wasip1
+        - //plugins/buf:cargo.package/wasm32-wasip1
+        - //plugins/cargo:cargo.package/wasm32-wasip1
+        - //plugins/container:cargo.package/wasm32-wasip1
+        - //plugins/github:cargo.package/wasm32-wasip1
+        - //plugins/go:cargo.package/wasm32-wasip1
+        - //plugins/jest:cargo.package/wasm32-wasip1
+        - //plugins/npm:cargo.package/wasm32-wasip1
+        - //plugins/postgres:cargo.package/wasm32-wasip1
+        - //plugins/release:cargo.package/wasm32-wasip1
+        - //sdk/plugin:cargo.compile/wasm32-wasip1-examples

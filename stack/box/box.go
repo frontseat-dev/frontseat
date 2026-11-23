@@ -4,8 +4,8 @@
 // workers run (local.Files.Image). Nothing is fetched over the
 // network.
 //
-// It is the one build of the box: `mise run build` (frontseat-local box),
-// the local stack (frontseat-local up) and the gate before the tests it
+// It is the one build of the box: `mise run build` (frontseat-stack box),
+// the local stack (frontseat-stack up) and the gate before the tests it
 // runs all build it here. Every build is tagged by what it holds
 // (frontseat-box:<the first twelve hex digits of its image id>), a tag no
 // other build moves, since another content is another tag: whoever runs
@@ -95,7 +95,7 @@ func (b Build) Run(ctx context.Context) (string, error) {
 		return "", err
 	}
 
-	for _, binary := range []string{"frontseatd", "frontseat", "frontseat-runner", "frontseat-local", "frontseat-confine"} {
+	for _, binary := range []string{"frontseatd", "frontseat", "frontseat-runner", "frontseat-server", "frontseat-stack", "frontseat-confine"} {
 		say("building %s for linux/%s", binary, goarch)
 		if err := linux(ctx, b.Root, binary, goarch, filepath.Join(laid, binary)); err != nil {
 			return "", err
@@ -336,7 +336,8 @@ var programs = map[string]string{
 	"frontseat":         "cli/cmd/frontseat",
 	"frontseatd":        "cmd/frontseatd",
 	"frontseat-runner":  "cmd/frontseat-runner",
-	"frontseat-local":   "cmd/frontseat-local",
+	"frontseat-server":  "cmd/frontseat-server",
+	"frontseat-stack":   "cmd/frontseat-stack",
 	"frontseat-confine": "cmd/frontseat-confine",
 }
 

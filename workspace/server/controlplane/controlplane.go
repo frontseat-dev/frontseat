@@ -1284,7 +1284,7 @@ type Gateway struct {
 }
 
 // OverGateway serves a control plane whose workspaces live in sandboxes
-// an OpenShell gateway makes: what frontseat-local serves. What runs in
+// an OpenShell gateway makes: what frontseat-server serves. What runs in
 // a workspace's sandbox may write the workspace and what the daemon
 // keeps, and nowhere else. A gateway that does not answer is an error
 // here, and nothing is served over it.

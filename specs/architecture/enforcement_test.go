@@ -121,7 +121,7 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		// What the local control plane is known to its gateway by is a
 		// secret in files of its own, held as its other secrets are; a
 		// daemon keeps none so.
-		{"cmd/frontseat-local/main.go", "core/secretfile", true},
+		{"cmd/frontseat-server/main.go", "core/secretfile", true},
 		{"cmd/frontseatd/main.go", "core/secretfile", false},
 		{"build/engine/exec/fix/fix.go", "build/engine/exec/here", true},
 		{"build/engine/exec/publish/publish.go", "build/engine/exec/here", true},
@@ -253,7 +253,7 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		{"specs/cli/local_test.go", "stack/box", false},
 		{"specs/sandbox/support_test.go", "stack/box", false},
 		{"specs/local/box_test.go", "stack", false},
-		{"stack/testsupport/testbox/testbox.go", "cmd/frontseat-local", false},
+		{"stack/testsupport/testbox/testbox.go", "cmd/frontseat-server", false},
 		{"stack/testsupport/testbox/stack.go", "stack", true},
 		{"stack/testsupport/testgrid/testgrid.go", "stack", false},
 		{"stack/testsupport/testgrid/testgrid.go", "common/confine", true},
@@ -300,10 +300,10 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		{"stack/container.go", "core/httpserver", false},
 		// The local stack's program is the control plane told what the
 		// stack is; the control plane is told nothing of the stack.
-		{"cmd/frontseat-local/main.go", "workspace/server/controlplane", true},
-		{"cmd/frontseat-local/main.go", "stack/local", true},
-		{"cmd/frontseat-local/local.go", "stack", true},
-		{"cmd/frontseat-local/main.go", "sandbox", false},
+		{"cmd/frontseat-server/main.go", "workspace/server/controlplane", true},
+		{"cmd/frontseat-server/main.go", "stack/local", true},
+		{"cmd/frontseat-stack/main.go", "stack", true},
+		{"cmd/frontseat-server/main.go", "sandbox", false},
 		{"workspace/server/controlplane/controlplane.go", "stack/local", false},
 		{"stack/local/local.go", "workspace/server/controlplane", false},
 		// The ports are said once, and read by what opens, serves or asks

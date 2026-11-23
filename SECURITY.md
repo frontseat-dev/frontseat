@@ -48,7 +48,7 @@ there as the daemon, in a release someone asked for. A release that
 pushes a tag to a remote given as a directory runs that directory's own
 hooks as the daemon.
 
-The local stack (`frontseat-local up`) is one container for a trusted
+The local stack (`frontseat-stack up`) is one container for a trusted
 development machine. Its grid asks no one who they are and listens on the
 loopback alone. That it is unauthenticated is not a vulnerability; a way to
 reach it from another machine or from inside a sandbox is.

@@ -219,7 +219,7 @@ func built(t *testing.T, program string) string {
 	return out
 }
 
-// localServer is frontseat-local, as a person starts it, on a port of
+// localServer is frontseat-server, as a person starts it, on a port of
 // its own, with a state of its own and the flags given beside: where it
 // is asked, and its state. It is stopped when the test ends.
 func localServer(t *testing.T, program string, flags ...string) (string, string) {
@@ -250,7 +250,7 @@ func localServer(t *testing.T, program string, flags ...string) (string, string)
 			break
 		}
 		if time.Now().After(deadline) {
-			t.Fatalf("frontseat-local did not answer on %s: %v", address, err)
+			t.Fatalf("frontseat-server did not answer on %s: %v", address, err)
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
@@ -258,11 +258,11 @@ func localServer(t *testing.T, program string, flags ...string) (string, string)
 }
 
 // A workspace is opened by entity alone where the control plane's
-// operator gave it a Backstage: frontseat-local --backstage, here a fake
+// operator gave it a Backstage: frontseat-server --backstage, here a fake
 // Backstage that holds the forge's entities, resolves component:gateway
 // to the repository its backstage.io/source-location names, and greet,
 // which it depends on, to the other; the box clones those and builds
-// them. The control is frontseat-local without --backstage, which
+// them. The control is frontseat-server without --backstage, which
 // refuses the same UNIMPLEMENTED, ENTITIES_NOT_SERVED, and makes no
 // sandbox.
 func TestAWorkspaceOpenedByEntityClonesWhatItsBackstageSays(t *testing.T) {
@@ -272,7 +272,7 @@ func TestAWorkspaceOpenedByEntityClonesWhatItsBackstageSays(t *testing.T) {
 	// any remote; the control plane resolves through the Backstage.
 	forge := testforge.Served(t)
 	catalog := backstagetest.Serve(t, forge.Entities(t))
-	server, command := built(t, "cmd/frontseat-local"), built(t, "cli/cmd/frontseat")
+	server, command := built(t, "cmd/frontseat-server"), built(t, "cli/cmd/frontseat")
 	ctx := context.Background()
 
 	// The control: no Backstage, and opening by entity is refused by name.

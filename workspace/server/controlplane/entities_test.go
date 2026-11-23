@@ -53,7 +53,7 @@ metadata:
 `
 
 // resolving has a control plane resolve entities through a fake
-// Backstage, as frontseat-local's --backstage does.
+// Backstage, as frontseat-server's --backstage does.
 func resolving(t *testing.T, fake backstagetest.Served) func(*Config) {
 	t.Helper()
 	catalog, err := backstage.New(backstage.Config{Base: fake.URL, Token: fake.Token, Loopback: true})

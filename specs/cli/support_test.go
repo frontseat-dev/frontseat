@@ -7,14 +7,14 @@ import (
 )
 
 // local serves a control plane over the local stack's OpenShell gateway,
-// as frontseat-local does, and returns it. Without a grid the test is
+// as frontseat-server does, and returns it. Without a grid the test is
 // skipped, before a gateway is asked for.
 func local(t *testing.T) controlplanetest.Served {
 	t.Helper()
 	return controlplanetest.Start(t)
 }
 
-// endLeft ends what a frontseat-local of the test's, stopped, left in
+// endLeft ends what a frontseat-server of the test's, stopped, left in
 // the local stack's gateway: the sandboxes recorded in its state.
 func endLeft(t *testing.T, identity, state string) {
 	t.Helper()

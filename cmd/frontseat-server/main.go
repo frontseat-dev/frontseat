@@ -1,4 +1,4 @@
-// Command frontseat-local serves the control plane on this machine, over
+// Command frontseat-server serves the control plane on this machine, over
 // an OpenShell gateway that makes each workspace's sandbox with the
 // machine's container runtime: what makes workspaces where there is no
 // platform. It keeps everything of its own beneath one directory
@@ -13,15 +13,8 @@
 // Its sandboxes build on the grid of the local stack (stack/image), which they
 // reach through the machine they run on.
 //
-// It also brings that stack up or down from a checkout, and builds the
-// box, each by a word first (local.go):
-//
-//	frontseat-local ready                        whether this checkout may bring the stack up (mise start, before it builds)
-//	frontseat-local up [--plugins DIR]           the stack, from this checkout, running the box built from it (mise start)
-//	frontseat-local down                         the stack, whichever checkout started it, from anywhere (mise stop)
-//	frontseat-local box [--tag T] [--plugins DIR] the box image, printing its tag of its content (mise run build)
-//	frontseat-local image [--box B] [--tag T]       the stack's one image (stack/image), on the box, printing its tag of its content
-//	frontseat-local init PROGRAM...             the stack container's first process: readies it, then becomes PROGRAM
+// What brings that stack up and down from a checkout, and builds the box
+// and the stack's image, is frontseat-stack.
 package main
 
 import (
@@ -63,11 +56,6 @@ func kept() string {
 }
 
 func main() {
-	if len(os.Args) > 1 {
-		if word, known := words[os.Args[1]]; known {
-			os.Exit(word(os.Args[2:]))
-		}
-	}
 	listen := flag.String("listen", net.JoinHostPort("127.0.0.1", strconv.Itoa(ports.ControlPlane)), "the address to serve the control plane on")
 	grid := flag.String("grid", net.JoinHostPort("host.docker.internal", strconv.Itoa(ports.Grid)), "the grid its sandboxes build on, as a sandbox reaches it")
 	public := flag.String("public", "", "the address its clients reach it at, as a URL, where that is not the address it listens on: a sandbox's ports are said to be beneath it")
@@ -87,13 +75,13 @@ func main() {
 
 	catalog, err := catalogOf(*backstageURL, *backstageToken, *backstageLoopback)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "frontseat-local:", err)
+		fmt.Fprintln(os.Stderr, "frontseat-server:", err)
 		os.Exit(1)
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	if err := serve(ctx, told{listen: *listen, public: *public, grid: *grid, state: *state, openshell: *openshell, identity: *identity, runtime: *runtime, box: *box, token: token, catalog: catalog}); err != nil {
-		fmt.Fprintln(os.Stderr, "frontseat-local:", err)
+		fmt.Fprintln(os.Stderr, "frontseat-server:", err)
 		os.Exit(1)
 	}
 }
@@ -235,10 +223,10 @@ type told struct {
 }
 
 func serve(ctx context.Context, f told) error {
-	signals, stop, err := telemetry.Setup(ctx, "frontseat-local")
+	signals, stop, err := telemetry.Setup(ctx, "frontseat-server")
 	defer func() {
 		if err := telemetry.Ended(stop); err != nil {
-			fmt.Fprintln(os.Stderr, "frontseat-local: telemetry:", err)
+			fmt.Fprintln(os.Stderr, "frontseat-server: telemetry:", err)
 		}
 	}()
 	if err != nil {
@@ -278,6 +266,6 @@ func serve(ctx context.Context, f told) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(os.Stderr, "frontseat-local: serving workspaces on %s to the owner of the token in %s, in sandboxes made by the OpenShell gateway at %s, building on the grid at %s\n", f.listen, f.token, gateway, f.grid)
+	fmt.Fprintf(os.Stderr, "frontseat-server: serving workspaces on %s to the owner of the token in %s, in sandboxes made by the OpenShell gateway at %s, building on the grid at %s\n", f.listen, f.token, gateway, f.grid)
 	return httpserver.Serve(ctx, listener, signals.Handler(plane, "control plane"))
 }

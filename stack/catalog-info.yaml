@@ -3,7 +3,7 @@ kind: Component
 metadata:
   name: stack
   namespace: frontseat
-  description: "The local stack: its one container's image and the configuration of the grid, its runner sandboxes, the asset service and the OpenShell gateway; what the stack is, read from its files (package local); the stack brought up and down from a checkout (package stack, frontseat-local up and down); and the box image a workspace's sandbox runs, with its one build (package box)"
+  description: "The local stack: its one container's image and the configuration of the grid, its runner sandboxes, the asset service and the OpenShell gateway; what the stack is, read from its files (package local); the stack brought up and down from a checkout (package stack, frontseat-stack up and down); and the box image a workspace's sandbox runs, with its one build (package box)"
 spec:
   type: stack
   lifecycle: experimental

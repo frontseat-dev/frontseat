@@ -1,5 +1,5 @@
 // Package stack brings the local stack up or down from a checkout
-// (frontseat-local up, frontseat-local down; mise start and mise stop):
+// (frontseat-stack up, frontseat-stack down; mise start and mise stop):
 // one container of the stack's image (stack/image), which holds the grid,
 // the OpenShell gateway, the control plane and every sandbox, on the
 // ports core/ports says, on this machine's loopback alone.

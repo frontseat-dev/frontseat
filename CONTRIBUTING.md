@@ -95,11 +95,11 @@ mise run test
 ```
 
 `mise start` builds what changed and has the stack run it; run it again
-after a change to what the stack runs. It is `frontseat-local up`: it
+after a change to what the stack runs. It is `frontseat-stack up`: it
 builds the box image from this checkout every time and names it by what
 it holds, so the stack runs this checkout's box whatever another checkout
 built since; a stack another checkout started is refused, and `mise
-stop` (`frontseat-local down`) stops it from any checkout. It also lays out the token the
+stop` (`frontseat-stack down`) stops it from any checkout. It also lays out the token the
 stack's control plane knows you by, in `$XDG_CONFIG_HOME/frontseat/local/token` (else `~/.config/frontseat/local/token`),
 which the command line and the specs that ask the stack present; the
 control plane answers nothing without it, and serves the sandbox API to

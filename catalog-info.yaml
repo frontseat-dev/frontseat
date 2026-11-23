@@ -111,7 +111,8 @@ spec:
     - ./build/daemon/catalog-info.yaml
     - ./build/engine/catalog-info.yaml
     - ./cmd/frontseat-confine/catalog-info.yaml
-    - ./cmd/frontseat-local/catalog-info.yaml
+    - ./cmd/frontseat-server/catalog-info.yaml
+    - ./cmd/frontseat-stack/catalog-info.yaml
     - ./cmd/frontseat-runner/catalog-info.yaml
     - ./cmd/frontseatd/catalog-info.yaml
     - ./common/confine/catalog-info.yaml

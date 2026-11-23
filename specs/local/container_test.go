@@ -21,7 +21,7 @@ import (
 
 // The local stack boots as one container of this checkout's image,
 // started as the stack starts it, beside whatever stack runs here: every
-// service up and staying up, Podman in the cgroup frontseat-local init
+// service up and staying up, Podman in the cgroup frontseat-stack init
 // gives frontseat, and the control plane answering its owner alone.
 func TestTheStackBootsAsOneContainer(t *testing.T) {
 	testrequired.Stack(t)
@@ -60,7 +60,7 @@ func TestTheStackBootsAsOneContainer(t *testing.T) {
 	}
 	out, err := exec.CommandContext(ctx, "docker", "exec", own, "sh", "-c", "cat /proc/$(pgrep -f 'podman system service' | head -1)/cgroup").Output()
 	if err != nil || strings.TrimSpace(string(out)) != "0::/frontseat/podman" {
-		t.Errorf("Podman runs in %q, want the cgroup frontseat-local init gives frontseat: %v", out, err)
+		t.Errorf("Podman runs in %q, want the cgroup frontseat-stack init gives frontseat: %v", out, err)
 	}
 	// What the container asks for names is its own resolver alone: its
 	// resolv.conf names it, and so does what Podman writes for a

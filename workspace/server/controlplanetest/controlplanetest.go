@@ -1,5 +1,5 @@
 // Package controlplanetest starts, for a test, the control plane there is
-// where there is no platform: what frontseat-local serves, workspaces
+// where there is no platform: what frontseat-server serves, workspaces
 // over the sandboxes beneath them made by the local stack's OpenShell
 // gateway, with sandboxes that build on the grid of
 // the local stack. The specs and the comparisons start one with
@@ -59,7 +59,7 @@ type options struct {
 }
 
 // WithBackstage has the control plane resolve entities through a fake
-// Backstage, as frontseat-local's --backstage, --backstage-token and
+// Backstage, as frontseat-server's --backstage, --backstage-token and
 // --backstage-loopback do; without it, it resolves none.
 func WithBackstage(t testing.TB, fake backstagetest.Served) Option {
 	t.Helper()

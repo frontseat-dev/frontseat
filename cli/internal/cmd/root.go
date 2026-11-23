@@ -165,7 +165,7 @@ func unanswered() string {
 	if at, err := machine.Server(); err == nil && at != machine.Stack {
 		return "the control plane frontseat/local/server names does not answer"
 	}
-	return "the local stack does not answer: `frontseat-local up` starts it (in a checkout of Frontseat, `mise start`)"
+	return "the local stack does not answer: `frontseat-stack up` starts it (in a checkout of Frontseat, `mise start`)"
 }
 
 // Name is the command the arguments name, as it is said of in a trace:

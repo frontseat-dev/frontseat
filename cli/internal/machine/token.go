@@ -57,7 +57,7 @@ func Token() (string, error) {
 		return "", err
 	}
 	if !written.Match(raw) {
-		return "", fmt.Errorf("%s holds no token: it is one line, as its control plane gave it; `frontseat-local up` lays the local stack's out again", path)
+		return "", fmt.Errorf("%s holds no token: it is one line, as its control plane gave it; `frontseat-stack up` lays the local stack's out again", path)
 	}
 	return strings.TrimSuffix(string(raw), "\n"), nil
 }
