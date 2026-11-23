@@ -12,6 +12,7 @@ import (
 	"connectrpc.com/connect/v2"
 	"connectrpc.com/connect/v2/connecthttp"
 
+	"github.com/frontseat-dev/frontseat/common/record/buildfile"
 	sourcev1 "github.com/frontseat-dev/frontseat/common/told/sourceapi/frontseat/source/v1alpha1"
 	"github.com/frontseat-dev/frontseat/common/told/sourceapi/frontseat/source/v1alpha1/sourcev1alpha1connect"
 	"github.com/frontseat-dev/frontseat/workspace/box/supervisor"
@@ -152,5 +153,46 @@ func TestAProgramStandsInItsWorkspace(t *testing.T) {
 	missing := "no-such-directory"
 	if err := supervisor.Stood(&missing, nil); err == nil {
 		t.Error("a workspace that is no directory was stood in")
+	}
+}
+
+// A supervisor writes what a build in its workspace is told, as the
+// control plane told it by its arguments, the grid, its asset service
+// and its workers' platform, with the box's plugins, where a build there
+// reads its settings, before it serves anything. Told no grid, it writes
+// nothing: the control.
+func TestASupervisorWritesWhatABuildInItsWorkspaceIsTold(t *testing.T) {
+	root := t.TempDir()
+	settings := filepath.Join(root, "kept", "build.yaml")
+	s, err := supervisor.Open(supervisor.Config{Source: "127.0.0.1:0", Workspace: filepath.Join(root, "work"), Name: "payments", Lock: filepath.Join(root, "kept", "box.lock"), Settings: settings,
+		Build: buildfile.File{Plugins: "/opt/frontseat/plugins", Grid: buildfile.Grid{Address: "grid:8980", Assets: "grid:8983"}, Platform: map[string]string{"OSFamily": "linux", "ISA": "aarch64"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Close()
+	told, err := buildfile.Read(settings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if told.Version != buildfile.Version || told.Plugins != "/opt/frontseat/plugins" || told.Grid.Address != "grid:8980" || told.Grid.Assets != "grid:8983" || told.Platform["ISA"] != "aarch64" || len(told.Platform) != 2 {
+		t.Errorf("a build is told %+v; want the grid, its assets, the platform and the plugins as the supervisor was told them", told)
+	}
+
+	beside := t.TempDir()
+	none := filepath.Join(beside, "build.yaml")
+	quiet, err := supervisor.Open(supervisor.Config{Source: "127.0.0.1:0", Workspace: filepath.Join(beside, "work"), Name: "payments", Lock: filepath.Join(beside, "box.lock"), Settings: none})
+	if err != nil {
+		t.Fatal(err)
+	}
+	quiet.Close()
+	if _, err := os.Stat(none); err == nil {
+		t.Error("the control: a supervisor told no grid wrote settings")
+	}
+	// A property that is none, or given twice, is refused where it is
+	// asked.
+	for _, wrongly := range [][]string{{"--name", "payments", "--platform", "ISA"}, {"--name", "payments", "--platform", "ISA=a", "--platform", "ISA=b"}} {
+		if err := supervisor.Run(t.Context(), wrongly); err != supervisor.ErrUsage {
+			t.Errorf("asked %q: %v; want %v", wrongly, err, supervisor.ErrUsage)
+		}
 	}
 }

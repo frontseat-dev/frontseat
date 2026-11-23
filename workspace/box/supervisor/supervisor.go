@@ -19,6 +19,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/frontseat-dev/frontseat/common/record/buildfile"
 	"github.com/frontseat-dev/frontseat/core/httpserver"
 	"github.com/frontseat-dev/frontseat/core/ports"
 	"github.com/frontseat-dev/frontseat/core/telemetry"
@@ -41,6 +42,12 @@ type Config struct {
 	// Lock is the sandbox's lock; empty, where every program of the
 	// sandbox finds it (ports.Lock).
 	Lock string
+	// Build is what a build in the workspace is told, as the control
+	// plane said it: the grid, and the plugins of the box. With a grid,
+	// it is written to Settings, which is where a build there reads it
+	// (ports.Settings where empty); with none, nothing is written.
+	Build    buildfile.File
+	Settings string
 }
 
 // Supervisor is a box's supervisor, holding its sandbox's lock and
@@ -73,6 +80,18 @@ func Open(config Config) (*Supervisor, error) {
 		return nil, err
 	}
 	s.closes = append(s.closes, release)
+	// What a build is told is written before anything is served, so that
+	// the first command in the workspace finds it: whole, in place of
+	// what a supervisor before this one wrote.
+	if config.Build.Grid.Address != "" {
+		if config.Settings == "" {
+			config.Settings = ports.Settings
+		}
+		if err := buildfile.Write(config.Settings, config.Build); err != nil {
+			s.Close()
+			return nil, fmt.Errorf("what a build in the workspace is told: %w", err)
+		}
+	}
 	if config.AuthorizedKey != "" {
 		closeShell, err := Shell(program, config.Shell, config.Workspace, config.AuthorizedKey)
 		if closeShell != nil {
@@ -143,6 +162,23 @@ func Run(ctx context.Context, args []string) error {
 	flags.StringVar(&config.Name, "name", "", "the name of the workspace it holds: the control plane that made the sandbox says it")
 	flags.StringVar(&config.Shell, "shell", net.JoinHostPort("127.0.0.1", strconv.Itoa(ports.Shell)), "the address to serve SSH on, to the key --authorized-key gives; with none, no shell is served")
 	flags.StringVar(&config.AuthorizedKey, "authorized-key", "", "the key let into the shell, as a line of authorized_keys: a sandbox a person works in")
+	flags.StringVar(&config.Build.Grid.Address, "grid", "", "the address of the grid a build in the workspace runs its actions on, host:port: it is written where a build there reads its settings")
+	flags.StringVar(&config.Build.Grid.Assets, "assets", "", "the address of the grid's asset service, host:port")
+	flags.StringVar(&config.Build.Plugins, "plugins", "", "the directory of the box's plugins: every <name>.wasm in it is loaded by a build")
+	flags.Func("platform", "a property of the grid's workers, as name=value; give it once for each", func(property string) error {
+		name, value, found := strings.Cut(property, "=")
+		if !found || name == "" {
+			return errors.New("want name=value")
+		}
+		if _, twice := config.Build.Platform[name]; twice {
+			return fmt.Errorf("%s is given twice", name)
+		}
+		if config.Build.Platform == nil {
+			config.Build.Platform = map[string]string{}
+		}
+		config.Build.Platform[name] = value
+		return nil
+	})
 	flags.SetOutput(os.Stderr)
 	switch err := flags.Parse(args); {
 	case errors.Is(err, flag.ErrHelp):

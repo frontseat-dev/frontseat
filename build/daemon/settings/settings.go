@@ -10,10 +10,8 @@
 package settings
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -21,13 +19,9 @@ import (
 	"slices"
 	"strings"
 
-	"go.yaml.in/yaml/v4"
-
 	"github.com/frontseat-dev/frontseat/build/daemon/build"
+	"github.com/frontseat-dev/frontseat/common/record/buildfile"
 )
-
-// version is the version of the file this daemon reads.
-const version = 1
 
 // Settings are what a build daemon is told.
 type Settings struct {
@@ -43,47 +37,17 @@ type Settings struct {
 	Given []string
 }
 
-// file is the settings as they are written.
-type file struct {
-	Version int    `yaml:"version"`
-	Plugins string `yaml:"plugins"`
-	Grid    struct {
-		Address     string `yaml:"address"`
-		Instance    string `yaml:"instance"`
-		Assets      string `yaml:"assets"`
-		TLS         bool   `yaml:"tls"`
-		Authorities string `yaml:"authorities"`
-		Token       string `yaml:"token"`
-		Rewrites    []struct {
-			From string `yaml:"from"`
-			To   string `yaml:"to"`
-		} `yaml:"rewrites"`
-	} `yaml:"grid"`
-	Platform map[string]string `yaml:"platform"`
-	Publish  struct {
-		Environment []string `yaml:"environment"`
-	} `yaml:"publish"`
-}
-
-// Read reads a daemon's settings from a file. A path the file names is
-// from the file's own directory. It is refused where it says a key that
-// is none, another version or a second document, where its plugins are
-// not there, and where its grid could not be asked as it says.
+// Read reads a daemon's settings from a file (buildfile). A path the
+// file names is from the file's own directory. It is refused where it
+// says a key that is none, another version or a second document, where
+// its plugins are not there, and where its grid could not be asked as it
+// says.
 func Read(path string) (Settings, error) {
-	raw, err := os.ReadFile(path)
+	said, err := buildfile.Read(path)
 	if err != nil {
-		return Settings{}, fmt.Errorf("the build's settings: %w", err)
+		return Settings{}, err
 	}
-	var said file
-	strict := yaml.NewDecoder(bytes.NewReader(raw))
-	strict.KnownFields(true)
-	if err := strict.Decode(&said); err != nil {
-		return Settings{}, fmt.Errorf("the build's settings (%s): %w", path, err)
-	}
-	if err := strict.Decode(new(file)); !errors.Is(err, io.EOF) {
-		return Settings{}, fmt.Errorf("the build's settings (%s) are one document, and hold another", path)
-	}
-	told, err := said.told(filepath.Dir(path))
+	told, err := told(said, filepath.Dir(path))
 	if err != nil {
 		return Settings{}, fmt.Errorf("the build's settings (%s): %w", path, err)
 	}
@@ -92,15 +56,12 @@ func Read(path string) (Settings, error) {
 
 // told is what the file says, held to what a daemon can be told, with
 // every path from a directory.
-func (f file) told(dir string) (Settings, error) {
+func told(f buildfile.File, dir string) (Settings, error) {
 	from := func(path string) string {
 		if path == "" || filepath.IsAbs(path) {
 			return path
 		}
 		return filepath.Join(dir, path)
-	}
-	if f.Version != version {
-		return Settings{}, fmt.Errorf("version is %d, and this daemon reads version %d", f.Version, version)
 	}
 	if f.Plugins == "" {
 		return Settings{}, errors.New("plugins names no directory: a daemon with no plugin builds nothing")
