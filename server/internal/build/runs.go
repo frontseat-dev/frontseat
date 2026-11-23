@@ -27,6 +27,7 @@ import (
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/entity"
 	"github.com/frontseat-dev/frontseat/sdk/go/enum"
+	"github.com/frontseat-dev/frontseat/server/internal/directory"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/evaluate"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/graph"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/plan"
@@ -38,7 +39,6 @@ import (
 	"github.com/frontseat-dev/frontseat/server/internal/history"
 	"github.com/frontseat-dev/frontseat/server/internal/model"
 	"github.com/frontseat-dev/frontseat/server/internal/pluginhost"
-	sourced "github.com/frontseat-dev/frontseat/server/internal/source"
 	"github.com/frontseat-dev/frontseat/server/internal/source/record"
 	"github.com/frontseat-dev/frontseat/server/telemetry"
 )
@@ -65,7 +65,7 @@ var errNotFound = errors.New("no build has that id")
 // builds is a daemon's builds. A build belongs to the daemon, not to the
 // call that made it: it goes on when its caller goes away.
 type builds struct {
-	workspace *sourced.Workspace
+	workspace *directory.Directory
 	plugins   []*pluginhost.Plugin
 	// tools is where a fix's work is kept: tool trees by digest, and copies.
 	tools string
@@ -129,7 +129,7 @@ func (rs *builds) stop() {
 // daemons before it, and those it will make. A run a daemon died under
 // is ended here, and says so. The runs that ended long ago are let go by
 // the clock given, which is the machine's own where none is.
-func newBuilds(held *sourced.Workspace, plugins []*pluginhost.Plugin, executor exec.Executor, downloads download.Fetcher, platform map[string]string, signals *telemetry.Signals, kept string, now func() time.Time) (*builds, error) {
+func newBuilds(held *directory.Directory, plugins []*pluginhost.Plugin, executor exec.Executor, downloads download.Fetcher, platform map[string]string, signals *telemetry.Signals, kept string, now func() time.Time) (*builds, error) {
 	keptHistory, err := history.Open(kept)
 	if err != nil {
 		return nil, err

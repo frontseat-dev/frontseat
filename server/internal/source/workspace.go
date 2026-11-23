@@ -9,11 +9,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"sync"
 	"time"
 
-	"github.com/frontseat-dev/frontseat/server/internal/source/internal/manifest"
+	"github.com/frontseat-dev/frontseat/server/internal/manifest"
 	"github.com/frontseat-dev/frontseat/server/internal/source/internal/populate"
 	"github.com/frontseat-dev/frontseat/server/internal/source/internal/vcs/git"
 	"github.com/frontseat-dev/frontseat/server/internal/source/record"
@@ -116,142 +115,6 @@ func (w *Workspace) Close() {
 	w.mu.Unlock()
 	w.stop()
 	w.passes.Wait()
-}
-
-// history returns what tells the history of one of the workspace's
-// repositories, and the directory it is in. A repository is named as the
-// workspace holds it, and no other directory is asked of.
-func (w *Workspace) history(repository string) (vcs.History, string, error) {
-	told, ok := w.system.(vcs.History)
-	if !ok {
-		return nil, "", errors.New("the workspace's version control system tells no history")
-	}
-	// A checkout the daemon was given is one repository, of no name,
-	// in the workspace's own directory.
-	if w.mounted {
-		if repository != "" {
-			return nil, "", fmt.Errorf("the workspace is a checkout the daemon was given, and holds no repository %q", repository)
-		}
-		return told, w.root, nil
-	}
-	held, _ := w.Now()
-	for _, each := range held.Repositories {
-		if each.Name == repository {
-			return told, filepath.Join(w.root, each.Name), nil
-		}
-	}
-	return nil, "", fmt.Errorf("the workspace holds no repository %q", repository)
-}
-
-// Standing says where one of the workspace's repositories stands.
-func (w *Workspace) Standing(ctx context.Context, repository string) (vcs.Standing, error) {
-	told, directory, err := w.history(repository)
-	if err != nil {
-		return vcs.Standing{}, err
-	}
-	standing, err := told.Standing(ctx, directory)
-	// A checkout the daemon was given says itself where its tags are
-	// pushed: one that says nowhere a tag can be pushed is not planned
-	// from, so that nothing is built and tagged that cannot be sent.
-	if err == nil && w.mounted {
-		_, err = told.Origin(ctx, directory)
-	}
-	return standing, err
-}
-
-// Tags returns the tags of one of the workspace's repositories.
-func (w *Workspace) Tags(ctx context.Context, repository string) ([]vcs.Tag, error) {
-	told, directory, err := w.history(repository)
-	if err != nil {
-		return nil, err
-	}
-	return told.Tags(ctx, directory)
-}
-
-// Changes returns what changed directories of one of the workspace's
-// repositories since a revision.
-func (w *Workspace) Changes(ctx context.Context, repository, since string, directories []string) ([]vcs.Change, error) {
-	told, directory, err := w.history(repository)
-	if err != nil {
-		return nil, err
-	}
-	return told.Changes(ctx, directory, since, directories)
-}
-
-// Uncommitted returns the files of one of the workspace's repositories
-// that are not as its revision has them.
-func (w *Workspace) Uncommitted(ctx context.Context, repository string) ([]string, error) {
-	told, directory, err := w.history(repository)
-	if err != nil {
-		return nil, err
-	}
-	return told.Uncommitted(ctx, directory)
-}
-
-// Ignored returns what is in one of the workspace's repositories that
-// its version control system is told to ignore, and the directory the
-// repository is in.
-func (w *Workspace) Ignored(ctx context.Context, repository string) (paths []string, directory string, err error) {
-	told, directory, err := w.history(repository)
-	if err != nil {
-		return nil, "", err
-	}
-	paths, err = told.Ignored(ctx, directory)
-	return paths, directory, err
-}
-
-// Tag names a revision of one of the workspace's repositories by a tag.
-func (w *Workspace) Tag(ctx context.Context, repository, name, revision string) error {
-	told, directory, err := w.history(repository)
-	if err != nil {
-		return err
-	}
-	return told.Tag(ctx, directory, name, revision)
-}
-
-// PushTag sends a tag of one of the workspace's repositories to where
-// that repository was brought from, and the tag alone.
-func (w *Workspace) PushTag(ctx context.Context, repository, name string) error {
-	told, directory, err := w.history(repository)
-	if err != nil {
-		return err
-	}
-	remote, err := w.Remote(ctx, repository)
-	if err != nil {
-		return err
-	}
-	return told.PushTag(ctx, directory, remote, name)
-}
-
-// Remote is where one of the workspace's repositories was brought from,
-// as its version control system writes one.
-func (w *Workspace) Remote(ctx context.Context, repository string) (string, error) {
-	// A checkout the daemon was given was brought by another, and says
-	// from where itself.
-	if w.mounted {
-		told, directory, err := w.history(repository)
-		if err != nil {
-			return "", err
-		}
-		return told.Origin(ctx, directory)
-	}
-	held, _ := w.Now()
-	for _, each := range held.Repositories {
-		if each.Name == repository {
-			return each.Remote, nil
-		}
-	}
-	return "", fmt.Errorf("the workspace holds no repository %q", repository)
-}
-
-// TagName holds a name to one the workspace's version control system
-// takes for a tag.
-func (w *Workspace) TagName(ctx context.Context, name string) error {
-	told, ok := w.system.(vcs.History)
-	if !ok {
-		return errors.New("the workspace's version control system tells no history")
-	}
-	return told.TagName(ctx, name)
 }
 
 // NameOf returns the name a repository is given in the workspace when
@@ -486,6 +349,10 @@ func at(ref string) string {
 // Fetching is what the default version control system says of fetching a
 // repository from inside a sandbox, for whatever lets a sandbox fetch.
 func Fetching() vcs.Fetching { return git.System{} }
+
+// System is the default version control system, for whoever reads a
+// directory's repositories beside what fills it.
+func System() git.System { return git.System{} }
 
 // New opens a workspace with the default version control system.
 func New(root string, mounted bool) (*Workspace, error) {

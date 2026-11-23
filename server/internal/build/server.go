@@ -8,11 +8,11 @@ import (
 	connect "connectrpc.com/connect/v2"
 	"connectrpc.com/connect/v2/connecthttp"
 	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1/buildv1alpha1connect"
+	"github.com/frontseat-dev/frontseat/server/internal/directory"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/evaluate"
 	"github.com/frontseat-dev/frontseat/server/internal/exec"
 	"github.com/frontseat-dev/frontseat/server/internal/exec/download"
 	"github.com/frontseat-dev/frontseat/server/internal/pluginhost"
-	"github.com/frontseat-dev/frontseat/server/internal/source"
 	"github.com/frontseat-dev/frontseat/server/telemetry"
 )
 
@@ -24,6 +24,9 @@ type configuration struct {
 	// rather than a workspace it populates: a job's checkout
 	// (frontseatd --checkout), or a test's.
 	Mounted bool
+	// System is the version control system the directory's repositories
+	// are read with.
+	System directory.System
 	// Plugins are the plugins the workspace is evaluated with.
 	Plugins []*pluginhost.Plugin
 	// Executor runs the actions.
@@ -47,22 +50,16 @@ type configuration struct {
 	Now func() time.Time
 }
 
-// Daemon is the build API, served over what a daemon was given, and
-// the source API beside it.
+// Daemon is the build API, served over a directory and what a daemon was
+// given. It reads the directory as it is, and knows nothing of what
+// fills it.
 type Daemon struct {
 	// Handler serves the build API (frontseat.build.v1alpha1), and
 	// nothing else: what a client asks, through the control plane or on
 	// the daemon's own port inside its sandbox.
 	Handler http.Handler
-	// Source serves the source API (frontseat.source.v1alpha1), and
-	// nothing else: what the control plane tells the daemon to hold,
-	// served on a port of its own that the control plane alone dials.
-	Source http.Handler
-	// held is the workspace the daemon holds: the source API fills it
-	// and every run reads it.
-	held  *source.Workspace
-	runs  *builds
-	graph *graphService
+	runs    *builds
+	graph   *graphService
 	// releases are stopped before the runs they wait on, and the
 	// programs run too, which end with the daemon.
 	releases *releases
@@ -75,9 +72,7 @@ type Daemon struct {
 
 // Close ends the daemon's runs: each is cancelled, and Close returns once
 // all have ended. No run is made after it. What the daemon runs actions
-// with is let go only after it. What is bringing the workspace's
-// repositories is stopped and joined too, once nothing of the daemon
-// reads the workspace any more: a source told after it brings nothing.
+// with is let go only after it.
 func (d *Daemon) Close() {
 	d.once.Do(func() {
 		// A release waits on a run, so it is stopped before the runs are.
@@ -86,7 +81,6 @@ func (d *Daemon) Close() {
 		d.runs.stop()
 		// Cancel run-owned contexts before ending their shared evaluation owner.
 		d.graph.session.Close()
-		d.held.Close()
 		if d.release != nil {
 			d.release()
 		}
@@ -95,7 +89,7 @@ func (d *Daemon) Close() {
 
 // newDaemon composes the APIs over the supplied services. Close it when done.
 func newDaemon(config configuration) (*Daemon, error) {
-	held, err := source.New(config.Workspace, config.Mounted)
+	held, err := directory.Open(config.Workspace, config.Mounted, config.System)
 	if err != nil {
 		return nil, err
 	}
@@ -122,5 +116,5 @@ func newDaemon(config configuration) (*Daemon, error) {
 	buildv1alpha1connect.RegisterRunServiceHandler(api, &runService{programs: programs})
 	mux := http.NewServeMux()
 	connecthttp.Mount(mux, api)
-	return &Daemon{Handler: config.Telemetry.Handler(mux, "build API"), Source: config.Telemetry.Handler(source.Serve(held), "source API"), held: held, runs: runs, graph: graph, releases: made, programs: programs}, nil
+	return &Daemon{Handler: config.Telemetry.Handler(mux, "build API"), runs: runs, graph: graph, releases: made, programs: programs}, nil
 }

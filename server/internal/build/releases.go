@@ -193,7 +193,7 @@ func (rs *releases) create(ctx context.Context, request *buildv1.CreateReleaseRe
 	// is built or tagged, and not once the tags are pushed, where a
 	// publish that fails leaves a release that is not finished by making
 	// it again. A daemon given a checkout, as a job's is, publishes.
-	if !workspace.Mounted() {
+	if !workspace.Alone() {
 		if label, found := publishedBy(evaluated.Actions, evaluated.Entities, planned); found {
 			return nil, &refusedRelease{codes.Unimplemented, "PUBLISH_NOT_SERVED", fmt.Sprintf("%s publishes what this release ships, and a release from a workspace publishes nothing: release from a checkout given the daemon, as a job does (frontseatd --checkout)", label)}
 		}

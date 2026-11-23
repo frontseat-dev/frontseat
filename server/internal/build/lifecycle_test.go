@@ -46,7 +46,7 @@ func TestPublicConstructorReleasesOwnedConnections(t *testing.T) {
 			cas, cache := fakes.NewCAS(), fakes.NewActionCache()
 			repb.RegisterCapabilitiesServer(srv, fakes.NewExec(t, cache, cas))
 			go srv.Serve(listener)
-			config := Config{Workspace: t.TempDir(), Mounted: true, Builds: t.TempDir(), Grid: Grid{Address: listener.Addr().String()}, Plugins: [][]byte{module}}
+			config := Config{System: readWith(), Workspace: t.TempDir(), Mounted: true, Builds: t.TempDir(), Grid: Grid{Address: listener.Addr().String()}, Plugins: [][]byte{module}}
 			if mode == "bad-plugin" {
 				config.Plugins = [][]byte{[]byte("invalid wasm")}
 			}

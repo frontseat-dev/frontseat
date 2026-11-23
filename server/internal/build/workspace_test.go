@@ -307,7 +307,9 @@ func TestClosingADaemonEndsWhatIsBringingItsWorkspacesRepositories(t *testing.T)
 	}
 
 	closed := make(chan struct{})
-	go func() { c.daemon.Close(); close(closed) }()
+	// The daemon's program stops the build, and then what fills its
+	// directory.
+	go func() { c.daemon.Close(); c.held.Close(); close(closed) }()
 	select {
 	case <-closed:
 	case <-ctx.Done():
