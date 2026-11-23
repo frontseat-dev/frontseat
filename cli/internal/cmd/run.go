@@ -96,7 +96,7 @@ longer, it stops the program.`,
 
 func init() {
 	rootCmd.AddCommand(runCmd)
-	asksAWorkspace(runCmd)
+	worksWhereItIsRun(runCmd)
 	// What follows the program is the program's own, flags and all:
 	// nothing after it is read as a flag of this command.
 	runCmd.Flags().SetInterspersed(false)

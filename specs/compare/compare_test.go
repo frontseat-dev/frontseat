@@ -4,7 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/frontseat-dev/frontseat/stack/testsupport/testowner"
 	"github.com/frontseat-dev/frontseat/testsupport/testidentity"
 	"io"
 	"net/http/httptest"
@@ -298,12 +297,6 @@ func frontseatInASandbox(t *testing.T, shape testworkload.Shape) tool {
 	} {
 		output(t, source, nil, "git", args...)
 	}
-	// The command line, as this module's go.mod names it a tool: so the
-	// module requires the client, and what changes the client is what
-	// these comparisons are built from.
-	command := filepath.Join(t.TempDir(), "frontseat")
-	output(t, "", nil, "go", "build", "-o", command, "github.com/frontseat-dev/frontseat/cli/cmd/frontseat")
-
 	srv, plane, served := servedPlane(t)
 	beneath.Store(served.Sandboxes)
 	t.Cleanup(srv.Close)
@@ -372,6 +365,22 @@ func frontseatInASandbox(t *testing.T, shape testworkload.Shape) tool {
 	}
 	shell = connection
 
+	// said runs a line in the sandbox, over its shell, given what it
+	// reads, and returns what it printed, to either stream.
+	said := func(t *testing.T, line, read string) string {
+		t.Helper()
+		session, err := connection.NewSession()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer session.Close()
+		session.Stdin = strings.NewReader(read)
+		out, err := session.CombinedOutput(line)
+		if err != nil {
+			t.Fatalf("in the sandbox, %s: %v\n%s", line, err, out)
+		}
+		return string(out)
+	}
 	run := regexp.MustCompile(`(?m)^(build_[0-9a-f]+)  `)
 	return tool{
 		name:     "frontseat",
@@ -380,16 +389,11 @@ func frontseatInASandbox(t *testing.T, shape testworkload.Shape) tool {
 		sandbox:  lives,
 		close:    release,
 		counted:  regexp.MustCompile(`(?m)^build_[0-9a-f]+  .* in ([0-9.]+(?:ms|s))$`),
-		about:    "this checkout: the daemon and the workspace in a sandbox, a file changed there over SSH, its actions on the local grid",
+		about:    "this checkout: the daemon and the workspace in a sandbox, built there by the box's own frontseat and a file changed there, over SSH, its actions on the local grid",
+		// A workspace is built from inside it: by the box's own command
+		// line, which asks the daemon beside it.
 		build: func(t *testing.T) string {
-			// The build runs in the workspace's sandbox, over its shell,
-			// which the command line enters with the key the workspace
-			// was made with.
-			config := testowner.LayOut(t, served.TokenFile, served.URL)
-			if err := testidentity.Kept(config); err != nil {
-				t.Fatal(err)
-			}
-			return output(t, "", []string{"XDG_CONFIG_HOME=" + config}, command, "build", "--workspace", made.Name())
+			return said(t, "/opt/frontseat/bin/frontseat build", "")
 		},
 		ran: func(t *testing.T, out string) string {
 			found := run.FindStringSubmatch(out)
@@ -405,16 +409,8 @@ func frontseatInASandbox(t *testing.T, shape testworkload.Shape) tool {
 		// A change is written by a command in the sandbox: nothing is copied
 		// into one.
 		change: func(t *testing.T, name, content string) {
-			session, err := connection.NewSession()
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer session.Close()
-			session.Stdin = strings.NewReader(content)
 			at := path.Join("/work", repository, name)
-			if err := session.Run("cat > '" + strings.ReplaceAll(at, "'", `'\''`) + "'"); err != nil {
-				t.Fatalf("writing %s in the sandbox: %v", at, err)
-			}
+			said(t, "cat > '"+strings.ReplaceAll(at, "'", `'\''`)+"'", content)
 		},
 	}
 }

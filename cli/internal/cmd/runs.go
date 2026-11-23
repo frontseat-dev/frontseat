@@ -73,6 +73,6 @@ nothing.`,
 func init() {
 	for _, sub := range []*cobra.Command{runListCmd, runDescribeCmd, runLogsCmd, runCancelCmd} {
 		runCmd.AddCommand(sub)
-		asksAWorkspace(sub)
+		worksWhereItIsRun(sub)
 	}
 }

@@ -141,9 +141,15 @@ func TestTheLocalBuildMakesAWorkspaceAndBuildsIt(t *testing.T) {
 		}
 	})
 	ran(t, checkout, 5*time.Minute, command, "workspace", "create", "--name", name, "--image", image, "--no-shell", "--repository", testforge.Serve(t, filepath.Dir(checkout))+"/code")
-	built := ran(t, checkout, 5*time.Minute, command, "build")
+	// What builds a workspace is run in it: from this machine, as one
+	// command over its shell. Run here, with the workspace open, it is
+	// refused, and says so.
+	if refused, err := exec.Command(command, "build").CombinedOutput(); err == nil || !strings.Contains(string(refused), "frontseat workspace ssh") {
+		t.Fatalf("frontseat build on this machine, with a workspace open: %v\n%s", err, refused)
+	}
+	built := ran(t, checkout, 5*time.Minute, command, "workspace", "ssh", "--", "frontseat", "build")
 	if !strings.Contains(built, "build_") {
-		t.Fatalf("frontseat build printed no build:\n%s", built)
+		t.Fatalf("frontseat build in the workspace printed no build:\n%s", built)
 	}
 	fmt.Fprint(os.Stderr, built)
 }

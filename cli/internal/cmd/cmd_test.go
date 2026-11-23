@@ -456,40 +456,31 @@ func TestOneCommandLineLeavesNothingForTheNext(t *testing.T) {
 	}
 }
 
-// A command that builds in a workspace is told which by its name, and is
-// run in the sandbox of the workspace named, and not of the one last
-// opened (TestWithAWorkspaceSelectedWhatBuildsIsRunInItsSandbox). No
-// command takes a daemon's address, and those that do not ask a daemon
-// take no workspace this way. The control is the same command inside a
-// sandbox, which asks the daemon there, and is refused another's name.
+// A workspace is named, to the commands about workspaces, as their
+// argument, and addressed by nothing: no command takes a daemon's
+// address, nor a workspace by a flag, and a command that builds, tests,
+// runs, queries or releases takes neither, working on what is where it
+// is run (TestAWorkspaceThatIsOpenIsBuiltFromInsideIt,
+// TestNoCommandThatBuildsTakesAWorkspace). The control is a command
+// inside a sandbox, which asks the daemon there.
 func TestAWorkspaceIsNamedAndNotAddressed(t *testing.T) {
 	d := &daemonOf{}
-	plane, _ := counted(t)
-	serverAt(t, plane)
-	lastOpened(t, plane, "another")
-	b := standingIn(t)
-	if _, _, err := runAt(t, context.Background(), "", "ship", "plan", "greet", "--workspace", "named"); err != nil || !slices.Equal(b.workspaces, []string{"named"}) {
-		t.Fatalf("the plan was run in the sandboxes of %q (%v), want in that of the workspace named", b.workspaces, err)
+	if _, _, err := run(t, d, "ship", "plan", "greet"); err != nil || len(d.planned) != 1 {
+		t.Errorf("inside, the daemon there was asked %d times (%v)", len(d.planned), err)
 	}
-	// Inside a workspace's sandbox, its own daemon is asked, and no
-	// other: a name is given outside.
-	other := &daemonOf{}
-	if _, _, err := run(t, other, "ship", "plan", "greet"); err != nil || len(other.planned) != 1 {
-		t.Errorf("inside, with no name, the daemon there was asked %d times (%v)", len(other.planned), err)
-	}
-	if _, _, err := run(t, other, "ship", "plan", "greet", "--workspace", "named"); err == nil || !strings.Contains(err.Error(), "--workspace is given outside") || len(other.planned) != 1 || len(b.workspaces) != 1 {
-		t.Errorf("inside, another workspace named: %v, its daemon asked %d times, and %d commands run in a sandbox; want it refused by name, and nothing more asked", err, len(other.planned), len(b.workspaces))
-	}
-	for _, args := range [][]string{{"build", "--endpoint", "x"}, {"workspace", "open", "--workspace", "x"}, {"workspace", "ssh", "--endpoint", "x"}} {
+	for _, args := range [][]string{{"build", "--endpoint", "x"}, {"build", "--workspace", "x"}, {"workspace", "open", "--workspace", "x"}, {"workspace", "ssh", "--endpoint", "x"}} {
 		if _, _, err := run(t, d, args...); err == nil || !strings.Contains(err.Error(), "unknown flag") {
 			t.Errorf("%v took a flag it has none of: %v", args, err)
 		}
 	}
-	for _, path := range [][]string{{"build"}, {"test"}, {"query"}, {"build", "list"}, {"build", "describe"}, {"build", "events"}, {"build", "actions"}, {"build", "logs"}, {"build", "cancel"}, {"run"}, {"run", "list"}, {"run", "describe"}, {"run", "logs"}, {"run", "cancel"}, {"ship"}, {"ship", "plan"}} {
-		sub, _, err := rootCmd.Find(path)
-		if err != nil || sub.Flags().Lookup("workspace") == nil {
-			t.Errorf("%v asks a workspace and takes no --workspace", path)
+	for _, command := range worked {
+		sub, _, err := rootCmd.Find(command.words)
+		if err != nil || sub.Flags().Lookup("workspace") != nil || sub.Flags().Lookup("endpoint") != nil {
+			t.Errorf("%v takes a workspace or a daemon's address by a flag (%v)", command.words, err)
 		}
+	}
+	if len(d.planned) != 1 {
+		t.Errorf("what was refused asked the daemon: it was asked %d times", len(d.planned))
 	}
 }
 
@@ -558,10 +549,12 @@ func TestEveryCommandAsksTheOneControlPlaneTheRuleNames(t *testing.T) {
 	}
 }
 
-// frontseat --help says which control plane every command asks, how a
-// command is told which workspace, and that it is run in that
-// workspace's sandbox, over its shell; the control is a command's own
-// help, which says none of it.
+// frontseat --help says which control plane every command asks, and
+// where a command that builds works: inside a workspace's sandbox on
+// that workspace, outside on the directory it is run in, and, while a
+// workspace is open, nowhere, with how it is run in the workspace. No
+// flag names a workspace. The control is a command's own help, which
+// says none of it.
 func TestTheHelpSaysWhichServerAndWorkspaceAreAsked(t *testing.T) {
 	printed := &strings.Builder{}
 	rootCmd.SetOut(printed)
@@ -569,16 +562,19 @@ func TestTheHelpSaysWhichServerAndWorkspaceAreAsked(t *testing.T) {
 	if _, err := Execute(context.Background(), []string{"--help"}); err != nil {
 		t.Fatal(err)
 	}
-	for _, said := range []string{"~/.config/frontseat/local/server", "http://127.0.0.1:7700", "local/token", "--workspace NAME", "last opened", "run in that workspace's sandbox,\nover its shell", "an SSH client", "this machine's key"} {
+	for _, said := range []string{"~/.config/frontseat/local/server", "http://127.0.0.1:7700", "local/token", "Inside a workspace's sandbox", "frontseat workspace ssh -- frontseat build", "the directory they are run in", "the one last opened", "they are refused and say to run them in it"} {
 		if !strings.Contains(printed.String(), said) {
 			t.Errorf("frontseat --help does not say %q:\n%s", said, printed)
 		}
+	}
+	if strings.Contains(printed.String(), "--workspace") {
+		t.Errorf("frontseat --help names a flag there is none of:\n%s", printed)
 	}
 	printed.Reset()
 	if _, err := Execute(context.Background(), []string{"build", "cancel", "--help"}); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(printed.String(), "local/server") || strings.Contains(printed.String(), "over its shell") {
+	if strings.Contains(printed.String(), "local/server") || strings.Contains(printed.String(), "workspace ssh") || strings.Contains(printed.String(), "--workspace") {
 		t.Errorf("a command's own help says the rule again:\n%s", printed)
 	}
 }

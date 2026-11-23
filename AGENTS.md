@@ -116,19 +116,18 @@ the change that fixes it.
   Inside a workspace's sandbox, which the command line knows by the
   sandbox's lock its daemon holds (`Lock` in `core/ports`), a command asks
   that daemon's build API on the loopback and no control plane, and
-  every `workspace` command and `--workspace` is refused by name.
-  With a workspace selected, by `--workspace` or as the one last opened
-  of the control plane asked, a command that builds, tests, runs,
-  queries or releases is run in that workspace's sandbox, over its
-  shell: the box's own `frontseat` (`machine.Program`), given what the
-  command was given, each argument written for the sandbox's shell to
-  read as itself, less `--workspace`, which is said outside alone. What
-  it prints and how it ends are that command's. It needs an SSH client
-  on this machine and this machine's key let into the workspace, which
-  a workspace opened by the command line has.
-  With no workspace selected, a command that builds, tests, runs,
-  queries or releases asks no control plane either: it asks the build
-  daemon of the directory it is run in, the nearest above it that is a
+  every `workspace` command is refused by name.
+  A command that builds, tests, runs, queries or releases works on what
+  is where it is run, and takes no workspace by a flag: a workspace is
+  built from inside it, in a shell there (`frontseat workspace ssh`).
+  Outside a sandbox, where a workspace is selected, the one last opened
+  of the control plane asked, such a command is refused by name and
+  runs nothing: it names the workspace and says to run the command in
+  it, by the command's own name and nothing it was given, and no control
+  plane, daemon or SSH client is asked.
+  With no workspace selected, it works on the directory it is run in,
+  and asks no control plane either: it asks the build daemon of that
+  directory, the nearest above it that is a
   workspace or a repository, which the command line starts of itself
   (`frontseat daemon`, this program again) where this machine was told
   its grid (`build.yaml`, `docs/build-settings.md`). That daemon serves
@@ -142,11 +141,8 @@ the change that fixes it.
   or the runner (`clientBuilds`, `TestClientProductionDependencyClosure`).
   `frontseat --help` says so. Held by:
   `TestEveryCommandAsksTheOneControlPlaneTheRuleNames`,
-  `TestWithAWorkspaceSelectedWhatBuildsIsRunInItsSandbox`,
-  `TestWhatACommandIsGivenArrivesInTheSandboxAsItWas`,
-  `TestTheWorkspaceNamedIsNotSaidAgainInItsSandbox`,
-  `TestACommandLineReadOtherwiseIsNotSaidAgain`,
-  `TestWhatIsRunInASandboxIsHandedToTheSSHClientAsOneLine`,
+  `TestAWorkspaceThatIsOpenIsBuiltFromInsideIt`,
+  `TestNoCommandThatBuildsTakesAWorkspace`,
   `TestWithNoWorkspaceSelectedABuildAsksTheDaemonOfItsDirectory`,
   `TestTheBuildDaemonOfADirectoryIsStartedOnceAndFoundAgain`,
   `TestABuildDaemonOfAnotherVersionOrOtherSettingsIsReplaced`,

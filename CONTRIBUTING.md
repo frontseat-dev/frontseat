@@ -124,9 +124,10 @@ frontseat workspace open
 ```
 
 At a terminal, `workspace open` leaves you in a shell in the workspace
-(`--no-shell` opens it and returns). Build there, or from your own shell
-with `--workspace NAME`; `frontseat workspace delete NAME` ends it, and
-asks first:
+(`--no-shell` opens it and returns). Build there: what builds a
+workspace is run in it, in that shell or as one command from your own
+(`frontseat workspace ssh -- frontseat build`). `frontseat workspace
+delete NAME` ends it, and asks first:
 
 ```sh
 frontseat build --only compile --only lint --only generate --only package --only depends-on

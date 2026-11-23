@@ -28,5 +28,5 @@ The last line is the plan's etag. ship --plan releases that plan.`,
 
 func init() {
 	shipCmd.AddCommand(planCmd)
-	asksAWorkspace(planCmd)
+	worksWhereItIsRun(planCmd)
 }

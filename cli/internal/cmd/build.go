@@ -61,7 +61,7 @@ func built(cmd *cobra.Command, start func(*frontseat.Workspace) (*frontseat.Buil
 
 func init() {
 	rootCmd.AddCommand(buildCmd)
-	asksAWorkspace(buildCmd)
+	worksWhereItIsRun(buildCmd)
 	onlyFlag(buildCmd, &buildOnly)
 	profileFlag(buildCmd, &buildProfile)
 	buildCmd.Flags().BoolVar(&buildFix, "fix", false, "write what is out of step as it should be, where a build would fail and say so")

@@ -95,7 +95,7 @@ An entity named plan is written in full, component:plan.`,
 
 func init() {
 	rootCmd.AddCommand(shipCmd)
-	asksAWorkspace(shipCmd)
+	worksWhereItIsRun(shipCmd)
 	shipCmd.Flags().StringVar(&shipPlanned, "plan", "", "release the plan this etag names, as ship plan printed it")
 }
 
