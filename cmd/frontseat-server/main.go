@@ -68,6 +68,13 @@ func main() {
 	backstageToken := flag.String("backstage-token", "", "a file holding the token presented to Backstage: one line, the file 0600 in a directory only this server reaches; read when it starts, so a new one is taken by starting it again")
 	backstageLoopback := flag.Bool("backstage-loopback", false, "let Backstage be at this machine, and asked over http there: for a local stack and tests")
 	flag.Parse()
+	// It serves and does nothing else: a word after its flags is not
+	// one of its own, and the flags after a word would be read by none.
+	if flag.NArg() > 0 {
+		fmt.Fprintln(os.Stderr, "frontseat-server: it takes flags alone, and serves; the local stack is brought up and down by frontseat-stack")
+		flag.Usage()
+		os.Exit(2)
+	}
 	if *identity == "" {
 		*identity = filepath.Join(*state, "openshell")
 	}

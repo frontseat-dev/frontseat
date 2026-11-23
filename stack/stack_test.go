@@ -19,6 +19,9 @@ type runtime struct {
 	// from is the checkout the stack's container was started from, empty
 	// where there is none.
 	from string
+	// earlier is what the runtime says of the container a stack had
+	// through frontseat 0.1.0: its name where there is one.
+	earlier string
 	// done is what was done, in order: "rm", "run <image>", "load <box>".
 	done []string
 	// ran is what the container was made with.
@@ -30,11 +33,19 @@ func (r *runtime) docker(_ context.Context, arguments ...string) (string, error)
 	switch {
 	case line == "info --format {{.Architecture}}":
 		return "aarch64\n", nil
+	case arguments[0] == "ps" && slices.Contains(arguments, "name=^"+Earlier+"$"):
+		return r.earlier, nil
 	case arguments[0] == "ps":
 		return r.from + "\n", nil
 	case line == "rm --force "+Name:
 		r.done = append(r.done, "rm")
 		r.from = ""
+		return "", nil
+	case line == "rm --force "+Earlier:
+		if r.earlier != "" {
+			r.done = append(r.done, "rm the earlier")
+		}
+		r.earlier = ""
 		return "", nil
 	case arguments[0] == "run":
 		r.done = append(r.done, "run "+arguments[len(arguments)-1])
@@ -196,5 +207,34 @@ func TestDownRemovesTheContainerAndKeepsItsVolume(t *testing.T) {
 	}
 	if want := []string{"rm"}; !slices.Equal(r.done, want) {
 		t.Fatalf("down did %q, want %q", r.done, want)
+	}
+}
+
+// A stack left up by a checkout of frontseat 0.1.0 has the name stacks
+// had then, and holds the ports this one is published on. Nothing is
+// built beside it: the checkout is told of it first, and how to stop it.
+// Down stops it, as it stops this checkout's. The control is the same
+// checkout with no such stack, which is ready.
+func TestAStackOfAnEarlierFrontseatIsSaidAndStoppedByDown(t *testing.T) {
+	r, s, built := stackOf(t, "")
+	if err := s.Ready(context.Background()); err != nil {
+		t.Fatalf("the control: a checkout with no stack of any name is not ready: %v", err)
+	}
+	r.earlier = Earlier + "\n"
+	err := s.Up(context.Background())
+	if err == nil || !strings.Contains(err.Error(), Earlier) || !strings.Contains(err.Error(), "mise stop") {
+		t.Fatalf("beside a stack of an earlier frontseat, up said %v; want it named, and how it is stopped", err)
+	}
+	if len(*built) != 0 || len(r.done) != 0 {
+		t.Fatalf("beside a stack of an earlier frontseat, up built %q and did %q before saying so", *built, r.done)
+	}
+	if err := s.Down(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"rm", "rm the earlier"}; !slices.Equal(r.done, want) {
+		t.Fatalf("down did %q, want %q", r.done, want)
+	}
+	if err := s.Ready(context.Background()); err != nil {
+		t.Errorf("after down, the checkout is not ready: %v", err)
 	}
 }
