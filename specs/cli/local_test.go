@@ -84,9 +84,17 @@ func ended(w *frontseat.Workspace) {
 // reaches as the workspace's owner can (testbuild).
 func buildIn(t *testing.T, w *frontseat.Workspace) (*buildv1.Build, string) {
 	t.Helper()
+	return builtIn(t, testbuild.Workspace(w))
+}
+
+// builtIn builds what the workspace in a box holds, through the box's
+// build daemon as whoever reaches into the box reaches it, and returns
+// the build as it ended and the labels of its actions.
+func builtIn(t *testing.T, box testbuild.Box) (*buildv1.Build, string) {
+	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
-	daemon, err := testbuild.Workspace(w).Daemon(ctx)
+	daemon, err := box.Daemon(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -337,7 +345,19 @@ func TestAWorkspaceOpenedByEntityClonesWhatItsBackstageSays(t *testing.T) {
 			t.Errorf("%s was cloned from %s, want %s, which the source location names", r.GetName(), r.GetRemote(), want)
 		}
 	}
-	ended, labels := buildIn(t, made)
+	// The command line made the workspace, and let this machine's key
+	// in, which it keeps in its own configuration: a line is run in the
+	// box as the person who made it runs one, by the command line's
+	// shell, and a port is carried there by the control plane.
+	ended, labels := builtIn(t, testbuild.Box{
+		Run: func(ctx context.Context, line string) (string, error) {
+			run := exec.CommandContext(ctx, command, "workspace", "ssh", name, "--", line)
+			run.Env = append(os.Environ(), "XDG_CONFIG_HOME="+config)
+			said, err := run.CombinedOutput()
+			return string(said), err
+		},
+		Dial: made.Forward,
+	})
 	if ended.GetExitCode() != buildv1.ExitCode_EXIT_CODE_SUCCESS || ended.GetCounts().GetPassed() != 6 {
 		t.Errorf("the build ended %s with %d actions passed, want SUCCESS and 6", ended.GetExitCode(), ended.GetCounts().GetPassed())
 	}
