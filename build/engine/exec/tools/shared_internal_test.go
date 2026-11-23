@@ -7,6 +7,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/frontseat-dev/frontseat/build/engine/exec/tools/toolstest"
 )
 
 // work is what a test of shared has done: it counts its runs, holds each
@@ -167,6 +169,15 @@ func TestWorkSeveralWaitOnIsDoneOnceForAll(t *testing.T) {
 	}
 }
 
+// joining joins s on a goroutine of its own, and returns a channel
+// closed once it is joined: a join that never returns fails its test by
+// what the test says, not by the time the tests are given.
+func joining(s *shared[int]) <-chan struct{} {
+	joined := make(chan struct{})
+	go func() { s.join(); close(joined) }()
+	return joined
+}
+
 // Work that none waits for any more is told to stop at once, and whoever
 // gave up is answered at once; it has stopped only when it returns, which
 // may be a while after, as a call to the grid unwinds. Joined, the work
@@ -174,44 +185,19 @@ func TestWorkSeveralWaitOnIsDoneOnceForAll(t *testing.T) {
 // work before it is joined, which is still going.
 func TestSharedWorkHasStoppedOnceItIsJoined(t *testing.T) {
 	var s shared[int]
-	started, unwound := make(chan struct{}), make(chan struct{})
-	var ended atomic.Bool
+	unwinding := toolstest.NewUnwinding()
 	ctx, giveUp := context.WithCancel(context.Background())
 	answered := make(chan error, 1)
 	go func() {
-		_, err := s.do(ctx, "tool", func(doing context.Context) (int, error) {
-			close(started)
-			<-doing.Done()
-			<-unwound
-			ended.Store(true)
-			return 0, doing.Err()
-		})
+		_, err := s.do(ctx, "tool", func(doing context.Context) (int, error) { return 0, unwinding.Hold(doing) })
 		answered <- err
 	}()
-	<-started
+	unwinding.Begun(t)
 	giveUp()
 	if err := <-answered; !errors.Is(err, context.Canceled) {
 		t.Fatalf("whoever gave up was told %v", err)
 	}
-	joined := make(chan struct{})
-	go func() { s.join(); close(joined) }()
-	select {
-	case <-joined:
-		t.Fatal("the work was joined while it was still going")
-	case <-time.After(50 * time.Millisecond):
-	}
-	if ended.Load() {
-		t.Fatal("the control: the work had ended before it was let")
-	}
-	close(unwound)
-	select {
-	case <-joined:
-	case <-time.After(10 * time.Second):
-		t.Fatal("the work was never joined")
-	}
-	if !ended.Load() {
-		t.Error("joined, the work had not stopped")
-	}
+	unwinding.KeepsBack(t, "the join", joining(&s))
 }
 
 // Work still waited for is stopped by a join too, and whoever waits is
@@ -229,7 +215,11 @@ func TestJoiningStopsSharedWorkThatIsStillWaitedFor(t *testing.T) {
 		answered <- err
 	}()
 	<-started
-	s.join()
+	select {
+	case <-joining(&s):
+	case <-time.After(10 * time.Second):
+		t.Fatal("the join never returned: the work still waited for was not stopped")
+	}
 	select {
 	case err := <-answered:
 		if !errors.Is(err, context.Canceled) {
@@ -237,5 +227,34 @@ func TestJoiningStopsSharedWorkThatIsStillWaitedFor(t *testing.T) {
 		}
 	case <-time.After(10 * time.Second):
 		t.Fatal("whoever waited was never answered")
+	}
+}
+
+// Once joined, no work is begun: what is asked for is refused by name
+// and not run, so nothing is begun that the join did not wait for. What
+// was answered and kept before is still given. The control is the same
+// work asked for before the join, which runs.
+func TestWorkAskedOfWhatWasJoinedIsRefusedAndNotRun(t *testing.T) {
+	var s shared[int]
+	var ran atomic.Int32
+	work := func(context.Context) (int, error) { return int(ran.Add(1)), nil }
+	if given, err := s.do(context.Background(), "before", work); err != nil || given != 1 || ran.Load() != 1 {
+		t.Fatalf("the control: before the join the work answered %d, %v, having run %d times", given, err, ran.Load())
+	}
+	s.join()
+	if _, err := s.do(context.Background(), "after", work); !errors.Is(err, ErrEnded) {
+		t.Errorf("work asked for after the join was answered %v; want %v", err, ErrEnded)
+	}
+	if n := ran.Load(); n != 1 {
+		t.Errorf("work asked for after the join ran: %d runs in all, want the one before it", n)
+	}
+	if given, err := s.do(context.Background(), "before", work); err != nil || given != 1 {
+		t.Errorf("what was kept before the join was answered %d, %v", given, err)
+	}
+	// Nothing was begun, so a second join has nothing to wait for.
+	select {
+	case <-joining(&s):
+	case <-time.After(10 * time.Second):
+		t.Fatal("joined again, it waited for work that was refused")
 	}
 }

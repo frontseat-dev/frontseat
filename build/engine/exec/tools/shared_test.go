@@ -303,3 +303,30 @@ func TestAnInstallNoneWaitsForIsStopped(t *testing.T) {
 		t.Errorf("the tool was installed %d times; want anew after it was stopped", n)
 	}
 }
+
+// A provisioner that is joined has stopped whatever it still had the
+// grid doing: an install none waits for any more, told to stop when the
+// last gave up, is still inside its call to the grid, and Join returns
+// only once that call has. The control is the same install before it is
+// let, which had not ended. Joined, the provisioner asks the grid
+// nothing more: a tool it was not answered for is refused by name.
+func TestAJoinedProvisionerHasStoppedWhatItHadTheGridDo(t *testing.T) {
+	grid := toolstest.NewUnwinding()
+	root, p, _ := pinnedGo(t, grid)
+	giveUp, gaveUp := impatient(p, root)
+	grid.Begun(t)
+	giveUp()
+	if err := <-gaveUp; !errors.Is(err, context.Canceled) {
+		t.Fatalf("the action that gave up was told %v", err)
+	}
+	joined := make(chan struct{})
+	go func() { p.Join(); close(joined) }()
+	grid.KeepsBack(t, "the provisioner's join", joined)
+	// Bounded, so that a provisioner that began the install again fails
+	// this by what it says.
+	bounded, cancel := context.WithTimeout(context.Background(), within)
+	defer cancel()
+	if _, _, err := p.Installed(bounded, root, nil, "repo", "go"); !errors.Is(err, tools.ErrEnded) {
+		t.Errorf("a joined provisioner asked for a tool answered %v; want %v", err, tools.ErrEnded)
+	}
+}
