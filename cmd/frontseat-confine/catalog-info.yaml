@@ -9,7 +9,7 @@ spec:
   lifecycle: experimental
   owner: jbadeau
   system: grid
-  dependsOn: [component:apko-plugin, component:backstage-plugin, component:buf-plugin, component:cargo-plugin, component:confine, component:container-plugin, component:github-plugin, component:go-plugin, component:jest-plugin, component:npm-plugin, component:plugin-sdk, component:postgres-plugin, component:release-plugin]
+  dependsOn: [component:confine]
   frontseat:
     # The program is shipped for where it runs: each platform is a file
     # of its own in a release, frontseat-confine-<os>-<arch>.

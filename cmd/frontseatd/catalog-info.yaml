@@ -9,7 +9,7 @@ spec:
   lifecycle: experimental
   owner: jbadeau
   system: build
-  dependsOn: [component:apko-plugin, component:backstage-plugin, component:buf-plugin, component:build-daemon, component:build-engine, component:cargo-plugin, component:confine, component:container-plugin, component:core, component:git, component:github-plugin, component:go-plugin, component:go-sdk, component:jest-plugin, component:npm-plugin, component:plugin-sdk, component:postgres-plugin, component:record, component:release-plugin, component:runner-contract, component:told, component:vcs, component:workspace-box]
+  dependsOn: [component:api, component:build-daemon, component:build-engine, component:confine, component:core, component:git, component:go-sdk, component:record, component:runner-contract, component:told, component:vcs, component:workspace-box]
   frontseat:
     # The program is shipped for where it runs: each platform is a file
     # of its own in a release, frontseatd-<os>-<arch>.

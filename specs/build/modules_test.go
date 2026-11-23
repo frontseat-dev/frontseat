@@ -32,6 +32,6 @@ func TestTheServerBuildsWithItsExtractedBuildWorkspaceAndSandboxFeatures(t *test
 	t.Parallel()
 	spec := newScenario(t)
 
-	build := spec.ownCheckout().build(of("./server"), only("compile"))
+	build := spec.ownCheckout().build(of("./cmd"), only("compile"))
 	spec.Expect(build.outcome()).To(Equal("SUCCESS"), build.diagnostics())
 }
