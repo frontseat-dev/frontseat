@@ -5,8 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/frontseat-dev/frontseat/server/internal/directory"
-	"github.com/frontseat-dev/frontseat/server/internal/source"
-	"github.com/frontseat-dev/frontseat/server/internal/sourceapi/frontseat/source/v1alpha1/sourcev1alpha1connect"
 	"github.com/frontseat-dev/frontseat/server/internal/vcs/chosen"
 	"io"
 	"net/http/httptest"
@@ -90,10 +88,7 @@ func oneModule(t *testing.T) string {
 // clients are one daemon and the clients of it.
 type clients struct {
 	daemon *Daemon
-	// held is what fills the daemon's directory, beside it.
-	held   *source.Workspace
 	runs   buildv1alpha1connect.BuildServiceClient
-	source sourcev1alpha1connect.SourceServiceClient
 	graph  buildv1alpha1connect.GraphServiceClient
 	// programs is the run service's: the programs a workspace runs.
 	programs buildv1alpha1connect.RunServiceClient
@@ -126,13 +121,6 @@ func serveFirst(t testing.TB, config configuration, plugins int) clients {
 	if config.Builds == "" {
 		config.Builds = t.TempDir()
 	}
-	// What fills the directory is beside the build, as the daemon's
-	// program has it, and is stopped after the build is.
-	held, err := source.New(config.Workspace, config.Mounted)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(held.Close)
 	config.System = readWith()
 	served, err := newDaemon(config)
 	if err != nil {
@@ -141,11 +129,8 @@ func serveFirst(t testing.TB, config configuration, plugins int) clients {
 	t.Cleanup(served.Close)
 	srv := httptest.NewServer(served.Handler)
 	t.Cleanup(srv.Close)
-	told := httptest.NewServer(source.Serve(held))
-	t.Cleanup(told.Close)
 	api := connect.NewClient(connecthttp.NewTransport(srv.Client(), srv.URL))
-	telling := sourcev1alpha1connect.NewSourceServiceClient(connect.NewClient(connecthttp.NewTransport(told.Client(), told.URL)))
-	return clients{daemon: served, held: held, runs: buildv1alpha1connect.NewBuildServiceClient(api), source: telling, graph: buildv1alpha1connect.NewGraphServiceClient(api), programs: buildv1alpha1connect.NewRunServiceClient(api), releases: buildv1alpha1connect.NewReleaseServiceClient(api)}
+	return clients{daemon: served, runs: buildv1alpha1connect.NewBuildServiceClient(api), graph: buildv1alpha1connect.NewGraphServiceClient(api), programs: buildv1alpha1connect.NewRunServiceClient(api), releases: buildv1alpha1connect.NewReleaseServiceClient(api)}
 }
 
 // write writes a file of a workspace, named by its path beneath root

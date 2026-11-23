@@ -343,7 +343,7 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		{"sdk/go/build_test.go", "server/testsupport/buildtest", false},
 		{"server/telemetry/trace.go", "server/internal/build", false},
 		{"server/testsupport/testgrid/grid.go", "server/internal/build", false},
-		{"server/internal/build/service.go", "server/internal/source", true},
+		{"server/internal/build/service.go", "server/internal/source", false},
 		{"server/internal/build/graph_service.go", "server/internal/wire", true},
 		{"sdk/go/build.go", "server/internal/wire", false},
 		{"server/internal/source/service.go", "server/internal/wire", false},
