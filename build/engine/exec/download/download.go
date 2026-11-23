@@ -33,6 +33,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net/netip"
 	neturl "net/url"
@@ -102,7 +103,18 @@ type Client struct {
 	// arrives for an ask begun before one is not remembered.
 	forgotten int
 	asking    singleflight.Group
+
+	// open is what every ask runs under, and shut ends: Close stops what
+	// is asking. closed, read and written with mu held, is that no ask
+	// begins any more; asks are those that have not returned.
+	open   context.Context
+	shut   context.CancelFunc
+	closed bool
+	asks   sync.WaitGroup
 }
+
+// ErrClosed is a download asked of a client that was closed.
+var ErrClosed = errors.New("the asset service's client was closed: its daemon is stopping")
 
 var _ Fetcher = (*Client)(nil)
 
@@ -148,7 +160,8 @@ func Dial(ctx context.Context, config Config) (*Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("the asset service at %s: %w", config.Address, err)
 	}
-	return &Client{conn: conn, service: remoteasset.NewFetchClient(conn), instance: config.Instance, rewrites: rules, access: config.Access, address: config.Address, shaken: shaken}, nil
+	open, shut := context.WithCancel(context.Background())
+	return &Client{conn: conn, service: remoteasset.NewFetchClient(conn), instance: config.Instance, rewrites: rules, access: config.Access, address: config.Address, shaken: shaken, open: open, shut: shut}, nil
 }
 
 // rules compiles the rewrites, in the order given.
@@ -164,8 +177,18 @@ func rules(rewrites []Rewrite) ([]rewrite, error) {
 	return out, nil
 }
 
-// Close lets go of the connection.
-func (c *Client) Close() error { return c.conn.Close() }
+// Close lets go of the connection, once nothing asks over it: an ask
+// runs on no waiter's context and goes on with none waiting, so no ask
+// begins any more, those going are stopped, and the connection is closed
+// when they have returned.
+func (c *Client) Close() error {
+	c.mu.Lock()
+	c.closed = true
+	c.mu.Unlock()
+	c.shut()
+	c.asks.Wait()
+	return c.conn.Close()
+}
 
 // Forget implements Fetcher.
 func (c *Client) Forget() {
@@ -199,9 +222,25 @@ func (c *Client) Fetch(ctx context.Context, url, sum string) (exec.Digest, error
 	// The ask is one flight for everyone who waits on it, so it runs on
 	// no waiter's context: a waiter that goes away leaves the others
 	// their answer, and each waits only as long as its own context lets
-	// it. The flight has a deadline of its own.
+	// it. The flight has a deadline of its own, and ends with the
+	// client.
 	flight := context.WithoutCancel(ctx)
-	answers := c.asking.DoChan(flightKey, func() (any, error) { return c.ask(flight, url, proxied, sum, key, forgotten) })
+	answers := c.asking.DoChan(flightKey, func() (any, error) {
+		// Counted with the lock held, as Close reads closed: no ask is
+		// counted once Close waits for them.
+		c.mu.Lock()
+		if c.closed {
+			c.mu.Unlock()
+			return nil, fmt.Errorf("%s: %w", site(url), ErrClosed)
+		}
+		c.asks.Add(1)
+		c.mu.Unlock()
+		defer c.asks.Done()
+		asking, stop := context.WithCancel(flight)
+		defer stop()
+		defer context.AfterFunc(c.open, stop)()
+		return c.ask(asking, url, proxied, sum, key, forgotten)
+	})
 	select {
 	case <-ctx.Done():
 		return exec.Digest{}, fmt.Errorf("%s: %w", site(url), ctx.Err())
