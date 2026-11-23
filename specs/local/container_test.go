@@ -226,8 +226,20 @@ func TestAStackMadeAnewOpensAWorkspaceAsItDidBefore(t *testing.T) {
 	// keys are the gateway's keys beneath a directory of the container.
 	keys := func(beneath string) []string {
 		t.Helper()
-		out, err := exec.CommandContext(ctx, "docker", "exec", own, "find", beneath, "-name", "key-encryption-key.bin").Output()
-		if err != nil {
+		// The stack is running, and what it keeps comes and goes while
+		// it is walked: a file gone since its directory was read is no
+		// failure of the search, and find says it and ends 1. Anything
+		// else it says is.
+		search := exec.CommandContext(ctx, "docker", "exec", own, "find", beneath, "-name", "key-encryption-key.bin")
+		var complaints strings.Builder
+		search.Stderr = &complaints
+		out, err := search.Output()
+		for _, line := range strings.Split(strings.TrimSpace(complaints.String()), "\n") {
+			if line != "" && !strings.HasSuffix(line, "No such file or directory") {
+				t.Fatalf("looking for the gateway's key beneath %s: %v: %s", beneath, err, line)
+			}
+		}
+		if err != nil && complaints.Len() == 0 {
 			t.Fatalf("looking for the gateway's key beneath %s: %v", beneath, err)
 		}
 		return strings.Fields(string(out))
