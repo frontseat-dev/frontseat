@@ -106,8 +106,9 @@ func TestAShellIsReachedThroughTheCommandLineWithTheOwnersToken(t *testing.T) {
 	if err != nil || printed != "Linux" {
 		t.Errorf("a command over `frontseat workspace ssh --stdio`: %q, %v (%s), want Linux", printed, err, said)
 	}
-	// The control: no token, and the stack refuses the tunnel.
-	if _, said, err := ssh(unowned); err == nil || !strings.Contains(said, "401") {
+	// The control: no token, and the stack refuses the tunnel, which the
+	// command line says by what the stack said of it.
+	if _, said, err := ssh(unowned); err == nil || !strings.Contains(said, "presents no token") {
 		t.Errorf("without the owner's token the shell was reached, or refused otherwise: %v (%s)", err, said)
 	}
 }
