@@ -8,8 +8,8 @@ import (
 	"os/exec"
 	"testing"
 
-	"github.com/frontseat-dev/frontseat/local/box"
-	"github.com/frontseat-dev/frontseat/local/testsupport/testbox"
+	"github.com/frontseat-dev/frontseat/stack/box"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testbox"
 	"github.com/frontseat-dev/frontseat/testsupport/testmodule"
 	"github.com/frontseat-dev/frontseat/testsupport/testrequired"
 )

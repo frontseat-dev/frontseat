@@ -93,7 +93,7 @@ spec:
     - ./api/source-proto/catalog-info.yaml
     - ./api/workspace-proto/catalog-info.yaml
     - ./cli/catalog-info.yaml
-    - ./local/catalog-info.yaml
+    - ./stack/catalog-info.yaml
     - ./plugins/apko/catalog-info.yaml
     - ./plugins/backstage/catalog-info.yaml
     - ./plugins/buf/catalog-info.yaml

@@ -30,7 +30,7 @@ frontseat test               # run its tests on the grid
   in the [configuration reference](configuration.md).
 - **The rules every change keeps** are in
   [AGENTS.md](https://github.com/frontseat-dev/frontseat/blob/main/AGENTS.md),
-  each with the test that holds it. `build/`, `local/`, `specs/` and
+  each with the test that holds it. `build/`, `stack/`, `specs/` and
   `plugins/` each have an `AGENTS.md` of the mistakes made there and the
   check that stops each.
 - **The APIs** are the proto packages in `api/`: the build, workspace,
@@ -55,7 +55,7 @@ frontseat test               # run its tests on the grid
 | `sandbox/`, `grid/` | The sandbox service and its drivers; the grid's runner |
 | `core/`, `common/`, `testsupport/` | What every part is built on, what some parts share, and what tests are helped by |
 | `cli/` | The command line, `frontseat` |
-| `local/` | The local stack, one container, and the box image a workspace runs |
+| `stack/` | The local stack, one container, and the box image a workspace runs |
 | `plugins/` | The plugins, each built to Wasm |
 | `specs/` | The acceptance specs, the architecture test and the gate programs |
 

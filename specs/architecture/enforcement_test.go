@@ -77,14 +77,14 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		{"testsupport/testidentity/shell.go", "sdk/go", true},
 		// The owner's token is presented as the SDK presents one; the
 		// SDK's client is no test support's to reach through it.
-		{"local/testsupport/testowner/testowner.go", "sdk/go/bearer", true},
-		{"local/testsupport/testowner/testowner.go", "sdk/go", false},
+		{"stack/testsupport/testowner/testowner.go", "sdk/go/bearer", true},
+		{"stack/testsupport/testowner/testowner.go", "sdk/go", false},
 		// What the command line keeps is where it, the stack and the test
 		// support find it alike (local.Config).
-		{"local/testsupport/testowner/testowner.go", "local", true},
-		{"cli/internal/machine/context.go", "local", true},
-		{"local/testsupport/testgrid/testgrid.go", "sdk/go/bearer", false},
-		{"local/testsupport/testgrid/testgrid.go", "sdk/go", false},
+		{"stack/testsupport/testowner/testowner.go", "stack/local", true},
+		{"cli/internal/machine/context.go", "stack/local", true},
+		{"stack/testsupport/testgrid/testgrid.go", "sdk/go/bearer", false},
+		{"stack/testsupport/testgrid/testgrid.go", "sdk/go", false},
 		// The command line hands the SDK its telemetry; the SDK takes it
 		// as an option.
 		{"cli/internal/cmd/root.go", "core/telemetry", true},
@@ -175,13 +175,13 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		// The specs are what nothing depends on: they use the rest, and
 		// no component's code or test imports them back.
 		{"build/daemon/build/logs_test.go", "specs/build", false},
-		{"local/testsupport/testgrid/grid.go", "specs/cli", false},
+		{"stack/testsupport/testgrid/grid.go", "specs/cli", false},
 		// A spec starts what it needs in its setup file alone, and acts
 		// through the API everywhere else.
 		{"specs/cli/support_test.go", "workspace/server/controlplanetest", true},
 		{"specs/cli/local_test.go", "workspace/server/controlplane", false},
 		{"specs/cli/local_test.go", "workspace/box/source", false},
-		{"specs/cli/local_test.go", "local", false},
+		{"specs/cli/local_test.go", "stack/local", false},
 		// The journey names entities as the SDK takes them.
 		{"specs/cli/local_test.go", "sdk/go/entity", true},
 		{"specs/cli/local_test.go", "sdk/go/internal/transport", false},
@@ -195,13 +195,13 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		{"sandbox/sandbox_test.go", "workspace/box/source", false},
 		{"sandbox/sandbox_test.go", "workspace/server/controlplanetest", false},
 		{"specs/compare/compare_test.go", "workspace/box/source", false},
-		{"specs/compare/compare_test.go", "local", false},
+		{"specs/compare/compare_test.go", "stack/local", false},
 		// Test support uses nothing it is there to test.
-		{"local/testsupport/testgrid/grid.go", "sandbox", false},
-		{"local/testsupport/testgrid/grid.go", "local", true},
-		{"local/testsupport/testgrid/grid.go", "workspace/server/controlplane", false},
-		{"local/testsupport/testgrid/grid.go", "workspace/server/controlplanetest", false},
-		{"local/testsupport/testgrid/grid.go", "specs/buildtest", false},
+		{"stack/testsupport/testgrid/grid.go", "sandbox", false},
+		{"stack/testsupport/testgrid/grid.go", "stack/local", true},
+		{"stack/testsupport/testgrid/grid.go", "workspace/server/controlplane", false},
+		{"stack/testsupport/testgrid/grid.go", "workspace/server/controlplanetest", false},
+		{"stack/testsupport/testgrid/grid.go", "specs/buildtest", false},
 		{"specs/buildtest/buildtest.go", "workspace/server/controlplanetest", false},
 		// What starts a control plane for a test ends what one it stopped
 		// left in the gateway, through the sandbox service; other test
@@ -221,13 +221,13 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		// A program a person starts at a checkout's root finds it as the
 		// stack's program does (local.Checkout), and nothing of the local
 		// stack beyond it is the gate's to reach for.
-		{"specs/cmd/prepare-modules/main.go", "local", true},
-		{"specs/cmd/prepare-modules/main.go", "local/stack", false},
+		{"specs/cmd/prepare-modules/main.go", "stack/local", true},
+		{"specs/cmd/prepare-modules/main.go", "stack", false},
 		// The gate asks the stack where its ports are said, before the
 		// tests that need it; what prepares the plugins asks it nothing.
 		{"specs/cmd/gate/main.go", "core/ports", true},
 		{"specs/cmd/prepare-modules/main.go", "core/ports", false},
-		{"local/testsupport/testgrid/testgrid.go", "sandbox", false},
+		{"stack/testsupport/testgrid/testgrid.go", "sandbox", false},
 		{"sandbox/testsupport/drivertest/drivertest_test.go", "sandbox/testsupport/drivertest", true},
 		// The container driver is the sandbox service's to name, and its
 		// own tests' and the gateway's driver's tests'; nothing else's.
@@ -246,31 +246,31 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		{"specs/cmd/gate/main.go", "build/daemon/build", false},
 		{"specs/sandbox/sandbox_test.go", "sandbox/testsupport/drivertest", false},
 		{"specs/sandbox/support_test.go", "sandbox/testsupport/drivertest", true},
-		{"local/testsupport/testbox/testbox.go", "testsupport/testrequired", true},
-		{"local/testsupport/testbox/testbox.go", "local/box", false},
-		{"specs/cmd/gate/main.go", "local/box", true},
-		{"specs/local/box_test.go", "local/box", true},
-		{"specs/cli/local_test.go", "local/box", false},
-		{"specs/sandbox/support_test.go", "local/box", false},
-		{"specs/local/box_test.go", "local/stack", false},
-		{"local/testsupport/testbox/testbox.go", "cmd/frontseat-local", false},
-		{"local/testsupport/testbox/stack.go", "local/stack", true},
-		{"local/testsupport/testgrid/testgrid.go", "local/stack", false},
-		{"local/testsupport/testgrid/testgrid.go", "common/confine", true},
-		{"local/testsupport/testgrid/testgrid.go", "build/engine/exec/tools", false},
+		{"stack/testsupport/testbox/testbox.go", "testsupport/testrequired", true},
+		{"stack/testsupport/testbox/testbox.go", "stack/box", false},
+		{"specs/cmd/gate/main.go", "stack/box", true},
+		{"specs/local/box_test.go", "stack/box", true},
+		{"specs/cli/local_test.go", "stack/box", false},
+		{"specs/sandbox/support_test.go", "stack/box", false},
+		{"specs/local/box_test.go", "stack", false},
+		{"stack/testsupport/testbox/testbox.go", "cmd/frontseat-local", false},
+		{"stack/testsupport/testbox/stack.go", "stack", true},
+		{"stack/testsupport/testgrid/testgrid.go", "stack", false},
+		{"stack/testsupport/testgrid/testgrid.go", "common/confine", true},
+		{"stack/testsupport/testgrid/testgrid.go", "build/engine/exec/tools", false},
 		// The box is built from what the stack says it is laid on, and
 		// from nothing of what it holds.
-		{"local/box/box.go", "local", true},
+		{"stack/box/box.go", "stack/local", true},
 		// The stack's container is asked again until it comes to
 		// something by one loop of the local module's, which nothing of
 		// the server's reaches.
-		{"local/box/box.go", "local/internal/poll", true},
-		{"local/stack/stack.go", "local/internal/poll", true},
-		{"local/internal/poll/poll.go", "local", false},
+		{"stack/box/box.go", "stack/internal/poll", true},
+		{"stack/stack.go", "stack/internal/poll", true},
+		{"stack/internal/poll/poll.go", "stack/local", false},
 		// The stack's Podman is asked one way (local.Podman), by the
 		// stack, the test support and the spec of the stack's container.
-		{"specs/local/container_test.go", "local", true},
-		{"specs/local/container_test.go", "local/stack", false},
+		{"specs/local/container_test.go", "stack/local", true},
+		{"specs/local/container_test.go", "stack", false},
 		// The server asks again until what it asks is done by one loop;
 		// a package that waits on nothing does not import it.
 		{"build/daemon/build/build.go", "core/poll", true},
@@ -278,10 +278,10 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		{"grid/runner/runner.go", "core/poll", true},
 		{"sandbox/service.go", "core/poll", true},
 		{"sandbox/driver/openshell/openshell.go", "core/poll", true},
-		{"local/testsupport/testgrid/door.go", "core/poll", true},
+		{"stack/testsupport/testgrid/door.go", "core/poll", true},
 		{"sandbox/testsupport/drivertest/conformance.go", "core/poll", true},
 		{"build/engine/pluginhost/host.go", "core/poll", false},
-		{"local/testsupport/testbox/testbox.go", "core/poll", false},
+		{"stack/testsupport/testbox/testbox.go", "core/poll", false},
 		{"core/poll/poll.go", "build/daemon/build", false},
 		// A value of the API's enums is said by the SDK's one function,
 		// which the command line and the server import without the
@@ -292,34 +292,34 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		{"sdk/go/workspace.go", "sdk/go/enum", true},
 		{"sdk/go/enum/enum.go", "sdk/go", false},
 		{"workspace/box/source/service.go", "sdk/go/enum", false},
-		{"local/box/box.go", "sandbox", false},
-		{"local/box/box.go", "build/daemon/build", false},
-		{"local/stack/stack.go", "local/box", true},
-		{"local/stack/stack.go", "workspace/server/controlplane", false},
-		{"local/stack/container.go", "core/ports", true},
-		{"local/stack/container.go", "core/httpserver", false},
+		{"stack/box/box.go", "sandbox", false},
+		{"stack/box/box.go", "build/daemon/build", false},
+		{"stack/stack.go", "stack/box", true},
+		{"stack/stack.go", "workspace/server/controlplane", false},
+		{"stack/container.go", "core/ports", true},
+		{"stack/container.go", "core/httpserver", false},
 		// The local stack's program is the control plane told what the
 		// stack is; the control plane is told nothing of the stack.
 		{"cmd/frontseat-local/main.go", "workspace/server/controlplane", true},
-		{"cmd/frontseat-local/main.go", "local", true},
-		{"cmd/frontseat-local/local.go", "local/stack", true},
+		{"cmd/frontseat-local/main.go", "stack/local", true},
+		{"cmd/frontseat-local/local.go", "stack", true},
 		{"cmd/frontseat-local/main.go", "sandbox", false},
-		{"workspace/server/controlplane/controlplane.go", "local", false},
-		{"local/local.go", "workspace/server/controlplane", false},
+		{"workspace/server/controlplane/controlplane.go", "stack/local", false},
+		{"stack/local/local.go", "workspace/server/controlplane", false},
 		// The ports are said once, and read by what opens, serves or asks
 		// them, which reads nothing else of the stack for them.
 		{"workspace/server/controlplane/rules.go", "core/ports", true},
 		{"build/daemon/daemon/daemon.go", "core/ports", true},
-		{"build/daemon/daemon/daemon.go", "local", false},
+		{"build/daemon/daemon/daemon.go", "stack/local", false},
 		{"cli/internal/machine/token.go", "core/ports", true},
-		{"cli/internal/machine/token.go", "local/stack", false},
+		{"cli/internal/machine/token.go", "stack", false},
 		{"cli/internal/machine/token.go", "sdk/go/bearer", true},
 		{"cli/internal/machine/token.go", "sdk/go/internal/transport", false},
 		{"sandbox/testsupport/testcontainer/container_test.go", "core/ports", true},
-		{"sandbox/testsupport/testcontainer/container_test.go", "local/stack", false},
-		{"local/stack.go", "core/ports", true},
-		{"core/ports/ports.go", "local", false},
-		{"local/stack.go", "core/telemetry", false},
+		{"sandbox/testsupport/testcontainer/container_test.go", "stack", false},
+		{"stack/local/stack.go", "core/ports", true},
+		{"core/ports/ports.go", "stack/local", false},
+		{"stack/local/stack.go", "core/telemetry", false},
 		// The grid's runner is a thin main over the runner, which alone
 		// serves the sandbox API over the container runtime.
 		{"cmd/frontseat-runner/main.go", "grid/runner", true},
@@ -342,7 +342,7 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		{"build/daemon/build/runs.go", "build/engine/exec/schedule", false},
 		{"sdk/go/build_test.go", "specs/buildtest", false},
 		{"core/telemetry/trace.go", "build/daemon/build", false},
-		{"local/testsupport/testgrid/grid.go", "build/daemon/build", false},
+		{"stack/testsupport/testgrid/grid.go", "build/daemon/build", false},
 		{"build/daemon/build/service.go", "workspace/box/source", false},
 		{"build/daemon/build/graph_service.go", "build/engine/wire", true},
 		{"sdk/go/build.go", "build/engine/wire", false},
@@ -398,7 +398,7 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		// references with the one parser of them, and starts nothing.
 		{"specs/architecture/catalog_test.go", "sdk/go/entity", true},
 		{"specs/architecture/catalog_test.go", "build/engine/model", false},
-		{"local/testsupport/testgrid/testgrid.go", "sdk/go/entity", false},
+		{"stack/testsupport/testgrid/testgrid.go", "sdk/go/entity", false},
 		{"build/daemon/build/retained_session_test.go", "build/engine/engine/catalog/catalogtest", true},
 		{"build/engine/engine/evaluate/retained_projection_test.go", "build/engine/engine/catalog/catalogtest", true},
 		{"build/engine/engine/catalog/catalog.go", "build/engine/engine/catalog/catalogtest", false},
@@ -413,7 +413,7 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		{"build/engine/engine/plan/needs_test.go", "build/engine/engine/plan/plantest", true},
 		{"build/engine/exec/schedule/schedule.go", "build/engine/engine/plan/plantest", false},
 		{"workspace/box/source/service_test.go", "build/engine/engine/plan/plantest", false},
-		{"build/daemon/build/service.go", "local/testsupport/testgrid", false},
+		{"build/daemon/build/service.go", "stack/testsupport/testgrid", false},
 		{"workspace/server/controlplane/ending_test.go", "sandbox/testsupport/drivertest", true},
 		{"workspace/server/controlplane/controlplane.go", "sandbox/testsupport/drivertest", false},
 		{"workspace/server/controlplane/ending_test.go", "sandbox/driver", false},

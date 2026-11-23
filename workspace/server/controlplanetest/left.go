@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/frontseat-dev/frontseat/core/page"
-	"github.com/frontseat-dev/frontseat/local/testsupport/testgateway"
 	"github.com/frontseat-dev/frontseat/sandbox"
 	sandboxv1 "github.com/frontseat-dev/frontseat/sandbox/api/frontseat/sandbox/v1alpha1"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testgateway"
 )
 
 // EndLeft ends, once a server that kept its sandboxes' records in state

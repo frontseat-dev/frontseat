@@ -8,10 +8,10 @@ import (
 
 	"connectrpc.com/connect/v2"
 
-	"github.com/frontseat-dev/frontseat/local/testsupport/testbox"
-	"github.com/frontseat-dev/frontseat/local/testsupport/testgateway"
 	"github.com/frontseat-dev/frontseat/sandbox"
 	sandboxv1 "github.com/frontseat-dev/frontseat/sandbox/api/frontseat/sandbox/v1alpha1"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testbox"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testgateway"
 )
 
 // A server stopped before it ended a sandbox leaves it to EndLeft, which

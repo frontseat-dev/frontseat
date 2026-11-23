@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/frontseat-dev/frontseat/local/testsupport/testbox"
 	"github.com/frontseat-dev/frontseat/sandbox/driver"
 	"github.com/frontseat-dev/frontseat/sandbox/testsupport/drivertest"
 	"github.com/frontseat-dev/frontseat/sandbox/testsupport/testcontainer"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testbox"
 	"github.com/frontseat-dev/frontseat/testsupport/testrequired"
 	"github.com/frontseat-dev/frontseat/testsupport/testrun"
 )

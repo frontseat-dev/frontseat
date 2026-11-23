@@ -20,11 +20,11 @@ import (
 
 	connect "connectrpc.com/connect/v2"
 	"connectrpc.com/connect/v2/connecthttp"
-	"github.com/frontseat-dev/frontseat/local/testsupport/testbox"
 	"github.com/frontseat-dev/frontseat/sandbox"
 	sandboxv1 "github.com/frontseat-dev/frontseat/sandbox/api/frontseat/sandbox/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sandbox/api/frontseat/sandbox/v1alpha1/sandboxv1alpha1connect"
 	"github.com/frontseat-dev/frontseat/sandbox/testsupport/testcontainer"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testbox"
 	"github.com/frontseat-dev/frontseat/testsupport/testlisten"
 	"github.com/frontseat-dev/frontseat/testsupport/testrequired"
 	"google.golang.org/protobuf/types/known/durationpb"

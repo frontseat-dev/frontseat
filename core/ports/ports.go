@@ -1,6 +1,6 @@
 // Package ports are the ports frontseat's programs are reached on, each
 // said once, here: a box's (the daemon's build API, its source API and
-// its shell) and the local stack's (one container of local/image). The
+// its shell) and the local stack's (one container of stack/image). The
 // daemon listens on a box's by default and the control plane opens and
 // dials them; the command line asks the stack's control plane, or,
 // inside a box, the daemon there (Lock); the stack's image's files and

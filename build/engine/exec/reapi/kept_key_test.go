@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/frontseat-dev/frontseat/build/engine/exec"
-	"github.com/frontseat-dev/frontseat/local/testsupport/testgrid"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testgrid"
 )
 
 // an action as a run stages it has tools held in several

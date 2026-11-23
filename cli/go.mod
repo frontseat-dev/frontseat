@@ -6,7 +6,7 @@ require (
 	connectrpc.com/connect/v2 v2.0.2
 	github.com/frontseat-dev/frontseat/common/git v0.0.0
 	github.com/frontseat-dev/frontseat/core v0.0.0
-	github.com/frontseat-dev/frontseat/local v0.0.0
+	github.com/frontseat-dev/frontseat/stack v0.0.0
 	github.com/frontseat-dev/frontseat/sdk/go v0.0.0
 	github.com/frontseat-dev/frontseat/testsupport v0.0.0
 	github.com/google/renameio/v2 v2.0.2

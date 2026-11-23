@@ -14,9 +14,9 @@ import (
 	"strings"
 
 	"github.com/frontseat-dev/frontseat/core/ports"
-	"github.com/frontseat-dev/frontseat/local"
 	"github.com/frontseat-dev/frontseat/sdk/go"
 	"github.com/frontseat-dev/frontseat/sdk/go/bearer"
+	"github.com/frontseat-dev/frontseat/stack/local"
 )
 
 // written is a token as its file holds it: one word of what a header

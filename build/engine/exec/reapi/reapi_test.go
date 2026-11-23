@@ -16,7 +16,7 @@ import (
 	"github.com/frontseat-dev/frontseat/build/engine/exec/reapi"
 	"github.com/frontseat-dev/frontseat/build/engine/exec/reapi/reapitest"
 	"github.com/frontseat-dev/frontseat/common/confine"
-	"github.com/frontseat-dev/frontseat/local/testsupport/testgrid"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testgrid"
 	"github.com/frontseat-dev/frontseat/testsupport/testfiles"
 )
 

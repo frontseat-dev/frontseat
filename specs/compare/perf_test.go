@@ -31,8 +31,8 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/frontseat-dev/frontseat/local/testsupport/testgrid"
 	"github.com/frontseat-dev/frontseat/sdk/go"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testgrid"
 	"github.com/frontseat-dev/frontseat/testsupport/testmodule"
 	"github.com/frontseat-dev/frontseat/testsupport/testworkload"
 )

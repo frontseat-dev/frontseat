@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/frontseat-dev/frontseat/local/testsupport/testgateway"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testgateway"
 	"github.com/frontseat-dev/frontseat/testsupport/testauthority"
 )
 

@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/frontseat-dev/frontseat/local"
+	"github.com/frontseat-dev/frontseat/stack/local"
 )
 
 // A token is the control plane's to make and to know: the command line

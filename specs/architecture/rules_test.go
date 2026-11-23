@@ -54,7 +54,7 @@ var policies = []policy{
 	// What the command line keeps and reads on this machine; what it asks
 	// of a version control system about a checkout, and git, which
 	// answers it.
-	{"cli/internal/machine", []string{"sdk/go/api/**", "sdk/go", "sdk/go/bearer", "cli/internal/vcs", "cli/internal/vcs/git", "local", "core/ports"}},
+	{"cli/internal/machine", []string{"sdk/go/api/**", "sdk/go", "sdk/go/bearer", "cli/internal/vcs", "cli/internal/vcs/git", "stack/local", "core/ports"}},
 	{"cli/internal/vcs", []string{}},
 	{"cli/internal/vcs/git", []string{"cli/internal/vcs", "common/git"}},
 	{"cli/internal/ui/**", []string{"sdk/go/api/**", "sdk/go/entity", "sdk/go/enum", "cli/internal/ui/**"}},
@@ -73,29 +73,32 @@ var policies = []policy{
 	// links what the test support tests, and never builds the box, which
 	// is built from the source of other packages: the gate builds it
 	// before the tests (fromSource).
-	{"testsupport/**", []string{"testsupport/**", "local", "core/ports"}},
+	{"testsupport/**", []string{"testsupport/**", "stack/local", "core/ports"}},
 	// The stack's one container is started for a test as the stack starts
 	// it: by its own flags and profile.
 	// Test support of the local stack's own: the box, the gateway, the
 	// grid and the owner's token a test is given, beside what they start.
-	{"local/testsupport/**", []string{"local", "local/testsupport/**", "core/ports"}},
-	{"local/testsupport/testbox", []string{"testsupport/**", "local", "core/ports", "local/stack"}},
+	{"stack/testsupport/**", []string{"stack/local", "stack/testsupport/**", "core/ports"}},
+	{"stack/testsupport/testbox", []string{"testsupport/**", "stack/local", "core/ports", "stack"}},
 	// The grid's runner runs only a confined command: what another tool
 	// sends it begins as the daemon's do, which the confiner says.
-	{"local/testsupport/testgrid", []string{"testsupport/**", "local", "local/testsupport/**", "core/ports", "common/confine", "core/poll"}},
+	{"stack/testsupport/testgrid", []string{"testsupport/**", "stack/local", "stack/testsupport/**", "core/ports", "common/confine", "core/poll"}},
 	// A test logs in to a workspace's shell with its own key, through the
 	// SDK's tunnel, presenting the token its control plane knows it by.
 	{"testsupport/testidentity", []string{"sdk/go"}},
 	// The owner's token is a person's own: a test presents it as the
 	// SDK does, to its origin alone and following no redirect.
-	{"local/testsupport/testowner", []string{"local", "core/ports", "sdk/go/bearer"}},
+	{"stack/testsupport/testowner", []string{"stack/local", "core/ports", "sdk/go/bearer"}},
 	// The sandbox API is no part of the SDK: a test asks it, and opens a
 	// tunnel to a sandbox's port, through this.
 	{"sandbox/testsupport/testsandbox", []string{"sdk/go/api/**", "sandbox/api/**", "testsupport/testwire"}},
 	// What the local stack is, read from its files: one reader, for the
 	// stack's control plane, the box and the test support, which links
 	// nothing of the server.
-	{"local", []string{"core/ports"}},
+	{"stack/local", []string{"core/ports", "stack/image"}},
+	// The stack's image, beside what it is built of: the files of it a
+	// program carries.
+	{"stack/image", []string{}},
 	// The ports frontseat's programs are reached on, each said once: the
 	// daemon's defaults, the control plane, the command line, the stack's
 	// own control plane and the test support all read them here.
@@ -103,11 +106,11 @@ var policies = []policy{
 	// The box's one build, from what the stack says it is laid on; and
 	// the stack brought up and down, running the box it builds, its one
 	// container publishing the ports where they are said.
-	{"local/box", []string{"local", "local/internal/poll"}},
-	{"local/stack", []string{"local", "local/box", "core/ports", "local/internal/poll"}},
+	{"stack/box", []string{"stack/local", "stack/internal/poll"}},
+	{"stack", []string{"stack/local", "stack/box", "core/ports", "stack/internal/poll"}},
 	// Asking again until the stack's container comes to something: one
 	// loop, for the box's build and the stack's program.
-	{"local/internal/poll", []string{}},
+	{"stack/internal/poll", []string{}},
 	{"core/httpserver", []string{}},
 	{"core/image", []string{}},
 	{"common/confine", []string{}},
@@ -216,7 +219,7 @@ var policies = []policy{
 	// asks it. Its tests start a box and ask its daemon.
 	// Test support of the sandbox's own, beside it.
 	{"sandbox/testsupport/**", []string{"sandbox/**"}},
-	{"sandbox/testsupport/testcontainer", []string{"sandbox/testsupport/**", "sandbox/driver", "core/image", "testsupport/**", "local", "core/ports", "sdk/go/api/**", "common/told", "common/told/sourceapi/**"}},
+	{"sandbox/testsupport/testcontainer", []string{"sandbox/testsupport/**", "sandbox/driver", "core/image", "testsupport/**", "stack/local", "core/ports", "sdk/go/api/**", "common/told", "common/told/sourceapi/**"}},
 	// The control plane keeps workspaces over the sandboxes they live in,
 	// and asks the version control system through its port (vcs.Fetching)
 	// what reaching a repository takes. It tells a workspace's daemon
@@ -245,7 +248,7 @@ var policies = []policy{
 	{"build/daemon/daemon", []string{"build/daemon/build", "workspace/box/source", "core/httpserver", "core/telemetry", "core/ports", "common/vcs/chosen"}},
 	// The local stack's control plane: the control plane, told what the
 	// stack is by the stack's own package.
-	{"cmd/frontseat-local", []string{"workspace/server/controlplane", "workspace/server/backstage", "core/httpserver", "core/secretfile", "core/telemetry", "local", "core/ports", "local/stack", "local/box", "common/vcs/chosen"}},
+	{"cmd/frontseat-local", []string{"workspace/server/controlplane", "workspace/server/backstage", "core/httpserver", "core/secretfile", "core/telemetry", "stack/local", "core/ports", "stack", "stack/box", "common/vcs/chosen"}},
 	{"cmd/frontseat-confine", []string{"common/confine"}},
 	// The grid's runner: a thin main over the runner, which serves the
 	// sandbox API over the container runtime to itself.
@@ -258,21 +261,21 @@ var policies = []policy{
 	// was built with; no other spec builds one. That spec asks the
 	// stack's Podman as the stack does (local.Podman).
 	{"specs/cli", []string{"sdk/go", "sdk/go/api/**", "sandbox/api/**", "sdk/go/entity", "testsupport/**", "core/ports"}},
-	{"specs/local", []string{"testsupport/**", "local", "core/ports", "local/box"}},
+	{"specs/local", []string{"testsupport/**", "stack/local", "core/ports", "stack/box"}},
 	{"specs/compare", []string{"sdk/go", "sdk/go/api/**", "sandbox/api/**", "testsupport/**"}},
 	{"specs/**", []string{"sdk/go", "sdk/go/api/**", "sandbox/api/**", "sdk/go/entity", "testsupport/**", "core/telemetry", "specs/internal/**", "core/ports"}},
 	// The gate programs: what runs the specs and every other test, and
 	// builds the box before the tests that need it; what reads a gate's
 	// command, and what the contracts' generators are held to.
-	{"specs/cmd/**", []string{"specs/internal/**", "testsupport/**", "local"}},
+	{"specs/cmd/**", []string{"specs/internal/**", "testsupport/**", "stack/local"}},
 	// The gate builds the box by its one build, which no test does, and
 	// asks that the stack answers where core/ports says, before the
 	// tests that need it.
-	{"specs/cmd/gate", []string{"specs/internal/**", "testsupport/**", "local", "local/box", "core/ports"}},
+	{"specs/cmd/gate", []string{"specs/internal/**", "testsupport/**", "stack/local", "stack/box", "core/ports"}},
 	{"specs/internal/**", []string{"specs/internal/**"}},
 }
 
-var forTests = []string{"testsupport", "local/testsupport", "sandbox/testsupport", "workspace/server/controlplanetest", "specs", "workspace/server/toldtest", "build/engine/pluginhost/conformance", "build/engine/exec/tools/toolstest", "build/engine/engine/source/sourcetest", "build/engine/exec/reapi/reapitest", "build/engine/engine/plan/plantest", "build/engine/pluginhost/pluginhosttest", "build/engine/engine/catalog/catalogtest"}
+var forTests = []string{"testsupport", "stack/testsupport", "sandbox/testsupport", "workspace/server/controlplanetest", "specs", "workspace/server/toldtest", "build/engine/pluginhost/conformance", "build/engine/exec/tools/toolstest", "build/engine/engine/source/sourcetest", "build/engine/exec/reapi/reapitest", "build/engine/engine/plan/plantest", "build/engine/pluginhost/pluginhosttest", "build/engine/engine/catalog/catalogtest"}
 
 func beneath(path, root string) bool { return path == root || strings.HasPrefix(path, root+"/") }
 
@@ -428,7 +431,7 @@ func permits(file, imported string) bool {
 // besideItsModule is whether a package is test support that is beside
 // the module it serves, and not at the top.
 func besideItsModule(path string) bool {
-	return beneath(path, "local/testsupport") || beneath(path, "sandbox/testsupport") || beneath(path, "workspace/server/controlplanetest")
+	return beneath(path, "stack/testsupport") || beneath(path, "sandbox/testsupport") || beneath(path, "workspace/server/controlplanetest")
 }
 
 func TestEverySourceFileHasAnOwnerAndObeysItsImports(t *testing.T) {
@@ -1581,7 +1584,7 @@ var moduleOrder = []string{
 	"common/record",
 	"common/told",
 	"common/runner",
-	"local",
+	"stack",
 	"sandbox",
 	"build/engine",
 	"grid",

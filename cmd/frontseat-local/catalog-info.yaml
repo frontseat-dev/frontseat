@@ -9,7 +9,7 @@ spec:
   lifecycle: experimental
   owner: jbadeau
   system: workspaces
-  dependsOn: [component:apko-plugin, component:backstage-plugin, component:buf-plugin, component:cargo-plugin, component:confine, component:container-plugin, component:core, component:git, component:github-plugin, component:go-plugin, component:go-sdk, component:jest-plugin, component:local, component:npm-plugin, component:plugin-sdk, component:postgres-plugin, component:record, component:release-plugin, component:sandbox, component:testsupport, component:told, component:vcs, component:workspace-server]
+  dependsOn: [component:apko-plugin, component:backstage-plugin, component:buf-plugin, component:cargo-plugin, component:confine, component:container-plugin, component:core, component:git, component:github-plugin, component:go-plugin, component:go-sdk, component:jest-plugin, component:stack, component:npm-plugin, component:plugin-sdk, component:postgres-plugin, component:record, component:release-plugin, component:sandbox, component:testsupport, component:told, component:vcs, component:workspace-server]
   frontseat:
     # The program is shipped for where it runs: each platform is a file
     # of its own in a release, frontseat-local-<os>-<arch>.

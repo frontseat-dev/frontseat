@@ -19,14 +19,14 @@ import (
 
 	connect "connectrpc.com/connect/v2"
 
-	"github.com/frontseat-dev/frontseat/local/testsupport/testbox"
-	"github.com/frontseat-dev/frontseat/local/testsupport/testgateway"
-	"github.com/frontseat-dev/frontseat/local/testsupport/testgrid"
-	"github.com/frontseat-dev/frontseat/local/testsupport/testowner"
 	"github.com/frontseat-dev/frontseat/sdk/go"
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/entity"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testbox"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testgateway"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testgrid"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testowner"
 	"github.com/frontseat-dev/frontseat/testsupport/backstagetest"
 	"github.com/frontseat-dev/frontseat/testsupport/testfiles"
 	"github.com/frontseat-dev/frontseat/testsupport/testforge"

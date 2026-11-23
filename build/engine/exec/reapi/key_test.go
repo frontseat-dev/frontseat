@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/frontseat-dev/frontseat/build/engine/exec"
-	"github.com/frontseat-dev/frontseat/local/testsupport/testgrid"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testgrid"
 )
 
 // What the grid knows an action by is said without asking the grid, and

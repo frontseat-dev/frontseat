@@ -10,7 +10,7 @@ import (
 	"github.com/frontseat-dev/frontseat/build/engine/exec/reapi"
 
 	"github.com/frontseat-dev/frontseat/build/engine/exec"
-	"github.com/frontseat-dev/frontseat/local/testsupport/testgrid"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testgrid"
 )
 
 // Measure what an action the daemon was answered for costs, using the

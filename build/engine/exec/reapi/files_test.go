@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/frontseat-dev/frontseat/build/engine/exec"
-	"github.com/frontseat-dev/frontseat/local/testsupport/testgrid"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testgrid"
 )
 
 // said is what files held at one moment, by the path of each: the

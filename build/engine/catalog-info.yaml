@@ -10,7 +10,7 @@ spec:
   owner: jbadeau
   system: build
   consumesApis: [api:plugin-api]
-  dependsOn: [component:api, component:apko-plugin, component:backstage-plugin, component:buf-plugin, component:cargo-plugin, component:confine, component:container-plugin, component:core, component:github-plugin, component:go-plugin, component:go-sdk, component:jest-plugin, component:local, component:npm-plugin, component:plugin-sdk, component:postgres-plugin, component:record, component:release-plugin, component:runner-contract, component:testsupport, component:vcs]
+  dependsOn: [component:api, component:apko-plugin, component:backstage-plugin, component:buf-plugin, component:cargo-plugin, component:confine, component:container-plugin, component:core, component:github-plugin, component:go-plugin, component:go-sdk, component:jest-plugin, component:stack, component:npm-plugin, component:plugin-sdk, component:postgres-plugin, component:record, component:release-plugin, component:runner-contract, component:testsupport, component:vcs]
   frontseat:
     # Generated here by the contracts' Buf workspace (api/buf.gen.*.yaml),
     # and nowhere else of this Component.

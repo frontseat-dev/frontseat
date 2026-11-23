@@ -12,8 +12,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/frontseat-dev/frontseat/local/testsupport/testbox"
-	"github.com/frontseat-dev/frontseat/local/testsupport/testgrid"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testbox"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testgrid"
 	"github.com/frontseat-dev/frontseat/testsupport/testfiles"
 	"github.com/frontseat-dev/frontseat/testsupport/testmodule"
 	"github.com/frontseat-dev/frontseat/testsupport/testrequired"

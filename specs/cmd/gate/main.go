@@ -25,7 +25,7 @@
 // answering fails, so neither ends green with a test of the stack
 // skipped. Where a gate runs with the stack and a container runtime
 // answers, it first builds the box image of this checkout and installs
-// its frontseat-confine for the stack's workers (local/box, the one build
+// its frontseat-confine for the stack's workers (stack/box, the one build
 // of the box), and tells the tests both (FRONTSEAT_TEST_BOX, the box's
 // tag of its content, and FRONTSEAT_TEST_CONFINER): they are built from
 // the source of the server and the command line, which no test builds
@@ -66,11 +66,11 @@ import (
 	"time"
 
 	"github.com/frontseat-dev/frontseat/core/ports"
-	"github.com/frontseat-dev/frontseat/local"
-	"github.com/frontseat-dev/frontseat/local/box"
-	"github.com/frontseat-dev/frontseat/local/testsupport/testbox"
-	"github.com/frontseat-dev/frontseat/local/testsupport/testgrid"
 	"github.com/frontseat-dev/frontseat/specs/internal/gatecommand"
+	"github.com/frontseat-dev/frontseat/stack/box"
+	"github.com/frontseat-dev/frontseat/stack/local"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testbox"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testgrid"
 	"github.com/frontseat-dev/frontseat/testsupport/testbudget"
 	"github.com/frontseat-dev/frontseat/testsupport/testmodule"
 	"github.com/frontseat-dev/frontseat/testsupport/testrequired"

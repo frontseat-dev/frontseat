@@ -10,7 +10,7 @@ spec:
   owner: jbadeau
   system: clients
   consumesApis: [api:build-api, api:workspace-api, api:credential-api]
-  dependsOn: [component:api, component:confine, component:core, component:git, component:go-sdk, component:local, component:testsupport]
+  dependsOn: [component:api, component:confine, component:core, component:git, component:go-sdk, component:stack, component:testsupport]
   frontseat:
     # The command line is shipped for where people and CI run it: each
     # platform is a program of its own in a release, frontseat-<os>-<arch>.

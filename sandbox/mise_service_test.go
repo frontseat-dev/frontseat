@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/frontseat-dev/frontseat/local/testsupport/testgrid"
 	sandboxv1 "github.com/frontseat-dev/frontseat/sandbox/api/frontseat/sandbox/v1alpha1"
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testgrid"
 	"github.com/frontseat-dev/frontseat/testsupport/testpins"
 	"github.com/frontseat-dev/frontseat/testsupport/testrequired"
 	"google.golang.org/protobuf/types/known/durationpb"

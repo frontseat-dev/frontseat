@@ -210,7 +210,7 @@ func TestAPublicPackageOnNoListIsFound(t *testing.T) {
 		{"sdk/go", "frontseat", []string{"frontseat.go"}, nil},
 		{"sdk/go/internal/transport", "transport", []string{"transport.go"}, nil},
 		{"cli/internal/cmd", "cmd", []string{"root.go"}, nil},
-		{"local/testsupport/testbox", "testbox", []string{"testbox.go"}, nil},
+		{"stack/testsupport/testbox", "testbox", []string{"testbox.go"}, nil},
 		// A package of the repository's own, which no list names.
 		{"build/daemon/build", "build", []string{"build.go"}, nil},
 		{"cli/cmd/frontseat", "main", []string{"main.go"}, nil},
@@ -248,7 +248,7 @@ func TestAPublicPackageOnNoListIsFound(t *testing.T) {
 	if wrong := offTheLevels(held, stale); len(wrong) != 1 || !strings.HasPrefix(wrong[0], "sandbox/driver/e2b is on the list") {
 		t.Errorf("a stale entry: %v", wrong)
 	}
-	for _, none := range []string{"cli/internal/cmd", "sdk/go", "local/testsupport/testbox", "specs/build"} {
+	for _, none := range []string{"cli/internal/cmd", "sdk/go", "stack/testsupport/testbox", "specs/build"} {
 		listing := map[string]string{"sandbox": "the service", none: "listed"}
 		if wrong := offTheLevels(held, listing); len(wrong) != 1 || !strings.HasPrefix(wrong[0], none+" is on the list") {
 			t.Errorf("%s listed: %v", none, wrong)

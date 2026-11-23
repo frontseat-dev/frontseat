@@ -12,9 +12,9 @@ import (
 	"time"
 
 	connect "connectrpc.com/connect/v2"
-	"github.com/frontseat-dev/frontseat/local/testsupport/testbox"
 	sandboxv1 "github.com/frontseat-dev/frontseat/sandbox/api/frontseat/sandbox/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sandbox/api/frontseat/sandbox/v1alpha1/sandboxv1alpha1connect"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testbox"
 )
 
 // delayedDelivery models a lost answer from a transport that has already

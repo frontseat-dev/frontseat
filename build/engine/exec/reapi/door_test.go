@@ -9,7 +9,7 @@ import (
 	"github.com/frontseat-dev/frontseat/build/engine/exec"
 	"github.com/frontseat-dev/frontseat/build/engine/exec/access"
 	"github.com/frontseat-dev/frontseat/build/engine/exec/reapi"
-	"github.com/frontseat-dev/frontseat/local/testsupport/testgrid"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testgrid"
 )
 
 // A grid that is not this machine's own asks who calls. A daemon given the
