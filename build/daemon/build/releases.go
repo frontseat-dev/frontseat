@@ -508,6 +508,8 @@ func (rs *releases) publish(ctx context.Context, m *made, planned *release.Plann
 	}
 	runs := rs.graph.runs
 	runner := publish.Runner{Grid: runs.answered, Tools: &tools.Provisioner{Executor: runs.executor, Platform: runs.platform}, Kept: runs.tools, Given: runs.given}
+	// Publishing is over once nothing of it still asks the grid.
+	defer runner.Tools.Join()
 	units := map[string]*buildv1.ReleaseUnit{}
 	for _, unit := range planned.Plan.GetUnits() {
 		units[entity.FromProto(unit.GetEntity()).String()] = unit

@@ -13,10 +13,29 @@ import (
 // is kept before the waiters are told: one that comes once the work is
 // over finds it kept, and does not ask again. No lock is held while the
 // work runs, so work under one key holds up none under another.
+//
+// Work told to stop has stopped only once it returns, which may be a
+// while after: whoever gave up is not kept waiting for it. Whoever is to
+// close what the work uses joins it first (join).
 type shared[T any] struct {
 	mu    sync.Mutex
 	kept  map[string]T
 	going map[string]*flight[T]
+	// running is the work that has not returned yet, stopped or not.
+	running sync.WaitGroup
+}
+
+// join stops the work that is going and returns once all of it has
+// returned, whoever waits for it being told it was stopped. It is called
+// when nothing asks any more: work begun while it waits is not waited
+// for.
+func (s *shared[T]) join() {
+	s.mu.Lock()
+	for _, f := range s.going {
+		f.stop()
+	}
+	s.mu.Unlock()
+	s.running.Wait()
 }
 
 // flight is work being done, and those that wait for it.
@@ -54,7 +73,9 @@ func (s *shared[T]) do(ctx context.Context, key string, work func(context.Contex
 			s.going = map[string]*flight[T]{}
 		}
 		s.going[key] = f
+		s.running.Add(1)
 		go func() {
+			defer s.running.Done()
 			defer stop()
 			given, err := work(doing)
 			s.mu.Lock()

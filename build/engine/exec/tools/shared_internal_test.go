@@ -166,3 +166,76 @@ func TestWorkSeveralWaitOnIsDoneOnceForAll(t *testing.T) {
 		})
 	}
 }
+
+// Work that none waits for any more is told to stop at once, and whoever
+// gave up is answered at once; it has stopped only when it returns, which
+// may be a while after, as a call to the grid unwinds. Joined, the work
+// has stopped: what it used may then be closed. The control is the same
+// work before it is joined, which is still going.
+func TestSharedWorkHasStoppedOnceItIsJoined(t *testing.T) {
+	var s shared[int]
+	started, unwound := make(chan struct{}), make(chan struct{})
+	var ended atomic.Bool
+	ctx, giveUp := context.WithCancel(context.Background())
+	answered := make(chan error, 1)
+	go func() {
+		_, err := s.do(ctx, "tool", func(doing context.Context) (int, error) {
+			close(started)
+			<-doing.Done()
+			<-unwound
+			ended.Store(true)
+			return 0, doing.Err()
+		})
+		answered <- err
+	}()
+	<-started
+	giveUp()
+	if err := <-answered; !errors.Is(err, context.Canceled) {
+		t.Fatalf("whoever gave up was told %v", err)
+	}
+	joined := make(chan struct{})
+	go func() { s.join(); close(joined) }()
+	select {
+	case <-joined:
+		t.Fatal("the work was joined while it was still going")
+	case <-time.After(50 * time.Millisecond):
+	}
+	if ended.Load() {
+		t.Fatal("the control: the work had ended before it was let")
+	}
+	close(unwound)
+	select {
+	case <-joined:
+	case <-time.After(10 * time.Second):
+		t.Fatal("the work was never joined")
+	}
+	if !ended.Load() {
+		t.Error("joined, the work had not stopped")
+	}
+}
+
+// Work still waited for is stopped by a join too, and whoever waits is
+// told it was.
+func TestJoiningStopsSharedWorkThatIsStillWaitedFor(t *testing.T) {
+	var s shared[int]
+	started := make(chan struct{})
+	answered := make(chan error, 1)
+	go func() {
+		_, err := s.do(context.Background(), "tool", func(doing context.Context) (int, error) {
+			close(started)
+			<-doing.Done()
+			return 0, doing.Err()
+		})
+		answered <- err
+	}()
+	<-started
+	s.join()
+	select {
+	case err := <-answered:
+		if !errors.Is(err, context.Canceled) {
+			t.Errorf("whoever waited was told %v; want that the work was stopped", err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("whoever waited was never answered")
+	}
+}
