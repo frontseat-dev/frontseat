@@ -1,4 +1,4 @@
-module github.com/frontseat-dev/frontseat/cmd/frontseat-action
+module github.com/frontseat-dev/frontseat/cmd/frontseat-confine
 
 go 1.27.3
 

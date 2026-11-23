@@ -43,7 +43,7 @@ func TestARefusalRepeatsNothingAClientOfTheGridWrote(t *testing.T) {
 	_, err = pathsOf(request(map[protowire.Number]string{4: marked + "/../stdout", 5: marked + "/stderr", 6: marked + "/root", 7: marked + "/tmp", 8: marked + "/server_logs"}))
 	unrepeated(t, "a path that climbs in a directory of the client's naming", err)
 
-	const confiners = "/bb/frontseat-action-"
+	const confiners = "/bb/frontseat-confine-"
 	root, dir := "/slot/build/x/root", "/slot/build/x/root/repo/module"
 	if err := confined(confiners, []string{confiners + aForm, "{}", "../..", "go"}, dir, root); err != nil {
 		t.Fatalf("a confined command: %v", err)

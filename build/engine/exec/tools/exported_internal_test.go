@@ -28,7 +28,7 @@ func commanded(t *testing.T, own map[string]string, vars []given, within map[str
 	return spec
 }
 
-// What mise gives is a value, whatever it holds: frontseat-action is told
+// What mise gives is a value, whatever it holds: frontseat-confine is told
 // it as data, never as text a shell reads, and the root mise was asked
 // in is the action's own.
 func TestWhatMiseGivesIsGivenAsItWasGiven(t *testing.T) {

@@ -238,7 +238,7 @@ func TestAFetchOfWhatItsLockHoldsWholeLeavesItsFilesAndReachesNothing(t *testing
 }
 
 // networked says whether a staged command reaches the network: what
-// frontseat-action is told, its second word, says so.
+// frontseat-confine is told, its second word, says so.
 func networked(arguments []string) bool {
 	return len(arguments) < 2 || strings.Contains(arguments[1], `"network":true`)
 }

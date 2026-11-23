@@ -25,7 +25,7 @@ import (
 // Confined is the runner of a runner sandbox: what the worker asks to run
 // each action, over Buildbarn's runner protocol, in place of bb_runner.
 // It runs a command only where it begins with Frontseat's confiner, as
-// the daemon writes every action's (frontseat-action, of a form installed
+// the daemon writes every action's (frontseat-confine, of a form installed
 // at /bb), held to the action's own input root: any other command, as
 // any client of the grid may send, is refused, never run as it is. It
 // runs one action at a time, and keeps whatever an action starts beneath

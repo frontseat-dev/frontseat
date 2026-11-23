@@ -7,7 +7,7 @@
 // (frontseat.sandbox.v1alpha1.RunnerSandbox, at
 // .frontseat/runtime/runner.binpb), in dependency order, then one for the
 // test. Each holds only a private loopback, and is granted the endpoints
-// it may reach by routes: frontseat-action's relays between its loopback
+// it may reach by routes: frontseat-confine's relays between its loopback
 // and Unix sockets in directories the runner shares, which the sandbox
 // runs before its own command, in its one workload (SandboxSpec.wrapper).
 // The test's sandbox runs Frontseat's runner (Confined) over the action's

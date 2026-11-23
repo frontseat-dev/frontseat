@@ -24,20 +24,20 @@ import (
 	"github.com/frontseat-dev/frontseat/testsupport/testpins"
 )
 
-// confiner is frontseat-action as this checkout builds it, for the grid's
+// confiner is frontseat-confine as this checkout builds it, for the grid's
 // workers' architecture, in a directory to give a container as its /bb,
 // as a worker holds it beside the runner.
 func confiner(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	build := osexec.Command("go", "build", "-o", filepath.Join(dir, path.Base(confine.Confiner)), "github.com/frontseat-dev/frontseat/cmd/frontseat-action")
+	build := osexec.Command("go", "build", "-o", filepath.Join(dir, path.Base(confine.Confiner)), "github.com/frontseat-dev/frontseat/cmd/frontseat-confine")
 	goarch := map[string]string{"aarch64": "arm64", "x86-64": "amd64"}[testgrid.Platform()["ISA"]]
 	if goarch == "" {
 		t.Fatalf("the grid's workers are of an architecture this test builds nothing for: %v", testgrid.Platform())
 	}
 	build.Env = append(os.Environ(), "GOOS=linux", "GOARCH="+goarch, "CGO_ENABLED=0")
 	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("building frontseat-action: %v\n%s", err, out)
+		t.Fatalf("building frontseat-confine: %v\n%s", err, out)
 	}
 	return dir
 }
@@ -75,7 +75,7 @@ func ranWith(t *testing.T, p *tools.Provisioner, action exec.Action, repository 
 
 // executed is what the provisioner's grid answers for the action.
 // refusedUnconfined requires the grid to refuse an action whose command
-// frontseat-action does not begin, and run nothing of it: the grid's
+// frontseat-confine does not begin, and run nothing of it: the grid's
 // runner runs no command but a confined one. What would have been the
 // control of a test, the same probe run with nothing confining it, is
 // this refusal.
@@ -171,7 +171,7 @@ func rooted(t *testing.T, p *tools.Provisioner, arguments ...string) exec.Action
 // both.
 var named = map[string][]string{"naming no tool": nil, "naming a tool": {"go"}}
 
-// What confines an action is the worker's own frontseat-action, and
+// What confines an action is the worker's own frontseat-confine, and
 // nothing the action is handed: run as a worker runs it, in the workers'
 // image as the runner's user, the action's root mounted where it is, it
 // writes its root and not the worker's disk. The control is the same
@@ -767,7 +767,7 @@ func TestWhatAnActionMustBeGivenAsWrittenIsRefusedWhereAnythingElseSetsIt(t *tes
 // to be preloaded is loaded by its command alone, never by what starts it
 // before it is confined, and reaches the command as written. The command
 // is given no environment of the grid's: all of it is in what
-// frontseat-action is told. The control is the same library put in the
+// frontseat-confine is told. The control is the same library put in the
 // environment the grid starts the action with, which the command loads
 // and is told: the count sees a load where there is one.
 func TestNothingAnActionIsGivenReachesWhatStartsOrConfinesIt(t *testing.T) {

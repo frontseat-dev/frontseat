@@ -2,7 +2,7 @@ package compare_test
 
 // What frontseat is held to: the same work built by Bazel on the same
 // grid, each of its actions run in the same runner sandboxes, where
-// frontseat's are also confined by frontseat-action. Each case is built by both in
+// frontseat's are also confined by frontseat-confine. Each case is built by both in
 // rounds, the one that goes first alternating, so that what the machine
 // does meanwhile falls on both; a case fails where frontseat is clearly
 // more than its allowance times as slow: where the lower bound of a 95%

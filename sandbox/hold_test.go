@@ -145,7 +145,7 @@ func TestASpecThatWouldBeRunWeakerIsRefused(t *testing.T) {
 	// And one that runs as a user by number, writes a directory of its
 	// image and is wrapped by a program named absolutely.
 	if _, err := started(t, drivertest.NewMemory(), t.TempDir()).CreateSandbox(context.Background(), box(func(s *sandboxv1.SandboxSpec) {
-		s.UserId, s.Writable, s.Wrapper = 70, []string{"/var/lib/postgresql"}, []string{"/bb/frontseat-action", "routes", "--"}
+		s.UserId, s.Writable, s.Wrapper = 70, []string{"/var/lib/postgresql"}, []string{"/bb/frontseat-confine", "routes", "--"}
 	})); err != nil {
 		t.Errorf("a sandbox with its user, what it writes and its wrapper: %v", err)
 	}

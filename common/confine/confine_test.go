@@ -20,7 +20,7 @@ import (
 	"time"
 )
 
-// The test binary is frontseat-action where a test runs it so: what it
+// The test binary is frontseat-confine where a test runs it so: what it
 // does is what the program does, without building it.
 func TestMain(m *testing.M) {
 	// Run as an action's command, it connects to the socket named, and
@@ -280,14 +280,14 @@ func envOf(a prepared, name string) string {
 	return ""
 }
 
-// running runs this test binary as frontseat-action in a directory, where
+// running runs this test binary as frontseat-confine in a directory, where
 // only Linux runs an action: elsewhere the test is skipped.
 func running(t *testing.T, dir string, args ...string) (string, error) {
 	t.Helper()
 	return runningWith(t, dir, nil, args...)
 }
 
-// confiner is this program run as frontseat-action in a directory, with
+// confiner is this program run as frontseat-confine in a directory, with
 // what the request's environment adds: by its own path, since it runs
 // elsewhere than here, making its actions' temporary directories in this
 // test's own.
@@ -566,7 +566,7 @@ func TestAnActionsRootIsBelowADirectoryOfTheSystems(t *testing.T) {
 }
 
 // Where Landlock is not, as on this system where it is not Linux, no
-// action is run: frontseat-action refuses rather than run one unconfined.
+// action is run: frontseat-confine refuses rather than run one unconfined.
 func TestAnActionIsNotRunUnconfined(t *testing.T) {
 	if runtime.GOOS == "linux" {
 		t.Skip("Linux confines an action: the refusal is elsewhere's")
@@ -588,7 +588,7 @@ func TestTheConfinerIsNamedByItsForm(t *testing.T) {
 	if err != nil || strings.TrimSpace(string(got)) != Form {
 		t.Errorf("told form, it said %q (%v), want %q", got, err, Form)
 	}
-	if Confiner != "/bb/frontseat-action-"+Form || len(Form) != 64 {
+	if Confiner != "/bb/frontseat-confine-"+Form || len(Form) != 64 {
 		t.Errorf("the confiner is at %q, of form %q", Confiner, Form)
 	}
 }
@@ -624,7 +624,7 @@ func TestTheConfinerInstallsItselfOnceUnderItsForm(t *testing.T) {
 		})
 	}
 	together.Wait()
-	at := filepath.Join(dir, "frontseat-action-"+Form)
+	at := filepath.Join(dir, "frontseat-confine-"+Form)
 	if entries, _ := os.ReadDir(dir); len(entries) != 1 || entries[0].Name() != filepath.Base(at) {
 		t.Fatalf("installing at once left %v, want the confiner alone", entries)
 	}
@@ -658,7 +658,7 @@ func TestWhatIsUnderTheConfinersNameAndIsNotOfItsFormIsReplaced(t *testing.T) {
 		},
 	} {
 		dir := t.TempDir()
-		at := filepath.Join(dir, "frontseat-action-"+Form)
+		at := filepath.Join(dir, "frontseat-confine-"+Form)
 		if err := plant(at); err != nil {
 			t.Fatal(err)
 		}
@@ -681,7 +681,7 @@ func TestWhatIsUnderTheConfinersNameAndIsNotOfItsFormIsReplaced(t *testing.T) {
 // running action may be starting with it, and it is what this one is.
 func TestAConfinerOfThisFormOfAnotherBuildIsLeftAsItIs(t *testing.T) {
 	dir := t.TempDir()
-	at := filepath.Join(dir, "frontseat-action-"+Form)
+	at := filepath.Join(dir, "frontseat-confine-"+Form)
 	if err := os.WriteFile(at, []byte("#!/bin/sh\necho "+Form+"\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -737,7 +737,7 @@ func TestWhatDoesNotAnswerInTimeOrCannotBeRunByAnyoneIsReplaced(t *testing.T) {
 	} {
 		dir, other := t.TempDir(), t.TempDir()
 		pids := filepath.Join(other, "pids")
-		at := filepath.Join(dir, "frontseat-action-"+Form)
+		at := filepath.Join(dir, "frontseat-confine-"+Form)
 		text := plant.text(pids)
 		if err := os.WriteFile(at, []byte(text), plant.mode); err != nil {
 			t.Fatal(err)

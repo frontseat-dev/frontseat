@@ -22,9 +22,9 @@ import (
 // (the gate builds the box before the tests it runs), since a test of
 // the Component built would otherwise depend on itself unseen.
 var fromSource = map[string]string{
-	"local/box/box.go":                      "the box image: frontseat (cli), and frontseatd, frontseat-runner, frontseat-local and frontseat-action (server), for Linux; run by mise run build, by the stack (frontseat-local up) and by the gate, never by a test of the server or of the command line",
+	"local/box/box.go":                      "the box image: frontseat (cli), and frontseatd, frontseat-runner, frontseat-local and frontseat-confine (server), for Linux; run by mise run build, by the stack (frontseat-local up) and by the gate, never by a test of the server or of the command line",
 	"sandbox/service_route_test.go":         "its own fixture (testdata/service-route), which links confine, of the server itself",
-	"build/engine/exec/tools/tools_test.go": "frontseat-action, which the daemon's tool staging starts an action by: of the server itself",
+	"build/engine/exec/tools/tools_test.go": "frontseat-confine, which the daemon's tool staging starts an action by: of the server itself",
 }
 
 // goRuns says, of a file, each way it has the go command build: a call

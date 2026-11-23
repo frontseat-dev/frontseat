@@ -308,7 +308,7 @@ func (g *Grid) run(ctx context.Context, label string, action digest.Digest) (*re
 			return nil, false, fmt.Errorf("reapi: %s: %s: %w", label, said.Message(), exec.ErrNotKept)
 		}
 		if confiner, lacks := lacking(said); lacks {
-			return nil, false, fmt.Errorf("reapi: %s: the worker could not start %s, the frontseat-action every action of this daemon is started by, for something it did not find: where the worker has no confiner of this form, install it beside the runner (the local stack's installer, or `frontseat-action install /bb`); where it has, the directory the action runs in was not there: %w", label, confiner, said.Err())
+			return nil, false, fmt.Errorf("reapi: %s: the worker could not start %s, the frontseat-confine every action of this daemon is started by, for something it did not find: where the worker has no confiner of this form, install it beside the runner (the local stack's installer, or `frontseat-confine install /bb`); where it has, the directory the action runs in was not there: %w", label, confiner, said.Err())
 		}
 		// The call was answered: this is what the grid says became of the
 		// action where it ran, a worker's own refusal among it.
@@ -335,7 +335,7 @@ func executionError(err error) error {
 	return fmt.Errorf("%w: %w", err, cause)
 }
 
-// lacking is the frontseat-action a worker could not start an action by
+// lacking is the frontseat-confine a worker could not start an action by
 // for something it did not find, where that is what the grid says:
 // Frontseat's runner (frontseat-runner serve) answers an argument that is
 // not so, and names the program it could not start and why, as bb_runner

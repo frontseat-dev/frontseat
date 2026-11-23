@@ -13,7 +13,7 @@ import (
 	"testing"
 )
 
-// frontseat-action is confine's and nothing else, so that its form, the
+// frontseat-confine is confine's and nothing else, so that its form, the
 // digest of confine.go and routes.go, is what the program does
 // (common/confine): its directory holds main.go alone, which
 // imports confine alone, by its own name, and whose main calls
@@ -27,9 +27,9 @@ import (
 // which is given no source to read.
 func TestTheConfinerIsConfineAlone(t *testing.T) {
 	root := repositoryRoot(t)
-	program := filepath.Join(root, "cmd", "frontseat-action")
+	program := filepath.Join(root, "cmd", "frontseat-confine")
 	if files := filesIn(t, program); !slices.Equal(files, []string{"catalog-info.yaml", "go.mod", "go.sum", "main.go"}) {
-		t.Fatalf("frontseat-action's directory holds %v, want main.go alone, and its module's and its catalog's files", files)
+		t.Fatalf("frontseat-confine's directory holds %v, want main.go alone, and its module's and its catalog's files", files)
 	}
 	if files := filesIn(t, filepath.Join(root, "common", "confine")); !slices.Equal(files, []string{"catalog-info.yaml", "confine.go", "confine_test.go", "doc.go", "go.mod", "go.sum", "program_test.go", "routes.go"}) {
 		t.Fatalf("confine's directory holds %v, want only its two hashed sources, their tests, its doc, and its module's and its catalog's files", files)

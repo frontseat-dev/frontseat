@@ -39,7 +39,7 @@ func Read(root string) (Files, error) {
 const Container = "frontseat-local"
 
 // Confiners is the directory of the stack's container each form of the
-// confiner (frontseat-action) is installed into, which every runner
+// confiner (frontseat-confine) is installed into, which every runner
 // sandbox holds at /bb, where its runner (frontseat-runner serve) runs
 // an action only by one of them.
 const Confiners = "/var/lib/frontseat/bb"

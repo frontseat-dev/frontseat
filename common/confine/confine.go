@@ -23,14 +23,14 @@ import (
 	"unsafe"
 )
 
-// Confiner is where this form of the confiner, frontseat-action, is on a
+// Confiner is where this form of the confiner, frontseat-confine, is on a
 // worker: in the directory the runner is installed into, which the runner
 // and every runner sandbox of a test with services hold at /bb, under a
 // name of its form, so that it is in every action's key.
 var Confiner = Confiners + Form
 
 // Confiners is what every form's path begins with.
-const Confiners = "/bb/frontseat-action-"
+const Confiners = "/bb/frontseat-confine-"
 
 // MiseInstalls is the prepared tool directory, shared with action staging.
 // Bare service executables must resolve beneath it, never in the image PATH.
@@ -55,11 +55,11 @@ var source []byte
 //go:embed routes.go
 var routeSource []byte
 
-// Spec is what the daemon tells frontseat-action of an action. Paths are
+// Spec is what the daemon tells frontseat-confine of an action. Paths are
 // relative to the action's root, and a value is cut where it names the
 // root, which is known only on the worker.
 type Spec struct {
-	// Form is the form of frontseat-action the spec is for (Form).
+	// Form is the form of frontseat-confine the spec is for (Form).
 	Form string `json:"form"`
 	// Home and Temporary are made beneath the root: Home is the command's
 	// HOME. The command's TMPDIR is a directory of its own on the
@@ -93,7 +93,7 @@ type Variable struct {
 	Parts []string `json:"parts,omitempty"`
 }
 
-// Arguments is an action's command as the worker runs it: frontseat-action
+// Arguments is an action's command as the worker runs it: frontseat-confine
 // told the spec and the way up from the directory the command runs in to
 // the action's root ("." where it runs in the root), then the command.
 func Arguments(spec, up string, command []string) []string {
@@ -145,7 +145,7 @@ func ProgramLayout(arguments []string) (Spec, error) {
 	return spec, nil
 }
 
-// Run is frontseat-action: it runs the command it is told, or says why it
+// Run is frontseat-confine: it runs the command it is told, or says why it
 // could not and exits 127, as a shell does for a command it cannot run.
 // Told "form" alone, it prints its form; told "install" and a directory,
 // it installs itself there (Install).
@@ -157,14 +157,14 @@ func Run() {
 	if len(os.Args) == 3 && os.Args[1] == "install" {
 		at, err := Install(os.Args[2])
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "frontseat-action:", err)
+			fmt.Fprintln(os.Stderr, "frontseat-confine:", err)
 			os.Exit(1)
 		}
 		fmt.Println(at)
 		os.Exit(0)
 	}
 	if err := Main(os.Args[1:]); err != nil {
-		fmt.Fprintln(os.Stderr, "frontseat-action:", err)
+		fmt.Fprintln(os.Stderr, "frontseat-confine:", err)
 		os.Exit(127)
 	}
 	os.Exit(0)
@@ -196,7 +196,7 @@ func Install(dir string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	beside, err := os.CreateTemp(dir, ".frontseat-action-*")
+	beside, err := os.CreateTemp(dir, ".frontseat-confine-*")
 	if err != nil {
 		return "", err
 	}
@@ -281,7 +281,7 @@ func installed(at string) bool {
 // form.
 var asking = 10 * time.Second
 
-// Main runs frontseat-action with its arguments, the program's name left
+// Main runs frontseat-confine with its arguments, the program's name left
 // out. It returns when a finite control command finishes or execution fails.
 func Main(args []string) error {
 	if len(args) > 0 && args[0] == "routes" {
@@ -556,7 +556,7 @@ func (a prepared) leave() {
 // works out the action's environment and its program.
 func prepare(args []string) (prepared, error) {
 	if len(args) < 3 {
-		return prepared{}, errors.New("frontseat-action is given a spec, the way up to the action's root, and a command")
+		return prepared{}, errors.New("frontseat-confine is given a spec, the way up to the action's root, and a command")
 	}
 	spec, err := read(args[0])
 	if err != nil {
@@ -802,7 +802,7 @@ func read(given string) (Spec, error) {
 		return Spec{}, fmt.Errorf("the spec: %w", err)
 	}
 	if spec.Form != Form {
-		return Spec{}, fmt.Errorf("the spec is for frontseat-action %.12s, and this is %.12s: the worker's is not the daemon's", spec.Form, Form)
+		return Spec{}, fmt.Errorf("the spec is for frontseat-confine %.12s, and this is %.12s: the worker's is not the daemon's", spec.Form, Form)
 	}
 	for _, dir := range []string{spec.Home, spec.Temporary} {
 		if !filepath.IsLocal(dir) {
@@ -889,7 +889,7 @@ var temporaries = Temporaries
 
 // TemporaryPrefix names an action's temporary directory: the confiner
 // makes every directory so named, and nothing else does.
-const TemporaryPrefix = "frontseat-action-"
+const TemporaryPrefix = "frontseat-confine-"
 
 // fresh is how long after it was made an action's temporary directory
 // is left alone whether or not it is held: what made it may not have

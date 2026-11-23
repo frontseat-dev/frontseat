@@ -1,8 +1,8 @@
 // Package confine is how a worker starts an action and confines it: the
-// program every action's command begins with, frontseat-action, and what
+// program every action's command begins with, frontseat-confine, and what
 // the daemon tells it. It is the one implementation of that, for the
 // daemon that writes an action's command (exec/tools) and for the
-// program on the worker that reads it (cmd/frontseat-action).
+// program on the worker that reads it (cmd/frontseat-confine).
 //
 // What it is told is data, never a script: a Spec, the way from the
 // directory the action runs in to its root, and the command. The program
@@ -36,7 +36,7 @@
 // # Form
 //
 // Form is the digest of confine.go and routes.go, which hold all the
-// program does (cmd/frontseat-action only calls
+// program does (cmd/frontseat-confine only calls
 // Run, and confine imports only the standard library, which the
 // architecture test holds), and of the Go release that built it. This
 // file is not in it: it holds what is said of the program, not what it
