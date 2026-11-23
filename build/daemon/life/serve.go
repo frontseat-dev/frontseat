@@ -1,4 +1,4 @@
-package daemon
+package life
 
 import (
 	"context"
@@ -17,6 +17,13 @@ import (
 	"github.com/frontseat-dev/frontseat/common/vcs/chosen"
 	"github.com/frontseat-dev/frontseat/core/telemetry"
 )
+
+// Builds is the directory beneath a daemon's state its builds are kept
+// in, named by the form they are kept in: builds kept in another form,
+// by a daemon from before a change to how a build is written, are not
+// read, and are the operator's to delete. It moves when a kept build
+// would otherwise be read as something it was not.
+const Builds = "builds-3"
 
 // idleFor is how long a build daemon has nothing to do before it ends
 // itself, where it is told no other: what it knew of its files is kept,
@@ -83,7 +90,7 @@ func Serve(ctx context.Context, o Options) error {
 		}
 		plugins = append(plugins, module)
 	}
-	made, err := build.New(ctx, build.Config{Workspace: directory, System: chosen.System(), Plugins: plugins, Grid: read.Grid, Platform: read.Platform, Telemetry: signals, Builds: filepath.Join(o.State, keptBuilds), Given: read.Given, Mounted: alone})
+	made, err := build.New(ctx, build.Config{Workspace: directory, System: chosen.System(), Plugins: plugins, Grid: read.Grid, Platform: read.Platform, Telemetry: signals, Builds: filepath.Join(o.State, Builds), Given: read.Given, Mounted: alone})
 	if err != nil {
 		return err
 	}
@@ -92,7 +99,7 @@ func Serve(ctx context.Context, o Options) error {
 	if idle == 0 {
 		idle = idleFor
 	}
-	return keep(ctx, life{State: o.State, Said: Info{Version: o.Version, Settings: digest, Directory: directory}, Handler: made.Handler, Busy: made.Busy, Idle: idle})
+	return Keep(ctx, Life{State: o.State, Said: Info{Version: o.Version, Settings: digest, Directory: directory}, Handler: made.Handler, Busy: made.Busy, Idle: idle})
 }
 
 // Read reads a daemon's settings from a file, and returns with them what

@@ -55,7 +55,10 @@ var policies = []policy{
 	// What the command line keeps and reads on this machine; what it asks
 	// of a version control system about a checkout, and git, which
 	// answers it.
-	{"cli/internal/machine", []string{"sdk/go/api/**", "sdk/go", "sdk/go/bearer", "cli/internal/vcs", "cli/internal/vcs/git", "stack/local", "core/ports"}},
+	// The command line starts the build daemon of the directory it builds
+	// of itself: it knows the daemon's life, and where a workspace's
+	// manifest is.
+	{"cli/internal/machine", []string{"sdk/go/api/**", "sdk/go", "sdk/go/bearer", "cli/internal/vcs", "cli/internal/vcs/git", "stack/local", "core/ports", "build/daemon/life", "common/record/manifest"}},
 	{"cli/internal/vcs", []string{}},
 	{"cli/internal/vcs/git", []string{"cli/internal/vcs", "common/git"}},
 	{"cli/internal/ui/**", []string{"sdk/go/api/**", "sdk/go/entity", "sdk/go/enum", "cli/internal/ui/**"}},
@@ -64,7 +67,7 @@ var policies = []policy{
 	{"cli/cmd/frontseat", []string{"cli/internal/cmd", "core/telemetry"}},
 	// The commands are flags and printing over the SDK's one client, which
 	// they hand the command's telemetry to instrument what they ask.
-	{"cli/internal/cmd", []string{"sdk/go/api/**", "sdk/go/entity", "sdk/go/enum", "sdk/go", "cli/internal/machine", "cli/internal/ui/**", "core/telemetry"}},
+	{"cli/internal/cmd", []string{"sdk/go/api/**", "sdk/go/entity", "sdk/go/enum", "sdk/go", "cli/internal/machine", "cli/internal/ui/**", "core/telemetry", "build/daemon/life"}},
 	{"core/telemetry", []string{}},
 	// Git as frontseat runs it, hardened, and how it writes a remote: one
 	// implementation for the client's adapter and the daemon's.
@@ -258,7 +261,11 @@ var policies = []policy{
 	// What a build daemon is told, read from one file: the build's own
 	// types, and nothing of a workspace, a sandbox or a control plane.
 	{"build/daemon/settings", []string{"build/daemon/build"}},
-	{"build/daemon/daemon", []string{"build/daemon/build", "build/daemon/settings", "common/record/manifest", "workspace/box/source", "workspace/box/supervisor", "core/httpserver", "core/telemetry", "core/ports", "common/vcs/chosen"}},
+	// A build daemon's life, for a directory: the build it serves, what
+	// it is told, and where a workspace's manifest is. Nothing of a box,
+	// a sandbox or a control plane, so that the command line may link it.
+	{"build/daemon/life", []string{"build/daemon/build", "build/daemon/settings", "common/record/manifest", "common/vcs/chosen", "core/httpserver", "core/telemetry"}},
+	{"build/daemon/daemon", []string{"build/daemon/build", "build/daemon/settings", "build/daemon/life", "workspace/box/source", "workspace/box/supervisor", "core/httpserver", "core/telemetry", "core/ports", "common/vcs/chosen"}},
 	// The local stack's control plane: the control plane, told what the
 	// stack is by the stack's own package.
 	{"cmd/frontseat-server", []string{"workspace/server/controlplane", "workspace/server/backstage", "core/httpserver", "core/secretfile", "core/telemetry", "stack/local", "core/ports", "common/vcs/chosen"}},
@@ -276,7 +283,9 @@ var policies = []policy{
 	// The box's one build, asked by the spec that holds a box to what it
 	// was built with; no other spec builds one. That spec asks the
 	// stack's Podman as the stack does (local.Podman).
-	{"specs/cli", []string{"sdk/go", "sdk/go/api/**", "sandbox/api/**", "sdk/go/entity", "testsupport/**", "core/ports"}},
+	// The command line's specs read what a build daemon the command line
+	// started said of itself, and stop it.
+	{"specs/cli", []string{"sdk/go", "sdk/go/api/**", "sandbox/api/**", "sdk/go/entity", "testsupport/**", "core/ports", "build/daemon/life"}},
 	{"specs/local", []string{"testsupport/**", "stack/local", "core/ports", "stack/box"}},
 	{"specs/compare", []string{"sdk/go", "sdk/go/api/**", "sandbox/api/**", "testsupport/**"}},
 	{"specs/**", []string{"sdk/go", "sdk/go/api/**", "sandbox/api/**", "sdk/go/entity", "testsupport/**", "core/telemetry", "specs/internal/**", "core/ports"}},
@@ -1092,8 +1101,8 @@ func TestCodeAmongTheContractsIsFound(t *testing.T) {
 }
 
 // clientShares is what the command line links of this repository beyond
-// itself and the Go SDK, each with why: nothing else of the repository
-// is a client's, and nothing of a server.
+// itself, the Go SDK and the build daemon (clientBuilds), each with why:
+// nothing else of the repository is a client's.
 var clientShares = map[string]string{
 	"common/git":     "git, as frontseat runs it over a checkout: the command line reads a checkout of this machine with it",
 	"common/confine": "what git ends a process group with, the confiner's one way past a sandbox's refusal of a signal to a group (owner's ruling, 2026-11-19)",
@@ -1103,11 +1112,25 @@ var clientShares = map[string]string{
 	"stack/image":    "the stack's files, which stack/local reads what the stack is from",
 }
 
+// clientBuilds is the build daemon, which the command line starts of
+// itself for the directory it builds, as Bazel's and Buck2's clients do
+// (owner, 2026-11-23): its life, what it is told, the build it serves
+// and the engine beneath it, with what those are built on. It is the
+// build's alone: nothing of a box, of a control plane, of a sandbox, of
+// the grid's runner or of the stack's programs, and not frontseatd's
+// program, which composes what fills a workspace.
+var clientBuilds = []string{
+	"build/daemon/life", "build/daemon/settings", "build/daemon/build", "build/daemon/directory", "build/engine",
+	"common/record", "common/runner", "common/vcs",
+	"core/httpserver", "core/image", "core/page", "core/plain", "core/poll", "core/refusal",
+}
+
 // notAClients says why a package the command line links is none it may
 // link, or "" where it may: its own, the Go SDK's, one of clientShares,
-// or no package of this repository. Test support is refused wherever it
-// is, and so is every other package: a server's, the stack's programs,
-// the specs.
+// the build daemon's (clientBuilds), or no package of this repository.
+// Test support is refused wherever it is, and so is every other
+// package: a box's, a control plane's, a sandbox's, the runner's, the
+// stack's programs, the specs.
 func notAClients(linked string) string {
 	path, local := strings.CutPrefix(linked, module+"/")
 	switch {
@@ -1115,8 +1138,10 @@ func notAClients(linked string) string {
 		return ""
 	case testSupport(path):
 		return "client links test support " + path
+	case slices.ContainsFunc(clientBuilds, func(part string) bool { return beneath(path, part) }):
+		return ""
 	}
-	return "client links " + path + ", which is no client's (clientShares)"
+	return "client links " + path + ", which is no client's (clientShares, clientBuilds)"
 }
 
 // Ask Go what the client actually links. This also sees imported fixture or
@@ -1159,6 +1184,11 @@ func TestClientProductionDependencyClosure(t *testing.T) {
 			t.Errorf("clientShares names %s, which the command line does not link", shared)
 		}
 	}
+	for _, part := range clientBuilds {
+		if !slices.ContainsFunc(slices.Collect(maps.Keys(linked)), func(path string) bool { return beneath(path, part) }) {
+			t.Errorf("clientBuilds names %s, of which the command line links nothing", part)
+		}
+	}
 }
 
 // The controls: what the command line may link is allowed, and a
@@ -1173,13 +1203,17 @@ func TestWhatIsNoClientsIsFound(t *testing.T) {
 		module + "/stack/local":                         false,
 		module + "/stack":                               true,
 		module + "/stack/box":                           true,
-		module + "/build/daemon/build":                  true,
-		module + "/build/engine/model":                  true,
+		module + "/build/daemon/build":                  false,
+		module + "/build/daemon/life":                   false,
+		module + "/build/engine/model":                  false,
+		module + "/common/vcs/chosen":                   false,
+		module + "/build/daemon/daemon":                 true,
+		module + "/workspace/box/supervisor":            true,
+		module + "/build/engine/exec/tools/toolstest":   true,
 		module + "/grid/runner":                         true,
 		module + "/sandbox":                             true,
 		module + "/workspace/server/controlplane":       true,
 		module + "/workspace/box/source":                true,
-		module + "/common/vcs/chosen":                   true,
 		module + "/core/secretfile":                     true,
 		module + "/testsupport/testfiles":               true,
 		module + "/stack/testsupport/testgrid":          true,

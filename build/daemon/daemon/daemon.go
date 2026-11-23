@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/frontseat-dev/frontseat/build/daemon/build"
+	"github.com/frontseat-dev/frontseat/build/daemon/life"
 	"github.com/frontseat-dev/frontseat/build/daemon/settings"
 	"github.com/frontseat-dev/frontseat/common/vcs/chosen"
 	"github.com/frontseat-dev/frontseat/core/httpserver"
@@ -30,13 +31,6 @@ import (
 
 // modules collects a flag that may be given more than once.
 type modules []string
-
-// keptBuilds is the directory beneath the daemon's state its builds are
-// kept in, named by the form they are kept in: builds kept in another
-// form, by a daemon from before a change to how a build is written, are
-// not read, and are the operator's to delete. It moves when a kept
-// build would otherwise be read as something it was not.
-const keptBuilds = "builds-3"
 
 func (m *modules) String() string     { return fmt.Sprint(*m) }
 func (m *modules) Set(v string) error { *m = append(*m, v); return nil }
@@ -149,7 +143,7 @@ func Run(ctx context.Context, args []string, built Release) error {
 	if err != nil {
 		return err
 	}
-	return serve(ctx, *listen, *sourceAddress, *workspace, filepath.Join(*state, keptBuilds), plugins, asked, platform, given, *checkout)
+	return serve(ctx, *listen, *sourceAddress, *workspace, filepath.Join(*state, life.Builds), plugins, asked, platform, given, *checkout)
 }
 
 // ErrUsage is what Run returns where the daemon was asked wrongly: a

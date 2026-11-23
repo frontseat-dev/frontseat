@@ -37,7 +37,7 @@ longer, it stops the program.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// One program, and what it is given: whatever follows the
 		// program is the program's, read by nobody here (init).
-		w, err := asked()
+		w, err := building()
 		if err != nil {
 			return err
 		}

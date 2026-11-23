@@ -61,7 +61,7 @@ program to read.`,
 		case queryWhy != "" && target == "":
 			return errors.New("--why says why an entity depends on another: name the entity it is asked of")
 		}
-		w, err := asked()
+		w, err := building()
 		if err != nil {
 			return err
 		}

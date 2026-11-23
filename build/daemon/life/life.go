@@ -1,4 +1,9 @@
-package daemon
+// Package life is a build daemon's life, as the command line starts one
+// for a directory: the state directory it takes for itself, the port of
+// the loopback it serves on to its token alone, what it says of itself
+// there, and when it ends itself. It knows a directory and a file of
+// settings, and no control plane, sandbox or workspace's name.
+package life
 
 import (
 	"context"
@@ -56,9 +61,9 @@ func Told(state string) (Info, error) {
 	return info, nil
 }
 
-// life is a build daemon's life: the state directory that is its own,
+// Life is a build daemon's life: the state directory that is its own,
 // what it serves, and when it ends.
-type life struct {
+type Life struct {
 	// State is its state directory.
 	State string
 	// Said is what it says of itself, but its address, token and
@@ -73,12 +78,17 @@ type life struct {
 	Idle time.Duration
 }
 
-// keep is a build daemon's life. It takes the state directory for
+// StopPath is what a daemon is asked, with its token, to end itself: by
+// the command that finds it is not the daemon it would start, of another
+// version, other settings or another directory.
+const StopPath = "/frontseat.daemon/stop"
+
+// Keep is a build daemon's life. It takes the state directory for
 // itself, refusing where another daemon holds it; serves on a port of
 // the loopback, to its token alone; says where in the directory; and
 // ends when the context does, or once it has had nothing to do for long
 // enough, having taken back what it said.
-func keep(ctx context.Context, l life) error {
+func Keep(ctx context.Context, l Life) error {
 	if err := os.MkdirAll(l.State, 0o700); err != nil {
 		return fmt.Errorf("the build daemon's state: %w", err)
 	}
@@ -110,7 +120,7 @@ func keep(ctx context.Context, l life) error {
 	}
 	serving, stop := context.WithCancel(ctx)
 	defer stop()
-	calls := &admitted{handler: l.Handler, token: []byte(said.Token), last: time.Now()}
+	calls := &admitted{handler: l.Handler, token: []byte(said.Token), last: time.Now(), end: stop}
 	watched := make(chan struct{})
 	go func() {
 		defer close(watched)
@@ -150,6 +160,8 @@ type admitted struct {
 	// them ended, or the daemon began.
 	under int
 	last  time.Time
+	// end ends the daemon.
+	end func()
 }
 
 func (a *admitted) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -157,6 +169,11 @@ func (a *admitted) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	presented := r.Header.Get("Authorization")
 	if len(presented) < len(scheme) || presented[:len(scheme)] != scheme || subtle.ConstantTimeCompare([]byte(presented[len(scheme):]), a.token) != 1 {
 		http.Error(w, "the build daemon is asked with its token", http.StatusUnauthorized)
+		return
+	}
+	if r.URL.Path == StopPath {
+		w.WriteHeader(http.StatusNoContent)
+		a.end()
 		return
 	}
 	a.mu.Lock()

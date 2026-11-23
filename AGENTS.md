@@ -117,8 +117,27 @@ the change that fixes it.
   sandbox's lock its daemon holds (`Lock` in `core/ports`), a command asks
   that daemon's build API on the loopback and no control plane, and
   every `workspace` command and `--workspace` is refused by name.
+  With no workspace selected, a command that builds, tests, runs,
+  queries or releases asks no control plane either: it asks the build
+  daemon of the directory it is run in, the nearest above it that is a
+  workspace or a repository, which the command line starts of itself
+  (`frontseat daemon`, this program again) where this machine was told
+  its grid (`build.yaml`, `docs/build-settings.md`). That daemon serves
+  on the loopback, to the token it says in its state directory, which
+  is its user's alone, and is taken where it is the daemon the command
+  would start: of this program, by its file's digest, told the settings
+  as they are, for this directory. Any other is asked to stop and
+  another started; one with nothing to do ends itself. A `workspace`
+  command starts none. So the command line links the build daemon and
+  what it is built on, and nothing of a box, a control plane, a sandbox
+  or the runner (`clientBuilds`, `TestClientProductionDependencyClosure`).
   `frontseat --help` says so. Held by:
   `TestEveryCommandAsksTheOneControlPlaneTheRuleNames`,
+  `TestWithNoWorkspaceSelectedABuildAsksTheDaemonOfItsDirectory`,
+  `TestTheBuildDaemonOfADirectoryIsStartedOnceAndFoundAgain`,
+  `TestABuildDaemonOfAnotherVersionOrOtherSettingsIsReplaced`,
+  `TestABuildDaemonSaysWhereItServesAndIsAskedWithItsToken`, the spec
+  `TestWithNoWorkspaceTheCommandLineBuildsItsDirectoryThroughADaemonItStarts`,
   `TestInsideAWorkspaceItsSourceIsFixed`,
   `TestTheTokenIsPresentedToTheControlPlaneAlone`,
   `TestNoCommandAsksAControlPlaneOnAnotherMachineInClear` and the SDK's
@@ -144,7 +163,8 @@ the change that fixes it.
   the sandbox's, at one path whatever the daemon is told),
   `frontseat-server --state`, `frontseat-runner --state`, and the command
   line's `$XDG_CONFIG_HOME/frontseat` (else `~/.config/frontseat`) on
-  every system.
+  every system, where a build daemon it started keeps its own beneath
+  `build/`, in a directory named for the directory it builds.
 - **A port is said once**, in `core/ports`: the daemon's defaults, the
   control plane, the command line and the test support read it there;
   the stack's image's files (`stack/image`) and `stack/box.Dockerfile`,
