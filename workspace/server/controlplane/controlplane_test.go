@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"maps"
 	"net"
 	"net/http"
@@ -21,6 +22,7 @@ import (
 
 	connect "connectrpc.com/connect/v2"
 	"connectrpc.com/connect/v2/connecthttp"
+	"github.com/coder/websocket"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
@@ -188,6 +190,10 @@ type sandboxes struct {
 	// redirect is where what is led to a daemon is redirected to, while
 	// it is said.
 	redirect string
+	// speaks is whether a tunnel is opened, and not only kept as led on:
+	// it says which sandbox and port it leads to, on a line, and then
+	// says back whatever it is told.
+	speaks bool
 }
 
 func over(t *testing.T) *sandboxes {
@@ -334,6 +340,17 @@ func (s *sandboxes) Proxy(w http.ResponseWriter, r *http.Request, id string, por
 
 func (s *sandboxes) Tunnel(w http.ResponseWriter, r *http.Request, id string, port int) {
 	s.Proxy(w, r, id, port, "a tunnel")
+	if !s.speaks {
+		return
+	}
+	socket, err := websocket.Accept(w, r, nil)
+	if err != nil {
+		return
+	}
+	inside := websocket.NetConn(r.Context(), socket, websocket.MessageBinary)
+	defer inside.Close()
+	fmt.Fprintf(inside, "%s:%d\n", id, port)
+	_, _ = io.Copy(inside, inside)
 }
 
 // asked are the sandboxes that were asked for, in order, and ended those

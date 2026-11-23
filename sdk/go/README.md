@@ -84,7 +84,7 @@ func main() {
 | `Workspace.Run` | A `Run` of a program of the workspace: `Logs`, `Wait`, `Describe`, `Cancel`. |
 | `Workspace.PlanRelease`, `Workspace.Release` | A release planned, which changes nothing, and a `Release` of that plan by its etag. |
 | `Workspace.Entities`, `Workspace.Projects` | What the workspace is made of. Reading it runs nothing. |
-| `Workspace.Describe`, `Workspace.Add`, `Workspace.Delete`, `Workspace.Shell` | The workspace itself: what it holds, more for it to hold, its end, and a connection an SSH client speaks over. |
+| `Workspace.Describe`, `Workspace.Add`, `Workspace.Delete`, `Workspace.Shell`, `Workspace.Forward` | The workspace itself: what it holds, more for it to hold, its end, a connection an SSH client speaks over, and a connection to a port of its sandbox, carried as bytes. |
 | `Client.Here` | Inside a workspace's sandbox, the workspace a `Client` of the daemon there is in. |
 
 `Build`, `Run` and `Release` are handles by id (`ID()`):

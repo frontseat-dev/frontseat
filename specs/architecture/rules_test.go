@@ -66,8 +66,10 @@ var policies = []policy{
 	// line's own (cli/internal/cmd).
 	{"cli/cmd/frontseat", []string{"cli/internal/cmd", "core/telemetry"}},
 	// The commands are flags and printing over the SDK's one client, which
-	// they hand the command's telemetry to instrument what they ask.
-	{"cli/internal/cmd", []string{"sdk/go/api/**", "sdk/go/entity", "sdk/go/enum", "sdk/go", "cli/internal/machine", "cli/internal/ui/**", "core/telemetry", "build/daemon/life"}},
+	// they hand the command's telemetry to instrument what they ask. What
+	// a person writes that the control plane reads too (a port) is read
+	// by the reader both have (core/plain).
+	{"cli/internal/cmd", []string{"sdk/go/api/**", "sdk/go/entity", "sdk/go/enum", "sdk/go", "cli/internal/machine", "cli/internal/ui/**", "core/telemetry", "core/plain", "build/daemon/life"}},
 	{"core/telemetry", []string{}},
 	// Git as frontseat runs it, hardened, and how it writes a remote: one
 	// implementation for the client's adapter and the daemon's.

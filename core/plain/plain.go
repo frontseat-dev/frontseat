@@ -1,6 +1,6 @@
 // Package plain is the one reader of the names that come from outside
 // and lead out of a sandbox: a host and the origin it is reached at, a
-// path, a program, a parameter, a username, a secret. Each is taken only
+// path, a program, a parameter, a username, a secret, a port. Each is taken only
 // where it is written plainly, so that nothing a URL, a configuration or
 // a shell reads would read it as anything else. The control plane holds
 // what a person asks and what a version control system answers to it,
@@ -231,4 +231,16 @@ func Parameter(name, value string) bool {
 // one line, of no great length.
 func Secret(secret string) bool {
 	return secret != "" && len(secret) <= 4096 && !strings.ContainsAny(secret, "\r\n\x00")
+}
+
+// Port reads a port as one is written, one way: a number from 1 to
+// 65535, in digits alone, with no sign, no zero before it and nothing
+// around it, so that whatever reads it after reads the same port. The
+// second result is whether it is one.
+func Port(written string) (int, bool) {
+	port, err := strconv.Atoi(written)
+	if err != nil || port < 1 || port > 65535 || strconv.Itoa(port) != written {
+		return 0, false
+	}
+	return port, true
 }

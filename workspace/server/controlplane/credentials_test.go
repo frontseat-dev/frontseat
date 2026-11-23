@@ -195,21 +195,32 @@ func TestAPersonsCredentialsAreTheirsAlone(t *testing.T) {
 	}
 }
 
-// A workspace is its owner's: another is refused describing it, waiting
-// for it, changing it, ending it, asking for it again, and reaching its
-// build API and its shell, PERMISSION_DENIED with NOT_OWNER, and is not
-// listed it; so that what runs in it with its owner's credential is
-// asked of it by its owner alone. The control is its owner, who does
-// each.
-func TestAWorkspaceIsItsOwners(t *testing.T) {
-	s := over(t)
+// adas serves a control plane to people (servedToPeople) and waits for
+// the workspace Ada asked it for, by the name adas: it returns each
+// person's client of it, and the address it is asked at.
+func adas(t *testing.T, s *sandboxes) (func(token string) workspacev1alpha1connect.WorkspaceServiceClient, string) {
+	t.Helper()
 	workspaces, _ := servedToPeople(t, s)
-	ctx := context.Background()
-	if _, err := workspaces(owner).CreateWorkspace(ctx, &workspacev1.CreateWorkspaceRequest{Name: "adas", Spec: of("https://forge.example/acme/code.git")}); err != nil {
+	if _, err := workspaces(owner).CreateWorkspace(context.Background(), &workspacev1.CreateWorkspaceRequest{Name: "adas", Spec: of("https://forge.example/acme/code.git")}); err != nil {
 		t.Fatal(err)
 	}
-	ready := waited(t, workspaces(owner), "adas")
-	address := strings.TrimSuffix(ready.GetStatus().GetBuildUri(), "/workspaces/adas/build")
+	address, found := strings.CutSuffix(waited(t, workspaces(owner), "adas").GetStatus().GetBuildUri(), "/workspaces/adas/build")
+	if !found {
+		t.Fatalf("its build API is not said to be beneath its name: %q", address)
+	}
+	return workspaces, address
+}
+
+// A workspace is its owner's: another is refused describing it, waiting
+// for it, changing it, ending it, asking for it again, and reaching its
+// build API, its shell and a port of its sandbox, PERMISSION_DENIED with
+// NOT_OWNER, and is not listed it; so that what runs in it with its
+// owner's credential is asked of it by its owner alone. The control is
+// its owner, who does each.
+func TestAWorkspaceIsItsOwners(t *testing.T) {
+	s := over(t)
+	workspaces, address := adas(t, s)
+	ctx := context.Background()
 	notOwner := func(what string, err error) {
 		t.Helper()
 		if why, in := reason(t, err); connect.CodeOf(err) != connect.CodePermissionDenied || why != "NOT_OWNER" || in != "workspace.frontseat.dev" {
@@ -226,7 +237,7 @@ func TestAWorkspaceIsItsOwners(t *testing.T) {
 	notOwner("waiting for", err)
 	_, err = workspaces(another).DeleteWorkspace(ctx, &workspacev1.DeleteWorkspaceRequest{Name: "adas"})
 	notOwner("ending", err)
-	for _, path := range []string{"/workspaces/adas/build/frontseat.build.v1alpha1.BuildService/ListBuilds", "/workspaces/adas/shell"} {
+	for _, path := range []string{"/workspaces/adas/build/frontseat.build.v1alpha1.BuildService/ListBuilds", "/workspaces/adas/shell", "/workspaces/adas/ports/8080"} {
 		if status, said := asked(t, "POST", address+path, another, "{}"); status != 403 {
 			t.Errorf("Bea reaching %s: %d %s, want it refused", path, status, said)
 		}

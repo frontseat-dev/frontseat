@@ -79,6 +79,10 @@ const (
 	// ReasonPageTokenInvalid: a List was given a page token it did not
 	// give.
 	ReasonPageTokenInvalid = "PAGE_TOKEN_INVALID"
+	// ReasonPortNotServed: the control plane carries no one to the port
+	// asked for of a workspace's sandbox: it is the port of the daemon's
+	// source API, which is the control plane's own, or it is no port.
+	ReasonPortNotServed = "PORT_NOT_SERVED"
 	// ReasonProfileUnknown: the workspace defines no profile of the name.
 	ReasonProfileUnknown = "PROFILE_UNKNOWN"
 	// ReasonPushNotServed: a workspace that may push is asked of a

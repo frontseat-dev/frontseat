@@ -215,7 +215,7 @@ func TestACallWithoutTheOwnersTokenIsRefused(t *testing.T) {
 		if connect.CodeOf(err) != connect.CodeUnauthenticated {
 			t.Errorf("DeleteWorkspace with %s: %v, want unauthenticated", refused.what, err)
 		}
-		for _, path := range []string{"/workspaces/code/shell", "/workspaces/code/build/frontseat.build.v1alpha1.BuildService/ListBuilds"} {
+		for _, path := range []string{"/workspaces/code/shell", "/workspaces/code/ports/8080", "/workspaces/code/build/frontseat.build.v1alpha1.BuildService/ListBuilds"} {
 			status, body := asked(t, http.MethodPost, address+path, refused.token, "{}")
 			if status != http.StatusUnauthorized {
 				t.Errorf("%s with %s: %d %s, want 401", path, refused.what, status, body)

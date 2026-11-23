@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"regexp"
 	"slices"
+	"strconv"
 	"sync"
 	"time"
 
@@ -391,10 +392,48 @@ func (w *Workspace) Delete(ctx context.Context) error {
 // in with a key the workspace was made to let in (WorkspaceSpec.AuthorizedKey).
 // The connection lasts as long as the context.
 func (w *Workspace) Shell(ctx context.Context) (net.Conn, error) {
+	return w.tunnel(ctx, "/shell")
+}
+
+// ErrPortInvalid is what Forward refuses a port that is none with: one
+// is a number from 1 to 65535. Nothing is asked of a control plane for
+// it.
+var ErrPortInvalid = errors.New("a port of a workspace's sandbox is a number from 1 to 65535")
+
+// Forward returns a connection to a port of the workspace's sandbox,
+// through the control plane that keeps the workspace: bytes written to
+// it are what is connected to that port there reads, and bytes read
+// from it what that writes, whatever speaks there, a server a program
+// of the workspace started among them. It is the owner's alone, as the
+// shell is. The connection lasts as long as the context, and ends, both
+// ways, when either end does: it carries no closing of one direction
+// alone.
+//
+// The control plane carries no one to the port of the daemon's source
+// API, which is its own: that is refused with ReasonPortNotServed. A
+// port nothing listens on in the sandbox is no refusal by name: the
+// control plane says it could not reach it.
+func (w *Workspace) Forward(ctx context.Context, port int) (net.Conn, error) {
+	if port < 1 || port > 65535 {
+		return nil, ErrPortInvalid
+	}
+	return w.tunnel(ctx, "/ports/"+strconv.Itoa(port))
+}
+
+// tunnel is a connection to what the control plane leads to beneath the
+// workspace's name: its shell, or a port of its sandbox. The token is
+// presented to the control plane alone, and no redirect is followed
+// with it (transport.Tunnel); what the control plane refuses by name is
+// an Error.
+func (w *Workspace) tunnel(ctx context.Context, to string) (net.Conn, error) {
 	if err := w.named(); err != nil {
 		return nil, err
 	}
-	return transport.Tunnel(ctx, w.client.Server()+"/workspaces/"+url.PathEscape(w.name)+"/shell", w.client.reach)
+	conn, err := transport.Tunnel(ctx, w.client.Server()+"/workspaces/"+url.PathEscape(w.name)+to, w.client.reach)
+	if err != nil {
+		return nil, refused(err)
+	}
+	return conn, nil
 }
 
 // at is the connection to the workspace's daemon: the Client's own for

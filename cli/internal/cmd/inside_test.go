@@ -42,10 +42,11 @@ func (k *told) changes() int {
 
 // Inside a workspace's sandbox its source is fixed: a workspace command,
 // adding to it, describing it, listing, opening, ending, a shell, a
-// credential, is refused by name before anything is asked, and the
-// control plane is told nothing. The control is the same `workspace
-// add` run outside, which the control plane is told; and, inside, a
-// release planned, which the daemon there is asked.
+// port carried to it, a credential, is refused by name before anything
+// is asked or listened on, and the control plane is told nothing. The
+// control is the same `workspace add` run outside, which the control
+// plane is told; and, inside, a release planned, which the daemon there
+// is asked.
 func TestInsideAWorkspaceItsSourceIsFixed(t *testing.T) {
 	plane := &told{keeping: keeping{daemon: func() string { return "" }}}
 	mux := http.NewServeMux()
@@ -70,6 +71,7 @@ func TestInsideAWorkspaceItsSourceIsFixed(t *testing.T) {
 		{"workspace", "open", "https://forge.example/acme/code.git"},
 		{"workspace", "delete", "named"},
 		{"workspace", "ssh", "true"},
+		{"workspace", "forward", "8080", "--listen", "127.0.0.1:0"},
 		{"credential", "set", "forge.example"},
 		{"credential", "list"},
 		{"credential", "delete", "forge.example"},

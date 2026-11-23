@@ -139,6 +139,23 @@ func TestAPathAProgramAParameterAndASecretAreWrittenPlainly(t *testing.T) {
 	}
 }
 
+// A port is read where it is written as one is, in digits alone, one
+// way: from 1 to 65535, with no sign, no zero before it and nothing
+// after it. The control is each port so written, the first and the last
+// among them.
+func TestAPortIsANumberWrittenOneWay(t *testing.T) {
+	for written, want := range map[string]int{"1": 1, "80": 80, "8080": 8080, "65535": 65535} {
+		if port, ok := plain.Port(written); !ok || port != want {
+			t.Errorf("the port %q was read as %d, %v", written, port, ok)
+		}
+	}
+	for _, written := range []string{"", "0", "65536", "+80", "-1", "080", "80x", " 80", "80 ", "8_0", "0x50", "८०", "99999999999999999999"} {
+		if port, ok := plain.Port(written); ok || port != 0 {
+			t.Errorf("%q was taken for the port %d", written, port)
+		}
+	}
+}
+
 // What is shown of a text keeps what a person reads, lines and tabs
 // too, and nothing a terminal acts on.
 func TestWhatIsShownOfATextIsNothingATerminalActsOn(t *testing.T) {
