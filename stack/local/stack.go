@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/frontseat-dev/frontseat/core/ports"
+	"github.com/frontseat-dev/frontseat/stack/image"
 )
 
 // Files are the stack's files that say what it is.
@@ -33,6 +34,21 @@ func Read(root string) (Files, error) {
 		return Files{}, err
 	}
 	return Files{Runner: runner}, nil
+}
+
+// Workers returns how many workers the stack's grid has once it is up,
+// as the stack's image says: one for each action it runs at once, and
+// one for each test with services it runs beside them.
+func Workers() (int, error) {
+	total := 0
+	for name, said := range map[string][]byte{"slots": image.Slots, "services": image.Services} {
+		count, err := strconv.Atoi(strings.TrimSpace(string(said)))
+		if err != nil || count < 0 {
+			return 0, fmt.Errorf("the stack's image says %q for its %s, which is no count", strings.TrimSpace(string(said)), name)
+		}
+		total += count
+	}
+	return total, nil
 }
 
 // Container is the local stack's one container's name.

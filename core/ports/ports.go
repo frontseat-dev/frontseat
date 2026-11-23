@@ -44,6 +44,10 @@ const (
 	Assets = 8983
 	// OpenShell is where the stack's OpenShell gateway answers.
 	OpenShell = 8090
+	// Scheduler is where, on the loopback of the stack's container and
+	// not this machine's, the grid's scheduler says its state: which
+	// workers it has.
+	Scheduler = 8984
 	// Resolver is where, on the loopback of the stack's container and
 	// not this machine's, the container's own resolver is asked: the
 	// port every resolver is asked at, which resolv.conf cannot name.

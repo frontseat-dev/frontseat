@@ -50,6 +50,9 @@ func main() {
 	if len(os.Args) > 1 && os.Args[1] == "serve" {
 		os.Exit(serve(os.Args[2:]))
 	}
+	if len(os.Args) > 1 && os.Args[1] == "ready" {
+		os.Exit(ready(os.Args[2:]))
+	}
 	var config runner.Config
 	given := registries{}
 	flag.StringVar(&config.Socket, "socket", "", "where it listens, in a directory of its own in the worker's, which only the worker may enter")
@@ -70,6 +73,27 @@ func main() {
 	if err := runner.Serve(ctx, config); err != nil {
 		log.Fatal(err)
 	}
+}
+
+// ready says whether the grid has its workers (frontseat-runner ready):
+// it asks the scheduler once, and returns 0 where every worker is
+// there, and 1, saying how many are, where not.
+func ready(arguments []string) int {
+	options := flag.NewFlagSet("frontseat-runner ready", flag.ContinueOnError)
+	scheduler := options.String("scheduler", "", "where the grid's scheduler says its state, as HOST:PORT")
+	workers := options.Int("workers", 0, "how many workers the grid is to have, over all its queues")
+	if err := options.Parse(arguments); err != nil {
+		return 2
+	}
+	if *scheduler == "" || *workers < 1 || options.NArg() > 0 {
+		fmt.Fprintln(os.Stderr, "frontseat-runner ready: --scheduler and --workers are given, and nothing else")
+		return 2
+	}
+	if err := runner.Ready(context.Background(), *scheduler, *workers); err != nil {
+		fmt.Fprintln(os.Stderr, "frontseat-runner ready:", err)
+		return 1
+	}
+	return 0
 }
 
 // serve is the runner of a runner sandbox (frontseat-runner serve): it

@@ -25,6 +25,7 @@ var said = []struct {
 	{"image/rootfs/etc/openshell/gateway.template.toml", `bind_address        = "0.0.0.0:%d"`, ports.OpenShell},
 	{"image/rootfs/etc/frontseat/bb/frontend.jsonnet", "listenAddresses: [':%d']", ports.Grid},
 	{"image/rootfs/etc/frontseat/bb/assets.jsonnet", "listenAddresses: [':%d']", ports.Assets},
+	{"image/rootfs/etc/frontseat/bb/scheduler.jsonnet", "buildQueueStateGrpcServers: [{\n    listenAddresses: ['127.0.0.1:%d']", ports.Scheduler},
 	{"image/rootfs/etc/unbound/unbound.conf", "\tport: %d\n", ports.Resolver},
 	{"image/rootfs/etc/s6-overlay/s6-rc.d/controlplane/run", "--public http://127.0.0.1:%d ", ports.ControlPlane},
 	{"image/rootfs/etc/s6-overlay/s6-rc.d/controlplane/run", "--openshell https://127.0.0.1:%d ", ports.OpenShell},
