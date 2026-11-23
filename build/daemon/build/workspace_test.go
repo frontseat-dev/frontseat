@@ -110,3 +110,45 @@ func TestADirectoryThatHoldsMoreIsBuiltAsItIsThen(t *testing.T) {
 		t.Errorf("the same daemon, its directory holding gateway too, plans %v, want the three actions of each", labels)
 	}
 }
+
+// The daemon says of each entity the commit its repository stands at, as
+// the directory's manifest records it of what was brought, so that why
+// one entity depends on another is said with where each stands. Of a
+// checkout it was given, which records nothing, it says none: the
+// control.
+func TestAnEntityIsSaidWithTheCommitItsRepositoryStandsAt(t *testing.T) {
+	forge := testforge.Make(t)
+	c := serve(t, scripted{}, t.TempDir(), false)
+	root := broughtGateway(t, c, forge)
+	recorded, _, err := manifest.Read(root, chosen.System().Revision)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stands := map[string]string{}
+	for _, r := range recorded.Repositories {
+		stands[r.Name] = r.Commit
+	}
+	listed, err := c.graph.ListEntities(context.Background(), &buildv1.ListEntitiesRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(listed.GetEntities()) == 0 {
+		t.Fatal("the workspace holds no entity to say a commit of")
+	}
+	for _, e := range listed.GetEntities() {
+		if e.GetCommit() == "" || e.GetCommit() != stands[e.GetRepository()] {
+			t.Errorf("%s, of %s, is said at %q; want the commit the manifest records, %q", e.GetRef().GetName(), e.GetRepository(), e.GetCommit(), stands[e.GetRepository()])
+		}
+	}
+
+	checkout := t.TempDir()
+	write(t, checkout, "frontseat.yaml", "plugins: {backstage: {}}\n")
+	write(t, checkout, "catalog-info.yaml", "apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata:\n  name: one\nspec:\n  type: service\n  lifecycle: production\n  owner: team\n")
+	given, err := serve(t, scripted{}, checkout, true).graph.ListEntities(context.Background(), &buildv1.ListEntitiesRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(given.GetEntities()) != 1 || given.GetEntities()[0].GetCommit() != "" {
+		t.Errorf("the control: of a checkout it was given the daemon says %v; want its one entity, at no commit", given.GetEntities())
+	}
+}

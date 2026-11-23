@@ -100,10 +100,21 @@ func (s *graphService) ListEntities(ctx context.Context, req *buildv1.ListEntiti
 	if err != nil {
 		return nil, releaseFailure(err)
 	}
+	// Where each repository stands, as the directory's manifest records
+	// it of what was brought: a checkout the daemon was given has none.
+	held, err := s.runs.workspace.Holds()
+	if err != nil {
+		return nil, graphFailure(&graphSourceError{err, codes.FailedPrecondition})
+	}
+	commits := map[string]string{}
+	for _, r := range held.Repositories {
+		commits[r.Name] = r.Commit
+	}
 	for _, known := range evaluated.Catalog.Nodes(evaluated.DependsOn) {
 		listed := &buildv1.Entity{
 			Ref:        entity.Proto(known.Ref),
 			Repository: known.Repository,
+			Commit:     commits[known.Repository],
 			Roots:      known.Roots,
 			Manifest:   known.Manifest,
 			DependsOn:  entity.Protos(evaluated.DependsOn[known.Ref]),

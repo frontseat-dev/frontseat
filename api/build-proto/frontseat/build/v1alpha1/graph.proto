@@ -83,6 +83,10 @@ message Entity {
   // entity that owns projects, and for a system or a domain, whose
   // settings its members inherit. Unset for any other.
   EntityRelease release = 7 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Commit is the commit its repository stands at, as the workspace
+  // records it of what it brought; empty where the daemon was given one
+  // repository as it is, and brought none.
+  string commit = 8 [(google.api.field_behavior) = OUTPUT_ONLY];
 }
 
 // EntityRelease is how an entity is released: what it is released as, and

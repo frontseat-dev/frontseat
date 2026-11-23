@@ -53,7 +53,11 @@ type Entity struct {
 	// Release is how it is released, as its settings resolve: for an
 	// entity that owns projects, and for a system or a domain, whose
 	// settings its members inherit. Unset for any other.
-	Release       *EntityRelease `protobuf:"bytes,7,opt,name=release,proto3" json:"release,omitempty"`
+	Release *EntityRelease `protobuf:"bytes,7,opt,name=release,proto3" json:"release,omitempty"`
+	// Commit is the commit its repository stands at, as the workspace
+	// records it of what it brought; empty where the daemon was given one
+	// repository as it is, and brought none.
+	Commit        string `protobuf:"bytes,8,opt,name=commit,proto3" json:"commit,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -135,6 +139,13 @@ func (x *Entity) GetRelease() *EntityRelease {
 		return x.Release
 	}
 	return nil
+}
+
+func (x *Entity) GetCommit() string {
+	if x != nil {
+		return x.Commit
+	}
+	return ""
 }
 
 // EntityRelease is how an entity is released: what it is released as, and
@@ -958,7 +969,7 @@ var File_frontseat_build_v1alpha1_graph_proto protoreflect.FileDescriptor
 
 const file_frontseat_build_v1alpha1_graph_proto_rawDesc = "" +
 	"\n" +
-	"$frontseat/build/v1alpha1/graph.proto\x12\x18frontseat.build.v1alpha1\x1a$frontseat/build/v1alpha1/types.proto\x1a(frontseat/type/v1alpha1/diagnostic.proto\x1a$frontseat/type/v1alpha1/option.proto\x1a#frontseat/type/v1alpha1/types.proto\x1a\x1fgoogle/api/field_behavior.proto\"\x88\x03\n" +
+	"$frontseat/build/v1alpha1/graph.proto\x12\x18frontseat.build.v1alpha1\x1a$frontseat/build/v1alpha1/types.proto\x1a(frontseat/type/v1alpha1/diagnostic.proto\x1a$frontseat/type/v1alpha1/option.proto\x1a#frontseat/type/v1alpha1/types.proto\x1a\x1fgoogle/api/field_behavior.proto\"\xa6\x03\n" +
 	"\x06Entity\x12:\n" +
 	"\x03ref\x18\x01 \x01(\v2\".frontseat.type.v1alpha1.EntityRefB\x04\xe2A\x01\x03R\x03ref\x12$\n" +
 	"\n" +
@@ -969,7 +980,8 @@ const file_frontseat_build_v1alpha1_graph_proto_rawDesc = "" +
 	"depends_on\x18\x04 \x03(\v2\".frontseat.type.v1alpha1.EntityRefB\x04\xe2A\x01\x03R\tdependsOn\x12 \n" +
 	"\bmanifest\x18\x05 \x01(\tB\x04\xe2A\x01\x03R\bmanifest\x12L\n" +
 	"\trelations\x18\x06 \x03(\v2(.frontseat.build.v1alpha1.EntityRelationB\x04\xe2A\x01\x03R\trelations\x12G\n" +
-	"\arelease\x18\a \x01(\v2'.frontseat.build.v1alpha1.EntityReleaseB\x04\xe2A\x01\x03R\arelease\"\x97\x04\n" +
+	"\arelease\x18\a \x01(\v2'.frontseat.build.v1alpha1.EntityReleaseB\x04\xe2A\x01\x03R\arelease\x12\x1c\n" +
+	"\x06commit\x18\b \x01(\tB\x04\xe2A\x01\x03R\x06commit\"\x97\x04\n" +
 	"\rEntityRelease\x12<\n" +
 	"\x04unit\x18\x01 \x01(\v2\".frontseat.type.v1alpha1.EntityRefB\x04\xe2A\x01\x03R\x04unit\x12>\n" +
 	"\x05group\x18\x02 \x01(\v2\".frontseat.type.v1alpha1.EntityRefB\x04\xe2A\x01\x03R\x05group\x12D\n" +
