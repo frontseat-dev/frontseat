@@ -12,11 +12,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/frontseat-dev/frontseat/server/testsupport/testbox"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testfiles"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testgrid"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testmodule"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testrequired"
+	"github.com/frontseat-dev/frontseat/local/testsupport/testbox"
+	"github.com/frontseat-dev/frontseat/local/testsupport/testgrid"
+	"github.com/frontseat-dev/frontseat/testsupport/testfiles"
+	"github.com/frontseat-dev/frontseat/testsupport/testmodule"
+	"github.com/frontseat-dev/frontseat/testsupport/testrequired"
 )
 
 // The gates run every module go.work uses, each whole, and nothing is

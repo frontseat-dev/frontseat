@@ -11,16 +11,16 @@ import (
 	"time"
 
 	connect "connectrpc.com/connect/v2"
+	"github.com/frontseat-dev/frontseat/local/testsupport/testbox"
+	"github.com/frontseat-dev/frontseat/local/testsupport/testgateway"
+	"github.com/frontseat-dev/frontseat/local/testsupport/testowner"
+	sandboxv1 "github.com/frontseat-dev/frontseat/sandbox/api/frontseat/sandbox/v1alpha1"
+	"github.com/frontseat-dev/frontseat/sandbox/testsupport/testsandbox"
 	"github.com/frontseat-dev/frontseat/sdk/go"
-	sandboxv1 "github.com/frontseat-dev/frontseat/server/sandbox/api/frontseat/sandbox/v1alpha1"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testbox"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testforge"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testgateway"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testowner"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testrequired"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testsandbox"
+	"github.com/frontseat-dev/frontseat/testsupport/testforge"
+	"github.com/frontseat-dev/frontseat/testsupport/testrequired"
 
-	"github.com/frontseat-dev/frontseat/server/testsupport/testmodule"
+	"github.com/frontseat-dev/frontseat/testsupport/testmodule"
 )
 
 // ran runs a program to its end and returns what it printed; one that

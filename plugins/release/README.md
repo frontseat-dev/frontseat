@@ -131,6 +131,6 @@ gone.
 
 `cargo test -p frontseat-plugin-release` runs the strategies on the
 machine. The shared conformance harness asks the built module the same
-through the host (`server/internal/pluginhost/release_test.go`):
+through the host (`build/engine/pluginhost/release_test.go`):
 a strategy plugin's fixture is the questions it is asked and the exact
 answers, since it has no source to analyze.

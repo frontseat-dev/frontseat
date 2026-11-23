@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/frontseat-dev/frontseat/server/testsupport/testtelemetry"
+	"github.com/frontseat-dev/frontseat/testsupport/testtelemetry"
 	tracepb "go.opentelemetry.io/proto/otlp/trace/v1"
 )
 

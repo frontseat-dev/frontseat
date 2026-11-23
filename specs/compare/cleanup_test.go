@@ -9,12 +9,12 @@ import (
 	"time"
 
 	sdk "github.com/ai-openshell/sdk-go/openshell/v1"
-	sandboxv1 "github.com/frontseat-dev/frontseat/server/sandbox/api/frontseat/sandbox/v1alpha1"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testgateway"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testgrid"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testrequired"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testsandbox"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testworkload"
+	"github.com/frontseat-dev/frontseat/local/testsupport/testgateway"
+	"github.com/frontseat-dev/frontseat/local/testsupport/testgrid"
+	sandboxv1 "github.com/frontseat-dev/frontseat/sandbox/api/frontseat/sandbox/v1alpha1"
+	"github.com/frontseat-dev/frontseat/sandbox/testsupport/testsandbox"
+	"github.com/frontseat-dev/frontseat/testsupport/testrequired"
+	"github.com/frontseat-dev/frontseat/testsupport/testworkload"
 )
 
 // cleanup asks for the tests of the comparison's own cleanup, which make

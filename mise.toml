@@ -69,7 +69,7 @@ CARGO_TARGET_WASM32_WASIP1_RUSTFLAGS = { value = "{% if tools['http:rust-std-was
 # workspace; the box by its one build (local/box, frontseat-local box).
 [tasks.build]
 description = "Build Frontseat from this checkout into dist/ (dist/bin is on the PATH here), and the image each workspace runs (the box), tagged frontseat-box:local too"
-sources = ["api/**", "cli/**", "server/**", "local/**", "sdk/**", "specs/cmd/**", "specs/internal/**", "plugins/**", "Cargo.toml", "Cargo.lock", "go.work", "go.work.sum", "mise.lock"]
+sources = ["api/**", "cli/**", "cmd/**", "core/**", "common/**", "testsupport/**", "sandbox/**", "build/**", "grid/**", "workspace/**", "local/**", "sdk/**", "specs/cmd/**", "specs/internal/**", "plugins/**", "Cargo.toml", "Cargo.lock", "go.work", "go.work.sum", "mise.lock"]
 outputs = ["dist/bin/frontseat", "dist/bin/frontseatd", "dist/bin/frontseat-local", "dist/plugins"]
 run = [
   { task = "build:programs" },
@@ -84,8 +84,8 @@ description = "Build frontseat's programs and plugins from this checkout into di
 run = [
   "mkdir -p dist/bin",
   "go build -o dist/bin/frontseat ./cli/cmd/frontseat",
-  "go build -o dist/bin/frontseatd ./server/cmd/frontseatd",
-  "go build -o dist/bin/frontseat-local ./server/cmd/frontseat-local",
+  "go build -o dist/bin/frontseatd ./cmd/frontseatd",
+  "go build -o dist/bin/frontseat-local ./cmd/frontseat-local",
   "go run ./specs/cmd/prepare-modules -dist dist/plugins",
 ]
 
@@ -109,13 +109,13 @@ run = [{ task = "ready" }, { task = "build" }, "dist/bin/frontseat-local up --pl
 # first; it is a task of its own for a person to ask alone.
 [tasks.ready]
 description = "Say whether the local stack can be started from this checkout: the container runtime answers, and no other checkout's stack is up"
-run = "go run ./server/cmd/frontseat-local ready"
+run = "go run ./cmd/frontseat-local ready"
 
 [tasks.stop]
 description = "Stop the local stack, whichever checkout started it; its volume, and what it kept there, stays"
 # The program built last stops it, where there is one, so that a tree
 # that does not compile does not keep the stack up.
-run = "if [ -x dist/bin/frontseat-local ]; then dist/bin/frontseat-local down; else go run ./server/cmd/frontseat-local down; fi"
+run = "if [ -x dist/bin/frontseat-local ]; then dist/bin/frontseat-local down; else go run ./cmd/frontseat-local down; fi"
 
 # The Go gates (specs/cmd/gate) read the modules from
 # go.work and their packages from the source, so nothing here lists
@@ -131,10 +131,10 @@ run = "if [ -x dist/bin/frontseat-local ]; then dist/bin/frontseat-local down; e
 # test that needs either says so.
 # go test by hand, over modules built a moment before, against the local
 # stack: what follows `--` is go test's own (`mise run go:test -- -race
-# -run TestName ./server/internal/build/`). With no stack, `go run
+# -run TestName ./build/daemon/build/`). With no stack, `go run
 # ./specs/cmd/gate test -no-stack -only DIR -- ARGS` (CONTRIBUTING.md).
 [tasks."go:test"]
-description = "Run chosen Go tests against the local stack, with the plugins they load built from this checkout first: mise run go:test -- -race -run TestName ./server/internal/build/"
+description = "Run chosen Go tests against the local stack, with the plugins they load built from this checkout first: mise run go:test -- -race -run TestName ./build/daemon/build/"
 run = "go run ./specs/cmd/gate go-test"
 
 # What "done" is checked with. `check` needs no containers; `test` needs
@@ -161,11 +161,11 @@ run = [
   "jscpd --format go,rust --min-tokens 50 --ignore '**/*.pb.go,**/*.connect.go,./sdk/plugin/src/gen/**,**/testdata/**,./target/**,./dist/**,**/node_modules/**,**/.git/**' --exit-code=1 --output \"$(mktemp -d)\" .",
   "go run ./specs/cmd/gate vet",
   # Every package of every module, told that this gate runs with no
-  # stack: a test that needs one says so (server/testsupport/testrequired),
+  # stack: a test that needs one says so (testsupport/testrequired),
   # and is skipped here and run by `test`; no test here reaches a
   # container runtime (specs/cmd/gate).
   "go run ./specs/cmd/gate test -no-stack -- -count=1 -race",
-  # What code may cost, held without the race detector (server/testsupport/testbudget).
+  # What code may cost, held without the race detector (testsupport/testbudget).
   "go run ./specs/cmd/gate budget",
   # The SDK and the plugins: formatted, free of what clippy warns of, for
   # the machine that builds them and for the module they become, and

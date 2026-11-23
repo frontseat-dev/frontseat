@@ -429,7 +429,7 @@ impl<T> Answer<T> {
     #[track_caller]
     pub fn unsupported(self) {
         // The reason the host reads as the method unserved, of each
-        // method a plugin may leave (server/internal/pluginhost/error.go).
+        // method a plugin may leave (build/engine/pluginhost/error.go).
         let reason = match self.method.as_str() {
             "Report" => "report-not-served",
             "Reconcile" => "reconcile-not-served",

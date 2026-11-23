@@ -19,7 +19,7 @@ struct Case {
 }
 
 /// The table the host runs too (`TestTheSDKRefusesTheFailuresTheHostRefuses`,
-/// `server/internal/pluginhost/error_internal_test.go`): a case the two
+/// `build/engine/pluginhost/error_internal_test.go`): a case the two
 /// disagree on fails here or there.
 #[test]
 fn the_sdk_refuses_the_failures_the_host_refuses() {

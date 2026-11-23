@@ -17,8 +17,8 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/frontseat-dev/frontseat/cli/internal/machine"
+	"github.com/frontseat-dev/frontseat/core/telemetry"
 	"github.com/frontseat-dev/frontseat/sdk/go"
-	"github.com/frontseat-dev/frontseat/server/telemetry"
 )
 
 // instrumented is how every command reaches a server: through the

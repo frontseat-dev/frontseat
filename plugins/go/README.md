@@ -193,7 +193,7 @@ spec:
 Its own logic is tested natively, beside each module, and through
 `served()` with the testkit (`frontseat-plugin-test`) in
 `src/composition_tests.rs`. The built module is held to the real-wasm
-conformance harness every plugin is (`server/internal/pluginhost`,
+conformance harness every plugin is (`build/engine/pluginhost`,
 `conformance_test.go`), with the fixtures in `testdata/`; what it builds
 on the grid is held by the API specs below.
 

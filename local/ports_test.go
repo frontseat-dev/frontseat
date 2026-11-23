@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/frontseat-dev/frontseat/local/ports"
+	"github.com/frontseat-dev/frontseat/core/ports"
 )
 
-// said is where each file that cannot read local/ports, of the stack's
+// said is where each file that cannot read core/ports, of the stack's
 // image and the box's Dockerfile, says a port it holds, to listen on it
 // or to dial it: the text it is said in, with the port's number.
 var said = []struct {
@@ -35,7 +35,7 @@ var said = []struct {
 }
 
 // saidElsewhere returns each file that does not say its port as
-// local/ports does, reading each through read.
+// core/ports does, reading each through read.
 func saidElsewhere(read func(file string) ([]byte, error)) ([]string, error) {
 	var out []string
 	for _, each := range said {
@@ -51,7 +51,7 @@ func saidElsewhere(read func(file string) ([]byte, error)) ([]string, error) {
 }
 
 // The stack's one container and a box listen, and are dialled, where
-// local/ports says, each port said once there and held here in the
+// core/ports says, each port said once there and held here in the
 // files that cannot read it.
 func TestEveryFileThatCannotReadThePortsSaysThemAsTheyAre(t *testing.T) {
 	wrong, err := saidElsewhere(os.ReadFile)
@@ -59,7 +59,7 @@ func TestEveryFileThatCannotReadThePortsSaysThemAsTheyAre(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(wrong) > 0 {
-		t.Errorf("a port not said as local/ports says it: %s", strings.Join(wrong, ", "))
+		t.Errorf("a port not said as core/ports says it: %s", strings.Join(wrong, ", "))
 	}
 	// The control: a port written otherwise is found.
 	moved, err := saidElsewhere(func(file string) ([]byte, error) {
@@ -91,7 +91,7 @@ func TestEveryFileThatCannotReadThePortsSaysThemAsTheyAre(t *testing.T) {
 	}
 }
 
-// The container's own resolver listens at the address local/ports says
+// The container's own resolver listens at the address core/ports says
 // it is asked at, which init writes into the container's resolv.conf.
 func TestTheContainersResolverListensWhereItIsSaidToBeAsked(t *testing.T) {
 	content, err := os.ReadFile("image/rootfs/etc/unbound/unbound.conf")

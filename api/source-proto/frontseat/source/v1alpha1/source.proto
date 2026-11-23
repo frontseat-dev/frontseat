@@ -9,7 +9,7 @@
 // port of its own, beside the build API's. The control plane calls it,
 // and forwards no caller's request to it. No client, SDK or command
 // line calls it, and its Go is the server's alone
-// (server/internal/sourceapi). The port is not a security boundary
+// (common/told/sourceapi). The port is not a security boundary
 // inside the daemon's sandbox, where any program may reach it. What
 // protects a workspace is that the control plane never takes what a
 // workspace is asked for from the daemon: it keeps that itself, and

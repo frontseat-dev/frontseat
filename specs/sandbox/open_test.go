@@ -11,8 +11,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/frontseat-dev/frontseat/sdk/go"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testforge"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testidentity"
+	"github.com/frontseat-dev/frontseat/testsupport/testforge"
+	"github.com/frontseat-dev/frontseat/testsupport/testidentity"
 )
 
 // A person standing in a checkout opens the workspace of its repository

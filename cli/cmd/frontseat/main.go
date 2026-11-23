@@ -16,7 +16,7 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
 
 	"github.com/frontseat-dev/frontseat/cli/internal/cmd"
-	"github.com/frontseat-dev/frontseat/server/telemetry"
+	"github.com/frontseat-dev/frontseat/core/telemetry"
 )
 
 func main() {

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/frontseat-dev/frontseat/server/testsupport/testpins"
+	"github.com/frontseat-dev/frontseat/testsupport/testpins"
 	. "github.com/onsi/gomega"
 )
 

@@ -1,5 +1,5 @@
 //! Which files patterns select, as the host selects them: Go's
-//! `pattern.Select` and `pattern.Within` (`server/internal/pattern`),
+//! `pattern.Select` and `pattern.Within` (`build/engine/pattern`),
 //! which match each pattern as doublestar does.
 //!
 //! Each pattern is first held to the contract's language (`spelled`),
@@ -26,7 +26,7 @@
 //! the rest, no difference is known.
 //!
 //! `testdata/select.json` is the table of cases both matchers run
-//! (`server/internal/pattern/select_test.go`), and each difference found
+//! (`build/engine/pattern/select_test.go`), and each difference found
 //! is a case in it.
 
 use globset::GlobBuilder;
@@ -425,7 +425,7 @@ mod tests {
     }
 
     /// The table the host's matcher runs too
-    /// (`server/internal/pattern/select_test.go`).
+    /// (`build/engine/pattern/select_test.go`).
     #[test]
     fn selects_as_the_host_does_every_case_of_the_shared_table() {
         let raw =

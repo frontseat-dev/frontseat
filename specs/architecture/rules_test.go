@@ -20,9 +20,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/frontseat-dev/frontseat/server/testsupport/testmodule"
 	"github.com/frontseat-dev/frontseat/specs/internal/gatecommand"
 	"github.com/frontseat-dev/frontseat/specs/internal/generated"
+	"github.com/frontseat-dev/frontseat/testsupport/testmodule"
 )
 
 const module = "github.com/frontseat-dev/frontseat"
@@ -54,164 +54,169 @@ var policies = []policy{
 	// What the command line keeps and reads on this machine; what it asks
 	// of a version control system about a checkout, and git, which
 	// answers it.
-	{"cli/internal/machine", []string{"sdk/go/api/**", "sdk/go", "sdk/go/bearer", "cli/internal/vcs", "cli/internal/vcs/git", "local", "local/ports"}},
+	{"cli/internal/machine", []string{"sdk/go/api/**", "sdk/go", "sdk/go/bearer", "cli/internal/vcs", "cli/internal/vcs/git", "local", "core/ports"}},
 	{"cli/internal/vcs", []string{}},
-	{"cli/internal/vcs/git", []string{"cli/internal/vcs", "server/git"}},
+	{"cli/internal/vcs/git", []string{"cli/internal/vcs", "common/git"}},
 	{"cli/internal/ui/**", []string{"sdk/go/api/**", "sdk/go/entity", "sdk/go/enum", "cli/internal/ui/**"}},
 	// The binary is a thin main over the commands, which are the command
 	// line's own (cli/internal/cmd).
-	{"cli/cmd/frontseat", []string{"cli/internal/cmd", "server/telemetry"}},
+	{"cli/cmd/frontseat", []string{"cli/internal/cmd", "core/telemetry"}},
 	// The commands are flags and printing over the SDK's one client, which
 	// they hand the command's telemetry to instrument what they ask.
-	{"cli/internal/cmd", []string{"sdk/go/api/**", "sdk/go/entity", "sdk/go/enum", "sdk/go", "cli/internal/machine", "cli/internal/ui/**", "server/telemetry"}},
-	{"server/telemetry", []string{}},
+	{"cli/internal/cmd", []string{"sdk/go/api/**", "sdk/go/entity", "sdk/go/enum", "sdk/go", "cli/internal/machine", "cli/internal/ui/**", "core/telemetry"}},
+	{"core/telemetry", []string{}},
 	// Git as frontseat runs it, hardened, and how it writes a remote: one
 	// implementation for the client's adapter and the daemon's.
-	{"server/git", []string{"server/internal/confine"}},
+	{"common/git", []string{"common/confine"}},
 	// Test support reads what the local stack is from its files (local),
 	// never through the stack's control plane (frontseat-local), which
 	// links what the test support tests, and never builds the box, which
 	// is built from the source of other packages: the gate builds it
 	// before the tests (fromSource).
-	{"server/testsupport/**", []string{"server/testsupport/**", "local", "local/ports"}},
+	{"testsupport/**", []string{"testsupport/**", "local", "core/ports"}},
 	// The stack's one container is started for a test as the stack starts
 	// it: by its own flags and profile.
-	{"server/testsupport/testbox", []string{"server/testsupport/**", "local", "local/ports", "local/stack"}},
+	// Test support of the local stack's own: the box, the gateway, the
+	// grid and the owner's token a test is given, beside what they start.
+	{"local/testsupport/**", []string{"local", "local/testsupport/**", "core/ports"}},
+	{"local/testsupport/testbox", []string{"testsupport/**", "local", "core/ports", "local/stack"}},
 	// The grid's runner runs only a confined command: what another tool
 	// sends it begins as the daemon's do, which the confiner says.
-	{"server/testsupport/testgrid", []string{"server/testsupport/**", "local", "local/ports", "server/internal/confine", "server/internal/poll"}},
+	{"local/testsupport/testgrid", []string{"testsupport/**", "local", "local/testsupport/**", "core/ports", "common/confine", "core/poll"}},
 	// A test logs in to a workspace's shell with its own key, through the
 	// SDK's tunnel, presenting the token its control plane knows it by.
-	{"server/testsupport/testidentity", []string{"sdk/go"}},
+	{"testsupport/testidentity", []string{"sdk/go"}},
 	// The owner's token is a person's own: a test presents it as the
 	// SDK does, to its origin alone and following no redirect.
-	{"server/testsupport/testowner", []string{"local", "local/ports", "sdk/go/bearer"}},
+	{"local/testsupport/testowner", []string{"local", "core/ports", "sdk/go/bearer"}},
 	// The sandbox API is no part of the SDK: a test asks it, and opens a
 	// tunnel to a sandbox's port, through this.
-	{"server/testsupport/testsandbox", []string{"sdk/go/api/**", "server/sandbox/api/**", "server/testsupport/testwire"}},
+	{"sandbox/testsupport/testsandbox", []string{"sdk/go/api/**", "sandbox/api/**", "testsupport/testwire"}},
 	// What the local stack is, read from its files: one reader, for the
 	// stack's control plane, the box and the test support, which links
 	// nothing of the server.
-	{"local", []string{"local/ports"}},
+	{"local", []string{"core/ports"}},
 	// The ports frontseat's programs are reached on, each said once: the
 	// daemon's defaults, the control plane, the command line, the stack's
 	// own control plane and the test support all read them here.
-	{"local/ports", []string{}},
+	{"core/ports", []string{}},
 	// The box's one build, from what the stack says it is laid on; and
 	// the stack brought up and down, running the box it builds, its one
 	// container publishing the ports where they are said.
 	{"local/box", []string{"local", "local/internal/poll"}},
-	{"local/stack", []string{"local", "local/box", "local/ports", "local/internal/poll"}},
+	{"local/stack", []string{"local", "local/box", "core/ports", "local/internal/poll"}},
 	// Asking again until the stack's container comes to something: one
 	// loop, for the box's build and the stack's program.
 	{"local/internal/poll", []string{}},
-	{"server/internal/httpserver", []string{}},
-	{"server/internal/image", []string{}},
-	{"server/internal/confine", []string{}},
+	{"core/httpserver", []string{}},
+	{"core/image", []string{}},
+	{"common/confine", []string{}},
 	// Asking again until what is asked is done: one loop, for the
 	// daemon's dial, the control plane, the sandbox service and its
 	// gateway's driver, the runner and the test support that waits so.
-	{"server/internal/poll", []string{}},
+	{"core/poll", []string{}},
 	// Whether what leads out of a sandbox is written plainly: one reader
 	// of a host, an origin, a path and a program, for the control plane
 	// and the gateway's driver.
-	{"server/internal/plain", []string{}},
+	{"core/plain", []string{}},
 	// A directory of records, each written whole and read strictly: one
 	// store, for the workspaces, the sandboxes, the credentials and a
 	// workspace's manifest.
-	{"server/internal/records", []string{}},
+	{"common/record/records", []string{}},
 	// A secret kept in a file that is the server's alone: the owner's
 	// token, and the token presented to Backstage.
-	{"server/internal/secretfile", []string{}},
+	{"core/secretfile", []string{}},
 	// The Backstage catalog the control plane resolves entities through,
 	// asked by one client held to its origin; its tests ask a fake.
-	{"server/internal/backstage", []string{"sdk/go/entity", "sdk/go/bearer", "server/internal/plain", "server/internal/secretfile", "server/internal/record", "server/testsupport/backstagetest"}},
+	{"workspace/server/backstage", []string{"sdk/go/entity", "sdk/go/bearer", "core/plain", "core/secretfile", "common/record", "testsupport/backstagetest"}},
 	// What a test service is held to: one check, for the daemon and the grid's runner.
-	{"server/internal/testservice", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/image", "server/internal/plain"}},
-	// The build reads its directory (server/internal/directory) and
+	{"common/runner/testservice", []string{"sdk/go/api/**", "sdk/go/entity", "core/image", "core/plain"}},
+	// The build reads its directory (build/daemon/directory) and
 	// nothing of what fills it, its tests neither: they fill one with the
 	// version control system and the manifest
 	// (TestTheBuildReadsItsDirectoryAndNothingOfWhatFillsIt).
-	{"server/internal/build", []string{"sdk/go/api/**", "sdk/go/entity", "sdk/go/enum", "server/internal/poll", "server/internal/pluginapi/**", "server/internal/exec/publish", "server/internal/exec/tools", "server/telemetry", "server/internal/build", "server/internal/engine/evaluate", "server/internal/engine/graph", "server/internal/engine/plan", "server/internal/engine/release", "server/internal/engine/source", "server/internal/exec", "server/internal/exec/access", "server/internal/exec/download", "server/internal/exec/program", "server/internal/exec/run", "server/internal/history", "server/internal/model", "server/internal/wire", "server/internal/pluginhost", "server/internal/record", "server/internal/vcs", "server/internal/directory", "server/internal/manifest", "server/internal/page", "server/internal/refusal", "server/internal/vcs/chosen"}},
+	{"build/daemon/build", []string{"sdk/go/api/**", "sdk/go/entity", "sdk/go/enum", "core/poll", "build/engine/pluginapi/**", "build/engine/exec/publish", "build/engine/exec/tools", "core/telemetry", "build/daemon/build", "build/engine/engine/evaluate", "build/engine/engine/graph", "build/engine/engine/plan", "build/engine/engine/release", "build/engine/engine/source", "build/engine/exec", "build/engine/exec/access", "build/engine/exec/download", "build/engine/exec/program", "build/engine/exec/run", "build/engine/history", "build/engine/model", "build/engine/wire", "build/engine/pluginhost", "common/record", "common/vcs", "build/daemon/directory", "common/record/manifest", "core/page", "core/refusal", "common/vcs/chosen"}},
 	// A directory as a build reads it: the workspace's manifest in it,
 	// and its repositories' history through the version control port.
-	{"server/internal/directory", []string{"server/internal/directory", "server/internal/manifest", "server/internal/record", "server/internal/vcs"}},
+	{"build/daemon/directory", []string{"build/daemon/directory", "common/record/manifest", "common/record", "common/vcs"}},
 	// The workspace's manifest, which what fills a directory writes and
 	// a build reads.
-	{"server/internal/manifest", []string{"server/internal/manifest", "server/internal/records", "server/internal/record", "sdk/go/entity", "server/testsupport/testfiles"}},
-	{"server/internal/history", []string{"sdk/go/api/**"}},
+	{"common/record/manifest", []string{"common/record/manifest", "common/record/records", "common/record", "sdk/go/entity", "testsupport/testfiles"}},
+	{"build/engine/history", []string{"sdk/go/api/**"}},
 	// The plugin contract's Go, generated for the daemon alone.
-	{"server/internal/pluginapi/**", []string{"sdk/go/api/**"}},
+	{"build/engine/pluginapi/**", []string{"sdk/go/api/**"}},
 	// What a worker's runner is told to start for a test, generated
 	// from the contracts (api/buf.gen.runner.yaml): no API, the server's
 	// own.
-	{"server/internal/runnerapi/**", []string{"sdk/go/api/**"}},
+	{"common/runner/runnerapi/**", []string{"sdk/go/api/**"}},
 	// The daemon's internal API, generated from the contracts
 	// (api/buf.gen.source.yaml): the daemon serves it and the control
 	// plane alone asks it, through the one translation between it and
-	// the workspace API (server/internal/told). Nothing a client
+	// the workspace API (common/told). Nothing a client
 	// links names it.
-	{"server/internal/sourceapi/**", []string{"sdk/go/api/**", "server/internal/sourceapi/**"}},
+	{"common/told/sourceapi/**", []string{"sdk/go/api/**", "common/told/sourceapi/**"}},
 	// How a List is cut into pages, and how a service refuses by name:
 	// shared by the services, and importing nothing of this repository.
-	{"server/internal/page", nil},
-	{"server/internal/refusal", nil},
-	{"server/internal/model", []string{}},
-	{"server/internal/wire", []string{"sdk/go/api/**", "server/internal/pluginapi/**", "server/internal/model"}},
-	{"server/internal/pattern", []string{}},
-	{"server/internal/pins", []string{}},
-	{"server/internal/pluginhost", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/pluginapi/**", "server/telemetry", "server/internal/pattern", "server/internal/plain", "server/internal/testservice"}},
-	{"server/internal/pluginhost/conformance", []string{"sdk/go/api/**", "server/internal/pluginapi/**", "server/internal/pluginhost"}},
-	{"server/internal/engine/evaluate", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/pluginapi/**", "server/telemetry", "server/internal/engine/catalog", "server/internal/engine/config", "server/internal/engine/evaluate", "server/internal/engine/graph", "server/internal/engine/internal/yamlnode", "server/internal/engine/plan", "server/internal/engine/source", "server/internal/model", "server/internal/wire", "server/internal/pins", "server/internal/pluginhost", "server/internal/pattern", "server/internal/record", "server/internal/testservice", "server/internal/runnerapi/**"}},
-	{"server/internal/engine/catalog", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/pluginapi/**"}},
-	{"server/internal/engine/release", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/pluginapi/**", "server/internal/engine/release", "server/internal/engine/config", "server/internal/model", "server/internal/vcs"}},
-	{"server/internal/engine/graph", []string{"server/internal/pattern", "sdk/go/entity", "server/internal/engine/graph", "server/internal/engine/config", "server/internal/model", "server/internal/record"}},
-	{"server/internal/engine/plan", []string{"server/internal/pattern", "sdk/go/api/**", "sdk/go/entity", "server/internal/pluginapi/**", "server/internal/engine/plan", "server/internal/engine/graph", "server/internal/model", "server/internal/record"}},
-	{"server/internal/engine/config", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/pluginapi/**", "server/internal/model", "server/internal/engine/catalog", "server/internal/engine/internal/yamlnode", "server/internal/testservice"}},
-	{"server/internal/engine/source", []string{"server/internal/engine/source", "server/internal/pattern"}},
-	{"server/internal/engine/internal/yamlnode", []string{}},
-	{"server/internal/exec", []string{}},
+	{"core/page", nil},
+	{"core/refusal", nil},
+	{"build/engine/model", []string{}},
+	{"build/engine/wire", []string{"sdk/go/api/**", "build/engine/pluginapi/**", "build/engine/model"}},
+	{"build/engine/pattern", []string{}},
+	{"build/engine/pins", []string{}},
+	{"build/engine/pluginhost", []string{"sdk/go/api/**", "sdk/go/entity", "build/engine/pluginapi/**", "core/telemetry", "build/engine/pattern", "core/plain", "common/runner/testservice"}},
+	{"build/engine/pluginhost/conformance", []string{"sdk/go/api/**", "build/engine/pluginapi/**", "build/engine/pluginhost"}},
+	{"build/engine/engine/evaluate", []string{"sdk/go/api/**", "sdk/go/entity", "build/engine/pluginapi/**", "core/telemetry", "build/engine/engine/catalog", "build/engine/engine/config", "build/engine/engine/evaluate", "build/engine/engine/graph", "build/engine/engine/internal/yamlnode", "build/engine/engine/plan", "build/engine/engine/source", "build/engine/model", "build/engine/wire", "build/engine/pins", "build/engine/pluginhost", "build/engine/pattern", "common/record", "common/runner/testservice", "common/runner/runnerapi/**"}},
+	{"build/engine/engine/catalog", []string{"sdk/go/api/**", "sdk/go/entity", "build/engine/pluginapi/**"}},
+	{"build/engine/engine/release", []string{"sdk/go/api/**", "sdk/go/entity", "build/engine/pluginapi/**", "build/engine/engine/release", "build/engine/engine/config", "build/engine/model", "common/vcs"}},
+	{"build/engine/engine/graph", []string{"build/engine/pattern", "sdk/go/entity", "build/engine/engine/graph", "build/engine/engine/config", "build/engine/model", "common/record"}},
+	{"build/engine/engine/plan", []string{"build/engine/pattern", "sdk/go/api/**", "sdk/go/entity", "build/engine/pluginapi/**", "build/engine/engine/plan", "build/engine/engine/graph", "build/engine/model", "common/record"}},
+	{"build/engine/engine/config", []string{"sdk/go/api/**", "sdk/go/entity", "build/engine/pluginapi/**", "build/engine/model", "build/engine/engine/catalog", "build/engine/engine/internal/yamlnode", "common/runner/testservice"}},
+	{"build/engine/engine/source", []string{"build/engine/engine/source", "build/engine/pattern"}},
+	{"build/engine/engine/internal/yamlnode", []string{}},
+	{"build/engine/exec", []string{}},
 	// How a grid that asks who a daemon is, is asked: one answer, for the
 	// grid's dial and its asset service's, and for nothing else.
-	{"server/internal/exec/access", []string{}},
-	{"server/internal/exec/reapi", []string{"server/telemetry", "server/internal/exec", "server/internal/exec/access", "server/internal/confine"}},
-	{"server/internal/exec/download", []string{"server/telemetry", "server/internal/exec", "server/internal/exec/access"}},
-	{"server/internal/exec/tools", []string{"server/telemetry", "server/internal/exec", "server/internal/pins", "server/internal/testservice", "server/internal/confine"}},
-	{"server/internal/exec/tools/toolstest", []string{"server/internal/exec"}},
-	{"server/internal/pluginhost/pluginhosttest", []string{"sdk/go/api/**", "server/internal/pluginapi/**", "server/internal/pattern"}},
-	{"server/internal/engine/catalog/catalogtest", []string{}},
-	{"server/internal/engine/source/sourcetest", []string{"server/internal/engine/source"}},
-	{"server/internal/exec/reapi/reapitest", []string{"server/internal/exec/reapi"}},
-	{"server/internal/engine/plan/plantest", []string{"server/internal/engine/plan", "server/internal/model"}},
-	{"server/internal/exec/stage", []string{"server/telemetry", "server/internal/exec", "server/internal/exec/download", "server/internal/exec/tools", "server/internal/engine/plan", "server/internal/engine/source", "sdk/go/api/**", "server/internal/pluginapi/**", "server/internal/confine", "server/internal/image", "server/internal/testservice", "server/internal/runnerapi/**"}},
-	{"server/internal/exec/schedule", []string{"server/telemetry", "server/internal/exec", "server/internal/engine/plan", "server/internal/model"}},
-	{"server/internal/exec/here", []string{"server/internal/exec", "server/internal/exec/tools", "server/internal/engine/source", "server/internal/pluginapi/**"}},
-	{"server/internal/exec/publish", []string{"server/internal/confine", "server/internal/exec", "server/internal/exec/here", "server/internal/exec/tools", "server/internal/engine/plan", "server/internal/engine/source", "server/internal/plain", "server/internal/pluginhost"}},
-	{"server/internal/exec/fix", []string{"server/telemetry", "server/internal/exec", "server/internal/exec/here", "server/internal/exec/tools", "server/internal/engine/plan", "server/internal/engine/source", "server/internal/model", "server/internal/pattern", "server/internal/pins"}},
-	{"server/internal/exec/program", []string{"sdk/go/api/**", "server/internal/pluginapi/**", "server/internal/exec", "server/internal/exec/tools", "server/internal/engine/plan", "server/internal/model", "server/internal/confine"}},
-	{"server/internal/exec/run", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/pluginapi/**", "server/telemetry", "server/internal/exec", "server/internal/exec/download", "server/internal/exec/tools", "server/internal/exec/fix", "server/internal/exec/stage", "server/internal/exec/schedule", "server/internal/engine/plan", "server/internal/engine/source", "server/internal/model", "server/internal/runnerapi/**"}},
-	{"server/internal/source/**", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/source/**", "server/internal/refusal", "server/internal/sourceapi/**", "server/internal/confine", "server/internal/records", "server/internal/manifest", "server/internal/record", "server/internal/vcs", "server/internal/vcs/git", "server/internal/vcs/chosen", "server/internal/told"}},
-	{"server/internal/record", []string{"sdk/go/entity", "server/internal/record"}},
+	{"build/engine/exec/access", []string{}},
+	{"build/engine/exec/reapi", []string{"core/telemetry", "build/engine/exec", "build/engine/exec/access", "common/confine"}},
+	{"build/engine/exec/download", []string{"core/telemetry", "build/engine/exec", "build/engine/exec/access"}},
+	{"build/engine/exec/tools", []string{"core/telemetry", "build/engine/exec", "build/engine/pins", "common/runner/testservice", "common/confine"}},
+	{"build/engine/exec/tools/toolstest", []string{"build/engine/exec"}},
+	{"build/engine/pluginhost/pluginhosttest", []string{"sdk/go/api/**", "build/engine/pluginapi/**", "build/engine/pattern"}},
+	{"build/engine/engine/catalog/catalogtest", []string{}},
+	{"build/engine/engine/source/sourcetest", []string{"build/engine/engine/source"}},
+	{"build/engine/exec/reapi/reapitest", []string{"build/engine/exec/reapi"}},
+	{"build/engine/engine/plan/plantest", []string{"build/engine/engine/plan", "build/engine/model"}},
+	{"build/engine/exec/stage", []string{"core/telemetry", "build/engine/exec", "build/engine/exec/download", "build/engine/exec/tools", "build/engine/engine/plan", "build/engine/engine/source", "sdk/go/api/**", "build/engine/pluginapi/**", "common/confine", "core/image", "common/runner/testservice", "common/runner/runnerapi/**"}},
+	{"build/engine/exec/schedule", []string{"core/telemetry", "build/engine/exec", "build/engine/engine/plan", "build/engine/model"}},
+	{"build/engine/exec/here", []string{"build/engine/exec", "build/engine/exec/tools", "build/engine/engine/source", "build/engine/pluginapi/**"}},
+	{"build/engine/exec/publish", []string{"common/confine", "build/engine/exec", "build/engine/exec/here", "build/engine/exec/tools", "build/engine/engine/plan", "build/engine/engine/source", "core/plain", "build/engine/pluginhost"}},
+	{"build/engine/exec/fix", []string{"core/telemetry", "build/engine/exec", "build/engine/exec/here", "build/engine/exec/tools", "build/engine/engine/plan", "build/engine/engine/source", "build/engine/model", "build/engine/pattern", "build/engine/pins"}},
+	{"build/engine/exec/program", []string{"sdk/go/api/**", "build/engine/pluginapi/**", "build/engine/exec", "build/engine/exec/tools", "build/engine/engine/plan", "build/engine/model", "common/confine"}},
+	{"build/engine/exec/run", []string{"sdk/go/api/**", "sdk/go/entity", "build/engine/pluginapi/**", "core/telemetry", "build/engine/exec", "build/engine/exec/download", "build/engine/exec/tools", "build/engine/exec/fix", "build/engine/exec/stage", "build/engine/exec/schedule", "build/engine/engine/plan", "build/engine/engine/source", "build/engine/model", "common/runner/runnerapi/**"}},
+	{"workspace/box/source/**", []string{"sdk/go/api/**", "sdk/go/entity", "workspace/box/source/**", "core/refusal", "common/told/sourceapi/**", "common/confine", "common/record/records", "common/record/manifest", "common/record", "common/vcs", "common/vcs/git", "common/vcs/chosen", "common/told"}},
+	{"common/record", []string{"sdk/go/entity", "common/record"}},
 	// A daemon told, for a test, what the control plane would tell it:
 	// its entities resolved through a fake Backstage.
-	{"server/internal/told/toldtest", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/backstage", "server/internal/told", "server/internal/sourceapi/**", "server/testsupport/backstagetest"}},
+	{"workspace/server/toldtest", []string{"sdk/go/api/**", "sdk/go/entity", "workspace/server/backstage", "common/told", "common/told/sourceapi/**", "testsupport/backstagetest"}},
 	// What a box's daemon is told of what a workspace is asked for, and
 	// what it says back: the control plane's and the daemon's alike.
-	{"server/internal/told", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/record", "server/internal/sourceapi/**"}},
-	{"server/internal/vcs", []string{"server/internal/vcs"}},
-	{"server/internal/vcs/git", []string{"server/internal/vcs", "server/git"}},
+	{"common/told", []string{"sdk/go/api/**", "sdk/go/entity", "common/record", "common/told/sourceapi/**"}},
+	{"common/vcs", []string{"common/vcs"}},
+	{"common/vcs/git", []string{"common/vcs", "common/git"}},
 	// The one package that names the version control system the server's
 	// programs use, which each program that composes one is given by.
-	{"server/internal/vcs/chosen", []string{"server/internal/vcs/git"}},
+	{"common/vcs/chosen", []string{"common/vcs/git"}},
 	// A sandbox is the isolation and knows nothing of what lives in one.
 	// A driver's tests, and the service's, are held to the conformance
 	// and run over the driver held in memory (drivertest).
-	{"server/sandbox/**", []string{"sdk/go/api/**", "server/sandbox/**", "server/internal/image", "server/testsupport/drivertest", "server/internal/page", "server/internal/refusal", "server/internal/plain", "server/internal/records", "server/internal/poll"}},
-	{"server/sandbox/driver/openshell", []string{"sdk/go/api/**", "server/sandbox/**", "server/testsupport/drivertest", "server/internal/plain", "server/internal/poll", "local/ports"}},
+	{"sandbox/**", []string{"sdk/go/api/**", "sandbox/**", "core/image", "sandbox/testsupport/drivertest", "core/page", "core/refusal", "core/plain", "common/record/records", "core/poll"}},
+	{"sandbox/driver/openshell", []string{"sdk/go/api/**", "sandbox/**", "sandbox/testsupport/drivertest", "core/plain", "core/poll", "core/ports"}},
 	// A driver of the container runtime, for tests alone: what an image
 	// starts is asked through the image package, as the gateway's way
 	// asks it. Its tests start a box and ask its daemon.
-	{"server/testsupport/testcontainer", []string{"server/sandbox/driver", "server/internal/image", "server/testsupport/**", "local", "local/ports", "sdk/go/api/**", "server/internal/told", "server/internal/sourceapi/**"}},
+	// Test support of the sandbox's own, beside it.
+	{"sandbox/testsupport/**", []string{"sandbox/**"}},
+	{"sandbox/testsupport/testcontainer", []string{"sandbox/testsupport/**", "sandbox/driver", "core/image", "testsupport/**", "local", "core/ports", "sdk/go/api/**", "common/told", "common/told/sourceapi/**"}},
 	// The control plane keeps workspaces over the sandboxes they live in,
 	// and asks the version control system through its port (vcs.Fetching)
 	// what reaching a repository takes. It tells a workspace's daemon
@@ -220,60 +225,60 @@ var policies = []policy{
 	// Its tests hold it over the real sandbox service, over the driver
 	// that holds sandboxes in memory (drivertest.Memory): that driver is
 	// for tests, and is refused to what is none. It opens a box's ports
-	// (local/ports), and is told nothing of the stack.
+	// (core/ports), and is told nothing of the stack.
 	// It resolves entities through the Backstage its operator gives it
-	// (server/internal/backstage), held over a fake one in its tests.
-	{"server/internal/controlplane/**", []string{"sdk/go/api/**", "server/sandbox/api/**", "sdk/go/entity", "server/internal/controlplane/**", "server/sandbox", "server/internal/backstage", "server/internal/secretfile", "server/internal/record", "server/internal/vcs", "server/internal/told", "server/internal/sourceapi/**", "server/testsupport/drivertest", "server/testsupport/backstagetest", "server/internal/plain", "local/ports", "sdk/go", "server/internal/page", "server/internal/refusal", "server/internal/records", "server/internal/poll", "server/internal/vcs/chosen"}},
+	// (workspace/server/backstage), held over a fake one in its tests.
+	{"workspace/server/controlplane/**", []string{"sdk/go/api/**", "sandbox/api/**", "sdk/go/entity", "workspace/server/controlplane/**", "sandbox", "workspace/server/backstage", "core/secretfile", "common/record", "common/vcs", "common/told", "common/told/sourceapi/**", "sandbox/testsupport/drivertest", "testsupport/backstagetest", "core/plain", "core/ports", "sdk/go", "core/page", "core/refusal", "common/record/records", "core/poll", "common/vcs/chosen"}},
 	// A test starts a daemon as frontseatd does, and a control plane as
 	// frontseat-local does, each with the test support beside it.
-	{"server/testsupport/buildtest", []string{"server/internal/build", "server/telemetry", "server/testsupport/**", "sdk/go/api/**", "server/internal/source", "server/internal/told", "server/internal/told/toldtest", "server/internal/sourceapi/**", "server/internal/vcs/chosen"}},
+	{"specs/buildtest", []string{"build/daemon/build", "core/telemetry", "testsupport/**", "sdk/go/api/**", "workspace/box/source", "common/told", "workspace/server/toldtest", "common/told/sourceapi/**", "common/vcs/chosen"}},
 	// A fake Backstage, of entities written as catalog files write them.
-	{"server/testsupport/backstagetest", []string{"sdk/go/entity"}},
+	{"testsupport/backstagetest", []string{"sdk/go/entity"}},
 	// What any sandbox driver is held to, and the driver held in memory.
-	{"server/testsupport/drivertest", []string{"server/sandbox/driver", "server/testsupport/drivertest", "server/internal/poll"}},
+	{"sandbox/testsupport/drivertest", []string{"sandbox/driver", "sandbox/testsupport/drivertest", "core/poll"}},
 	// It serves the sandbox service beneath the plane to the test alone,
 	// and says how the plane's owner is known as the SDK's clients take it.
-	{"server/testsupport/controlplanetest", []string{"server/sandbox/api/**", "server/internal/controlplane", "server/internal/page", "server/internal/backstage", "server/sandbox", "server/testsupport/**", "sdk/go/api/**", "sdk/go", "server/internal/vcs/chosen"}},
+	{"workspace/server/controlplanetest", []string{"sandbox/api/**", "workspace/server/controlplane", "core/page", "workspace/server/backstage", "sandbox", "testsupport/**", "sdk/go/api/**", "sdk/go", "common/vcs/chosen"}},
 	// The daemon: a thin main over the package that is it, which reads
 	// its flags and serves the build API over what it is told.
-	{"server/cmd/frontseatd", []string{"server/internal/daemon"}},
-	{"server/internal/daemon", []string{"server/internal/build", "server/internal/source", "server/internal/httpserver", "server/telemetry", "local/ports", "server/internal/vcs/chosen"}},
+	{"cmd/frontseatd", []string{"build/daemon/daemon"}},
+	{"build/daemon/daemon", []string{"build/daemon/build", "workspace/box/source", "core/httpserver", "core/telemetry", "core/ports", "common/vcs/chosen"}},
 	// The local stack's control plane: the control plane, told what the
 	// stack is by the stack's own package.
-	{"server/cmd/frontseat-local", []string{"server/internal/controlplane", "server/internal/backstage", "server/internal/httpserver", "server/internal/secretfile", "server/telemetry", "local", "local/ports", "local/stack", "local/box", "server/internal/vcs/chosen"}},
-	{"server/cmd/frontseat-action", []string{"server/internal/confine"}},
+	{"cmd/frontseat-local", []string{"workspace/server/controlplane", "workspace/server/backstage", "core/httpserver", "core/secretfile", "core/telemetry", "local", "core/ports", "local/stack", "local/box", "common/vcs/chosen"}},
+	{"cmd/frontseat-action", []string{"common/confine"}},
 	// The grid's runner: a thin main over the runner, which serves the
 	// sandbox API over the container runtime to itself.
-	{"server/cmd/frontseat-runner", []string{"server/internal/runner"}},
+	{"cmd/frontseat-runner", []string{"grid/runner"}},
 	// The runner keeps the grid's pool of runner sandboxes with the
 	// OpenShell driver itself: their bound directories and private policy
 	// are the driver's to say, and no client's of the sandbox API.
-	{"server/internal/runner", []string{"server/sandbox/api/**", "server/internal/page", "server/sandbox", "server/sandbox/driver", "server/sandbox/driver/openshell", "server/internal/httpserver", "server/internal/image", "sdk/go/api/**", "sdk/go/entity", "server/internal/testservice", "server/internal/confine", "sdk/go", "server/internal/runnerapi/**", "server/internal/poll"}},
+	{"grid/runner", []string{"sandbox/api/**", "core/page", "sandbox", "sandbox/driver", "sandbox/driver/openshell", "core/httpserver", "core/image", "sdk/go/api/**", "sdk/go/entity", "common/runner/testservice", "common/confine", "sdk/go", "common/runner/runnerapi/**", "core/poll"}},
 	// The box's one build, asked by the spec that holds a box to what it
 	// was built with; no other spec builds one. That spec asks the
 	// stack's Podman as the stack does (local.Podman).
-	{"specs/cli", []string{"sdk/go", "sdk/go/api/**", "server/sandbox/api/**", "sdk/go/entity", "server/testsupport/**", "local/ports"}},
-	{"specs/local", []string{"server/testsupport/**", "local", "local/ports", "local/box"}},
-	{"specs/compare", []string{"sdk/go", "sdk/go/api/**", "server/sandbox/api/**", "server/testsupport/**"}},
-	{"specs/**", []string{"sdk/go", "sdk/go/api/**", "server/sandbox/api/**", "sdk/go/entity", "server/testsupport/**", "server/telemetry", "specs/internal/**", "local/ports"}},
+	{"specs/cli", []string{"sdk/go", "sdk/go/api/**", "sandbox/api/**", "sdk/go/entity", "testsupport/**", "core/ports"}},
+	{"specs/local", []string{"testsupport/**", "local", "core/ports", "local/box"}},
+	{"specs/compare", []string{"sdk/go", "sdk/go/api/**", "sandbox/api/**", "testsupport/**"}},
+	{"specs/**", []string{"sdk/go", "sdk/go/api/**", "sandbox/api/**", "sdk/go/entity", "testsupport/**", "core/telemetry", "specs/internal/**", "core/ports"}},
 	// The gate programs: what runs the specs and every other test, and
 	// builds the box before the tests that need it; what reads a gate's
 	// command, and what the contracts' generators are held to.
-	{"specs/cmd/**", []string{"specs/internal/**", "server/testsupport/**", "local"}},
+	{"specs/cmd/**", []string{"specs/internal/**", "testsupport/**", "local"}},
 	// The gate builds the box by its one build, which no test does, and
-	// asks that the stack answers where local/ports says, before the
+	// asks that the stack answers where core/ports says, before the
 	// tests that need it.
-	{"specs/cmd/gate", []string{"specs/internal/**", "server/testsupport/**", "local", "local/box", "local/ports"}},
+	{"specs/cmd/gate", []string{"specs/internal/**", "testsupport/**", "local", "local/box", "core/ports"}},
 	{"specs/internal/**", []string{"specs/internal/**"}},
 }
 
-var forTests = []string{"server/testsupport", "specs", "server/internal/told/toldtest", "server/internal/pluginhost/conformance", "server/internal/exec/tools/toolstest", "server/internal/engine/source/sourcetest", "server/internal/exec/reapi/reapitest", "server/internal/engine/plan/plantest", "server/internal/pluginhost/pluginhosttest", "server/internal/engine/catalog/catalogtest"}
+var forTests = []string{"testsupport", "local/testsupport", "sandbox/testsupport", "workspace/server/controlplanetest", "specs", "workspace/server/toldtest", "build/engine/pluginhost/conformance", "build/engine/exec/tools/toolstest", "build/engine/engine/source/sourcetest", "build/engine/exec/reapi/reapitest", "build/engine/engine/plan/plantest", "build/engine/pluginhost/pluginhosttest", "build/engine/engine/catalog/catalogtest"}
 
 func beneath(path, root string) bool { return path == root || strings.HasPrefix(path, root+"/") }
 
 // theBuild are the daemon's packages: the build service, its engine,
 // its execution and its plugin host, and buildtest, and not its binary.
-var theBuild = []string{"server/internal/build", "server/internal/engine", "server/internal/exec", "server/internal/history", "server/internal/model", "server/internal/pattern", "server/internal/pins", "server/internal/pluginapi", "server/internal/pluginhost", "server/internal/wire", "server/testsupport/buildtest"}
+var theBuild = []string{"build/daemon/build", "build/engine/engine", "build/engine/exec", "build/engine/history", "build/engine/model", "build/engine/pattern", "build/engine/pins", "build/engine/pluginapi", "build/engine/pluginhost", "build/engine/wire", "specs/buildtest"}
 
 // ofTheBuild is whether a directory is of the daemon's build.
 func ofTheBuild(dir string) bool {
@@ -282,7 +287,7 @@ func ofTheBuild(dir string) bool {
 
 // starters are the test support that starts an implementation: a daemon,
 // a control plane, a sandbox held in memory.
-var starters = []string{"server/testsupport/buildtest", "server/testsupport/controlplanetest", "server/testsupport/drivertest"}
+var starters = []string{"specs/buildtest", "workspace/server/controlplanetest", "sandbox/testsupport/drivertest"}
 
 func testSupport(path string) bool {
 	for _, root := range forTests {
@@ -328,7 +333,7 @@ func permits(file, imported string) bool {
 	}
 	dir := filepath.ToSlash(filepath.Dir(file))
 	test := strings.HasSuffix(file, "_test.go")
-	if test && (path == dir || path == "server/telemetry") {
+	if test && (path == dir || path == "core/telemetry") {
 		return true
 	}
 	if testSupport(path) {
@@ -340,15 +345,15 @@ func permits(file, imported string) bool {
 		// daemon, a control plane or a driver is no other test support's.
 		// The driver of the container runtime is held to what any driver
 		// is held to (drivertest.Conforms), as the gateway's is.
-		driven := dir == containerDriver && path == "server/testsupport/drivertest"
-		if starts && !driven && beneath(dir, "server/testsupport") && !slices.ContainsFunc(starters, func(root string) bool { return beneath(path, root) && beneath(dir, root) }) {
+		driven := dir == containerDriver && path == "sandbox/testsupport/drivertest"
+		if starts && !driven && (beneath(dir, "testsupport") || besideItsModule(dir)) && !slices.ContainsFunc(starters, func(root string) bool { return beneath(path, root) && beneath(dir, root) }) {
 			return false
 		}
 		// Acceptance specs can start implementations only in their setup file.
 		if starts && beneath(dir, "specs") {
 			return filepath.Base(file) == "support_test.go"
 		}
-		if beneath(path, "server/testsupport") && !starts {
+		if (beneath(path, "testsupport") || besideItsModule(path)) && !starts {
 			return true
 		}
 	}
@@ -356,63 +361,74 @@ func permits(file, imported string) bool {
 	// bypass the feature boundary or make a client link a server. They read
 	// a stream to its end as any client of the API does, with the SDK's
 	// reader (sdk/go).
-	if test && ofTheBuild(dir) && (beneath(path, "sdk/go/api") || path == "sdk/go/entity" || path == "sdk/go" || beneath(path, "server/internal/pluginapi") || path == "server/internal/engine/source" || path == "server/internal/exec/reapi") {
+	if test && ofTheBuild(dir) && (beneath(path, "sdk/go/api") || path == "sdk/go/entity" || path == "sdk/go" || beneath(path, "build/engine/pluginapi") || path == "build/engine/engine/source" || path == "build/engine/exec/reapi") {
 		return true
 	}
 	// A server's test reads what it was refused by its reason as any
 	// client of the API does, with the SDK's one reader of it
 	// (frontseat.Reason).
-	if test && beneath(dir, "server") && path == "sdk/go" {
+	if test && path == "sdk/go" && slices.ContainsFunc(serverParts, func(part string) bool { return beneath(dir, part) }) {
 		return true
 	}
 	// Evaluation's tests load a real plugin as the host's own tests do.
-	if test && (dir == "server/internal/pluginhost" || dir == "server/internal/engine/evaluate") && path == "server/internal/pluginhost/conformance" {
+	if test && (dir == "build/engine/pluginhost" || dir == "build/engine/engine/evaluate") && path == "build/engine/pluginhost/conformance" {
 		return true
 	}
 	// A test is given a repository held in memory as pluginhosttest holds
 	// it, and the catalog files catalogtest writes.
-	if test && ofTheBuild(dir) && (path == "server/internal/pluginhost/pluginhosttest" || path == "server/internal/engine/catalog/catalogtest") {
+	if test && ofTheBuild(dir) && (path == "build/engine/pluginhost/pluginhosttest" || path == "build/engine/engine/catalog/catalogtest") {
 		return true
 	}
 	// A test whose grid runs nothing answers what the tools package asks
 	// of a grid as toolstest does.
-	if test && ofTheBuild(dir) && path == "server/internal/exec/tools/toolstest" {
+	if test && ofTheBuild(dir) && path == "build/engine/exec/tools/toolstest" {
 		return true
 	}
 	// A test is given a repository of the files it names, as a run sees
 	// it, as sourcetest gives it, and the test grid as reapitest dials it.
-	if test && ofTheBuild(dir) && (path == "server/internal/engine/source/sourcetest" || path == "server/internal/exec/reapi/reapitest") {
+	if test && ofTheBuild(dir) && (path == "build/engine/engine/source/sourcetest" || path == "build/engine/exec/reapi/reapitest") {
 		return true
 	}
 	// A test of the plan, and of what schedules it, is given the actions
 	// it is about as plantest writes them.
-	if test && ofTheBuild(dir) && path == "server/internal/engine/plan/plantest" {
+	if test && ofTheBuild(dir) && path == "build/engine/engine/plan/plantest" {
 		return true
 	}
-	if test && ofTheBuild(dir) && (path == "server/internal/pattern" || path == "server/internal/pins") {
+	if test && ofTheBuild(dir) && (path == "build/engine/pattern" || path == "build/engine/pins") {
 		return true
 	}
 	// The control plane's tests read a remote as the daemon in a sandbox
 	// reads it, by the system a daemon has (source.Fetching), so that
 	// what it refuses of a remote, and writes a rule for, is proven of
 	// that system; the control plane asks it through its port alone.
-	if test && beneath(dir, "server/internal/controlplane") && path == "server/internal/source" {
+	if test && beneath(dir, "workspace/server/controlplane") && path == "workspace/box/source" {
 		return true
 	}
 	// The gateway's driver's tests ask the container runtime what an
 	// image starts, as the sandbox service does; the driver does not.
-	if test && dir == "server/sandbox/driver/openshell" && path == "server/internal/image" {
+	if test && dir == "sandbox/driver/openshell" && path == "core/image" {
 		return true
 	}
-	if file == "server/internal/build/build.go" && path == "server/internal/exec/reapi" {
+	if file == "build/daemon/build/build.go" && path == "build/engine/exec/reapi" {
 		return true
 	}
 	for _, allowed := range p.imports {
 		if root, all := strings.CutSuffix(allowed, "/**"); all && beneath(path, root) || path == allowed {
 			return true
 		}
+		// The test support is one thing to whoever may use it, wherever
+		// each piece of it is: beside the module it starts, or at the top.
+		if allowed == "testsupport/**" && besideItsModule(path) {
+			return true
+		}
 	}
 	return false
+}
+
+// besideItsModule is whether a package is test support that is beside
+// the module it serves, and not at the top.
+func besideItsModule(path string) bool {
+	return beneath(path, "local/testsupport") || beneath(path, "sandbox/testsupport") || beneath(path, "workspace/server/controlplanetest")
 }
 
 func TestEverySourceFileHasAnOwnerAndObeysItsImports(t *testing.T) {
@@ -473,13 +489,13 @@ func repositoryRoot(t *testing.T) string {
 // its history, and the client's, which reads a checkout of this machine.
 // Each is chosen by the one package beside it and by nothing else.
 var versionControl = map[string]string{
-	"server/internal/vcs/git": "server/internal/vcs/chosen",
-	"cli/internal/vcs/git":    "cli/internal/machine",
+	"common/vcs/git":       "common/vcs/chosen",
+	"cli/internal/vcs/git": "cli/internal/machine",
 }
 
 // gitItself is git as both version control packages run it and read
 // its remotes: it names git, and only they import it.
-const gitItself = "server/git"
+const gitItself = "common/git"
 
 // named is the package that names a version control system a file is
 // of, and whether it is of one.
@@ -564,7 +580,7 @@ func TestOnlyOnePackageNamesAVersionControlSystem(t *testing.T) {
 
 // containerDriver is the one driver of the container runtime: test
 // support, which no program links.
-const containerDriver = "server/testsupport/testcontainer"
+const containerDriver = "sandbox/testsupport/testcontainer"
 
 // containerRuntimeUses is what a file does that could make a sandbox
 // with the container runtime where it may not: every sandbox a program
@@ -619,16 +635,16 @@ func TestEveryWayToTheContainerRuntimeIsSeen(t *testing.T) {
 		file, source string
 		refused      bool
 	}{
-		"a server's test":                 {"server/internal/runner/attempt_test.go", `package runner; import "` + driver + `"`, false},
-		"the sandbox service's test":      {"server/sandbox/runner_test.go", `package sandbox_test; import "` + driver + `"`, false},
-		"under another name, in a test":   {"server/sandbox/runner_test.go", `package sandbox_test; import made "` + driver + `"`, false},
-		"the grid's runner":               {"server/internal/runner/runner.go", `package runner; import "` + driver + `"`, true},
-		"the sandbox service":             {"server/sandbox/sandbox.go", `package sandbox; import made "` + driver + `"`, true},
-		"a program":                       {"server/cmd/frontseat-local/main.go", `package main; import _ "` + driver + `"`, true},
+		"a server's test":                 {"grid/runner/attempt_test.go", `package runner; import "` + driver + `"`, false},
+		"the sandbox service's test":      {"sandbox/runner_test.go", `package sandbox_test; import "` + driver + `"`, false},
+		"under another name, in a test":   {"sandbox/runner_test.go", `package sandbox_test; import made "` + driver + `"`, false},
+		"the grid's runner":               {"grid/runner/runner.go", `package runner; import "` + driver + `"`, true},
+		"the sandbox service":             {"sandbox/sandbox.go", `package sandbox; import made "` + driver + `"`, true},
+		"a program":                       {"cmd/frontseat-local/main.go", `package main; import _ "` + driver + `"`, true},
 		"a test of the journey":           {"specs/cli/local_test.go", `package cli; import "` + driver + `"`, true},
-		"a driver beside the gateway's":   {"server/sandbox/sandbox.go", `package sandbox; import "` + module + `/server/internal/driver/podman"`, true},
-		"a driver beside, even in a test": {"server/sandbox/runner_test.go", `package sandbox_test; import "` + module + `/server/internal/driver/podman"`, true},
-		"what an image starts, asked":     {"server/sandbox/sandbox.go", `package sandbox; import "` + module + `/server/internal/image"`, false},
+		"a driver beside the gateway's":   {"sandbox/sandbox.go", `package sandbox; import "` + module + `/server/internal/driver/podman"`, true},
+		"a driver beside, even in a test": {"sandbox/runner_test.go", `package sandbox_test; import "` + module + `/server/internal/driver/podman"`, true},
+		"what an image starts, asked":     {"sandbox/sandbox.go", `package sandbox; import "` + module + `/core/image"`, false},
 	} {
 		t.Run(name, func(t *testing.T) {
 			refused, err := containerRuntimeUses(c.file, []byte(c.source))
@@ -972,12 +988,12 @@ func generatedElsewhere(files, outs []string) []string {
 }
 
 func TestGeneratedGoElsewhereIsFound(t *testing.T) {
-	outs := []string{"sdk/go/api", "server/internal/pluginapi"}
-	held := []string{"sdk/go/api/frontseat/build/v1alpha1/run.pb.go", "sdk/go/api/x/xconnect/x.connect.go", "server/internal/pluginapi/p/p.pb.go", "server/internal/build/build.go"}
+	outs := []string{"sdk/go/api", "build/engine/pluginapi"}
+	held := []string{"sdk/go/api/frontseat/build/v1alpha1/run.pb.go", "sdk/go/api/x/xconnect/x.connect.go", "build/engine/pluginapi/p/p.pb.go", "build/daemon/build/build.go"}
 	if stray := generatedElsewhere(held, outs); len(stray) != 0 {
 		t.Errorf("generated Go where a template writes it was refused: %v", stray)
 	}
-	refused := []string{"server/internal/build/hand.pb.go", "client/x.connect.go", "sdk/go/apix/y.pb.go"}
+	refused := []string{"build/daemon/build/hand.pb.go", "client/x.connect.go", "sdk/go/apix/y.pb.go"}
 	if stray := generatedElsewhere(append(slices.Clone(held), refused...), outs); !slices.Equal(stray, refused) {
 		t.Errorf("found %v, want %v", stray, refused)
 	}
@@ -1065,10 +1081,10 @@ func TestClientProductionDependencyClosure(t *testing.T) {
 				// what git ends a process group with, the confiner's one way
 				// past a sandbox's refusal of a signal to a group (owner's
 				// ruling, 2026-11-19).
-				if shared := pkg.ImportPath == module+"/server/git" || pkg.ImportPath == module+"/server/telemetry" || pkg.ImportPath == module+"/server/internal/confine"; strings.HasPrefix(pkg.ImportPath, module+"/server/") && !shared {
+				if shared := pkg.ImportPath == module+"/common/git" || pkg.ImportPath == module+"/core/telemetry" || pkg.ImportPath == module+"/common/confine"; strings.HasPrefix(pkg.ImportPath, module+"/server/") && !shared {
 					t.Errorf("client links server package %s", pkg.ImportPath)
 				}
-				if strings.HasPrefix(pkg.ImportPath, module+"/server/testsupport/") {
+				if strings.HasPrefix(pkg.ImportPath, module+"/testsupport/") {
 					t.Errorf("client links test support %s", pkg.ImportPath)
 				}
 			}
@@ -1273,7 +1289,7 @@ func TestMissingValidationModuleIsRefused(t *testing.T) {
 // A public constructor must not force callers to name its private runtime.
 func TestPublicFeatureSignaturesHideImplementationTypes(t *testing.T) {
 	root := repositoryRoot(t)
-	for _, entry := range []string{"server/sandbox", "server/sandbox/driver", "server/sandbox/driver/openshell", "server/git", "server/telemetry"} {
+	for _, entry := range []string{"sandbox", "sandbox/driver", "sandbox/driver/openshell"} {
 		paths, err := filepath.Glob(filepath.Join(root, entry, "*.go"))
 		if err != nil {
 			t.Fatal(err)
@@ -1375,8 +1391,10 @@ func publicLeaks(files []*ast.File) []string {
 			case *ast.SelectorExpr:
 				if pkg, ok := n.X.(*ast.Ident); ok {
 					path := d.imports[pkg.Name]
-					// What is internal to a server Component is its own.
-					if strings.HasPrefix(path, module+"/server/") && strings.Contains(path, "/internal/") {
+					// What is of this repository, in no SDK and not on the
+					// list of what frontseat-enterprise may import, is the
+					// repository's own: no one outside can name it.
+					if own, of := strings.CutPrefix(path, module+"/"); of && !forOutsiders(own) {
 						leaks = append(leaks, path+"."+n.Sel.Name)
 					}
 				}
@@ -1500,7 +1518,7 @@ func TestEquallySpecificOwnersAreRejected(t *testing.T) {
 
 // whatFills is what fills a workspace's directory as the control plane
 // tells it: what a build is no part of.
-const whatFills = "server/internal/source"
+const whatFills = "workspace/box/source"
 
 // buildsOfWhatFills returns each file of the build, or of the directory
 // it reads, that imports what fills the directory, its tests too.
@@ -1508,7 +1526,7 @@ func buildsOfWhatFills(imports map[string][]string) []string {
 	var out []string
 	for file, imported := range imports {
 		file = filepath.ToSlash(file)
-		if !strings.HasPrefix(file, "server/internal/build/") && !strings.HasPrefix(file, "server/internal/directory/") {
+		if !strings.HasPrefix(file, "build/daemon/build/") && !strings.HasPrefix(file, "build/daemon/directory/") {
 			continue
 		}
 		if slices.Contains(imported, module+"/"+whatFills) {
@@ -1530,13 +1548,113 @@ func TestTheBuildReadsItsDirectoryAndNothingOfWhatFillsIt(t *testing.T) {
 	// The controls: a file of the build that imports it is found, a test
 	// of the build too; the daemon's program is not.
 	planted := map[string][]string{
-		"server/internal/build/runs.go":      {module + "/" + whatFills},
-		"server/internal/build/run_test.go":  {module + "/" + whatFills},
-		"server/internal/daemon/daemon.go":   {module + "/" + whatFills},
-		"server/internal/directory/read.go":  {module + "/server/internal/record"},
-		"server/internal/directory/other.go": {module + "/" + whatFills},
+		"build/daemon/build/runs.go":      {module + "/" + whatFills},
+		"build/daemon/build/run_test.go":  {module + "/" + whatFills},
+		"build/daemon/daemon/daemon.go":   {module + "/" + whatFills},
+		"build/daemon/directory/read.go":  {module + "/common/record"},
+		"build/daemon/directory/other.go": {module + "/" + whatFills},
 	}
-	if found := buildsOfWhatFills(planted); !slices.Equal(found, []string{"server/internal/build/run_test.go", "server/internal/build/runs.go", "server/internal/directory/other.go"}) {
+	if found := buildsOfWhatFills(planted); !slices.Equal(found, []string{"build/daemon/build/run_test.go", "build/daemon/build/runs.go", "build/daemon/directory/other.go"}) {
 		t.Errorf("of what was planted, found %v", found)
+	}
+}
+
+// moduleOrder is the Go modules of the repository from the bottom up:
+// each requires only modules above it in this list, which is what the
+// repository is built of, in the order it is built. What a module may
+// import of another is first what its go.mod requires, which the
+// compiler holds, and this list holds which module may require which;
+// the rules of each package (policies) are beside that, and finer. A
+// module added goes where what it requires is beneath it; one that would
+// need a module below to require one above is refused, and the code is
+// cut instead.
+var moduleOrder = []string{
+	"sdk/go",
+	// What a test of any module is helped by, and what every program is
+	// built on.
+	"testsupport",
+	"core",
+	// What some parts use and others do not, each a module of its own.
+	"common/confine",
+	"common/git",
+	"common/vcs",
+	"common/record",
+	"common/told",
+	"common/runner",
+	"local",
+	"sandbox",
+	"build/engine",
+	"grid",
+	"workspace/box",
+	"build/daemon",
+	"workspace/server",
+	// The programs, each a thin main over the part it runs.
+	"cmd/frontseat-action",
+	"cmd/frontseat-runner",
+	"cmd/frontseatd",
+	"cmd/frontseat-local",
+	"cli",
+	"specs",
+}
+
+// moduleOf is the module a file or a package's directory is of: the
+// longest module directory it is beneath; "" for one of none.
+func moduleOf(path string) string {
+	path = filepath.ToSlash(path)
+	found := ""
+	for _, dir := range moduleOrder {
+		if strings.HasPrefix(path, dir+"/") && len(dir) > len(found) {
+			found = dir
+		}
+	}
+	return found
+}
+
+// above returns each requirement that is not beneath the module that
+// requires it, in an order of modules, as "module requires other".
+func above(order []string, requires map[string][]string) []string {
+	var out []string
+	for dir, required := range requires {
+		at := slices.Index(order, dir)
+		for _, other := range required {
+			if beneath := slices.Index(order, other); at < 0 || beneath < 0 || beneath >= at {
+				out = append(out, dir+" requires "+other)
+			}
+		}
+	}
+	slices.Sort(out)
+	return out
+}
+
+// The modules are built from the bottom up: each requires only modules
+// beneath it in moduleOrder, and every module of the workspace is in it.
+// So a change to one rebuilds what is above it and nothing beside it.
+func TestAModuleRequiresOnlyWhatIsBeneathIt(t *testing.T) {
+	root := repositoryRoot(t)
+	modules := workspaceModules(t, root)
+	if listed := slices.Sorted(slices.Values(moduleOrder)); !slices.Equal(listed, modules) {
+		t.Fatalf("the order names %v, and the workspace's modules are %v", listed, modules)
+	}
+	requires := map[string][]string{}
+	for _, dir := range modules {
+		var mod struct{ Require []struct{ Path string } }
+		goJSON(t, filepath.Join(root, dir), &mod, "mod", "edit", "-json")
+		for _, require := range mod.Require {
+			if local, ok := strings.CutPrefix(require.Path, module+"/"); ok {
+				requires[dir] = append(requires[dir], local)
+			}
+		}
+	}
+	for _, each := range above(moduleOrder, requires) {
+		t.Errorf("%s, which is not beneath it: a module requires only what is beneath it in moduleOrder", each)
+	}
+	// The controls: a requirement beneath is allowed; one above, of
+	// itself, or of a module the order does not name, is found.
+	order := []string{"low", "middle", "high"}
+	if found := above(order, map[string][]string{"high": {"low", "middle"}, "middle": {"low"}}); len(found) != 0 {
+		t.Errorf("requirements beneath were found: %v", found)
+	}
+	if found := above(order, map[string][]string{"low": {"high"}, "middle": {"middle", "absent"}}); !slices.Equal(found, []string{"low requires high", "middle requires absent", "middle requires middle"}) {
+		t.Errorf("of the requirements above, found %v", found)
 	}
 }

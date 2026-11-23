@@ -4,8 +4,8 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testidentity"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testowner"
+	"github.com/frontseat-dev/frontseat/local/testsupport/testowner"
+	"github.com/frontseat-dev/frontseat/testsupport/testidentity"
 	"io"
 	"net/http/httptest"
 	"os"
@@ -21,11 +21,11 @@ import (
 	"time"
 
 	"connectrpc.com/connect/v2"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testforge"
+	"github.com/frontseat-dev/frontseat/testsupport/testforge"
 
+	"github.com/frontseat-dev/frontseat/local/testsupport/testbox"
 	"github.com/frontseat-dev/frontseat/sdk/go"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testbox"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testworkload"
+	"github.com/frontseat-dev/frontseat/testsupport/testworkload"
 )
 
 var (

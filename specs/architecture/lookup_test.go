@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/frontseat-dev/frontseat/server/testsupport/testmodule"
+	"github.com/frontseat-dev/frontseat/testsupport/testmodule"
 )
 
 // opens are the calls that open, resolve or move to a path: a test that
@@ -165,7 +165,7 @@ func TestNoTestLooksUpForWhatItReads(t *testing.T) {
 
 	root := repositoryRoot(t)
 	for _, source := range goSources(t, root, root) {
-		if !strings.HasSuffix(source.rel, "_test.go") && !strings.HasPrefix(source.rel, "server/testsupport/") {
+		if !strings.HasSuffix(source.rel, "_test.go") && !strings.HasPrefix(source.rel, "testsupport/") {
 			continue
 		}
 		for _, call := range climbs(source.file) {
@@ -194,8 +194,8 @@ func TestNoTestLooksUpForWhatItReads(t *testing.T) {
 func TestWhatATestIsToldOfItsRepositoryIsSaidByOneName(t *testing.T) {
 	root := repositoryRoot(t)
 	saying := []string{
-		"server/internal/exec/stage/stage.go",
-		"server/testsupport/testmodule/testmodule.go",
+		"build/engine/exec/stage/stage.go",
+		"testsupport/testmodule/testmodule.go",
 		"sdk/plugin/generate/src/main.rs",
 		"mise.toml",
 	}

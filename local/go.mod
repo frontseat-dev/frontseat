@@ -2,4 +2,9 @@ module github.com/frontseat-dev/frontseat/local
 
 go 1.27.3
 
-require go.yaml.in/yaml/v4 v4.0.0
+require (
+	github.com/frontseat-dev/frontseat/common/confine v0.0.0
+	github.com/frontseat-dev/frontseat/core v0.0.0
+	github.com/frontseat-dev/frontseat/sdk/go v0.0.0
+	github.com/frontseat-dev/frontseat/testsupport v0.0.0
+)

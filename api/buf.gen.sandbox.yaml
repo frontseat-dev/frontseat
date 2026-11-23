@@ -1,7 +1,7 @@
 # The sandbox API (frontseat.sandbox.v1alpha1), in Go, for the server and
 # frontseat-enterprise alone: it is served to no one outside, and has no
 # client in the Go SDK. It is generated into the sandbox service's own
-# public packages (server/sandbox/api), with its Connect handler and
+# public packages (sandbox/api), with its Connect handler and
 # client, which frontseat-enterprise embeds with the service; the types
 # of the other modules it names are the Go SDK's. Generated, never
 # edited, and held to what this writes now by `mise run check`. Frontseat
@@ -18,7 +18,7 @@ managed:
       value: github.com/frontseat-dev/frontseat/sdk/go/api
     - path: frontseat/sandbox
       file_option: go_package_prefix
-      value: github.com/frontseat-dev/frontseat/server/sandbox/api
+      value: github.com/frontseat-dev/frontseat/sandbox/api
   disable:
     - path: google/api
       file_option: go_package_prefix
@@ -26,10 +26,10 @@ managed:
       file_option: go_package_prefix
 plugins:
   - local: protoc-gen-go
-    out: ../server/sandbox/api
+    out: ../sandbox/api
     opt: paths=source_relative
   - local: protoc-gen-connect-go
-    out: ../server/sandbox/api
+    out: ../sandbox/api
     opt: paths=source_relative
 inputs:
   - directory: .

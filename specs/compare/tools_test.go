@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/frontseat-dev/frontseat/server/testsupport/testworkload"
+	"github.com/frontseat-dev/frontseat/testsupport/testworkload"
 )
 
 // pretended is a tool whose builds a test decides: each build prints how

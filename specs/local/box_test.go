@@ -9,9 +9,9 @@ import (
 	"testing"
 
 	"github.com/frontseat-dev/frontseat/local/box"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testbox"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testmodule"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testrequired"
+	"github.com/frontseat-dev/frontseat/local/testsupport/testbox"
+	"github.com/frontseat-dev/frontseat/testsupport/testmodule"
+	"github.com/frontseat-dev/frontseat/testsupport/testrequired"
 )
 
 // A box holds the plugins it was built with, whatever a build before it

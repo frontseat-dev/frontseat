@@ -1,7 +1,7 @@
 // frontseat.runner.v1alpha1: what a worker's runner is told to start for a
 // test. It is no API: nothing serves it and no client asks it. It is a
 // file the daemon writes and the runner reads, both of this server, and
-// its Go is theirs alone (server/internal/runnerapi).
+// its Go is theirs alone (common/runner/runnerapi).
 //
 // It lists every service a test needs, those its services need
 // included, and which of their ports the test and each service may

@@ -3,7 +3,7 @@ package e2e
 import (
 	"testing"
 
-	"github.com/frontseat-dev/frontseat/server/testsupport/controlplanetest"
+	"github.com/frontseat-dev/frontseat/workspace/server/controlplanetest"
 )
 
 // local serves a control plane over the local stack's OpenShell gateway,

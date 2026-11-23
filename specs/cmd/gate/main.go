@@ -17,7 +17,7 @@
 // What runs tests is told the wasm modules prepared for it from this
 // checkout (FRONTSEAT_TEST_ARTIFACTS, which prepare-modules prints).
 // test, with the stack, first asks that the stack answers (the container
-// runtime, and the stack's control plane and grid where local/ports
+// runtime, and the stack's control plane and grid where core/ports
 // says), and fails naming it where none does, before anything is built
 // or run. test with the stack, and go-test, tell the tests that the gate
 // runs against the stack (FRONTSEAT_TEST_STACK=required, package
@@ -65,15 +65,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/frontseat-dev/frontseat/core/ports"
 	"github.com/frontseat-dev/frontseat/local"
 	"github.com/frontseat-dev/frontseat/local/box"
-	"github.com/frontseat-dev/frontseat/local/ports"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testbox"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testbudget"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testgrid"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testmodule"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testrequired"
+	"github.com/frontseat-dev/frontseat/local/testsupport/testbox"
+	"github.com/frontseat-dev/frontseat/local/testsupport/testgrid"
 	"github.com/frontseat-dev/frontseat/specs/internal/gatecommand"
+	"github.com/frontseat-dev/frontseat/testsupport/testbudget"
+	"github.com/frontseat-dev/frontseat/testsupport/testmodule"
+	"github.com/frontseat-dev/frontseat/testsupport/testrequired"
 )
 
 func main() {
@@ -167,7 +167,7 @@ func gate(arguments []string) int {
 type service struct{ name, address string }
 
 // theStack is what of the local stack a gate asks: its control plane
-// and its grid on this machine's loopback, where local/ports says.
+// and its grid on this machine's loopback, where core/ports says.
 func theStack() []service {
 	at := func(port int) string { return net.JoinHostPort("localhost", strconv.Itoa(port)) }
 	return []service{{"the control plane", at(ports.ControlPlane)}, {"the grid", at(ports.Grid)}}

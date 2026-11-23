@@ -6,9 +6,16 @@ require (
 	connectrpc.com/connect/v2 v2.0.2
 	github.com/ai-openshell/sdk-go v0.1.9
 	github.com/bazelbuild/remote-apis v0.0.0-20260331222004-becdd8f9ff81
+	github.com/frontseat-dev/frontseat/build/daemon v0.0.0
+	github.com/frontseat-dev/frontseat/common/told v0.0.0
+	github.com/frontseat-dev/frontseat/common/vcs v0.0.0
+	github.com/frontseat-dev/frontseat/core v0.0.0
 	github.com/frontseat-dev/frontseat/local v0.0.0
+	github.com/frontseat-dev/frontseat/sandbox v0.0.0
 	github.com/frontseat-dev/frontseat/sdk/go v0.0.0
-	github.com/frontseat-dev/frontseat/server v0.0.0
+	github.com/frontseat-dev/frontseat/testsupport v0.0.0
+	github.com/frontseat-dev/frontseat/workspace/box v0.0.0
+	github.com/frontseat-dev/frontseat/workspace/server v0.0.0
 	github.com/go-git/go-git/v5 v5.19.3
 	github.com/google/renameio/v2 v2.0.2
 	github.com/onsi/gomega v1.44.0
@@ -31,7 +38,6 @@ require (
 	github.com/bazelbuild/remote-apis-sdks v0.0.0-20261104145708-67e564a2db07 // indirect
 	github.com/bmatcuk/doublestar/v4 v4.10.4 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
-	github.com/go-git/go-billy/v5 v5.9.2 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/chainguard-dev/git-urls v1.0.2 // indirect
 	github.com/charmbracelet/x/conpty v0.2.0 // indirect
@@ -40,8 +46,14 @@ require (
 	github.com/creack/pty v1.1.24 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
+	github.com/frontseat-dev/frontseat/build/engine v0.0.0 // indirect
+	github.com/frontseat-dev/frontseat/common/confine v0.0.0 // indirect
+	github.com/frontseat-dev/frontseat/common/git v0.0.0 // indirect
+	github.com/frontseat-dev/frontseat/common/record v0.0.0 // indirect
+	github.com/frontseat-dev/frontseat/common/runner v0.0.0 // indirect
 	github.com/frontseat-dev/ssh v0.4.4-0.20261107091341-205332a4a986 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
+	github.com/go-git/go-billy/v5 v5.9.2 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/golang/glog v1.2.5 // indirect

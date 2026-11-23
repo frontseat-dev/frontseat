@@ -1,0 +1,373 @@
+package config
+
+import (
+	"errors"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"maps"
+	"slices"
+	"strings"
+	"time"
+
+	"go.yaml.in/yaml/v4"
+
+	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
+	"github.com/frontseat-dev/frontseat/sdk/go/entity"
+
+	"github.com/frontseat-dev/frontseat/build/engine/model"
+	"github.com/frontseat-dev/frontseat/common/runner/testservice"
+)
+
+// Service is how an entity is started for the tests of the components
+// that depend on it: spec.frontseat.service in its catalog file. A
+// Resource says what it is, as a name a plugin of the repository claims,
+// and that plugin says the whole of it: what is written beside the name
+// is kept, and the rest is the plugin's. What is started is what the
+// plugin answered, held to what a service is (common/runner/testservice).
+// A Component selects one of its programs instead.
+type Service struct {
+	// File is the catalog file it is written in, relative to
+	// Repository; Directory the entity's directory in the repository;
+	// and Line where in the file it is written.
+	File, Directory string
+	Line            int
+	// Entity is the entity it is said by, a Resource or a Component.
+	Entity entity.Ref
+	// Repository locates its declared program.
+	Repository string
+	// Program selects a program action (the action kind Program), exclusively of
+	// As.
+	Program string
+	// As is what it is: "container" for an image written out here, or
+	// what another plugin starts, such as "postgres".
+	As string
+	// Said is what is said of it, in the one shape a service has: what
+	// was written beside As, as it is read here; and, once the plugin
+	// that claims As has answered, the whole of it.
+	Said *typev1.Service
+}
+
+// Mistake is a mistake in what is said of the service, where it is
+// written.
+func (service Service) Mistake(err error) *model.Mistake {
+	return &model.Mistake{Repository: service.Repository, File: service.File, Line: service.Line, Message: err.Error()}
+}
+
+// serviceValues is what each key of a service takes, as a mistake says
+// it; a key it does not hold is refused, with the keys it holds.
+var serviceValues = map[string]string{
+	"as":            "a name: what a plugin of the repository starts",
+	"endpoints":     "names, each with an address of {host} and one of its ports",
+	"program":       "an action reference naming one program",
+	"apis":          "provided API references, each with a port and exports",
+	"image":         "text: an image, named with its registry and digest",
+	"arguments":     "a list of text",
+	"environment":   "names, each with its value as text",
+	"exports":       "names, each with its value as text",
+	"ports":         "names, each with its port, a whole number",
+	"ready-timeout": "a length of time, written as Go writes one: 90s, 2m",
+	"ready":         "a list of checks, each one of port: <name>, http: {port, path, body} or command: [...]",
+	"user":          "text: the user its image runs as, by number, never 0, written in quotes, as \"70\"",
+	"writable":      "a list of the directories of its image it writes, each an absolute path",
+}
+
+// null reports whether a node is a null: a key written with no value.
+func null(node *yaml.Node) bool { return node.Kind == yaml.ScalarNode && node.Tag == "!!null" }
+
+// nullWithin returns a null written beneath a node, or nil: an entry of
+// a list or a value of a map, at any depth. The node itself is not
+// looked at: a key written with no value says nothing, which is said so.
+func nullWithin(node *yaml.Node) *yaml.Node {
+	for _, child := range node.Content {
+		if null(child) {
+			return child
+		}
+		if found := nullWithin(child); found != nil {
+			return found
+		}
+	}
+	return nil
+}
+
+// ready is one readiness check as a catalog file writes it: one of a
+// port, an HTTP answer or a command.
+type ready struct {
+	port    string
+	http    *typev1.ServiceHttpReady
+	command *[]string
+}
+
+// readReady reads service.ready: a list of checks, each a map of port,
+// http and command, an HTTP answer a map of port, path and body. Which
+// of them a check is, and that it is one, is for whoever reads them.
+func readReady(node *yaml.Node) ([]ready, bool) {
+	if node.Kind != yaml.SequenceNode {
+		return nil, false
+	}
+	var out []ready
+	for _, entry := range node.Content {
+		if entry.Kind != yaml.MappingNode {
+			return nil, false
+		}
+		var check ready
+		for i := 0; i+1 < len(entry.Content); i += 2 {
+			key, said := entry.Content[i], entry.Content[i+1]
+			ok := false
+			switch key.Value {
+			case "port":
+				check.port, ok = text(said)
+			case "http":
+				var asked map[string]string
+				if asked, ok = mapOf(said, text); ok {
+					check.http = &typev1.ServiceHttpReady{Port: asked["port"], Path: asked["path"], Body: asked["body"]}
+					delete(asked, "port")
+					delete(asked, "path")
+					delete(asked, "body")
+					ok = len(asked) == 0
+				}
+			case "command":
+				command, wrong := textList(said)
+				check.command, ok = &command, wrong == nil
+			}
+			if !ok {
+				return nil, false
+			}
+		}
+		out = append(out, check)
+	}
+	return out, true
+}
+
+// readAPI reads one entry of service.apis: the port an API is served
+// on, and what a test that consumes it is told.
+func readAPI(node *yaml.Node) (*typev1.ServiceApi, bool) {
+	if node.Kind != yaml.MappingNode {
+		return nil, false
+	}
+	api := &typev1.ServiceApi{}
+	for i := 0; i+1 < len(node.Content); i += 2 {
+		key, said := node.Content[i], node.Content[i+1]
+		ok := false
+		switch key.Value {
+		case "port":
+			api.Port, ok = text(said)
+		case "exports":
+			api.Exports, ok = mapOf(said, text)
+		}
+		if !ok {
+			return nil, false
+		}
+	}
+	return api, true
+}
+
+// apiOf reads an API's reference as a catalog file writes one of
+// another entity: the kind api where none is written, and the namespace
+// the entity's own where none is.
+func apiOf(written, namespace string) (entity.Ref, error) {
+	if !strings.Contains(written, ":") {
+		written = "api:" + written
+	}
+	ref, err := entity.ParseIn(written, namespace)
+	if err == nil && ref.Kind != "api" {
+		err = errors.New("not an API")
+	}
+	return ref, err
+}
+
+// readService reads spec.frontseat.service of one catalog document into
+// the shape a service has, each key into the field that holds it. This
+// is the one place a service is turned from what a file holds: text is
+// what was written as text, a number the shape cannot hold is refused by
+// what reads the file, a readiness check is of one kind, and what the
+// shape can hold wrongly is refused by the one check of it
+// (testservice.Shaped). A key written to say nothing is refused: what is
+// written is kept by the plugin as it is, and nothing cannot be kept.
+func readService(file place, directory string, ref entity.Ref, node *yaml.Node) (Service, error) {
+	mistake := func(line int, format string, a ...any) (Service, error) {
+		return Service{}, file.at(line, format, a...)
+	}
+	if ref.Kind != "resource" && ref.Kind != entity.KindComponent {
+		return mistake(node.Line, "only a Resource or Component is started as a service")
+	}
+	if node.Kind != yaml.MappingNode {
+		return mistake(node.Line, "service is a map: what it is, and what is written of it")
+	}
+	service := Service{Repository: file.repository, File: file.file, Directory: directory, Line: node.Line, Entity: ref, Said: &typev1.Service{}}
+	said := service.Said
+	for i := 0; i+1 < len(node.Content); i += 2 {
+		key, val := node.Content[i], node.Content[i+1]
+		if _, taken := serviceValues[key.Value]; !taken {
+			return Service{}, &model.Mistake{Repository: file.repository, File: file.file, Line: key.Line, Message: "service takes no key " + key.Value, Help: "it takes " + strings.Join(slices.Sorted(maps.Keys(serviceValues)), ", ")}
+		}
+		// Nothing among what is written is null: a list that held one
+		// would be read without it, and what is started would not be
+		// what was written.
+		if within := nullWithin(val); within != nil {
+			return mistake(within.Line, "service.%s holds a null: say what it is, or leave it out", key.Value)
+		}
+		var (
+			checks []ready
+			ready  time.Duration
+			wrong  *yaml.Node
+			// read is whether the value is what its key takes, and
+			// nothing whether it then says nothing.
+			read, nothing = true, false
+		)
+		switch written := !null(val); key.Value {
+		case "as":
+			if written {
+				service.As, read = text(val)
+			}
+		case "program":
+			if written {
+				service.Program, read = text(val)
+			}
+			nothing = service.Program == ""
+		case "apis":
+			if written {
+				said.Apis, read = mapOf(val, readAPI)
+			}
+			nothing = len(said.Apis) == 0
+		case "image":
+			if written {
+				said.Image, read = text(val)
+			}
+			nothing = said.Image == ""
+		case "arguments":
+			if written {
+				said.Arguments, wrong = textList(val)
+			}
+			read, nothing = wrong == nil, len(said.Arguments) == 0
+		case "environment":
+			if written {
+				said.Environment, read = mapOf(val, text)
+			}
+			nothing = len(said.Environment) == 0
+		case "exports":
+			if written {
+				said.Exports, read = mapOf(val, text)
+			}
+			nothing = len(said.Exports) == 0
+		case "endpoints":
+			if written {
+				said.Endpoints, read = mapOf(val, text)
+			}
+			nothing = len(said.Endpoints) == 0
+		case "user":
+			if written {
+				said.User, read = text(val)
+			}
+			nothing = said.User == ""
+		case "writable":
+			if written {
+				said.Writable, wrong = textList(val)
+			}
+			read, nothing = wrong == nil, len(said.Writable) == 0
+		case "ports":
+			// Read as the shape holds them: a number it cannot hold is
+			// refused by what reads the file, never cut short.
+			if written {
+				said.Ports, read = mapOf(val, whole[int32])
+			}
+			nothing = len(said.Ports) == 0
+		case "ready-timeout":
+			if written {
+				var said string
+				if said, read = text(val); read {
+					var err error
+					ready, err = time.ParseDuration(said)
+					read = err == nil
+				}
+			}
+			nothing = ready == 0
+		case "ready":
+			if written {
+				checks, read = readReady(val)
+			}
+			nothing = len(checks) == 0
+		}
+		if !read {
+			return mistake(key.Line, "service.%s is not %s", key.Value, serviceValues[key.Value])
+		}
+		if nothing {
+			return mistake(key.Line, "service.%s is written and says nothing: leave it out, and it is its plugin's to say", key.Value)
+		}
+		// A name is held where it is written, so that its refusal says
+		// its own line: what a service's shape is held to again
+		// (testservice.Shaped) knows no line.
+		apis := map[string]*typev1.ServiceApi{}
+		for i := 0; val.Kind == yaml.MappingNode && i+1 < len(val.Content); i += 2 {
+			name, held := val.Content[i], error(nil)
+			switch key.Value {
+			case "exports", "environment":
+				held = testservice.Variable(key.Value, name.Value)
+			case "ports":
+				held = testservice.Port(name.Value, said.Ports[name.Value])
+			case "apis":
+				// Written as every reference of the file is, held in full:
+				// two spellings of one API are one API written twice.
+				api, err := apiOf(name.Value, ref.Namespace)
+				switch _, twice := apis[api.String()]; {
+				case err != nil:
+					held = errors.New("service.apis: an API is named as a reference is written: a name, api:<name> or api:<namespace>/<name>, read in the entity's namespace")
+				case twice:
+					held = errors.New("service.apis names one API twice")
+				default:
+					apis[api.String()] = said.Apis[name.Value]
+				}
+			}
+			if held != nil {
+				return mistake(name.Line, "%v", held)
+			}
+		}
+		if key.Value == "apis" {
+			said.Apis = apis
+		}
+		if key.Value == "ready-timeout" {
+			said.Timeout = durationpb.New(ready)
+		}
+		for n, c := range checks {
+			check := &typev1.ServiceReady{}
+			switch kinds := []bool{c.port != "", c.http != nil, c.command != nil}; {
+			case kinds[0] && !kinds[1] && !kinds[2]:
+				check.Check = &typev1.ServiceReady_Port{Port: c.port}
+			case kinds[1] && !kinds[0] && !kinds[2]:
+				check.Check = &typev1.ServiceReady_Http{Http: c.http}
+			case kinds[2] && !kinds[0] && !kinds[1]:
+				check.Check = &typev1.ServiceReady_Command{Command: &typev1.ServiceCommandReady{Arguments: *c.command}}
+			default:
+				return mistake(key.Line, "service.ready[%d] is one of port, http or command", n)
+			}
+			said.Ready = append(said.Ready, check)
+		}
+	}
+	// Who says how it is started is named: nothing is started by a form
+	// of its own.
+	if service.As == "" && service.Program == "" {
+		return mistake(node.Line, "service does not say what it is: write as: container for an image written out here, or the name of what a plugin of the repository starts")
+	}
+	if service.As != "" && service.Program != "" {
+		return mistake(node.Line, "service selects either as or program, never both")
+	}
+	if ref.Kind == entity.KindComponent && service.Program == "" {
+		return mistake(node.Line, "only a Resource is started from an image; a Component selects a program")
+	}
+	if ref.Kind == entity.KindComponent && len(said.Exports) > 0 {
+		return mistake(node.Line, "a Component exports through each provided API in service.apis")
+	}
+	if ref.Kind == "resource" && len(said.Apis) > 0 {
+		return mistake(node.Line, "a Resource provides no APIs")
+	}
+	if service.Program != "" {
+		if _, err := model.ParseReference("", directory, service.Program); err != nil {
+			return Service{}, service.Mistake(err)
+		}
+		if err := testservice.Program(said); err != nil {
+			return Service{}, service.Mistake(err)
+		}
+	}
+	if err := testservice.Shaped(said); err != nil {
+		return Service{}, service.Mistake(err)
+	}
+	return service, nil
+}

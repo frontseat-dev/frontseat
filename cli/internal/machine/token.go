@@ -13,8 +13,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/frontseat-dev/frontseat/core/ports"
 	"github.com/frontseat-dev/frontseat/local"
-	"github.com/frontseat-dev/frontseat/local/ports"
 	"github.com/frontseat-dev/frontseat/sdk/go"
 	"github.com/frontseat-dev/frontseat/sdk/go/bearer"
 )

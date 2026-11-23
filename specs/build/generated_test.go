@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/frontseat-dev/frontseat/server/testsupport/testforge"
+	"github.com/frontseat-dev/frontseat/testsupport/testforge"
 	. "github.com/onsi/gomega"
 )
 

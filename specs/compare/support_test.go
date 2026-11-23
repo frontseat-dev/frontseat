@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/frontseat-dev/frontseat/server/testsupport/controlplanetest"
+	"github.com/frontseat-dev/frontseat/workspace/server/controlplanetest"
 )
 
 // servedPlane serves a control plane private to the comparison, over the

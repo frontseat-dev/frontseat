@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/frontseat-dev/frontseat/local/ports"
+	"github.com/frontseat-dev/frontseat/core/ports"
 )
 
 // Files are the stack's files that say what it is.

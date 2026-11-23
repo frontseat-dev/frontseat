@@ -4,9 +4,11 @@ go 1.27.3
 
 require (
 	connectrpc.com/connect/v2 v2.0.2
+	github.com/frontseat-dev/frontseat/common/git v0.0.0
+	github.com/frontseat-dev/frontseat/core v0.0.0
 	github.com/frontseat-dev/frontseat/local v0.0.0
 	github.com/frontseat-dev/frontseat/sdk/go v0.0.0
-	github.com/frontseat-dev/frontseat/server v0.0.0
+	github.com/frontseat-dev/frontseat/testsupport v0.0.0
 	github.com/google/renameio/v2 v2.0.2
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.9
@@ -25,6 +27,7 @@ require (
 	github.com/chainguard-dev/git-urls v1.0.2 // indirect
 	github.com/coder/websocket v1.8.15 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
+	github.com/frontseat-dev/frontseat/common/confine v0.0.0 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/google/uuid v1.6.0 // indirect

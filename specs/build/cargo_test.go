@@ -8,7 +8,7 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	"github.com/frontseat-dev/frontseat/server/testsupport/testorigin"
+	"github.com/frontseat-dev/frontseat/testsupport/testorigin"
 )
 
 // A Cargo workspace is many packages sharing one lock. Each package is a
