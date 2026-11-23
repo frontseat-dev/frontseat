@@ -114,6 +114,10 @@ func (runner Runner) Run(ctx context.Context, snapshot *source.Snapshot, needed 
 		fixer := fix.Runner{Grid: runner.Answers, Tools: held, Kept: runner.Kept}
 		schedule.All(attempt, needed, atOnce, running{runner: runner, events: events, source: snapshot, tools: held, gone: let, stop: stop, conflicts: conflicts, fixer: fixer})
 		stop()
+		// Every action has ended; what it had the grid install for it
+		// may not have, where the last to wait gave up. The attempt is
+		// over once that has stopped too.
+		held.Join()
 		label, reason, went := let.first()
 		if !went || ctx.Err() != nil {
 			break

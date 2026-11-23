@@ -271,6 +271,17 @@ type Provisioner struct {
 	given map[string][2][]byte
 }
 
+// Join stops whatever the provisioner still has the grid doing and
+// returns once it has stopped: an install or an ask of mise that none
+// waits for any more is told to stop when the last gives up, and goes on
+// until its call to the grid returns. A run joins its provisioner before
+// it ends, so that the grid it asks is closed only after nothing of the
+// run asks it.
+func (p *Provisioner) Join() {
+	p.installs.join()
+	p.environs.join()
+}
+
 // asked is a tool as a run was answered for it: its tree, and the name
 // of the directory mise keeps it in.
 type asked struct {
