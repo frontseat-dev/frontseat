@@ -2,8 +2,14 @@ package tools
 
 import (
 	"context"
+	"errors"
 	"sync"
 )
+
+// ErrEnded is what a provisioner that was joined answers whatever would
+// have it ask the grid again: its run has ended, and the grid it asked
+// may be closed.
+var ErrEnded = errors.New("the tools of a run that has ended were asked for")
 
 // shared is work several may wait on, done once for all of them, and
 // what it answered, kept by a key. The work runs on no waiter's context:
@@ -16,21 +22,27 @@ import (
 //
 // Work told to stop has stopped only once it returns, which may be a
 // while after: whoever gave up is not kept waiting for it. Whoever is to
-// close what the work uses joins it first (join).
+// close what the work uses joins it first (join), and no work is begun
+// from then on.
 type shared[T any] struct {
 	mu    sync.Mutex
 	kept  map[string]T
 	going map[string]*flight[T]
-	// running is the work that has not returned yet, stopped or not.
+	// running is the work that has not returned yet, stopped or not. It
+	// is added to under mu, and only while ended is not set.
 	running sync.WaitGroup
+	// ended is set by join: no work is begun after it.
+	ended bool
 }
 
-// join stops the work that is going and returns once all of it has
-// returned, whoever waits for it being told it was stopped. It is called
-// when nothing asks any more: work begun while it waits is not waited
-// for.
+// join takes no more work, stops the work that is going and returns once
+// all of it has returned, whoever waits for it being told it was
+// stopped. Work asked for from then on is refused (ErrEnded) and not
+// begun, so nothing is begun that join does not wait for; what was
+// answered and kept is still given.
 func (s *shared[T]) join() {
 	s.mu.Lock()
+	s.ended = true
 	for _, f := range s.going {
 		f.stop()
 	}
@@ -58,7 +70,8 @@ func (s *shared[T]) known(key string) (T, bool) {
 }
 
 // do returns what the work answers for a key: kept, or being done, or
-// done now by work, which is given a context of its own.
+// done now by work, which is given a context of its own. Once joined, it
+// begins no work, and answers ErrEnded where it would.
 func (s *shared[T]) do(ctx context.Context, key string, work func(context.Context) (T, error)) (T, error) {
 	s.mu.Lock()
 	if given, there := s.kept[key]; there {
@@ -67,6 +80,11 @@ func (s *shared[T]) do(ctx context.Context, key string, work func(context.Contex
 	}
 	f := s.going[key]
 	if f == nil {
+		if s.ended {
+			s.mu.Unlock()
+			var none T
+			return none, ErrEnded
+		}
 		doing, stop := context.WithCancel(context.WithoutCancel(ctx))
 		f = &flight[T]{done: make(chan struct{}), stop: stop}
 		if s.going == nil {

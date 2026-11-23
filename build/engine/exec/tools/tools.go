@@ -276,7 +276,8 @@ type Provisioner struct {
 // waits for any more is told to stop when the last gives up, and goes on
 // until its call to the grid returns. A run joins its provisioner before
 // it ends, so that the grid it asks is closed only after nothing of the
-// run asks it.
+// run asks it. A provisioner that was joined asks the grid nothing more:
+// what it has not been answered already it refuses (ErrEnded).
 func (p *Provisioner) Join() {
 	p.installs.join()
 	p.environs.join()
