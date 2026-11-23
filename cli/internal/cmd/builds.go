@@ -122,7 +122,7 @@ has ended changes nothing.`,
 func init() {
 	for _, sub := range []*cobra.Command{buildListCmd, buildDescribeCmd, buildEventsCmd, buildActionsCmd, buildLogsCmd, buildCancelCmd} {
 		buildCmd.AddCommand(sub)
-		asksAWorkspace(sub)
+		worksWhereItIsRun(sub)
 	}
 	buildEventsCmd.Flags().Int64Var(&buildFrom, "from", 0, "the number of the event to follow the build from; 0, the first, without it")
 }

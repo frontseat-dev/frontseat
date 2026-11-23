@@ -22,8 +22,10 @@ const (
 	// query --why that found no path, a program that was not run.
 	ExitRefused = 1
 	// ExitUsage is a command line written wrongly (an unknown flag, an
-	// argument missing, flags that do not go together), or what this
-	// machine keeps that cannot be read.
+	// argument missing, flags that do not go together), what this
+	// machine keeps that cannot be read, or what the command line
+	// refuses of itself, asking no server: a command that builds, run
+	// outside a workspace that is open.
 	ExitUsage = 2
 	// ExitUnauthorized is a server that refused who asked: no token, or
 	// one it does not take (UNAUTHENTICATED, PERMISSION_DENIED).
@@ -42,16 +44,16 @@ const exitCodes = `Exit codes:
   1    the server refused it by name, or what was asked for did not
        succeed (a release that failed or was not pushed, query --why
        with no path, a program that was not run)
-  2    the command line was written wrongly, or what this machine keeps
-       cannot be read
+  2    the command line was written wrongly, what this machine keeps
+       cannot be read, or the command line refused it of itself (a
+       build of a workspace that is open, run outside it)
   3 4 8 ...
        a build's own exit code (build, test, build events): 3 a test
        failed, 4 no tests were found, 8 interrupted
   36   the server refused who asked: no token, or a token it does not take
   37   the server did not answer
   130  interrupted
-  255  workspace ssh, and a command run in a workspace's sandbox: the
-       SSH client could not get in
+  255  workspace ssh: the SSH client could not get in
   run exits with its program's own exit code, which may be any of these.`
 
 // Failed is how a command that failed ends: the code it exits with,

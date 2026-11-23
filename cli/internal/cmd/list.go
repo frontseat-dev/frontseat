@@ -17,7 +17,7 @@ var listCmd = &cobra.Command{
 	Short: "List the workspaces there are",
 	Long: `List the workspaces the control plane keeps, oldest first: each by its
 name, where it is, and what it was asked for with. A name is what
-` + "`frontseat workspace open`" + `, ` + "`--workspace`" + ` and ` + "`frontseat workspace delete`" + ` take.`,
+` + "`frontseat workspace open`" + `, ` + "`frontseat workspace ssh`" + ` and ` + "`frontseat workspace delete`" + ` take.`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fs, err := server()

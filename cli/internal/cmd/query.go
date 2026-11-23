@@ -126,7 +126,7 @@ program to read.`,
 
 func init() {
 	rootCmd.AddCommand(queryCmd)
-	asksAWorkspace(queryCmd)
+	worksWhereItIsRun(queryCmd)
 	queryCmd.Flags().StringVar(&queryWhy, "why", "", "say why the entity named depends on this entity, or on this requirement from outside the workspace")
 	queryCmd.Flags().BoolVar(&queryJSON, "json", false, "write the answer as one line of JSON, for a program to read")
 }

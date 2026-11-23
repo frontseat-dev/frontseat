@@ -63,45 +63,21 @@ func server() (*frontseat.Client, error) {
 	return frontseat.New(at, options...)
 }
 
-// asked is the workspace a command asks: inside a workspace's sandbox,
-// that workspace, whose daemon is on the loopback, and no other; else
-// the one selected, of the control plane.
-func asked() (*frontseat.Workspace, error) {
-	if inside() {
-		if workspaceFlag != "" {
-			return nil, errors.New("inside a workspace's sandbox the command line asks this workspace's daemon, and no other workspace: --workspace is given outside")
-		}
-		daemon, err := frontseat.New(here, instrumented)
-		if err != nil {
-			return nil, err
-		}
-		return daemon.Here(), nil
-	}
-	fs, name, err := selected()
-	if err != nil {
-		return nil, err
-	}
-	return fs.Workspace(name), nil
-}
-
 // selected is the workspace selected outside a sandbox, by its name, and
-// the control plane that keeps it: the one --workspace names; else the
-// one last opened, where it was opened of the control plane asked now.
-// Nothing is asked of the control plane to say so.
+// the control plane that keeps it: the one last opened, where it was
+// opened of the control plane asked now. Nothing is asked of the control
+// plane to say so.
 func selected() (*frontseat.Client, string, error) {
 	fs, err := server()
 	if err != nil {
 		return nil, "", err
-	}
-	if workspaceFlag != "" {
-		return fs, workspaceFlag, nil
 	}
 	held, found, err := machine.ReadContext()
 	if err != nil {
 		return nil, "", err
 	}
 	if found && held.Workspace != "" && held.Server != fs.Server() {
-		return nil, "", fmt.Errorf("the workspace last opened, %s, is of the control plane at %s, and the command line asks the one at %s (frontseat --help): open one there, or name one with --workspace", held.Workspace, held.Server, fs.Server())
+		return nil, "", fmt.Errorf("%w, %s, is of the control plane at %s, and the command line asks the one at %s (frontseat --help): open one there", errElsewhere, held.Workspace, held.Server, fs.Server())
 	}
 	if !found || held.Workspace == "" {
 		return nil, "", errNoWorkspace
@@ -110,24 +86,32 @@ func selected() (*frontseat.Client, string, error) {
 }
 
 // errNoWorkspace is a command that asks a workspace where none is
-// selected.
-var errNoWorkspace = errors.New("there is no workspace to talk to: open one with `frontseat workspace open`, or name one with --workspace")
+// selected, and errElsewhere one where the workspace last opened is of
+// another control plane than the one asked. Each says what opens one; a
+// command that takes a workspace's name says that too (subject).
+var (
+	errNoWorkspace = errors.New("there is no workspace to talk to: open one with `frontseat workspace open`")
+	errElsewhere   = errors.New("the workspace last opened")
+)
 
 // builder finds or starts the build daemon of a directory; a test stands
 // in for it.
 var builder = machine.BuildDaemon
 
 // building is what a command that builds, tests, runs, queries or
-// releases asks where it is run here (inTheBox): inside a workspace's
-// sandbox, the daemon there (asked); and, with no workspace selected,
-// the build daemon of the directory the command is run in, which the
-// command line starts for itself where this machine was told its grid
-// (build.yaml). That daemon is asked on the loopback with its own
-// token, and no control plane is.
+// releases asks, where it is not refused (worksWhereItIsRun): inside a
+// workspace's sandbox, the daemon there, on the loopback, and no other;
+// outside, the build daemon of the directory the command is run in,
+// which the command line starts for itself where this machine was told
+// its grid (build.yaml). That daemon is asked on the loopback with its
+// own token, and no control plane is.
 func building() (*frontseat.Workspace, error) {
-	w, err := asked()
-	if !errors.Is(err, errNoWorkspace) {
-		return w, err
+	if inside() {
+		daemon, err := frontseat.New(here, instrumented)
+		if err != nil {
+			return nil, err
+		}
+		return daemon.Here(), nil
 	}
 	directory, err := machine.Directory()
 	if err != nil {
@@ -146,9 +130,6 @@ func building() (*frontseat.Workspace, error) {
 	}
 	return daemon.Here(), nil
 }
-
-// workspaceFlag is the workspace a command asks, where a command is told it.
-var workspaceFlag string
 
 // out is where a command prints what it says.
 var out io.Writer = os.Stdout
@@ -176,21 +157,21 @@ beside it, ~/.config/frontseat/local/token, is presented to that control
 plane and to no other address. A control plane on another machine is
 named with https, and is asked over nothing else.
 
-The workspace: build, test, run, query and ship take --workspace NAME.
-Without it, they work in the workspace last opened. With a workspace
-selected either way, the command is run in that workspace's sandbox,
-over its shell, and what it prints and how it ends are that command's.
-That takes an SSH client on this machine, and this machine's key let
-into the workspace: a workspace the command line opened has it.
+The workspace: build, test, run, query and ship work on what is where
+they are run. Inside a workspace's sandbox, a command asks that
+workspace's daemon, on the loopback, to build, run and release, and no
+control plane: there the workspace's source is fixed, and the workspace
+commands are refused. A workspace is built from inside it: open a shell
+there with frontseat workspace ssh, or run one command there with
+frontseat workspace ssh -- frontseat build.
 
-Inside a workspace's sandbox, a command asks that workspace's daemon,
-on the loopback, to build, run and release, and no control plane: there
-the workspace's source is fixed, and the workspace commands are refused.
-
-With no workspace selected, build, test, run, query and ship work on the
-directory they are run in, the repository or workspace it is part of,
-through a build daemon frontseat starts for itself: on a machine told
-the grid it builds on, in build.yaml beside the files above.
+Outside a sandbox, with no workspace open, build, test, run, query and
+ship work on the directory they are run in, the repository or workspace
+it is part of, through a build daemon frontseat starts for itself: on a
+machine told the grid it builds on, in build.yaml beside the files
+above. While a workspace is open, the one last opened of the control
+plane asked, they are refused and say to run them in it; frontseat
+workspace delete ends it.
 
 ` + exitCodes,
 	// A mistake in how a command is written is said once, by main, and
@@ -202,7 +183,7 @@ the grid it builds on, in build.yaml beside the files above.
 // Execute runs the command the arguments name, and returns the exit code
 // it ends with, and why it failed where it did (Failed says it).
 func Execute(ctx context.Context, args []string) (int, error) {
-	exitCode, given = 0, args
+	exitCode = 0
 	fresh(rootCmd, ctx)
 	rootCmd.SetArgs(args)
 	if err := rootCmd.ExecuteContext(ctx); err != nil {
@@ -287,13 +268,37 @@ func named(what string) func(*cobra.Command, []string) error {
 	}
 }
 
-// asksAWorkspace makes a command one that builds, tests, runs, queries
-// or releases in a workspace: it gives it the flag that says which, and
-// has it run in that workspace's sandbox where one is selected
-// (inTheBox). It is told of a command once the command is whole.
-func asksAWorkspace(cmd *cobra.Command) {
-	cmd.Flags().StringVar(&workspaceFlag, "workspace", "", "the workspace to ask, by its name; without it, the one last opened (inside a workspace's sandbox, the one it runs in, and no other)")
-	cmd.RunE = inTheBox(cmd.RunE)
+// whereItIsRun marks a command that builds, tests, runs, queries or
+// releases what is where it is run (worksWhereItIsRun).
+const whereItIsRun = "frontseat/where-it-is-run"
+
+// worksWhereItIsRun makes a command one that builds, tests, runs,
+// queries or releases what is where it is run: inside a workspace's
+// sandbox, that workspace, and outside, the directory (building).
+// Outside, while a workspace is open, the one last opened of the control
+// plane asked now, it is refused before anything of it is run: a
+// workspace is built from inside it, and the refusal says how, by the
+// command's own name and nothing it was given. It is told of a command
+// once the command is whole.
+func worksWhereItIsRun(cmd *cobra.Command) {
+	if cmd.Annotations == nil {
+		cmd.Annotations = map[string]string{}
+	}
+	cmd.Annotations[whereItIsRun] = "true"
+	run := cmd.RunE
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		if inside() {
+			return run(cmd, args)
+		}
+		switch _, open, err := selected(); {
+		case errors.Is(err, errNoWorkspace):
+			return run(cmd, args)
+		case err != nil:
+			return err
+		default:
+			return fmt.Errorf("the workspace %s is open, and what builds, tests, runs, queries or releases it is run in it: in a shell there (frontseat workspace ssh), or as one command (frontseat workspace ssh -- %s)", open, cmd.CommandPath())
+		}
+	}
 }
 
 // fresh makes every command as it was made: its flags as they are by

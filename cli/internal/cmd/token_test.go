@@ -22,10 +22,10 @@ const token = "746f6b656e2d6f662d7468652d636f6d6d616e642d6c696e65732d7465737473"
 
 // The token laid out beside the control plane the command line asks is
 // presented to it, by every command that asks it, and to no other
-// origin: a command that builds in a workspace is run in its sandbox,
-// and presents it to no one, and the daemon beside a command inside a
-// sandbox is presented none. (That the SDK presents it to no address a
-// control plane answers with is the SDK's to show,
+// origin: a command that builds, outside a workspace that is open, is
+// refused and presents it to no one, and the daemon beside a command
+// inside a sandbox is presented none. (That the SDK presents it to no
+// address a control plane answers with is the SDK's to show,
 // TestATokenIsPresentedToItsOriginAlone.) A token another could read is
 // refused, without being said. The control is a machine with no token,
 // whose commands present none.
@@ -70,15 +70,16 @@ func TestTheTokenIsPresentedToTheControlPlaneAlone(t *testing.T) {
 	if got := taken(); len(got) != 1 || got[0] != plane+" Bearer "+token {
 		t.Errorf("the control plane was presented %q, want the token", got)
 	}
-	// A command that builds in a workspace is run in its sandbox: the
-	// token is presented to no one for it, neither to the control plane
-	// nor to the daemon the control plane says is elsewhere.
-	b := standingIn(t)
-	if _, _, err := runAt(t, context.Background(), "", "build", "list", "--workspace", "named"); err != nil || len(b.given) != 1 {
-		t.Fatalf("build list of a workspace named: %v, run in a sandbox %d times", err, len(b.given))
+	// A command that builds, outside a workspace that is open, is
+	// refused: the token is presented to no one for it, neither to the
+	// control plane nor to the daemon the control plane says is
+	// elsewhere.
+	lastOpened(t, recorded, "named")
+	if _, _, err := runAt(t, context.Background(), "", "build", "list"); err == nil || !strings.Contains(err.Error(), "the workspace named is open") {
+		t.Fatalf("build list outside a workspace that is open: %v, want it refused", err)
 	}
 	if got := taken(); len(got) != 0 {
-		t.Errorf("for a build in a workspace's sandbox, %q were asked; want no one", got)
+		t.Errorf("for a build refused outside its workspace, %q were asked; want no one", got)
 	}
 
 	// Inside a workspace's sandbox, the daemon beside is presented no
@@ -145,9 +146,6 @@ func TestMain(m *testing.M) {
 	// And runs outside any workspace's sandbox, whatever the machine the
 	// tests run on is; a test that runs inside one says so (runAt).
 	inside = outside
-	// And opens no shell of this machine's: a test that runs a command
-	// in a workspace's sandbox stands in for it (standingIn).
-	inBox = unboxed
 	code := m.Run()
 	// The directory is the tests' own, made just above.
 	_ = os.RemoveAll(config)
@@ -172,8 +170,8 @@ func TestNoCommandAsksAControlPlaneOnAnotherMachineInClear(t *testing.T) {
 		{"workspace", "ssh", "--stdio", "named"},
 		{"credential", "set", "forge.example"},
 		{"credential", "list"},
-		{"build", "list", "--workspace", "named"},
-		{"build", "--workspace", "named"},
+		{"build", "list"},
+		{"build"},
 	} {
 		_, _, err := runAt(t, context.Background(), "", command...)
 		switch {

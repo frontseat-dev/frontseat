@@ -39,7 +39,7 @@ build.`,
 
 func init() {
 	rootCmd.AddCommand(testCmd)
-	asksAWorkspace(testCmd)
+	worksWhereItIsRun(testCmd)
 	onlyFlag(testCmd, &testOnly)
 	profileFlag(testCmd, &testProfile)
 }
