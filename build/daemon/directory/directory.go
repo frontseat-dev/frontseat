@@ -5,9 +5,10 @@
 // build was given a checkout. It reads, and brings nothing: a build needs
 // a directory, and not whoever filled it.
 //
-// The manifest is read as it is now, each time it is asked of: a
-// repository is recorded there once it is whole, so what a build is given
-// is what is there to build. Whatever runs in the directory can write the
+// The manifest is read as it is now, each time it is asked of. It says
+// where what it records is not whole, being filled or left by a fill
+// that failed, and a directory then holds nothing to build: a repository
+// is widened in place, and is recorded before and after. Whatever runs in the directory can write the
 // manifest; it is read as strictly as its writer reads it, and a place
 // outside the directory is refused.
 package directory
@@ -16,10 +17,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/fs"
-	"os"
 	"path/filepath"
-	"sync"
 
 	"github.com/frontseat-dev/frontseat/common/record"
 	"github.com/frontseat-dev/frontseat/common/record/manifest"
@@ -40,12 +38,6 @@ type Directory struct {
 	// name, which the build was given: a job's checkout.
 	alone  bool
 	system System
-
-	mu sync.Mutex
-	// read is the manifest as it was last read, and looked how it looked
-	// then: it is read again only where it looks otherwise.
-	read   manifest.Manifest
-	looked os.FileInfo
 }
 
 // Open returns the directory at root, read with a version control system.
@@ -64,54 +56,66 @@ func (d *Directory) Root() string { return d.root }
 // given, which holds no other.
 func (d *Directory) Alone() bool { return d.alone }
 
-// holds returns the manifest as it is now; none where the directory has
-// none, or is one repository alone.
-func (d *Directory) holds() (manifest.Manifest, error) {
+// read returns the manifest as it is now; none where the directory has
+// none, or is one repository alone. It is read each time: whatever runs
+// in the directory can write it, so nothing of how the file looks says
+// that it is the one read before.
+func (d *Directory) read() (manifest.Manifest, error) {
 	if d.alone {
 		return manifest.Manifest{}, nil
 	}
-	info, err := os.Stat(filepath.Join(d.root, filepath.FromSlash(manifest.File)))
-	if errors.Is(err, fs.ErrNotExist) {
-		return manifest.Manifest{}, nil
-	}
-	if err != nil {
-		return manifest.Manifest{}, fmt.Errorf("the workspace's manifest: %w", err)
-	}
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	// It is written whole and put in place by a rename, so one that looks
-	// as it did, the same file of the disk, is the one that was read.
-	if d.looked != nil && os.SameFile(d.looked, info) && d.looked.ModTime().Equal(info.ModTime()) && d.looked.Size() == info.Size() {
-		return d.read, nil
-	}
 	read, _, err := manifest.Read(d.root, d.system.Revision)
 	if err != nil {
-		return manifest.Manifest{}, fmt.Errorf("the workspace's manifest: %w", err)
+		return manifest.Manifest{}, unread{err}
 	}
-	d.read, d.looked = read, info
 	return read, nil
 }
 
-// Repositories returns the repositories the directory holds, each whole
-// as its manifest records it; none for one repository alone, which has
-// no name.
-func (d *Directory) Repositories() ([]record.Repository, error) {
-	held, err := d.holds()
-	return held.Repositories, err
+// unread is a manifest that was not read. It says that and no more:
+// whoever asked for a build is told it, and why holds what the manifest
+// said, which whatever runs in the directory wrote. Why is kept for
+// whoever asks the error what it is (errors.Is, errors.As).
+type unread struct{ why error }
+
+func (unread) Error() string {
+	return "the workspace's manifest (" + manifest.File + ") is not one a build reads: whatever fills the workspace writes it, and it holds something else"
 }
 
-// Entities returns the entities the directory knows, each with where it
-// lives.
-func (d *Directory) Entities() []record.Located {
-	held, err := d.holds()
+func (u unread) Unwrap() error { return u.why }
+
+// ErrNotWhole is a directory whose manifest says that what it records is
+// not whole: it is being filled, or its last fill failed.
+var ErrNotWhole = errors.New("the workspace is not whole")
+
+// Held is what a directory holds at one moment: its repositories, each
+// whole as its manifest records it, and the entities it knows, each with
+// where it lives. Both are of one reading of the manifest, so that no
+// entity is said to live in a repository the same answer does not hold.
+type Held struct {
+	Repositories []record.Repository
+	Entities     []record.Located
+}
+
+// Holds returns what the directory holds now; nothing for one repository
+// alone, which has no name. A manifest that cannot be read is an error,
+// and never a directory that holds nothing; the error repeats nothing
+// the manifest said.
+func (d *Directory) Holds() (Held, error) {
+	read, err := d.read()
 	if err != nil {
-		return nil
+		return Held{}, err
 	}
-	out := make([]record.Located, 0, len(held.Known))
-	for _, known := range held.Known {
-		out = append(out, known.Located())
+	switch read.State {
+	case manifest.Filling:
+		return Held{}, fmt.Errorf("%w: it is being filled", ErrNotWhole)
+	case manifest.Failed:
+		return Held{}, fmt.Errorf("%w: the last fill of it failed, and whoever asked for the workspace is told why", ErrNotWhole)
 	}
-	return out
+	held := Held{Repositories: read.Repositories, Entities: make([]record.Located, 0, len(read.Known))}
+	for _, known := range read.Known {
+		held.Entities = append(held.Entities, known.Located())
+	}
+	return held, nil
 }
 
 // repository returns the directory one of its repositories is in, and
@@ -126,7 +130,7 @@ func (d *Directory) repository(name string) (directory, remote string, err error
 		}
 		return d.root, "", nil
 	}
-	held, err := d.holds()
+	held, err := d.read()
 	if err != nil {
 		return "", "", err
 	}

@@ -403,7 +403,7 @@ func (rs *builds) execute(ctx context.Context, r *run) {
 func (rs *builds) work(ctx context.Context, r *run) (code buildv1.ExitCode, failure error, cancelled bool) {
 	r.stage(buildv1.Build_STAGE_EVALUATING)
 	rs.answered.Begin()
-	tree, err := sourceOf(rs.workspace)
+	tree, entities, err := sourceOf(rs.workspace)
 	if err != nil {
 		return exitInternal, err, false
 	}
@@ -420,7 +420,6 @@ func (rs *builds) work(ctx context.Context, r *run) (code buildv1.ExitCode, fail
 	// actions need and what the run was pointed at are their authors' to
 	// get right: a mistake in any fails the build before anything runs,
 	// as a mistake in the source does.
-	entities := rs.workspace.Entities()
 	var needed, asked []plan.Action
 	if r.running == nil {
 		var selected evaluate.BuildPlan

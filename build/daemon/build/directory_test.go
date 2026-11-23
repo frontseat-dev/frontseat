@@ -39,4 +39,21 @@ func TestABuildIsOfWhatItsDirectoryHoldsWhoeverFilledIt(t *testing.T) {
 	if labels := planned(t, c); !strings.Contains(labels, "//code/hello:go.compile") {
 		t.Errorf("a build plans %q; want the module of the repository the directory now holds", labels)
 	}
+	// A directory that is being filled again, or whose fill failed, says
+	// so in its manifest, and a build takes nothing of it: a repository
+	// widened in place is recorded before and after. The control is the
+	// build above, of the same manifest saying neither.
+	held, _, err := manifest.Read(workspace, func(string) error { return nil })
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, state := range []string{manifest.Filling, manifest.Failed} {
+		held.State = state
+		if err := manifest.Write(workspace, held); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := c.runs.CreateBuild(context.Background(), &buildv1.CreateBuildRequest{}); connect.CodeOf(err) != connect.CodeFailedPrecondition {
+			t.Errorf("a build of a directory whose manifest says %q: %v; want it refused", state, err)
+		}
+	}
 }

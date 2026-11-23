@@ -48,6 +48,8 @@ func TestAManifestThatNamesWhatAWorkspaceCannotHoldIsNotRead(t *testing.T) {
 		"a repository with no name":                         {"name: services", `name: ""`},
 		"a repository named as the workspace itself":        {"name: services", "name: ."},
 		"a repository where the workspace keeps its record": {"name: services", "name: .frontseat"},
+		"a repository recorded twice":                       {"known:", "  - name: services\n    remote: file:///elsewhere\n    commit: 0000000000000000000000000000000000000000\nknown:"},
+		"a state that is none":                              {"version: 1", "version: 1\nstate: ready"},
 		"a directory out of its repository":                 {"roots: [hello]", "roots: [../other]"},
 		"a directory by its full path":                      {"roots: [hello]", "roots: [/etc]"},
 		"a commit that is an option":                        {"commit: 0000000000000000000000000000000000000000", "commit: --output=/tmp/written"},

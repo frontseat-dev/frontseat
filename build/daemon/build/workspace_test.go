@@ -7,6 +7,8 @@ import (
 
 	"github.com/frontseat-dev/frontseat/build/engine/exec/reapi/reapitest"
 	"github.com/frontseat-dev/frontseat/common/record"
+	"github.com/frontseat-dev/frontseat/common/record/manifest"
+	"github.com/frontseat-dev/frontseat/common/vcs/chosen"
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	"github.com/frontseat-dev/frontseat/testsupport/testforge"
 )
@@ -77,24 +79,34 @@ func TestADirectoryOfEntitiesInSeveralRepositoriesBuildsOnTheGrid(t *testing.T) 
 	}
 }
 
-// A directory that comes to hold more is built as it is then: what is
-// recorded in its manifest after a build is of the next one.
+// A directory that comes to hold more is built as it is then, by the
+// daemon that built it before: what its manifest records after a build
+// is of the next one, a repository more and the first as it was. The
+// control is the build before, of the first repository alone.
 func TestADirectoryThatHoldsMoreIsBuiltAsItIsThen(t *testing.T) {
 	forge := testforge.Make(t)
-	first := serve(t, scripted{}, t.TempDir(), false)
-	broughtGateway(t, first, forge)
-	if labels := strings.Fields(planned(t, first)); len(labels) != 6 {
-		t.Fatalf("a build plans %v, want the three actions of gateway and of greet", labels)
+	c := serve(t, scripted{}, t.TempDir(), false)
+	platform, services := taken(forge, "platform"), taken(forge, "services")
+	platform.Roots, services.Roots = []string{"gateway"}, []string{"greet"}
+	root := brought(t, c, nil, services)
+	first, _, err := manifest.Read(root, chosen.System().Revision)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if labels := strings.Fields(planned(t, c)); len(labels) != 3 {
+		t.Fatalf("the control: a build of greet alone plans %v, want its three actions", labels)
 	}
 
-	// Another directory, that holds each repository with one directory
-	// more: the same daemon is not told, and a directory is read as it
-	// is, which TestABuildIsOfWhatItsDirectoryHoldsWhoeverFilledIt holds.
-	wider := serve(t, scripted{}, t.TempDir(), false)
-	platform, services := taken(forge, "platform"), taken(forge, "services")
-	platform.Roots, services.Roots = []string{"gateway", "log"}, []string{"greet", "hello"}
-	brought(t, wider, nil, platform, services)
-	if labels := strings.Fields(planned(t, wider)); len(labels) != 12 {
-		t.Errorf("a build plans %v, want the three actions of each of the four modules", labels)
+	brought(t, c, nil, platform)
+	more, _, err := manifest.Read(root, chosen.System().Revision)
+	if err != nil {
+		t.Fatal(err)
+	}
+	more.Repositories = append(first.Repositories, more.Repositories...)
+	if err := manifest.Write(root, more); err != nil {
+		t.Fatal(err)
+	}
+	if labels := strings.Fields(planned(t, c)); len(labels) != 6 {
+		t.Errorf("the same daemon, its directory holding gateway too, plans %v, want the three actions of each", labels)
 	}
 }
