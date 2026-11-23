@@ -30,11 +30,11 @@ import (
 	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1/workspacev1alpha1connect"
 	"github.com/frontseat-dev/frontseat/server/internal/refusal"
-	sourced "github.com/frontseat-dev/frontseat/server/internal/source"
-	"github.com/frontseat-dev/frontseat/server/internal/source/told"
-	"github.com/frontseat-dev/frontseat/server/internal/source/vcs"
 	sourcev1 "github.com/frontseat-dev/frontseat/server/internal/sourceapi/frontseat/source/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/sourceapi/frontseat/source/v1alpha1/sourcev1alpha1connect"
+	"github.com/frontseat-dev/frontseat/server/internal/told"
+	"github.com/frontseat-dev/frontseat/server/internal/vcs"
+	"github.com/frontseat-dev/frontseat/server/internal/vcs/chosen"
 	sandboxv1 "github.com/frontseat-dev/frontseat/server/sandbox/api/frontseat/sandbox/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/sandbox/api/frontseat/sandbox/v1alpha1/sandboxv1alpha1connect"
 	"github.com/frontseat-dev/frontseat/server/testsupport/backstagetest"
@@ -397,11 +397,11 @@ func (system) Pushes(repository string) []vcs.Request {
 func (system) Programs() []string { return []string{"/usr/bin/a-fetcher"} }
 
 // Cloned reads a remote as the system a daemon has reads it
-// (sourced.Fetching), since what the control plane refuses of a remote,
+// (chosen.System), since what the control plane refuses of a remote,
 // and what it writes a rule for, is held to what the daemon in the
 // sandbox would clone.
 func (system) Cloned(remote string) (string, error) {
-	return sourced.Fetching().Cloned(remote)
+	return chosen.System().Cloned(remote)
 }
 func (system) NameOf(remote string) string {
 	return strings.TrimSuffix(path.Base(strings.TrimSuffix(remote, "/")), ".git")

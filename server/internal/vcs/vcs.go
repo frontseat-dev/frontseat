@@ -1,5 +1,5 @@
 // Package vcs is what a workspace asks of a version control system: to
-// bring a repository, and to bring more of one. Git is one (server/internal/source/internal/vcs/git), and a
+// bring a repository, and to bring more of one. Git is one (server/internal/vcs/git), and a
 // program chooses which a daemon has.
 package vcs
 

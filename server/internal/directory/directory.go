@@ -22,8 +22,8 @@ import (
 	"sync"
 
 	"github.com/frontseat-dev/frontseat/server/internal/manifest"
-	"github.com/frontseat-dev/frontseat/server/internal/source/record"
-	"github.com/frontseat-dev/frontseat/server/internal/source/vcs"
+	"github.com/frontseat-dev/frontseat/server/internal/record"
+	"github.com/frontseat-dev/frontseat/server/internal/vcs"
 )
 
 // System is what a directory's repositories are read with: their history,

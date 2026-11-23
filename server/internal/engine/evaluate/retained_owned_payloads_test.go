@@ -23,7 +23,7 @@ import (
 	"github.com/frontseat-dev/frontseat/server/internal/pattern"
 	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/pluginhost"
-	"github.com/frontseat-dev/frontseat/server/internal/source/record"
+	"github.com/frontseat-dev/frontseat/server/internal/record"
 )
 
 // Populate branches the fixed Go/Backstage integration fixture does not emit.

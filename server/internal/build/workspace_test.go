@@ -17,10 +17,10 @@ import (
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/exec/reapi/reapitest"
-	"github.com/frontseat-dev/frontseat/server/internal/source"
-	tell "github.com/frontseat-dev/frontseat/server/internal/source/told"
-	"github.com/frontseat-dev/frontseat/server/internal/source/told/toldtest"
 	sourcev1 "github.com/frontseat-dev/frontseat/server/internal/sourceapi/frontseat/source/v1alpha1"
+	tell "github.com/frontseat-dev/frontseat/server/internal/told"
+	"github.com/frontseat-dev/frontseat/server/internal/told/toldtest"
+	"github.com/frontseat-dev/frontseat/server/internal/vcs/chosen"
 	"github.com/frontseat-dev/frontseat/server/testsupport/backstagetest"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testforge"
 )
@@ -38,7 +38,7 @@ func (c clients) set(ctx context.Context, spec *workspacev1.WorkspaceSpec, catal
 	if len(catalog) > 0 {
 		through = catalog[0]
 	}
-	telling, err := toldtest.Spec(ctx, spec, generation, through, source.Fetching().NameOf)
+	telling, err := toldtest.Spec(ctx, spec, generation, through, chosen.System().NameOf)
 	if err != nil {
 		return generation, err
 	}
@@ -345,7 +345,7 @@ func TestARepositoryNamedOutOfTheWorkspaceIsNotCloned(t *testing.T) {
 		"named out of the workspace":                 {Name: "../elsewhere", Remote: forge.Remote, Ref: "main"},
 		"named by a path":                            {Name: "a/b", Remote: forge.Remote, Ref: "main"},
 		"named where the workspace keeps its record": {Name: ".frontseat", Remote: forge.Remote, Ref: "main"},
-		"a remote that names no directory":           {Name: source.Fetching().NameOf("file:///"), Remote: "file:///", Ref: "main"},
+		"a remote that names no directory":           {Name: chosen.System().NameOf("file:///"), Remote: "file:///", Ref: "main"},
 		"a directory out of the repository":          {Remote: forge.Remote, Ref: "main", Roots: []string{"../other"}},
 	} {
 		t.Run(name, func(t *testing.T) {

@@ -10,11 +10,11 @@ import (
 	"connectrpc.com/connect/v2/connecthttp"
 
 	"github.com/frontseat-dev/frontseat/sdk/go/entity"
+	"github.com/frontseat-dev/frontseat/server/internal/record"
 	"github.com/frontseat-dev/frontseat/server/internal/refusal"
-	"github.com/frontseat-dev/frontseat/server/internal/source/record"
-	"github.com/frontseat-dev/frontseat/server/internal/source/told"
 	sourcev1 "github.com/frontseat-dev/frontseat/server/internal/sourceapi/frontseat/source/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/sourceapi/frontseat/source/v1alpha1/sourcev1alpha1connect"
+	"github.com/frontseat-dev/frontseat/server/internal/told"
 )
 
 // refused is how a source's refusal to be brought is answered: what was

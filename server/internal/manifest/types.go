@@ -2,7 +2,7 @@ package manifest
 
 import (
 	"github.com/frontseat-dev/frontseat/sdk/go/entity"
-	"github.com/frontseat-dev/frontseat/server/internal/source/record"
+	"github.com/frontseat-dev/frontseat/server/internal/record"
 )
 
 const File = ".frontseat/workspace.yaml"

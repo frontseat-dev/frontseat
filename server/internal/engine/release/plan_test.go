@@ -16,7 +16,7 @@ import (
 	"github.com/frontseat-dev/frontseat/server/internal/engine/release"
 	"github.com/frontseat-dev/frontseat/server/internal/model"
 	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
-	"github.com/frontseat-dev/frontseat/server/internal/source/vcs"
+	"github.com/frontseat-dev/frontseat/server/internal/vcs"
 )
 
 func ref(written string) entity.Ref {

@@ -2,7 +2,7 @@ package source_test
 
 import "github.com/frontseat-dev/frontseat/server/internal/manifest"
 
-import "github.com/frontseat-dev/frontseat/server/internal/source/record"
+import "github.com/frontseat-dev/frontseat/server/internal/record"
 
 import (
 	"context"
@@ -16,7 +16,7 @@ import (
 
 	"github.com/frontseat-dev/frontseat/server/internal/source"
 
-	"github.com/frontseat-dev/frontseat/server/internal/source/vcs"
+	"github.com/frontseat-dev/frontseat/server/internal/vcs"
 )
 
 // tapes is a version control system that is not git: its revisions are

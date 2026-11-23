@@ -5,9 +5,9 @@ import (
 
 	"github.com/frontseat-dev/frontseat/sdk/go"
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
-	"github.com/frontseat-dev/frontseat/server/internal/source/internal/vcs/git"
-	"github.com/frontseat-dev/frontseat/server/internal/source/told"
 	sourcev1 "github.com/frontseat-dev/frontseat/server/internal/sourceapi/frontseat/source/v1alpha1"
+	"github.com/frontseat-dev/frontseat/server/internal/told"
+	"github.com/frontseat-dev/frontseat/server/internal/vcs/git"
 )
 
 // The daemon resolves nothing: it is told repositories by name and where

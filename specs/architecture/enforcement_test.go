@@ -110,7 +110,7 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		// Git is run by one package, for both version control packages,
 		// and by nothing else; it knows nothing of either's port.
 		{"cli/internal/vcs/git/git.go", "server/git", true},
-		{"server/internal/source/internal/vcs/git/git.go", "server/git", true},
+		{"server/internal/vcs/git/git.go", "server/git", true},
 		{"cli/internal/machine/open.go", "server/git", false},
 		{"server/internal/source/workspace.go", "server/git", false},
 		{"server/git/git.go", "cli/internal/vcs", false},
@@ -190,7 +190,7 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		// The control plane is started beside it, by its own test support;
 		// the sandbox service knows nothing of what lives in a sandbox.
 		{"server/testsupport/controlplanetest/controlplanetest.go", "server/internal/controlplane", true},
-		{"server/testsupport/controlplanetest/controlplanetest.go", "server/internal/source", true},
+		{"server/testsupport/controlplanetest/controlplanetest.go", "server/internal/vcs/chosen", true},
 		{"server/sandbox/sandbox.go", "server/internal/controlplane", false},
 		{"server/sandbox/sandbox_test.go", "server/internal/source", false},
 		{"server/sandbox/sandbox_test.go", "server/testsupport/controlplanetest", false},
@@ -353,7 +353,7 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		{"server/internal/engine/graph/graph.go", "server/internal/engine/plan", false},
 		{"server/internal/engine/graph/graph_test.go", "server/internal/engine/plan", false},
 		{"server/internal/engine/evaluate/evaluate.go", "server/internal/exec", false},
-		{"server/internal/engine/release/plan.go", "server/internal/source/vcs", true},
+		{"server/internal/engine/release/plan.go", "server/internal/vcs", true},
 		{"server/internal/engine/release/plan.go", "server/internal/pluginhost", false},
 		{"server/internal/engine/release/plan.go", "server/internal/source", false},
 		{"server/internal/engine/evaluate/evaluate.go", "server/internal/pluginhost", true},

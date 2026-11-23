@@ -10,8 +10,8 @@ import (
 	"slices"
 	"sort"
 
-	"github.com/frontseat-dev/frontseat/server/internal/source/record"
-	"github.com/frontseat-dev/frontseat/server/internal/source/vcs"
+	"github.com/frontseat-dev/frontseat/server/internal/record"
+	"github.com/frontseat-dev/frontseat/server/internal/vcs"
 )
 
 // unfinished is where a clone under way is said, beneath the directory

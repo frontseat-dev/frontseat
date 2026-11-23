@@ -280,11 +280,11 @@ var version = regexp.MustCompile(`^(v[0-9]+)((alpha|beta)[0-9]*)?$`)
 // where it is written, and the one name it is given there: beside
 // os/exec, in a package that declares run, in a package named git.
 var aliases = map[string]string{
-	"server/internal/exec":        "execport",
-	"server/internal/exec/run":    "runexec",
-	"server/git":                  "rungit",
-	"server/internal/source":      "sourced",
-	"server/internal/source/told": "tell",
+	"server/internal/exec":     "execport",
+	"server/internal/exec/run": "runexec",
+	"server/git":               "rungit",
+	"server/internal/source":   "sourced",
+	"server/internal/told":     "tell",
 }
 
 // generatedFile is whether a file is one a template of the contracts

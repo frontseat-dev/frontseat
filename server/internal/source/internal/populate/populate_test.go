@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/frontseat-dev/frontseat/server/internal/source/internal/vcs/git"
-	"github.com/frontseat-dev/frontseat/server/internal/source/record"
-	"github.com/frontseat-dev/frontseat/server/internal/source/vcs"
+	"github.com/frontseat-dev/frontseat/server/internal/record"
+	"github.com/frontseat-dev/frontseat/server/internal/vcs"
+	"github.com/frontseat-dev/frontseat/server/internal/vcs/git"
 	"github.com/frontseat-dev/frontseat/server/testsupport/commits"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testfiles"
 )

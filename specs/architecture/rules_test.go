@@ -125,20 +125,20 @@ var policies = []policy{
 	{"server/internal/secretfile", []string{}},
 	// The Backstage catalog the control plane resolves entities through,
 	// asked by one client held to its origin; its tests ask a fake.
-	{"server/internal/backstage", []string{"sdk/go/entity", "sdk/go/bearer", "server/internal/plain", "server/internal/secretfile", "server/internal/source/record", "server/testsupport/backstagetest"}},
+	{"server/internal/backstage", []string{"sdk/go/entity", "sdk/go/bearer", "server/internal/plain", "server/internal/secretfile", "server/internal/record", "server/testsupport/backstagetest"}},
 	// What a test service is held to: one check, for the daemon and the grid's runner.
 	{"server/internal/testservice", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/image", "server/internal/plain"}},
 	// The build reads its directory (server/internal/directory) and
 	// nothing of what fills it; its tests alone start what does, beside
 	// it, as the daemon's program has it
 	// (TestTheBuildReadsItsDirectoryAndNothingOfWhatFillsIt).
-	{"server/internal/build", []string{"sdk/go/api/**", "sdk/go/entity", "sdk/go/enum", "server/internal/poll", "server/internal/pluginapi/**", "server/internal/exec/publish", "server/internal/exec/tools", "server/telemetry", "server/internal/build", "server/internal/source/told/toldtest", "server/internal/engine/evaluate", "server/internal/engine/graph", "server/internal/engine/plan", "server/internal/engine/release", "server/internal/engine/source", "server/internal/exec", "server/internal/exec/access", "server/internal/exec/download", "server/internal/exec/program", "server/internal/exec/run", "server/internal/history", "server/internal/model", "server/internal/wire", "server/internal/pluginhost", "server/internal/source", "server/internal/source/record", "server/internal/source/vcs", "server/internal/directory", "server/internal/manifest", "server/internal/source/told", "server/internal/sourceapi/**", "server/internal/page", "server/internal/refusal"}},
+	{"server/internal/build", []string{"sdk/go/api/**", "sdk/go/entity", "sdk/go/enum", "server/internal/poll", "server/internal/pluginapi/**", "server/internal/exec/publish", "server/internal/exec/tools", "server/telemetry", "server/internal/build", "server/internal/told/toldtest", "server/internal/engine/evaluate", "server/internal/engine/graph", "server/internal/engine/plan", "server/internal/engine/release", "server/internal/engine/source", "server/internal/exec", "server/internal/exec/access", "server/internal/exec/download", "server/internal/exec/program", "server/internal/exec/run", "server/internal/history", "server/internal/model", "server/internal/wire", "server/internal/pluginhost", "server/internal/source", "server/internal/record", "server/internal/vcs", "server/internal/directory", "server/internal/manifest", "server/internal/told", "server/internal/sourceapi/**", "server/internal/page", "server/internal/refusal", "server/internal/vcs/chosen"}},
 	// A directory as a build reads it: the workspace's manifest in it,
 	// and its repositories' history through the version control port.
-	{"server/internal/directory", []string{"server/internal/directory", "server/internal/manifest", "server/internal/source/record", "server/internal/source/vcs"}},
+	{"server/internal/directory", []string{"server/internal/directory", "server/internal/manifest", "server/internal/record", "server/internal/vcs"}},
 	// The workspace's manifest, which what fills a directory writes and
 	// a build reads.
-	{"server/internal/manifest", []string{"server/internal/manifest", "server/internal/records", "server/internal/source/record", "sdk/go/entity", "server/testsupport/testfiles"}},
+	{"server/internal/manifest", []string{"server/internal/manifest", "server/internal/records", "server/internal/record", "sdk/go/entity", "server/testsupport/testfiles"}},
 	{"server/internal/history", []string{"sdk/go/api/**"}},
 	// The plugin contract's Go, generated for the daemon alone.
 	{"server/internal/pluginapi/**", []string{"sdk/go/api/**"}},
@@ -149,7 +149,7 @@ var policies = []policy{
 	// The daemon's internal API, generated from the contracts
 	// (api/buf.gen.source.yaml): the daemon serves it and the control
 	// plane alone asks it, through the one translation between it and
-	// the workspace API (server/internal/source/told). Nothing a client
+	// the workspace API (server/internal/told). Nothing a client
 	// links names it.
 	{"server/internal/sourceapi/**", []string{"sdk/go/api/**", "server/internal/sourceapi/**"}},
 	// How a List is cut into pages, and how a service refuses by name:
@@ -162,11 +162,11 @@ var policies = []policy{
 	{"server/internal/pins", []string{}},
 	{"server/internal/pluginhost", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/pluginapi/**", "server/telemetry", "server/internal/pattern", "server/internal/plain", "server/internal/testservice"}},
 	{"server/internal/pluginhost/conformance", []string{"sdk/go/api/**", "server/internal/pluginapi/**", "server/internal/pluginhost"}},
-	{"server/internal/engine/evaluate", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/pluginapi/**", "server/telemetry", "server/internal/engine/catalog", "server/internal/engine/config", "server/internal/engine/evaluate", "server/internal/engine/graph", "server/internal/engine/internal/yamlnode", "server/internal/engine/plan", "server/internal/engine/source", "server/internal/model", "server/internal/wire", "server/internal/pins", "server/internal/pluginhost", "server/internal/pattern", "server/internal/source/record", "server/internal/testservice", "server/internal/runnerapi/**"}},
+	{"server/internal/engine/evaluate", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/pluginapi/**", "server/telemetry", "server/internal/engine/catalog", "server/internal/engine/config", "server/internal/engine/evaluate", "server/internal/engine/graph", "server/internal/engine/internal/yamlnode", "server/internal/engine/plan", "server/internal/engine/source", "server/internal/model", "server/internal/wire", "server/internal/pins", "server/internal/pluginhost", "server/internal/pattern", "server/internal/record", "server/internal/testservice", "server/internal/runnerapi/**"}},
 	{"server/internal/engine/catalog", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/pluginapi/**"}},
-	{"server/internal/engine/release", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/pluginapi/**", "server/internal/engine/release", "server/internal/engine/config", "server/internal/model", "server/internal/source/vcs"}},
-	{"server/internal/engine/graph", []string{"server/internal/pattern", "sdk/go/entity", "server/internal/engine/graph", "server/internal/engine/config", "server/internal/model", "server/internal/source/record"}},
-	{"server/internal/engine/plan", []string{"server/internal/pattern", "sdk/go/api/**", "sdk/go/entity", "server/internal/pluginapi/**", "server/internal/engine/plan", "server/internal/engine/graph", "server/internal/model", "server/internal/source/record"}},
+	{"server/internal/engine/release", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/pluginapi/**", "server/internal/engine/release", "server/internal/engine/config", "server/internal/model", "server/internal/vcs"}},
+	{"server/internal/engine/graph", []string{"server/internal/pattern", "sdk/go/entity", "server/internal/engine/graph", "server/internal/engine/config", "server/internal/model", "server/internal/record"}},
+	{"server/internal/engine/plan", []string{"server/internal/pattern", "sdk/go/api/**", "sdk/go/entity", "server/internal/pluginapi/**", "server/internal/engine/plan", "server/internal/engine/graph", "server/internal/model", "server/internal/record"}},
 	{"server/internal/engine/config", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/pluginapi/**", "server/internal/model", "server/internal/engine/catalog", "server/internal/engine/internal/yamlnode", "server/internal/testservice"}},
 	{"server/internal/engine/source", []string{"server/internal/engine/source", "server/internal/pattern"}},
 	{"server/internal/engine/internal/yamlnode", []string{}},
@@ -190,13 +190,19 @@ var policies = []policy{
 	{"server/internal/exec/fix", []string{"server/telemetry", "server/internal/exec", "server/internal/exec/here", "server/internal/exec/tools", "server/internal/engine/plan", "server/internal/engine/source", "server/internal/model", "server/internal/pattern", "server/internal/pins"}},
 	{"server/internal/exec/program", []string{"sdk/go/api/**", "server/internal/pluginapi/**", "server/internal/exec", "server/internal/exec/tools", "server/internal/engine/plan", "server/internal/model", "server/internal/confine"}},
 	{"server/internal/exec/run", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/pluginapi/**", "server/telemetry", "server/internal/exec", "server/internal/exec/download", "server/internal/exec/tools", "server/internal/exec/fix", "server/internal/exec/stage", "server/internal/exec/schedule", "server/internal/engine/plan", "server/internal/engine/source", "server/internal/model", "server/internal/runnerapi/**"}},
-	{"server/internal/source/**", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/source/**", "server/internal/refusal", "server/internal/sourceapi/**", "server/internal/confine", "server/internal/records", "server/internal/manifest"}},
-	{"server/internal/source/record", []string{"sdk/go/entity", "server/internal/source/record"}},
+	{"server/internal/source/**", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/source/**", "server/internal/refusal", "server/internal/sourceapi/**", "server/internal/confine", "server/internal/records", "server/internal/manifest", "server/internal/record", "server/internal/vcs", "server/internal/vcs/git", "server/internal/vcs/chosen", "server/internal/told"}},
+	{"server/internal/record", []string{"sdk/go/entity", "server/internal/record"}},
 	// A daemon told, for a test, what the control plane would tell it:
 	// its entities resolved through a fake Backstage.
-	{"server/internal/source/told/toldtest", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/backstage", "server/internal/source/told", "server/internal/sourceapi/**", "server/testsupport/backstagetest"}},
-	{"server/internal/source/vcs", []string{"server/internal/source/vcs"}},
-	{"server/internal/source/internal/vcs/git", []string{"server/internal/source/vcs", "server/git"}},
+	{"server/internal/told/toldtest", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/backstage", "server/internal/told", "server/internal/sourceapi/**", "server/testsupport/backstagetest"}},
+	// What a box's daemon is told of what a workspace is asked for, and
+	// what it says back: the control plane's and the daemon's alike.
+	{"server/internal/told", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/record", "server/internal/sourceapi/**"}},
+	{"server/internal/vcs", []string{"server/internal/vcs"}},
+	{"server/internal/vcs/git", []string{"server/internal/vcs", "server/git"}},
+	// The one package that names the version control system the server's
+	// programs use, which each program that composes one is given by.
+	{"server/internal/vcs/chosen", []string{"server/internal/vcs/git"}},
 	// A sandbox is the isolation and knows nothing of what lives in one.
 	// A driver's tests, and the service's, are held to the conformance
 	// and run over the driver held in memory (drivertest).
@@ -205,7 +211,7 @@ var policies = []policy{
 	// A driver of the container runtime, for tests alone: what an image
 	// starts is asked through the image package, as the gateway's way
 	// asks it. Its tests start a box and ask its daemon.
-	{"server/testsupport/testcontainer", []string{"server/sandbox/driver", "server/internal/image", "server/testsupport/**", "local", "local/ports", "sdk/go/api/**", "server/internal/source/told", "server/internal/sourceapi/**"}},
+	{"server/testsupport/testcontainer", []string{"server/sandbox/driver", "server/internal/image", "server/testsupport/**", "local", "local/ports", "sdk/go/api/**", "server/internal/told", "server/internal/sourceapi/**"}},
 	// The control plane keeps workspaces over the sandboxes they live in,
 	// and asks the version control system through its port (vcs.Fetching)
 	// what reaching a repository takes. It tells a workspace's daemon
@@ -217,24 +223,24 @@ var policies = []policy{
 	// (local/ports), and is told nothing of the stack.
 	// It resolves entities through the Backstage its operator gives it
 	// (server/internal/backstage), held over a fake one in its tests.
-	{"server/internal/controlplane/**", []string{"sdk/go/api/**", "server/sandbox/api/**", "sdk/go/entity", "server/internal/controlplane/**", "server/sandbox", "server/internal/backstage", "server/internal/secretfile", "server/internal/source/record", "server/internal/source/vcs", "server/internal/source/told", "server/internal/sourceapi/**", "server/testsupport/drivertest", "server/testsupport/backstagetest", "server/internal/plain", "local/ports", "sdk/go", "server/internal/page", "server/internal/refusal", "server/internal/records", "server/internal/poll"}},
+	{"server/internal/controlplane/**", []string{"sdk/go/api/**", "server/sandbox/api/**", "sdk/go/entity", "server/internal/controlplane/**", "server/sandbox", "server/internal/backstage", "server/internal/secretfile", "server/internal/record", "server/internal/vcs", "server/internal/told", "server/internal/sourceapi/**", "server/testsupport/drivertest", "server/testsupport/backstagetest", "server/internal/plain", "local/ports", "sdk/go", "server/internal/page", "server/internal/refusal", "server/internal/records", "server/internal/poll", "server/internal/vcs/chosen"}},
 	// A test starts a daemon as frontseatd does, and a control plane as
 	// frontseat-local does, each with the test support beside it.
-	{"server/testsupport/buildtest", []string{"server/internal/build", "server/telemetry", "server/testsupport/**", "sdk/go/api/**", "server/internal/source", "server/internal/source/told", "server/internal/source/told/toldtest", "server/internal/sourceapi/**"}},
+	{"server/testsupport/buildtest", []string{"server/internal/build", "server/telemetry", "server/testsupport/**", "sdk/go/api/**", "server/internal/source", "server/internal/told", "server/internal/told/toldtest", "server/internal/sourceapi/**", "server/internal/vcs/chosen"}},
 	// A fake Backstage, of entities written as catalog files write them.
 	{"server/testsupport/backstagetest", []string{"sdk/go/entity"}},
 	// What any sandbox driver is held to, and the driver held in memory.
 	{"server/testsupport/drivertest", []string{"server/sandbox/driver", "server/testsupport/drivertest", "server/internal/poll"}},
 	// It serves the sandbox service beneath the plane to the test alone,
 	// and says how the plane's owner is known as the SDK's clients take it.
-	{"server/testsupport/controlplanetest", []string{"server/sandbox/api/**", "server/internal/controlplane", "server/internal/page", "server/internal/backstage", "server/internal/source", "server/sandbox", "server/testsupport/**", "sdk/go/api/**", "sdk/go"}},
+	{"server/testsupport/controlplanetest", []string{"server/sandbox/api/**", "server/internal/controlplane", "server/internal/page", "server/internal/backstage", "server/sandbox", "server/testsupport/**", "sdk/go/api/**", "sdk/go", "server/internal/vcs/chosen"}},
 	// The daemon: a thin main over the package that is it, which reads
 	// its flags and serves the build API over what it is told.
 	{"server/cmd/frontseatd", []string{"server/internal/daemon"}},
-	{"server/internal/daemon", []string{"server/internal/build", "server/internal/source", "server/internal/httpserver", "server/telemetry", "local/ports"}},
+	{"server/internal/daemon", []string{"server/internal/build", "server/internal/source", "server/internal/httpserver", "server/telemetry", "local/ports", "server/internal/vcs/chosen"}},
 	// The local stack's control plane: the control plane, told what the
 	// stack is by the stack's own package.
-	{"server/cmd/frontseat-local", []string{"server/internal/controlplane", "server/internal/backstage", "server/internal/source", "server/internal/httpserver", "server/internal/secretfile", "server/telemetry", "local", "local/ports", "local/stack", "local/box"}},
+	{"server/cmd/frontseat-local", []string{"server/internal/controlplane", "server/internal/backstage", "server/internal/httpserver", "server/internal/secretfile", "server/telemetry", "local", "local/ports", "local/stack", "local/box", "server/internal/vcs/chosen"}},
 	{"server/cmd/frontseat-action", []string{"server/internal/confine"}},
 	// The grid's runner: a thin main over the runner, which serves the
 	// sandbox API over the container runtime to itself.
@@ -261,7 +267,7 @@ var policies = []policy{
 	{"specs/internal/**", []string{"specs/internal/**"}},
 }
 
-var forTests = []string{"server/testsupport", "specs", "server/internal/source/told/toldtest", "server/internal/pluginhost/conformance", "server/internal/exec/tools/toolstest", "server/internal/engine/source/sourcetest", "server/internal/exec/reapi/reapitest", "server/internal/engine/plan/plantest", "server/internal/pluginhost/pluginhosttest", "server/internal/engine/catalog/catalogtest"}
+var forTests = []string{"server/testsupport", "specs", "server/internal/told/toldtest", "server/internal/pluginhost/conformance", "server/internal/exec/tools/toolstest", "server/internal/engine/source/sourcetest", "server/internal/exec/reapi/reapitest", "server/internal/engine/plan/plantest", "server/internal/pluginhost/pluginhosttest", "server/internal/engine/catalog/catalogtest"}
 
 func beneath(path, root string) bool { return path == root || strings.HasPrefix(path, root+"/") }
 
@@ -467,8 +473,8 @@ func repositoryRoot(t *testing.T) string {
 // its history, and the client's, which reads a checkout of this machine.
 // Each is chosen by the one package beside it and by nothing else.
 var versionControl = map[string]string{
-	"server/internal/source/internal/vcs/git": "server/internal/source",
-	"cli/internal/vcs/git":                    "cli/internal/machine",
+	"server/internal/vcs/git": "server/internal/vcs/chosen",
+	"cli/internal/vcs/git":    "cli/internal/machine",
 }
 
 // gitItself is git as both version control packages run it and read
@@ -1528,7 +1534,7 @@ func TestTheBuildReadsItsDirectoryAndNothingOfWhatFillsIt(t *testing.T) {
 		"server/internal/build/runs.go":      {module + "/" + whatFills},
 		"server/internal/build/run_test.go":  {module + "/" + whatFills},
 		"server/internal/daemon/daemon.go":   {module + "/" + whatFills},
-		"server/internal/directory/read.go":  {module + "/server/internal/source/record"},
+		"server/internal/directory/read.go":  {module + "/server/internal/record"},
 		"server/internal/directory/other.go": {module + "/" + whatFills},
 	}
 	if found := buildsOfWhatFills(planted); !slices.Equal(found, []string{"server/internal/build/runs.go", "server/internal/directory/other.go"}) {

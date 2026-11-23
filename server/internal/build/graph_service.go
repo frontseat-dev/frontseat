@@ -13,7 +13,7 @@ import (
 	"github.com/frontseat-dev/frontseat/server/internal/engine/evaluate"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/release"
 	"github.com/frontseat-dev/frontseat/server/internal/model"
-	"github.com/frontseat-dev/frontseat/server/internal/source/record"
+	"github.com/frontseat-dev/frontseat/server/internal/record"
 )
 
 // graphService serves what a workspace is made of, without running any

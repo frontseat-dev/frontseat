@@ -607,8 +607,9 @@ the change that fixes it.
   committed copies to it; a Component written into says so in its
   catalog file (`spec.frontseat.generated`).
 - A port is an interface package; its implementations are private
-  (`server/internal/source/vcs` and its
-  `server/internal/source/internal/vcs/git`; the sandbox `driver` and
+  (`server/internal/vcs` and its
+  `server/internal/vcs/git`, which `server/internal/vcs/chosen` alone
+  names, for the program that composes one; the sandbox `driver` and
   the OpenShell driver; the command line's `cli/internal/vcs` and its
   `cli/internal/vcs/git`). The OpenShell driver is public, for
   frontseat-enterprise; the driver held in memory is test support, in
@@ -889,7 +890,10 @@ mise run docs:serve       # serve the TechDocs site on http://localhost:8000
 | `server/internal/refusal` | A refusal by name: its code, `ErrorInfo` reason and the domain of each service |
 | `server/internal/poll` | Asking again at an interval until what is asked is done (`Until`): the server's and its test support's one loop of it |
 | `server/internal/page` | A List cut into pages, by `page_size` and `page_token`, and every page of another's List gathered (`All`) |
-| `server/internal/source/vcs` | What a workspace asks of a version control system |
+| `server/internal/vcs`, `.../vcs/chosen` | What a workspace asks of a version control system, and the one that is used |
+| `server/internal/record`, `server/internal/manifest` | A workspace's repositories and entities as they are recorded, and the manifest in its directory (`.frontseat/workspace.yaml`) that what fills it writes and a build reads |
+| `server/internal/directory` | A directory as a build reads it: what its manifest records, and its repositories' history |
+| `server/internal/told` | What a box's daemon is told of what a workspace is asked for |
 | `local` | What the local stack is, read from its files: the workers' image and platform, what a sandbox is told; the checkout a program is started at (`Checkout`); the directory the command line keeps what it keeps in, and the owner's token and server files beneath it (`Config`, `TokenFile`, `ServerFile`); the container runtime's architecture (`Architecture`, `GOARCH`) and the stack's Podman (`Podman`), each asked one way |
 | `local/internal/poll` | Asking again until the stack's container comes to something (`Tries`): the box's build's and the stack's |
 | `local/ports` | Every port a box and the local stack are reached on |

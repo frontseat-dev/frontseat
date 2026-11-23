@@ -11,7 +11,7 @@ import (
 	"testing/synctest"
 
 	"github.com/frontseat-dev/frontseat/server/internal/engine/source"
-	"github.com/frontseat-dev/frontseat/server/internal/source/record"
+	"github.com/frontseat-dev/frontseat/server/internal/record"
 )
 
 // Run each request count in a separate process, without -race. This measures

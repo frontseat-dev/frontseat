@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/frontseat-dev/frontseat/server/internal/model"
-	"github.com/frontseat-dev/frontseat/server/internal/source/record"
+	"github.com/frontseat-dev/frontseat/server/internal/record"
 )
 
 // Graph is a workspace's projects and what provides what each requires.
