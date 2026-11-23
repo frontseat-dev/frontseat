@@ -36,7 +36,7 @@ func Read(root string) (Files, error) {
 }
 
 // Container is the local stack's one container's name.
-const Container = "frontseat-local"
+const Container = "frontseat-stack"
 
 // Confiners is the directory of the stack's container each form of the
 // confiner (frontseat-confine) is installed into, which every runner

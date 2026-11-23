@@ -60,7 +60,7 @@ var words = map[string]func(arguments []string) int{
 	"image": func(arguments []string) int {
 		options := flag.NewFlagSet("frontseat-stack image", flag.ContinueOnError)
 		on := options.String("box", "", "the box to build on, by its tag of its content; without it, the box is built first")
-		tag := options.String("tag", "", "a name to tag the image with beside its tag of its content, for a person to ask for it by (frontseat-local:dev)")
+		tag := options.String("tag", "", "a name to tag the image with beside its tag of its content, for a person to ask for it by (frontseat-stack:dev)")
 		plugins := options.String("plugins", "dist/plugins", "the directory holding the plugins the box holds, each a <name>.wasm, where the box is built")
 		return checkout(options, arguments, func(ctx context.Context, root string) error {
 			if *on == "" {

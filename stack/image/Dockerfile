@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
 #
-# The local stack as one container (frontseat-local): the grid, the
+# The local stack as one container (frontseat-stack): the grid, the
 # OpenShell gateway, the control plane and the pool of the grid's runner
 # sandboxes, each a process s6-overlay supervises, and every sandbox (each
 # workspace, each of the grid's runners) an OpenShell sandbox in rootless

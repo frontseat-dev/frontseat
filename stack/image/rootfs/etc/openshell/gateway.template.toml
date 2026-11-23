@@ -20,7 +20,7 @@ client_ca_path = "/var/lib/frontseat/openshell/tls/ca.crt"
 signing_key_path = "/var/lib/frontseat/openshell/tls/jwt/signing.pem"
 public_key_path  = "/var/lib/frontseat/openshell/tls/jwt/public.pem"
 kid_path         = "/var/lib/frontseat/openshell/tls/jwt/kid"
-gateway_id       = "frontseat-local"
+gateway_id       = "frontseat-stack"
 
 [openshell.drivers.podman]
 socket_path           = "/run/user/1000/podman/podman.sock"

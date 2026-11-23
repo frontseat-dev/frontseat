@@ -38,7 +38,7 @@ import (
 // everything in, which outlives it.
 const (
 	Name   = local.Container
-	Volume = "frontseat-local"
+	Volume = "frontseat-stack"
 )
 
 // checkoutLabel is the label the container carries the checkout that
@@ -98,7 +98,7 @@ func (s Stack) Up(ctx context.Context) error {
 	if _, err := s.run(ctx, "rm", "--force", Name); err != nil {
 		return err
 	}
-	kept, err := os.MkdirTemp("", "frontseat-local-")
+	kept, err := os.MkdirTemp("", "frontseat-stack-")
 	if err != nil {
 		return err
 	}

@@ -33,7 +33,7 @@ var port = strconv.Itoa(ports.ControlPlane)
 // the container runtime names it, and known where the stack lays out
 // what the gateway knows the control plane by, in the stack's state.
 const (
-	served = "frontseat-local"
+	served = "frontseat-stack"
 	known  = "/var/lib/frontseat/controlplane/openshell"
 )
 
