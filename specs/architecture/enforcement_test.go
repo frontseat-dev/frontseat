@@ -386,6 +386,13 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		{"build/daemon/daemon/daemon.go", "build/engine/pluginhost", false},
 		// The daemon's program is a thin main over the daemon.
 		{"cmd/frontseatd/main.go", "build/daemon/daemon", true},
+		{"cmd/frontseat-box/main.go", "workspace/box/supervisor", true},
+		{"cmd/frontseat-box/main.go", "workspace/box/source", false},
+		{"cmd/frontseat-box/main.go", "build/daemon/build", false},
+		{"workspace/box/supervisor/supervisor.go", "workspace/box/source", true},
+		{"workspace/box/supervisor/supervisor.go", "build/daemon/build", false},
+		{"workspace/box/supervisor/supervisor.go", "build/engine/exec", false},
+		{"build/daemon/daemon/daemon.go", "workspace/box/supervisor", true},
 		{"cmd/frontseatd/main.go", "build/daemon/build", false},
 		{"build/daemon/build/service.go", "build/engine/pluginhost/conformance", false},
 		{"build/engine/pluginhost/host_test.go", "build/engine/pluginhost/conformance", true},

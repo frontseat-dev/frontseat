@@ -1,0 +1,17 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: frontseat-box
+  namespace: frontseat
+  description: "A box's supervisor: the one program of a workspace's sandbox that works for the control plane"
+spec:
+  type: service
+  lifecycle: experimental
+  owner: jbadeau
+  system: workspaces
+  dependsOn: [component:api, component:confine, component:core, component:git, component:go-sdk, component:record, component:told, component:vcs, component:workspace-box]
+  frontseat:
+    # The program is shipped for where it runs, a workspace's sandbox:
+    # each platform is a file of its own in a release,
+    # frontseat-box-<os>-<arch>.
+    platforms: [linux/amd64, linux/arm64]

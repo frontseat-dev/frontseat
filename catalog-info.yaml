@@ -110,6 +110,7 @@ spec:
     - ./sdk/plugin-test/catalog-info.yaml
     - ./build/daemon/catalog-info.yaml
     - ./build/engine/catalog-info.yaml
+    - ./cmd/frontseat-box/catalog-info.yaml
     - ./cmd/frontseat-confine/catalog-info.yaml
     - ./cmd/frontseat-server/catalog-info.yaml
     - ./cmd/frontseat-stack/catalog-info.yaml
