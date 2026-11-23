@@ -8,17 +8,17 @@ import (
 
 	connect "connectrpc.com/connect/v2"
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testrequired"
+	"github.com/frontseat-dev/frontseat/testsupport/testrequired"
 	"os/exec"
 	"testing"
 
-	"github.com/frontseat-dev/frontseat/local/ports"
+	"github.com/frontseat-dev/frontseat/core/ports"
+	"github.com/frontseat-dev/frontseat/local/testsupport/testbox"
+	"github.com/frontseat-dev/frontseat/local/testsupport/testgrid"
+	"github.com/frontseat-dev/frontseat/local/testsupport/testowner"
+	sandboxv1 "github.com/frontseat-dev/frontseat/sandbox/api/frontseat/sandbox/v1alpha1"
+	"github.com/frontseat-dev/frontseat/sandbox/testsupport/testsandbox"
 	"github.com/frontseat-dev/frontseat/sdk/go"
-	sandboxv1 "github.com/frontseat-dev/frontseat/server/sandbox/api/frontseat/sandbox/v1alpha1"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testbox"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testgrid"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testowner"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testsandbox"
 )
 
 // stack is where the local stack's control plane answers, which is where

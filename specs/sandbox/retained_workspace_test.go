@@ -2,7 +2,7 @@ package sandbox_test
 
 import (
 	"context"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testidentity"
+	"github.com/frontseat-dev/frontseat/testsupport/testidentity"
 	"time"
 
 	"github.com/frontseat-dev/frontseat/sdk/go"

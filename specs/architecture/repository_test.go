@@ -104,10 +104,10 @@ func namedAbsent(file string, content []byte, there func(string) bool, allowed m
 // program writes.
 var namedElsewhere = map[string][]string{
 	// git's source, and the host program the hardening was taken from.
-	"server/git/git.go": {"internal/hostgit"},
+	"common/git/git.go": {"internal/hostgit"},
 	// The fixture repository the forge writes for a test.
-	"server/testsupport/testforge/generated.go": {"api/buf.gen.lib.yaml", "api/buf.gen.yaml", "api/gen/go/go.mod", "api/gen/go/go.sum", "api/gen/go/keep.go", "api/hello/v1/hello.proto"},
-	"server/testsupport/testforge/testforge.go": {"docs/guide.md"},
+	"testsupport/testforge/generated.go": {"api/buf.gen.lib.yaml", "api/buf.gen.yaml", "api/gen/go/go.mod", "api/gen/go/go.sum", "api/gen/go/keep.go", "api/hello/v1/hello.proto"},
+	"testsupport/testforge/testforge.go": {"docs/guide.md"},
 	// An output of a Buf workspace, as the Buf plugin's tests spell one.
 	"plugins/buf/src/manifest.rs": {"api/gen/go"},
 	// Words that read as paths: local, git and linked.
@@ -115,12 +115,10 @@ var namedElsewhere = map[string][]string{
 	// Packages of a fixture module, and of the go command's source.
 	"plugins/go/src/composition_tests.rs": {"internal/ledger", "internal/other"},
 	"plugins/go/src/programs.rs":          {"internal/load/pkg.go", "internal/vendor/vendor_test.go"},
-	// A directory of the server's own, as its catalog file names it.
-	"server/catalog-info.yaml": {"internal/pluginapi", "internal/runnerapi", "internal/sourceapi", "sandbox/api"},
 	// GitHub's command line, as mise's lock names where it comes from.
 	"mise.lock": {"cli/cli"},
 	// wazero's package.
-	"server/internal/pluginhost/host.go": {"internal/version.GetWazeroVersion"},
+	"build/engine/pluginhost/host.go": {"internal/version.GetWazeroVersion"},
 }
 
 // N3: every path of this repository that a file names is there: a doc, a
@@ -172,16 +170,16 @@ func held(files []string) func(string) bool {
 // left, or git ignores, is not; nor is a name in another case, which a
 // disk that folds case would find; a directory of its files is.
 func TestAPathIsThereWhereGitHoldsIt(t *testing.T) {
-	there := held([]string{"server/internal/build/build.go", "docs/index.md"})
+	there := held([]string{"build/daemon/build/build.go", "docs/index.md"})
 	for named, want := range map[string]bool{
-		"server/internal/build/build.go": true,
-		"server/internal/build":          true,
-		"server":                         true,
-		"docs/index.md":                  true,
-		"Server/build/build.go":          false,
-		"docs/Index.md":                  false,
-		"dist/bin/frontseat":             false,
-		"server/buil":                    false,
+		"build/daemon/build/build.go": true,
+		"build/daemon/build":          true,
+		"build":                       true,
+		"docs/index.md":               true,
+		"Build/daemon/build/build.go": false,
+		"docs/Index.md":               false,
+		"dist/bin/frontseat":          false,
+		"build/daemo":                 false,
 	} {
 		if got := there(named); got != want {
 			t.Errorf("%s is there: %v, want %v", named, got, want)
@@ -190,17 +188,17 @@ func TestAPathIsThereWhereGitHoldsIt(t *testing.T) {
 }
 
 func TestAPathNamedButAbsentIsFound(t *testing.T) {
-	there := func(named string) bool { return named == "server/internal/build" || named == "docs/index.md" }
+	there := func(named string) bool { return named == "build/daemon/build" || named == "docs/index.md" }
 	cases := map[string]string{
-		"see docs/rulings/tests.md.":                           "docs/rulings/tests.md",
-		"`server/internal/build/` and `server/gone`":           "server/gone",
-		"go test ./server/internal/build/... ./cli/...":        "cli",
-		"(docs/local-development.md says how)":                 "docs/local-development.md",
-		"docs/index.md, server/internal/build, plugins/<name>": "",
-		"github.com/frontseat-dev/frontseat/server/gone":       "",
-		"genproto/googleapis/{api/annotations,rpc/x}":          "",
-		"plugins/*/Cargo.toml and /var/lib/x-local/y":          "",
-		"frontseat-local/openshell, cmd/../server/../etc":      "",
+		"see docs/rulings/tests.md.":                        "docs/rulings/tests.md",
+		"`build/daemon/build/` and `server/gone`":           "server/gone",
+		"go test ./build/daemon/build/... ./cli/...":        "cli",
+		"(docs/local-development.md says how)":              "docs/local-development.md",
+		"docs/index.md, build/daemon/build, plugins/<name>": "",
+		"github.com/frontseat-dev/frontseat/server/gone":    "",
+		"genproto/googleapis/{api/annotations,rpc/x}":       "",
+		"plugins/*/Cargo.toml and /var/lib/x-local/y":       "",
+		"frontseat-local/openshell, cmd/../server/../etc":   "",
 	}
 	for text, want := range cases {
 		if got := strings.Join(namedAbsent("f", []byte(text), there, nil), " "); got != want {
@@ -388,23 +386,23 @@ func TestATaskKeptOutsideMiseOrAListWrittenAnywhereInItIsFound(t *testing.T) {
 			t.Errorf("%q %q: not refused", each.files, each.content)
 		}
 	}
-	modules, plugins := []string{"server/telemetry"}, []string{"go"}
+	modules, plugins := []string{"core/telemetry"}, []string{"go"}
 	for _, content := range []string{
 		"[env]\nPLUGINS = \"plugins/go\"\n",
-		"[vars]\npackages = \"./server/telemetry/...\"\n",
+		"[vars]\npackages = \"./core/telemetry/...\"\n",
 		"[env]\nX = { value = \"frontseat-plugin-go\" }\n",
 	} {
 		if got := listed(nil, written(content), modules, plugins); len(got) == 0 {
 			t.Errorf("%q: not refused", content)
 		}
 	}
-	if got := listed(nil, written("# plugins/go and ./server/telemetry/...\n[env]\nX = \"plugins/**\"\n"), modules, plugins); len(got) != 0 {
+	if got := listed(nil, written("# plugins/go and ./core/telemetry/...\n[env]\nX = \"plugins/**\"\n"), modules, plugins); len(got) != 0 {
 		t.Errorf("a comment or a glob of every plugin was refused: %q", got)
 	}
 }
 
 func TestAListOfModulesOrPluginsInMiseIsFound(t *testing.T) {
-	modules := []string{"cli", "server/telemetry", "specs"}
+	modules := []string{"cli", "core/telemetry", "specs"}
 	plugins := []string{"go", "cargo"}
 	allowed := [][2][]string{
 		{{"go run ./specs/cmd/gate test -except specs/build -- -count=1 -race"}},
@@ -421,8 +419,8 @@ func TestAListOfModulesOrPluginsInMiseIsFound(t *testing.T) {
 	}
 	refused := [][2][]string{
 		{{"go vet ./cli/... ./specs/..."}},
-		{nil, {"server/telemetry/**/*.go"}},
-		{{"go test -count=1 ./server/sandbox/ ./server/internal/build/"}},
+		{nil, {"core/telemetry/**/*.go"}},
+		{{"go test -count=1 ./sandbox/ ./build/daemon/build/"}},
 		{{"cargo build -p frontseat-plugin-go"}},
 		{{"cp target/wasm32-wasip1/release/frontseat_plugin_cargo.wasm dist/plugins/cargo.wasm"}},
 		{nil, {"dist/plugins/go.wasm"}},
@@ -667,7 +665,7 @@ func reachesTheRuntime(file *ast.File) bool {
 		switch imported {
 		case "os/exec":
 			execs[name] = true
-		case module + "/server/sandbox":
+		case module + "/sandbox":
 			sandboxes[name] = true
 		}
 	}
@@ -755,7 +753,7 @@ func unstacked(sources map[string][]byte) ([]string, error) {
 			if spec.Name != nil {
 				as = spec.Name.Name
 			}
-			requires[as] = requires[as] || imported == module+"/server/testsupport/testrequired"
+			requires[as] = requires[as] || imported == module+"/testsupport/testrequired"
 			testingAs[as] = testingAs[as] || imported == "testing"
 		}
 		for _, declared := range file.Decls {
@@ -865,7 +863,7 @@ func TestATestThatReachesTheContainerRuntimeSaysItNeedsTheStack(t *testing.T) {
 }
 
 func TestATestThatReachesTheContainerRuntimeUnsaidIsFound(t *testing.T) {
-	const head = "package p\n\nimport (\n\t\"context\"\n\trun \"os/exec\"\n\t\"testing\"\n\n\ttestrequired \"" + module + "/server/testsupport/testrequired\"\n\tbox \"" + module + "/server/sandbox\"\n)\n\n"
+	const head = "package p\n\nimport (\n\t\"context\"\n\trun \"os/exec\"\n\t\"testing\"\n\n\ttestrequired \"" + module + "/testsupport/testrequired\"\n\tbox \"" + module + "/sandbox\"\n)\n\n"
 	sources := map[string][]byte{"a/a_test.go": []byte(head + `
 func TestSaid(t *testing.T) { testrequired.Stack(t); run.Command("docker", "ps").Run() }
 func helper(t *testing.T) { testrequired.Stack(t) }
@@ -905,7 +903,7 @@ var _ = testrequired.Stack
 // does; one that says what is missing through the test support, and one
 // that skips and says nothing of the stack, are not.
 func TestATestThatSkipsItselfAfterSayingItNeedsTheStackIsFound(t *testing.T) {
-	const head = "package p\n\nimport (\n\t\"os/exec\"\n\t\"testing\"\n\n\t\"" + module + "/server/testsupport/testbox\"\n\t\"" + module + "/server/testsupport/testrequired\"\n)\n\n"
+	const head = "package p\n\nimport (\n\t\"os/exec\"\n\t\"testing\"\n\n\t\"" + module + "/local/testsupport/testbox\"\n\t\"" + module + "/testsupport/testrequired\"\n)\n\n"
 	sources := map[string][]byte{"a/a_test.go": []byte(head + `
 func TestSkipsAfterIt(t *testing.T) { testrequired.Stack(t); if _, err := exec.LookPath("docker"); err != nil { t.Skip("no runtime") } }
 func TestSkipsNowAfterIt(t *testing.T) { testrequired.Stack(t); t.SkipNow() }

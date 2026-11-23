@@ -4,8 +4,8 @@ import (
 	"go/format"
 	"testing"
 
-	"github.com/frontseat-dev/frontseat/server/testsupport/testfiles"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testpins"
+	"github.com/frontseat-dev/frontseat/testsupport/testfiles"
+	"github.com/frontseat-dev/frontseat/testsupport/testpins"
 
 	. "github.com/onsi/gomega"
 )

@@ -2,7 +2,7 @@
 # and answers crosses the Wasm boundary, never a network, so it has
 # messages and no Connect, and no developer writes a plugin in Go. It is
 # generated into the daemon's internal packages
-# (server/internal/pluginapi); the types of the other modules it
+# (build/engine/pluginapi); the types of the other modules it
 # names are the Go SDK's. Generated, never edited, and held to what this
 # writes now by `mise run check`. Frontseat builds it as
 # //api:buf.generate/daemon, into the server, which says so in its
@@ -18,7 +18,7 @@ managed:
       value: github.com/frontseat-dev/frontseat/sdk/go/api
     - path: frontseat/plugin
       file_option: go_package_prefix
-      value: github.com/frontseat-dev/frontseat/server/internal/pluginapi
+      value: github.com/frontseat-dev/frontseat/build/engine/pluginapi
   disable:
     - path: google/api
       file_option: go_package_prefix
@@ -26,7 +26,7 @@ managed:
       file_option: go_package_prefix
 plugins:
   - local: protoc-gen-go
-    out: ../server/internal/pluginapi
+    out: ../build/engine/pluginapi
     opt: paths=source_relative
 inputs:
   - directory: .

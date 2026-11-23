@@ -39,7 +39,7 @@ import (
 	"github.com/google/renameio/v2"
 
 	"github.com/frontseat-dev/frontseat/local"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testmodule"
+	"github.com/frontseat-dev/frontseat/testsupport/testmodule"
 )
 
 // selection is one module cargo is asked to build: a crate's library,

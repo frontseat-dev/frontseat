@@ -12,9 +12,9 @@ func TestPrivateMethodsReachableFromPublicConstructor(t *testing.T) {
 		name, source string
 		want         bool
 	}{
-		{"public-control", `package sandbox; import driver "github.com/frontseat-dev/frontseat/server/sandbox/driver"; type view struct{}; func New() view {return view{}}; func(view) Spec() driver.Spec {return driver.Spec{}}`, false},
-		{"private-result", `package workspace; import git "github.com/frontseat-dev/frontseat/server/internal/vcs/git"; type view struct{}; func New() view {return view{}}; func(view) Repository() git.System {return git.System{}}`, true},
-		{"generic-receiver", `package workspace; import git "github.com/frontseat-dev/frontseat/server/internal/vcs/git"; type View[T any] struct{}; func(*View[T]) Repository() git.System {return git.System{}}`, true},
+		{"public-control", `package sandbox; import driver "github.com/frontseat-dev/frontseat/sandbox/driver"; type view struct{}; func New() view {return view{}}; func(view) Spec() driver.Spec {return driver.Spec{}}`, false},
+		{"private-result", `package workspace; import git "github.com/frontseat-dev/frontseat/common/vcs/git"; type view struct{}; func New() view {return view{}}; func(view) Repository() git.System {return git.System{}}`, true},
+		{"generic-receiver", `package workspace; import git "github.com/frontseat-dev/frontseat/common/vcs/git"; type View[T any] struct{}; func(*View[T]) Repository() git.System {return git.System{}}`, true},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			f, err := parser.ParseFile(token.NewFileSet(), "view.go", c.source, 0)

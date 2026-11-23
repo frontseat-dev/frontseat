@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/frontseat-dev/frontseat/server/testsupport/testgrid"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testrequired"
+	"github.com/frontseat-dev/frontseat/local/testsupport/testgrid"
+	"github.com/frontseat-dev/frontseat/testsupport/testrequired"
 )
 
 // Suite-owned fixture data survives the requesting test, while each caller's

@@ -13,12 +13,12 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
+	"github.com/frontseat-dev/frontseat/local/testsupport/testbox"
+	"github.com/frontseat-dev/frontseat/local/testsupport/testgrid"
+	"github.com/frontseat-dev/frontseat/local/testsupport/testowner"
 	"github.com/frontseat-dev/frontseat/sdk/go"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testbox"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testgrid"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testidentity"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testowner"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testrequired"
+	"github.com/frontseat-dev/frontseat/testsupport/testidentity"
+	"github.com/frontseat-dev/frontseat/testsupport/testrequired"
 )
 
 // piped is a connection over a program's standard input and output, as

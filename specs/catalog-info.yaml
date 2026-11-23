@@ -8,14 +8,14 @@ spec:
   type: tests
   lifecycle: experimental
   owner: jbadeau
-  dependsOn: [component:api, component:go-sdk, component:local, component:server]
+  dependsOn: [component:api, component:build-daemon, component:build-engine, component:confine, component:core, component:git, component:go-sdk, component:local, component:record, component:runner-contract, component:sandbox, component:testsupport, component:told, component:vcs, component:workspace-box, component:workspace-server]
   frontseat:
     # The architecture test reads the contracts as Buf builds them, and
     # the comparisons run Bazel beside Frontseat; the repository's rules
     # ask cargo what its workspace holds.
     # On the grid there is no local stack to reach: a test that needs one
     # says so first and is skipped, said why, as `mise run check` skips
-    # it (server/testsupport/testrequired); `mise run test` runs it.
+    # it (testsupport/testrequired); `mise run test` runs it.
     # Its rules are the repository's own: they read all of it, as it is
     # committed.
     test:

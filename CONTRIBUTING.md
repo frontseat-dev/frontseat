@@ -216,7 +216,7 @@ With no stack up, run them as `check` does, over the wasm modules of this
 checkout and with every test that needs the stack skipped:
 
 ```sh
-go run ./specs/cmd/gate test -no-stack -only server/internal/build -- -race -run TestName
+go run ./specs/cmd/gate test -no-stack -only build/daemon/build -- -race -run TestName
 ```
 
 `-only` takes a directory of the repository, and what follows `--` is

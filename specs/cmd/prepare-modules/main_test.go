@@ -9,7 +9,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/frontseat-dev/frontseat/server/testsupport/testmodule"
+	"github.com/frontseat-dev/frontseat/testsupport/testmodule"
 )
 
 const metadata = `{"workspace_root":"/repository","target_directory":"/elsewhere/target","packages":[

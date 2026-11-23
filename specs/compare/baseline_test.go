@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/frontseat-dev/frontseat/server/testsupport/testworkload"
+	"github.com/frontseat-dev/frontseat/testsupport/testworkload"
 )
 
 // The baseline does what frontseat's actions do, as they do it: each of

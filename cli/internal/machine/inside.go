@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/frontseat-dev/frontseat/local/ports"
+	"github.com/frontseat-dev/frontseat/core/ports"
 )
 
 // Daemon is where the command line asks the daemon of the workspace's

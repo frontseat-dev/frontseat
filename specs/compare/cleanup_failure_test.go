@@ -22,7 +22,7 @@ import (
 	sdk "github.com/ai-openshell/sdk-go/openshell/v1"
 	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1/workspacev1alpha1connect"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testworkload"
+	"github.com/frontseat-dev/frontseat/testsupport/testworkload"
 	"github.com/google/renameio/v2"
 )
 

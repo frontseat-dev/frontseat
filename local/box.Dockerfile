@@ -26,7 +26,7 @@ USER 65532:65532
 WORKDIR /work
 # What a box runs: the daemon, in its workspace, with every plugin the
 # image holds, on a box's ports (its build API, its source API, which
-# the control plane alone dials, and its shell) (local/ports, which local/ports_test.go
+# the control plane alone dials, and its shell) (core/ports, which local/ports_test.go
 # holds this to) and keeping its state where frontseatd says by default.
 # What the sandbox is told beside, the workspace's name, the key let
 # into its shell and the grid it builds on, are the arguments it is

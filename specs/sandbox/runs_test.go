@@ -10,8 +10,8 @@ import (
 	"time"
 
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testfiles"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testpins"
+	"github.com/frontseat-dev/frontseat/testsupport/testfiles"
+	"github.com/frontseat-dev/frontseat/testsupport/testpins"
 
 	. "github.com/onsi/gomega"
 )

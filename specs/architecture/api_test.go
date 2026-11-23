@@ -969,9 +969,9 @@ func handles(fn *ast.FuncDecl, imported map[string]string) string {
 func generatedPackage(pkg protoreflect.FullName) string {
 	switch pkg {
 	case "frontseat.source.v1alpha1":
-		return "github.com/frontseat-dev/frontseat/server/internal/sourceapi/frontseat/source/v1alpha1"
+		return "github.com/frontseat-dev/frontseat/common/told/sourceapi/frontseat/source/v1alpha1"
 	case "frontseat.sandbox.v1alpha1":
-		return "github.com/frontseat-dev/frontseat/server/sandbox/api/frontseat/sandbox/v1alpha1"
+		return "github.com/frontseat-dev/frontseat/sandbox/api/frontseat/sandbox/v1alpha1"
 	}
 	return sdkPackage(pkg)
 }

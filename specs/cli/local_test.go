@@ -5,8 +5,8 @@ package e2e
 import (
 	"context"
 	"fmt"
-	"github.com/frontseat-dev/frontseat/local/ports"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testidentity"
+	"github.com/frontseat-dev/frontseat/core/ports"
+	"github.com/frontseat-dev/frontseat/testsupport/testidentity"
 	"net"
 	"net/http"
 	"os"
@@ -19,18 +19,18 @@ import (
 
 	connect "connectrpc.com/connect/v2"
 
+	"github.com/frontseat-dev/frontseat/local/testsupport/testbox"
+	"github.com/frontseat-dev/frontseat/local/testsupport/testgateway"
+	"github.com/frontseat-dev/frontseat/local/testsupport/testgrid"
+	"github.com/frontseat-dev/frontseat/local/testsupport/testowner"
 	"github.com/frontseat-dev/frontseat/sdk/go"
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/entity"
-	"github.com/frontseat-dev/frontseat/server/testsupport/backstagetest"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testbox"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testfiles"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testforge"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testgateway"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testgrid"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testowner"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testpins"
+	"github.com/frontseat-dev/frontseat/testsupport/backstagetest"
+	"github.com/frontseat-dev/frontseat/testsupport/testfiles"
+	"github.com/frontseat-dev/frontseat/testsupport/testforge"
+	"github.com/frontseat-dev/frontseat/testsupport/testpins"
 )
 
 // sdkClient is the SDK's client of a server a test is given.
@@ -272,7 +272,7 @@ func TestAWorkspaceOpenedByEntityClonesWhatItsBackstageSays(t *testing.T) {
 	// any remote; the control plane resolves through the Backstage.
 	forge := testforge.Served(t)
 	catalog := backstagetest.Serve(t, forge.Entities(t))
-	server, command := built(t, "server/cmd/frontseat-local"), built(t, "cli/cmd/frontseat")
+	server, command := built(t, "cmd/frontseat-local"), built(t, "cli/cmd/frontseat")
 	ctx := context.Background()
 
 	// The control: no Backstage, and opening by entity is refused by name.

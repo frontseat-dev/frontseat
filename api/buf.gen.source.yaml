@@ -1,7 +1,7 @@
 # The daemon's internal API (frontseat.source.v1alpha1), in Go, for the
 # server alone: the control plane tells a workspace's daemon what to
 # hold through it, and nothing else asks it. It is generated into the
-# server's internal packages (server/internal/sourceapi), with its
+# server's internal packages (common/told/sourceapi), with its
 # Connect handler and client, and never into the Go SDK; the types of
 # the other modules it names are the Go SDK's. Generated, never edited,
 # and held to what this writes now by `mise run check`. Frontseat builds
@@ -18,7 +18,7 @@ managed:
       value: github.com/frontseat-dev/frontseat/sdk/go/api
     - path: frontseat/source
       file_option: go_package_prefix
-      value: github.com/frontseat-dev/frontseat/server/internal/sourceapi
+      value: github.com/frontseat-dev/frontseat/common/told/sourceapi
   disable:
     - path: google/api
       file_option: go_package_prefix
@@ -26,10 +26,10 @@ managed:
       file_option: go_package_prefix
 plugins:
   - local: protoc-gen-go
-    out: ../server/internal/sourceapi
+    out: ../common/told/sourceapi
     opt: paths=source_relative
   - local: protoc-gen-connect-go
-    out: ../server/internal/sourceapi
+    out: ../common/told/sourceapi
     opt: paths=source_relative
 inputs:
   - directory: .

@@ -17,24 +17,25 @@ import (
 	"testing"
 )
 
-// public is every package another module of this repository, or
-// frontseat-enterprise, needs that is in no SDK, each with why. Every
-// other Go package is in the Go SDK (sdk/go), under an internal/ path,
-// a binary's main (cmd/<binary>), the test support (server/testsupport,
-// which the import rules hold to tests) or a package of tests alone.
+// public is every package frontseat-enterprise may import that is in no
+// SDK, each with why: what it embeds and composes around, and never
+// copies. Every other Go package is this repository's own. Its path can
+// be imported, since the repository is many modules and Go's internal
+// directories reach across none of them; what holds who imports it is
+// its module's go.mod and the order of the modules
+// (TestAModuleRequiresOnlyWhatIsBeneathIt), and nothing outside the
+// repository is to rely on it.
 var public = map[string]string{
-	"server/sandbox":                                "the sandbox service: frontseat-enterprise embeds it (owner's ruling)",
-	"server/sandbox/driver":                         "the port the sandbox service drives its drivers through, for frontseat-enterprise's drivers to implement (owner's ruling)",
-	"server/sandbox/driver/openshell":               "the one OpenShell driver, which frontseat-enterprise composes around and never copies (owner's ruling)",
-	"server/sandbox/api/frontseat/sandbox/v1alpha1": "the sandbox API's generated Go (api/buf.gen.sandbox.yaml), which the sandbox service serves and frontseat-enterprise embeds with it; it has no client in the Go SDK",
-	"server/sandbox/api/frontseat/sandbox/v1alpha1/sandboxv1alpha1connect": "the sandbox API's generated Connect handler and client, for the service, the control plane, the runner and frontseat-enterprise",
-	"server/git":       "git, run hardened: the command line's version control runs it too",
-	"server/telemetry": "OpenTelemetry: the command line instruments what it asks with it",
-	"local":            "what the local stack is, read from its files: the box's build, the stack's control plane and the test support read it; and the checkout a program is started at (Checkout), which the stack's program, the gate and what prepares the plugins find alike; and the directory the command line keeps what it keeps in (Config), where the stack lays out its owner's token and the command line and the test support read it; and the container runtime's architecture and the stack's Podman, asked one way (Architecture, Podman) by the box's build, the stack, the test support and the spec of the stack's container",
-	"local/ports":      "the ports a box and the local stack are reached on, each said once: the server, the command line and the test support read them",
-	"local/box":        "the box's one build: the stack's program (frontseat-local box, up) and the gate build it here, and a spec holds it to what it was built with",
-	"local/stack":      "the local stack brought up and down from a checkout: the stack's program (frontseat-local up, down) runs it",
+	"sandbox":                                "the sandbox service: frontseat-enterprise embeds it (owner's ruling)",
+	"sandbox/driver":                         "the port the sandbox service drives its drivers through, for frontseat-enterprise's drivers to implement (owner's ruling)",
+	"sandbox/driver/openshell":               "the one OpenShell driver, which frontseat-enterprise composes around and never copies (owner's ruling)",
+	"sandbox/api/frontseat/sandbox/v1alpha1": "the sandbox API's generated Go (api/buf.gen.sandbox.yaml), which the sandbox service serves and frontseat-enterprise embeds with it; it has no client in the Go SDK",
+	"sandbox/api/frontseat/sandbox/v1alpha1/sandboxv1alpha1connect": "the sandbox API's generated Connect handler and client, for the service, the control plane, the runner and frontseat-enterprise",
 }
+
+// forOutsiders is whether a package of the repository is one whoever is
+// outside it may import: of an SDK, or on the list.
+func forOutsiders(dir string) bool { return beneath(dir, "sdk/go") || public[dir] != "" }
 
 // goSource is one Go file of the repository, parsed.
 type goSource struct {
@@ -157,11 +158,10 @@ func packagesOf(sources []goSource) map[string]*goPackage {
 	return out
 }
 
-// offTheLevels says of each package that is public, in no SDK and not
-// on the list given, and of each entry of the list that is no such
-// package, what is wrong. A binary is cmd/<binary>, wherever it is but
-// a fixture; a fixture is no package anyone imports; and a directory is
-// one package.
+// offTheLevels says what is wrong of the packages, and of each entry
+// of the list given that is no package frontseat-enterprise could
+// import. A binary is cmd/<binary>, wherever it is but a fixture; a
+// fixture is no package anyone imports; and a directory is one package.
 func offTheLevels(packages []goPackage, listed map[string]string) []string {
 	var out []string
 	public := map[string]bool{}
@@ -178,24 +178,21 @@ func offTheLevels(packages []goPackage, listed map[string]string) []string {
 		case fixture:
 		case p.name == "main" && !binary:
 			out = append(out, fmt.Sprintf("%s is a program that is not cmd/<binary>", p.dir))
-		case beneath(p.dir, "sdk/go"), beneath(p.dir, "server/testsupport"), slices.Contains(parts, "internal"), p.name == "main", tests:
-		case listed[p.dir] == "":
-			out = append(out, fmt.Sprintf("%s is public and in no SDK: it goes under internal/, or on the list of what another module or frontseat-enterprise needs (public), with why", p.dir))
+		case beneath(p.dir, "sdk/go"), slices.Contains(parts, "testsupport"), slices.Contains(parts, "internal"), p.name == "main", tests:
 		default:
 			public[p.dir] = true
 		}
 	}
 	for _, dir := range slices.Sorted(maps.Keys(listed)) {
 		if !public[dir] {
-			out = append(out, fmt.Sprintf("%s is on the list of what is public, and is no such package", dir))
+			out = append(out, fmt.Sprintf("%s is on the list of what frontseat-enterprise may import, and is no package it could: one of an SDK, of tests, internal, or not there", dir))
 		}
 	}
 	return out
 }
 
-// Public for developers is in an SDK, what another module or
-// frontseat-enterprise needs is on one list, and everything else is
-// internal or test support.
+// Public for developers is in an SDK, and what frontseat-enterprise may
+// import is on one list; everything else is this repository's own.
 func TestEveryPublicPackageIsInAnSDKOrOnTheList(t *testing.T) {
 	var packages []goPackage
 	root := repositoryRoot(t)
@@ -208,21 +205,22 @@ func TestEveryPublicPackageIsInAnSDKOrOnTheList(t *testing.T) {
 }
 
 func TestAPublicPackageOnNoListIsFound(t *testing.T) {
-	listed := map[string]string{"server/sandbox": "the service"}
+	listed := map[string]string{"sandbox": "the service"}
 	held := []goPackage{
 		{"sdk/go", "frontseat", []string{"frontseat.go"}, nil},
 		{"sdk/go/internal/transport", "transport", []string{"transport.go"}, nil},
 		{"cli/internal/cmd", "cmd", []string{"root.go"}, nil},
-		{"server/testsupport/testbox", "testbox", []string{"testbox.go"}, nil},
-		{"server/internal/build", "build", []string{"build.go"}, nil},
+		{"local/testsupport/testbox", "testbox", []string{"testbox.go"}, nil},
+		// A package of the repository's own, which no list names.
+		{"build/daemon/build", "build", []string{"build.go"}, nil},
 		{"cli/cmd/frontseat", "main", []string{"main.go"}, nil},
 		{"specs/cmd/prepare-modules", "main", []string{"main.go"}, nil},
 		{"specs/build", "", nil, nil},
 		{"specs/compare", "compare", nil, nil},
-		{"server/sandbox", "sandbox", []string{"sandbox.go"}, nil},
+		{"sandbox", "sandbox", []string{"sandbox.go"}, nil},
 		// A fixture program, and a fixture's own internal package.
-		{"server/sandbox/testdata/service-route", "main", []string{"main.go"}, nil},
-		{"server/sandbox/testdata/app/internal/ledger", "ledger", []string{"ledger.go"}, nil},
+		{"sandbox/testdata/service-route", "main", []string{"main.go"}, nil},
+		{"sandbox/testdata/app/internal/ledger", "ledger", []string{"ledger.go"}, nil},
 	}
 	if wrong := offTheLevels(held, listed); len(wrong) != 0 {
 		t.Errorf("refused what the levels allow: %v", wrong)
@@ -231,26 +229,14 @@ func TestAPublicPackageOnNoListIsFound(t *testing.T) {
 		refused goPackage
 		says    string
 	}{
-		// The commands beneath the binary's own directory (P5-08).
-		{goPackage{"cli/cmd/frontseat/cmd", "cmd", []string{"root.go"}, nil}, "cli/cmd/frontseat/cmd is public and in no SDK"},
-		// A server package outside internal/ that no other module needs.
-		{goPackage{"server/controlplane", "controlplane", []string{"controlplane.go"}, nil}, "server/controlplane is public and in no SDK"},
-		// A driver for tests, public (P5-02).
-		{goPackage{"server/sandbox/driver/memory", "memory", []string{"memory.go"}, nil}, "server/sandbox/driver/memory is public and in no SDK"},
 		// A program that is not cmd/<binary>, though internal (P5-11).
-		{goPackage{"server/testsupport/modules/prepare", "main", []string{"main.go"}, nil}, "server/testsupport/modules/prepare is a program that is not cmd/<binary>"},
-		// A package of tests that has grown a file.
-		{goPackage{"specs/compare", "compare", []string{"helper.go"}, nil}, "specs/compare is public and in no SDK"},
-		// A doc.go that declares something is no doc alone.
-		{goPackage{"server/foo", "foo", []string{"doc.go"}, nil}, "server/foo is public and in no SDK"},
+		{goPackage{"testsupport/modules/prepare", "main", []string{"main.go"}, nil}, "testsupport/modules/prepare is a program that is not cmd/<binary>"},
 		// A library beneath testdata, which an import reaches.
-		{goPackage{"server/sandbox/testdata/lib", "lib", []string{"lib.go"}, nil}, "server/sandbox/testdata/lib is a package beneath testdata"},
+		{goPackage{"sandbox/testdata/lib", "lib", []string{"lib.go"}, nil}, "sandbox/testdata/lib is a package beneath testdata"},
 		// A program built only when asked, beside a library.
-		{goPackage{"server/foo/bar", "bar", []string{"bar.go", "gen.go"}, []string{"main"}}, "server/foo/bar declares the packages bar and main"},
+		{goPackage{"build/foo/bar", "bar", []string{"bar.go", "gen.go"}, []string{"main"}}, "build/foo/bar declares the packages bar and main"},
 		// The same, in a fixture.
-		{goPackage{"server/sandbox/testdata/route", "main", []string{"main.go", "lib.go"}, []string{"route"}}, "server/sandbox/testdata/route declares the packages main and route"},
-		// What the SDK's directory spells, beside it.
-		{goPackage{"sdk/gox", "gox", []string{"x.go"}, nil}, "sdk/gox is public and in no SDK"},
+		{goPackage{"sandbox/testdata/route", "main", []string{"main.go", "lib.go"}, []string{"route"}}, "sandbox/testdata/route declares the packages main and route"},
 	} {
 		wrong := offTheLevels(append(slices.Clone(held), c.refused), listed)
 		if len(wrong) != 1 || !strings.HasPrefix(wrong[0], c.says) {
@@ -258,20 +244,22 @@ func TestAPublicPackageOnNoListIsFound(t *testing.T) {
 		}
 	}
 	// An entry of the list that is no public package.
-	stale := map[string]string{"server/sandbox": "the service", "server/sandbox/driver/e2b": "gone"}
-	if wrong := offTheLevels(held, stale); len(wrong) != 1 || !strings.HasPrefix(wrong[0], "server/sandbox/driver/e2b is on the list") {
+	stale := map[string]string{"sandbox": "the service", "sandbox/driver/e2b": "gone"}
+	if wrong := offTheLevels(held, stale); len(wrong) != 1 || !strings.HasPrefix(wrong[0], "sandbox/driver/e2b is on the list") {
 		t.Errorf("a stale entry: %v", wrong)
 	}
-	internal := map[string]string{"server/sandbox": "the service", "cli/internal/cmd": "listed"}
-	if wrong := offTheLevels(held, internal); len(wrong) != 1 || !strings.HasPrefix(wrong[0], "cli/internal/cmd is on the list") {
-		t.Errorf("an internal package listed: %v", wrong)
+	for _, none := range []string{"cli/internal/cmd", "sdk/go", "local/testsupport/testbox", "specs/build"} {
+		listing := map[string]string{"sandbox": "the service", none: "listed"}
+		if wrong := offTheLevels(held, listing); len(wrong) != 1 || !strings.HasPrefix(wrong[0], none+" is on the list") {
+			t.Errorf("%s listed: %v", none, wrong)
+		}
 	}
 }
 
 // generatedAPIs are where the API's Go and the plugin contract's are
 // generated: packages named for their version, which a file names for
 // their service (buildv1, pluginv1).
-var generatedAPIs = []string{"sdk/go/api", "server/internal/pluginapi", "server/internal/runnerapi", "server/internal/sourceapi", "server/sandbox/api"}
+var generatedAPIs = []string{"sdk/go/api", "build/engine/pluginapi", "common/runner/runnerapi", "common/told/sourceapi", "sandbox/api"}
 
 // version is how a package named for its version is named: v1, v2alpha1.
 var version = regexp.MustCompile(`^(v[0-9]+)((alpha|beta)[0-9]*)?$`)
@@ -280,11 +268,11 @@ var version = regexp.MustCompile(`^(v[0-9]+)((alpha|beta)[0-9]*)?$`)
 // where it is written, and the one name it is given there: beside
 // os/exec, in a package that declares run, in a package named git.
 var aliases = map[string]string{
-	"server/internal/exec":     "execport",
-	"server/internal/exec/run": "runexec",
-	"server/git":               "rungit",
-	"server/internal/source":   "sourced",
-	"server/internal/told":     "tell",
+	"build/engine/exec":     "execport",
+	"build/engine/exec/run": "runexec",
+	"common/git":            "rungit",
+	"workspace/box/source":  "sourced",
+	"common/told":           "tell",
 }
 
 // generatedFile is whether a file is one a template of the contracts
@@ -414,7 +402,7 @@ func topLevel(file *ast.File) map[string]bool {
 }
 
 func TestAPackageImportedUnderAnotherNameIsFound(t *testing.T) {
-	names := map[string]string{"server/git": "git", "server/internal/exec": "exec", "server/internal/exec/run": "run", "server/testsupport/box": "box", "server/other/exec": "exec", "server/yaml": "yaml"}
+	names := map[string]string{"common/git": "git", "build/engine/exec": "exec", "build/engine/exec/run": "run", "testsupport/box": "box", "server/other/exec": "exec", "server/yaml": "yaml"}
 	nameOf := func(rel string) string {
 		if name, ok := names[rel]; ok {
 			return name
@@ -428,26 +416,26 @@ func TestAPackageImportedUnderAnotherNameIsFound(t *testing.T) {
 	}{
 		"its own name":                             {`package a; import "M/sdk/go/entity"`, nil, false},
 		"the generated API, for its service":       {`package a; import buildv1 "M/sdk/go/api/frontseat/build/v1alpha1"`, nil, false},
-		"the plugin contract, for its service":     {`package a; import pluginv1 "M/server/internal/pluginapi/frontseat/plugin/v1alpha1"`, nil, false},
+		"the plugin contract, for its service":     {`package a; import pluginv1 "M/build/engine/pluginapi/frontseat/plugin/v1alpha1"`, nil, false},
 		"a generated client, by its own name":      {`package a; import "M/sdk/go/api/frontseat/build/v1alpha1/buildv1alpha1connect"`, nil, false},
-		"beside another of its name":               {`package fix; import ("os/exec"; execport "M/server/internal/exec")`, nil, false},
-		"in a package of its name":                 {`package git; import rungit "M/server/git"`, nil, false},
-		"where the package declares its name":      {`package build; import runexec "M/server/internal/exec/run"`, []string{"run"}, false},
-		"linked for what it does":                  {`package a; import _ "M/server/internal/build"`, nil, false},
+		"beside another of its name":               {`package fix; import ("os/exec"; execport "M/build/engine/exec")`, nil, false},
+		"in a package of its name":                 {`package git; import rungit "M/common/git"`, nil, false},
+		"where the package declares its name":      {`package build; import runexec "M/build/engine/exec/run"`, []string{"run"}, false},
+		"linked for what it does":                  {`package a; import _ "M/build/daemon/build"`, nil, false},
 		"under another name":                       {`package a; import entityref "M/sdk/go/entity"`, nil, true},
 		"under its own name, said again":           {`package a; import entity "M/sdk/go/entity"`, nil, true},
 		"into the file's scope":                    {`package a; import . "M/sdk/go/entity"`, nil, true},
-		"test support under its callers' name":     {`package a; import testbox "M/server/testsupport/box"`, nil, true},
+		"test support under its callers' name":     {`package a; import testbox "M/testsupport/box"`, nil, true},
 		"the generated API by its version":         {`package a; import v1alpha1 "M/sdk/go/api/frontseat/build/v1alpha1"`, nil, true},
 		"the generated API by another name":        {`package a; import build "M/sdk/go/api/frontseat/build/v1alpha1"`, nil, true},
-		"in the tests of a package of its name":    {`package git_test; import rungit "M/server/git"`, nil, true},
-		"where another package declares it":        {`package build_test; import runexec "M/server/internal/exec/run"`, []string{"other"}, true},
-		"beside another of a different name":       {`package fix; import ("os/exec"; execport "M/server/internal/exec/run")`, nil, true},
-		"two of one name, both renamed":            {`package fix; import (x "M/server/internal/exec"; y "M/server/other/exec")`, nil, true},
-		"beside a blank import of its name":        {`package a; import (_ "M/server/internal/build"; otherbuild "M/server/other/build")`, nil, true},
-		"beside an external one renamed to it":     {`package a; import (git "github.com/go-git/go-git/v5"; rungit "M/server/git")`, nil, true},
+		"in the tests of a package of its name":    {`package git_test; import rungit "M/common/git"`, nil, true},
+		"where another package declares it":        {`package build_test; import runexec "M/build/engine/exec/run"`, []string{"other"}, true},
+		"beside another of a different name":       {`package fix; import ("os/exec"; execport "M/build/engine/exec/run")`, nil, true},
+		"two of one name, both renamed":            {`package fix; import (x "M/build/engine/exec"; y "M/server/other/exec")`, nil, true},
+		"beside a blank import of its name":        {`package a; import (_ "M/build/daemon/build"; otherbuild "M/server/other/build")`, nil, true},
+		"beside an external one renamed to it":     {`package a; import (git "github.com/go-git/go-git/v5"; rungit "M/common/git")`, nil, true},
 		"beside an external one of its name":       {`package a; import ("gopkg.in/yaml.v3"; yamlnode "M/server/yaml")`, nil, true},
-		"forced, under a name of its own choosing": {`package fix; import ("os/exec"; buildexec "M/server/internal/exec")`, nil, true},
+		"forced, under a name of its own choosing": {`package fix; import ("os/exec"; buildexec "M/build/engine/exec")`, nil, true},
 		"forced, a package given no name":          {`package fix; import ("os/exec"; otherexec "M/server/other/exec")`, nil, true},
 		"the generated API of a later version":     {`package a; import buildv2 "M/sdk/go/api/frontseat/build/v2beta1"`, nil, false},
 		"a generated directory that is no version": {`package a; import "M/sdk/go/api/frontseat/build/vendor"`, nil, false},
@@ -474,10 +462,10 @@ func TestOnlyGeneratedFilesAreLeftUnnamed(t *testing.T) {
 	for rel, generated := range map[string]bool{
 		"sdk/go/api/frontseat/build/v1alpha1/run.pb.go":                           true,
 		"sdk/go/api/frontseat/build/v1alpha1/buildv1alpha1connect/run.connect.go": true,
-		"server/internal/pluginapi/frontseat/plugin/v1alpha1/plugin.pb.go":        true,
+		"build/engine/pluginapi/frontseat/plugin/v1alpha1/plugin.pb.go":           true,
 		"sdk/go/api/frontseat/build/v1alpha1/helper.go":                           false,
-		"server/internal/build/hand.pb.go":                                        false,
-		"server/internal/build/runs.go":                                           false,
+		"build/daemon/build/hand.pb.go":                                           false,
+		"build/daemon/build/runs.go":                                              false,
 	} {
 		if generatedFile(rel) != generated {
 			t.Errorf("%s: generated %v, want %v", rel, !generated, generated)

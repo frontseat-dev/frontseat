@@ -5,7 +5,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/frontseat-dev/frontseat/server/testsupport/testfiles"
+	"github.com/frontseat-dev/frontseat/testsupport/testfiles"
 )
 
 // What is committed is held to what is generated file by file: one that

@@ -9,7 +9,7 @@
 #     the confiner of this checkout's form at /bb, and advertise the
 #     name GRID_WORKERS (frontseat-job.yml; frontseat-enterprise, a
 #     tenant's spec.build.frontseat). A change to the confiner's source
-#     (server/internal/confine) reaches the workers before it reaches main;
+#     (common/confine) reaches the workers before it reaches main;
 #   - a runner that may write /var/lib/frontseat, where the daemon's lock is;
 #   - a runner group that admits this repository, which is public.
 #

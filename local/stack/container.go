@@ -9,7 +9,7 @@ import (
 	"slices"
 	"strconv"
 
-	"github.com/frontseat-dev/frontseat/local/ports"
+	"github.com/frontseat-dev/frontseat/core/ports"
 )
 
 // seccomp is the seccomp profile the stack's container runs under:
@@ -34,7 +34,7 @@ type Container struct {
 }
 
 // published are the ports of the container published on this machine's
-// loopback, each where local/ports says.
+// loopback, each where core/ports says.
 var published = []int{ports.ControlPlane, ports.Grid, ports.Assets, ports.OpenShell}
 
 // Arguments are what `docker run` is told to start the container, the

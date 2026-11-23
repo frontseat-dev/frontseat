@@ -30,14 +30,14 @@ import (
 // source API refuses, the control plane says on in the workspace API's
 // domain (controlplane.relayed): its reasons are named in both.
 var refusing = map[string][]string{
-	"server/internal/build":           {"frontseat.build.v1alpha1"},
-	"server/internal/wire":            {"frontseat.build.v1alpha1"},
-	"server/internal/engine/evaluate": {"frontseat.build.v1alpha1"},
-	"server/internal/controlplane":    {"frontseat.workspace.v1alpha1"},
-	"server/internal/backstage":       {"frontseat.workspace.v1alpha1"},
-	"server/internal/source":          {"frontseat.source.v1alpha1", "frontseat.workspace.v1alpha1"},
-	"server/sandbox":                  {"frontseat.sandbox.v1alpha1"},
-	"server/internal/refusal":         nil,
+	"build/daemon/build":            {"frontseat.build.v1alpha1"},
+	"build/engine/wire":             {"frontseat.build.v1alpha1"},
+	"build/engine/engine/evaluate":  {"frontseat.build.v1alpha1"},
+	"workspace/server/controlplane": {"frontseat.workspace.v1alpha1"},
+	"workspace/server/backstage":    {"frontseat.workspace.v1alpha1"},
+	"workspace/box/source":          {"frontseat.source.v1alpha1", "frontseat.workspace.v1alpha1"},
+	"sandbox":                       {"frontseat.sandbox.v1alpha1"},
+	"core/refusal":                  nil,
 }
 
 // domainOf is the proto packages of each domain refusal names, for a
@@ -203,7 +203,7 @@ func reasonsGiven(sources map[string][]byte) ([]givenReason, []string) {
 		// domainNamed is the domain an expression names as refusal's.
 		domainNamed := func(e ast.Expr) string {
 			if sel, ok := e.(*ast.SelectorExpr); ok {
-				if pkg, ok := sel.X.(*ast.Ident); ok && f.imported[pkg.Name] == "server/internal/refusal" {
+				if pkg, ok := sel.X.(*ast.Ident); ok && f.imported[pkg.Name] == "core/refusal" {
 					return sel.Sel.Name
 				}
 			}
@@ -223,7 +223,7 @@ func reasonsGiven(sources map[string][]byte) ([]givenReason, []string) {
 				}
 				if i, ok := takes[callee]; ok && i < len(n.Args) {
 					domain := ""
-					if callee == "server/internal/refusal.New" {
+					if callee == "core/refusal.New" {
 						domain = domainNamed(n.Args[0])
 					}
 					read(n.Args[i], domain, codeNamed(n.Args))
@@ -556,12 +556,16 @@ func contractsOf(t *testing.T, dir string) map[string]string {
 	return out
 }
 
+// serverParts are the directories that hold what the server programs
+// are made of.
+var serverParts = []string{"core", "common", "sandbox", "build", "grid", "workspace", "cmd"}
+
 // serverSources are the server's Go files that are not tests, test
 // support or fixtures, by their path from the repository's root.
 func serverSources(t *testing.T, root string) map[string][]byte {
 	t.Helper()
 	sources := map[string][]byte{}
-	err := filepath.WalkDir(filepath.Join(root, "server"), func(path string, d os.DirEntry, err error) error {
+	walk := func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -575,7 +579,15 @@ func serverSources(t *testing.T, root string) map[string][]byte {
 		rel, _ := filepath.Rel(root, path)
 		sources[filepath.ToSlash(rel)] = raw
 		return err
-	})
+	}
+	// The server's parts: every directory of the repository's that holds
+	// what a server program is made of.
+	var err error
+	for _, part := range serverParts {
+		if err = filepath.WalkDir(filepath.Join(root, part), walk); err != nil {
+			break
+		}
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -616,7 +628,7 @@ func TestWhatIsNotServedIsRefusedAsNotServed(t *testing.T) {
 // either.
 func TestAReasonOfWhatIsNotServedNamedOtherwiseIsFound(t *testing.T) {
 	source := func(call, literal string) map[string][]byte {
-		return map[string][]byte{"server/internal/build/build.go": []byte(`package build
+		return map[string][]byte{"build/daemon/build/build.go": []byte(`package build
 import connect "connectrpc.com/connect/v2"
 type refused struct {
 	code   connect.Code
@@ -697,7 +709,7 @@ service ThingService {
   rpc WaitThing(WaitThingRequest) returns (WaitThingResponse);
 }
 `})
-		sources := map[string][]byte{"server/internal/build/things.go": []byte(`package build
+		sources := map[string][]byte{"build/daemon/build/things.go": []byte(`package build
 import (
 	"context"
 	thingv1 "` + sdkPackage("fixture.called.v1") + `"
@@ -733,7 +745,7 @@ func TestAReasonNoContractNamesIsFound(t *testing.T) {
 	source := `package build
 import (
 	"connectrpc.com/connect/v2"
-	"github.com/frontseat-dev/frontseat/server/internal/refusal"
+	"github.com/frontseat-dev/frontseat/core/refusal"
 )
 const busy = "THING_BUSY"
 type refused struct {
@@ -757,8 +769,8 @@ const PageTokenInvalid = "PAGE_TOKEN_INVALID"
 func New(domain string, code int, reason, message string) error { return nil }
 `
 	sources := map[string][]byte{
-		"server/internal/build/build.go":     []byte(source),
-		"server/internal/refusal/refusal.go": []byte(refusal),
+		"build/daemon/build/build.go": []byte(source),
+		"core/refusal/refusal.go":     []byte(refusal),
 	}
 	given, unread := reasonsGiven(sources)
 	if len(unread) != 0 || len(given) != 5 {
@@ -783,10 +795,10 @@ func New(domain string, code int, reason, message string) error { return nil }
 		}
 	}
 	computed := strings.Replace(source, `"THING_NOT_FOUND"`, `strings.ToUpper("thing_not_found")`, 1)
-	if _, unread := reasonsGiven(map[string][]byte{"server/internal/build/build.go": []byte(computed), "server/internal/refusal/refusal.go": []byte(refusal)}); len(unread) != 1 {
+	if _, unread := reasonsGiven(map[string][]byte{"build/daemon/build/build.go": []byte(computed), "core/refusal/refusal.go": []byte(refusal)}); len(unread) != 1 {
 		t.Errorf("a reason that cannot be read is not said: %v", unread)
 	}
-	elsewhere := map[string][]byte{"server/internal/other/other.go": []byte(strings.Replace(source, "package build", "package other", 1)), "server/internal/refusal/refusal.go": []byte(refusal)}
+	elsewhere := map[string][]byte{"server/internal/other/other.go": []byte(strings.Replace(source, "package build", "package other", 1)), "core/refusal/refusal.go": []byte(refusal)}
 	if _, unread := reasonsGiven(elsewhere); len(unread) == 0 {
 		t.Error("a reason given by a package that is not known to refuse by name is not said")
 	}

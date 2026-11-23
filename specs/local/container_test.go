@@ -10,13 +10,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/frontseat-dev/frontseat/core/ports"
 	"github.com/frontseat-dev/frontseat/local"
 	"github.com/frontseat-dev/frontseat/local/box"
-	"github.com/frontseat-dev/frontseat/local/ports"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testbox"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testfiles"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testforge"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testrequired"
+	"github.com/frontseat-dev/frontseat/local/testsupport/testbox"
+	"github.com/frontseat-dev/frontseat/testsupport/testfiles"
+	"github.com/frontseat-dev/frontseat/testsupport/testforge"
+	"github.com/frontseat-dev/frontseat/testsupport/testrequired"
 )
 
 // The local stack boots as one container of this checkout's image,

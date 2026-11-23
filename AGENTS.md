@@ -5,8 +5,10 @@ builds it. These are the rules every change keeps, each with what holds
 it. A rule marked *target* is where the code is going, not where it is;
 the change that brings the code there also turns on what holds it.
 
-`server/`, `local/`, `specs/` and `plugins/` (which covers the plugin
-SDK and its testkit too) each have an `AGENTS.md` of the mistakes made
+`build/` (which covers every part a server program is made of: `core/`,
+`common/`, `sandbox/`, `grid/`, `workspace/` and `cmd/` too), `local/`,
+`specs/` and `plugins/` (which covers the plugin SDK and its testkit
+too) each have an `AGENTS.md` of the mistakes made
 there and the check that stops each. Read the one of the part you change
 before you change it; a new mistake is added there, with its check, in
 the change that fixes it.
@@ -112,7 +114,7 @@ the change that fixes it.
   asked over https alone, and the SDK sends a token in clear to none
   (`bearer.Private`). No command takes a server by a flag.
   Inside a workspace's sandbox, which the command line knows by the
-  sandbox's lock its daemon holds (`Lock` in `local/ports`), a command asks
+  sandbox's lock its daemon holds (`Lock` in `core/ports`), a command asks
   that daemon's build API on the loopback and no control plane, and
   every `workspace` command and `--workspace` is refused by name.
   `frontseat --help` says so. Held by:
@@ -143,7 +145,7 @@ the change that fixes it.
   `frontseat-local --state`, `frontseat-runner --state`, and the command
   line's `$XDG_CONFIG_HOME/frontseat` (else `~/.config/frontseat`) on
   every system.
-- **A port is said once**, in `local/ports`: the daemon's defaults, the
+- **A port is said once**, in `core/ports`: the daemon's defaults, the
   control plane, the command line and the test support read it there;
   the stack's image's files (`local/image`) and `local/box.Dockerfile`,
   which cannot, are held to it by `local/ports_test.go`.
@@ -208,7 +210,7 @@ the change that fixes it.
   runner's socket: there Landlock alone refuses it, on 7.1 and later. The pool continues a runner an
   action stopped. An action that fetches is sent to the slots whose
   policy lets them reach the hosts named (`network=egress`); every other
-  reaches nothing. `frontseat-action`, built of `server/internal/confine`
+  reaches nothing. `frontseat-action`, built of `common/confine`
   alone so that its form is what it does, sets the action up, confines
   it and runs it. Held by: `TestTheConfinerIsConfineAlone`,
   `TestAnActionWritesItsOwnRootAndNothingAboveIt`,
@@ -223,7 +225,7 @@ the change that fixes it.
   `TestAnActionThatReachesTheNetworkIsSentWhereItMay`,
   `TestTheInstallOfAToolIsSentWhereTheNetworkIsReached`, the spec
   `TestAnActionCannotReachItsRunnerNorWriteItsSlot` and the pool's tests
-  (`server/internal/runner/pool_test.go`). Not held: Landlock's scoping of
+  (`grid/runner/pool_test.go`). Not held: Landlock's scoping of
   signals and abstract sockets holds in a plain container and was
   measured not to inside an OpenShell sandbox, so an action can signal
   its slot's runner (one stopped is continued, one killed is made anew,
@@ -260,9 +262,11 @@ the change that fixes it.
 - A Component owns the projects beneath its directory; nothing else owns
   projects. One directory per Component; a Component inside another's
   directory is only where it says `subcomponentOf`. A directory at the
-  top is one Component (`api`, `cli`, `local`, `server`, `specs`) or a
-  directory of Components of one kind: `plugins/` and `sdk/`; `docs/`
-  holds the TechDocs site and is no Component.
+  top is one Component (`api`, `cli`, `core`, `grid`, `local`,
+  `sandbox`, `specs`, `testsupport`) or a directory of Components:
+  `plugins/`, `sdk/`, `common/`, `build/`, `workspace/` and `cmd/`,
+  where every program is, each a Component of its own named as the
+  program; `docs/` holds the TechDocs site and is no Component.
 - `dependsOn` is inferred and never written by hand, except the Resources a
   component's tests need. Each API has its own catalog file beside its
   proto module (`api/<name>-proto/catalog-info.yaml`), as each plugin has
@@ -274,7 +278,7 @@ the change that fixes it.
   (`spec.frontseat.service`), each Component that consumes it is given
   that provider as a service for its tests; an API with more than one
   provider that has one is refused
-  (`server/internal/engine/evaluate/services.go`).
+  (`build/engine/engine/evaluate/services.go`).
 - Every catalog file is listed by the root `Location`, which Frontseat never
   follows: it finds catalog files by name. Every entity a catalog file names
   exists. Held by: `TestThisRepositorysRootLocationListsEveryCatalogFile`
@@ -332,7 +336,7 @@ the change that fixes it.
   commit, and never one of a commit no branch of the remote has, by
   the workspace's own git and what its sandbox was told. A push goes to
   the remote git was given and sends and runs nothing the repository's
-  own settings add (`server/git`). A release that could not send a tag
+  own settings add (`common/git`). A release that could not send a tag
   keeps its tags and ends unpushed, saying which and why, and
   `frontseat ship` exits 1; made again at the same commit it sends what
   was not. Held by:
@@ -351,8 +355,8 @@ the change that fixes it.
   a forge's command line or a registry's client. Nothing of Frontseat's
   speaks to a forge or a registry. No build runs it. A release runs it
   once every tag is pushed, where the daemon is
-  (`server/internal/exec/publish`, beside a fix in
-  `server/internal/exec/here`) and never on the grid, with the tools the
+  (`build/engine/exec/publish`, beside a fix in
+  `build/engine/exec/here`) and never on the grid, with the tools the
   repository pins, for each unit it tagged then: the unit that owns the
   action, or, where no entity owns it, each unit of its repository. It
   is given the unit's artifacts, brought from the grid, with
@@ -539,14 +543,25 @@ the change that fixes it.
 
 ## Modules and visibility
 
-- There are five Go modules: `sdk/go` (the Go SDK), `local` (the local
-  stack and the box), `server` (every server program, what it is made
-  of, and the test support), `cli` (the command line) and `specs`. Each
-  requires only modules before it in that list, go.work uses and
-  replaces each, and no go.mod replaces anything. A Component is a
-  catalog entity, not a module: the daemon, the control plane, the
-  sandbox service and the runner are packages of the one module
-  `server`. A new module is a change to this rule. Held by:
+- The repository is many Go modules, built from the bottom up, so that
+  a change rebuilds what is above it and nothing beside it (a Go module
+  is what Frontseat's Go plugin builds as one): `sdk/go` (the Go SDK);
+  `testsupport` (what a test of any part is helped by); `core` (what
+  every server program is built on); `common/<name>`, what some parts
+  use and others do not, each a module of its own (`confine`, `git`,
+  `vcs`, `record`, `told`, `runner`); `local` (the local stack and the
+  box); `sandbox`; `build/engine` and `build/daemon`; `grid` (the
+  runner); `workspace/box` (what fills a workspace) and
+  `workspace/server` (the control plane); a module for each program,
+  `cmd/<binary>`, a thin `main` over the part it runs; `cli` (the
+  command line) and `specs`. Each requires only modules beneath it in
+  that order, which is written once (`moduleOrder`, in
+  `specs/architecture/rules_test.go`); go.work uses and replaces each,
+  and no go.mod replaces anything. What a module may import of another
+  is what its go.mod requires, which the compiler holds; the rules of
+  each package are beside that, and finer (`policies`). A module added
+  goes where what it requires is beneath it. Held by:
+  `TestAModuleRequiresOnlyWhatIsBeneathIt`,
   `TestEveryGoModuleIsInTheWorkspaceAndValidation`,
   `TestLocalModuleRequirementsAreAcyclic`, and the catalog's check for a
   cycle.
@@ -562,7 +577,7 @@ the change that fixes it.
   the Rust plugin SDK (`sdk/plugin`) and its testkit
   (`sdk/plugin-test`). The sandbox API has no client in
   the SDK: it is served to no one outside, and its Go is generated for
-  the server alone (`server/sandbox/api`). An SDK depends on nothing of
+  the server alone (`sandbox/api`). An SDK depends on nothing of
   this repository but itself; what a program adds to how a client
   reaches a server (its telemetry) it passes as an option. Held by:
   `TestTheGoSDKRequiresNothingOfThisRepository`, and for the plugin SDK
@@ -576,29 +591,30 @@ the change that fixes it.
   dependency of tests alone
   (`TestRustCratesUseTheSDKAndNeverAnotherPlugin`, its controls in
   `TestTheTestkitIsADependencyOfTestsAlone`).
-- Everything else of a module is under its `<module>/internal/`, but
-  what another module or frontseat-enterprise needs, each on one list
-  with why (`public`, in `specs/architecture/visibility_test.go`): the
-  sandbox service, its generated API, its driver port and the OpenShell
-  driver (`server/sandbox`, `server/sandbox/api/...`, `server/sandbox/driver`,
-  `server/sandbox/driver/openshell`), which frontseat-enterprise embeds
-  and composes around and never copies; git and telemetry (`server/git`,
-  `server/telemetry`), which the command line runs too (and with git
-  the confiner's one way to end a process group, `confine.SignalGroup`,
-  which a sandbox's refusal of a signal to a group does not stop); and the local
-  stack (`local`, `local/ports`, `local/box`, `local/stack`), which the
-  stack's program, the server, the command line and the test support
-  read. Beside them are a binary's `main` (`cmd/<binary>`), a package of
-  tests alone, and the test support (`server/testsupport/<name>`), which
-  the import rules hold to tests. A directory is one package, and a
-  fixture beneath `testdata` is a program or internal. Held by:
+- Everything else is this repository's own. Its packages have paths
+  that can be imported, since Go's `internal` directories reach across
+  no module and the repository is many: what holds who imports one is
+  its module's go.mod, the order of the modules and the rules of each
+  package, and nothing outside the repository is to rely on it. What
+  frontseat-enterprise may import is on one list with why (`public`, in
+  `specs/architecture/visibility_test.go`): the sandbox service, its
+  generated API, its driver port and the OpenShell driver (`sandbox`,
+  `sandbox/api/...`, `sandbox/driver`, `sandbox/driver/openshell`),
+  which it embeds and composes around and never copies; and what those
+  show in what they export is of an SDK or on that list too
+  (`TestPublicFeatureSignaturesHideImplementationTypes`). A binary's
+  `main` is `cmd/<binary>`; test support is `testsupport/<name>`, at
+  the top or beside the module it starts (`local/testsupport`,
+  `sandbox/testsupport`), which the import rules hold to tests. A
+  directory is one package, and a fixture beneath `testdata` is a
+  program or internal. Held by:
   `TestEveryPublicPackageIsInAnSDKOrOnTheList`.
 - Generated code is in the Component that ships it, never beside the
   contract, and committed: the Go SDK's (`sdk/go/api`), the server's of
-  the plugin contract (`server/internal/pluginapi`), of what a runner is
-  told (`server/internal/runnerapi`), of the daemon's source API
-  (`server/internal/sourceapi`) and of the sandbox API, public for
-  frontseat-enterprise (`server/sandbox/api`), each from a Buf template of its own
+  the plugin contract (`build/engine/pluginapi`), of what a runner is
+  told (`common/runner/runnerapi`), of the daemon's source API
+  (`common/told/sourceapi`) and of the sandbox API, public for
+  frontseat-enterprise (`sandbox/api`), each from a Buf template of its own
   (`api/buf.gen.*.yaml`), and the plugin SDK's Rust
   (`sdk/plugin/src/gen`, from `sdk/plugin/generate`). `mise run protos`
   writes it; `mise run check` fails where it is not what its generator
@@ -607,8 +623,8 @@ the change that fixes it.
   committed copies to it; a Component written into says so in its
   catalog file (`spec.frontseat.generated`).
 - A port is an interface package; its implementations are private
-  (`server/internal/vcs` and its
-  `server/internal/vcs/git`, which `server/internal/vcs/chosen` alone
+  (`common/vcs` and its
+  `common/vcs/git`, which `common/vcs/chosen` alone
   names, for the program that composes one; the sandbox `driver` and
   the OpenShell driver; the command line's `cli/internal/vcs` and its
   `cli/internal/vcs/git`). The OpenShell driver is public, for
@@ -638,7 +654,7 @@ the change that fixes it.
   (`sourcetest`, `reapitest`, `plantest`, `toolstest`), as Go's
   `httptest`; test support shared across packages, and what starts a
   daemon, a control plane or a sandbox driver for a test (`buildtest`,
-  `controlplanetest`, `drivertest`), is `server/testsupport/<name>`,
+  `controlplanetest`, `drivertest`), is `testsupport/<name>`,
   named what its callers call it (`testgrid`, `testbox`, `testpins`).
   Test support is never imported by production code.
 - A package is imported by its own name. An alias is written only where
@@ -651,13 +667,13 @@ the change that fixes it.
   packages are named for their service and version (`buildv1`,
   `pluginv1`). Held by: `TestARepositoryPackageIsImportedByItsOwnName`,
   which leaves out only the generated `*.pb.go` and `*.connect.go`.
-- A binary is `cmd/<binary>` of its module (`server/cmd/frontseatd`,
+- A binary is `cmd/<binary>` of its module (`cmd/frontseatd`,
   `specs/cmd/gate`); a `main` anywhere else is refused by
   `TestEveryPublicPackageIsInAnSDKOrOnTheList`. *Target*: each is a thin
   `main` over a package of its module's, as `cli/cmd/frontseat` is over
-  `cli/internal/cmd` and `server/cmd/frontseatd` over
-  `server/internal/daemon`; `specs/cmd/gate`, `specs/cmd/prepare-modules`
-  and `server/cmd/frontseat-local` are not yet, and nothing checks it.
+  `cli/internal/cmd` and `cmd/frontseatd` over
+  `build/daemon/daemon`; `specs/cmd/gate`, `specs/cmd/prepare-modules`
+  and `cmd/frontseat-local` are not yet, and nothing checks it.
 - Every path of this repository a file names is there
   (`TestEveryPathAFileNamesIsThere`); nothing is reserved, as a package
   that declares nothing or a directory of a README alone
@@ -689,7 +705,7 @@ the change that fixes it.
   `OUTPUT_ONLY`.
 - A `List` pages: it takes `page_size` and `page_token` and answers its
   list and `next_page_token`, empty on the last page
-  (`server/internal/page`), whose `All` is a server's one reader of every
+  (`core/page`), whose `All` is a server's one reader of every
   page of another's List; the Go SDK hands every list as an iterator
   that asks for a page at a time (`Collect` gathers one). A
   `Create` that a retry would make twice takes a `request_id`, and the
@@ -705,7 +721,7 @@ the change that fixes it.
   `Duration`.
 - Errors carry a canonical code and `ErrorInfo{reason, domain}`, a domain
   per service; something refused by name has a reason that says so
-  (`server/internal/refusal`), and every reason a server gives is named
+  (`core/refusal`), and every reason a server gives is named
   in the contract of the call that gives it, which a client reads it by
   (`frontseat.Reason`), never by the message. Held by:
   `TestEveryReasonAServerGivesIsNamedInItsContract`, which holds a
@@ -717,7 +733,7 @@ the change that fixes it.
   is its comment, its service's, its file's header, and the Errors of
   a call it says it refuses as ("as for PlanRelease"). Not held: a
   reason given through a value or a method several types have, or by
-  what a handler calls in another package (`server/internal/wire`,
+  what a handler calls in another package (`build/engine/wire`,
   `engine/evaluate`, `backstage`), each held to its domain and to no
   call; and one lost where a service says on what another refused.
 - A call or a field may be served by an enterprise server alone, or only
@@ -735,7 +751,7 @@ the change that fixes it.
   (`frontseat.runner.v1alpha1`), is no API and is generated for the
   server alone; so is what one part of the server serves another alone,
   the daemon's source API (`frontseat.source.v1alpha1`), on a port of
-  its own (`Source` in `local/ports`) that no route of the control plane's
+  its own (`Source` in `core/ports`) that no route of the control plane's
   leads to.
 - A change to the plugin contract raises `ABI` in the SDK and the host's
   range in the same change; the conformance fixtures name the number.
@@ -761,7 +777,7 @@ the change that fixes it.
   what the control plane tells a sandbox; where a remote is reached, git
   fetches from and pushes to the address it was given alone, and a
   repository's own settings that would reach another address, or reach it
-  otherwise than the sandbox says, are refused by name (`server/git`).
+  otherwise than the sandbox says, are refused by name (`common/git`).
   Each claim is proven by a fixture that plants the thing beside git asked
   plainly, which follows it; the package doc lists what is not held.
 - Whatever a caller, a store or a file names is checked before it reaches
@@ -776,7 +792,7 @@ the change that fixes it.
 - **A grid that asks who a daemon is, is told by a token the daemon reads
   from a file** (owner, 2026-11-16): `frontseatd --grid-token FILE`, with
   `--grid-ca FILE`, for the grid and its asset service alike
-  (`server/internal/exec/access`). A token is told only to a grid
+  (`build/engine/exec/access`). A token is told only to a grid
   known by authorities the daemon was named: the system's (`--grid-tls`)
   are chosen by the environment, and a variable would choose who is told
   the token. The token is a JSON Web Token that admits its bearer to the
@@ -818,7 +834,7 @@ the change that fixes it.
   refused at its start; a server that asks for a certificate of the
   daemon's and closes without an alert is waited on as not up; and Go's
   GODEBUG settings shape the dial's TLS, though not its authorities
-  (`server/internal/exec/access`).
+  (`build/engine/exec/access`).
   Not served: a token told to a workspace's sandbox, which is still told
   of an unauthenticated grid alone; a certificate of the daemon's own; a
   server name other than the address's; a token the daemon renews itself;
@@ -838,7 +854,7 @@ the change that fixes it.
   budget of time and allocations, held by `mise run check`: its
   allocations wherever its test runs, its time only by the gate's
   budget command, which runs nothing beside it
-  (`server/testsupport/testbudget`).
+  (`testsupport/testbudget`).
 - This file, the `AGENTS.md` of the part changed, `README.md` and
   `CONTRIBUTING.md` say what is now true.
 - Someone who did not write it has reviewed it, and nothing they found is
@@ -874,35 +890,35 @@ mise run docs:serve       # serve the TechDocs site on http://localhost:8000
 | `sdk/go/enum` | A value of the API's enums by its own name (`Name`: `BUILD_FAILURE`) or in words (`Word`: `own change`): the SDK's, the command line's and the server's |
 | `sdk/go/bearer` | A token presented to its origin alone, following no redirect, and never in clear to another machine (`Private`, `ErrInClear`), and what an origin is (`Of`): the SDK's and the server's |
 | `sdk/plugin` | The plugin SDK: contract types and their constructors, repository access and paths, strict readers, a refusal (`Error`) and its decoder, findings read from what a check printed; `examples/make.rs`, the plugin an author starts from |
-| `server/git` | Git, run hardened over a checkout, and remotes read |
-| `server/telemetry` | OpenTelemetry providers, propagation, logs, measurements |
-| `server/internal/model`, `.../wire` | Build labels, coordinates; their protobuf conversion; the one diagnostic (`model.Mistake`: repository, file, line, rule, reason, message, help) and the one way it is sent (`wire.Failure`) |
-| `server/internal/pluginhost` | Wasm calls, read tracking, plugin-answer validation |
-| `server/internal/httpserver` | A server command's HTTP listener and request lifetime |
-| `server/internal/image` | An image's reference, read by Docker's own parser, and what the container runtime says an image is started with (`Started`) |
-| `server/internal/testservice` | What a service for tests is held to, for the daemon and the runner |
-| `server/internal/confine` | How a worker starts and confines an action (`frontseat-action`) |
-| `server/internal/exec/here` | A command made ready to run where the daemon is, with the grid's tools: a fix, and what publishes |
-| `server/internal/plain` | Text and names that every reader reads alike: the one reader of a name from outside, a host (`Hostname`), its origin (`OriginOf`, `Ruled`), a path, a program, a parameter, a secret |
-| `server/internal/records` | A directory of records, each written whole and read strictly: the control plane's workspaces and credentials, the sandbox service's sandboxes, a workspace's manifest (`Write`) |
-| `server/internal/secretfile` | A secret read from a file and a directory that are the server's alone |
-| `server/internal/backstage` | The Backstage catalog the control plane resolves entities through |
-| `server/internal/refusal` | A refusal by name: its code, `ErrorInfo` reason and the domain of each service |
-| `server/internal/poll` | Asking again at an interval until what is asked is done (`Until`): the server's and its test support's one loop of it |
-| `server/internal/page` | A List cut into pages, by `page_size` and `page_token`, and every page of another's List gathered (`All`) |
-| `server/internal/vcs`, `.../vcs/chosen` | What a workspace asks of a version control system, and the one that is used |
-| `server/internal/record`, `server/internal/manifest` | A workspace's repositories and entities as they are recorded, and the manifest in its directory (`.frontseat/workspace.yaml`) that what fills it writes and a build reads |
-| `server/internal/directory` | A directory as a build reads it: what its manifest records, and its repositories' history |
-| `server/internal/told` | What a box's daemon is told of what a workspace is asked for |
+| `common/git` | Git, run hardened over a checkout, and remotes read |
+| `core/telemetry` | OpenTelemetry providers, propagation, logs, measurements |
+| `build/engine/model`, `.../wire` | Build labels, coordinates; their protobuf conversion; the one diagnostic (`model.Mistake`: repository, file, line, rule, reason, message, help) and the one way it is sent (`wire.Failure`) |
+| `build/engine/pluginhost` | Wasm calls, read tracking, plugin-answer validation |
+| `core/httpserver` | A server command's HTTP listener and request lifetime |
+| `core/image` | An image's reference, read by Docker's own parser, and what the container runtime says an image is started with (`Started`) |
+| `common/runner/testservice` | What a service for tests is held to, for the daemon and the runner |
+| `common/confine` | How a worker starts and confines an action (`frontseat-action`) |
+| `build/engine/exec/here` | A command made ready to run where the daemon is, with the grid's tools: a fix, and what publishes |
+| `core/plain` | Text and names that every reader reads alike: the one reader of a name from outside, a host (`Hostname`), its origin (`OriginOf`, `Ruled`), a path, a program, a parameter, a secret |
+| `common/record/records` | A directory of records, each written whole and read strictly: the control plane's workspaces and credentials, the sandbox service's sandboxes, a workspace's manifest (`Write`) |
+| `core/secretfile` | A secret read from a file and a directory that are the server's alone |
+| `workspace/server/backstage` | The Backstage catalog the control plane resolves entities through |
+| `core/refusal` | A refusal by name: its code, `ErrorInfo` reason and the domain of each service |
+| `core/poll` | Asking again at an interval until what is asked is done (`Until`): the server's and its test support's one loop of it |
+| `core/page` | A List cut into pages, by `page_size` and `page_token`, and every page of another's List gathered (`All`) |
+| `common/vcs`, `.../vcs/chosen` | What a workspace asks of a version control system, and the one that is used |
+| `common/record`, `common/record/manifest` | A workspace's repositories and entities as they are recorded, and the manifest in its directory (`.frontseat/workspace.yaml`) that what fills it writes and a build reads |
+| `build/daemon/directory` | A directory as a build reads it: what its manifest records, and its repositories' history |
+| `common/told` | What a box's daemon is told of what a workspace is asked for |
 | `local` | What the local stack is, read from its files: the workers' image and platform, what a sandbox is told; the checkout a program is started at (`Checkout`); the directory the command line keeps what it keeps in, and the owner's token and server files beneath it (`Config`, `TokenFile`, `ServerFile`); the container runtime's architecture (`Architecture`, `GOARCH`) and the stack's Podman (`Podman`), each asked one way |
 | `local/internal/poll` | Asking again until the stack's container comes to something (`Tries`): the box's build's and the stack's |
-| `local/ports` | Every port a box and the local stack are reached on |
-| `server/testsupport/*` | Test facilities: pins, Wasm modules, the grid, fixtures (`testfiles`, `testforge`, `commits`), budgets |
-| `server/testsupport/buildtest`, `server/testsupport/controlplanetest` | A daemon and a control plane started for a test, as `frontseatd` and `frontseat-local` start them |
-| `server/testsupport/drivertest` | What any sandbox driver is tested with: the conformance, a running sandbox of the test's own, the driver that holds sandboxes in memory |
-| `server/testsupport/testcontainer` | A sandbox driver over the container runtime, for a server's tests that need a runtime; no program makes a sandbox with it |
-| `server/testsupport/testsandbox` | The sandbox API's client and a tunnel to a sandbox's port, for tests: the SDK has none |
-| `server/testsupport/testwire` | A test's one way to a generated client over the wire, for what the SDK does not serve |
+| `core/ports` | Every port a box and the local stack are reached on |
+| `testsupport/*` | Test facilities: pins, Wasm modules, the grid, fixtures (`testfiles`, `testforge`, `commits`), budgets |
+| `specs/buildtest`, `workspace/server/controlplanetest` | A daemon and a control plane started for a test, as `frontseatd` and `frontseat-local` start them |
+| `sandbox/testsupport/drivertest` | What any sandbox driver is tested with: the conformance, a running sandbox of the test's own, the driver that holds sandboxes in memory |
+| `sandbox/testsupport/testcontainer` | A sandbox driver over the container runtime, for a server's tests that need a runtime; no program makes a sandbox with it |
+| `sandbox/testsupport/testsandbox` | The sandbox API's client and a tunnel to a sandbox's port, for tests: the SDK has none |
+| `testsupport/testwire` | A test's one way to a generated client over the wire, for what the SDK does not serve |
 | `specs/cmd/gate`, `specs/cmd/prepare-modules` | The gate programs, and what builds the plugins for the tests and for `dist/` |
 | `specs/architecture` | The architecture test: the repository's rules, its catalog, its imports and what is public |
 

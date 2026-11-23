@@ -117,4 +117,4 @@ reads nothing outside the package. Each action compiles its dependencies from
 the lock.
 
 Specs: `specs/build/cargo_test.go`. Conformance fixture:
-`server/internal/pluginhost/cargo_test.go` over `testdata/`.
+`build/engine/pluginhost/cargo_test.go` over `testdata/`.

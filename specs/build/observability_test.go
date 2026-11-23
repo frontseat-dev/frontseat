@@ -11,7 +11,7 @@ import (
 
 	"github.com/frontseat-dev/frontseat/sdk/go"
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testforge"
+	"github.com/frontseat-dev/frontseat/testsupport/testforge"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )

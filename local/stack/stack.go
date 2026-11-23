@@ -2,7 +2,7 @@
 // (frontseat-local up, frontseat-local down; mise start and mise stop):
 // one container of the stack's image (local/image), which holds the grid,
 // the OpenShell gateway, the control plane and every sandbox, on the
-// ports local/ports says, on this machine's loopback alone.
+// ports core/ports says, on this machine's loopback alone.
 //
 // Up builds the box from the checkout every time, and the stack's image
 // on it, each named by what it holds (box.Build, box.Stack), never by a

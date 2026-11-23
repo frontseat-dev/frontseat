@@ -2,17 +2,51 @@ go 1.27.3
 
 use (
 	./sdk/go
-	./server
-	./cli
+	./core
+	./common/confine
+	./common/git
+	./common/vcs
+	./common/record
+	./common/told
+	./common/runner
+	./testsupport
 	./local
+	./sandbox
+	./build/engine
+	./build/daemon
+	./grid
+	./workspace/box
+	./workspace/server
+	./cmd/frontseatd
+	./cmd/frontseat-runner
+	./cmd/frontseat-action
+	./cmd/frontseat-local
+	./cli
 	./specs
 )
 
 // Unpublished sibling modules resolve from this checkout.
 replace (
 	github.com/frontseat-dev/frontseat/sdk/go v0.0.0 => ./sdk/go
-	github.com/frontseat-dev/frontseat/server v0.0.0 => ./server
-	github.com/frontseat-dev/frontseat/cli v0.0.0 => ./cli
+	github.com/frontseat-dev/frontseat/core v0.0.0 => ./core
+	github.com/frontseat-dev/frontseat/common/confine v0.0.0 => ./common/confine
+	github.com/frontseat-dev/frontseat/common/git v0.0.0 => ./common/git
+	github.com/frontseat-dev/frontseat/common/vcs v0.0.0 => ./common/vcs
+	github.com/frontseat-dev/frontseat/common/record v0.0.0 => ./common/record
+	github.com/frontseat-dev/frontseat/common/told v0.0.0 => ./common/told
+	github.com/frontseat-dev/frontseat/common/runner v0.0.0 => ./common/runner
+	github.com/frontseat-dev/frontseat/testsupport v0.0.0 => ./testsupport
 	github.com/frontseat-dev/frontseat/local v0.0.0 => ./local
+	github.com/frontseat-dev/frontseat/sandbox v0.0.0 => ./sandbox
+	github.com/frontseat-dev/frontseat/build/engine v0.0.0 => ./build/engine
+	github.com/frontseat-dev/frontseat/build/daemon v0.0.0 => ./build/daemon
+	github.com/frontseat-dev/frontseat/grid v0.0.0 => ./grid
+	github.com/frontseat-dev/frontseat/workspace/box v0.0.0 => ./workspace/box
+	github.com/frontseat-dev/frontseat/workspace/server v0.0.0 => ./workspace/server
+	github.com/frontseat-dev/frontseat/cmd/frontseatd v0.0.0 => ./cmd/frontseatd
+	github.com/frontseat-dev/frontseat/cmd/frontseat-runner v0.0.0 => ./cmd/frontseat-runner
+	github.com/frontseat-dev/frontseat/cmd/frontseat-action v0.0.0 => ./cmd/frontseat-action
+	github.com/frontseat-dev/frontseat/cmd/frontseat-local v0.0.0 => ./cmd/frontseat-local
+	github.com/frontseat-dev/frontseat/cli v0.0.0 => ./cli
 	github.com/frontseat-dev/frontseat/specs v0.0.0 => ./specs
 )

@@ -10,13 +10,13 @@ import (
 	"testing"
 	"time"
 
+	sandboxv1 "github.com/frontseat-dev/frontseat/sandbox/api/frontseat/sandbox/v1alpha1"
+	"github.com/frontseat-dev/frontseat/sandbox/testsupport/testsandbox"
 	"github.com/frontseat-dev/frontseat/sdk/go"
-	sandboxv1 "github.com/frontseat-dev/frontseat/server/sandbox/api/frontseat/sandbox/v1alpha1"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testfiles"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testforge"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testidentity"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testpins"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testsandbox"
+	"github.com/frontseat-dev/frontseat/testsupport/testfiles"
+	"github.com/frontseat-dev/frontseat/testsupport/testforge"
+	"github.com/frontseat-dev/frontseat/testsupport/testidentity"
+	"github.com/frontseat-dev/frontseat/testsupport/testpins"
 	. "github.com/onsi/gomega"
 )
 

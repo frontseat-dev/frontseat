@@ -2,7 +2,7 @@
 // a checkout of this machine. It runs the git a person has, and reads
 // only what the checkout holds: it asks no remote, so it needs no
 // credential and waits on no network. It is run, and a remote is read,
-// as frontseat's one package for git does it (server/git): hardened
+// as frontseat's one package for git does it (common/git): hardened
 // against what a checkout's configuration names, given none of the git
 // variables of the environment, and offline.
 package git
@@ -15,7 +15,7 @@ import (
 	"strings"
 
 	"github.com/frontseat-dev/frontseat/cli/internal/vcs"
-	rungit "github.com/frontseat-dev/frontseat/server/git"
+	rungit "github.com/frontseat-dev/frontseat/common/git"
 )
 
 // System is git.

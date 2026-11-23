@@ -8,7 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 	"golang.org/x/crypto/ssh"
 
-	"github.com/frontseat-dev/frontseat/local/ports"
+	"github.com/frontseat-dev/frontseat/core/ports"
 )
 
 // When you work in the same sandbox as the daemon, you open it from your

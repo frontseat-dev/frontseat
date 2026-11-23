@@ -297,7 +297,7 @@ the host.
 - **The answer is held to what every service is**, whoever said it: an
   image named with its registry and digest, a port for each name,
   readiness and endpoints that name ports it serves, exports the shell
-  can export. One implementation holds it (`server/internal/testservice`),
+  can export. One implementation holds it (`common/runner/testservice`),
   for the daemon and again for the runner.
 - **A service runs as no root, and writes what it says.** Each service
   runs in a sandbox of its own, which runs nothing as root: `user` is the

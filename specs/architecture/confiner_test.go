@@ -15,7 +15,7 @@ import (
 
 // frontseat-action is confine's and nothing else, so that its form, the
 // digest of confine.go and routes.go, is what the program does
-// (server/internal/confine): its directory holds main.go alone, which
+// (common/confine): its directory holds main.go alone, which
 // imports confine alone, by its own name, and whose main calls
 // confine.Run and does nothing more, with no directive to the go command;
 // and confine's holds exactly those source files, beside its tests, importing the
@@ -27,18 +27,18 @@ import (
 // which is given no source to read.
 func TestTheConfinerIsConfineAlone(t *testing.T) {
 	root := repositoryRoot(t)
-	program := filepath.Join(root, "server", "cmd", "frontseat-action")
-	if files := filesIn(t, program); !slices.Equal(files, []string{"main.go"}) {
-		t.Fatalf("frontseat-action's directory holds %v, want main.go alone", files)
+	program := filepath.Join(root, "cmd", "frontseat-action")
+	if files := filesIn(t, program); !slices.Equal(files, []string{"catalog-info.yaml", "go.mod", "go.sum", "main.go"}) {
+		t.Fatalf("frontseat-action's directory holds %v, want main.go alone, and its module's and its catalog's files", files)
 	}
-	if files := filesIn(t, filepath.Join(root, "server", "internal", "confine")); !slices.Equal(files, []string{"confine.go", "confine_test.go", "doc.go", "program_test.go", "routes.go"}) {
-		t.Fatalf("confine's directory holds %v, want only its two hashed sources, their tests and its doc", files)
+	if files := filesIn(t, filepath.Join(root, "common", "confine")); !slices.Equal(files, []string{"catalog-info.yaml", "confine.go", "confine_test.go", "doc.go", "go.mod", "go.sum", "program_test.go", "routes.go"}) {
+		t.Fatalf("confine's directory holds %v, want only its two hashed sources, their tests, its doc, and its module's and its catalog's files", files)
 	}
 	if err := confinerProblem(filepath.Join(program, "main.go")); err != "" {
 		t.Fatal(err)
 	}
 	for _, source := range []string{"confine.go", "routes.go"} {
-		if err := standardAlone(filepath.Join(root, "server", "internal", "confine", source)); err != "" {
+		if err := standardAlone(filepath.Join(root, "common", "confine", source)); err != "" {
 			t.Fatal(err)
 		}
 	}
@@ -63,7 +63,7 @@ func standardAlone(at string) string {
 // The program's main is held to its one shape: each other shape is
 // refused, and the program as it is passes.
 func TestAConfinerThatDoesMoreIsRefused(t *testing.T) {
-	good := "package main\n\nimport \"github.com/frontseat-dev/frontseat/server/internal/confine\"\n\nfunc main() { confine.Run() }\n"
+	good := "package main\n\nimport \"github.com/frontseat-dev/frontseat/common/confine\"\n\nfunc main() { confine.Run() }\n"
 	for way, source := range map[string]string{
 		"as it is":                 good,
 		"importing more":           strings.Replace(good, "import \"", "import _ \"os\"\nimport \"", 1),
@@ -107,7 +107,7 @@ func confinerProblem(at string) string {
 	if len(file.Imports) != 1 || file.Imports[0].Name != nil {
 		return "main.go imports something other than confine, by its own name, alone"
 	}
-	if path, _ := strconv.Unquote(file.Imports[0].Path.Value); path != module+"/server/internal/confine" {
+	if path, _ := strconv.Unquote(file.Imports[0].Path.Value); path != module+"/common/confine" {
 		return "main.go imports " + path + ", not confine"
 	}
 	if len(file.Decls) != 2 {

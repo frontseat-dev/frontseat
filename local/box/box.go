@@ -334,10 +334,10 @@ func goarchOf(ctx context.Context, architecture string) (string, error) {
 // with its package: cmd/<binary> of the Component that owns it.
 var programs = map[string]string{
 	"frontseat":        "cli/cmd/frontseat",
-	"frontseatd":       "server/cmd/frontseatd",
-	"frontseat-runner": "server/cmd/frontseat-runner",
-	"frontseat-local":  "server/cmd/frontseat-local",
-	"frontseat-action": "server/cmd/frontseat-action",
+	"frontseatd":       "cmd/frontseatd",
+	"frontseat-runner": "cmd/frontseat-runner",
+	"frontseat-local":  "cmd/frontseat-local",
+	"frontseat-action": "cmd/frontseat-action",
 }
 
 // linux builds a program of this repository, by its command's name, for

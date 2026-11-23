@@ -12,7 +12,7 @@ spec:
   frontseat:
     # On the grid there is no local stack to reach: a test that needs one
     # says so first and is skipped, said why, as `mise run check` skips
-    # it (server/testsupport/testrequired); `mise run test` runs it.
+    # it (testsupport/testrequired); `mise run test` runs it.
     # The stack's tests read its image's files,
     # above their package.
     test:

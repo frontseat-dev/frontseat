@@ -2,7 +2,7 @@ package sandbox_test
 
 import (
 	"context"
-	"github.com/frontseat-dev/frontseat/server/testsupport/testtelemetry"
+	"github.com/frontseat-dev/frontseat/testsupport/testtelemetry"
 	"sync"
 	"time"
 
