@@ -95,6 +95,14 @@ func counted(t *testing.T) (string, *atomic.Int32) {
 // of its directory, and counts how often one did.
 func noDaemon(t *testing.T) *int {
 	t.Helper()
+	// A command with no workspace selected builds the repository it is
+	// run in, the nearest above it: the test stands in one of its own,
+	// and finds none by where it happens to be run.
+	repository := t.TempDir()
+	if err := os.WriteFile(filepath.Join(repository, "frontseat.yaml"), []byte("plugins: {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(repository)
 	asked := new(int)
 	before := builder
 	t.Cleanup(func() { builder = before })
