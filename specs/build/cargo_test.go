@@ -140,7 +140,7 @@ func TestACrateThatIsNotWhatTheLockSaysIsNotKeptAndNothingIsBuiltWithItTheOtherC
 	workspace.write("Cargo.lock", strings.Replace(workspace.file("Cargo.lock"), "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd", "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40f0", 1))
 	after := workspace.build()
 	spec.Expect(after.outcome()).NotTo(Equal("SUCCESS"))
-	spec.Expect(after.outcomeOf(cfgIf)).To(Equal("error"))
+	spec.Expect(after.outcomeOf(cfgIf)).To(Equal("errored"))
 	spec.Expect(after.result(cfgIf).GetMessage()).To(ContainSubstring("checksum"))
 	spec.Expect(after.outcomeOf("//hello:cargo.compile")).To(Equal("skipped"))
 	// itoa, which did not change, is as it was, and greet builds.

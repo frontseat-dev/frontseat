@@ -113,7 +113,7 @@ func TestACatalogFileThatDoesNotSayWhatTheSourceSaysIsOutOfStep(t *testing.T) {
 
 	build := spec.outOfStepGateway().build()
 
-	spec.Expect(build.outcomeOf("//platform/gateway:catalog.depends-on")).To(Equal("rewrite"))
+	spec.Expect(build.outcomeOf("//platform/gateway:catalog.depends-on")).To(Equal("rewritten"))
 }
 
 // What an entity depends on / A catalog file that is out of step fails the build.

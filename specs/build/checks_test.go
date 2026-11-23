@@ -117,7 +117,7 @@ func TestAFileChangedSinceTheRunReadItIsNotWrittenOverAndIsNamed(t *testing.T) {
 	spec.Eventually(func() bool { _, err := os.Stat(begun); return err == nil }, time.Minute, 50*time.Millisecond).Should(BeTrue())
 	workspace.write("f.txt", "mine\n")
 	spec.Expect(os.WriteFile(let, nil, 0o644)).To(Succeed())
-	spec.Expect(build.ended().outcomeOf("//:custom.slow")).To(Equal("error"))
+	spec.Expect(build.ended().outcomeOf("//:custom.slow")).To(Equal("errored"))
 	spec.Expect(build.saysOf("//:custom.slow")).To(ContainSubstring("f.txt"))
 	spec.Expect(workspace.file("f.txt")).To(Equal("mine"))
 	// Left alone, the same fix's change is written, and the check passes over it.
@@ -140,8 +140,8 @@ func TestTwoFixesThatWouldChangeOneFileAreRefusedTogetherAndNeitherIsWritten(t *
 		"two": {check: []string{"true"}, fix: []string{"sh", "-c", "echo two > f.txt"}},
 	}))
 	build := workspace.build(fixing())
-	spec.Expect(build.outcomeOf("//:custom.one")).To(Equal("error"))
-	spec.Expect(build.outcomeOf("//:custom.two")).To(Equal("error"))
+	spec.Expect(build.outcomeOf("//:custom.one")).To(Equal("errored"))
+	spec.Expect(build.outcomeOf("//:custom.two")).To(Equal("errored"))
 	spec.Expect(build.saysOf("//:custom.one")).To(ContainSubstring("//:custom.two"))
 	spec.Expect(workspace.file("f.txt")).To(Equal("as read"))
 }
@@ -193,7 +193,7 @@ func TestAFixThatWouldWriteAFileTheRepositoryIgnoresIsRefusedByNameAndTheFileIsN
 	workspace := spec.checkingEntity("hidden", []string{"true"}, []string{"sh", "-c", "echo made > hidden.txt"})
 	workspace.write(".frontseatignore", "hidden.txt\n")
 	refused := workspace.build(of("//:custom.hidden"), fixing())
-	spec.Expect(refused.outcomeOf("//:custom.hidden")).To(Equal("error"))
+	spec.Expect(refused.outcomeOf("//:custom.hidden")).To(Equal("errored"))
 	spec.Expect(refused.saysOf("//:custom.hidden")).To(SatisfyAll(ContainSubstring("hidden.txt"), ContainSubstring("ignores")))
 	spec.Expect(workspace.has("hidden.txt")).To(BeFalse(), "the ignored file was written")
 	// Not ignored, the same fix's file is written.
