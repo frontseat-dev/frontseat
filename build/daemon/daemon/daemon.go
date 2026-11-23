@@ -12,7 +12,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -21,7 +20,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"syscall"
 
 	"github.com/frontseat-dev/frontseat/build/daemon/build"
 	"github.com/frontseat-dev/frontseat/common/vcs/chosen"
@@ -29,6 +27,7 @@ import (
 	"github.com/frontseat-dev/frontseat/core/ports"
 	"github.com/frontseat-dev/frontseat/core/telemetry"
 	"github.com/frontseat-dev/frontseat/workspace/box/source"
+	"github.com/frontseat-dev/frontseat/workspace/box/supervisor"
 )
 
 // modules collects a flag that may be given more than once.
@@ -111,14 +110,14 @@ func Run(ctx context.Context, args []string, built Release) error {
 	if err != nil {
 		return err
 	}
-	if err := stood(workspace, plugins, state); err != nil {
+	if err := supervisor.Stood(workspace, plugins, state); err != nil {
 		return err
 	}
 	// The workspace's name is told by whoever made the sandbox, and with
 	// it that this is the sandbox's daemon. Whatever it was told, of its
 	// name or its state, a second daemon in the sandbox is refused,
 	// naming the workspace the first manages: a sandbox holds one daemon.
-	release, err := sole(ports.Lock, *name)
+	release, err := supervisor.Sole(ports.Lock, *name)
 	if err != nil {
 		return err
 	}
@@ -140,7 +139,7 @@ func Run(ctx context.Context, args []string, built Release) error {
 		return err
 	}
 	if *authorized != "" {
-		closeShell, err := serveShell(*shellAddress, *workspace, *authorized)
+		closeShell, err := supervisor.Shell("frontseatd", *shellAddress, *workspace, *authorized)
 		if closeShell != nil {
 			defer closeShell()
 		}
@@ -248,24 +247,6 @@ func withDirectory(plugins []string, directory string) ([]string, error) {
 	return append(plugins, found...), nil
 }
 
-// serveShell lets the people whose keys the sandbox was given in over
-// SSH. A sandbox that was given none serves none.
-func serveShell(address, directory, authorized string) (func(), error) {
-	editor, err := source.NewShell(source.ShellConfig{Address: address, Directory: directory, AuthorizedKeys: authorized})
-	if err != nil || editor == nil {
-		return nil, err
-	}
-	fmt.Fprintf(os.Stderr, "frontseatd: serving SSH on %s\n", editor.Address())
-	reported := make(chan struct{})
-	go func() {
-		defer close(reported)
-		if err := editor.Wait(); err != nil {
-			fmt.Fprintln(os.Stderr, "frontseatd: ssh:", err)
-		}
-	}()
-	return func() { _ = editor.Close(); <-reported }, nil
-}
-
 // rewritesOf reads which proxy stands in for each public site a download
 // names, from the --rewrite flags: a regular expression, a space and the
 // proxy's address, which holds none, kept in the order given: the first
@@ -371,65 +352,4 @@ func serve(ctx context.Context, listen, sourceAddress, workspace, runs string, m
 	err = httpserver.Serve(serving, listener, daemon.Handler)
 	cancel()
 	return errors.Join(err, <-sourced)
-}
-
-// sole makes this daemon the one of its sandbox, and returns what lets go of that. A sandbox holds one daemon and one
-// workspace: a second daemon is refused, naming the workspace the first
-// manages.
-func sole(path, workspace string) (func(), error) {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return nil, fmt.Errorf("the sandbox's lock: %w", err)
-	}
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0o600)
-	if err != nil {
-		return nil, fmt.Errorf("the sandbox's lock: %w", err)
-	}
-	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
-		held, _ := io.ReadAll(io.LimitReader(file, 256))
-		_ = file.Close()
-		if managed := strings.TrimSpace(string(held)); managed != "" {
-			return nil, fmt.Errorf("a daemon already manages the workspace %s in this sandbox: a sandbox holds one daemon", managed)
-		}
-		return nil, fmt.Errorf("a daemon already runs in this sandbox: a sandbox holds one daemon")
-	}
-	said := []byte(workspace + "\n")
-	if _, err = file.WriteAt(said, 0); err == nil {
-		err = file.Truncate(int64(len(said)))
-	}
-	if err != nil {
-		_ = file.Close()
-		return nil, fmt.Errorf("the sandbox's lock: %w", err)
-	}
-	return func() { _ = file.Close() }, nil
-}
-
-// stood has the daemon stand in its workspace: the workspace's directory
-// becomes the directory it works in, and every path it was told beside
-// where it was started is made whole first, so that it is still found.
-func stood(workspace *string, plugins []string, others ...*string) error {
-	whole := func(path *string) error {
-		if *path == "" {
-			return nil
-		}
-		absolute, err := filepath.Abs(*path)
-		if err != nil {
-			return err
-		}
-		*path = absolute
-		return nil
-	}
-	for _, each := range append([]*string{workspace}, others...) {
-		if err := whole(each); err != nil {
-			return err
-		}
-	}
-	for i := range plugins {
-		if err := whole(&plugins[i]); err != nil {
-			return err
-		}
-	}
-	if err := os.Chdir(*workspace); err != nil {
-		return fmt.Errorf("the workspace's directory: %w", err)
-	}
-	return nil
 }

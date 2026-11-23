@@ -552,7 +552,12 @@ the change that fixes it.
   use and others do not, each a module of its own (`confine`, `git`,
   `vcs`, `record`, `told`, `runner`); `stack` (the local stack and the
   box); `sandbox`; `build/engine`; `grid` (the runner); `workspace/box`
-  (what fills a workspace); `build/daemon`; `workspace/server` (the
+  (what fills a workspace, and a box's supervisor, `frontseat-box`: the
+  one program of a sandbox that works for the control plane, holding
+  its lock, filling its workspace and serving its shell, and knowing no
+  build. *Target*: it is the box's program; until the build daemon is
+  started by the command line, `frontseatd` is, and composes it);
+  `build/daemon`; `workspace/server` (the
   control plane); a module for each program, `cmd/<binary>`, a thin
   `main` over the part it runs; `cli` (the command line) and `specs`.
   Each requires only modules beneath it in that order, which is written
@@ -691,8 +696,9 @@ the change that fixes it.
   `specs/cmd/gate`); a `main` anywhere else is refused by
   `TestEveryPublicPackageIsInAnSDKOrOnTheList`. *Target*: each is a thin
   `main` over a package of its module's, as `cli/cmd/frontseat` is over
-  `cli/internal/cmd` and `cmd/frontseatd` over
-  `build/daemon/daemon`; `specs/cmd/gate`, `specs/cmd/prepare-modules`
+  `cli/internal/cmd`, `cmd/frontseatd` over
+  `build/daemon/daemon` and `cmd/frontseat-box` over
+  `workspace/box/supervisor`; `specs/cmd/gate`, `specs/cmd/prepare-modules`
   and `cmd/frontseat-server` are not yet, and nothing checks it.
 - Every path of this repository a file names is there
   (`TestEveryPathAFileNamesIsThere`); nothing is reserved, as a package
