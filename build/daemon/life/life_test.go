@@ -1,4 +1,4 @@
-package daemon
+package life
 
 import (
 	"context"
@@ -24,7 +24,7 @@ func kept(t *testing.T, state string, handler http.Handler, busy func() bool, id
 	ended, over := make(chan error, 1), make(chan struct{})
 	go func() {
 		defer close(over)
-		ended <- keep(ctx, life{State: state, Said: Info{Version: "v1", Settings: "s1", Directory: "/work"}, Handler: handler, Busy: busy, Idle: idle})
+		ended <- Keep(ctx, Life{State: state, Said: Info{Version: "v1", Settings: "s1", Directory: "/work"}, Handler: handler, Busy: busy, Idle: idle})
 	}()
 	t.Cleanup(func() {
 		stop()
@@ -112,7 +112,7 @@ func TestABuildDaemonSaysWhereItServesAndIsAskedWithItsToken(t *testing.T) {
 func TestAStateDirectoryIsOneBuildDaemonsAtATime(t *testing.T) {
 	state := filepath.Join(t.TempDir(), "state")
 	first, _ := kept(t, state, answering, never, time.Hour)
-	err := keep(t.Context(), life{State: state, Handler: answering, Busy: never, Idle: time.Hour})
+	err := Keep(t.Context(), Life{State: state, Handler: answering, Busy: never, Idle: time.Hour})
 	if err == nil || !strings.Contains(err.Error(), "another build daemon") {
 		t.Fatalf("a second daemon over the directory: %v; want it refused", err)
 	}
@@ -189,5 +189,44 @@ func TestADirectoryWithNoManifestIsACheckoutAndOneWithItAWorkspace(t *testing.T)
 	}
 	if alone, err := Alone(workspace); err != nil || alone {
 		t.Errorf("the control: a directory with a manifest: alone %v, %v; want a workspace", alone, err)
+	}
+}
+
+// A daemon asked to stop, with its token, ends itself: the command that
+// finds a daemon of another version, other settings or another directory
+// asks it so, and starts its own. Asked without the token it goes on.
+func TestABuildDaemonAskedToStopWithItsTokenEndsItself(t *testing.T) {
+	state := filepath.Join(t.TempDir(), "state")
+	info, ended := kept(t, state, answering, never, time.Hour)
+	stop := func(token string) int {
+		t.Helper()
+		request, err := http.NewRequest(http.MethodPost, "http://"+info.Address+StopPath, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		request.Header.Set("Authorization", "Bearer "+token)
+		answer, err := http.DefaultClient.Do(request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = answer.Body.Close()
+		return answer.StatusCode
+	}
+	if status := stop("not its token"); status != http.StatusUnauthorized {
+		t.Fatalf("asked to stop without its token it answered %d", status)
+	}
+	if status := reached(t, info, info.Token); status != http.StatusOK {
+		t.Fatalf("the control: after that it answered %d; want it still serving", status)
+	}
+	if status := stop(info.Token); status != http.StatusNoContent {
+		t.Fatalf("asked to stop with its token it answered %d", status)
+	}
+	select {
+	case err := <-ended:
+		if err != nil {
+			t.Errorf("it ended with %v", err)
+		}
+	case <-time.After(30 * time.Second):
+		t.Fatal("asked to stop, the daemon never ended")
 	}
 }

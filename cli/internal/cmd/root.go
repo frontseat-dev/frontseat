@@ -93,9 +93,46 @@ func asked() (*frontseat.Workspace, error) {
 		return nil, fmt.Errorf("the workspace last opened, %s, is of the control plane at %s, and the command line asks the one at %s (frontseat --help): open one there, or name one with --workspace", held.Workspace, held.Server, fs.Server())
 	}
 	if !found || held.Workspace == "" {
-		return nil, errors.New("there is no workspace to talk to: open one with `frontseat workspace open`, or name one with --workspace")
+		return nil, errNoWorkspace
 	}
 	return fs.Workspace(held.Workspace), nil
+}
+
+// errNoWorkspace is a command that asks a workspace where none is
+// selected.
+var errNoWorkspace = errors.New("there is no workspace to talk to: open one with `frontseat workspace open`, or name one with --workspace")
+
+// builder finds or starts the build daemon of a directory; a test stands
+// in for it.
+var builder = machine.BuildDaemon
+
+// building is what a command that builds, tests, runs, queries or
+// releases asks: the workspace a command asks (asked), and, where none
+// is selected, the build daemon of the directory the command is run in,
+// which the command line starts for itself where this machine was told
+// its grid (build.yaml). That daemon is asked on the loopback with its
+// own token, and no control plane is.
+func building() (*frontseat.Workspace, error) {
+	w, err := asked()
+	if !errors.Is(err, errNoWorkspace) {
+		return w, err
+	}
+	directory, err := machine.Directory()
+	if err != nil {
+		return nil, err
+	}
+	found, err := builder(context.Background(), directory)
+	if errors.Is(err, machine.ErrNoSettings) {
+		return nil, fmt.Errorf("%w; or, to build %s on this machine, say the grid it builds on in build.yaml, in frontseat's configuration directory", errNoWorkspace, directory)
+	}
+	if err != nil {
+		return nil, err
+	}
+	daemon, err := frontseat.New("http://"+found.Address, instrumented, frontseat.WithToken(found.Token))
+	if err != nil {
+		return nil, err
+	}
+	return daemon.Here(), nil
 }
 
 // workspaceFlag is the workspace a command asks, where a command is told it.
@@ -133,6 +170,11 @@ Without it, it asks the workspace last opened.
 Inside a workspace's sandbox, a command asks that workspace's daemon,
 on the loopback, to build, run and release, and no control plane: there
 the workspace's source is fixed, and the workspace commands are refused.
+
+With no workspace selected, build, test, run, query and ship work on the
+directory they are run in, the repository or workspace it is part of,
+through a build daemon frontseat starts for itself: on a machine told
+the grid it builds on, in build.yaml beside the files above.
 
 ` + exitCodes,
 	// A mistake in how a command is written is said once, by main, and

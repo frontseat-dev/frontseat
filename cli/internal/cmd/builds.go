@@ -38,7 +38,7 @@ var buildDescribeCmd = &cobra.Command{
 	Short: "Say where a build is, and how it ended",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		w, err := asked()
+		w, err := building()
 		if err != nil {
 			return err
 		}
@@ -67,7 +67,7 @@ numbers, to its end, and exit with the build's exit code.`,
 		if buildFrom < 0 {
 			return fmt.Errorf("--from is an event's number, 0 or more, and %d is not", buildFrom)
 		}
-		w, err := asked()
+		w, err := building()
 		if err != nil {
 			return err
 		}
@@ -143,7 +143,7 @@ func printedEach[T any](items func(*frontseat.Workspace) iter.Seq2[T, error], pr
 
 // inWorkspace does what a command does of the workspace it asks.
 func inWorkspace(do func(*frontseat.Workspace) error) error {
-	w, err := asked()
+	w, err := building()
 	if err != nil {
 		return err
 	}

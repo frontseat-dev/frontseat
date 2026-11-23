@@ -107,7 +107,7 @@ func releasing(names []string) ([]entity.Pattern, *frontseat.Workspace, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	w, err := asked()
+	w, err := building()
 	return entities, w, err
 }
 

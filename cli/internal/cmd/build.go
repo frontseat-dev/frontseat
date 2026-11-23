@@ -47,7 +47,7 @@ with its kind, component:list.`,
 // built starts a build of the workspace a command asks, follows it to
 // its end, and ends the command as the build ended.
 func built(cmd *cobra.Command, start func(*frontseat.Workspace) (*frontseat.Build, error)) error {
-	w, err := asked()
+	w, err := building()
 	if err != nil {
 		return err
 	}
