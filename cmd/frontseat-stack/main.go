@@ -1,3 +1,14 @@
+// Command frontseat-stack brings the local stack up and down from a
+// checkout, and builds the box and the stack's image, each by a word:
+//
+//	frontseat-stack ready                          whether this checkout may bring the stack up (mise start, before it builds)
+//	frontseat-stack up [--plugins DIR]             the stack, from this checkout, running the box built from it (mise start)
+//	frontseat-stack down                           the stack, whichever checkout started it, from anywhere (mise stop)
+//	frontseat-stack box [--tag T] [--plugins DIR]  the box image, printing its tag of its content (mise run build)
+//	frontseat-stack image [--box B] [--tag T]      the stack's one image (stack/image), on the box, printing its tag of its content
+//	frontseat-stack init PROGRAM...                the stack container's first process: readies it, then becomes PROGRAM
+//
+// The stack's control plane is another program, frontseat-server.
 package main
 
 import (
@@ -13,18 +24,18 @@ import (
 	"github.com/frontseat-dev/frontseat/stack/local"
 )
 
-// words are what this program does but serve, each by its word: what
-// brings the local stack up and down from a checkout, and what builds
-// the box. Each runs at the checkout's root, as mise runs it.
+// words are what this program does, each by its word: what brings the
+// local stack up and down from a checkout, and what builds the box.
+// Each runs at the checkout's root, as mise runs it.
 var words = map[string]func(arguments []string) int{
 	"ready": func(arguments []string) int {
-		options := flag.NewFlagSet("frontseat-local ready", flag.ContinueOnError)
+		options := flag.NewFlagSet("frontseat-stack ready", flag.ContinueOnError)
 		return checkout(options, arguments, func(ctx context.Context, root string) error {
 			return stack.Stack{Root: root}.Ready(ctx)
 		})
 	},
 	"up": func(arguments []string) int {
-		options := flag.NewFlagSet("frontseat-local up", flag.ContinueOnError)
+		options := flag.NewFlagSet("frontseat-stack up", flag.ContinueOnError)
 		plugins := options.String("plugins", "dist/plugins", "the directory holding the plugins the box holds, each a <name>.wasm (mise run build makes them)")
 		return checkout(options, arguments, func(ctx context.Context, root string) error {
 			return stack.Stack{Root: root, Plugins: *plugins, Log: os.Stderr}.Up(ctx)
@@ -33,21 +44,21 @@ var words = map[string]func(arguments []string) int{
 	// Down asks nothing of a checkout: it stops the stack by its name,
 	// from anywhere.
 	"down": func(arguments []string) int {
-		options := flag.NewFlagSet("frontseat-local down", flag.ContinueOnError)
+		options := flag.NewFlagSet("frontseat-stack down", flag.ContinueOnError)
 		if err := options.Parse(arguments); err != nil || options.NArg() > 0 {
-			fmt.Fprintln(os.Stderr, "usage: frontseat-local down")
+			fmt.Fprintln(os.Stderr, "usage: frontseat-stack down")
 			return 2
 		}
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
 		if err := (stack.Stack{Log: os.Stderr}).Down(ctx); err != nil {
-			fmt.Fprintln(os.Stderr, "frontseat-local down:", err)
+			fmt.Fprintln(os.Stderr, "frontseat-stack down:", err)
 			return 1
 		}
 		return 0
 	},
 	"image": func(arguments []string) int {
-		options := flag.NewFlagSet("frontseat-local image", flag.ContinueOnError)
+		options := flag.NewFlagSet("frontseat-stack image", flag.ContinueOnError)
 		on := options.String("box", "", "the box to build on, by its tag of its content; without it, the box is built first")
 		tag := options.String("tag", "", "a name to tag the image with beside its tag of its content, for a person to ask for it by (frontseat-local:dev)")
 		plugins := options.String("plugins", "dist/plugins", "the directory holding the plugins the box holds, each a <name>.wasm, where the box is built")
@@ -76,14 +87,14 @@ var words = map[string]func(arguments []string) int{
 	// is told (s6-overlay's /init), returning only where it could not.
 	"init": func(arguments []string) int {
 		if len(arguments) == 0 {
-			fmt.Fprintln(os.Stderr, "usage: frontseat-local init PROGRAM [ARGUMENTS...]")
+			fmt.Fprintln(os.Stderr, "usage: frontseat-stack init PROGRAM [ARGUMENTS...]")
 			return 2
 		}
-		fmt.Fprintln(os.Stderr, "frontseat-local init:", stack.ContainerInit().Run(arguments))
+		fmt.Fprintln(os.Stderr, "frontseat-stack init:", stack.ContainerInit().Run(arguments))
 		return 1
 	},
 	"box": func(arguments []string) int {
-		options := flag.NewFlagSet("frontseat-local box", flag.ContinueOnError)
+		options := flag.NewFlagSet("frontseat-stack box", flag.ContinueOnError)
 		tag := options.String("tag", "", "a name to tag the image with beside its tag of its content, for a person to ask for it by (frontseat-box:local)")
 		plugins := options.String("plugins", "dist/plugins", "the directory holding the plugins, each a <name>.wasm")
 		return checkout(options, arguments, func(ctx context.Context, root string) error {
@@ -123,4 +134,14 @@ func checkout(options *flag.FlagSet, arguments []string, do func(ctx context.Con
 		return 1
 	}
 	return 0
+}
+
+func main() {
+	if len(os.Args) > 1 {
+		if word, known := words[os.Args[1]]; known {
+			os.Exit(word(os.Args[2:]))
+		}
+	}
+	fmt.Fprintln(os.Stderr, "usage: frontseat-stack ready | up | down | box | image | init PROGRAM...")
+	os.Exit(2)
 }

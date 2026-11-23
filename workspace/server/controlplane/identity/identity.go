@@ -1,7 +1,7 @@
 // Package identity is how a control plane knows who calls it: the port
 // every caller is checked through, and who a call was found to be from.
 // What checks a caller is an implementation of Authenticator: the token
-// of the local stack's owner, which frontseat-local mints, is one
+// of the local stack's owner, which frontseat-server mints, is one
 // (controlplane.OwnerToken); another, a company's sign-in, is not
 // served here.
 package identity

@@ -62,7 +62,7 @@ COPY --from=assets /app/bb_remote_asset /usr/local/bin/
 # Of the box's programs, those the stack runs: the control plane and init,
 # the runner pool, and the confiner its installer installs. The daemon and
 # the command line run in a workspace's sandbox, of the box itself.
-COPY --from=box /opt/frontseat/bin/frontseat-local /opt/frontseat/bin/frontseat-runner /opt/frontseat/bin/frontseat-confine /opt/frontseat/bin/
+COPY --from=box /opt/frontseat/bin/frontseat-server /opt/frontseat/bin/frontseat-stack /opt/frontseat/bin/frontseat-runner /opt/frontseat/bin/frontseat-confine /opt/frontseat/bin/
 COPY rootfs/ /
 # What the image was built with, for its services to read where a flag is
 # given: the box a workspace runs, and the workers' architecture as the
@@ -74,6 +74,6 @@ ARG ISA
 RUN test -n "$ISA" && echo "$BOX" > /etc/frontseat/box && echo "$ISA" > /etc/frontseat/isa
 ENV PATH=/opt/frontseat/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
     S6_KEEP_ENV=1 S6_BEHAVIOUR_IF_STAGE2_FAILS=2 S6_CMD_WAIT_FOR_SERVICES_MAXTIME=0
-# frontseat-local init delegates cgroups and lays out the state while it
+# frontseat-stack init delegates cgroups and lays out the state while it
 # is the only process, then becomes s6-overlay's /init.
-ENTRYPOINT ["/opt/frontseat/bin/frontseat-local", "init", "/init"]
+ENTRYPOINT ["/opt/frontseat/bin/frontseat-stack", "init", "/init"]

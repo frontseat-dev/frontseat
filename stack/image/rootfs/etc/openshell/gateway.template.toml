@@ -27,7 +27,7 @@ socket_path           = "/run/user/1000/podman/podman.sock"
 # Where a sandbox's names of this machine lead (host.openshell.internal,
 # host.docker.internal), dialled by its supervisor, which is in this
 # container's network: this machine, where the person and their tools are
-# and the grid's ports are published. frontseat-local init writes this
+# and the grid's ports are published. frontseat-stack init writes this
 # file (/etc/openshell/gateway.toml) from this template, with the address
 # the container runtime gives this machine; where it gives none, this
 # container's own loopback, where the grid listens. Said, so that no name

@@ -34,7 +34,7 @@ const (
 
 // The local stack's ports, each on this machine's loopback.
 const (
-	// ControlPlane is where the stack's control plane (frontseat-local)
+	// ControlPlane is where the stack's control plane (frontseat-server)
 	// serves the workspace API.
 	ControlPlane = 7700
 	// Grid is where the stack's grid serves the Remote Execution API.

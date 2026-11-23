@@ -1,6 +1,6 @@
 // Package testowner reads the token the local stack's control plane
 // knows the person at this machine by, as the stack lays it out
-// (frontseat-local up, stack), for a test that asks the stack's control plane as that
+// (frontseat-stack up, stack), for a test that asks the stack's control plane as that
 // person does, and lays a token out for the command line as the stack
 // does, for a test that runs it.
 package testowner

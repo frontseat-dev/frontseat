@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-// Init is what the stack's container starts with (frontseat-local init),
+// Init is what the stack's container starts with (frontseat-stack init),
 // while it is the container's one process: it gives the user frontseat a
 // cgroup subtree of its own, as systemd's Delegate= gives a user's
 // session, lays out the stack's one state directory, and becomes the
@@ -372,7 +372,7 @@ func (r Resolver) write() error {
 	if len(asked) == 0 {
 		return fmt.Errorf("%s names no nameserver for the container's resolver to ask", r.Config)
 	}
-	forward := "# Where the container's resolver asks: the runtime's nameservers, as\n# frontseat-local init found them in " + r.Config + ".\nforward-zone:\n\tname: \".\"\n"
+	forward := "# Where the container's resolver asks: the runtime's nameservers, as\n# frontseat-stack init found them in " + r.Config + ".\nforward-zone:\n\tname: \".\"\n"
 	for _, address := range asked {
 		forward += "\tforward-addr: " + address.String() + "\n"
 	}
@@ -391,4 +391,4 @@ func (r Resolver) write() error {
 
 // resolverHeader begins the resolv.conf init writes: what it is known by
 // in a container started again.
-const resolverHeader = "# The container's own resolver (frontseat-local init).\n"
+const resolverHeader = "# The container's own resolver (frontseat-stack init).\n"

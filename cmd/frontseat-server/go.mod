@@ -1,4 +1,4 @@
-module github.com/frontseat-dev/frontseat/cmd/frontseat-local
+module github.com/frontseat-dev/frontseat/cmd/frontseat-server
 
 go 1.27.3
 

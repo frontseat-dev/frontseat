@@ -40,8 +40,8 @@ func ran(t *testing.T, dir string, timeout time.Duration, name string, args ...s
 
 // TestTheLocalBuildMakesAWorkspaceAndBuildsIt is the journey a person
 // takes with this checkout, as CONTRIBUTING.md writes it: `mise run
-// build` makes dist/ and the box image (frontseat-local box), mise puts
-// dist/bin on the PATH here, frontseat-local serves sandboxes, and the
+// build` makes dist/ and the box image (frontseat-stack box), mise puts
+// dist/bin on the PATH here, frontseat-server serves sandboxes, and the
 // frontseat just built makes a workspace of a checkout and builds it.
 func TestTheLocalBuildMakesAWorkspaceAndBuildsIt(t *testing.T) {
 	testrequired.Stack(t)
@@ -60,7 +60,7 @@ func TestTheLocalBuildMakesAWorkspaceAndBuildsIt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	made := []string{"bin/frontseat", "bin/frontseatd", "bin/frontseat-local"}
+	made := []string{"bin/frontseat", "bin/frontseatd", "bin/frontseat-server", "bin/frontseat-stack"}
 	for name := range plugins {
 		made = append(made, "plugins/"+name+".wasm")
 	}
@@ -75,9 +75,9 @@ func TestTheLocalBuildMakesAWorkspaceAndBuildsIt(t *testing.T) {
 	// The box of this checkout, by its tag of its content: what mise run
 	// build tagged frontseat-box:local may since be another checkout's,
 	// and a build that changes nothing is the same image, at once.
-	printed := strings.Fields(ran(t, root, 10*time.Minute, filepath.Join(root, "dist", "bin", "frontseat-local"), "box", "--plugins", filepath.Join(root, "dist", "plugins")))
+	printed := strings.Fields(ran(t, root, 10*time.Minute, filepath.Join(root, "dist", "bin", "frontseat-stack"), "box", "--plugins", filepath.Join(root, "dist", "plugins")))
 	if len(printed) == 0 {
-		t.Fatal("frontseat-local box printed no tag")
+		t.Fatal("frontseat-stack box printed no tag")
 	}
 	image := printed[len(printed)-1]
 	ran(t, root, time.Minute, "docker", "image", "inspect", image)
@@ -88,8 +88,8 @@ func TestTheLocalBuildMakesAWorkspaceAndBuildsIt(t *testing.T) {
 	}
 	command := filepath.Join(root, "dist", "bin", "frontseat")
 
-	// frontseat-local, on a port of its own, until the test ends.
-	at, state := localServer(t, filepath.Join(root, "dist", "bin", "frontseat-local"))
+	// frontseat-server, on a port of its own, until the test ends.
+	at, state := localServer(t, filepath.Join(root, "dist", "bin", "frontseat-server"))
 	address := strings.TrimPrefix(at, "http://")
 	// What a person started answers its owner alone, by the token it
 	// minted in its state, which the command line is told of as the
@@ -97,11 +97,11 @@ func TestTheLocalBuildMakesAWorkspaceAndBuildsIt(t *testing.T) {
 	// command line asks; and it serves the sandbox API to no one.
 	token := filepath.Join(state, "owner", "token")
 	if info, err := os.Stat(token); err != nil || info.Mode().Perm() != 0o600 {
-		t.Fatalf("frontseat-local minted no owner's token of its own in %s: %v", token, err)
+		t.Fatalf("frontseat-server minted no owner's token of its own in %s: %v", token, err)
 	}
 	t.Setenv("XDG_CONFIG_HOME", testowner.LayOut(t, token, "http://"+address))
 	if _, err := testsandbox.Client("http://"+address).ListSandboxes(context.Background(), &sandboxv1.ListSandboxesRequest{PageSize: 1000}); connect.CodeOf(err) != connect.CodeUnauthenticated {
-		t.Fatalf("frontseat-local answered a call without its owner's token: %v", err)
+		t.Fatalf("frontseat-server answered a call without its owner's token: %v", err)
 	}
 
 	// A repository holding a Go module, pinned as this repository pins

@@ -25,7 +25,7 @@ func Config() (string, error) {
 }
 
 // TokenFile returns where the local stack lays out its owner's token
-// (frontseat-local up): frontseat/local/token in the configuration
+// (frontseat-stack up): frontseat/local/token in the configuration
 // directory, beneath Config.
 func TokenFile() (string, error) {
 	return beneath("token")

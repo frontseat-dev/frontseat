@@ -69,7 +69,7 @@ var policies = []policy{
 	// implementation for the client's adapter and the daemon's.
 	{"common/git", []string{"common/confine"}},
 	// Test support reads what the local stack is from its files (local),
-	// never through the stack's control plane (frontseat-local), which
+	// never through the stack's control plane (frontseat-server), which
 	// links what the test support tests, and never builds the box, which
 	// is built from the source of other packages: the gate builds it
 	// before the tests (fromSource).
@@ -233,7 +233,7 @@ var policies = []policy{
 	// (workspace/server/backstage), held over a fake one in its tests.
 	{"workspace/server/controlplane/**", []string{"sdk/go/api/**", "sandbox/api/**", "sdk/go/entity", "workspace/server/controlplane/**", "sandbox", "workspace/server/backstage", "core/secretfile", "common/record", "common/vcs", "common/told", "common/told/sourceapi/**", "sandbox/testsupport/drivertest", "testsupport/backstagetest", "core/plain", "core/ports", "sdk/go", "core/page", "core/refusal", "common/record/records", "core/poll", "common/vcs/chosen"}},
 	// A test starts a daemon as frontseatd does, and a control plane as
-	// frontseat-local does, each with the test support beside it.
+	// frontseat-server does, each with the test support beside it.
 	{"specs/buildtest", []string{"build/daemon/build", "core/telemetry", "testsupport/**", "sdk/go/api/**", "workspace/box/source", "common/told", "workspace/server/toldtest", "common/told/sourceapi/**", "common/vcs/chosen"}},
 	// A fake Backstage, of entities written as catalog files write them.
 	{"testsupport/backstagetest", []string{"sdk/go/entity"}},
@@ -248,7 +248,10 @@ var policies = []policy{
 	{"build/daemon/daemon", []string{"build/daemon/build", "workspace/box/source", "core/httpserver", "core/telemetry", "core/ports", "common/vcs/chosen"}},
 	// The local stack's control plane: the control plane, told what the
 	// stack is by the stack's own package.
-	{"cmd/frontseat-local", []string{"workspace/server/controlplane", "workspace/server/backstage", "core/httpserver", "core/secretfile", "core/telemetry", "stack/local", "core/ports", "stack", "stack/box", "common/vcs/chosen"}},
+	{"cmd/frontseat-server", []string{"workspace/server/controlplane", "workspace/server/backstage", "core/httpserver", "core/secretfile", "core/telemetry", "stack/local", "core/ports", "common/vcs/chosen"}},
+	// What brings the local stack up and down from a checkout, and builds
+	// the box and the stack's image: the stack's own packages alone.
+	{"cmd/frontseat-stack", []string{"stack", "stack/box", "stack/local"}},
 	{"cmd/frontseat-confine", []string{"common/confine"}},
 	// The grid's runner: a thin main over the runner, which serves the
 	// sandbox API over the container runtime to itself.
@@ -643,7 +646,7 @@ func TestEveryWayToTheContainerRuntimeIsSeen(t *testing.T) {
 		"under another name, in a test":   {"sandbox/runner_test.go", `package sandbox_test; import made "` + driver + `"`, false},
 		"the grid's runner":               {"grid/runner/runner.go", `package runner; import "` + driver + `"`, true},
 		"the sandbox service":             {"sandbox/sandbox.go", `package sandbox; import made "` + driver + `"`, true},
-		"a program":                       {"cmd/frontseat-local/main.go", `package main; import _ "` + driver + `"`, true},
+		"a program":                       {"cmd/frontseat-server/main.go", `package main; import _ "` + driver + `"`, true},
 		"a test of the journey":           {"specs/cli/local_test.go", `package cli; import "` + driver + `"`, true},
 		"a driver beside the gateway's":   {"sandbox/sandbox.go", `package sandbox; import "` + module + `/server/internal/driver/podman"`, true},
 		"a driver beside, even in a test": {"sandbox/runner_test.go", `package sandbox_test; import "` + module + `/server/internal/driver/podman"`, true},
@@ -1595,7 +1598,8 @@ var moduleOrder = []string{
 	"cmd/frontseat-confine",
 	"cmd/frontseat-runner",
 	"cmd/frontseatd",
-	"cmd/frontseat-local",
+	"cmd/frontseat-server",
+	"cmd/frontseat-stack",
 	"cli",
 	"specs",
 }

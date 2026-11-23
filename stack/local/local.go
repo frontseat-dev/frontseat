@@ -1,7 +1,7 @@
 // Package local says what the local stack, one container of stack/image,
 // is to whoever builds on it, from the stack's own files: the platform
 // its workers advertise, and what a sandbox on this machine is told of
-// it. The local stack's control plane (frontseat-local) and the test
+// it. The local stack's control plane (frontseat-server) and the test
 // support carry the files in themselves (Embedded), since they run where
 // the repository may not be; the box reads them from the checkout it is
 // built from (Read). A program started at a checkout finds it there

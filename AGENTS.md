@@ -46,7 +46,7 @@ the change that fixes it.
 
 - **mise bootstraps, Frontseat builds itself.** mise installs the pinned
   tools and builds Frontseat into `dist/` (`mise run build`); `mise start`
-  brings the local stack up from the checkout (`frontseat-local up`): one
+  brings the local stack up from the checkout (`frontseat-stack up`): one
   container of `stack/image`, as it is for anyone who runs Frontseat
   locally.
   From there a contributor builds in a workspace with `frontseat build`.
@@ -142,7 +142,7 @@ the change that fixes it.
 - **One state root per program.** What a program keeps is beneath one
   directory: `frontseatd --state` (its runs; the sandbox's one lock is
   the sandbox's, at one path whatever the daemon is told),
-  `frontseat-local --state`, `frontseat-runner --state`, and the command
+  `frontseat-server --state`, `frontseat-runner --state`, and the command
   line's `$XDG_CONFIG_HOME/frontseat` (else `~/.config/frontseat`) on
   every system.
 - **A port is said once**, in `core/ports`: the daemon's defaults, the
@@ -154,7 +154,7 @@ the change that fixes it.
   OpenShell gateway and the control plane, each a process s6-overlay
   supervises, and every sandbox in rootless Podman inside it. It is
   started with what nesting needs and nothing of this machine mounted
-  (`stack/container.go`); `frontseat-local init` delegates its
+  (`stack/container.go`); `frontseat-stack init` delegates its
   cgroups, lays out its one volume, and tells the gateway where a
   sandbox's names of this machine (`host.openshell.internal`,
   `host.docker.internal`) lead: to this machine, as the container runtime
@@ -673,7 +673,7 @@ the change that fixes it.
   `main` over a package of its module's, as `cli/cmd/frontseat` is over
   `cli/internal/cmd` and `cmd/frontseatd` over
   `build/daemon/daemon`; `specs/cmd/gate`, `specs/cmd/prepare-modules`
-  and `cmd/frontseat-local` are not yet, and nothing checks it.
+  and `cmd/frontseat-server` are not yet, and nothing checks it.
 - Every path of this repository a file names is there
   (`TestEveryPathAFileNamesIsThere`); nothing is reserved, as a package
   that declares nothing or a directory of a README alone
@@ -914,7 +914,7 @@ mise run docs:serve       # serve the TechDocs site on http://localhost:8000
 | `stack/internal/poll` | Asking again until the stack's container comes to something (`Tries`): the box's build's and the stack's |
 | `core/ports` | Every port a box and the local stack are reached on |
 | `testsupport/*` | Test facilities: pins, Wasm modules, the grid, fixtures (`testfiles`, `testforge`, `commits`), budgets |
-| `specs/buildtest`, `workspace/server/controlplanetest` | A daemon and a control plane started for a test, as `frontseatd` and `frontseat-local` start them |
+| `specs/buildtest`, `workspace/server/controlplanetest` | A daemon and a control plane started for a test, as `frontseatd` and `frontseat-server` start them |
 | `sandbox/testsupport/drivertest` | What any sandbox driver is tested with: the conformance, a running sandbox of the test's own, the driver that holds sandboxes in memory |
 | `sandbox/testsupport/testcontainer` | A sandbox driver over the container runtime, for a server's tests that need a runtime; no program makes a sandbox with it |
 | `sandbox/testsupport/testsandbox` | The sandbox API's client and a tunnel to a sandbox's port, for tests: the SDK has none |

@@ -197,7 +197,7 @@ func TestAServerThatDoesNotAnswerIsSaidWithWhatStartsIt(t *testing.T) {
 		t.Errorf("a control plane that does not answer: %d, %q", code, said)
 	}
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-	if said := unanswered(); !strings.Contains(said, "the local stack does not answer: `frontseat-local up` starts it") {
+	if said := unanswered(); !strings.Contains(said, "the local stack does not answer: `frontseat-stack up` starts it") {
 		t.Errorf("of the local stack, it says %q", said)
 	}
 }

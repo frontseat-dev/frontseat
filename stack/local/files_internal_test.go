@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-// What frontseat-local carries of the stack is what the box reads of it
+// What frontseat-server carries of the stack is what the box reads of it
 // from a checkout: Read names the stack's files by their paths from the
 // repository's root, and this package embeds them by its own. Were either
 // moved or renamed without the other, one reader would read another file,

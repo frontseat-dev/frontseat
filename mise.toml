@@ -52,7 +52,7 @@ checksum_url = 'https://static.rust-lang.org/dist/rust-std-{{ version }}-wasm32-
 
 [env]
 # What `mise run build` makes of this checkout is on the PATH here, so
-# that frontseat, frontseatd and frontseat-local are the ones just built.
+# that frontseat, frontseatd, frontseat-server and frontseat-stack are the ones just built.
 _.path = ["./dist/bin"]
 # Cargo is told where the wasm standard library is, in whatever has it:
 # an action that does not name it is told nothing.
@@ -66,14 +66,14 @@ CARGO_TARGET_WASM32_WASIP1_RUSTFLAGS = { value = "{% if tools['http:rust-std-was
 # what specs/cli proves. A run with nothing changed does nothing. The plugins
 # are built by the program that builds them for the tests
 # (specs/cmd/prepare-modules), which reads which there are from the Cargo
-# workspace; the box by its one build (stack/box, frontseat-local box).
+# workspace; the box by its one build (stack/box, frontseat-stack box).
 [tasks.build]
 description = "Build Frontseat from this checkout into dist/ (dist/bin is on the PATH here), and the image each workspace runs (the box), tagged frontseat-box:local too"
 sources = ["api/**", "cli/**", "cmd/**", "core/**", "common/**", "testsupport/**", "sandbox/**", "build/**", "grid/**", "workspace/**", "local/**", "sdk/**", "specs/cmd/**", "specs/internal/**", "plugins/**", "Cargo.toml", "Cargo.lock", "go.work", "go.work.sum", "mise.lock"]
-outputs = ["dist/bin/frontseat", "dist/bin/frontseatd", "dist/bin/frontseat-local", "dist/plugins"]
+outputs = ["dist/bin/frontseat", "dist/bin/frontseatd", "dist/bin/frontseat-server", "dist/bin/frontseat-stack", "dist/plugins"]
 run = [
   { task = "build:programs" },
-  "dist/bin/frontseat-local box --tag frontseat-box:local --plugins dist/plugins",
+  "dist/bin/frontseat-stack box --tag frontseat-box:local --plugins dist/plugins",
 ]
 
 # The programs and the plugins alone, and no image: what a job builds
@@ -85,11 +85,12 @@ run = [
   "mkdir -p dist/bin",
   "go build -o dist/bin/frontseat ./cli/cmd/frontseat",
   "go build -o dist/bin/frontseatd ./cmd/frontseatd",
-  "go build -o dist/bin/frontseat-local ./cmd/frontseat-local",
+  "go build -o dist/bin/frontseat-server ./cmd/frontseat-server",
+  "go build -o dist/bin/frontseat-stack ./cmd/frontseat-stack",
   "go run ./specs/cmd/prepare-modules -dist dist/plugins",
 ]
 
-# The local stack, from this checkout (frontseat-local up, package
+# The local stack, from this checkout (frontseat-stack up, package
 # stack): one container holding the grid, its runner sandboxes, the
 # OpenShell gateway and the control plane on localhost:7700. `start` builds dist/ first, and the
 # stack builds its box from this checkout every time it is brought up,
@@ -102,20 +103,20 @@ run = [
 description = "Build Frontseat and start the local stack from this checkout: one container holding the build grid and the control plane the command line asks"
 # Whether this checkout may start the stack is asked before anything is
 # built.
-run = [{ task = "ready" }, { task = "build" }, "dist/bin/frontseat-local up --plugins dist/plugins"]
+run = [{ task = "ready" }, { task = "build" }, "dist/bin/frontseat-stack up --plugins dist/plugins"]
 
 # Whether this checkout may bring the stack up: the container runtime
 # answers, and no stack another checkout started is up. `start` asks it
 # first; it is a task of its own for a person to ask alone.
 [tasks.ready]
 description = "Say whether the local stack can be started from this checkout: the container runtime answers, and no other checkout's stack is up"
-run = "go run ./cmd/frontseat-local ready"
+run = "go run ./cmd/frontseat-stack ready"
 
 [tasks.stop]
 description = "Stop the local stack, whichever checkout started it; its volume, and what it kept there, stays"
 # The program built last stops it, where there is one, so that a tree
 # that does not compile does not keep the stack up.
-run = "if [ -x dist/bin/frontseat-local ]; then dist/bin/frontseat-local down; else go run ./cmd/frontseat-local down; fi"
+run = "if [ -x dist/bin/frontseat-stack ]; then dist/bin/frontseat-stack down; else go run ./cmd/frontseat-stack down; fi"
 
 # The Go gates (specs/cmd/gate) read the modules from
 # go.work and their packages from the source, so nothing here lists
