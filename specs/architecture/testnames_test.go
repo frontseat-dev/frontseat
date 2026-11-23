@@ -4,6 +4,10 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"os"
+	"path"
+	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -139,5 +143,86 @@ func (s) TestReviewOfAMethod() {}
 	want := []string{"TestReviewAPartIsHeld", "TestMiseServicePOCRejectsAWrongChecksum", "TestProductionReviewSpellings", "TestAProofIsKept", "Test_review_by_underscores", "BenchmarkReviewOfParts", "FuzzThePOC", "ExampleReview", "TestAPOCIsKept", "TestServicePoCRejects", "TestReview2Parts", "TestPOC2", "TestAReviewsList", "TestProofsHold", "TestAPIPOCThing"}
 	if !slices.Equal(got, want) {
 		t.Errorf("found %q named for an occasion, want %q", got, want)
+	}
+}
+
+// aTestNamed is a Go test as prose names it, and aTestDeclared one as
+// its file declares it, a method of a suite too.
+var (
+	aTestNamed    = regexp.MustCompile(`\bTest[A-Z]\w*`)
+	aTestDeclared = regexp.MustCompile(`(?m)^func (?:\([^)]*\) )?(Test\w*)\(`)
+)
+
+// notTests are names that read as a Go test's and are something else,
+// each in the one file of rules that writes it.
+var notTests = map[string][]string{
+	// The plugin testkit's types (sdk/plugin-test).
+	"plugins/AGENTS.md": {"TestPlugin", "TestHost"},
+	// The test a spec writes into its fixture, differing at every run.
+	"specs/AGENTS.md": {"TestOfThisRun"},
+}
+
+// testsNamedAbsent returns each Go test a text names that no test file
+// declares, but those allowed that file. A name cut short (`TestReview…`)
+// names no one test.
+func testsNamedAbsent(file, text string, declared func(string) bool, allowed map[string][]string) []string {
+	var out []string
+	for _, at := range aTestNamed.FindAllStringIndex(text, -1) {
+		name := text[at[0]:at[1]]
+		if strings.HasPrefix(text[at[1]:], "…") || declared(name) || slices.Contains(allowed[file], name) || slices.Contains(out, name) {
+			continue
+		}
+		out = append(out, name)
+	}
+	return out
+}
+
+// A rule says what holds it, and a test it names is there: every Go
+// test an AGENTS.md names is declared by a test file of the repository.
+// Not held: a Rust test's name, which reads as any other word.
+func TestEveryTestTheRulesNameIsThere(t *testing.T) {
+	root := repositoryRoot(t)
+	declared := map[string]bool{}
+	goTestFiles(t, root, func(_ string, source []byte) {
+		for _, found := range aTestDeclared.FindAllSubmatch(source, -1) {
+			declared[string(found[1])] = true
+		}
+	})
+	files := repositoryFiles(t, root)
+	for _, file := range files {
+		if path.Base(file) != "AGENTS.md" {
+			continue
+		}
+		content, err := os.ReadFile(filepath.Join(root, file))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, absent := range testsNamedAbsent(file, string(content), func(name string) bool { return declared[name] }, notTests) {
+			t.Errorf("%s names the test %s, which no test file declares", file, absent)
+		}
+	}
+	for _, stale := range allowedForNothing(root, files, notTests) {
+		t.Errorf("notTests allows %s", stale)
+	}
+}
+
+// The controls: a test that is declared is allowed, a function's or a
+// suite's; one that is not is found, once; a name cut short names none;
+// and what is allowed one file is allowed it alone.
+func TestATestNamedButAbsentIsFound(t *testing.T) {
+	const source = "package a\n\nfunc TestHeld(t *testing.T) {}\n\nfunc (s *suite) TestOfASuite() {}\n\nfunc helper() { TestCalled() }\n"
+	declared := map[string]bool{}
+	for _, found := range aTestDeclared.FindAllStringSubmatch(source, -1) {
+		declared[found[1]] = true
+	}
+	const text = "Held by: `TestHeld`, `TestOfASuite`, `TestGone` (`TestReview…`), TestCalled and `TestGone`; the testkit's `TestHost`."
+	allowed := map[string][]string{"plugins/AGENTS.md": {"TestHost"}}
+	for file, want := range map[string]string{
+		"plugins/AGENTS.md": "TestGone TestCalled",
+		"AGENTS.md":         "TestGone TestCalled TestHost",
+	} {
+		if got := strings.Join(testsNamedAbsent(file, text, func(name string) bool { return declared[name] }, allowed), " "); got != want {
+			t.Errorf("%s: found %q absent, want %q", file, got, want)
+		}
 	}
 }

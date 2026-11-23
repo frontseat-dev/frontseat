@@ -262,8 +262,8 @@ the change that fixes it.
 - A Component owns the projects beneath its directory; nothing else owns
   projects. One directory per Component; a Component inside another's
   directory is only where it says `subcomponentOf`. A directory at the
-  top is one Component (`api`, `cli`, `core`, `grid`, `local`,
-  `sandbox`, `specs`, `testsupport`) or a directory of Components:
+  top is one Component (`api`, `cli`, `core`, `grid`, `sandbox`,
+  `specs`, `stack`, `testsupport`) or a directory of Components:
   `plugins/`, `sdk/`, `common/`, `build/`, `workspace/` and `cmd/`,
   where every program is, each a Component of its own named as the
   program; `docs/` holds the TechDocs site and is no Component.
@@ -376,17 +376,19 @@ the change that fixes it.
   `TestAPublishNoEntityOwnsPublishesEachUnitOfItsRepository`,
   `TestAnArtifactAPublishCannotBeGivenFailsTheReleaseBeforeItTags`,
   `TestAnArtifactIsNamedAsAPublishCanBeGivenIt`,
-  `TestWhatAPublishPrintedIsSaidWithoutWhatItWasGiven`,
-  `TestAnActionThatPublishesIsThatAlone` and
+  `TestWhatAPublishPrintedIsSaidWithoutWhatItWasGiven` and
   `TestAnActionThatPublishesIsGivenTheReleaseAndItsArtifacts`. A
   repository that lists the GitHub plugin (`plugins/github`) is
   published by `gh release create`, a GitHub release for each unit, the
   tag verified and never made, and one that pins no `gh` is refused
-  before anything is built; this repository lists it. A plugin names
-  what publishes `publish`, a slash and what it publishes to. Held by:
+  before anything is built; this repository lists it. What
+  publishes is known by its kind, and by no name: an action is named a
+  kind, or a kind, a slash and the piece of it it is, and a plugin names
+  what publishes `publish`, a slash and what it publishes to, which the
+  host does not hold it to. Held by:
   `TestTheGitHubPluginsPublishIsRunByARelease`,
-  `TestOnlyWhatPublishesIsNamedPublishAndWhatItPublishesTo` and the
-  plugin's own tests. Not held: no publish was run with a real tool or
+  `TestAnActionIsNamedAKindOrAKindAndAPiece` and the plugin's own
+  tests. Not held: no publish was run with a real tool or
   against a forge; no artifact was brought from a real grid; a release
   whose publish failed is not finished by making it again, its unit
   being found released then with nothing built: its tag and what was
@@ -466,7 +468,6 @@ the change that fixes it.
   `TestAReleaseBuildsAProgramForEachPlatformItsEntityShipsFor`,
   `TestTwoArtifactsOfOneNameFailTheReleaseBeforeItTags`,
   `TestAPackageThatLeavesWhatCannotBeShippedFailsTheRelease`,
-  `TestAPackageLeavesFilesAndIsAStepThatMakesSomething`,
   `TestWhatADirectoryShipsForIsWhatTheNearestEntityAboveItSays` and the
   Go plugin's
   `served_plugin_packages_each_program_for_each_platform_it_ships_for`.
@@ -549,18 +550,22 @@ the change that fixes it.
   `testsupport` (what a test of any part is helped by); `core` (what
   every server program is built on); `common/<name>`, what some parts
   use and others do not, each a module of its own (`confine`, `git`,
-  `vcs`, `record`, `told`, `runner`); `local` (the local stack and the
-  box); `sandbox`; `build/engine` and `build/daemon`; `grid` (the
-  runner); `workspace/box` (what fills a workspace) and
-  `workspace/server` (the control plane); a module for each program,
-  `cmd/<binary>`, a thin `main` over the part it runs; `cli` (the
-  command line) and `specs`. Each requires only modules beneath it in
-  that order, which is written once (`moduleOrder`, in
-  `specs/architecture/rules_test.go`); go.work uses and replaces each,
-  and no go.mod replaces anything. What a module may import of another
-  is what its go.mod requires, which the compiler holds; the rules of
-  each package are beside that, and finer (`policies`). A module added
-  goes where what it requires is beneath it. Held by:
+  `vcs`, `record`, `told`, `runner`); `stack` (the local stack and the
+  box); `sandbox`; `build/engine`; `grid` (the runner); `workspace/box`
+  (what fills a workspace); `build/daemon`; `workspace/server` (the
+  control plane); a module for each program, `cmd/<binary>`, a thin
+  `main` over the part it runs; `cli` (the command line) and `specs`.
+  Each requires only modules beneath it in that order, which is written
+  once (`moduleOrder`, in `specs/architecture/rules_test.go`); go.work
+  uses and replaces each, and no go.mod replaces anything. Go holds none
+  of the order: under go.work a package imports any module of the
+  workspace, required or not. So every import of a package of another
+  module, a test's too, is held to it by the architecture test: the
+  module is beneath the importing one in `moduleOrder`, and the
+  importing module's go.mod requires it itself
+  (`TestAPackageImportsOnlyWhatItsModuleRequiresBeneathIt`); the rules
+  of each package are beside that, and finer (`policies`). A module
+  added goes where what it requires is beneath it. Held by:
   `TestAModuleRequiresOnlyWhatIsBeneathIt`,
   `TestEveryGoModuleIsInTheWorkspaceAndValidation`,
   `TestLocalModuleRequirementsAreAcyclic`, and the catalog's check for a
@@ -593,9 +598,11 @@ the change that fixes it.
   `TestTheTestkitIsADependencyOfTestsAlone`).
 - Everything else is this repository's own. Its packages have paths
   that can be imported, since Go's `internal` directories reach across
-  no module and the repository is many: what holds who imports one is
-  its module's go.mod, the order of the modules and the rules of each
-  package, and nothing outside the repository is to rely on it. What
+  no module and the repository is many: what holds who imports one,
+  within the repository, is the architecture test (the order of the
+  modules, what the importing module's go.mod requires and the rules of
+  each package), and nothing outside the repository is to rely on it.
+  What
   frontseat-enterprise may import is on one list with why (`public`, in
   `specs/architecture/visibility_test.go`): the sandbox service, its
   generated API, its driver port and the OpenShell driver (`sandbox`,
@@ -603,9 +610,12 @@ the change that fixes it.
   which it embeds and composes around and never copies; and what those
   show in what they export is of an SDK or on that list too
   (`TestPublicFeatureSignaturesHideImplementationTypes`). A binary's
-  `main` is `cmd/<binary>`; test support is `testsupport/<name>`, at
-  the top or beside the module it starts (`stack/testsupport`,
-  `sandbox/testsupport`), which the import rules hold to tests. A
+  `main` is `cmd/<binary>`; test support is `testsupport/<name>` at
+  the top, or beside the module it starts (`stack/testsupport`,
+  `sandbox/testsupport`, `workspace/server/controlplanetest`,
+  `workspace/server/toldtest`, `specs/buildtest`), which the import
+  rules hold to tests, each place said once (`forTests`, in
+  `specs/architecture/rules_test.go`). A
   directory is one package, and a fixture beneath `testdata` is a
   program or internal. Held by:
   `TestEveryPublicPackageIsInAnSDKOrOnTheList`.
@@ -622,13 +632,17 @@ the change that fixes it.
   The self-build generates the Go through the Buf plugin and holds the
   committed copies to it; a Component written into says so in its
   catalog file (`spec.frontseat.generated`).
-- A port is an interface package; its implementations are private
-  (`common/vcs` and its
-  `common/vcs/git`, which `common/vcs/chosen` alone
-  names, for the program that composes one; the sandbox `driver` and
-  the OpenShell driver; the command line's `cli/internal/vcs` and its
-  `cli/internal/vcs/git`). The OpenShell driver is public, for
-  frontseat-enterprise; the driver held in memory is test support, in
+- A port is an interface package, and what implements it is named by
+  one package alone (`common/vcs` and its `common/vcs/git`, which
+  `common/vcs/chosen` alone names, for the program that composes one;
+  the sandbox `driver` and the OpenShell driver; the command line's
+  `cli/internal/vcs` and its `cli/internal/vcs/git`). Go's `internal`
+  holds only the command line's: `common/vcs/git` can be imported by
+  path, and what refuses it to any other package is the import rules
+  (`policies`, which allow it to `common/vcs/chosen` and to the tests of
+  what fills a workspace) and
+  `TestOnlyOnePackageNamesAVersionControlSystem`. The OpenShell driver
+  is public, for frontseat-enterprise; the driver held in memory is test support, in
   `drivertest`, and so is the driver of the container runtime
   (`testcontainer`), which a server's tests use where they need a
   runtime and no program makes a sandbox with. Only one package on each
@@ -645,16 +659,22 @@ the change that fixes it.
 
 ## Naming
 
-- A package or crate is named for what it is: no `util`, `common` or
-  `helpers`. A test file is named for its subject, never for the
+- A package or crate is named for what it is: none is named `util`,
+  `common` or `helpers`. The directory `common/` at the top is no
+  package: it holds the shared modules that some parts use and others
+  do not, each named for what it is (`common/git`, `common/record`). A
+  test file is named for its subject, never for the
   occasion it was written on (a review, a proof of concept, a proof),
   and so is a test: `TestATestFileIsNamedForItsSubject`,
   `TestATestIsNamedForItsSubject` (a Go test's name, word by word).
 - Test support for one package is `<package>test` beside it
   (`sourcetest`, `reapitest`, `plantest`, `toolstest`), as Go's
   `httptest`; test support shared across packages, and what starts a
-  daemon, a control plane or a sandbox driver for a test (`buildtest`,
-  `controlplanetest`, `drivertest`), is `testsupport/<name>`,
+  daemon, a control plane or a sandbox driver for a test, is
+  `testsupport/<name>` at the top or beside the module it serves
+  (`stack/testsupport/testgrid`, `sandbox/testsupport/drivertest`), or
+  a package beside what it starts (`specs/buildtest`,
+  `workspace/server/controlplanetest`, `workspace/server/toldtest`),
   named what its callers call it (`testgrid`, `testbox`, `testpins`).
   Test support is never imported by production code.
 - A package is imported by its own name. An alias is written only where
@@ -910,10 +930,11 @@ mise run docs:serve       # serve the TechDocs site on http://localhost:8000
 | `common/record`, `common/record/manifest` | A workspace's repositories and entities as they are recorded, and the manifest in its directory (`.frontseat/workspace.yaml`) that what fills it writes and a build reads |
 | `build/daemon/directory` | A directory as a build reads it: what its manifest records, and its repositories' history |
 | `common/told` | What a box's daemon is told of what a workspace is asked for |
-| `local` | What the local stack is, read from its files: the workers' image and platform, what a sandbox is told; the checkout a program is started at (`Checkout`); the directory the command line keeps what it keeps in, and the owner's token and server files beneath it (`Config`, `TokenFile`, `ServerFile`); the container runtime's architecture (`Architecture`, `GOARCH`) and the stack's Podman (`Podman`), each asked one way |
+| `stack/local` | What the local stack is, read from its files: the workers' image and platform, what a sandbox is told; the checkout a program is started at (`Checkout`); the directory the command line keeps what it keeps in, and the owner's token and server files beneath it (`Config`, `TokenFile`, `ServerFile`); the container runtime's architecture (`Architecture`, `GOARCH`) and the stack's Podman (`Podman`), each asked one way |
 | `stack/internal/poll` | Asking again until the stack's container comes to something (`Tries`): the box's build's and the stack's |
 | `core/ports` | Every port a box and the local stack are reached on |
-| `testsupport/*` | Test facilities: pins, Wasm modules, the grid, fixtures (`testfiles`, `testforge`, `commits`), budgets |
+| `testsupport/*` | Test facilities: pins, Wasm modules, fixtures (`testfiles`, `testforge`, `commits`), budgets |
+| `stack/testsupport/*` | The local stack's test facilities: the box, the gateway, the grid and the owner's token a test is given |
 | `specs/buildtest`, `workspace/server/controlplanetest` | A daemon and a control plane started for a test, as `frontseatd` and `frontseat-server` start them |
 | `sandbox/testsupport/drivertest` | What any sandbox driver is tested with: the conformance, a running sandbox of the test's own, the driver that holds sandboxes in memory |
 | `sandbox/testsupport/testcontainer` | A sandbox driver over the container runtime, for a server's tests that need a runtime; no program makes a sandbox with it |

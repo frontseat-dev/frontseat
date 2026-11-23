@@ -11,6 +11,7 @@ import (
 	"go/token"
 	"io"
 	"io/fs"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -68,18 +69,21 @@ var policies = []policy{
 	// Git as frontseat runs it, hardened, and how it writes a remote: one
 	// implementation for the client's adapter and the daemon's.
 	{"common/git", []string{"common/confine"}},
-	// Test support reads what the local stack is from its files (local),
+	// The test support at the top is beneath every module but the SDK, and
+	// reads nothing of what is above it: what the local stack is, and its
+	// ports, are read by the test support beside the stack.
+	{"testsupport/**", []string{"testsupport/**"}},
+	// Test support of the local stack's own: the box, the gateway, the
+	// grid and the owner's token a test is given, beside what they start.
+	// It reads what the local stack is from its files (stack/local),
 	// never through the stack's control plane (frontseat-server), which
 	// links what the test support tests, and never builds the box, which
 	// is built from the source of other packages: the gate builds it
 	// before the tests (fromSource).
-	{"testsupport/**", []string{"testsupport/**", "stack/local", "core/ports"}},
+	{"stack/testsupport/**", []string{"stack/local", "stack/testsupport/**", "core/ports"}},
 	// The stack's one container is started for a test as the stack starts
 	// it: by its own flags and profile.
-	// Test support of the local stack's own: the box, the gateway, the
-	// grid and the owner's token a test is given, beside what they start.
-	{"stack/testsupport/**", []string{"stack/local", "stack/testsupport/**", "core/ports"}},
-	{"stack/testsupport/testbox", []string{"testsupport/**", "stack/local", "core/ports", "stack"}},
+	{"stack/testsupport/testbox", []string{"testsupport/**", "stack/local", "stack"}},
 	// The grid's runner runs only a confined command: what another tool
 	// sends it begins as the daemon's do, which the confiner says.
 	{"stack/testsupport/testgrid", []string{"testsupport/**", "stack/local", "stack/testsupport/**", "core/ports", "common/confine", "core/poll"}},
@@ -138,7 +142,7 @@ var policies = []policy{
 	// nothing of what fills it, its tests neither: they fill one with the
 	// version control system and the manifest
 	// (TestTheBuildReadsItsDirectoryAndNothingOfWhatFillsIt).
-	{"build/daemon/build", []string{"sdk/go/api/**", "sdk/go/entity", "sdk/go/enum", "core/poll", "build/engine/pluginapi/**", "build/engine/exec/publish", "build/engine/exec/tools", "core/telemetry", "build/daemon/build", "build/engine/engine/evaluate", "build/engine/engine/graph", "build/engine/engine/plan", "build/engine/engine/release", "build/engine/engine/source", "build/engine/exec", "build/engine/exec/access", "build/engine/exec/download", "build/engine/exec/program", "build/engine/exec/run", "build/engine/history", "build/engine/model", "build/engine/wire", "build/engine/pluginhost", "common/record", "common/vcs", "build/daemon/directory", "common/record/manifest", "core/page", "core/refusal", "common/vcs/chosen"}},
+	{"build/daemon/build", []string{"sdk/go/api/**", "sdk/go/entity", "sdk/go/enum", "core/poll", "build/engine/pluginapi/**", "build/engine/exec/publish", "build/engine/exec/tools", "core/telemetry", "build/daemon/build", "build/engine/engine/evaluate", "build/engine/engine/graph", "build/engine/engine/plan", "build/engine/engine/release", "build/engine/engine/source", "build/engine/exec", "build/engine/exec/access", "build/engine/exec/download", "build/engine/exec/program", "build/engine/exec/run", "build/engine/history", "build/engine/model", "build/engine/wire", "build/engine/pluginhost", "common/record", "common/vcs", "build/daemon/directory", "common/record/manifest", "core/page", "core/refusal"}},
 	// A directory as a build reads it: the workspace's manifest in it,
 	// and its repositories' history through the version control port.
 	{"build/daemon/directory", []string{"build/daemon/directory", "common/record/manifest", "common/record", "common/vcs"}},
@@ -196,7 +200,7 @@ var policies = []policy{
 	{"build/engine/exec/fix", []string{"core/telemetry", "build/engine/exec", "build/engine/exec/here", "build/engine/exec/tools", "build/engine/engine/plan", "build/engine/engine/source", "build/engine/model", "build/engine/pattern", "build/engine/pins"}},
 	{"build/engine/exec/program", []string{"sdk/go/api/**", "build/engine/pluginapi/**", "build/engine/exec", "build/engine/exec/tools", "build/engine/engine/plan", "build/engine/model", "common/confine"}},
 	{"build/engine/exec/run", []string{"sdk/go/api/**", "sdk/go/entity", "build/engine/pluginapi/**", "core/telemetry", "build/engine/exec", "build/engine/exec/download", "build/engine/exec/tools", "build/engine/exec/fix", "build/engine/exec/stage", "build/engine/exec/schedule", "build/engine/engine/plan", "build/engine/engine/source", "build/engine/model", "common/runner/runnerapi/**"}},
-	{"workspace/box/source/**", []string{"sdk/go/api/**", "sdk/go/entity", "workspace/box/source/**", "core/refusal", "common/told/sourceapi/**", "common/confine", "common/record/records", "common/record/manifest", "common/record", "common/vcs", "common/vcs/git", "common/vcs/chosen", "common/told"}},
+	{"workspace/box/source/**", []string{"sdk/go/api/**", "sdk/go/entity", "workspace/box/source/**", "core/refusal", "common/told/sourceapi/**", "common/confine", "common/record/records", "common/record/manifest", "common/record", "common/vcs", "common/vcs/chosen", "common/told"}},
 	{"common/record", []string{"sdk/go/entity", "common/record"}},
 	// A daemon told, for a test, what the control plane would tell it:
 	// its entities resolved through a fake Backstage.
@@ -217,9 +221,10 @@ var policies = []policy{
 	// A driver of the container runtime, for tests alone: what an image
 	// starts is asked through the image package, as the gateway's way
 	// asks it. Its tests start a box and ask its daemon.
-	// Test support of the sandbox's own, beside it.
-	{"sandbox/testsupport/**", []string{"sandbox/**"}},
-	{"sandbox/testsupport/testcontainer", []string{"sandbox/testsupport/**", "sandbox/driver", "core/image", "testsupport/**", "stack/local", "core/ports", "sdk/go/api/**", "common/told", "common/told/sourceapi/**"}},
+	// Test support of the sandbox's own, beside it: each piece says what
+	// it imports, and one that says nothing imports nothing.
+	{"sandbox/testsupport/**", []string{}},
+	{"sandbox/testsupport/testcontainer", []string{"sandbox/testsupport/**", "sandbox/driver", "core/image", "testsupport/**", "core/ports", "sdk/go/api/**", "common/told", "common/told/sourceapi/**"}},
 	// The control plane keeps workspaces over the sandboxes they live in,
 	// and asks the version control system through its port (vcs.Fetching)
 	// what reaching a repository takes. It tells a workspace's daemon
@@ -231,7 +236,7 @@ var policies = []policy{
 	// (core/ports), and is told nothing of the stack.
 	// It resolves entities through the Backstage its operator gives it
 	// (workspace/server/backstage), held over a fake one in its tests.
-	{"workspace/server/controlplane/**", []string{"sdk/go/api/**", "sandbox/api/**", "sdk/go/entity", "workspace/server/controlplane/**", "sandbox", "workspace/server/backstage", "core/secretfile", "common/record", "common/vcs", "common/told", "common/told/sourceapi/**", "sandbox/testsupport/drivertest", "testsupport/backstagetest", "core/plain", "core/ports", "sdk/go", "core/page", "core/refusal", "common/record/records", "core/poll", "common/vcs/chosen"}},
+	{"workspace/server/controlplane/**", []string{"sdk/go/api/**", "sandbox/api/**", "sdk/go/entity", "workspace/server/controlplane/**", "sandbox", "workspace/server/backstage", "core/secretfile", "common/record", "common/vcs", "common/told", "common/told/sourceapi/**", "sandbox/testsupport/drivertest", "testsupport/backstagetest", "core/plain", "core/ports", "sdk/go", "core/page", "core/refusal", "common/record/records", "core/poll"}},
 	// A test starts a daemon as frontseatd does, and a control plane as
 	// frontseat-server does, each with the test support beside it.
 	{"specs/buildtest", []string{"build/daemon/build", "core/telemetry", "testsupport/**", "sdk/go/api/**", "workspace/box/source", "common/told", "workspace/server/toldtest", "common/told/sourceapi/**", "common/vcs/chosen"}},
@@ -303,6 +308,14 @@ func testSupport(path string) bool {
 	}
 	return false
 }
+
+// forATest is whether a Go file is a test's and no program's: a test
+// file, or a file of the test support, wherever it is (forTests).
+func forATest(file string) bool {
+	file = filepath.ToSlash(file)
+	return strings.HasSuffix(file, "_test.go") || testSupport(filepath.ToSlash(filepath.Dir(file)))
+}
+
 func owner(file string) *policy {
 	dir := filepath.ToSlash(filepath.Dir(file))
 	var found *policy
@@ -403,11 +416,18 @@ func permits(file, imported string) bool {
 	if test && ofTheBuild(dir) && (path == "build/engine/pattern" || path == "build/engine/pins") {
 		return true
 	}
-	// The control plane's tests read a remote as the daemon in a sandbox
-	// reads it, by the system a daemon has (source.Fetching), so that
-	// what it refuses of a remote, and writes a rule for, is proven of
-	// that system; the control plane asks it through its port alone.
-	if test && beneath(dir, "workspace/server/controlplane") && path == "workspace/box/source" {
+	// The control plane's tests, and the build's, are given the version
+	// control system the programs choose (chosen.System), so that what
+	// they prove is proven of that system; the control plane and the
+	// build ask it through its port alone, and are given it by the
+	// program that composes them.
+	if test && (beneath(dir, "workspace/server/controlplane") || dir == "build/daemon/build") && path == "common/vcs/chosen" {
+		return true
+	}
+	// The tests of what fills a workspace plant what the version control
+	// system would find, with that system itself; what fills a workspace
+	// is given it by the one package that chooses it.
+	if test && beneath(dir, "workspace/box/source") && path == "common/vcs/git" {
 		return true
 	}
 	// The gateway's driver's tests ask the container runtime what an
@@ -588,15 +608,22 @@ func TestOnlyOnePackageNamesAVersionControlSystem(t *testing.T) {
 // support, which no program links.
 const containerDriver = "sandbox/testsupport/testcontainer"
 
+// driverPort is the port the sandbox service drives its drivers through,
+// and gatewayDriver the one driver beneath it: the OpenShell gateway's.
+const (
+	driverPort    = "sandbox/driver"
+	gatewayDriver = "sandbox/driver/openshell"
+)
+
 // containerRuntimeUses is what a file does that could make a sandbox
 // with the container runtime where it may not: every sandbox a program
 // makes is the OpenShell gateway's, and the driver of the container
 // runtime is for tests alone. A test of the journey is held as a
 // program is, since one that made a workspace so would prove nothing of
-// what a person is given. A package beneath server/internal/driver/,
-// where there is none, is refused to tests too: it would be a second
-// driver beside the gateway's, which the sandbox's one implementation
-// leaves no room for.
+// what a person is given. A package beneath the drivers' port
+// (sandbox/driver) that is not the gateway's driver, where there is none,
+// is refused to tests too: it would be a second driver beside the
+// gateway's, which the sandbox's one implementation leaves no room for.
 func containerRuntimeUses(file string, source []byte) ([]string, error) {
 	file = filepath.ToSlash(file)
 	parsed, err := parser.ParseFile(token.NewFileSet(), file, source, parser.ImportsOnly)
@@ -607,10 +634,11 @@ func containerRuntimeUses(file string, source []byte) ([]string, error) {
 	var refused []string
 	for _, spec := range parsed.Imports {
 		path := strings.TrimPrefix(strings.Trim(spec.Path.Value, "\"`"), module+"/")
-		if path != containerDriver && !strings.HasPrefix(path, "server/internal/driver/") {
+		beside := beneath(path, driverPort) && path != driverPort && !beneath(path, gatewayDriver)
+		if path != containerDriver && !beside {
 			continue
 		}
-		if !test || strings.HasPrefix(file, "specs/") || strings.HasPrefix(path, "server/internal/driver/") {
+		if !test || strings.HasPrefix(file, "specs/") || beside {
 			refused = append(refused, fmt.Sprintf("%s makes sandboxes with the container runtime (%s): a program's are the gateway's, and that driver is for a test of a server alone", file, path))
 		}
 	}
@@ -648,8 +676,10 @@ func TestEveryWayToTheContainerRuntimeIsSeen(t *testing.T) {
 		"the sandbox service":             {"sandbox/sandbox.go", `package sandbox; import made "` + driver + `"`, true},
 		"a program":                       {"cmd/frontseat-server/main.go", `package main; import _ "` + driver + `"`, true},
 		"a test of the journey":           {"specs/cli/local_test.go", `package cli; import "` + driver + `"`, true},
-		"a driver beside the gateway's":   {"sandbox/sandbox.go", `package sandbox; import "` + module + `/server/internal/driver/podman"`, true},
-		"a driver beside, even in a test": {"sandbox/runner_test.go", `package sandbox_test; import "` + module + `/server/internal/driver/podman"`, true},
+		"a driver beside the gateway's":   {"grid/runner/pool.go", `package runner; import "` + module + `/sandbox/driver/podman"`, true},
+		"a driver beside, even in a test": {"sandbox/runner_test.go", `package sandbox_test; import "` + module + `/sandbox/driver/podman"`, true},
+		"the gateway's driver":            {"grid/runner/pool.go", `package runner; import "` + module + `/sandbox/driver/openshell"`, false},
+		"the drivers' port":               {"sandbox/sandbox.go", `package sandbox; import "` + module + `/sandbox/driver"`, false},
 		"what an image starts, asked":     {"sandbox/sandbox.go", `package sandbox; import "` + module + `/core/image"`, false},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -1053,6 +1083,34 @@ func TestCodeAmongTheContractsIsFound(t *testing.T) {
 	}
 }
 
+// clientShares is what the command line links of this repository beyond
+// itself and the Go SDK, each with why: nothing else of the repository
+// is a client's, and nothing of a server.
+var clientShares = map[string]string{
+	"common/git":     "git, as frontseat runs it over a checkout: the command line reads a checkout of this machine with it",
+	"common/confine": "what git ends a process group with, the confiner's one way past a sandbox's refusal of a signal to a group (owner's ruling, 2026-11-19)",
+	"core/telemetry": "the command line's telemetry, which it hands the SDK's client",
+	"core/ports":     "where the local stack's control plane is reached, said once",
+	"stack/local":    "what the command line keeps on this machine is where the stack and the test support find it (local.Config)",
+	"stack/image":    "the stack's files, which stack/local reads what the stack is from",
+}
+
+// notAClients says why a package the command line links is none it may
+// link, or "" where it may: its own, the Go SDK's, one of clientShares,
+// or no package of this repository. Test support is refused wherever it
+// is, and so is every other package: a server's, the stack's programs,
+// the specs.
+func notAClients(linked string) string {
+	path, local := strings.CutPrefix(linked, module+"/")
+	switch {
+	case !local || beneath(path, "cli") || beneath(path, "sdk/go") || clientShares[path] != "":
+		return ""
+	case testSupport(path):
+		return "client links test support " + path
+	}
+	return "client links " + path + ", which is no client's (clientShares)"
+}
+
 // Ask Go what the client actually links. This also sees imported fixture or
 // generated packages that a source-directory walk might otherwise exclude.
 func TestClientProductionDependencyClosure(t *testing.T) {
@@ -1062,6 +1120,7 @@ func TestClientProductionDependencyClosure(t *testing.T) {
 		"linux-arm64": {"linux", "arm64"},
 		"linux-amd64": {"linux", "amd64"},
 	}
+	linked := map[string]bool{}
 	for name, platform := range platforms {
 		t.Run(name, func(t *testing.T) {
 			cmd := exec.Command("go", "list", "-deps", "-json", "./cli/...")
@@ -1073,28 +1132,57 @@ func TestClientProductionDependencyClosure(t *testing.T) {
 			}
 			decoder := json.NewDecoder(bytes.NewReader(raw))
 			for {
-				var pkg struct {
-					ImportPath string
-					Deps       []string
-				}
+				var pkg struct{ ImportPath string }
 				if err := decoder.Decode(&pkg); err == io.EOF {
 					break
 				} else if err != nil {
 					t.Fatal(err)
 				}
-				// Of the server, the command line links the shared packages
-				// alone: git, as frontseat runs it, and its telemetry; and
-				// what git ends a process group with, the confiner's one way
-				// past a sandbox's refusal of a signal to a group (owner's
-				// ruling, 2026-11-19).
-				if shared := pkg.ImportPath == module+"/common/git" || pkg.ImportPath == module+"/core/telemetry" || pkg.ImportPath == module+"/common/confine"; strings.HasPrefix(pkg.ImportPath, module+"/server/") && !shared {
-					t.Errorf("client links server package %s", pkg.ImportPath)
-				}
-				if strings.HasPrefix(pkg.ImportPath, module+"/testsupport/") {
-					t.Errorf("client links test support %s", pkg.ImportPath)
+				linked[strings.TrimPrefix(pkg.ImportPath, module+"/")] = true
+				if why := notAClients(pkg.ImportPath); why != "" {
+					t.Error(why)
 				}
 			}
 		})
+	}
+	// The list holds what is linked and nothing kept for later.
+	for shared := range clientShares {
+		if !linked[shared] {
+			t.Errorf("clientShares names %s, which the command line does not link", shared)
+		}
+	}
+}
+
+// The controls: what the command line may link is allowed, and a
+// package of a server, of the stack's programs or of the test support,
+// wherever it is, is refused.
+func TestWhatIsNoClientsIsFound(t *testing.T) {
+	for linked, refused := range map[string]bool{
+		"connectrpc.com/connect":                        false,
+		module + "/cli/internal/cmd":                    false,
+		module + "/sdk/go/api/frontseat/build/v1alpha1": false,
+		module + "/common/git":                          false,
+		module + "/stack/local":                         false,
+		module + "/stack":                               true,
+		module + "/stack/box":                           true,
+		module + "/build/daemon/build":                  true,
+		module + "/build/engine/model":                  true,
+		module + "/grid/runner":                         true,
+		module + "/sandbox":                             true,
+		module + "/workspace/server/controlplane":       true,
+		module + "/workspace/box/source":                true,
+		module + "/common/vcs/chosen":                   true,
+		module + "/core/secretfile":                     true,
+		module + "/testsupport/testfiles":               true,
+		module + "/stack/testsupport/testgrid":          true,
+		module + "/sandbox/testsupport/testsandbox":     true,
+		module + "/workspace/server/controlplanetest":   true,
+		module + "/workspace/server/toldtest":           true,
+		module + "/specs/buildtest":                     true,
+	} {
+		if why := notAClients(linked); (why != "") != refused {
+			t.Errorf("%s: %q, want refused %v", linked, why, refused)
+		}
 	}
 }
 
@@ -1486,17 +1574,12 @@ func cyclic(edges map[string][]string) bool {
 	return false
 }
 func TestLocalModuleRequirementsAreAcyclic(t *testing.T) {
-	edges := map[string][]string{}
 	modules := workspaceModules(t, repositoryRoot(t))
-	for _, dir := range modules {
-		var mod struct{ Require []struct{ Path string } }
-		goJSON(t, filepath.Join(repositoryRoot(t), dir), &mod, "mod", "edit", "-json")
-		for _, require := range mod.Require {
-			if local, ok := strings.CutPrefix(require.Path, module+"/"); ok {
-				if !slices.Contains(modules, local) {
-					t.Errorf("%s requires unowned module %s", dir, local)
-				}
-				edges[dir] = append(edges[dir], local)
+	edges, _ := moduleRequires(t, repositoryRoot(t), modules)
+	for dir, required := range edges {
+		for _, local := range required {
+			if !slices.Contains(modules, local) {
+				t.Errorf("%s requires unowned module %s", dir, local)
 			}
 		}
 	}
@@ -1566,14 +1649,17 @@ func TestTheBuildReadsItsDirectoryAndNothingOfWhatFillsIt(t *testing.T) {
 }
 
 // moduleOrder is the Go modules of the repository from the bottom up:
-// each requires only modules above it in this list, which is what the
-// repository is built of, in the order it is built. What a module may
-// import of another is first what its go.mod requires, which the
-// compiler holds, and this list holds which module may require which;
-// the rules of each package (policies) are beside that, and finer. A
-// module added goes where what it requires is beneath it; one that would
-// need a module below to require one above is refused, and the code is
-// cut instead.
+// each requires only modules beneath it in this list, which is what the
+// repository is built of, in the order it is built. Go holds none of
+// it: under go.work a package imports any module of the workspace,
+// required or not. So what a package may import of another module is
+// held here, import by import
+// (TestAPackageImportsOnlyWhatItsModuleRequiresBeneathIt): the module is
+// beneath its own in this list, and its go.mod requires it itself; the
+// rules of each package (policies) are beside that, and finer. A module
+// added goes where what it requires is beneath it; one that would need a
+// module below to require one above is refused, and the code is cut
+// instead.
 var moduleOrder = []string{
 	"sdk/go",
 	// What a test of any module is helped by, and what every program is
@@ -1610,7 +1696,7 @@ func moduleOf(path string) string {
 	path = filepath.ToSlash(path)
 	found := ""
 	for _, dir := range moduleOrder {
-		if strings.HasPrefix(path, dir+"/") && len(dir) > len(found) {
+		if beneath(path, dir) && len(dir) > len(found) {
 			found = dir
 		}
 	}
@@ -1642,16 +1728,7 @@ func TestAModuleRequiresOnlyWhatIsBeneathIt(t *testing.T) {
 	if listed := slices.Sorted(slices.Values(moduleOrder)); !slices.Equal(listed, modules) {
 		t.Fatalf("the order names %v, and the workspace's modules are %v", listed, modules)
 	}
-	requires := map[string][]string{}
-	for _, dir := range modules {
-		var mod struct{ Require []struct{ Path string } }
-		goJSON(t, filepath.Join(root, dir), &mod, "mod", "edit", "-json")
-		for _, require := range mod.Require {
-			if local, ok := strings.CutPrefix(require.Path, module+"/"); ok {
-				requires[dir] = append(requires[dir], local)
-			}
-		}
-	}
+	requires, _ := moduleRequires(t, root, modules)
 	for _, each := range above(moduleOrder, requires) {
 		t.Errorf("%s, which is not beneath it: a module requires only what is beneath it in moduleOrder", each)
 	}
@@ -1663,5 +1740,102 @@ func TestAModuleRequiresOnlyWhatIsBeneathIt(t *testing.T) {
 	}
 	if found := above(order, map[string][]string{"low": {"high"}, "middle": {"middle", "absent"}}); !slices.Equal(found, []string{"low requires high", "middle requires absent", "middle requires middle"}) {
 		t.Errorf("of the requirements above, found %v", found)
+	}
+}
+
+// moduleRequires reads, of each module, the modules of this repository
+// its go.mod requires, by their directories: all of them, and those it
+// requires itself, for what its own packages import (not // indirect).
+func moduleRequires(t *testing.T, root string, modules []string) (all, itself map[string][]string) {
+	t.Helper()
+	all, itself = map[string][]string{}, map[string][]string{}
+	for _, dir := range modules {
+		var mod struct {
+			Require []struct {
+				Path     string
+				Indirect bool
+			}
+		}
+		goJSON(t, filepath.Join(root, dir), &mod, "mod", "edit", "-json")
+		for _, require := range mod.Require {
+			local, ok := strings.CutPrefix(require.Path, module+"/")
+			if !ok {
+				continue
+			}
+			all[dir] = append(all[dir], local)
+			if !require.Indirect {
+				itself[dir] = append(itself[dir], local)
+			}
+		}
+	}
+	return all, itself
+}
+
+// crossings returns each import, by a file, of a package of another
+// module of the repository that its own module may not reach: one that
+// is not beneath it in moduleOrder, or that its go.mod does not require
+// itself. A test file is held as any other: a test builds with its
+// module.
+func crossings(requires, imports map[string][]string) []string {
+	var out []string
+	for file, imported := range imports {
+		file = filepath.ToSlash(file)
+		from := moduleOf(file)
+		for _, each := range imported {
+			path, local := strings.CutPrefix(each, module+"/")
+			to := moduleOf(path)
+			switch {
+			case !local || to == from && to != "":
+			case from == "" || to == "":
+				out = append(out, fmt.Sprintf("%s imports %s: one of them is of no module in moduleOrder", file, path))
+			case slices.Index(moduleOrder, to) > slices.Index(moduleOrder, from):
+				out = append(out, fmt.Sprintf("%s imports %s, of the module %s, which is not beneath its own, %s, in moduleOrder", file, path, to, from))
+			case !slices.Contains(requires[from], to):
+				out = append(out, fmt.Sprintf("%s imports %s, of the module %s, which %s/go.mod does not require itself", file, path, to, from))
+			}
+		}
+	}
+	slices.Sort(out)
+	return out
+}
+
+// Under go.work a package imports any module of the workspace, whatever
+// its go.mod says. So every import, a test's too, of a package of
+// another module is held to the order of the modules and to what the
+// importing module's go.mod requires itself.
+func TestAPackageImportsOnlyWhatItsModuleRequiresBeneathIt(t *testing.T) {
+	root := repositoryRoot(t)
+	_, requires := moduleRequires(t, root, workspaceModules(t, root))
+	for _, each := range crossings(requires, importsUnder(t, root, root)) {
+		t.Error(each)
+	}
+	// The controls: an import within a module, of a module beneath that
+	// is required, and of what is not this repository's are allowed; an
+	// import of a module above, of one beneath that go.mod does not
+	// require, and of what is of no module are found, in a test too.
+	required := map[string][]string{"core": {"testsupport"}, "stack": {"core"}, "sandbox": {"stack", "testsupport"}}
+	allowed := map[string][]string{
+		"stack/box/box.go":         {module + "/stack/local", module + "/core/ports", "os"},
+		"core/poll/poll_test.go":   {module + "/testsupport/testrun"},
+		"sandbox/service_test.go":  {module + "/stack/testsupport/testgrid", module + "/sandbox/testsupport/drivertest", "connectrpc.com/connect"},
+		"sandbox/driver/driver.go": {module + "/sandbox"},
+	}
+	if found := crossings(required, allowed); len(found) != 0 {
+		t.Errorf("imports beneath and required were found: %v", found)
+	}
+	refused := map[string][]string{
+		"testsupport/testfiles/tree.go": {module + "/stack/local"},
+		"core/poll/poll_test.go":        {module + "/sandbox/testsupport/testsandbox"},
+		"sandbox/service.go":            {module + "/core/poll"},
+		"stack/stack.go":                {module + "/server/internal/build"},
+	}
+	want := []string{
+		"core/poll/poll_test.go imports sandbox/testsupport/testsandbox, of the module sandbox, which is not beneath its own, core, in moduleOrder",
+		"sandbox/service.go imports core/poll, of the module core, which sandbox/go.mod does not require itself",
+		"stack/stack.go imports server/internal/build: one of them is of no module in moduleOrder",
+		"testsupport/testfiles/tree.go imports stack/local, of the module stack, which is not beneath its own, testsupport, in moduleOrder",
+	}
+	if found := crossings(required, maps.Clone(refused)); !slices.Equal(found, want) {
+		t.Errorf("of the imports planted, found %v, want %v", found, want)
 	}
 }

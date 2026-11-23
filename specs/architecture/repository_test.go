@@ -68,16 +68,42 @@ func fixture(file string) bool {
 	return strings.HasSuffix(file, "_test.go") || slices.Contains(strings.Split(file, "/"), "testdata")
 }
 
+// formerTops are top-level directories the repository had and has no
+// more: a path beneath one is one of this repository as it was, and is
+// not there.
+var formerTops = []string{"local", "server"}
+
+// tops are the top-level directories a path of the repository begins
+// with: those its files are beneath, read from the files so that none is
+// written out here, but the hidden ones, and those it had (formerTops).
+func tops(files []string) []string {
+	out := slices.Clone(formerTops)
+	for _, file := range files {
+		if top, _, beneath := strings.Cut(file, "/"); beneath && !strings.HasPrefix(top, ".") && !slices.Contains(out, top) {
+			out = append(out, top)
+		}
+	}
+	slices.Sort(out)
+	return out
+}
+
 // aPath is a path of the repository as text writes it: one of its
 // top-level directories and what is beneath it, standing alone, not part
 // of another path, an address or a list in braces.
-var aPath = regexp.MustCompile(`(?:^|[^\w./@{,-])(?:\./)?((?:api|box|cli|server|internal|local|specs|plugins|sdk|docs)/[\w./@-]*)`)
+func aPath(tops []string) *regexp.Regexp {
+	quoted := make([]string, len(tops))
+	for i, top := range tops {
+		quoted[i] = regexp.QuoteMeta(top)
+	}
+	return regexp.MustCompile(`(?:^|[^\w./@{,-])(?:\./)?((?:` + strings.Join(quoted, "|") + `)/[\w./@-]*)`)
+}
 
 // namedAbsent returns each path of the repository a text names that is
-// not there, but those the allowed name for that file. What stands for a
-// pattern (`*`, `{`, `<`, `$`, `%` after it) names no one path; `/...`
+// not there, but those the allowed name for that file: a name itself,
+// or, written with a slash after it, a directory and all beneath it. What
+// stands for a pattern (`*`, `{`, `<`, `$`, `%` after it) names no one path; `/...`
 // after a directory is go's, and names the directory.
-func namedAbsent(file string, content []byte, there func(string) bool, allowed map[string][]string) []string {
+func namedAbsent(file string, content []byte, aPath *regexp.Regexp, there func(string) bool, allowed map[string][]string) []string {
 	if bytes.IndexByte(content, 0) >= 0 {
 		return nil
 	}
@@ -90,7 +116,10 @@ func namedAbsent(file string, content []byte, there func(string) bool, allowed m
 		}
 		named = strings.TrimSuffix(strings.TrimRight(named, "."), "/...")
 		named = strings.TrimRight(named, "/.")
-		if strings.Contains(named, "..") || there(named) || slices.Contains(allowed[file], named) || slices.Contains(out, named) {
+		elsewhere := slices.ContainsFunc(allowed[file], func(name string) bool {
+			return name == named || strings.HasSuffix(name, "/") && beneath(named, strings.TrimSuffix(name, "/"))
+		})
+		if strings.Contains(named, "..") || there(named) || elsewhere || slices.Contains(out, named) {
 			continue
 		}
 		out = append(out, named)
@@ -103,8 +132,6 @@ func namedAbsent(file string, content []byte, there func(string) bool, allowed m
 // repository, or of a directory the file stands for, or a fixture a
 // program writes.
 var namedElsewhere = map[string][]string{
-	// git's source, and the host program the hardening was taken from.
-	"common/git/git.go": {"internal/hostgit"},
 	// The fixture repository the forge writes for a test.
 	"testsupport/testforge/generated.go": {"api/buf.gen.lib.yaml", "api/buf.gen.yaml", "api/gen/go/go.mod", "api/gen/go/go.sum", "api/gen/go/keep.go", "api/hello/v1/hello.proto"},
 	"testsupport/testforge/testforge.go": {"docs/guide.md"},
@@ -112,13 +139,14 @@ var namedElsewhere = map[string][]string{
 	"plugins/buf/src/manifest.rs": {"api/gen/go"},
 	// Words that read as paths: local, git and linked.
 	"plugins/npm/README.md": {"local/git/linked"},
-	// Packages of a fixture module, and of the go command's source.
-	"plugins/go/src/composition_tests.rs": {"internal/ledger", "internal/other"},
-	"plugins/go/src/programs.rs":          {"internal/load/pkg.go", "internal/vendor/vendor_test.go"},
+	// The programs of a fixture module, where Go keeps a module's (cmd/),
+	// and the go command's own; its vet, as go doc names it; and the
+	// directories of a fixture repository.
+	"plugins/go/src/programs.rs":    {"cmd/"},
+	"plugins/go/src/actions.rs":     {"cmd/vet", "build/testkit", "sandbox/testkit"},
+	"sdk/plugin/src/diagnostics.rs": {"cmd/vet"},
 	// GitHub's command line, as mise's lock names where it comes from.
 	"mise.lock": {"cli/cli"},
-	// wazero's package.
-	"build/engine/pluginhost/host.go": {"internal/version.GetWazeroVersion"},
 }
 
 // N3: every path of this repository that a file names is there: a doc, a
@@ -128,6 +156,7 @@ func TestEveryPathAFileNamesIsThere(t *testing.T) {
 	root := repositoryRoot(t)
 	files := repositoryFiles(t, root)
 	there := held(files)
+	paths := aPath(tops(files))
 	for _, file := range files {
 		if fixture(file) {
 			continue
@@ -136,21 +165,32 @@ func TestEveryPathAFileNamesIsThere(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, absent := range namedAbsent(file, content, there, namedElsewhere) {
+		for _, absent := range namedAbsent(file, content, paths, there, namedElsewhere) {
 			t.Errorf("%s names %s, which is not there", file, absent)
 		}
 	}
-	for file, names := range namedElsewhere {
+	for _, stale := range allowedForNothing(root, files, namedElsewhere) {
+		t.Errorf("namedElsewhere allows %s", stale)
+	}
+}
+
+// allowedForNothing says of each name a list allows a file that it
+// allows nothing: the file is not there, or no longer names it.
+func allowedForNothing(root string, files []string, allowed map[string][]string) []string {
+	var out []string
+	for file, names := range allowed {
 		if !slices.Contains(files, file) {
-			t.Errorf("namedElsewhere allows names in %s, which is not there", file)
+			out = append(out, "names in "+file+", which is not there")
 		}
 		content, _ := os.ReadFile(filepath.Join(root, file))
 		for _, name := range names {
 			if !bytes.Contains(content, []byte(name)) {
-				t.Errorf("namedElsewhere allows %s in %s, which no longer names it", name, file)
+				out = append(out, name+" in "+file+", which no longer names it")
 			}
 		}
 	}
+	slices.Sort(out)
+	return out
 }
 
 // held returns whether a path is a file of the repository, or a directory
@@ -189,6 +229,13 @@ func TestAPathIsThereWhereGitHoldsIt(t *testing.T) {
 
 func TestAPathNamedButAbsentIsFound(t *testing.T) {
 	there := func(named string) bool { return named == "build/daemon/build" || named == "docs/index.md" }
+	// The top-level directories are read from the files, with those the
+	// repository had: a hidden one is none, nor a file at the top.
+	found := tops([]string{"build/daemon/build/build.go", "docs/index.md", "cli/go.mod", ".github/workflows/ci.yml", "AGENTS.md"})
+	if want := []string{"build", "cli", "docs", "local", "server"}; !slices.Equal(found, want) {
+		t.Fatalf("the top-level directories are %v, want %v", found, want)
+	}
+	paths := aPath(found)
 	cases := map[string]string{
 		"see docs/rulings/tests.md.":                        "docs/rulings/tests.md",
 		"`build/daemon/build/` and `server/gone`":           "server/gone",
@@ -199,19 +246,27 @@ func TestAPathNamedButAbsentIsFound(t *testing.T) {
 		"genproto/googleapis/{api/annotations,rpc/x}":       "",
 		"plugins/*/Cargo.toml and /var/lib/x-local/y":       "",
 		"frontseat-local/openshell, cmd/../server/../etc":   "",
+		"`build/daemon/gone` and core/poll":                 "build/daemon/gone",
+		"local/ports said them once":                        "local/ports",
 	}
 	for text, want := range cases {
-		if got := strings.Join(namedAbsent("f", []byte(text), there, nil), " "); got != want {
+		if got := strings.Join(namedAbsent("f", []byte(text), paths, there, nil), " "); got != want {
 			t.Errorf("%q: found %q absent, want %q", text, got, want)
 		}
 	}
 	// The control: what is allowed for a file is allowed for it alone.
 	allowed := map[string][]string{"f": {"server/gone"}}
-	if got := namedAbsent("f", []byte("server/gone"), there, allowed); len(got) != 0 {
+	if got := namedAbsent("f", []byte("server/gone"), paths, there, allowed); len(got) != 0 {
 		t.Errorf("an allowed name was found absent: %q", got)
 	}
-	if got := namedAbsent("g", []byte("server/gone"), there, allowed); len(got) != 1 {
+	if got := namedAbsent("g", []byte("server/gone"), paths, there, allowed); len(got) != 1 {
 		t.Errorf("a name allowed in another file was not found absent in this one: %q", got)
+	}
+	// A directory allowed, with its slash, allows all beneath it, and
+	// nothing beside it.
+	beneathIt := map[string][]string{"f": {"cli/cmd/"}}
+	if got := strings.Join(namedAbsent("f", []byte("cli/cmd/serve/main.go, cli/cmd and cli/cmdline"), paths, there, beneathIt), " "); got != "cli/cmdline" {
+		t.Errorf("beside a directory allowed, found %q absent", got)
 	}
 }
 

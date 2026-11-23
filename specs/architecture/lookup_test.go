@@ -151,6 +151,25 @@ func TestNoTestLooksUpForWhatItReads(t *testing.T) {
 			t.Errorf("%s: climbs %v, want %v", name, got, c.climbs)
 		}
 	}
+	// What is held is every test file and the test support wherever it
+	// is: at the top, beside its module, or among the specs; a program's
+	// file is not a test's.
+	for file, held := range map[string]bool{
+		"build/daemon/build/run_test.go":                        true,
+		"testsupport/testfiles/tree.go":                         true,
+		"stack/testsupport/testgrid/grid.go":                    true,
+		"sandbox/testsupport/testsandbox/testsandbox.go":        true,
+		"workspace/server/controlplanetest/controlplanetest.go": true,
+		"workspace/server/toldtest/toldtest.go":                 true,
+		"specs/buildtest/buildtest.go":                          true,
+		"build/daemon/build/runs.go":                            false,
+		"workspace/server/controlplane/controlplane.go":         false,
+		"stack/stack.go":                                        false,
+	} {
+		if forATest(file) != held {
+			t.Errorf("%s is held as a test's: %v, want %v", file, !held, held)
+		}
+	}
 	for rust, climbs := range map[string]bool{
 		`manifest.join("../../../api")`:                  true,
 		`Path::new("../x")`:                              true,
@@ -165,7 +184,7 @@ func TestNoTestLooksUpForWhatItReads(t *testing.T) {
 
 	root := repositoryRoot(t)
 	for _, source := range goSources(t, root, root) {
-		if !strings.HasSuffix(source.rel, "_test.go") && !strings.HasPrefix(source.rel, "testsupport/") {
+		if !forATest(source.rel) {
 			continue
 		}
 		for _, call := range climbs(source.file) {
