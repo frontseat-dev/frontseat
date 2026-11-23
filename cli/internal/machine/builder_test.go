@@ -26,7 +26,7 @@ func (s *started) start(o life.Options) error {
 	s.mu.Lock()
 	s.n++
 	s.mu.Unlock()
-	_, digest, err := life.Read(o.Settings)
+	read, digest, err := life.Read(o.Settings)
 	if err != nil {
 		return err
 	}
@@ -34,7 +34,7 @@ func (s *started) start(o life.Options) error {
 	over := make(chan struct{})
 	go func() {
 		defer close(over)
-		_ = life.Keep(ctx, life.Life{State: o.State, Said: life.Info{Version: o.Version, Settings: digest, Directory: o.Directory},
+		_ = life.Keep(ctx, life.Life{State: o.State, Said: life.Info{Version: o.Version, Settings: digest, Directory: o.Directory, Environment: life.Environment(read.Given)},
 			Handler: http.NotFoundHandler(), Busy: func() bool { return false }, Idle: time.Hour})
 	}()
 	s.t.Cleanup(func() { stop(); <-over })
@@ -170,5 +170,44 @@ func TestWithNoSettingsNoBuildDaemonIsStarted(t *testing.T) {
 	}
 	if _, err := BuildDaemon(t.Context(), here); err != nil || s.count() != 1 {
 		t.Errorf("the control: with its settings: %v, after %d daemons", err, s.count())
+	}
+}
+
+// A daemon has the variables a publish may be given as they were where
+// it was started, and a command where one of them is otherwise, another
+// token for its forge or none, is not served by it: it is replaced, and
+// the next command there finds the new one. A variable the settings do
+// not name changes nothing. The control is the command run again with
+// nothing changed, which starts none.
+func TestABuildDaemonStartedWithOtherPublishVariablesIsReplaced(t *testing.T) {
+	s, file := settled(t)
+	told, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(file, append(told, "publish:\n  environment: [FORGE_TOKEN_OF_THE_TEST]\n"...), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	here := t.TempDir()
+	first, err := BuildDaemon(t.Context(), here)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("ANOTHER_VARIABLE_OF_THE_TEST", "said")
+	if again, err := BuildDaemon(t.Context(), here); err != nil || again != first || s.count() != 1 {
+		t.Fatalf("the control: with nothing a publish is given changed: %+v, %v, after %d daemons", again, err, s.count())
+	}
+	t.Setenv("FORGE_TOKEN_OF_THE_TEST", "one")
+	second, err := BuildDaemon(t.Context(), here)
+	if err != nil || second.Address == first.Address || s.count() != 2 {
+		t.Fatalf("with the variable set: %+v, %v, after %d daemons; want another daemon", second, err, s.count())
+	}
+	t.Setenv("FORGE_TOKEN_OF_THE_TEST", "two")
+	third, err := BuildDaemon(t.Context(), here)
+	if err != nil || third.Address == second.Address || s.count() != 3 {
+		t.Fatalf("with another value: %+v, %v, after %d daemons; want another daemon", third, err, s.count())
+	}
+	if again, err := BuildDaemon(t.Context(), here); err != nil || again != third || s.count() != 3 {
+		t.Errorf("asked again there: %+v, %v, after %d daemons; want the one just started", again, err, s.count())
 	}
 }

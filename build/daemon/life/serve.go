@@ -99,7 +99,7 @@ func Serve(ctx context.Context, o Options) error {
 	if idle == 0 {
 		idle = idleFor
 	}
-	return Keep(ctx, Life{State: o.State, Said: Info{Version: o.Version, Settings: digest, Directory: directory}, Handler: made.Handler, Busy: made.Busy, Idle: idle})
+	return Keep(ctx, Life{State: o.State, Said: Info{Version: o.Version, Settings: digest, Directory: directory, Environment: Environment(read.Given)}, Handler: made.Handler, Busy: made.Busy, Idle: idle})
 }
 
 // Read reads a daemon's settings from a file, and returns with them what
@@ -116,6 +116,20 @@ func Read(path string) (settings.Settings, string, error) {
 	}
 	sum := sha256.Sum256(raw)
 	return read, hex.EncodeToString(sum[:]), nil
+}
+
+// Environment is what the variables a publish may be given are where
+// this is asked, as one word that says none of them: a daemon has those
+// it was started with, and a command given another token for its forge,
+// or none, is not served by it. A variable that is not set is not one
+// set to nothing.
+func Environment(given []string) string {
+	digest := sha256.New()
+	for _, name := range given {
+		value, set := os.LookupEnv(name)
+		fmt.Fprintf(digest, "%d:%s=%t:%d:%s\n", len(name), name, set, len(value), value)
+	}
+	return hex.EncodeToString(digest.Sum(nil))
 }
 
 // Alone says whether a directory is one repository the build was given,

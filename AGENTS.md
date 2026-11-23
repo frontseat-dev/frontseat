@@ -426,11 +426,16 @@ the change that fixes it.
   nothing a publish started outlives it, and the daemon's flag have no
   test; a token a tool prints changed, as encoded, is not left out; no
   spec publishes against the local stack.
-- A job releases from its own checkout. A daemon may be given a checkout
-  (`frontseatd --checkout`, with `--name`, by which the command line
-  beside it finds it): one repository, of no name, in its workspace's
-  directory, which it builds and releases from as it is and brings
-  nothing into. It plans from the checkout's history, tags there, and
+- A job releases from its own checkout. A build daemon the command
+  line starts in a directory with no workspace's manifest takes it for a
+  checkout it was given (`life.Alone`,
+  `TestADirectoryWithNoManifestIsACheckoutAndOneWithItAWorkspace`), as
+  this repository's own job does, which runs `frontseat build`, `test`
+  and `ship` and starts no daemon by hand
+  (`.github/workflows/frontseat-job.yml`); `frontseatd --checkout`,
+  with `--name`, is the same for a daemon started by hand. A checkout is
+  one repository, of no name, in the daemon's directory, which it builds
+  and releases from as it is and brings nothing into. It plans from the checkout's history, tags there, and
   pushes each tag to where the checkout says it was brought from: its
   `origin`, read of its own file and held as an address a caller names
   is, so one with a password is refused and never repeated, one over
@@ -444,7 +449,11 @@ the change that fixes it.
   false`, which the refusal says; one of no origin; one of part of its
   history, which says to bring all of it; and a directory within a
   repository. How the push is let in the daemon is told as a sandbox's
-  is, by the settings its environment counts for git. Held by:
+  is, by the settings its environment counts for git, and what a publish
+  may be given is the daemon's own environment, kept from where it was
+  started: a command where those variables are otherwise starts a daemon
+  of its own (`TestABuildDaemonStartedWithOtherPublishVariablesIsReplaced`),
+  so the job gives its token to the step that releases alone. Held by:
   `TestADaemonGivenACheckoutReleasesFromIt`,
   `TestWhatAGivenCheckoutSaysOfItselfIsNotFollowed` (git asked plainly
   follows each, beside it),

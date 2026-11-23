@@ -10,7 +10,6 @@
 #     name GRID_WORKERS (frontseat-job.yml; frontseat-enterprise, a
 #     tenant's spec.build.frontseat). A change to the confiner's source
 #     (common/confine) reaches the workers before it reaches main;
-#   - a runner that may write /var/lib/frontseat, where the daemon's lock is;
 #   - a runner group that admits this repository, which is public.
 #
 # A fork's pull request never runs here: the jobs below run only for this
