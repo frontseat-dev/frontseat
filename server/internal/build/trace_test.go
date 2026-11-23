@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
-	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/telemetry"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testforge"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -101,7 +100,7 @@ func TestARunIsOneTraceOfWhatItDid(t *testing.T) {
 func TestAPluginIsAskedAboutEachModuleOfARepository(t *testing.T) {
 	forge := testforge.Make(t)
 	c, recorder := traced(t, t.TempDir(), false)
-	populated(t, c, &workspacev1.WorkspaceSpec{Repositories: []*workspacev1.RepositorySource{{Remote: forge.Remote, Ref: "main"}}})
+	brought(t, c, nil, taken(forge, "services"))
 
 	wait(t, c.runs, create(t, c.runs).GetId())
 

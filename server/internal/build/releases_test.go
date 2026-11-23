@@ -12,10 +12,10 @@ import (
 	connect "connectrpc.com/connect/v2"
 	"github.com/frontseat-dev/frontseat/sdk/go"
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
-	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/entity"
 	"github.com/frontseat-dev/frontseat/server/internal/exec"
 	"github.com/frontseat-dev/frontseat/server/internal/exec/tools/toolstest"
+	"github.com/frontseat-dev/frontseat/server/internal/record"
 	"github.com/frontseat-dev/frontseat/server/testsupport/commits"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testpins"
 )
@@ -39,7 +39,7 @@ func releasingClients(t *testing.T, executor exec.Executor, branch string, writt
 	remote := releasingRemote(t, written)
 	workspace := t.TempDir()
 	c := serveAs(t, configuration{Workspace: workspace, Executor: executor})
-	populated(t, c, &workspacev1.WorkspaceSpec{Repositories: []*workspacev1.RepositorySource{{Remote: remote, Ref: branch}}})
+	brought(t, c, nil, record.Checkout{Name: "services", Remote: remote, Ref: branch})
 	return c, filepath.Join(workspace, "services")
 }
 

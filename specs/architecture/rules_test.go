@@ -129,10 +129,10 @@ var policies = []policy{
 	// What a test service is held to: one check, for the daemon and the grid's runner.
 	{"server/internal/testservice", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/image", "server/internal/plain"}},
 	// The build reads its directory (server/internal/directory) and
-	// nothing of what fills it; its tests alone start what does, beside
-	// it, as the daemon's program has it
+	// nothing of what fills it, its tests neither: they fill one with the
+	// version control system and the manifest
 	// (TestTheBuildReadsItsDirectoryAndNothingOfWhatFillsIt).
-	{"server/internal/build", []string{"sdk/go/api/**", "sdk/go/entity", "sdk/go/enum", "server/internal/poll", "server/internal/pluginapi/**", "server/internal/exec/publish", "server/internal/exec/tools", "server/telemetry", "server/internal/build", "server/internal/told/toldtest", "server/internal/engine/evaluate", "server/internal/engine/graph", "server/internal/engine/plan", "server/internal/engine/release", "server/internal/engine/source", "server/internal/exec", "server/internal/exec/access", "server/internal/exec/download", "server/internal/exec/program", "server/internal/exec/run", "server/internal/history", "server/internal/model", "server/internal/wire", "server/internal/pluginhost", "server/internal/source", "server/internal/record", "server/internal/vcs", "server/internal/directory", "server/internal/manifest", "server/internal/told", "server/internal/sourceapi/**", "server/internal/page", "server/internal/refusal", "server/internal/vcs/chosen"}},
+	{"server/internal/build", []string{"sdk/go/api/**", "sdk/go/entity", "sdk/go/enum", "server/internal/poll", "server/internal/pluginapi/**", "server/internal/exec/publish", "server/internal/exec/tools", "server/telemetry", "server/internal/build", "server/internal/engine/evaluate", "server/internal/engine/graph", "server/internal/engine/plan", "server/internal/engine/release", "server/internal/engine/source", "server/internal/exec", "server/internal/exec/access", "server/internal/exec/download", "server/internal/exec/program", "server/internal/exec/run", "server/internal/history", "server/internal/model", "server/internal/wire", "server/internal/pluginhost", "server/internal/record", "server/internal/vcs", "server/internal/directory", "server/internal/manifest", "server/internal/page", "server/internal/refusal", "server/internal/vcs/chosen"}},
 	// A directory as a build reads it: the workspace's manifest in it,
 	// and its repositories' history through the version control port.
 	{"server/internal/directory", []string{"server/internal/directory", "server/internal/manifest", "server/internal/record", "server/internal/vcs"}},
@@ -1503,13 +1503,12 @@ func TestEquallySpecificOwnersAreRejected(t *testing.T) {
 const whatFills = "server/internal/source"
 
 // buildsOfWhatFills returns each file of the build, or of the directory
-// it reads, that imports what fills the directory; tests apart, which
-// start it beside the build as the daemon's program does.
+// it reads, that imports what fills the directory, its tests too.
 func buildsOfWhatFills(imports map[string][]string) []string {
 	var out []string
 	for file, imported := range imports {
 		file = filepath.ToSlash(file)
-		if strings.HasSuffix(file, "_test.go") || !(strings.HasPrefix(file, "server/internal/build/") || strings.HasPrefix(file, "server/internal/directory/")) {
+		if !strings.HasPrefix(file, "server/internal/build/") && !strings.HasPrefix(file, "server/internal/directory/") {
 			continue
 		}
 		if slices.Contains(imported, module+"/"+whatFills) {
@@ -1521,15 +1520,15 @@ func buildsOfWhatFills(imports map[string][]string) []string {
 }
 
 // A build needs a directory, and not whoever filled it: the build and
-// the directory it reads import nothing of what fills a workspace, which
-// the daemon's program starts beside them.
+// the directory it reads, and their tests, import nothing of what fills
+// a workspace, which the daemon's program starts beside them.
 func TestTheBuildReadsItsDirectoryAndNothingOfWhatFillsIt(t *testing.T) {
 	root := repositoryRoot(t)
 	for _, file := range buildsOfWhatFills(importsUnder(t, root, root)) {
 		t.Errorf("%s imports %s: a build reads its directory, and knows nothing of what fills it", file, whatFills)
 	}
-	// The controls: a file of the build that imports it is found; a test
-	// of the build, and the daemon's program, are not.
+	// The controls: a file of the build that imports it is found, a test
+	// of the build too; the daemon's program is not.
 	planted := map[string][]string{
 		"server/internal/build/runs.go":      {module + "/" + whatFills},
 		"server/internal/build/run_test.go":  {module + "/" + whatFills},
@@ -1537,7 +1536,7 @@ func TestTheBuildReadsItsDirectoryAndNothingOfWhatFillsIt(t *testing.T) {
 		"server/internal/directory/read.go":  {module + "/server/internal/record"},
 		"server/internal/directory/other.go": {module + "/" + whatFills},
 	}
-	if found := buildsOfWhatFills(planted); !slices.Equal(found, []string{"server/internal/build/runs.go", "server/internal/directory/other.go"}) {
+	if found := buildsOfWhatFills(planted); !slices.Equal(found, []string{"server/internal/build/run_test.go", "server/internal/build/runs.go", "server/internal/directory/other.go"}) {
 		t.Errorf("of what was planted, found %v", found)
 	}
 }
