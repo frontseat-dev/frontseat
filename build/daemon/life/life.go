@@ -96,14 +96,16 @@ func Keep(ctx context.Context, l Life) error {
 	if err := os.MkdirAll(l.State, 0o700); err != nil {
 		return fmt.Errorf("the build daemon's state: %w", err)
 	}
-	lock, err := os.OpenFile(filepath.Join(l.State, lockFile), os.O_CREATE|os.O_RDWR, 0o600)
+	lock, held, err := taken(l.State)
 	if err != nil {
-		return fmt.Errorf("the build daemon's state: %w", err)
+		return err
 	}
-	defer lock.Close()
-	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+	if held {
 		return fmt.Errorf("another build daemon serves the directory %s is the state of: a directory has one at a time", l.State)
 	}
+	// Let go of last, when everything else of the daemon has ended: a
+	// state directory whose lock is free has no daemon left in it.
+	defer lock.Close()
 	token := make([]byte, 32)
 	if _, err := rand.Read(token); err != nil {
 		return err
@@ -134,6 +136,36 @@ func Keep(ctx context.Context, l Life) error {
 	stop()
 	<-watched
 	return err
+}
+
+// taken takes a state directory's lock for a daemon, and says whether
+// another holds it; held, no lock is returned.
+func taken(state string) (lock *os.File, held bool, err error) {
+	lock, err = os.OpenFile(filepath.Join(state, lockFile), os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		return nil, false, fmt.Errorf("the build daemon's state: %w", err)
+	}
+	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		_ = lock.Close()
+		return nil, true, nil
+	}
+	return lock, false, nil
+}
+
+// Held says whether a daemon holds a state directory: one that is
+// starting, serving or still ending. A daemon asked to stop has ended,
+// and another may be started there, only once this says no: it stops
+// answering before it has let go of the directory. A directory that is
+// not there, or cannot be asked, is held by none.
+func Held(state string) bool {
+	if _, err := os.Stat(filepath.Join(state, lockFile)); err != nil {
+		return false
+	}
+	lock, held, err := taken(state)
+	if lock != nil {
+		_ = lock.Close()
+	}
+	return err == nil && held
 }
 
 // say writes what a daemon says of itself, whole or not at all, for its
@@ -176,7 +208,13 @@ func (a *admitted) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.URL.Path == StopPath {
+		// Answered, and the answer sent, before the daemon ends: ending
+		// closes every connection, this one with it.
+		w.Header().Set("Connection", "close")
 		w.WriteHeader(http.StatusNoContent)
+		if sent, can := w.(http.Flusher); can {
+			sent.Flush()
+		}
 		a.end()
 		return
 	}

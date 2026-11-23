@@ -118,15 +118,20 @@ func serves(ctx context.Context, said life.Info) bool {
 	return err == nil && answer != http.StatusUnauthorized
 }
 
-// stopped asks a daemon to stop, and waits for it to have: until what
-// it said of itself is gone, or it no longer answers.
+// stopped asks a daemon to stop, and waits for it to have: until it
+// holds its state directory no longer.
 func stopped(ctx context.Context, state string, said life.Info) {
-	if _, err := ask(ctx, http.MethodPost, said, life.StopPath); err != nil {
-		return
-	}
-	for begun := time.Now(); time.Since(begun) < 30*time.Second; time.Sleep(20 * time.Millisecond) {
-		if now, err := life.Told(state); err != nil || now != said || !serves(ctx, said) {
+	// However it answered, or did not: a daemon that is ending may close
+	// the connection it was asked on.
+	_, _ = ask(ctx, http.MethodPost, said, life.StopPath)
+	// It has stopped once it has let go of its directory, which is after
+	// it stopped answering: a daemon started before then would be
+	// refused the directory, and none would serve.
+	for begun := time.Now(); life.Held(state) && time.Since(begun) < 30*time.Second; {
+		select {
+		case <-ctx.Done():
 			return
+		case <-time.After(20 * time.Millisecond):
 		}
 	}
 }
