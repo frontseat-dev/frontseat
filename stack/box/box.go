@@ -8,10 +8,10 @@
 // It is the one build of the box: `mise run build` (frontseat-stack box),
 // the local stack (frontseat-stack up) and the gate before the tests it
 // runs all build it here. Every build is tagged by what it holds
-// (frontseat-box:<the first twelve hex digits of its image id>), a tag no
+// (frontseat-box-image:<the first twelve hex digits of its image id>), a tag no
 // other build moves, since another content is another tag: whoever runs
 // the box by that tag runs what was built, whatever any checkout tags
-// frontseat-box:local after.
+// frontseat-box-image:local after.
 package box
 
 import (
@@ -45,7 +45,7 @@ type Build struct {
 	// command line are built from, and where box is.
 	Root string
 	// Tag is a name the image is tagged beside the one of its content,
-	// for a person to ask for it by (frontseat-box:local); empty, none.
+	// for a person to ask for it by (frontseat-box-image:local); empty, none.
 	// It is whatever was built last, from any checkout: nothing that must
 	// run this build's box names it.
 	Tag string
@@ -61,7 +61,7 @@ type Build struct {
 }
 
 // Repository is the name every box image is tagged in.
-const Repository = "frontseat-box"
+const Repository = "frontseat-box-image"
 
 // Run builds the image and returns its tag of its content, once that and
 // Tag, where one is given, are on it.

@@ -111,7 +111,7 @@ func TestADirectoryRunAloneIsEveryPackageBeneathItAndNoOther(t *testing.T) {
 // what its task says. A variable that only begins alike is passed, as the
 // control.
 func TestTheGateSaysItsOwnWordOnTheStack(t *testing.T) {
-	given := []string{"HOME=/h", testrequired.Variable + "=" + testrequired.NoStack, "X=1", "GOFLAGS=-run=TestA -short", "GOFLAGSX=1", testbox.Variable + "=frontseat-box:another", testgrid.ConfinerVariable + "=/bb/another", testgrid.Variable + "=elsewhere:1", testgrid.Variable + "X=1"}
+	given := []string{"HOME=/h", testrequired.Variable + "=" + testrequired.NoStack, "X=1", "GOFLAGS=-run=TestA -short", "GOFLAGSX=1", testbox.Variable + "=frontseat-box-image:another", testgrid.ConfinerVariable + "=/bb/another", testgrid.Variable + "=elsewhere:1", testgrid.Variable + "X=1"}
 	given = append(given, "DOCKER_HOST=unix:///engine.sock", "DOCKER_CONTEXT=orbstack")
 	const kept = "HOME=/h X=1 GOFLAGSX=1 " + testgrid.Variable + "X=1"
 	if got := strings.Join(environment(given, unsaid, "A=b"), " "); got != kept+" DOCKER_HOST=unix:///engine.sock DOCKER_CONTEXT=orbstack "+strings.Join(isolated, " ")+" A=b" {

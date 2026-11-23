@@ -10,7 +10,7 @@ import (
 
 // A plugin's name is checked before anything is built.
 func TestAPluginNamedAsAPathIsRefusedBeforeAnyWork(t *testing.T) {
-	_, err := Build{Root: t.TempDir(), Tag: "frontseat-box:probe", Architecture: "arm64", Plugins: map[string][]byte{"../evil": nil}}.Run(context.Background())
+	_, err := Build{Root: t.TempDir(), Tag: "frontseat-box-image:probe", Architecture: "arm64", Plugins: map[string][]byte{"../evil": nil}}.Run(context.Background())
 	if err == nil || !strings.Contains(err.Error(), "a name is a word, not a path") {
 		t.Fatalf("a plugin named as a path was not refused first: %v", err)
 	}
@@ -20,10 +20,10 @@ func TestAPluginNamedAsAPathIsRefusedBeforeAnyWork(t *testing.T) {
 // digits, and nothing that is not an image id is taken for one.
 func TestABoxIsTaggedByItsImageID(t *testing.T) {
 	tag, err := Of("sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
-	if err != nil || tag != "frontseat-box:0123456789ab" {
-		t.Fatalf("Of = %q, %v; want frontseat-box:0123456789ab", tag, err)
+	if err != nil || tag != "frontseat-box-image:0123456789ab" {
+		t.Fatalf("Of = %q, %v; want frontseat-box-image:0123456789ab", tag, err)
 	}
-	for _, id := range []string{"", "frontseat-box:local", "sha256:0123", "sha256:0123456789ABCDEF0123456789abcdef0123456789abcdef0123456789abcdef", "sha512:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"} {
+	for _, id := range []string{"", "frontseat-box-image:local", "sha256:0123", "sha256:0123456789ABCDEF0123456789abcdef0123456789abcdef0123456789abcdef", "sha512:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"} {
 		if tag, err := Of(id); err == nil {
 			t.Errorf("Of(%q) = %q; want it refused", id, tag)
 		}

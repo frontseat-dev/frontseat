@@ -76,7 +76,7 @@ the change that fixes it.
 - **The box is built one way** (`stack/box`): by `mise run build`, by the
   stack and by the gate, and tagged by what it holds. The stack and the
   tests each run the box built from their checkout, by that tag, never
-  `frontseat-box:local`, which any checkout moves (the tests are told
+  `frontseat-box-image:local`, which any checkout moves (the tests are told
   the gate's box, `FRONTSEAT_TEST_BOX`). Held for the stack by
   `TestAStackRunsTheImageAndBoxOfItsCheckout`.
 - **What to build is pointed at**: an entity, a path, or an action as it is
@@ -997,7 +997,7 @@ the change that fixes it.
 
 ```
 mise install              # the pinned tools
-mise run build            # Frontseat into dist/, and the box image, tagged frontseat-box:local too
+mise run build            # Frontseat into dist/, and the box image, tagged frontseat-box-image:local too
 mise run build:programs   # Frontseat's programs and plugins into dist/, and no image: what a job builds
 mise run ready            # whether the local stack can be started from this checkout
 mise start                # build, then bring the local stack up from this checkout, on its own box (never `mise up`)
