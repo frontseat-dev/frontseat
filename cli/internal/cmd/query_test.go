@@ -3,18 +3,15 @@ package cmd
 import (
 	"context"
 	"encoding/json"
-	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 
 	connect "connectrpc.com/connect/v2"
-	"connectrpc.com/connect/v2/connecthttp"
 
+	"github.com/frontseat-dev/frontseat/cli/internal/ui/plain"
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1/buildv1alpha1connect"
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
-	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1/workspacev1alpha1connect"
 )
 
@@ -27,8 +24,6 @@ type graphed struct {
 	buildv1alpha1connect.UnimplementedBuildServiceHandler
 	workspacev1alpha1connect.UnimplementedWorkspaceServiceHandler
 	built []*buildv1.CreateBuildRequest
-	// at is where the control plane says the workspace's build API is.
-	at string
 }
 
 func component(name string) *typev1.EntityRef {
@@ -58,13 +53,6 @@ func (g *graphed) ListProjects(context.Context, *buildv1.ListProjectsRequest) (*
 	}}, nil
 }
 
-func (g *graphed) DescribeWorkspace(context.Context, *workspacev1.DescribeWorkspaceRequest) (*workspacev1.DescribeWorkspaceResponse, error) {
-	return &workspacev1.DescribeWorkspaceResponse{Workspace: &workspacev1.Workspace{Name: "graphed", Status: &workspacev1.WorkspaceStatus{State: workspacev1.WorkspaceStatus_STATE_READY, BuildUri: g.at, Repositories: []*workspacev1.Repository{
-		{Name: "platform", Commit: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
-		{Name: "libs", Commit: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
-	}}}}, nil
-}
-
 func (g *graphed) CreateBuild(_ context.Context, request *buildv1.CreateBuildRequest) (*buildv1.CreateBuildResponse, error) {
 	g.built = append(g.built, request)
 	return &buildv1.CreateBuildResponse{Build: &buildv1.Build{Id: "build_1"}}, nil
@@ -74,29 +62,9 @@ func (g *graphed) StreamBuildEvents(_ context.Context, _ *buildv1.StreamBuildEve
 	return stream.Send(&buildv1.StreamBuildEventsResponse{Events: []*buildv1.BuildEvent{{Event: &buildv1.BuildEvent_Finished_{Finished: &buildv1.BuildEvent_Finished{Build: &buildv1.Build{Id: "build_1", ExitCode: buildv1.ExitCode_EXIT_CODE_TESTS_FAILED}}}}}})
 }
 
-// asking runs the command line against the graphed daemon.
+// asking runs the command line against the graphed daemon, inside its
+// workspace's sandbox: where a command that asks a daemon is run.
 func asking(t *testing.T, g *graphed, args ...string) (string, int, error) {
-	t.Helper()
-	builds := connect.NewServer()
-	buildv1alpha1connect.RegisterGraphServiceHandler(builds, g)
-	buildv1alpha1connect.RegisterBuildServiceHandler(builds, g)
-	daemon := http.NewServeMux()
-	connecthttp.Mount(daemon, builds)
-	plane := http.NewServeMux()
-	keeps := connect.NewServer()
-	workspacev1alpha1connect.RegisterWorkspaceServiceHandler(keeps, g)
-	connecthttp.Mount(plane, keeps)
-	plane.Handle("/workspaces/graphed/build/", http.StripPrefix("/workspaces/graphed/build", daemon))
-	srv := httptest.NewServer(plane)
-	t.Cleanup(srv.Close)
-	g.at = srv.URL + "/workspaces/graphed/build"
-	serverAt(t, srv.URL)
-	lastOpened(t, srv.URL, "graphed")
-	return runAt(t, context.Background(), "", args...)
-}
-
-// askingInside is asking, inside a workspace's sandbox, of its daemon.
-func askingInside(t *testing.T, g *graphed, args ...string) (string, int, error) {
 	t.Helper()
 	return runAt(t, context.Background(), serving(t, func(api *connect.Server) {
 		buildv1alpha1connect.RegisterGraphServiceHandler(api, g)
@@ -131,16 +99,45 @@ func TestQueryOfAnEntitySaysWhatItNeedsAndWhatNeedsIt(t *testing.T) {
 	}
 }
 
+// reasoned is why one entity of the graphed daemon's depends on another,
+// as query answers it of repositories that stand at the commits given.
+func reasoned(t *testing.T, from, to string, commits map[string]string) plain.Answer {
+	t.Helper()
+	g := &graphed{}
+	entities, _ := g.ListEntities(context.Background(), nil)
+	projects, _ := g.ListProjects(context.Background(), nil)
+	why, err := graphOf(entities.GetEntities(), projects.GetProjects()).why(from, to, commits)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return plain.Answer{Why: why}
+}
+
+// standing is the commits the repositories of the graphed daemon's
+// workspace stand at.
+var standing = map[string]string{"platform": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "libs": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}
+
 // Why one entity depends on another is the shortest chain between them:
-// each step with what is required, the line that says so, and the
-// commit the entity required is at in its repository.
+// each step with what is required and the line that says so. A daemon
+// says nothing of the commits its repositories stand at, so the command,
+// which asks a daemon alone, says the chain without them; where they are
+// known, each step says the commit the entity required is at in its
+// repository, which is shown of the answer itself.
 func TestQueryWhySaysWhyAndAtWhichCommit(t *testing.T) {
 	printed, code, err := asking(t, &graphed{}, "query", "gateway", "--why", "money")
 	want := "gateway -> ledger -> money\n" +
-		"  gateway -> ledger  go:example.com/ledger  platform/gateway/go.mod:5  ledger at platform@aaaaaaaaaaaa\n" +
-		"  ledger -> money  go:example.com/money  platform/ledger/go.mod:4  money at libs@bbbbbbbbbbbb\n"
+		"  gateway -> ledger  go:example.com/ledger  platform/gateway/go.mod:5\n" +
+		"  ledger -> money  go:example.com/money  platform/ledger/go.mod:4\n"
 	if err != nil || code != 0 || printed != want {
 		t.Errorf("query --why ended %d, %v, printing\n%s\nwant\n%s", code, err, printed, want)
+	}
+	var at strings.Builder
+	plain.Printer{Out: &at}.Answer(reasoned(t, "gateway", "money", standing))
+	want = "gateway -> ledger -> money\n" +
+		"  gateway -> ledger  go:example.com/ledger  platform/gateway/go.mod:5  ledger at platform@aaaaaaaaaaaa\n" +
+		"  ledger -> money  go:example.com/money  platform/ledger/go.mod:4  money at libs@bbbbbbbbbbbb\n"
+	if at.String() != want {
+		t.Errorf("why, of repositories at their commits, is printed\n%s\nwant\n%s", &at, want)
 	}
 	// What the workspace does not hold is named as it is required: each
 	// chain to what requires it, the line that says so, and the version
@@ -149,20 +146,22 @@ func TestQueryWhySaysWhyAndAtWhichCommit(t *testing.T) {
 	want = "gateway -> go:github.com/spf13/cobra\n" +
 		"  gateway -> go:github.com/spf13/cobra  platform/gateway/go.mod:6 at v1.9.1\n" +
 		"gateway -> ledger -> money -> go:github.com/spf13/cobra\n" +
-		"  gateway -> ledger  go:example.com/ledger  platform/gateway/go.mod:5  ledger at platform@aaaaaaaaaaaa\n" +
-		"  ledger -> money  go:example.com/money  platform/ledger/go.mod:4  money at libs@bbbbbbbbbbbb\n" +
+		"  gateway -> ledger  go:example.com/ledger  platform/gateway/go.mod:5\n" +
+		"  ledger -> money  go:example.com/money  platform/ledger/go.mod:4\n" +
 		"  money -> go:github.com/spf13/cobra  libs/money/go.mod:3 at v1.8.0\n"
 	if err != nil || code != 0 || printed != want {
 		t.Errorf("query --why of a requirement ended %d, %v, printing\n%s\nwant\n%s", code, err, printed, want)
 	}
-	// Inside a workspace's sandbox, which describes no workspace, the
-	// same chain is said without the commits.
-	printed, code, err = askingInside(t, &graphed{}, "query", "gateway", "--why", "money")
-	want = "gateway -> ledger -> money\n" +
-		"  gateway -> ledger  go:example.com/ledger  platform/gateway/go.mod:5\n" +
-		"  ledger -> money  go:example.com/money  platform/ledger/go.mod:4\n"
-	if err != nil || code != 0 || printed != want {
-		t.Errorf("query --why inside ended %d, %v, printing\n%s\nwant\n%s", code, err, printed, want)
+	at.Reset()
+	plain.Printer{Out: &at}.Answer(reasoned(t, "gateway", "go:github.com/spf13/cobra", standing))
+	want = "gateway -> go:github.com/spf13/cobra\n" +
+		"  gateway -> go:github.com/spf13/cobra  platform/gateway/go.mod:6 at v1.9.1\n" +
+		"gateway -> ledger -> money -> go:github.com/spf13/cobra\n" +
+		"  gateway -> ledger  go:example.com/ledger  platform/gateway/go.mod:5  ledger at platform@aaaaaaaaaaaa\n" +
+		"  ledger -> money  go:example.com/money  platform/ledger/go.mod:4  money at libs@bbbbbbbbbbbb\n" +
+		"  money -> go:github.com/spf13/cobra  libs/money/go.mod:3 at v1.8.0\n"
+	if at.String() != want {
+		t.Errorf("why of a requirement, of repositories at their commits, is printed\n%s\nwant\n%s", &at, want)
 	}
 	// One that does not depend on the other says so, and exits 1: the
 	// control is the other way round, above.
@@ -209,8 +208,13 @@ func TestQueryWritesJSONForAProgram(t *testing.T) {
 		t.Fatalf("query --json wrote %s", printed)
 	}
 	last := got.Why.Paths[0][1]
-	if last.From != "component:default/ledger" || last.To != "component:default/money" || last.Commit != "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" || last.Repository != "libs" || last.Because[0].Origin != "platform/ledger/go.mod:4" {
+	if last.From != "component:default/ledger" || last.To != "component:default/money" || last.Commit != "" || last.Repository != "libs" || last.Because[0].Origin != "platform/ledger/go.mod:4" {
 		t.Errorf("the last step is %+v", last)
+	}
+	// Where the commits are known, a step says its repository's, by
+	// this name.
+	if raw, err := json.Marshal(reasoned(t, "gateway", "money", standing)); err != nil || !strings.Contains(string(raw), `"repository":"libs","commit":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"`) {
+		t.Errorf("why, of repositories at their commits, is written %s (%v)", raw, err)
 	}
 	// What is required from outside says the version its lock resolves
 	// it to, for a program too.

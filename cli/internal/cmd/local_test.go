@@ -24,8 +24,9 @@ import (
 // command is run. A machine told nothing of its grid has no such
 // daemon, and the command says there is no workspace and how this
 // machine is told. A command about a workspace starts none either way.
-// The control is the same command with a workspace selected, which asks
-// the control plane and no daemon of its own.
+// The control is the same command with a workspace selected, which is
+// run in that workspace's sandbox and asks no daemon of its directory
+// (TestWithAWorkspaceSelectedWhatBuildsIsRunInItsSandbox).
 func TestWithNoWorkspaceSelectedABuildAsksTheDaemonOfItsDirectory(t *testing.T) {
 	serverAt(t, "http://127.0.0.1:1")
 	repository := t.TempDir()

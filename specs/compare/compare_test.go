@@ -382,7 +382,14 @@ func frontseatInASandbox(t *testing.T, shape testworkload.Shape) tool {
 		counted:  regexp.MustCompile(`(?m)^build_[0-9a-f]+  .* in ([0-9.]+(?:ms|s))$`),
 		about:    "this checkout: the daemon and the workspace in a sandbox, a file changed there over SSH, its actions on the local grid",
 		build: func(t *testing.T) string {
-			return output(t, "", []string{"XDG_CONFIG_HOME=" + testowner.LayOut(t, served.TokenFile, served.URL)}, command, "build", "--workspace", made.Name())
+			// The build runs in the workspace's sandbox, over its shell,
+			// which the command line enters with the key the workspace
+			// was made with.
+			config := testowner.LayOut(t, served.TokenFile, served.URL)
+			if err := testidentity.Kept(config); err != nil {
+				t.Fatal(err)
+			}
+			return output(t, "", []string{"XDG_CONFIG_HOME=" + config}, command, "build", "--workspace", made.Name())
 		},
 		ran: func(t *testing.T, out string) string {
 			found := run.FindStringSubmatch(out)

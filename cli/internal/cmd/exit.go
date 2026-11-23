@@ -50,7 +50,8 @@ const exitCodes = `Exit codes:
   36   the server refused who asked: no token, or a token it does not take
   37   the server did not answer
   130  interrupted
-  255  workspace ssh: the SSH client could not get in
+  255  workspace ssh, and a command run in a workspace's sandbox: the
+       SSH client could not get in
   run exits with its program's own exit code, which may be any of these.`
 
 // Failed is how a command that failed ends: the code it exits with,

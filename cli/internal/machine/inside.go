@@ -13,6 +13,11 @@ import (
 // sandbox it runs inside: the daemon's build API, on the loopback.
 var Daemon = "http://" + net.JoinHostPort("127.0.0.1", strconv.Itoa(ports.Daemon))
 
+// Program is where this program is in a workspace's sandbox, as the box's
+// image puts it there (stack/box.Dockerfile): what the command line runs
+// there, over the workspace's shell, to build in it.
+const Program = "/opt/frontseat/bin/frontseat"
+
 // Inside says whether the command line runs inside a workspace's
 // sandbox: where the sandbox's lock (ports.Lock) names the workspace its
 // daemon holds, as only a daemon a control plane started for a
