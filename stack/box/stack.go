@@ -13,7 +13,7 @@ import (
 )
 
 // StackRepository is the name every image of the local stack is tagged in.
-const StackRepository = "frontseat-local"
+const StackRepository = "frontseat-stack"
 
 // Stack is one build of the local stack's image (stack/image): the stack
 // as one container, built on a box, whose programs it runs and which its
@@ -48,7 +48,7 @@ func (s Stack) Run(ctx context.Context) (string, error) {
 			fmt.Fprintf(s.Log, format+"\n", args...)
 		}
 	}
-	dir, err := os.MkdirTemp("", "frontseat-local-image-")
+	dir, err := os.MkdirTemp("", "frontseat-stack-image-")
 	if err != nil {
 		return "", err
 	}

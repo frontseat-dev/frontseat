@@ -75,7 +75,7 @@ lets go of it.
   against the stack and none answers: `mise start` first. `mise run
   check` needs none.
 - **Something in the stack misbehaves.** Every service of the stack
-  runs in its one container: `docker logs frontseat-local` reads what
+  runs in its one container: `docker logs frontseat-stack` reads what
   they said.
 - **A workspace is not what you expected.** `frontseat workspace list`
   lists yours, `frontseat workspace describe NAME` says what
@@ -165,14 +165,14 @@ need the local stack), the generation of the contracts' Go and Rust
 documentation.
 
 The stack mounts nothing of this checkout: it runs the images built from
-it, and keeps what it keeps in its own volume (`frontseat-local`). Do not
+it, and keeps what it keeps in its own volume (`frontseat-stack`). Do not
 restart another contributor's stack: `mise start` refuses one another
 checkout started.
 
 To preview documentation, run `mise run docs:serve` and open
 `http://localhost:8000`. When finished with an unshared grid, run
 `mise stop`, which stops the stack whichever checkout
-started it; its one volume (`frontseat-local`) remains.
+started it; its one volume (`frontseat-stack`) remains.
 
 ## Make a focused change
 
