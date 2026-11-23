@@ -53,18 +53,18 @@ func TestADirectoryLeftToAnotherCommandTakesOutItsPackagesAlone(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	selected, err := selection(root, []string{"specs", "local"}, []string{"specs/build"}, nil)
+	selected, err := selection(root, []string{"specs", "stack"}, []string{"specs/build"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if slices.Contains(selected, "./specs/build") || slices.Contains(selected, "./specs/...") {
 		t.Errorf("specs/build is still run: %q", selected)
 	}
-	if !slices.Contains(selected, "./specs/sandbox") || !slices.Contains(selected, "./specs/cli") || !slices.Contains(selected, "./local/...") {
+	if !slices.Contains(selected, "./specs/sandbox") || !slices.Contains(selected, "./specs/cli") || !slices.Contains(selected, "./stack/...") {
 		t.Errorf("more than specs/build was left out: %q", selected)
 	}
 	for _, nothing := range []string{"specs/absent", "nowhere", "spec"} {
-		if got, err := selection(root, []string{"specs", "local"}, []string{nothing}, nil); err == nil {
+		if got, err := selection(root, []string{"specs", "stack"}, []string{nothing}, nil); err == nil {
 			t.Errorf("-except %s was taken, selecting %q", nothing, got)
 		}
 	}

@@ -45,6 +45,12 @@ const (
 // started it under.
 const checkoutLabel = "frontseat.dev/checkout"
 
+// Earlier is the name the stack's container had through frontseat 0.1.0.
+// One left up by a checkout of then holds the ports this stack is
+// published on, and nothing that asks for the stack by its name now
+// finds it.
+const Earlier = "frontseat-local"
+
 // token is where the control plane keeps its owner's token, in the
 // stack's state.
 const token = "/var/lib/frontseat/controlplane/owner/token"
@@ -126,9 +132,15 @@ func (s Stack) Down(ctx context.Context) error {
 		return err
 	}
 	// By its name, so that it stops whoever started it, and a stack whose
-	// checkout is gone.
-	_, err := s.run(ctx, "rm", "--force", Name)
-	return err
+	// checkout is gone; and by the name it had before, which was this
+	// program's own stack too, and holds the same ports. Its volume is
+	// kept as this one's is.
+	for _, name := range []string{Name, Earlier} {
+		if _, err := s.run(ctx, "rm", "--force", name); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Ready returns where this checkout may not bring the stack up: the
@@ -148,6 +160,13 @@ func (s Stack) Ready(ctx context.Context) error {
 	}
 	if from := strings.TrimSpace(said); from != "" && from != here {
 		return fmt.Errorf("the local stack was started from %s, not from %s: stop it first (mise stop, from any checkout), then start it from here", from, here)
+	}
+	earlier, err := s.run(ctx, "ps", "-a", "--filter", "name=^"+Earlier+"$", "--format", "{{.Names}}")
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(earlier) != "" {
+		return fmt.Errorf("a local stack of an earlier frontseat is still there, as the container %s, and holds the ports this one is published on: stop it first (mise stop, from this checkout), then start the stack from here", Earlier)
 	}
 	return nil
 }

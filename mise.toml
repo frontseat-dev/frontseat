@@ -69,7 +69,7 @@ CARGO_TARGET_WASM32_WASIP1_RUSTFLAGS = { value = "{% if tools['http:rust-std-was
 # workspace; the box by its one build (stack/box, frontseat-stack box).
 [tasks.build]
 description = "Build Frontseat from this checkout into dist/ (dist/bin is on the PATH here), and the image each workspace runs (the box), tagged frontseat-box:local too"
-sources = ["api/**", "cli/**", "cmd/**", "core/**", "common/**", "testsupport/**", "sandbox/**", "build/**", "grid/**", "workspace/**", "local/**", "sdk/**", "specs/cmd/**", "specs/internal/**", "plugins/**", "Cargo.toml", "Cargo.lock", "go.work", "go.work.sum", "mise.lock"]
+sources = ["api/**", "cli/**", "cmd/**", "core/**", "common/**", "testsupport/**", "sandbox/**", "build/**", "grid/**", "workspace/**", "stack/**", "sdk/**", "specs/cmd/**", "specs/internal/**", "plugins/**", "Cargo.toml", "Cargo.lock", "go.work", "go.work.sum", "mise.lock"]
 outputs = ["dist/bin/frontseat", "dist/bin/frontseatd", "dist/bin/frontseat-server", "dist/bin/frontseat-stack", "dist/plugins"]
 run = [
   { task = "build:programs" },
