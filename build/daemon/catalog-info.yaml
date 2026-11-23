@@ -30,6 +30,7 @@ spec:
       # reader is held to.
       inputs:
         - /docs/configuration.md
+        - /docs/build-settings.md
         - /sdk/go/go.mod
         - /sdk/go/go.sum
         - /mise.toml

@@ -15,13 +15,11 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"regexp"
-	"runtime"
-	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/frontseat-dev/frontseat/build/daemon/build"
+	"github.com/frontseat-dev/frontseat/build/daemon/settings"
 	"github.com/frontseat-dev/frontseat/common/vcs/chosen"
 	"github.com/frontseat-dev/frontseat/core/httpserver"
 	"github.com/frontseat-dev/frontseat/core/ports"
@@ -106,7 +104,7 @@ func Run(ctx context.Context, args []string, built Release) error {
 	if *state == "" {
 		return fmt.Errorf("--state names no directory: the daemon keeps its runs there")
 	}
-	plugins, err := withDirectory(plugins, *pluginDirectory)
+	plugins, err := settings.Modules(plugins, *pluginDirectory)
 	if err != nil {
 		return err
 	}
@@ -223,30 +221,6 @@ func toldPlatform(properties []string) error {
 	return nil
 }
 
-// withDirectory is the plugins given one by one, and after them every
-// <name>.wasm of a directory of plugins, by name. A directory named that
-// holds none is refused: a daemon with none of the plugins it was
-// pointed at would refuse every repository later, and say less.
-func withDirectory(plugins []string, directory string) ([]string, error) {
-	if directory == "" {
-		return plugins, nil
-	}
-	entries, err := os.ReadDir(directory)
-	if err != nil {
-		return nil, fmt.Errorf("--plugins %s: %w", directory, err)
-	}
-	var found []string
-	for _, entry := range entries {
-		if entry.Type().IsRegular() && strings.HasSuffix(entry.Name(), ".wasm") {
-			found = append(found, filepath.Join(directory, entry.Name()))
-		}
-	}
-	if len(found) == 0 {
-		return nil, fmt.Errorf("--plugins %s holds no <name>.wasm", directory)
-	}
-	return append(plugins, found...), nil
-}
-
 // rewritesOf reads which proxy stands in for each public site a download
 // names, from the --rewrite flags: a regular expression, a space and the
 // proxy's address, which holds none, kept in the order given: the first
@@ -260,14 +234,10 @@ func rewritesOf(given []string) ([]build.Rewrite, error) {
 		if space <= 0 || space == len(each)-1 {
 			return nil, fmt.Errorf("--rewrite %q: want a regular expression, a space and the proxy's address", each)
 		}
-		pattern, address := each[:space], each[space+1:]
-		if _, err := regexp.Compile(pattern); err != nil {
-			return nil, fmt.Errorf("--rewrite: %w", err)
-		}
-		if slices.ContainsFunc(rewrites, func(earlier build.Rewrite) bool { return earlier.From == pattern }) {
-			return nil, fmt.Errorf("--rewrite gives %s twice", pattern)
-		}
-		rewrites = append(rewrites, build.Rewrite{From: pattern, To: address})
+		rewrites = append(rewrites, build.Rewrite{From: each[:space], To: each[space+1:]})
+	}
+	if err := settings.Rewrites(rewrites); err != nil {
+		return nil, fmt.Errorf("--rewrite: %w", err)
 	}
 	return rewrites, nil
 }
@@ -276,8 +246,7 @@ func rewritesOf(given []string) ([]build.Rewrite, error) {
 // where none is given, Linux on this machine's architecture.
 func platformOf(properties []string) (map[string]string, error) {
 	if len(properties) == 0 {
-		isa := map[string]string{"arm64": "aarch64", "amd64": "x86-64"}[runtime.GOARCH]
-		return map[string]string{"OSFamily": "linux", "ISA": isa}, nil
+		return settings.Platform(nil), nil
 	}
 	platform := map[string]string{}
 	for _, property := range properties {

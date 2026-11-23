@@ -255,7 +255,10 @@ var policies = []policy{
 	// shell, and knows no build.
 	{"cmd/frontseat-box", []string{"workspace/box/supervisor"}},
 	{"workspace/box/supervisor", []string{"workspace/box/source", "core/httpserver", "core/telemetry", "core/ports", "common/told/sourceapi/**"}},
-	{"build/daemon/daemon", []string{"build/daemon/build", "workspace/box/source", "workspace/box/supervisor", "core/httpserver", "core/telemetry", "core/ports", "common/vcs/chosen"}},
+	// What a build daemon is told, read from one file: the build's own
+	// types, and nothing of a workspace, a sandbox or a control plane.
+	{"build/daemon/settings", []string{"build/daemon/build"}},
+	{"build/daemon/daemon", []string{"build/daemon/build", "build/daemon/settings", "workspace/box/source", "workspace/box/supervisor", "core/httpserver", "core/telemetry", "core/ports", "common/vcs/chosen"}},
 	// The local stack's control plane: the control plane, told what the
 	// stack is by the stack's own package.
 	{"cmd/frontseat-server", []string{"workspace/server/controlplane", "workspace/server/backstage", "core/httpserver", "core/secretfile", "core/telemetry", "stack/local", "core/ports", "common/vcs/chosen"}},
