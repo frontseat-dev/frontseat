@@ -35,7 +35,7 @@ func TestHowAResourceIsStartedIsPartOfItsTestsKeyTheSameIsAnsweredAgainAChangeRu
 	again := workspace.build()
 	spec.Expect(again.cameFrom("//svc:go.test/.")).NotTo(Equal("executed"))
 
-	workspace.write("catalog-info.yaml", greeterComponent(true)+"---\n"+greeterResource(greeterService+"      env: {CHANGED: \"1\"}\n"))
+	workspace.write("catalog-info.yaml", greeterComponent(true)+"---\n"+greeterResource(greeterService+"      environment: {CHANGED: \"1\"}\n"))
 	changed := workspace.build()
 	spec.Expect(changed.outcomeOf("//svc:go.test/.")).To(Equal("passed"))
 	spec.Expect(changed.cameFrom("//svc:go.test/.")).To(Equal("executed"))
