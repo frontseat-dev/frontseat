@@ -11,12 +11,12 @@ import (
 	"time"
 
 	connect "connectrpc.com/connect/v2"
-	"github.com/frontseat-dev/frontseat/local/testsupport/testbox"
-	"github.com/frontseat-dev/frontseat/local/testsupport/testgateway"
-	"github.com/frontseat-dev/frontseat/local/testsupport/testowner"
 	sandboxv1 "github.com/frontseat-dev/frontseat/sandbox/api/frontseat/sandbox/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sandbox/testsupport/testsandbox"
 	"github.com/frontseat-dev/frontseat/sdk/go"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testbox"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testgateway"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testowner"
 	"github.com/frontseat-dev/frontseat/testsupport/testforge"
 	"github.com/frontseat-dev/frontseat/testsupport/testrequired"
 

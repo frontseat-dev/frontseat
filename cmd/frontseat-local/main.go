@@ -10,7 +10,7 @@
 // refuses them where it is given none. The sandbox API it
 // makes sandboxes with is its own, and is served to no one.
 //
-// Its sandboxes build on the grid of the local stack (local/image), which they
+// Its sandboxes build on the grid of the local stack (stack/image), which they
 // reach through the machine they run on.
 //
 // It also brings that stack up or down from a checkout, and builds the
@@ -20,7 +20,7 @@
 //	frontseat-local up [--plugins DIR]           the stack, from this checkout, running the box built from it (mise start)
 //	frontseat-local down                         the stack, whichever checkout started it, from anywhere (mise stop)
 //	frontseat-local box [--tag T] [--plugins DIR] the box image, printing its tag of its content (mise run build)
-//	frontseat-local image [--box B] [--tag T]       the stack's one image (local/image), on the box, printing its tag of its content
+//	frontseat-local image [--box B] [--tag T]       the stack's one image (stack/image), on the box, printing its tag of its content
 //	frontseat-local init PROGRAM...             the stack container's first process: readies it, then becomes PROGRAM
 package main
 
@@ -43,7 +43,7 @@ import (
 	"github.com/frontseat-dev/frontseat/core/ports"
 	"github.com/frontseat-dev/frontseat/core/secretfile"
 	"github.com/frontseat-dev/frontseat/core/telemetry"
-	"github.com/frontseat-dev/frontseat/local"
+	"github.com/frontseat-dev/frontseat/stack/local"
 	"github.com/frontseat-dev/frontseat/workspace/server/backstage"
 	"github.com/frontseat-dev/frontseat/workspace/server/controlplane"
 )
@@ -121,7 +121,7 @@ func reached(listen, public string) (string, error) {
 }
 
 // copied is where a person reads how the local stack's gateway is known.
-const copied = "the local stack lays out its own in /var/lib/frontseat/controlplane/openshell, in its container: the oneshot identity of local/image"
+const copied = "the local stack lays out its own in /var/lib/frontseat/controlplane/openshell, in its container: the oneshot identity of stack/image"
 
 // asked is the gateway's address as it is to be asked, or why it is not
 // asked at all. A gateway is asked over https alone, where it knows its

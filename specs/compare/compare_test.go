@@ -4,7 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/frontseat-dev/frontseat/local/testsupport/testowner"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testowner"
 	"github.com/frontseat-dev/frontseat/testsupport/testidentity"
 	"io"
 	"net/http/httptest"
@@ -23,8 +23,8 @@ import (
 	"connectrpc.com/connect/v2"
 	"github.com/frontseat-dev/frontseat/testsupport/testforge"
 
-	"github.com/frontseat-dev/frontseat/local/testsupport/testbox"
 	"github.com/frontseat-dev/frontseat/sdk/go"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testbox"
 	"github.com/frontseat-dev/frontseat/testsupport/testworkload"
 )
 

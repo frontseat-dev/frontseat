@@ -12,7 +12,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/frontseat-dev/frontseat/build/engine/exec/download"
-	"github.com/frontseat-dev/frontseat/local/testsupport/testgrid"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testgrid"
 )
 
 // gridAssets is a client of the grid's own asset service, which fetches

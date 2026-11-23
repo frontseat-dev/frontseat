@@ -1,0 +1,57 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: stack
+  namespace: frontseat
+  description: "The local stack: its one container's image and the configuration of the grid, its runner sandboxes, the asset service and the OpenShell gateway; what the stack is, read from its files (package local); the stack brought up and down from a checkout (package stack, frontseat-local up and down); and the box image a workspace's sandbox runs, with its one build (package box)"
+spec:
+  type: stack
+  lifecycle: experimental
+  owner: jbadeau
+  system: grid
+  frontseat:
+    # On the grid there is no local stack to reach: a test that needs one
+    # says so first and is skipped, said why, as `mise run check` skips
+    # it (testsupport/testrequired); `mise run test` runs it.
+    # The stack's tests read its image's files,
+    # above their package.
+    test:
+      inputs: [image/**]
+      environment: {FRONTSEAT_TEST_STACK: none}
+---
+# What the code relies on that frontseat does not build: the local
+# stack's infrastructure. None is started for a test, and no component
+# depends on one, since a component's dependsOn names what its tests are
+# given.
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: buildbarn
+  namespace: frontseat
+  description: "The grid: Buildbarn's scheduler, storage, workers and runners, speaking the Remote Execution API"
+spec:
+  type: grid
+  owner: jbadeau
+  system: grid
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: asset-service
+  namespace: frontseat
+  description: "Buildbarn's remote asset service, which fetches a download from where its URL says, checks it against its checksum and keeps it by that checksum for the whole grid"
+spec:
+  type: service
+  owner: jbadeau
+  system: grid
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: openshell-gateway
+  namespace: frontseat
+  description: "NVIDIA OpenShell's gateway, on which a workspace's sandbox stands"
+spec:
+  type: gateway
+  owner: jbadeau
+  system: workspaces

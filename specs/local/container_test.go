@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/frontseat-dev/frontseat/core/ports"
-	"github.com/frontseat-dev/frontseat/local"
-	"github.com/frontseat-dev/frontseat/local/box"
-	"github.com/frontseat-dev/frontseat/local/testsupport/testbox"
+	"github.com/frontseat-dev/frontseat/stack/box"
+	"github.com/frontseat-dev/frontseat/stack/local"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testbox"
 	"github.com/frontseat-dev/frontseat/testsupport/testfiles"
 	"github.com/frontseat-dev/frontseat/testsupport/testforge"
 	"github.com/frontseat-dev/frontseat/testsupport/testrequired"

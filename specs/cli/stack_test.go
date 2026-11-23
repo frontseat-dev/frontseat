@@ -13,12 +13,12 @@ import (
 	"testing"
 
 	"github.com/frontseat-dev/frontseat/core/ports"
-	"github.com/frontseat-dev/frontseat/local/testsupport/testbox"
-	"github.com/frontseat-dev/frontseat/local/testsupport/testgrid"
-	"github.com/frontseat-dev/frontseat/local/testsupport/testowner"
 	sandboxv1 "github.com/frontseat-dev/frontseat/sandbox/api/frontseat/sandbox/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sandbox/testsupport/testsandbox"
 	"github.com/frontseat-dev/frontseat/sdk/go"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testbox"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testgrid"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testowner"
 )
 
 // stack is where the local stack's control plane answers, which is where

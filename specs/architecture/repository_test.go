@@ -370,7 +370,7 @@ func taskFiles(files []string, content string) []string {
 }
 
 func TestATaskKeptOutsideMiseOrAListWrittenAnywhereInItIsFound(t *testing.T) {
-	if got := taskFiles([]string{"mise.toml", "docs/tasks/x.md", "local/stack"}, "[tasks.a]\nrun = \"x\"\n# includes = [\"elsewhere\"]\n"); len(got) != 0 {
+	if got := taskFiles([]string{"mise.toml", "docs/tasks/x.md", "stack"}, "[tasks.a]\nrun = \"x\"\n# includes = [\"elsewhere\"]\n"); len(got) != 0 {
 		t.Errorf("refused %q", got)
 	}
 	for _, each := range []struct {
@@ -903,7 +903,7 @@ var _ = testrequired.Stack
 // does; one that says what is missing through the test support, and one
 // that skips and says nothing of the stack, are not.
 func TestATestThatSkipsItselfAfterSayingItNeedsTheStackIsFound(t *testing.T) {
-	const head = "package p\n\nimport (\n\t\"os/exec\"\n\t\"testing\"\n\n\t\"" + module + "/local/testsupport/testbox\"\n\t\"" + module + "/testsupport/testrequired\"\n)\n\n"
+	const head = "package p\n\nimport (\n\t\"os/exec\"\n\t\"testing\"\n\n\t\"" + module + "/stack/testsupport/testbox\"\n\t\"" + module + "/testsupport/testrequired\"\n)\n\n"
 	sources := map[string][]byte{"a/a_test.go": []byte(head + `
 func TestSkipsAfterIt(t *testing.T) { testrequired.Stack(t); if _, err := exec.LookPath("docker"); err != nil { t.Skip("no runtime") } }
 func TestSkipsNowAfterIt(t *testing.T) { testrequired.Stack(t); t.SkipNow() }

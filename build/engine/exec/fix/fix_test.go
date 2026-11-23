@@ -17,7 +17,7 @@ import (
 	"github.com/frontseat-dev/frontseat/build/engine/exec/tools"
 	"github.com/frontseat-dev/frontseat/build/engine/model"
 	pluginv1 "github.com/frontseat-dev/frontseat/build/engine/pluginapi/frontseat/plugin/v1alpha1"
-	"github.com/frontseat-dev/frontseat/local/testsupport/testgrid"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testgrid"
 )
 
 // A fix that runs with the workers' tools is refused, by name, where the

@@ -13,10 +13,10 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
-	"github.com/frontseat-dev/frontseat/local/testsupport/testbox"
-	"github.com/frontseat-dev/frontseat/local/testsupport/testgrid"
-	"github.com/frontseat-dev/frontseat/local/testsupport/testowner"
 	"github.com/frontseat-dev/frontseat/sdk/go"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testbox"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testgrid"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testowner"
 	"github.com/frontseat-dev/frontseat/testsupport/testidentity"
 	"github.com/frontseat-dev/frontseat/testsupport/testrequired"
 )

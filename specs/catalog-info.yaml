@@ -8,7 +8,7 @@ spec:
   type: tests
   lifecycle: experimental
   owner: jbadeau
-  dependsOn: [component:api, component:build-daemon, component:build-engine, component:confine, component:core, component:git, component:go-sdk, component:local, component:record, component:runner-contract, component:sandbox, component:testsupport, component:told, component:vcs, component:workspace-box, component:workspace-server]
+  dependsOn: [component:api, component:build-daemon, component:build-engine, component:confine, component:core, component:git, component:go-sdk, component:stack, component:record, component:runner-contract, component:sandbox, component:testsupport, component:told, component:vcs, component:workspace-box, component:workspace-server]
   frontseat:
     # The architecture test reads the contracts as Buf builds them, and
     # the comparisons run Bazel beside Frontseat; the repository's rules

@@ -9,7 +9,7 @@ import (
 	"github.com/frontseat-dev/frontseat/build/engine/exec"
 	"github.com/frontseat-dev/frontseat/build/engine/exec/tools"
 	"github.com/frontseat-dev/frontseat/build/engine/exec/tools/toolstest"
-	"github.com/frontseat-dev/frontseat/local/testsupport/testgrid"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testgrid"
 	"github.com/frontseat-dev/frontseat/testsupport/testbudget"
 	"github.com/frontseat-dev/frontseat/testsupport/testpins"
 )

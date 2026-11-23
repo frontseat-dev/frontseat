@@ -1,0 +1,5 @@
+#!/command/execlineb -P
+# The container's own resolver, which the container's resolv.conf names
+# (stack Resolver): it binds as root and runs as dns. Podman, and
+# so every sandbox, is started after it is started, not once it answers.
+unbound -d -p -c /etc/unbound/unbound.conf

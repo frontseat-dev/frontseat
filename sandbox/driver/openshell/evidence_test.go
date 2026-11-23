@@ -13,10 +13,10 @@ import (
 	"time"
 
 	sdk "github.com/ai-openshell/sdk-go/openshell/v1"
-	"github.com/frontseat-dev/frontseat/local/testsupport/testgateway"
 	"github.com/frontseat-dev/frontseat/sandbox/driver"
 	"github.com/frontseat-dev/frontseat/sandbox/driver/openshell"
 	"github.com/frontseat-dev/frontseat/sandbox/testsupport/drivertest"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testgateway"
 	"github.com/frontseat-dev/frontseat/testsupport/testrequired"
 	"github.com/frontseat-dev/frontseat/testsupport/testrun"
 )

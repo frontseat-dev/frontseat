@@ -9,10 +9,10 @@ import (
 	"time"
 
 	sdk "github.com/ai-openshell/sdk-go/openshell/v1"
-	"github.com/frontseat-dev/frontseat/local/testsupport/testgateway"
-	"github.com/frontseat-dev/frontseat/local/testsupport/testgrid"
 	sandboxv1 "github.com/frontseat-dev/frontseat/sandbox/api/frontseat/sandbox/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sandbox/testsupport/testsandbox"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testgateway"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testgrid"
 	"github.com/frontseat-dev/frontseat/testsupport/testrequired"
 	"github.com/frontseat-dev/frontseat/testsupport/testworkload"
 )

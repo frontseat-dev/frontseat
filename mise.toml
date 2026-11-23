@@ -66,7 +66,7 @@ CARGO_TARGET_WASM32_WASIP1_RUSTFLAGS = { value = "{% if tools['http:rust-std-was
 # what specs/cli proves. A run with nothing changed does nothing. The plugins
 # are built by the program that builds them for the tests
 # (specs/cmd/prepare-modules), which reads which there are from the Cargo
-# workspace; the box by its one build (local/box, frontseat-local box).
+# workspace; the box by its one build (stack/box, frontseat-local box).
 [tasks.build]
 description = "Build Frontseat from this checkout into dist/ (dist/bin is on the PATH here), and the image each workspace runs (the box), tagged frontseat-box:local too"
 sources = ["api/**", "cli/**", "cmd/**", "core/**", "common/**", "testsupport/**", "sandbox/**", "build/**", "grid/**", "workspace/**", "local/**", "sdk/**", "specs/cmd/**", "specs/internal/**", "plugins/**", "Cargo.toml", "Cargo.lock", "go.work", "go.work.sum", "mise.lock"]
@@ -90,7 +90,7 @@ run = [
 ]
 
 # The local stack, from this checkout (frontseat-local up, package
-# local/stack): one container holding the grid, its runner sandboxes, the
+# stack): one container holding the grid, its runner sandboxes, the
 # OpenShell gateway and the control plane on localhost:7700. `start` builds dist/ first, and the
 # stack builds its box from this checkout every time it is brought up,
 # naming it by what it holds, so that it runs this checkout's box whatever

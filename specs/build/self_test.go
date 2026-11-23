@@ -39,8 +39,10 @@ func TestBuildsThisRepositorySModulesAndAPIFromItsCommittedConfiguration(t *test
 	spec.Expect(built.outcome()).To(Equal("SUCCESS"), built.diagnostics())
 	spec.Expect(built.actions()).To(ContainElements(
 		"//cli:go.compile", "//cli:go.lint",
-		"//server:go.compile", "//server:go.lint",
-		"//local:go.compile",
+		"//build/engine:go.compile", "//build/engine:go.lint",
+		"//build/daemon:go.compile", "//workspace/server:go.compile", "//core:go.compile",
+		"//cmd/frontseatd:go.compile", "//cmd/frontseat-confine:go.compile",
+		"//stack:go.compile",
 		"//sdk/go:go.compile", "//sdk/go:go.lint",
 		"//api:buf.lint", "//api:buf.generate/sdk", "//api:buf.generate/daemon", "//api:buf.generate/runner", "//api:buf.generate/source", "//api:buf.generate/sandbox",
 		"//sdk/plugin:cargo.compile", "//sdk/plugin:cargo.lint",
@@ -48,7 +50,7 @@ func TestBuildsThisRepositorySModulesAndAPIFromItsCommittedConfiguration(t *test
 		"//plugins/npm:cargo.compile", "//plugins/npm:cargo.package/wasm32-wasip1",
 		"//plugins/jest:cargo.compile", "//plugins/jest:cargo.package/wasm32-wasip1",
 		"//specs:catalog.depends-on", "//cli:catalog.depends-on",
-		"//server:catalog.depends-on", "//local:catalog.depends-on",
+		"//build/engine:catalog.depends-on", "//stack:catalog.depends-on",
 	))
 }
 
@@ -75,8 +77,8 @@ func TestRunsThisRepositorysOwnTestsOnTheGrid(t *testing.T) {
 	// of a package that tests itself alone and of one that reads beyond
 	// it (its Component's test.inputs), and the repository's rules.
 	for _, label := range []string{
-		"//sdk/go:go.test/.", "//server:go.test/internal/pluginhost", "//server:go.test/internal/pattern",
-		"//server:go.test/internal/confine", "//local:go.test/stack", "//specs:go.test/architecture",
+		"//sdk/go:go.test/.", "//build/engine:go.test/pluginhost", "//build/engine:go.test/pattern",
+		"//common/confine:go.test/.", "//stack:go.test/.", "//specs:go.test/architecture",
 		"//cli:go.test/internal/cmd", "//sdk/plugin/generate:cargo.test", "//plugins/go:cargo.test",
 	} {
 		spec.Expect(tested.outcomeOf(label)).To(Equal("passed"), label)
@@ -134,7 +136,7 @@ func TestIsTheDomainItsCatalogFilesDeclareWhoseComponentsOwnEveryProject(t *test
 		spec.Expect(in).To(HaveLen(1), ref)
 		spec.Expect(systems).To(ContainElement(in[0]), ref)
 	}
-	spec.Expect(components).To(ContainElements(append(shared, "component:frontseat/api", "component:frontseat/cli", "component:frontseat/server", "component:frontseat/local", "component:frontseat/go-sdk", "component:frontseat/plugin-sdk", "component:frontseat/go-plugin", "component:frontseat/backstage-plugin")))
+	spec.Expect(components).To(ContainElements(append(shared, "component:frontseat/api", "component:frontseat/cli", "component:frontseat/build-engine", "component:frontseat/build-daemon", "component:frontseat/workspace-server", "component:frontseat/workspace-box", "component:frontseat/sandbox", "component:frontseat/core", "component:frontseat/frontseatd", "component:frontseat/frontseat-confine", "component:frontseat/stack", "component:frontseat/go-sdk", "component:frontseat/plugin-sdk", "component:frontseat/go-plugin", "component:frontseat/backstage-plugin")))
 	// The APIs, the Resources and the Location are entities that own no
 	// source, and what is said of the APIs comes out as Backstage's
 	// relations, both ways.
@@ -143,13 +145,13 @@ func TestIsTheDomainItsCatalogFilesDeclareWhoseComponentsOwnEveryProject(t *test
 		spec.Expect(entities[ref].GetRoots()).To(BeEmpty(), ref)
 	}
 	for _, edge := range [][3]string{
-		{"component:frontseat/server", "providesApi", "api:frontseat/build-api"},
-		{"api:frontseat/workspace-api", "apiProvidedBy", "component:frontseat/server"},
-		{"component:frontseat/server", "consumesApi", "api:frontseat/plugin-api"},
+		{"component:frontseat/build-daemon", "providesApi", "api:frontseat/build-api"},
+		{"api:frontseat/workspace-api", "apiProvidedBy", "component:frontseat/workspace-server"},
+		{"component:frontseat/build-engine", "consumesApi", "api:frontseat/plugin-api"},
 		{"component:frontseat/cli", "consumesApi", "api:frontseat/credential-api"},
-		{"api:frontseat/credential-api", "apiProvidedBy", "component:frontseat/server"},
+		{"api:frontseat/credential-api", "apiProvidedBy", "component:frontseat/workspace-server"},
 		{"api:frontseat/plugin-api", "apiProvidedBy", "component:frontseat/go-plugin"},
-		{"component:frontseat/server", "partOf", "system:frontseat/build"},
+		{"component:frontseat/build-daemon", "partOf", "system:frontseat/build"},
 		{"component:frontseat/api", "partOf", "system:frontseat/clients"},
 		{"resource:frontseat/buildbarn", "partOf", "system:frontseat/grid"},
 		{"resource:frontseat/openshell-gateway", "partOf", "system:frontseat/workspaces"},

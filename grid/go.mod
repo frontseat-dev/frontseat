@@ -8,7 +8,7 @@ require (
 	github.com/frontseat-dev/frontseat/common/confine v0.0.0
 	github.com/frontseat-dev/frontseat/common/runner v0.0.0
 	github.com/frontseat-dev/frontseat/core v0.0.0
-	github.com/frontseat-dev/frontseat/local v0.0.0
+	github.com/frontseat-dev/frontseat/stack v0.0.0
 	github.com/frontseat-dev/frontseat/sandbox v0.0.0
 	github.com/frontseat-dev/frontseat/sdk/go v0.0.0
 	github.com/frontseat-dev/frontseat/testsupport v0.0.0

@@ -10,7 +10,7 @@ use (
 	./common/told
 	./common/runner
 	./testsupport
-	./local
+	./stack
 	./sandbox
 	./build/engine
 	./build/daemon
@@ -36,7 +36,7 @@ replace (
 	github.com/frontseat-dev/frontseat/common/told v0.0.0 => ./common/told
 	github.com/frontseat-dev/frontseat/common/runner v0.0.0 => ./common/runner
 	github.com/frontseat-dev/frontseat/testsupport v0.0.0 => ./testsupport
-	github.com/frontseat-dev/frontseat/local v0.0.0 => ./local
+	github.com/frontseat-dev/frontseat/stack v0.0.0 => ./stack
 	github.com/frontseat-dev/frontseat/sandbox v0.0.0 => ./sandbox
 	github.com/frontseat-dev/frontseat/build/engine v0.0.0 => ./build/engine
 	github.com/frontseat-dev/frontseat/build/daemon v0.0.0 => ./build/daemon

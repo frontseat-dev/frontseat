@@ -12,7 +12,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/frontseat-dev/frontseat/local"
+	"github.com/frontseat-dev/frontseat/stack/local"
 )
 
 // Context is the workspace last opened, and the control plane that keeps

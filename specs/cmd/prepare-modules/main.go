@@ -38,7 +38,7 @@ import (
 
 	"github.com/google/renameio/v2"
 
-	"github.com/frontseat-dev/frontseat/local"
+	"github.com/frontseat-dev/frontseat/stack/local"
 	"github.com/frontseat-dev/frontseat/testsupport/testmodule"
 )
 

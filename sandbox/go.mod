@@ -12,7 +12,7 @@ require (
 	github.com/frontseat-dev/frontseat/common/record v0.0.0
 	github.com/frontseat-dev/frontseat/common/told v0.0.0
 	github.com/frontseat-dev/frontseat/core v0.0.0
-	github.com/frontseat-dev/frontseat/local v0.0.0
+	github.com/frontseat-dev/frontseat/stack v0.0.0
 	github.com/frontseat-dev/frontseat/sdk/go v0.0.0
 	github.com/frontseat-dev/frontseat/testsupport v0.0.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20261104224025-d1e00e9f33ab

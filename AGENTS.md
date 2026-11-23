@@ -6,7 +6,7 @@ it. A rule marked *target* is where the code is going, not where it is;
 the change that brings the code there also turns on what holds it.
 
 `build/` (which covers every part a server program is made of: `core/`,
-`common/`, `sandbox/`, `grid/`, `workspace/` and `cmd/` too), `local/`,
+`common/`, `sandbox/`, `grid/`, `workspace/` and `cmd/` too), `stack/`,
 `specs/` and `plugins/` (which covers the plugin SDK and its testkit
 too) each have an `AGENTS.md` of the mistakes made
 there and the check that stops each. Read the one of the part you change
@@ -47,7 +47,7 @@ the change that fixes it.
 - **mise bootstraps, Frontseat builds itself.** mise installs the pinned
   tools and builds Frontseat into `dist/` (`mise run build`); `mise start`
   brings the local stack up from the checkout (`frontseat-local up`): one
-  container of `local/image`, as it is for anyone who runs Frontseat
+  container of `stack/image`, as it is for anyone who runs Frontseat
   locally.
   From there a contributor builds in a workspace with `frontseat build`.
   Held by: the self-build spec (`specs/build/self_test.go`). Frontseat
@@ -73,7 +73,7 @@ the change that fixes it.
   `TestACatalogInputFromTheRootIsReadFromTheRepositorysRoot`,
   `TestACatalogLabelFromTheRootNamesAProjectOfItsOwnRepository` and the Go
   plugin's `served_plugin_composes_manifest_inputs_and_profile_actions`.
-- **The box is built one way** (`local/box`): by `mise run build`, by the
+- **The box is built one way** (`stack/box`): by `mise run build`, by the
   stack and by the gate, and tagged by what it holds. The stack and the
   tests each run the box built from their checkout, by that tag, never
   `frontseat-box:local`, which any checkout moves (the tests are told
@@ -147,14 +147,14 @@ the change that fixes it.
   every system.
 - **A port is said once**, in `core/ports`: the daemon's defaults, the
   control plane, the command line and the test support read it there;
-  the stack's image's files (`local/image`) and `local/box.Dockerfile`,
-  which cannot, are held to it by `local/ports_test.go`.
-- **The local stack is one container** of `local/image`, for anyone who
+  the stack's image's files (`stack/image`) and `stack/box.Dockerfile`,
+  which cannot, are held to it by `stack/local/ports_test.go`.
+- **The local stack is one container** of `stack/image`, for anyone who
   runs Frontseat locally and for contributors alike: the grid, the
   OpenShell gateway and the control plane, each a process s6-overlay
   supervises, and every sandbox in rootless Podman inside it. It is
   started with what nesting needs and nothing of this machine mounted
-  (`local/stack/container.go`); `frontseat-local init` delegates its
+  (`stack/container.go`); `frontseat-local init` delegates its
   cgroups, lays out its one volume, and tells the gateway where a
   sandbox's names of this machine (`host.openshell.internal`,
   `host.docker.internal`) lead: to this machine, as the container runtime
@@ -604,7 +604,7 @@ the change that fixes it.
   show in what they export is of an SDK or on that list too
   (`TestPublicFeatureSignaturesHideImplementationTypes`). A binary's
   `main` is `cmd/<binary>`; test support is `testsupport/<name>`, at
-  the top or beside the module it starts (`local/testsupport`,
+  the top or beside the module it starts (`stack/testsupport`,
   `sandbox/testsupport`), which the import rules hold to tests. A
   directory is one package, and a fixture beneath `testdata` is a
   program or internal. Held by:
@@ -911,7 +911,7 @@ mise run docs:serve       # serve the TechDocs site on http://localhost:8000
 | `build/daemon/directory` | A directory as a build reads it: what its manifest records, and its repositories' history |
 | `common/told` | What a box's daemon is told of what a workspace is asked for |
 | `local` | What the local stack is, read from its files: the workers' image and platform, what a sandbox is told; the checkout a program is started at (`Checkout`); the directory the command line keeps what it keeps in, and the owner's token and server files beneath it (`Config`, `TokenFile`, `ServerFile`); the container runtime's architecture (`Architecture`, `GOARCH`) and the stack's Podman (`Podman`), each asked one way |
-| `local/internal/poll` | Asking again until the stack's container comes to something (`Tries`): the box's build's and the stack's |
+| `stack/internal/poll` | Asking again until the stack's container comes to something (`Tries`): the box's build's and the stack's |
 | `core/ports` | Every port a box and the local stack are reached on |
 | `testsupport/*` | Test facilities: pins, Wasm modules, the grid, fixtures (`testfiles`, `testforge`, `commits`), budgets |
 | `specs/buildtest`, `workspace/server/controlplanetest` | A daemon and a control plane started for a test, as `frontseatd` and `frontseat-local` start them |

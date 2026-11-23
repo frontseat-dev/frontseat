@@ -1270,7 +1270,7 @@ type Grid struct {
 	Arguments []string
 }
 
-// Daemon is where the daemon's program is in a box (local/box.Dockerfile):
+// Daemon is where the daemon's program is in a box (stack/box.Dockerfile):
 // the program a workspace's way to the grid is for.
 const Daemon = "/opt/frontseat/bin/frontseatd"
 
@@ -1303,7 +1303,7 @@ func OverGateway(c Config, gateway Gateway) (*Plane, error) {
 }
 
 // written is what runs in a workspace's sandbox may write of a box
-// (local/box.Dockerfile): the workspace, and what the daemon keeps.
+// (stack/box.Dockerfile): the workspace, and what the daemon keeps.
 var written = []string{"/work", "/var/lib/frontseat"}
 
 // relayed is a daemon's refusal as the control plane says it on: what

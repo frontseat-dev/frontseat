@@ -7,7 +7,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/frontseat-dev/frontseat/local"
+	"github.com/frontseat-dev/frontseat/stack/local"
 )
 
 // The context is whole or not there: a command that reads it while

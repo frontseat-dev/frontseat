@@ -8,9 +8,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/frontseat-dev/frontseat/local"
-	"github.com/frontseat-dev/frontseat/local/box"
-	"github.com/frontseat-dev/frontseat/local/stack"
+	"github.com/frontseat-dev/frontseat/stack"
+	"github.com/frontseat-dev/frontseat/stack/box"
+	"github.com/frontseat-dev/frontseat/stack/local"
 )
 
 // words are what this program does but serve, each by its word: what
