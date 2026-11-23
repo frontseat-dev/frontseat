@@ -6,13 +6,13 @@
 #
 # The context holds frontseatd, frontseat, frontseat-runner (the runner
 # of the workers that run tests with services), frontseat-local (the
-# control plane of the local stack) and frontseat-action (what a worker
+# control plane of the local stack) and frontseat-confine (what a worker
 # runs every action by, which the stack installs where each runner
 # sandbox holds it) built for Linux, and plugins/. Nothing is fetched while the image is built.
 ARG SANDBOX_IMAGE
 FROM ${SANDBOX_IMAGE}
 
-COPY --chmod=0755 frontseatd frontseat frontseat-runner frontseat-local frontseat-action /opt/frontseat/bin/
+COPY --chmod=0755 frontseatd frontseat frontseat-runner frontseat-local frontseat-confine /opt/frontseat/bin/
 COPY plugins /opt/frontseat/plugins
 
 ENV PATH=/opt/frontseat/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin

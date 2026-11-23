@@ -3,4 +3,4 @@
 # sandbox runs.
 if { cp /opt/frontseat/bin/frontseat-runner /var/lib/frontseat/bb/.frontseat-runner }
 if { mv /var/lib/frontseat/bb/.frontseat-runner /var/lib/frontseat/bb/frontseat-runner }
-frontseat-action install /var/lib/frontseat/bb
+frontseat-confine install /var/lib/frontseat/bb

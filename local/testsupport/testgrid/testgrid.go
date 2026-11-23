@@ -27,7 +27,7 @@ const Variable = "FRONTSEAT_TEST_GRID"
 // (testrequired.Missing). It is where the local stack serves the Remote
 // Execution API, or FRONTSEAT_TEST_GRID where that is set. Where it is
 // the local stack's, the workers are first given this checkout's
-// confiner, frontseat-action (Confiner): a daemon this checkout builds starts every
+// confiner, frontseat-confine (Confiner): a daemon this checkout builds starts every
 // action by it, and a grid that another checkout's stack runs has only
 // what that checkout installed. A grid FRONTSEAT_TEST_GRID names is given
 // nothing: it must hold this checkout's form already, or its actions are
@@ -52,7 +52,7 @@ func Address(t testing.TB) string {
 }
 
 // ConfinerVariable names where the gate installed this checkout's
-// confiner, frontseat-action, for the local stack's workers, before the
+// confiner, frontseat-confine, for the local stack's workers, before the
 // tests it runs: the path they run it by.
 const ConfinerVariable = "FRONTSEAT_TEST_CONFINER"
 
@@ -68,7 +68,7 @@ func Confiner(t testing.TB) string {
 	testbox.Runtime(t)
 	at := os.Getenv(ConfinerVariable)
 	if at == "" {
-		t.Fatalf("%s names no confiner: the gate installs this checkout's frontseat-action before the tests it runs (`mise run go:test -- ...`)", ConfinerVariable)
+		t.Fatalf("%s names no confiner: the gate installs this checkout's frontseat-confine before the tests it runs (`mise run go:test -- ...`)", ConfinerVariable)
 	}
 	return at
 }

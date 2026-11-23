@@ -24,7 +24,7 @@ var aForm = strings.Repeat("ab", 32)
 // a spec, then the way up to the action's own input root. The control is
 // that command, which is run.
 func TestOnlyAConfinedCommandIsRun(t *testing.T) {
-	const confiners = "/bb/frontseat-action-"
+	const confiners = "/bb/frontseat-confine-"
 	root, dir := "/slot/build/x/root", "/slot/build/x/root/repo/module"
 	control := []string{confiners + aForm, "{}", "../..", "go", "build"}
 	if err := confined(confiners, control, dir, root); err != nil {
@@ -33,7 +33,7 @@ func TestOnlyAConfinedCommandIsRun(t *testing.T) {
 	for name, arguments := range map[string][]string{
 		"another program":            {"/bin/sh", "-c", "anything", "x"},
 		"a confiner of no form":      {confiners + "x", "{}", "../..", "go"},
-		"a confiner elsewhere":       {"/tmp/frontseat-action-" + aForm, "{}", "../..", "go"},
+		"a confiner elsewhere":       {"/tmp/frontseat-confine-" + aForm, "{}", "../..", "go"},
 		"a confiner told no spec":    {confiners + aForm, "install", "/bb", "x"},
 		"a confiner told a word":     {confiners + aForm, "at", "/", "x"},
 		"a way up that is no way up": {confiners + aForm, "{}", "../x", "go"},
@@ -64,7 +64,7 @@ func runningOn(t *testing.T) (*Confined, string) {
 	if err := os.MkdirAll(filepath.Join(build, "x", "root"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	confiners := filepath.Join(t.TempDir(), "frontseat-action-")
+	confiners := filepath.Join(t.TempDir(), "frontseat-confine-")
 	if err := os.WriteFile(confiners+aForm, []byte("#!/bin/sh\nshift 2\n\"$@\"\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}

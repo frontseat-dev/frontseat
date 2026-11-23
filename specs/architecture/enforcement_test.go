@@ -327,8 +327,8 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		{"grid/runner/runner.go", "sandbox", true},
 		{"grid/runner/runner.go", "workspace/server/controlplane", false},
 		// The confiner is confine alone.
-		{"cmd/frontseat-action/main.go", "common/confine", true},
-		{"cmd/frontseat-action/main.go", "grid/runner", false},
+		{"cmd/frontseat-confine/main.go", "common/confine", true},
+		{"cmd/frontseat-confine/main.go", "grid/runner", false},
 		// The shared libraries moved from the server are each one thing.
 		{"common/runner/testservice/testservice.go", "core/image", true},
 		{"common/runner/testservice/testservice.go", "build/engine/model", false},

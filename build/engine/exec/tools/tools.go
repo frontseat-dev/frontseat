@@ -9,7 +9,7 @@
 // the action's root is, and not at every action. An action so sees its
 // tools as it sees its sources: as inputs, the same on every worker.
 //
-// A worker therefore needs frontseat-action (common/confine),
+// A worker therefore needs frontseat-confine (common/confine),
 // mise, and what a fetch's command runs to place what the asset service
 // fetched for a download (exec/download): the shell, tar, and the
 // programs that cut and check a part of one.
@@ -120,7 +120,7 @@ var base = append([]confine.Variable{
 	{Name: "MISE_EXEC_AUTO_INSTALL", Parts: []string{"0"}},
 }, worker...)
 
-// sets says whether what runs an action sets name itself: frontseat-action
+// sets says whether what runs an action sets name itself: frontseat-confine
 // (HOME, TMPDIR, PATH, PWD and mise's MISE_*).
 func sets(name string) bool {
 	switch name {
@@ -157,7 +157,7 @@ func Within(label string, within map[string]string, mise []string, own ...map[st
 	return nil
 }
 
-// command is how an action's command runs, as frontseat-action is told:
+// command is how an action's command runs, as frontseat-confine is told:
 // confined to its root, with its own environment (own), then what every
 // action runs with (base), then what its tools and its repository's
 // mise.toml put in the environment (given), then what the action is
@@ -170,7 +170,7 @@ func Within(label string, within map[string]string, mise []string, own ...map[st
 // asked again at every action: mise x around each command cost every
 // action a process of its own.
 //
-// All of it is set inside what confines the action, by frontseat-action
+// All of it is set inside what confines the action, by frontseat-confine
 // just before the command runs: a repository's mise.toml says what a path holds
 // and what a variable is, and a plugin what its command is given, and
 // nothing either says reaches what confines the action, nor where that is
@@ -207,7 +207,7 @@ func owned(own map[string]string, more int) []confine.Variable {
 }
 
 // commands are the two an action of an environment runs by, as
-// frontseat-action is told: with no network, and as a fetch.
+// frontseat-confine is told: with no network, and as a fetch.
 type commands struct {
 	run, fetch string
 	// given is what they set, as mise gave it.
@@ -301,7 +301,7 @@ type asked struct {
 // given as written, set after what mise gives. One that what runs the
 // action sets itself (sets), or that mise gives for its tools or its
 // repository's mise.toml, is refused by name, never replaced without a
-// word. All of it is set by frontseat-action just before it runs the
+// word. All of it is set by frontseat-confine just before it runs the
 // action, and none of it is in the environment of what starts and
 // confines it: the action is returned with no environment, and all of
 // it is in its command, so in its key.
@@ -380,7 +380,7 @@ func (p *Provisioner) Use(ctx context.Context, action exec.Action, repository st
 			return exec.Action{}, err
 		}
 	}
-	// What the action is given is in what frontseat-action is told, and
+	// What the action is given is in what frontseat-confine is told, and
 	// nothing of it in the environment of what starts and confines it.
 	action.Arguments = confine.Arguments(spec, filepath.ToSlash(up), action.Arguments)
 	action.Environment = nil
@@ -400,7 +400,7 @@ func (p *Provisioner) Use(ctx context.Context, action exec.Action, repository st
 //
 // mise names a tool by where it is, in the root it was asked in; each
 // action's root is elsewhere, so a value is cut where it names that
-// root, and frontseat-action joins it by the action's own. Each tool must be on the path mise gives, in its own tree,
+// root, and frontseat-confine joins it by the action's own. Each tool must be on the path mise gives, in its own tree,
 // as a fix's are (fix.toolsEnvironment).
 func (p *Provisioner) environ(ctx context.Context, root string, files exec.Files, repository string, tools []string, held map[string]exec.Held, variables map[string]string) (commands, error) {
 	key := keyOf(root, repository, tools, variables)

@@ -185,7 +185,7 @@ the change that fixes it.
   slot of the worker, running one action at a time, holding that slot's
   build directory and nothing of another's, made anew whenever the worker
   mounts its slot anew or its runner ends; and, within it, by Landlock,
-  which `frontseat-action` asks for before it runs the command, so that
+  which `frontseat-confine` asks for before it runs the command, so that
   an action writes its own root, the output files beside it, the
   devices that keep nothing and a temporary directory of its own (its
   `TMPDIR`, in the slot's `/tmp`, a directory of the stack's disk the pool
@@ -210,7 +210,7 @@ the change that fixes it.
   runner's socket: there Landlock alone refuses it, on 7.1 and later. The pool continues a runner an
   action stopped. An action that fetches is sent to the slots whose
   policy lets them reach the hosts named (`network=egress`); every other
-  reaches nothing. `frontseat-action`, built of `common/confine`
+  reaches nothing. `frontseat-confine`, built of `common/confine`
   alone so that its form is what it does, sets the action up, confines
   it and runs it. Held by: `TestTheConfinerIsConfineAlone`,
   `TestAnActionWritesItsOwnRootAndNothingAboveIt`,
@@ -286,7 +286,7 @@ the change that fixes it.
 - A program built from source is a dependency no go.mod says: a file
   that has go build, run or install one says what of whose
   (`fromSource`, `specs/architecture/builds_test.go`), and test support
-  never does it. The box image and this checkout's `frontseat-action`
+  never does it. The box image and this checkout's `frontseat-confine`
   are built by the gate before the tests that need the stack, and the
   stack's image on that box (`FRONTSEAT_TEST_BOX`,
   `FRONTSEAT_TEST_CONFINER`, `FRONTSEAT_TEST_LOCAL_IMAGE`).
@@ -897,7 +897,7 @@ mise run docs:serve       # serve the TechDocs site on http://localhost:8000
 | `core/httpserver` | A server command's HTTP listener and request lifetime |
 | `core/image` | An image's reference, read by Docker's own parser, and what the container runtime says an image is started with (`Started`) |
 | `common/runner/testservice` | What a service for tests is held to, for the daemon and the runner |
-| `common/confine` | How a worker starts and confines an action (`frontseat-action`) |
+| `common/confine` | How a worker starts and confines an action (`frontseat-confine`) |
 | `build/engine/exec/here` | A command made ready to run where the daemon is, with the grid's tools: a fix, and what publishes |
 | `core/plain` | Text and names that every reader reads alike: the one reader of a name from outside, a host (`Hostname`), its origin (`OriginOf`, `Ruled`), a path, a program, a parameter, a secret |
 | `common/record/records` | A directory of records, each written whole and read strictly: the control plane's workspaces and credentials, the sandbox service's sandboxes, a workspace's manifest (`Write`) |

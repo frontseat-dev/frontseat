@@ -25,7 +25,7 @@
 // answering fails, so neither ends green with a test of the stack
 // skipped. Where a gate runs with the stack and a container runtime
 // answers, it first builds the box image of this checkout and installs
-// its frontseat-action for the stack's workers (local/box, the one build
+// its frontseat-confine for the stack's workers (local/box, the one build
 // of the box), and tells the tests both (FRONTSEAT_TEST_BOX, the box's
 // tag of its content, and FRONTSEAT_TEST_CONFINER): they are built from
 // the source of the server and the command line, which no test builds
@@ -367,7 +367,7 @@ func prepared(root string) (string, error) {
 // boxed builds the box image of this checkout, with the plugins
 // prepared for the tests, hands it to the local stack's Podman, which
 // runs the sandboxes the tests make of it, and installs its confiner,
-// frontseat-action, for the stack's workers, and returns the environment
+// frontseat-confine, for the stack's workers, and returns the environment
 // that tells a test both. Where no container runtime answers it does
 // neither, and a test that needs either fails as one that needs the
 // runtime does, told that the gate runs against the stack: only go-test,
@@ -391,7 +391,7 @@ func boxed(root, artifacts string) ([]string, error) {
 	defer stop()
 	confiner, err := box.InstallConfiner(installing, root)
 	if err != nil {
-		return nil, fmt.Errorf("installing the confiner, frontseat-action: %w", err)
+		return nil, fmt.Errorf("installing the confiner, frontseat-confine: %w", err)
 	}
 	if err := box.Give(installing, tag); err != nil {
 		return nil, fmt.Errorf("handing the box to the stack: %w", err)

@@ -3,7 +3,7 @@ kind: Component
 metadata:
   name: confine
   namespace: frontseat
-  description: "How a worker starts and confines an action: what frontseat-action is built of, alone, of the standard library alone"
+  description: "How a worker starts and confines an action: what frontseat-confine is built of, alone, of the standard library alone"
 spec:
   type: library
   lifecycle: experimental

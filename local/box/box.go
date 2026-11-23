@@ -95,7 +95,7 @@ func (b Build) Run(ctx context.Context) (string, error) {
 		return "", err
 	}
 
-	for _, binary := range []string{"frontseatd", "frontseat", "frontseat-runner", "frontseat-local", "frontseat-action"} {
+	for _, binary := range []string{"frontseatd", "frontseat", "frontseat-runner", "frontseat-local", "frontseat-confine"} {
 		say("building %s for linux/%s", binary, goarch)
 		if err := linux(ctx, b.Root, binary, goarch, filepath.Join(laid, binary)); err != nil {
 			return "", err
@@ -333,11 +333,11 @@ func goarchOf(ctx context.Context, architecture string) (string, error) {
 // programs are the programs the box holds, by their command's name, each
 // with its package: cmd/<binary> of the Component that owns it.
 var programs = map[string]string{
-	"frontseat":        "cli/cmd/frontseat",
-	"frontseatd":       "cmd/frontseatd",
-	"frontseat-runner": "cmd/frontseat-runner",
-	"frontseat-local":  "cmd/frontseat-local",
-	"frontseat-action": "cmd/frontseat-action",
+	"frontseat":         "cli/cmd/frontseat",
+	"frontseatd":        "cmd/frontseatd",
+	"frontseat-runner":  "cmd/frontseat-runner",
+	"frontseat-local":   "cmd/frontseat-local",
+	"frontseat-confine": "cmd/frontseat-confine",
 }
 
 // linux builds a program of this repository, by its command's name, for
@@ -359,7 +359,7 @@ func linux(ctx context.Context, root, binary, goarch, out string) error {
 	return nil
 }
 
-// InstallConfiner installs the confiner, frontseat-action, as this
+// InstallConfiner installs the confiner, frontseat-confine, as this
 // repository builds it, where the local stack's runner sandboxes find it
 // (local.Confiners, in the stack's container), beside the forms already
 // there and never over one (confine.Install), as the stack's installer
@@ -371,20 +371,20 @@ func InstallConfiner(ctx context.Context, root string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	dir, err := os.MkdirTemp("", "frontseat-action-")
+	dir, err := os.MkdirTemp("", "frontseat-confine-")
 	if err != nil {
 		return "", err
 	}
 	// The directory is this call's own, made just above.
 	defer os.RemoveAll(dir)
-	if err := linux(ctx, root, "frontseat-action", goarch, filepath.Join(dir, "frontseat-action")); err != nil {
+	if err := linux(ctx, root, "frontseat-confine", goarch, filepath.Join(dir, "frontseat-confine")); err != nil {
 		return "", err
 	}
 	// Into a place of the container's that is this call's own, named by
 	// this process; it is installed from there and removed after.
-	carried := fmt.Sprintf("/tmp/frontseat-action-%d-%d", os.Getpid(), time.Now().UnixNano())
-	if out, err := exec.CommandContext(ctx, "docker", "cp", filepath.Join(dir, "frontseat-action"), local.Container+":"+carried).CombinedOutput(); err != nil {
-		return "", fmt.Errorf("carrying frontseat-action into the stack (%s): %w: %s", local.Container, err, strings.TrimSpace(string(out)))
+	carried := fmt.Sprintf("/tmp/frontseat-confine-%d-%d", os.Getpid(), time.Now().UnixNano())
+	if out, err := exec.CommandContext(ctx, "docker", "cp", filepath.Join(dir, "frontseat-confine"), local.Container+":"+carried).CombinedOutput(); err != nil {
+		return "", fmt.Errorf("carrying frontseat-confine into the stack (%s): %w: %s", local.Container, err, strings.TrimSpace(string(out)))
 	}
 	// What it carried in is its own, under the name made above.
 	defer func() {
@@ -395,7 +395,7 @@ func InstallConfiner(ctx context.Context, root string) (string, error) {
 	install.Stderr = &said
 	out, err := install.Output()
 	if err != nil {
-		return "", fmt.Errorf("installing frontseat-action in %s: %w: %s", local.Confiners, err, strings.TrimSpace(said.String()))
+		return "", fmt.Errorf("installing frontseat-confine in %s: %w: %s", local.Confiners, err, strings.TrimSpace(said.String()))
 	}
 	// Where a runner sandbox runs it: each holds local.Confiners at /bb
 	// (runner.Pool), and its runner runs nothing else.

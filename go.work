@@ -19,7 +19,7 @@ use (
 	./workspace/server
 	./cmd/frontseatd
 	./cmd/frontseat-runner
-	./cmd/frontseat-action
+	./cmd/frontseat-confine
 	./cmd/frontseat-local
 	./cli
 	./specs
@@ -45,7 +45,7 @@ replace (
 	github.com/frontseat-dev/frontseat/workspace/server v0.0.0 => ./workspace/server
 	github.com/frontseat-dev/frontseat/cmd/frontseatd v0.0.0 => ./cmd/frontseatd
 	github.com/frontseat-dev/frontseat/cmd/frontseat-runner v0.0.0 => ./cmd/frontseat-runner
-	github.com/frontseat-dev/frontseat/cmd/frontseat-action v0.0.0 => ./cmd/frontseat-action
+	github.com/frontseat-dev/frontseat/cmd/frontseat-confine v0.0.0 => ./cmd/frontseat-confine
 	github.com/frontseat-dev/frontseat/cmd/frontseat-local v0.0.0 => ./cmd/frontseat-local
 	github.com/frontseat-dev/frontseat/cli v0.0.0 => ./cli
 	github.com/frontseat-dev/frontseat/specs v0.0.0 => ./specs

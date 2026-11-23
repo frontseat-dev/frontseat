@@ -246,7 +246,7 @@ var policies = []policy{
 	// The local stack's control plane: the control plane, told what the
 	// stack is by the stack's own package.
 	{"cmd/frontseat-local", []string{"workspace/server/controlplane", "workspace/server/backstage", "core/httpserver", "core/secretfile", "core/telemetry", "local", "core/ports", "local/stack", "local/box", "common/vcs/chosen"}},
-	{"cmd/frontseat-action", []string{"common/confine"}},
+	{"cmd/frontseat-confine", []string{"common/confine"}},
 	// The grid's runner: a thin main over the runner, which serves the
 	// sandbox API over the container runtime to itself.
 	{"cmd/frontseat-runner", []string{"grid/runner"}},
@@ -1589,7 +1589,7 @@ var moduleOrder = []string{
 	"build/daemon",
 	"workspace/server",
 	// The programs, each a thin main over the part it runs.
-	"cmd/frontseat-action",
+	"cmd/frontseat-confine",
 	"cmd/frontseat-runner",
 	"cmd/frontseatd",
 	"cmd/frontseat-local",
