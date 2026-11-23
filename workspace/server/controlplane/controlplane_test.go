@@ -184,12 +184,6 @@ type sandboxes struct {
 	deleted []string
 	resumed []string
 	led     []string
-	// carried are the requests led on that carried what their caller is
-	// known by.
-	carried []string
-	// redirect is where what is led to a daemon is redirected to, while
-	// it is said.
-	redirect string
 	// speaks is whether a tunnel is opened, and not only kept as led on:
 	// it says which sandbox and port it leads to, on a line, and then
 	// says back whatever it is told.
@@ -329,13 +323,6 @@ func (s *sandboxes) Proxy(w http.ResponseWriter, r *http.Request, id string, por
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.led = append(s.led, fmt.Sprintf("%s:%d/%s", id, port, rest))
-	if s.redirect != "" {
-		w.Header().Set("Location", s.redirect)
-		w.WriteHeader(http.StatusTemporaryRedirect)
-	}
-	if r.Header.Get("Authorization") != "" || r.Header.Get("Cookie") != "" {
-		s.carried = append(s.carried, rest)
-	}
 }
 
 func (s *sandboxes) Tunnel(w http.ResponseWriter, r *http.Request, id string, port int) {
@@ -441,7 +428,7 @@ func served(t *testing.T, s *sandboxes, state string, change func(*Config)) (wor
 	t.Helper()
 	return serve(t, func(address string) Config {
 		c := Config{
-			Sandboxes: s, PublicURL: address, State: state, Box: "registry.example/acme/box:1", Daemon: "/opt/a/daemon",
+			Sandboxes: s, PublicURL: address, State: state, Box: "registry.example/acme/box:1", Builder: "/opt/a/builder",
 			Grid:     Grid{Hosts: []string{"grid.example:8980", "assets.example:8983"}, Arguments: []string{"--grid=grid.example:8980", "--assets=assets.example:8983", "--platform=a=b"}},
 			Fetching: system{}, Every: 10 * time.Millisecond, Answers: 300 * time.Millisecond, Callers: knowing(t),
 		}
@@ -591,7 +578,7 @@ func TestTheSandboxAWorkspaceLivesInIsWrittenAsRules(t *testing.T) {
 		t.Fatalf("it was made %v and is %v", made.GetCreated(), ready.GetStatus())
 	}
 	in := s.sandbox(s.of(ready.GetName()))
-	if in.GetLabels()[Named] != "a-workspace" || in.GetImage() != "registry.example/acme/box:1" || !slices.Equal(in.GetPorts(), []int32{7600, 7601, 2222}) || in.GetEgress().GetMode() != sandboxv1.Egress_MODE_ALLOW_LISTED {
+	if in.GetLabels()[Named] != "a-workspace" || in.GetImage() != "registry.example/acme/box:1" || !slices.Equal(in.GetPorts(), []int32{7601, 2222}) || in.GetEgress().GetMode() != sandboxv1.Egress_MODE_ALLOW_LISTED {
 		t.Errorf("its sandbox carries %v, runs %q, serves %v and reaches by %v", in.GetLabels(), in.GetImage(), in.GetPorts(), in.GetEgress().GetMode())
 	}
 	// Its daemon is told by its flags, and nothing of where the daemon is
@@ -616,8 +603,8 @@ func TestTheSandboxAWorkspaceLivesInIsWrittenAsRules(t *testing.T) {
 	rules := []*sandboxv1.EgressRule{
 		{Host: "forge.example:443", Programs: []string{"/usr/bin/a-fetcher"}, Credential: credentialID("local", "forge.example:443"), Requests: append(append(fetch("/acme/a.git"), fetch("/acme/b")...), fetch("/acme/d.git")...)},
 		{Host: "http://plain.example:8123", Programs: []string{"/usr/bin/a-fetcher"}, Requests: fetch("/code")},
-		{Host: "grid.example:8980", Programs: []string{"/opt/a/daemon"}},
-		{Host: "assets.example:8983", Programs: []string{"/opt/a/daemon"}},
+		{Host: "grid.example:8980", Programs: []string{"/opt/a/builder"}},
+		{Host: "assets.example:8983", Programs: []string{"/opt/a/builder"}},
 	}
 	got := in.GetEgress().GetRules()
 	if len(got) != len(rules) {
@@ -727,7 +714,7 @@ func TestAWorkspaceAskedForAgainIsTheOneThereIs(t *testing.T) {
 	if told, _ := s.daemon("sbx_1").was(); told != 1 {
 		t.Errorf("its daemon was told %d times, want once", told)
 	}
-	for path, status := range map[string]int{"/workspaces/code/build/frontseat.build.v1alpha1.BuildService/ListBuilds": 200, "/workspaces/code/shell": 200, "/workspaces/another/build/frontseat.build.v1alpha1.BuildService/ListBuilds": 404, "/workspaces/another/shell": 404} {
+	for path, status := range map[string]int{"/workspaces/code/shell": 200, "/workspaces/another/shell": 404} {
 		if got, said := asked(t, http.MethodGet, address+path, owner, ""); got != status {
 			t.Errorf("%s answered %d %s, want %d", path, got, said, status)
 		}
@@ -735,12 +722,11 @@ func TestAWorkspaceAskedForAgainIsTheOneThereIs(t *testing.T) {
 	s.mu.Lock()
 	led := slices.Clone(s.led)
 	s.mu.Unlock()
-	slices.Sort(led)
-	if want := []string{"sbx_1:2222/a tunnel", "sbx_1:7600/frontseat.build.v1alpha1.BuildService/ListBuilds"}; !slices.Equal(led, want) {
+	if want := []string{"sbx_1:2222/a tunnel"}; !slices.Equal(led, want) {
 		t.Errorf("what was led on is %v, want %v", led, want)
 	}
-	if first.GetStatus().GetBuildUri() != address+"/workspaces/code/build" || first.GetOwner() != "local" {
-		t.Errorf("its build API is said to be at %q, and it is %q's", first.GetStatus().GetBuildUri(), first.GetOwner())
+	if first.GetOwner() != "local" {
+		t.Errorf("it is %q's", first.GetOwner())
 	}
 }
 

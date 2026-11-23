@@ -50,6 +50,42 @@ func TestAWorkspaceGivenNoNameIsAskedNothing(t *testing.T) {
 	}
 }
 
+// A workspace a control plane keeps is built from inside it: whatever
+// builds, tests, runs, releases or reads what it is made of is refused
+// of it, as itself (ErrBuiltInside), and nothing is asked of the control
+// plane, which serves and forwards no call of the build API. The
+// control is the workspace Here is, of a Client made for a build daemon,
+// which that daemon builds.
+func TestAWorkspaceAControlPlaneKeepsIsBuiltFromInsideIt(t *testing.T) {
+	server, asked := counting(t)
+	ctx := context.Background()
+	kept := client(t, server.URL).Workspace("payments")
+	_, built := kept.Build(ctx, BuildRequest{})
+	_, tested := kept.Test(ctx, BuildRequest{})
+	_, run := kept.Run(ctx, RunRequest{})
+	_, planned := kept.PlanRelease(ctx, ReleaseRequest{})
+	_, released := kept.Release(ctx, ReleaseRequest{})
+	_, builds := Collect(kept.Builds(ctx))
+	_, runs := Collect(kept.Runs(ctx))
+	_, entities := Collect(kept.Entities(ctx))
+	_, projects := Collect(kept.Projects(ctx))
+	_, described := kept.BuildByID("build_1").Describe(ctx)
+	_, ran := kept.RunByID("run_1").Describe(ctx)
+	_, shipped := kept.ReleaseByID("rel_1").Describe(ctx)
+	for what, err := range map[string]error{"a build": built, "a test": tested, "a run": run, "a plan": planned, "a release": released, "its builds": builds, "its runs": runs, "its entities": entities, "its projects": projects, "a build by its id": described, "a run by its id": ran, "a release by its id": shipped} {
+		if !errors.Is(err, ErrBuiltInside) || errors.Is(err, ErrHere) {
+			t.Errorf("%s, asked of a workspace a control plane keeps: %v; want %v", what, err, ErrBuiltInside)
+		}
+	}
+	if got := asked.Load(); got != 0 {
+		t.Errorf("what was refused asked the control plane %d times; want nothing asked", got)
+	}
+	d := &daemon{}
+	if _, err := servedDaemon(t, d).Build(ctx, BuildRequest{}); err != nil || errors.Is(err, ErrBuiltInside) || len(d.builds) != 1 {
+		t.Errorf("the control: the workspace Here is, built: %v, after %d builds asked of its daemon", err, len(d.builds))
+	}
+}
+
 // A pattern that names no entity is refused before a control plane is
 // asked; the control is one that does, which is asked.
 func TestAPatternThatNamesNoEntityIsRefusedBeforeAnythingIsAsked(t *testing.T) {

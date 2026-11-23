@@ -174,14 +174,30 @@ func serving(t *testing.T, register func(api *connect.Server)) string {
 // wrong, apart from what it printed.
 var complaints bytes.Buffer
 
-// runAt runs the command line inside a workspace's sandbox whose daemon
-// is at endpoint, or outside any where endpoint is empty, and returns
-// what it printed, the exit code and why it could not run. What it said
-// of what went wrong is in complaints.
+// besideToken is the token of the build daemon a test's command line
+// finds inside a workspace's sandbox, and besideDirectory the
+// workspace's directory it stands in there.
+const besideToken, besideDirectory = "the token of the build daemon beside", "/work"
+
+// runAt runs the command line inside a workspace's sandbox, standing in
+// the workspace's directory, whose build daemon is at endpoint, or
+// outside any where endpoint is empty, and returns what it printed, the
+// exit code and why it could not run. What it said of what went wrong
+// is in complaints.
 func runAt(t *testing.T, ctx context.Context, endpoint string, args ...string) (string, int, error) {
 	t.Helper()
-	inside, here = func() bool { return endpoint != "" }, endpoint
-	t.Cleanup(func() { inside, here = outside, machine.Daemon })
+	if endpoint != "" {
+		found, stood := builder, directory
+		inside = func() bool { return true }
+		directory = func(bool) (string, error) { return besideDirectory, nil }
+		builder = func(_ context.Context, of string, within bool) (machine.Builder, error) {
+			if !within || of != besideDirectory {
+				t.Errorf("inside a workspace's sandbox, the build daemon asked for was of %q, inside: %t; want the one of the workspace's directory there", of, within)
+			}
+			return machine.Builder{Address: strings.TrimPrefix(endpoint, "http://"), Token: besideToken}, nil
+		}
+		defer func() { inside, builder, directory = outside, found, stood }()
+	}
 	var printed bytes.Buffer
 	complaints.Reset()
 	out, errOut = &printed, &complaints
@@ -462,11 +478,11 @@ func TestOneCommandLineLeavesNothingForTheNext(t *testing.T) {
 // runs, queries or releases takes neither, working on what is where it
 // is run (TestAWorkspaceThatIsOpenIsBuiltFromInsideIt,
 // TestNoCommandThatBuildsTakesAWorkspace). The control is a command
-// inside a sandbox, which asks the daemon there.
+// inside a sandbox, which asks the build daemon there.
 func TestAWorkspaceIsNamedAndNotAddressed(t *testing.T) {
 	d := &daemonOf{}
 	if _, _, err := run(t, d, "ship", "plan", "greet"); err != nil || len(d.planned) != 1 {
-		t.Errorf("inside, the daemon there was asked %d times (%v)", len(d.planned), err)
+		t.Errorf("inside, the build daemon there was asked %d times (%v)", len(d.planned), err)
 	}
 	for _, args := range [][]string{{"build", "--endpoint", "x"}, {"build", "--workspace", "x"}, {"workspace", "open", "--workspace", "x"}, {"workspace", "ssh", "--endpoint", "x"}} {
 		if _, _, err := run(t, d, args...); err == nil || !strings.Contains(err.Error(), "unknown flag") {
@@ -487,14 +503,13 @@ func TestAWorkspaceIsNamedAndNotAddressed(t *testing.T) {
 // keeping is a control plane that keeps one workspace, "named".
 type keeping struct {
 	workspacev1alpha1connect.UnimplementedWorkspaceServiceHandler
-	daemon func() string
 }
 
 func (k keeping) DescribeWorkspace(_ context.Context, req *workspacev1.DescribeWorkspaceRequest) (*workspacev1.DescribeWorkspaceResponse, error) {
 	if req.GetName() != "named" {
 		return nil, connect.NewError(connect.CodeNotFound, "there is no workspace "+strconv.Quote(req.GetName()))
 	}
-	return &workspacev1.DescribeWorkspaceResponse{Workspace: &workspacev1.Workspace{Name: "named", Status: &workspacev1.WorkspaceStatus{State: workspacev1.WorkspaceStatus_STATE_READY, BuildUri: k.daemon()}}}, nil
+	return &workspacev1.DescribeWorkspaceResponse{Workspace: &workspacev1.Workspace{Name: "named", Status: &workspacev1.WorkspaceStatus{State: workspacev1.WorkspaceStatus_STATE_READY}}}, nil
 }
 
 // A workspace's source is in its sandbox: the command line has no way to
@@ -525,7 +540,7 @@ func (k keeping) ListWorkspaces(context.Context, *workspacev1.ListWorkspacesRequ
 // machine package's to show, so that no test here asks this machine's.
 func TestEveryCommandAsksTheOneControlPlaneTheRuleNames(t *testing.T) {
 	plane := serving(t, func(api *connect.Server) {
-		workspacev1alpha1connect.RegisterWorkspaceServiceHandler(api, keeping{daemon: func() string { return "" }})
+		workspacev1alpha1connect.RegisterWorkspaceServiceHandler(api, keeping{})
 	})
 	serverAt(t, plane)
 	got, _, err := runAt(t, context.Background(), "", "workspace", "list")

@@ -103,8 +103,13 @@ the change that fixes it.
   `FRONTSEAT_TEST_SRCDIR`, where a test's repository is, from where it
   runs (the gate gives its root whole), so that no test looks up for it
   (`TestATestIsToldWhereItsRepositoryIs`, `TestNoTestLooksUpForWhatItReads`,
-  `TestWhatATestIsToldOfItsRepositoryIsSaidByOneName`). The control plane tells a box's daemon by the
-  arguments it starts it with (`SandboxSpec.arguments`).
+  `TestWhatATestIsToldOfItsRepositoryIsSaidByOneName`). The control plane tells a box's supervisor by the
+  arguments it starts it with (`SandboxSpec.arguments`). A build daemon
+  is told by a file of settings, which the flag that starts it names
+  (`frontseat daemon --settings`, `docs/build-settings.md`): the one
+  thing a program is told that is no flag, since whoever starts the
+  daemon and the daemon read it alike, and a daemon told other settings
+  is another.
 - **The command line asks one server, chosen one way.** Every command
   that asks a server (`version` and `completion` ask none) asks the
   control plane `$XDG_CONFIG_HOME/frontseat/local/server` names,
@@ -114,9 +119,19 @@ the change that fixes it.
   asked over https alone, and the SDK sends a token in clear to none
   (`bearer.Private`). No command takes a server by a flag.
   Inside a workspace's sandbox, which the command line knows by the
-  sandbox's lock its daemon holds (`Lock` in `core/ports`), a command asks
-  that daemon's build API on the loopback and no control plane, and
-  every `workspace` command is refused by name.
+  sandbox's lock its supervisor holds (`Lock` in `core/ports`), a command
+  asks no control plane, and every `workspace` command is refused by
+  name. A command that builds there asks the build daemon of the
+  workspace's directory, which it starts of itself as it does outside
+  (below): told by the settings the sandbox's supervisor wrote of the
+  grid the control plane named (`Settings`), and keeping its state
+  beneath a directory of the sandbox's own (`Builds`). Only the
+  workspace's directory is built there, the nearest above that holds its
+  manifest: a repository in it is no checkout to build alone, and a
+  workspace told nothing to hold yet, or a sandbox told no grid, says
+  so of itself. The sandbox reaches the grid by that one program
+  (`controlplane.Builder`): the build daemon and what it starts, and
+  neither the supervisor nor a shell it serves.
   A command that builds, tests, runs, queries or releases works on what
   is where it is run, and takes no workspace by a flag: a workspace is
   built from inside it, in a shell there (`frontseat workspace ssh`).
@@ -155,6 +170,11 @@ the change that fixes it.
   `TestABuildDaemonSaysWhereItServesAndIsAskedWithItsToken`, the spec
   `TestWithNoWorkspaceTheCommandLineBuildsItsDirectoryThroughADaemonItStarts`,
   `TestInsideAWorkspaceItsSourceIsFixed`,
+  `TestInsideAWorkspaceABuildAsksTheBuildDaemonOfItsDirectory`,
+  `TestInsideASandboxABuildDaemonIsToldAndKeptWhereTheSandboxSays`,
+  `TestInsideASandboxOnlyTheWorkspacesDirectoryIsBuilt`, the sandbox
+  specs `TestASandboxHoldsOneSupervisorWhichStandsInItsWorkspaceAndKnowsItsName`
+  and `TestTheGridIsReachedByWhatBuildsAndByNothingElseInTheSandbox`,
   `TestTheTokenIsPresentedToTheControlPlaneAlone`,
   `TestAPortOfThisMachineIsCarriedToAPortOfAWorkspacesSandbox`,
   `TestAPortIsCarriedFromTheLoopbackAlone`,
@@ -163,14 +183,26 @@ the change that fixes it.
   `TestATokenIsNotPresentedInClearToAnotherMachine`.
 - **A workspace has one writer.** The control plane alone serves
   `frontseat.workspace.v1alpha1` and keeps what a workspace is asked for;
-  it tells the workspace's daemon what to hold through the daemon's
-  source API (`frontseat.source.v1alpha1`), at a generation it keeps,
-  and reads back what the daemon holds, acting on a refusal's reason,
-  never its words. The daemon keeps no spec: one started again, or told
-  otherwise from inside its sandbox, is told the control plane's again.
+  it tells the workspace's box's supervisor (`frontseat-box`, the
+  sandbox's one program that works for it, which holds the sandbox's
+  lock, and of which a sandbox holds one) what to hold through the
+  supervisor's source API (`frontseat.source.v1alpha1`), at a generation
+  it keeps, and reads back what the supervisor holds, acting on a
+  refusal's reason, never its words. The supervisor keeps no spec: one
+  started again, or told otherwise from inside its sandbox, is told the
+  control plane's again.
   Inside a sandbox the source is fixed; it is filled from outside. The
   source port is no boundary inside the box: what holds the workspace is
   that nothing is read back as what was asked for.
+  A workspace is built from inside it. The control plane neither serves
+  nor forwards the build API: a call of it, beneath a workspace's name or
+  anywhere, is no path the control plane has, a workspace's status says
+  no address to build at, and the Go SDK refuses whatever builds, runs,
+  releases or reads the graph of a workspace a control plane keeps,
+  before anything is asked (`ErrBuiltInside`); the build API is asked of
+  a build daemon, by a client made for it (`Client.Here`). A test that
+  reads a build from outside reaches the box's build daemon as an owner
+  can, over a port carried there (`sandbox/testsupport/testbuild`).
   From outside, the control plane carries a workspace's owner, and no
   one else, to its shell (`/workspaces/{name}/shell`) and to a port of
   its sandbox (`/workspaces/{name}/ports/{port}`), as bytes of which it
@@ -179,23 +211,34 @@ the change that fixes it.
   written for a port and is none, written one way (`plain.Port`):
   `UNIMPLEMENTED`, `PORT_NOT_SERVED`, with nothing of the sandbox asked.
   Held by: `TestADaemonStartedAgainOrToldFromInsideIsToldWhatTheControlPlaneKeeps`,
+  `TestASandboxHoldsOneSupervisor`,
+  `TestNoCallOfTheBuildAPIIsServedOrForwardedByTheControlPlane`, the
+  SDK's `TestAWorkspaceAControlPlaneKeepsIsBuiltFromInsideIt`,
   `TestADaemonThatIsBringingIsKnownByItsReasonAndNotByItsWords`,
   `TestWhatADaemonRefusesToHoldIsRefusedByAReason`,
   `TestAPortOfAWorkspacesSandboxIsCarriedToItsOwnerAlone`, the SDK's
   `TestAPortOfAWorkspaceIsAskedOfItsControlPlaneByItsNumber` and
   `TestATunnelRefusedByNameIsReadByItsReason`, and the sandbox
   specs `TestInsideAWorkspaceItsSourceIsFixedAndItIsFilledFromOutside`,
-  `TestTheDaemonsSourceAPIIsTheControlPlanesAlone` and
+  `TestTheSupervisorsSourceAPIIsTheControlPlanesAlone`,
+  `TestAWorkspacesBuildIsReadFromOutsideByItsOwnerThroughAPortCarriedThere` and
   `TestAPortOfAWorkspacesSandboxIsReachedAsBytesByItsOwner`.
 - **One state root per program.** What a program keeps is beneath one
-  directory: `frontseatd --state` (its runs; the sandbox's one lock is
-  the sandbox's, at one path whatever the daemon is told),
+  directory: `frontseatd --state` (its runs),
   `frontseat-server --state`, `frontseat-runner --state`, and the command
   line's `$XDG_CONFIG_HOME/frontseat` (else `~/.config/frontseat`) on
   every system, where a build daemon it started keeps its own beneath
-  `build/`, in a directory named for the directory it builds.
-- **A port is said once**, in `core/ports`: the daemon's defaults, the
-  control plane, the command line and the test support read it there;
+  `build/`, in a directory named for the directory it builds. A
+  workspace's sandbox has no such root: what is kept there is beneath
+  `/var/lib/frontseat`, each at one path whatever any program is told
+  (`core/ports`): the sandbox's one lock (`Lock`), which its supervisor
+  holds, the build settings the supervisor writes (`Settings`), and,
+  beneath `Builds`, the state of each build daemon the command line
+  starts there, named for the directory it builds as it is outside.
+- **A port is said once**, in `core/ports`: a box's supervisor's
+  defaults, the control plane and the test support read it there; a
+  build daemon serves on a port of the loopback it chooses, and says
+  which in its state directory;
   the stack's image's files (`stack/image`) and `stack/box.Dockerfile`,
   which cannot, are held to it by `stack/local/ports_test.go`.
 - **The local stack is one container** of `stack/image`, for anyone who
@@ -613,8 +656,10 @@ the change that fixes it.
   (what fills a workspace, and a box's supervisor, `frontseat-box`: the
   one program of a sandbox that works for the control plane, holding
   its lock, filling its workspace and serving its shell, and knowing no
-  build. *Target*: it is the box's program; until the build daemon is
-  started by the command line, `frontseatd` is, and composes it);
+  build: it is the box's program (`stack/box.Dockerfile`), and a build
+  in a box is the command line's, through the build daemon it starts.
+  `frontseatd`, the daemon and the supervisor as one program, is in no
+  image and runs in no sandbox; *target*: it is deleted);
   `build/daemon`; `workspace/server` (the
   control plane); a module for each program, `cmd/<binary>`, a thin
   `main` over the part it runs; `cli` (the command line) and `specs`.
@@ -685,7 +730,7 @@ the change that fixes it.
 - Generated code is in the Component that ships it, never beside the
   contract, and committed: the Go SDK's (`sdk/go/api`), the server's of
   the plugin contract (`build/engine/pluginapi`), of what a runner is
-  told (`common/runner/runnerapi`), of the daemon's source API
+  told (`common/runner/runnerapi`), of a box's supervisor's source API
   (`common/told/sourceapi`) and of the sandbox API, public for
   frontseat-enterprise (`sandbox/api`), each from a Buf template of its own
   (`api/buf.gen.*.yaml`), and the plugin SDK's Rust
@@ -834,7 +879,7 @@ the change that fixes it.
   What is served by nothing, as what a runner is told
   (`frontseat.runner.v1alpha1`), is no API and is generated for the
   server alone; so is what one part of the server serves another alone,
-  the daemon's source API (`frontseat.source.v1alpha1`), on a port of
+  a box's supervisor's source API (`frontseat.source.v1alpha1`), on a port of
   its own (`Source` in `core/ports`) that no route of the control plane's
   leads to, the one that carries a caller to a port of a sandbox
   neither.
@@ -969,7 +1014,7 @@ mise run docs:serve       # serve the TechDocs site on http://localhost:8000
 
 | Where | What it holds |
 |---|---|
-| `sdk/go` | The Go SDK's one client (`frontseat.New`), the one reading of a refusal (`Error`, its `Reason…` constants held to what the servers give by `TestEveryReasonAClientIsGivenIsOneTheGoSDKNames`), every list and log as an iterator (`Collect` gathers one), the one reader of a refusal's reason (`Reason`) and of a workspace's name (`IsWorkspaceName`) |
+| `sdk/go` | The Go SDK's one client (`frontseat.New`), of a control plane or of a build daemon (`Here`), the one reading of a refusal (`Error`, its `Reason…` constants held to what the servers give by `TestEveryReasonAClientIsGivenIsOneTheGoSDKNames`), every list and log as an iterator (`Collect` gathers one), the one reader of a refusal's reason (`Reason`) and of a workspace's name (`IsWorkspaceName`) |
 | `sdk/go/api` | The API's generated Go and Connect clients and handlers |
 | `sdk/go/entity` | Entity references: the one parser and formatter, for a file (`String`), as typed (`Written`) and on a line (`Short`) |
 | `sdk/go/enum` | A value of the API's enums by its own name (`Name`: `BUILD_FAILURE`) or in words (`Word`: `own change`): the SDK's, the command line's and the server's |
@@ -994,16 +1039,17 @@ mise run docs:serve       # serve the TechDocs site on http://localhost:8000
 | `common/vcs`, `.../vcs/chosen` | What a workspace asks of a version control system, and the one that is used |
 | `common/record`, `common/record/manifest` | A workspace's repositories and entities as they are recorded, and the manifest in its directory (`.frontseat/workspace.yaml`) that what fills it writes and a build reads |
 | `build/daemon/directory` | A directory as a build reads it: what its manifest records, and its repositories' history |
-| `common/told` | What a box's daemon is told of what a workspace is asked for |
+| `common/told` | What a box's supervisor is told of what a workspace is asked for |
 | `stack/local` | What the local stack is, read from its files: the workers' image and platform, what a sandbox is told; the checkout a program is started at (`Checkout`); the directory the command line keeps what it keeps in, and the owner's token and server files beneath it (`Config`, `TokenFile`, `ServerFile`); the container runtime's architecture (`Architecture`, `GOARCH`) and the stack's Podman (`Podman`), each asked one way |
 | `stack/internal/poll` | Asking again until the stack's container comes to something (`Tries`): the box's build's and the stack's |
-| `core/ports` | Every port a box and the local stack are reached on |
+| `core/ports` | Every port a box and the local stack are reached on, and where a box's sandbox keeps its lock, its build settings and its build daemons' state |
 | `testsupport/*` | Test facilities: pins, Wasm modules, fixtures (`testfiles`, `testforge`, `commits`), budgets |
 | `stack/testsupport/*` | The local stack's test facilities: the box, the gateway, the grid and the owner's token a test is given |
 | `specs/buildtest`, `workspace/server/controlplanetest` | A daemon and a control plane started for a test, as `frontseatd` and `frontseat-server` start them |
 | `sandbox/testsupport/drivertest` | What any sandbox driver is tested with: the conformance, a running sandbox of the test's own, the driver that holds sandboxes in memory |
 | `sandbox/testsupport/testcontainer` | A sandbox driver over the container runtime, for a server's tests that need a runtime; no program makes a sandbox with it |
 | `sandbox/testsupport/testsandbox` | The sandbox API's client and a tunnel to a sandbox's port, for tests: the SDK has none |
+| `sandbox/testsupport/testbuild` | The build daemon of a workspace's sandbox, reached by a test from outside as the workspace's owner can: started by a command in the box, found by what it says of itself there, asked over a port carried into the sandbox |
 | `testsupport/testwire` | A test's one way to a generated client over the wire, for what the SDK does not serve |
 | `specs/cmd/gate`, `specs/cmd/prepare-modules` | The gate programs, and what builds the plugins for the tests and for `dist/` |
 | `specs/architecture` | The architecture test: the repository's rules, its catalog, its imports and what is public |

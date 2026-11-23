@@ -23,8 +23,8 @@ const token = "746f6b656e2d6f662d7468652d636f6d6d616e642d6c696e65732d7465737473"
 // The token laid out beside the control plane the command line asks is
 // presented to it, by every command that asks it, and to no other
 // origin: a command that builds, outside a workspace that is open, is
-// refused and presents it to no one, and the daemon beside a command
-// inside a sandbox is presented none. (That the SDK presents it to no
+// refused and presents it to no one, and the build daemon of a command
+// inside a sandbox is presented its own and never this one. (That the SDK presents it to no
 // address a control plane answers with is the SDK's to show,
 // TestATokenIsPresentedToItsOriginAlone.) A token another could read is
 // refused, without being said. The control is a machine with no token,
@@ -47,7 +47,7 @@ func TestTheTokenIsPresentedToTheControlPlaneAlone(t *testing.T) {
 		presented = nil
 		return got
 	}
-	// A daemon elsewhere, and the control plane.
+	// A build daemon, and the control plane.
 	builds := connect.NewServer()
 	buildv1alpha1connect.RegisterBuildServiceHandler(builds, &daemonOf{})
 	daemon := http.NewServeMux()
@@ -55,7 +55,7 @@ func TestTheTokenIsPresentedToTheControlPlaneAlone(t *testing.T) {
 	elsewhere := httptest.NewServer(recording(daemon))
 	t.Cleanup(elsewhere.Close)
 	api := connect.NewServer()
-	workspacev1alpha1connect.RegisterWorkspaceServiceHandler(api, keeping{daemon: func() string { return elsewhere.URL }})
+	workspacev1alpha1connect.RegisterWorkspaceServiceHandler(api, keeping{})
 	mux := http.NewServeMux()
 	connecthttp.Mount(mux, api)
 	srv := httptest.NewServer(recording(mux))
@@ -72,8 +72,7 @@ func TestTheTokenIsPresentedToTheControlPlaneAlone(t *testing.T) {
 	}
 	// A command that builds, outside a workspace that is open, is
 	// refused: the token is presented to no one for it, neither to the
-	// control plane nor to the daemon the control plane says is
-	// elsewhere.
+	// control plane nor to a build daemon.
 	lastOpened(t, recorded, "named")
 	if _, _, err := runAt(t, context.Background(), "", "build", "list"); err == nil || !strings.Contains(err.Error(), "the workspace named is open") {
 		t.Fatalf("build list outside a workspace that is open: %v, want it refused", err)
@@ -82,13 +81,14 @@ func TestTheTokenIsPresentedToTheControlPlaneAlone(t *testing.T) {
 		t.Errorf("for a build refused outside its workspace, %q were asked; want no one", got)
 	}
 
-	// Inside a workspace's sandbox, the daemon beside is presented no
-	// token, though one is laid out.
+	// Inside a workspace's sandbox, the build daemon there is presented
+	// its own token, and never the control plane's, though one is laid
+	// out.
 	if _, _, err := runAt(t, context.Background(), elsewhere.URL, "build", "list"); err != nil {
 		t.Fatal(err)
 	}
-	if got := taken(); len(got) != 1 || got[0] != elsewhere.URL[len("http://"):]+" " {
-		t.Errorf("the daemon beside was presented %q, want nothing", got)
+	if got := taken(); len(got) != 1 || got[0] != elsewhere.URL[len("http://"):]+" Bearer "+besideToken {
+		t.Errorf("the build daemon inside was presented %q, want its own token alone", got)
 	}
 
 	// A token another could read is refused, and is not said.

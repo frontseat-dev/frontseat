@@ -75,6 +75,14 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		// A test logs in to a workspace through the SDK's tunnel, from its
 		// identity alone.
 		{"testsupport/testidentity/shell.go", "sdk/go", true},
+		// A test reaches the build daemon of a box as its owner can, over
+		// the SDK and a port the control plane carries, and knows nothing
+		// of the daemon's own; no program links what a test reaches it by.
+		{"sandbox/testsupport/testbuild/testbuild.go", "sdk/go", true},
+		{"sandbox/testsupport/testbuild/testbuild.go", "core/ports", true},
+		{"sandbox/testsupport/testbuild/testbuild.go", "build/daemon/life", false},
+		{"cli/internal/machine/builder.go", "sandbox/testsupport/testbuild", false},
+		{"workspace/server/controlplane/controlplane.go", "sandbox/testsupport/testbuild", false},
 		// The owner's token is presented as the SDK presents one; the
 		// SDK's client is no test support's to reach through it.
 		{"stack/testsupport/testowner/testowner.go", "sdk/go/bearer", true},

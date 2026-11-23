@@ -34,8 +34,8 @@ type Driver interface {
 	// less than it had. Deleting one that is gone succeeds.
 	Delete(ctx context.Context, id string) error
 	// Dial connects to a port inside the sandbox. It is the one transport
-	// a driver must supply: the daemon's build API, its source API and
-	// the shell are each reached through it.
+	// a driver must supply: a box's source API, its shell and whatever
+	// port of it a caller is carried to are each reached through it.
 	Dial(ctx context.Context, id string, port int) (net.Conn, error)
 }
 

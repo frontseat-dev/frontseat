@@ -6,11 +6,13 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/frontseat-dev/frontseat/build/daemon/life"
+	"github.com/frontseat-dev/frontseat/common/record/manifest"
 )
 
 // started stands in for starting a build daemon: each is a daemon's life
@@ -83,18 +85,18 @@ func settled(t *testing.T) (*started, string) {
 func TestTheBuildDaemonOfADirectoryIsStartedOnceAndFoundAgain(t *testing.T) {
 	s, _ := settled(t)
 	here, beside := t.TempDir(), t.TempDir()
-	first, err := BuildDaemon(t.Context(), here)
+	first, err := BuildDaemon(t.Context(), here, false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if s.count() != 1 || first.Address == "" || first.Token == "" {
 		t.Fatalf("the control: the first ask started %d daemons and was told %+v", s.count(), first)
 	}
-	again, err := BuildDaemon(t.Context(), here)
+	again, err := BuildDaemon(t.Context(), here, false)
 	if err != nil || again != first || s.count() != 1 {
 		t.Errorf("asked again: %+v, %v, after %d daemons; want the one that serves, %+v", again, err, s.count(), first)
 	}
-	other, err := BuildDaemon(t.Context(), beside)
+	other, err := BuildDaemon(t.Context(), beside, false)
 	if err != nil || other.Address == first.Address || s.count() != 2 {
 		t.Errorf("a directory beside it: %+v, %v, after %d daemons; want a daemon of its own", other, err, s.count())
 	}
@@ -108,13 +110,13 @@ func TestTheBuildDaemonOfADirectoryIsStartedOnceAndFoundAgain(t *testing.T) {
 func TestABuildDaemonOfAnotherVersionOrOtherSettingsIsReplaced(t *testing.T) {
 	s, file := settled(t)
 	here := t.TempDir()
-	first, err := BuildDaemon(t.Context(), here)
+	first, err := BuildDaemon(t.Context(), here, false)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	version = func() (string, error) { return "two", nil }
-	second, err := BuildDaemon(t.Context(), here)
+	second, err := BuildDaemon(t.Context(), here, false)
 	if err != nil || second.Address == first.Address || s.count() != 2 {
 		t.Fatalf("a command of another version: %+v, %v, after %d daemons; want another daemon", second, err, s.count())
 	}
@@ -126,24 +128,25 @@ func TestABuildDaemonOfAnotherVersionOrOtherSettingsIsReplaced(t *testing.T) {
 	if err := os.WriteFile(file, append(told, "  instance: other\n"...), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	third, err := BuildDaemon(t.Context(), here)
+	third, err := BuildDaemon(t.Context(), here, false)
 	if err != nil || third.Address == second.Address || s.count() != 3 {
 		t.Fatalf("other settings: %+v, %v, after %d daemons; want another daemon", third, err, s.count())
 	}
 
 	// One that said where it serves and is gone: asked, nothing answers.
 	gone := t.TempDir()
-	state, err := stateOf(gone)
+	where, err := keeps(false)
 	if err != nil {
 		t.Fatal(err)
 	}
+	state := where.of(gone)
 	if err := os.MkdirAll(state, 0o700); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(state, "daemon.json"), []byte(`{"address":"127.0.0.1:1","token":"0000","version":"two","directory":"`+gone+`"}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	fresh, err := BuildDaemon(t.Context(), gone)
+	fresh, err := BuildDaemon(t.Context(), gone, false)
 	if err != nil || fresh.Address == "127.0.0.1:1" || s.count() != 4 {
 		t.Errorf("beside what a dead daemon said: %+v, %v, after %d daemons; want one started", fresh, err, s.count())
 	}
@@ -162,13 +165,13 @@ func TestWithNoSettingsNoBuildDaemonIsStarted(t *testing.T) {
 		t.Fatal(err)
 	}
 	here := t.TempDir()
-	if _, err := BuildDaemon(t.Context(), here); !errors.Is(err, ErrNoSettings) || s.count() != 0 {
+	if _, err := BuildDaemon(t.Context(), here, false); !errors.Is(err, ErrNoSettings) || s.count() != 0 {
 		t.Fatalf("with no settings: %v, after %d daemons; want %v and none started", err, s.count(), ErrNoSettings)
 	}
 	if err := os.WriteFile(file, told, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := BuildDaemon(t.Context(), here); err != nil || s.count() != 1 {
+	if _, err := BuildDaemon(t.Context(), here, false); err != nil || s.count() != 1 {
 		t.Errorf("the control: with its settings: %v, after %d daemons", err, s.count())
 	}
 }
@@ -189,25 +192,110 @@ func TestABuildDaemonStartedWithOtherPublishVariablesIsReplaced(t *testing.T) {
 		t.Fatal(err)
 	}
 	here := t.TempDir()
-	first, err := BuildDaemon(t.Context(), here)
+	first, err := BuildDaemon(t.Context(), here, false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("ANOTHER_VARIABLE_OF_THE_TEST", "said")
-	if again, err := BuildDaemon(t.Context(), here); err != nil || again != first || s.count() != 1 {
+	if again, err := BuildDaemon(t.Context(), here, false); err != nil || again != first || s.count() != 1 {
 		t.Fatalf("the control: with nothing a publish is given changed: %+v, %v, after %d daemons", again, err, s.count())
 	}
 	t.Setenv("FORGE_TOKEN_OF_THE_TEST", "one")
-	second, err := BuildDaemon(t.Context(), here)
+	second, err := BuildDaemon(t.Context(), here, false)
 	if err != nil || second.Address == first.Address || s.count() != 2 {
 		t.Fatalf("with the variable set: %+v, %v, after %d daemons; want another daemon", second, err, s.count())
 	}
 	t.Setenv("FORGE_TOKEN_OF_THE_TEST", "two")
-	third, err := BuildDaemon(t.Context(), here)
+	third, err := BuildDaemon(t.Context(), here, false)
 	if err != nil || third.Address == second.Address || s.count() != 3 {
 		t.Fatalf("with another value: %+v, %v, after %d daemons; want another daemon", third, err, s.count())
 	}
-	if again, err := BuildDaemon(t.Context(), here); err != nil || again != third || s.count() != 3 {
+	if again, err := BuildDaemon(t.Context(), here, false); err != nil || again != third || s.count() != 3 {
 		t.Errorf("asked again there: %+v, %v, after %d daemons; want the one just started", again, err, s.count())
+	}
+}
+
+// Inside a workspace's sandbox the build daemon of a directory is told
+// the settings the sandbox's supervisor wrote, and keeps its state
+// beneath the sandbox's own directory, named for the directory it
+// builds: nothing of it is read from, or kept beneath, the command
+// line's configuration, which a sandbox has none of. A sandbox whose
+// supervisor wrote no settings has no build daemon. The control is the
+// same directory asked for outside, on a machine told its grid, whose
+// daemon is another, kept beneath the command line's own root.
+func TestInsideASandboxABuildDaemonIsToldAndKeptWhereTheSandboxSays(t *testing.T) {
+	s, file := settled(t)
+	sandbox := t.TempDir()
+	before := boxed
+	boxed = kept{settings: filepath.Join(sandbox, "build.yaml"), state: filepath.Join(sandbox, "build")}
+	t.Cleanup(func() { boxed = before })
+	here := t.TempDir()
+
+	if _, err := BuildDaemon(t.Context(), here, true); !errors.Is(err, ErrNoSettings) || s.count() != 0 {
+		t.Fatalf("inside a sandbox told no grid, beside a configuration that is: %v, after %d daemons; want %v and none started", err, s.count(), ErrNoSettings)
+	}
+	told, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(boxed.settings, append(told, "  instance: of-the-sandbox\n"...), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	within, err := BuildDaemon(t.Context(), here, true)
+	if err != nil || s.count() != 1 {
+		t.Fatalf("inside: %v, after %d daemons; want one started", err, s.count())
+	}
+	said, err := life.Told(boxed.of(here))
+	if _, wanted, _ := life.Read(boxed.settings); err != nil || said.Address != within.Address || said.Settings != wanted || filepath.Dir(boxed.of(here)) != boxed.state {
+		t.Errorf("the daemon inside said %+v (%v) in %s; want it there, at %s, told the sandbox's settings", said, err, boxed.of(here), within.Address)
+	}
+	if again, err := BuildDaemon(t.Context(), here, true); err != nil || again != within || s.count() != 1 {
+		t.Errorf("asked again inside: %+v, %v, after %d daemons; want the one that serves", again, err, s.count())
+	}
+	// The control: outside, the same directory has a daemon of its own.
+	outside, err := BuildDaemon(t.Context(), here, false)
+	if err != nil || outside.Address == within.Address || s.count() != 2 {
+		t.Errorf("the control: outside, %+v, %v, after %d daemons; want another, of the machine's own settings", outside, err, s.count())
+	}
+}
+
+// Inside a workspace's sandbox the directory a command builds is the
+// workspace's, the nearest above that holds its manifest, and nothing
+// else: a repository there is part of the workspace and is not built
+// alone, as a checkout is, and before the workspace was told what to
+// hold there is nothing to build, which is said of the workspace. The
+// control is the same directory outside a sandbox, where a repository
+// is built as it stands.
+func TestInsideASandboxOnlyTheWorkspacesDirectoryIsBuilt(t *testing.T) {
+	workspace, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	repository := filepath.Join(workspace, "payments")
+	if err := os.MkdirAll(filepath.Join(repository, "deep"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repository, repositoryFile), []byte("plugins: {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(filepath.Join(repository, "deep"))
+
+	if got, err := Directory(false); err != nil || got != repository {
+		t.Fatalf("the control: outside, the directory built is %q (%v); want the repository, %s", got, err, repository)
+	}
+	if got, err := Directory(true); err == nil || !strings.Contains(err.Error(), "this workspace's") || strings.Contains(err.Error(), repositoryFile) {
+		t.Errorf("inside a workspace told nothing to hold yet: %q, %v; want nothing to build, said of the workspace", got, err)
+	}
+	file := filepath.Join(workspace, filepath.FromSlash(manifest.File))
+	if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(file, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, inside := range []bool{true, false} {
+		if got, err := Directory(inside); err != nil || got != workspace {
+			t.Errorf("with the workspace's manifest, inside: %t, the directory built is %q (%v); want the workspace's, %s", inside, got, err, workspace)
+		}
 	}
 }

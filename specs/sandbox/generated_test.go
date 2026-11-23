@@ -16,11 +16,11 @@ func TestBufGenerationReachesAGoConsumerThroughTheSandboxAPI(t *testing.T) {
 	spec := newScenario(t)
 
 	workspace := spec.generatedSandbox()
-	_, err := graphAt(workspace.Build).ListProjects(context.Background(), &buildv1.ListProjectsRequest{PageSize: 1000})
+	_, err := graphAt(workspace.reached).ListProjects(context.Background(), &buildv1.ListProjectsRequest{PageSize: 1000})
 	spec.Expect(err).NotTo(HaveOccurred())
 	built := workspace.build(func(r *buildv1.CreateBuildRequest) { r.Targets = []string{"//code/app:go.compile"} })
 	spec.Expect(built.outcome()).To(Equal("SUCCESS"), built.run.String())
-	actions, err := buildsAt(workspace.Build).ListBuildActions(context.Background(), &buildv1.ListBuildActionsRequest{PageSize: 1000, BuildId: built.run.GetId()})
+	actions, err := buildsAt(workspace.reached).ListBuildActions(context.Background(), &buildv1.ListBuildActionsRequest{PageSize: 1000, BuildId: built.run.GetId()})
 	spec.Expect(err).NotTo(HaveOccurred())
 	var passed []string
 	for _, action := range actions.GetActions() {

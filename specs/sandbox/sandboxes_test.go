@@ -2,13 +2,14 @@ package sandbox_test
 
 import (
 	. "github.com/onsi/gomega"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
 )
 
-// A workspace lives in a sandbox: a machine of its own, with the daemon
-// in it. You never start one by hand. You ask for a workspace, and the
+// A workspace lives in a sandbox: a machine of its own, with its
+// supervisor in it, and the build daemon a command there starts. You never start one by hand. You ask for a workspace, and the
 // server you ask makes the sandbox, on your own machine with a container
 // runtime, or on the platform.
 //
@@ -51,32 +52,46 @@ func TestWhatRunsInASandboxIsNotRootAndTheSandboxMountsNothingOfTheGrid(t *testi
 	spec.Expect(workspace.build().outcome()).To(Equal("SUCCESS"))
 }
 
-// Workspaces in sandboxes / A sandbox holds one daemon, which stands in its workspace and knows its name.
-func TestASandboxHoldsOneDaemonWhichStandsInItsWorkspaceAndKnowsItsName(t *testing.T) {
+// Workspaces in sandboxes / A sandbox holds one supervisor, which stands in its workspace and knows its name, and a build there starts its own daemon.
+func TestASandboxHoldsOneSupervisorWhichStandsInItsWorkspaceAndKnowsItsName(t *testing.T) {
 	spec := newScenario(t)
 
 	workspace := spec.theWorkspace()
 
-	daemons := "for p in /proc/[0-9]*; do [ \"$(readlink $p/exe 2>/dev/null)\" = /opt/frontseat/bin/frontseatd ] && echo $p; done"
-	spec.Expect(strings.Fields(workspace.prints(daemons))).To(HaveLen(1))
-	spec.Expect(workspace.prints("for p in $(" + daemons + "); do readlink $p/cwd; done")).To(Equal("/work"))
+	spec.Expect(strings.Fields(workspace.prints(supervisors))).To(HaveLen(1))
+	spec.Expect(workspace.prints("for p in $(" + supervisors + "); do readlink $p/cwd; done")).To(Equal("/work"))
 	// It knows its name, as the sandbox's lock says it, which is how the
 	// command line there knows it runs inside a workspace's sandbox.
 	spec.Expect(workspace.prints("head -1 /var/lib/frontseat/daemon.lock")).To(Equal(workspace.Workspace))
 
-	printed, exit := workspace.run("/opt/frontseat/bin/frontseatd --listen 127.0.0.1:7699 --workspace /tmp 2>&1")
-	spec.Expect(exit).NotTo(Equal(0))
-	spec.Expect(printed).To(And(ContainSubstring("one daemon"), ContainSubstring(workspace.Workspace)))
-	// Told a state of its own, it is refused all the same.
-	printed, exit = workspace.run("/opt/frontseat/bin/frontseatd --listen 127.0.0.1:7699 --workspace /tmp --state /tmp/state 2>&1")
-	spec.Expect(exit).NotTo(Equal(0))
-	spec.Expect(printed).To(And(ContainSubstring("one daemon"), ContainSubstring(workspace.Workspace)))
-	spec.Expect(strings.Fields(workspace.prints(daemons))).To(HaveLen(1))
+	// A second is refused, whatever it is told: of the same workspace, or
+	// of another.
+	for _, told := range []string{workspace.Workspace, "another"} {
+		printed, exit := workspace.run("/opt/frontseat/bin/frontseat-box --source 127.0.0.1:7699 --workspace /tmp --name " + told + " 2>&1")
+		spec.Expect(exit).NotTo(Equal(0))
+		spec.Expect(printed).To(And(ContainSubstring("one supervisor"), ContainSubstring(workspace.Workspace)))
+	}
+	spec.Expect(strings.Fields(workspace.prints(supervisors))).To(HaveLen(1))
+	// The supervisor builds nothing. A command that builds starts the
+	// build daemon of the workspace's directory, as on any machine, told
+	// what the supervisor wrote of the grid, and the next finds that one:
+	// there is one, and it is the command line's own program.
 	spec.Expect(workspace.exits("frontseat build list")).To(Equal(0))
+	spec.Expect(workspace.exits("frontseat build list")).To(Equal(0))
+	daemons := strings.Fields(workspace.prints(buildDaemons))
+	spec.Expect(daemons).To(HaveLen(1))
+	spec.Expect(workspace.prints("readlink " + daemons[0] + "/cwd")).To(Equal("/work"))
+	spec.Expect(workspace.exits("test -s /var/lib/frontseat/build.yaml")).To(Equal(0))
+	spec.Expect(workspace.exits("test -e /opt/frontseat/bin/frontseatd")).NotTo(Equal(0))
 }
 
-// Workspaces in sandboxes / You build from where you are, outside the sandbox.
-func TestYouBuildFromWhereYouAreOutsideTheSandbox(t *testing.T) {
+// Workspaces in sandboxes / A workspace's build is read from outside its sandbox by its owner, through a port carried there.
+//
+// A workspace is built from inside it, and no control plane serves or
+// forwards the build API. What its owner reads of a build from outside
+// is asked of the build daemon in the sandbox, over a port the control
+// plane carries as bytes (testbuild).
+func TestAWorkspacesBuildIsReadFromOutsideByItsOwnerThroughAPortCarriedThere(t *testing.T) {
 	spec := newScenario(t)
 
 	build := spec.theWorkspace().build()
@@ -94,12 +109,20 @@ func TestYouBuildFromInsideTheSandboxWithTheSameCommand(t *testing.T) {
 }
 
 // Workspaces in sandboxes / The sandbox is reached through the server that made it.
+//
+// Its owner is carried to its shell by the control plane, by the
+// workspace's name; no address of the sandbox's own is said, and none of
+// a build API, which the control plane neither serves nor forwards.
 func TestTheSandboxIsReachedThroughTheServerThatMadeIt(t *testing.T) {
 	spec := newScenario(t)
 
 	workspace := spec.theWorkspace()
 
-	spec.Expect(workspace.Build).To(Equal(server + "/workspaces/" + workspace.Workspace + "/build"))
+	spec.Expect(workspace.prints("echo reached")).To(Equal("reached"))
+	for _, call := range []string{"/workspaces/" + workspace.Workspace + "/build/frontseat.build.v1alpha1.BuildService/ListBuilds", "/frontseat.build.v1alpha1.BuildService/ListBuilds"} {
+		status, said := spec.postAs(workspace.Server+call, ownerToken(workspace.Server))
+		spec.Expect(status).To(Equal(http.StatusNotFound), call+": "+said)
+	}
 }
 
 // Workspaces in sandboxes / A workspace's sandbox is made by OpenShell.
@@ -111,14 +134,23 @@ func TestAWorkspaceSSandboxIsMadeByOpenShell(t *testing.T) {
 	spec.Expect(workspace.madeBy()).To(Equal("openshell"))
 }
 
-// Workspaces in sandboxes / The grid is reached by the daemon and what it starts, and by nothing else in the sandbox.
-func TestTheGridIsReachedByTheDaemonAndWhatItStartsAndByNothingElseInTheSandbox(t *testing.T) {
+// Workspaces in sandboxes / The grid is reached by what builds and what it starts, and by nothing else in the sandbox.
+//
+// The way to the grid is for one program, the command line, which is
+// the build daemon it starts too: the gateway lets a connection through
+// for that program or any that started it. So a build in the sandbox
+// reaches the grid, and neither a program run in the workspace's shell,
+// which the box's supervisor serves, nor one the server runs beside it
+// does.
+func TestTheGridIsReachedByWhatBuildsAndByNothingElseInTheSandbox(t *testing.T) {
 	spec := newScenario(t)
 
 	workspace := spec.theWorkspace()
-	// The grid is the one the daemon was told by its flags.
-	grid := workspace.prints(`for p in /proc/[0-9]*; do [ "$(readlink $p/exe 2>/dev/null)" = /opt/frontseat/bin/frontseatd ] && tr '\0' '\n' < $p/cmdline | sed -n 's/^--grid=//p'; done`)
+	// The grid is the one the box's supervisor was told by its flags,
+	// and wrote where a build reads its settings.
+	grid := workspace.prints(`for p in $(` + supervisors + `); do tr '\0' '\n' < $p/cmdline | sed -n 's/^--grid=//p'; done`)
 	spec.Expect(grid).To(MatchRegexp(`^[a-z.-]+:[0-9]+$`))
+	spec.Expect(workspace.prints("cat /var/lib/frontseat/build.yaml")).To(ContainSubstring(grid))
 	// It opens a connection to that grid, and says so, or says why not.
 	connecting := `import socket, sys
 host, port = sys.argv[1].rsplit(":", 1)
@@ -127,13 +159,14 @@ try:
     print("connected")
 except OSError as refused:
     print("refused:", refused)`
-	// What the daemon starts reaches it, as the daemon does: a shell
-	// in the workspace is the daemon's.
-	spec.Expect(workspace.prints("python3 -c '" + connecting + "' " + grid)).To(Equal("connected"))
-	// The same program, run in the sandbox by the server and not by
-	// the daemon, does not: it is denied the connection, which is how
-	// the sandbox's policy says no, and not unable to find the grid
-	// or left waiting.
+	// What builds reaches it: a build's actions run there.
+	spec.Expect(workspace.build().outcome()).To(Equal("SUCCESS"))
+	// The same connection, opened by a program of the workspace's shell,
+	// which the supervisor started and no command that builds, is denied,
+	// which is how the sandbox's policy says no, and not unable to find
+	// the grid or left waiting.
+	spec.Expect(workspace.prints("python3 -c '" + connecting + "' " + grid)).To(HavePrefix("refused: [Errno 13]"))
+	// And so is one the server runs in the sandbox beside them.
 	spec.Expect(workspace.ranBeside("python3", "-c", connecting, grid)).To(HavePrefix("refused: [Errno 13]"))
 }
 

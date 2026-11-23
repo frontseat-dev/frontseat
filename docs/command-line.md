@@ -24,3 +24,20 @@ What went wrong is said on standard error, after `frontseat:`: the
 server's message, the reason it refused by (`[WORKSPACE_NOT_FOUND]`,
 listed with each call in the API's contract), and what to do where the
 command line knows.
+
+## What a command that builds asks
+
+`build`, `test`, `run`, `query` and `ship` work on what is where they
+are run, and ask a build daemon `frontseat` starts for itself (this
+program again, `frontseat daemon`), on the loopback, with that daemon's
+own token; no control plane is asked. A daemon serves one directory,
+and ends itself once it has had nothing to do for long enough.
+
+| Where the command is run | What it builds | What the daemon is told |
+|---|---|---|
+| inside a workspace's sandbox | the workspace: its directory, the nearest above that holds `.frontseat/workspace.yaml`. A workspace that was told nothing to hold yet has none, and the command says so | `/var/lib/frontseat/build.yaml`, which the sandbox's supervisor wrote from what the control plane told it |
+| outside a sandbox, with no workspace open | the directory it is run in: the workspace or repository it is part of | `build.yaml` in frontseat's configuration directory ([What a build daemon is told](build-settings.md)) |
+| outside a sandbox, while a workspace is open | nothing: it is refused, exit 2, and says to run it in the workspace | |
+
+A workspace is built from inside it: nothing builds one from outside,
+and a control plane neither serves nor forwards the build API.

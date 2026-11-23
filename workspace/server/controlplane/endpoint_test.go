@@ -20,10 +20,7 @@ import (
 	"connectrpc.com/connect/v2/connectproto"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 
-	"github.com/frontseat-dev/frontseat/core/refusal"
 	sandboxv1 "github.com/frontseat-dev/frontseat/sandbox/api/frontseat/sandbox/v1alpha1"
-	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
-	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1/buildv1alpha1connect"
 	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1/workspacev1alpha1connect"
 	"github.com/frontseat-dev/frontseat/workspace/server/controlplane/identity"
@@ -183,7 +180,8 @@ func TestNoSandboxCallIsServedOnTheEndpoint(t *testing.T) {
 // bearer's, saying it is not one known. The same call with the owner's
 // token is answered. What is refused never says the token it was given,
 // and neither does anything the control plane logs, the owner's own
-// among them. The ways to a workspace's daemon and shell are held alike.
+// among them. The ways to a workspace's shell and to a port of its
+// sandbox are held alike.
 func TestACallWithoutTheOwnersTokenIsRefused(t *testing.T) {
 	said := logged(t)
 	s := over(t)
@@ -215,7 +213,7 @@ func TestACallWithoutTheOwnersTokenIsRefused(t *testing.T) {
 		if connect.CodeOf(err) != connect.CodeUnauthenticated {
 			t.Errorf("DeleteWorkspace with %s: %v, want unauthenticated", refused.what, err)
 		}
-		for _, path := range []string{"/workspaces/code/shell", "/workspaces/code/ports/8080", "/workspaces/code/build/frontseat.build.v1alpha1.BuildService/ListBuilds"} {
+		for _, path := range []string{"/workspaces/code/shell", "/workspaces/code/ports/8080"} {
 			status, body := asked(t, http.MethodPost, address+path, refused.token, "{}")
 			if status != http.StatusUnauthorized {
 				t.Errorf("%s with %s: %d %s, want 401", path, refused.what, status, body)
@@ -243,8 +241,8 @@ func TestACallWithoutTheOwnersTokenIsRefused(t *testing.T) {
 	if err != nil || len(listed.GetWorkspaces()) != 1 {
 		t.Errorf("ListWorkspaces with the owner's token: %v, %v", listed, err)
 	}
-	if status, body := asked(t, http.MethodPost, address+"/workspaces/code/build/frontseat.build.v1alpha1.BuildService/ListBuilds", owner, "{}"); status != http.StatusOK {
-		t.Errorf("the build route with the owner's token: %d %s", status, body)
+	if status, body := asked(t, http.MethodPost, address+"/workspaces/code/shell", owner, "{}"); status != http.StatusOK {
+		t.Errorf("the way to the shell with the owner's token: %d %s", status, body)
 	}
 	for _, token := range []string{owner, another, owner[:32]} {
 		if strings.Contains(refusals, token) || strings.Contains(said(), token) {
@@ -253,87 +251,58 @@ func TestACallWithoutTheOwnersTokenIsRefused(t *testing.T) {
 	}
 }
 
-// The way to a workspace's daemon leads to the build API alone: a call
-// of the workspace API, of the daemon's source API, which the control
-// plane alone asks, or of anything else the daemon or the sandbox
-// serves, is not led on, however it is spelled, and the way it had
-// before, beneath /daemon, is no more. The control is a call of each of
-// the build services, which is led on, without the owner's token: what
-// the caller is known by stays outside the sandbox.
-func TestTheBuildRouteLeadsToTheBuildServicesAlone(t *testing.T) {
-	s, client := made(t, "code", of("https://forge.example/acme/code.git"))
-	ready := waited(t, client, "code")
-	address := strings.TrimSuffix(ready.GetStatus().GetBuildUri(), "/workspaces/code/build")
-	if !strings.HasSuffix(ready.GetStatus().GetBuildUri(), "/workspaces/code/build") {
-		t.Fatalf("its daemon is said to be at %q, want beneath /workspaces/code/build", ready.GetStatus().GetBuildUri())
+// The control plane neither serves nor forwards the build API: a
+// workspace is built from inside it. A call of a build service beneath a
+// workspace's name, where a way to its build API once was, at the
+// control plane's own address, or spelled any other way, is no path the
+// control plane has, as any path it does not know, for the workspace's
+// owner too, and nothing is led into the sandbox for it; neither is a
+// call of the supervisor's source API, which the control plane alone
+// asks. The control is the ways it does have, to the workspace's shell
+// and to a port of its sandbox, which lead there.
+func TestNoCallOfTheBuildAPIIsServedOrForwardedByTheControlPlane(t *testing.T) {
+	s := over(t)
+	client, address, _ := served(t, s, t.TempDir(), nil)
+	if _, err := client.CreateWorkspace(context.Background(), &workspacev1.CreateWorkspaceRequest{Name: "code", Spec: of("https://forge.example/acme/code.git")}); err != nil {
+		t.Fatal(err)
 	}
-	for _, path := range []string{
-		"/workspaces/code/build/frontseat.workspace.v1alpha1.WorkspaceService/UpdateWorkspace",
-		"/workspaces/code/build/frontseat.workspace.v1alpha1.WorkspaceService/DescribeWorkspace",
-		"/workspaces/code/build/frontseat.sandbox.v1alpha1.SandboxService/ExecSandbox",
-		"/workspaces/code/build/frontseat.source.v1alpha1.SourceService/SetSource",
-		"/workspaces/code/build/frontseat.source.v1alpha1.SourceService/WaitSource",
-		"/frontseat.source.v1alpha1.SourceService/SetSource",
-		"/workspaces/code/source/frontseat.source.v1alpha1.SourceService/SetSource",
-		"/workspaces/code/build/frontseat.build.v1alpha1.BuildServiceX/ListBuilds",
-		"/workspaces/code/build/frontseat.build.v1alpha1.BuildService/ListBuilds/more",
-		"/workspaces/code/build/frontseat.build.v1alpha1.BuildService/",
-		"/workspaces/code/build/frontseat.build.v1alpha1.BuildService%2F..%2F..%2Ffrontseat.workspace.v1alpha1.WorkspaceService%2FUpdateWorkspace",
-		"/workspaces/code/build/frontseat.build.v1alpha1.BuildService/..%2Ffrontseat.workspace.v1alpha1.WorkspaceService%2FUpdateWorkspace",
-		"/workspaces/code/build/frontseat%2Ebuild%2Ev1alpha1%2EBuildService/ListBuilds",
+	waited(t, client, "code")
+	paths := []string{
 		"/workspaces/code/build/",
-		"/workspaces/code/daemon/frontseat.workspace.v1alpha1.WorkspaceService/UpdateWorkspace",
-		"/workspaces/code/daemon/frontseat.build.v1alpha1.BuildService/ListBuilds",
-	} {
-		status, said := asked(t, http.MethodPost, address+path, owner, "{}")
-		if status == http.StatusOK || status/100 == 3 {
-			t.Errorf("%s: %d %s, want it not led on", path, status, said)
+		"/workspaces/code/build/frontseat.workspace.v1alpha1.WorkspaceService/DescribeWorkspace",
+		"/workspaces/code/build/frontseat.source.v1alpha1.SourceService/SetSource",
+		"/workspaces/code/source/frontseat.source.v1alpha1.SourceService/SetSource",
+		"/frontseat.source.v1alpha1.SourceService/SetSource",
+		"/frontseat.source.v1alpha1.SourceService/WaitSource",
+	}
+	for _, call := range []string{"BuildService/ListBuilds", "BuildService/CreateBuild", "GraphService/ListEntities", "ReleaseService/PlanRelease", "RunService/ListRuns"} {
+		paths = append(paths, "/workspaces/code/build/frontseat.build.v1alpha1."+call, "/workspaces/code/daemon/frontseat.build.v1alpha1."+call, "/frontseat.build.v1alpha1."+call)
+	}
+	for _, path := range paths {
+		if status, said := asked(t, http.MethodPost, address+path, owner, "{}"); status != http.StatusNotFound {
+			t.Errorf("%s: %d %s, want it not found, as any path the control plane does not have", path, status, said)
 		}
 	}
-	s.mu.Lock()
-	refused := slices.Clone(s.led)
-	s.mu.Unlock()
-	if len(refused) != 0 {
-		t.Fatalf("led on: %v", refused)
+	if status, said := asked(t, http.MethodPost, address+"/no/such/path", owner, "{}"); status != http.StatusNotFound {
+		t.Errorf("a path the control plane does not have: %d %s, want it not found", status, said)
 	}
-	var want []string
-	for _, call := range []string{"BuildService/ListBuilds", "GraphService/ListEntities", "ReleaseService/PlanRelease", "RunService/ListRuns"} {
-		if status, said := asked(t, http.MethodPost, address+"/workspaces/code/build/frontseat.build.v1alpha1."+call, owner, "{}"); status != http.StatusOK {
-			t.Errorf("%s: %d %s, want it led on", call, status, said)
-		}
-		want = append(want, "sbx_1:7600/frontseat.build.v1alpha1."+call)
-	}
-	s.mu.Lock()
-	led, carried := slices.Clone(s.led), slices.Clone(s.carried)
-	s.mu.Unlock()
-	if !slices.Equal(led, want) {
-		t.Errorf("led on %v, want %v", led, want)
-	}
-	if len(carried) != 0 {
-		t.Errorf("what the caller is known by was led into the sandbox: %d times", len(carried))
-	}
-}
-
-// A call sent to a workspace's build API address that is no call of the
-// build API is refused as not served, by its reason in the workspace
-// API's domain, and is not forwarded. The control is a call of the build
-// API, at the same address, which is.
-func TestACallThatIsNotTheBuildAPIsIsRefusedAsNotServed(t *testing.T) {
-	s, client := made(t, "code", of("https://forge.example/acme/code.git"))
-	ready := waited(t, client, "code")
-	at := ready.GetStatus().GetBuildUri()
-	other := workspacev1alpha1connect.NewWorkspaceServiceClient(connect.NewClient(connecthttp.NewTransport(bearing(owner), at)))
-	_, err := other.DescribeWorkspace(context.Background(), &workspacev1.DescribeWorkspaceRequest{Name: "code"})
-	if !refusedAsNotServed(err, "CALL_NOT_SERVED") {
-		why, in := reason(t, err)
-		t.Errorf("a workspace call at the build API's address: %v (%s, %s), want unimplemented, CALL_NOT_SERVED, %s", err, why, in, refusal.Workspace)
-	}
-	builds := buildv1alpha1connect.NewBuildServiceClient(connect.NewClient(connecthttp.NewTransport(bearing(owner), at)))
-	_, _ = builds.ListBuilds(context.Background(), &buildv1.ListBuildsRequest{})
 	s.mu.Lock()
 	led := slices.Clone(s.led)
+	s.led = nil
 	s.mu.Unlock()
-	if want := []string{"sbx_1:7600/frontseat.build.v1alpha1.BuildService/ListBuilds"}; !slices.Equal(led, want) {
-		t.Errorf("led on %v, want %v", led, want)
+	if len(led) != 0 {
+		t.Fatalf("led into the sandbox: %v", led)
+	}
+	// The control: the ways it has.
+	for _, path := range []string{"/workspaces/code/shell", "/workspaces/code/ports/8080"} {
+		if status, said := asked(t, http.MethodGet, address+path, owner, ""); status != http.StatusOK {
+			t.Errorf("the control: %s: %d %s, want it led on", path, status, said)
+		}
+	}
+	s.mu.Lock()
+	led = slices.Clone(s.led)
+	s.mu.Unlock()
+	if want := []string{"sbx_1:2222/a tunnel", "sbx_1:8080/a tunnel"}; !slices.Equal(led, want) {
+		t.Errorf("the control: led on %v, want %v", led, want)
 	}
 }

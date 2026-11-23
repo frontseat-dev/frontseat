@@ -33,6 +33,7 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	sandboxv1 "github.com/frontseat-dev/frontseat/sandbox/api/frontseat/sandbox/v1alpha1"
+	"github.com/frontseat-dev/frontseat/sandbox/testsupport/testbuild"
 	"github.com/frontseat-dev/frontseat/sandbox/testsupport/testsandbox"
 	"github.com/frontseat-dev/frontseat/sdk/go"
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
@@ -60,7 +61,7 @@ var planes = map[string]controlplanetest.Served{}
 func known(plane controlplanetest.Served) { planes[plane.URL] = plane }
 
 // planeOf is the control plane an address is of: the plane's own, or a
-// way beneath it, such as a workspace's build API.
+// way beneath it.
 func planeOf(at string) controlplanetest.Served {
 	for address, plane := range planes {
 		if at == address || strings.HasPrefix(at, address+"/") {
@@ -104,18 +105,49 @@ func beneathOf(at string) string { return planeOf(at).Sandboxes }
 // SDK does not serve: a request's own fields.
 func wire(at string) *connect.Client { return testwire.Conn(at, testowner.Client(ownerToken(at), at)) }
 
+// daemon is the build daemon of a workspace, reached from outside its
+// sandbox as its owner can (testbuild): a workspace is built from inside
+// it, so the daemon is the one the command line starts there, started
+// where none serves, and asked over a port the control plane carries.
+func (r reached) daemon() testbuild.Daemon {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	daemon, err := testbuild.Workspace(r.sdk()).Daemon(ctx)
+	if err != nil {
+		panic(err)
+	}
+	return daemon
+}
+
+// here is what a workspace's build daemon builds, as the SDK reaches
+// it: the workspace of a client made for that daemon.
+func (r reached) here() *frontseat.Workspace {
+	here, err := r.daemon().Here()
+	if err != nil {
+		panic(err)
+	}
+	return here
+}
+
+// built is a connection to a workspace's build daemon, over the wire,
+// for what a spec asks that the SDK does not serve.
+func built(r reached) *connect.Client {
+	daemon := r.daemon()
+	return testwire.Conn(daemon.Address, daemon.HTTP)
+}
+
 // buildsAt, graphAt and runsAt are the builds, the graph and the runs
-// of a workspace's daemon at an address, over the wire.
-func buildsAt(at string) buildv1alpha1connect.BuildServiceClient {
-	return buildv1alpha1connect.NewBuildServiceClient(wire(at))
+// of a workspace's build daemon, over the wire.
+func buildsAt(r reached) buildv1alpha1connect.BuildServiceClient {
+	return buildv1alpha1connect.NewBuildServiceClient(built(r))
 }
 
-func graphAt(at string) buildv1alpha1connect.GraphServiceClient {
-	return buildv1alpha1connect.NewGraphServiceClient(wire(at))
+func graphAt(r reached) buildv1alpha1connect.GraphServiceClient {
+	return buildv1alpha1connect.NewGraphServiceClient(built(r))
 }
 
-func runsAt(at string) buildv1alpha1connect.RunServiceClient {
-	return buildv1alpha1connect.NewRunServiceClient(wire(at))
+func runsAt(r reached) buildv1alpha1connect.RunServiceClient {
+	return buildv1alpha1connect.NewRunServiceClient(built(r))
 }
 
 // workspacesAt are the workspaces of the control plane at an address,
@@ -125,10 +157,10 @@ func workspacesAt(at string) workspacev1alpha1connect.WorkspaceServiceClient {
 }
 
 // reached is a workspace as a spec reaches it: the control plane that
-// keeps it, its name, the address of its daemon and its sandbox, as the
-// control plane last said them.
+// keeps it, its name and its sandbox, as the control plane last said
+// them.
 type reached struct {
-	Server, Workspace, Build, Sandbox string
+	Server, Workspace, Sandbox string
 }
 
 // reachedOf is a workspace a control plane described, as a spec
@@ -139,7 +171,7 @@ func reachedOf(server string, w *workspacev1.Workspace) reached {
 	if w == nil {
 		return reached{}
 	}
-	return reached{Server: server, Workspace: w.GetName(), Build: w.GetStatus().GetBuildUri(), Sandbox: livingIn(server, w.GetName())}
+	return reached{Server: server, Workspace: w.GetName(), Sandbox: livingIn(server, w.GetName())}
 }
 
 // livingIn is the sandbox the workspace of a name lives in, of the
@@ -341,8 +373,7 @@ const code = "/work/code"
 func BeRefusedSaying(claim string) OmegaMatcher { return MatchError(ContainSubstring(claim)) }
 
 // Workspace is a workspace in a sandbox, as this machine knows it: the
-// server that made the sandbox, the sandbox, and where its daemon is
-// reached.
+// server that made the sandbox, and the sandbox.
 type Workspace struct {
 	*scenario
 	reached
@@ -475,7 +506,8 @@ func (w *Workspace) run(command string) (printed string, exit int) {
 }
 
 // ranBeside is what a command prints that the server runs in the
-// sandbox itself, beside the daemon and not started by it, on one line.
+// sandbox itself, beside the box's supervisor and started neither by it
+// nor by a command that builds, on one line.
 func (w *Workspace) ranBeside(arguments ...string) string {
 	w.scenario.Helper()
 	got, err := testsandbox.Client(beneathOf(server)).ExecSandbox(context.Background(), &sandboxv1.ExecSandboxRequest{SandboxId: w.Sandbox, Arguments: arguments})
@@ -687,14 +719,14 @@ type Build struct {
 // asking is how a build is asked for.
 type asking func(*buildv1.CreateBuildRequest)
 
-// build asks for a build from this machine, outside the sandbox, and
-// follows it to its end.
+// build asks the workspace's build daemon, in its sandbox, for a build,
+// and follows it to its end.
 func (w *Workspace) build(how ...asking) *Build {
 	w.scenario.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	request := askedFor(how)
-	started, err := w.sdk().Build(ctx, frontseat.BuildRequest{Targets: request.GetTargets(), Only: request.GetOnly(), Profile: request.GetProfile(), Fix: request.GetFix()})
+	started, err := w.here().Build(ctx, frontseat.BuildRequest{Targets: request.GetTargets(), Only: request.GetOnly(), Profile: request.GetProfile(), Fix: request.GetFix()})
 	w.scenario.Expect(err).NotTo(HaveOccurred())
 	ended, err := started.Wait(ctx)
 	w.scenario.Expect(err).NotTo(HaveOccurred())
@@ -737,7 +769,7 @@ func (w *Workspace) checkedThenFixed(target, path, unformatted string) *buildv1.
 	fixed := w.build(func(r *buildv1.CreateBuildRequest) {
 		r.Targets, r.Only, r.Fix = []string{target}, []string{"format"}, true
 	})
-	actions, err := buildsAt(w.Build).ListBuildActions(context.Background(), &buildv1.ListBuildActionsRequest{PageSize: 1000, BuildId: fixed.run.GetId()})
+	actions, err := buildsAt(w.reached).ListBuildActions(context.Background(), &buildv1.ListBuildActionsRequest{PageSize: 1000, BuildId: fixed.run.GetId()})
 	w.scenario.Expect(err).NotTo(HaveOccurred())
 	w.scenario.Expect(fixed.outcome()).To(Equal("SUCCESS"), actions.String())
 	return actions
@@ -882,7 +914,7 @@ func (spec *scenario) retainedTool(at string) *Workspace {
 	w := spec.inASandboxOfItsOwn(making{Server: at, WorkspaceSpec: frontseat.WorkspaceSpec{
 		Entities: entitiesForRetainedTool(),
 	}})
-	spec.Expect(w.Build).To(Equal(at + "/workspaces/" + w.Workspace + "/build"))
+	spec.Expect(w.Server).To(Equal(at))
 	return w
 }
 
@@ -912,7 +944,7 @@ func (w *Workspace) uniqueRetainedProgram() {
 
 func (w *Workspace) retainedToolProject() *buildv1.Project {
 	w.Helper()
-	listed, err := graphAt(w.Build).ListProjects(context.Background(), &buildv1.ListProjectsRequest{PageSize: 1000})
+	listed, err := graphAt(w.reached).ListProjects(context.Background(), &buildv1.ListProjectsRequest{PageSize: 1000})
 	w.Expect(err).NotTo(HaveOccurred())
 	var matching []*buildv1.Project
 	for _, p := range listed.GetProjects() {
@@ -926,12 +958,12 @@ func (w *Workspace) retainedToolProject() *buildv1.Project {
 
 func (b *Build) retainedCompileResult() *buildv1.ActionResult {
 	b.Helper()
-	listed, err := buildsAt(b.of.Build).ListBuildActions(context.Background(), &buildv1.ListBuildActionsRequest{PageSize: 1000, BuildId: b.run.GetId()})
+	listed, err := buildsAt(b.of.reached).ListBuildActions(context.Background(), &buildv1.ListBuildActionsRequest{PageSize: 1000, BuildId: b.run.GetId()})
 	b.Expect(err).NotTo(HaveOccurred())
 	if b.outcome() != "SUCCESS" {
 		b.Logf("Run failure: %s\n", b.run.GetFailure())
 		for _, action := range listed.GetActions() {
-			logs, err := frontseat.Collect(b.of.sdk().BuildByID(b.run.GetId()).Logs(context.Background(), action.GetLabel()))
+			logs, err := frontseat.Collect(b.of.here().BuildByID(b.run.GetId()).Logs(context.Background(), action.GetLabel()))
 			b.Logf("Action: %s\nLogs: %s; error: %v\n", action, logs, err)
 		}
 	}
@@ -1002,10 +1034,23 @@ func (w *Workspace) retainedModule(name string) {
 	w.copyIn(file, "module "+name+"\n"+rest)
 }
 
-// A process ID can repeat after resume, so also observe its kernel start time.
+// A process ID can repeat after resume, so also observe its kernel start
+// time. The daemon is the build daemon the command line starts in the
+// box, which is there once a command that builds has run: one is run
+// first, so that a sandbox picked up again, whose daemon went with it,
+// has the one that follows.
 func (w *Workspace) retainedDaemonIdentity() string {
 	w.Helper()
-	identity := w.prints(`for p in /proc/[0-9]*; do if [ "$(readlink "$p/exe" 2>/dev/null)" = /opt/frontseat/bin/frontseatd ]; then awk '{print $1, $22}' "$p/stat"; fi; done`)
+	w.Expect(w.exits("frontseat build list")).To(Equal(0))
+	identity := w.prints(buildDaemons + ` | while read p; do awk '{print $1, $22}' "$p/stat"; done`)
 	w.Expect(strings.Fields(identity)).To(HaveLen(2))
 	return identity
 }
+
+// buildDaemons prints, in a sandbox, the /proc directory of each build
+// daemon there: a process of the command line's program started as
+// `frontseat daemon`. supervisors prints that of each box's supervisor.
+const (
+	buildDaemons = `for p in /proc/[0-9]*; do if [ "$(readlink "$p/exe" 2>/dev/null)" = /opt/frontseat/bin/frontseat ] && [ "$(tr '\0' '\n' < "$p/cmdline" | sed -n 2p)" = daemon ]; then echo "$p"; fi; done`
+	supervisors  = `for p in /proc/[0-9]*; do if [ "$(readlink "$p/exe" 2>/dev/null)" = /opt/frontseat/bin/frontseat-box ]; then echo "$p"; fi; done`
+)

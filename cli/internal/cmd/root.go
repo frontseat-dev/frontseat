@@ -28,17 +28,13 @@ import (
 var instrumented = frontseat.WithHTTPClient(&http.Client{Transport: telemetry.Transport{}})
 
 // inside says whether the command line runs inside a workspace's
-// sandbox (machine.Inside), and here is where the daemon there is asked;
-// a test stands in for both.
-var (
-	inside = machine.Inside
-	here   = machine.Daemon
-)
+// sandbox (machine.Inside); a test stands in for it.
+var inside = machine.Inside
 
 // fixed is what a command that would change or describe a workspace is
 // refused with inside a workspace's sandbox: there its source is fixed,
-// and its daemon is asked to build, run and release alone.
-var fixed = errors.New("inside a workspace's sandbox its source is fixed: workspaces are opened, filled, described, listed and ended from outside, by their names, and here the command line asks this workspace's daemon to build, run and release alone")
+// and the command line builds, runs and releases what it holds alone.
+var fixed = errors.New("inside a workspace's sandbox its source is fixed: workspaces are opened, filled, described, listed and ended from outside, by their names, and here the command line builds, runs and releases what this workspace holds alone")
 
 // server is the client of the control plane every command asks: the
 // one frontseat/local/server names, or the local stack's, presented the
@@ -94,32 +90,33 @@ var (
 	errElsewhere   = errors.New("the workspace last opened")
 )
 
-// builder finds or starts the build daemon of a directory; a test stands
-// in for it.
-var builder = machine.BuildDaemon
+// directory says which directory a command run here builds, and builder
+// finds or starts the build daemon of one; a test stands in for each.
+var (
+	directory = machine.Directory
+	builder   = machine.BuildDaemon
+)
 
 // building is what a command that builds, tests, runs, queries or
-// releases asks, where it is not refused (worksWhereItIsRun): inside a
-// workspace's sandbox, the daemon there, on the loopback, and no other;
-// outside, the build daemon of the directory the command is run in,
-// which the command line starts for itself where this machine was told
-// its grid (build.yaml). That daemon is asked on the loopback with its
-// own token, and no control plane is.
+// releases asks, where it is not refused (worksWhereItIsRun): the build
+// daemon of the directory the command is run in, which the command line
+// starts for itself, here as inside a workspace's sandbox. Outside, that
+// is where this machine was told its grid (build.yaml); inside, it is
+// the workspace's directory, told what the sandbox's supervisor wrote of
+// the grid the control plane named. That daemon is asked on the loopback
+// with its own token, and no control plane is.
 func building() (*frontseat.Workspace, error) {
-	if inside() {
-		daemon, err := frontseat.New(here, instrumented)
-		if err != nil {
-			return nil, err
-		}
-		return daemon.Here(), nil
-	}
-	directory, err := machine.Directory()
+	within := inside()
+	built, err := directory(within)
 	if err != nil {
 		return nil, err
 	}
-	found, err := builder(context.Background(), directory)
-	if errors.Is(err, machine.ErrNoSettings) {
-		return nil, fmt.Errorf("%w; or, to build %s on this machine, say the grid it builds on in build.yaml, in frontseat's configuration directory", errNoWorkspace, directory)
+	found, err := builder(context.Background(), built, within)
+	switch {
+	case errors.Is(err, machine.ErrNoSettings) && within:
+		return nil, fmt.Errorf("this workspace's sandbox was told no grid to build on: its supervisor wrote no build settings, which the control plane that made the sandbox tells it")
+	case errors.Is(err, machine.ErrNoSettings):
+		return nil, fmt.Errorf("%w; or, to build %s on this machine, say the grid it builds on in build.yaml, in frontseat's configuration directory", errNoWorkspace, built)
 	}
 	if err != nil {
 		return nil, err
@@ -158,18 +155,18 @@ plane and to no other address. A control plane on another machine is
 named with https, and is asked over nothing else.
 
 The workspace: build, test, run, query and ship work on what is where
-they are run. Inside a workspace's sandbox, a command asks that
-workspace's daemon, on the loopback, to build, run and release, and no
-control plane: there the workspace's source is fixed, and the workspace
-commands are refused. A workspace is built from inside it: open a shell
+they are run, through a build daemon frontseat starts for itself, on
+the loopback, and ask no control plane. Inside a workspace's sandbox
+that is the workspace, on the grid its control plane named: there the
+workspace's source is fixed, and the workspace commands are refused. A
+workspace is built from inside it: open a shell
 there with frontseat workspace ssh, or run one command there with
 frontseat workspace ssh -- frontseat build.
 
 Outside a sandbox, with no workspace open, build, test, run, query and
 ship work on the directory they are run in, the repository or workspace
-it is part of, through a build daemon frontseat starts for itself: on a
-machine told the grid it builds on, in build.yaml beside the files
-above. While a workspace is open, the one last opened of the control
+it is part of: on a machine told the grid it builds on, in build.yaml
+beside the files above. While a workspace is open, the one last opened of the control
 plane asked, they are refused and say to run them in it; frontseat
 workspace delete ends it.
 
@@ -199,7 +196,7 @@ func Execute(ctx context.Context, args []string) (int, error) {
 // runs with mise.
 func unanswered() string {
 	if inside() {
-		return "this workspace's daemon does not answer"
+		return "the build daemon of this workspace does not answer"
 	}
 	if at, err := machine.Server(); err == nil && at != machine.Stack {
 		return "the control plane frontseat/local/server names does not answer"

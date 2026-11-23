@@ -39,7 +39,7 @@ func (w *Workspace) Projects(ctx context.Context) iter.Seq2[*buildv1.Project, er
 }
 
 func (w *Workspace) graph(ctx context.Context) (buildv1alpha1connect.GraphServiceClient, error) {
-	daemon, err := w.at(ctx)
+	daemon, err := w.at()
 	if err != nil {
 		return nil, err
 	}

@@ -24,9 +24,9 @@ type failureCapture struct {
 	gateway *sdk.Client
 }
 
-// A running supervisor is not proof that the daemon it starts has survived
-// startup. Try both an immediate pause and a pause after the daemon answers.
-func TestAResumedOpenShellBoxAnswersThroughItsRestartedDaemon(t *testing.T) {
+// A running sandbox is not proof that the box's supervisor has survived
+// startup. Try both an immediate pause and a pause after it answers.
+func TestAResumedOpenShellBoxAnswersThroughItsRestartedSupervisor(t *testing.T) {
 	for _, ready := range []bool{false, true} {
 		t.Run(fmt.Sprintf("pause_after_answer=%t", ready), func(t *testing.T) {
 			native := driven(t)
@@ -77,7 +77,7 @@ func answerAfterResume(t *testing.T, ctx context.Context, d driver.Driver, id st
 	testrequired.Stack(t)
 	t.Helper()
 	transport := &http.Transport{DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-		return d.Dial(ctx, id, buildPort)
+		return d.Dial(ctx, id, answeringPort)
 	}}
 	defer transport.CloseIdleConnections()
 	client := &http.Client{Transport: transport, Timeout: 5 * time.Second}
@@ -97,11 +97,11 @@ func answerAfterResume(t *testing.T, ctx context.Context, d driver.Driver, id st
 			}
 		}
 		if got, observed := d.Observe(deadline, id); observed == nil && got.State == driver.Failed {
-			t.Fatalf("daemon failed after running: %+v", got)
+			t.Fatalf("the box failed after running: %+v", got)
 		}
 		select {
 		case <-deadline.Done():
-			t.Fatalf("daemon did not answer: %v", err)
+			t.Fatalf("the box's supervisor did not answer: %v", err)
 		case <-time.After(100 * time.Millisecond):
 		}
 	}

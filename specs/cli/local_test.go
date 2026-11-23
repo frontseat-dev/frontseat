@@ -1,9 +1,11 @@
 // Package e2e holds what is proven only by every part together: a client,
-// the sandbox API over the OpenShell gateway, and the daemon in a box.
+// the sandbox API over the OpenShell gateway, and a box, its supervisor
+// and the build daemon a command starts there.
 package e2e
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/frontseat-dev/frontseat/core/ports"
 	"github.com/frontseat-dev/frontseat/testsupport/testidentity"
@@ -19,6 +21,7 @@ import (
 
 	connect "connectrpc.com/connect/v2"
 
+	"github.com/frontseat-dev/frontseat/sandbox/testsupport/testbuild"
 	"github.com/frontseat-dev/frontseat/sdk/go"
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
@@ -76,12 +79,22 @@ func ended(w *frontseat.Workspace) {
 }
 
 // buildIn builds a workspace and returns the run as it ended, with the
-// labels of its actions.
+// labels of its actions. A workspace is built from inside it: the build
+// is asked of the build daemon in its sandbox, which a test outside
+// reaches as the workspace's owner can (testbuild).
 func buildIn(t *testing.T, w *frontseat.Workspace) (*buildv1.Build, string) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
-	built, err := w.Build(ctx, frontseat.BuildRequest{})
+	daemon, err := testbuild.Workspace(w).Daemon(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	here, err := daemon.Here()
+	if err != nil {
+		t.Fatal(err)
+	}
+	built, err := here.Build(ctx, frontseat.BuildRequest{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,12 +144,12 @@ func TestAWorkspaceClonesARepositoryAndBuildsIt(t *testing.T) {
 	checkout := helloModule(t)
 
 	at := local(t)
-	made, held := madeWorkspace(t, sdkClient(t, at.URL, at.Owner), frontseat.WorkspaceSpec{Image: image, Repositories: cloned(t, checkout)})
+	made, _ := madeWorkspace(t, sdkClient(t, at.URL, at.Owner), frontseat.WorkspaceSpec{Image: image, Repositories: cloned(t, checkout)})
 
-	// Its daemon is reached through the control plane by the workspace's
-	// name, and by no sandbox's id.
-	if daemon := held.GetStatus().GetBuildUri(); !strings.HasSuffix(daemon, "/workspaces/"+made.Name()+"/build") || made.Name() == "" {
-		t.Errorf("the build API is at %s, want it beneath the workspace's name", daemon)
+	// It is built from inside it, and is not built through the control
+	// plane, which neither serves nor forwards the build API.
+	if _, err := made.Build(context.Background(), frontseat.BuildRequest{}); !errors.Is(err, frontseat.ErrBuiltInside) {
+		t.Errorf("a build asked of the workspace through its control plane: %v, want %v", err, frontseat.ErrBuiltInside)
 	}
 	ended, labels := buildIn(t, made)
 	if ended.GetExitCode() != buildv1.ExitCode_EXIT_CODE_SUCCESS || ended.GetCounts().GetPassed() != 3 {
@@ -199,9 +212,10 @@ func TestAnEditorOpensTheWorkspaceOverSSHThroughTheSandboxAPI(t *testing.T) {
 		t.Errorf("the file written in the sandbox holds %q (%v)", out, err)
 	}
 
-	// The daemon's build API stands in for a back end listening inside.
+	// The supervisor's source API stands in for a back end listening
+	// inside.
 	through := &http.Client{Transport: &http.Transport{Dial: shell.Dial}}
-	response, err := through.Get(fmt.Sprintf("http://127.0.0.1:%d/", ports.Daemon))
+	response, err := through.Get(fmt.Sprintf("http://127.0.0.1:%d/", ports.Source))
 	if err != nil {
 		t.Fatalf("a connection forwarded to a port of the sandbox: %v", err)
 	}

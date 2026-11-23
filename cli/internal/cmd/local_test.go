@@ -52,7 +52,7 @@ func TestWithNoWorkspaceSelectedABuildAsksTheDaemonOfItsDirectory(t *testing.T) 
 	var asked []string
 	before := builder
 	t.Cleanup(func() { builder = before })
-	builder = func(_ context.Context, directory string) (machine.Builder, error) {
+	builder = func(_ context.Context, directory string, _ bool) (machine.Builder, error) {
 		asked = append(asked, directory)
 		return machine.Builder{Address: strings.TrimPrefix(srv.URL, "http://"), Token: "the daemon's token"}, nil
 	}
@@ -74,7 +74,7 @@ func TestWithNoWorkspaceSelectedABuildAsksTheDaemonOfItsDirectory(t *testing.T) 
 	}
 
 	// A machine told nothing of its grid.
-	builder = func(context.Context, string) (machine.Builder, error) {
+	builder = func(context.Context, string, bool) (machine.Builder, error) {
 		return machine.Builder{}, machine.ErrNoSettings
 	}
 	_, _, err = runAt(t, context.Background(), "", "ship", "plan", "greet")
@@ -84,7 +84,7 @@ func TestWithNoWorkspaceSelectedABuildAsksTheDaemonOfItsDirectory(t *testing.T) 
 
 	// A directory that is no repository's.
 	t.Chdir(t.TempDir())
-	builder = func(context.Context, string) (machine.Builder, error) {
+	builder = func(context.Context, string, bool) (machine.Builder, error) {
 		return machine.Builder{}, errors.New("a daemon was asked for")
 	}
 	if _, _, err := runAt(t, context.Background(), "", "ship", "plan", "greet"); err == nil || !strings.Contains(err.Error(), "frontseat.yaml") {

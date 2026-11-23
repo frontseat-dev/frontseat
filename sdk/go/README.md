@@ -2,7 +2,10 @@
 
 The Go client of Frontseat: one `Client`, made for a server, from which
 workspaces, builds, tests, runs, releases, the graph and credentials are
-reached. The `frontseat` command line asks its servers with it.
+reached. A server is a control plane, which keeps workspaces, or a build
+daemon, which builds what is where it runs: a workspace is built from
+inside it, and no control plane serves or forwards the build API. The
+`frontseat` command line asks its servers with it.
 Frontseat is in preview, and so is this package: its API is
 `v1alpha1`.
 
@@ -12,7 +15,7 @@ go get github.com/frontseat-dev/frontseat/sdk/go
 
 The package is `frontseat`.
 
-## A build, from nothing
+## A workspace, from nothing
 
 ```go
 package main
@@ -49,17 +52,39 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	ws := opened.Workspace
+	for _, repository := range opened.Status.GetStatus().GetRepositories() {
+		fmt.Println(repository.GetName(), repository.GetCommit())
+	}
+	// It is built from inside it: in a shell there, with the command
+	// line (frontseat workspace ssh -- frontseat build).
+}
+```
+
+## A build, of a build daemon
+
+A build is asked of a build daemon: the one `frontseat` starts for the
+directory a command is run in, on a machine or inside a workspace's
+sandbox. It serves on the loopback, and says where, and the token it is
+asked with, in its state directory (`daemon.json`). A `Client` made for
+it reaches what it builds with `Here`.
+
+```go
+func build(ctx context.Context, address, token string) error {
+	daemon, err := frontseat.New("http://"+address, frontseat.WithToken(token))
+	if err != nil {
+		return err
+	}
+	ws := daemon.Here()
 
 	// A build goes on whether or not it is followed. Its events come to
 	// the one that says how it ended.
 	build, err := ws.Build(ctx, frontseat.BuildRequest{Targets: []string{"greeter"}})
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	for event, err := range build.Events(ctx, 0) {
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 		if result := event.GetActionFinished().GetResult(); result != nil {
 			fmt.Println(result.GetOutcome(), result.GetLabel())
@@ -67,9 +92,10 @@ func main() {
 	}
 	ended, err := build.Wait(ctx)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	fmt.Println(ended.GetExitCode())
+	return nil
 }
 ```
 
@@ -77,15 +103,15 @@ func main() {
 
 | From | What |
 |---|---|
-| `frontseat.New(server, options...)` | A `Client` of a control plane, or why the address names none. Nothing is asked until a call is made. |
+| `frontseat.New(server, options...)` | A `Client` of a control plane or of a build daemon, or why the address names none. Nothing is asked until a call is made. |
 | `Client.Open`, `Client.Workspace`, `Client.Workspaces` | A workspace made or opened, one by its name, and all of them. |
 | `Client.Credentials` | Your credentials for the hosts your workspaces fetch from and push to. The control plane keeps them outside every sandbox. |
+| `Client.Here` | What the build daemon a `Client` was made for builds: inside a workspace's sandbox, that workspace. What follows, to `Workspace.Projects`, is asked of it, and refused of a workspace a control plane keeps (`ErrBuiltInside`), before anything is asked. |
 | `Workspace.Build`, `Workspace.Test` | A `Build`: `Events`, `Wait`, `Describe`, `Cancel`, `Actions`, `Logs`. |
 | `Workspace.Run` | A `Run` of a program of the workspace: `Logs`, `Wait`, `Describe`, `Cancel`. |
 | `Workspace.PlanRelease`, `Workspace.Release` | A release planned, which changes nothing, and a `Release` of that plan by its etag. |
 | `Workspace.Entities`, `Workspace.Projects` | What the workspace is made of. Reading it runs nothing. |
-| `Workspace.Describe`, `Workspace.Add`, `Workspace.Delete`, `Workspace.Shell`, `Workspace.Forward` | The workspace itself: what it holds, more for it to hold, its end, a connection an SSH client speaks over, and a connection to a port of its sandbox, carried as bytes. |
-| `Client.Here` | Inside a workspace's sandbox, the workspace a `Client` of the daemon there is in. |
+| `Workspace.Describe`, `Workspace.Add`, `Workspace.Delete`, `Workspace.Shell`, `Workspace.Forward` | A workspace a control plane keeps, itself: what it holds, more for it to hold, its end, a connection an SSH client speaks over, and a connection to a port of its sandbox, carried as bytes. Each is refused of the workspace `Here` is (`ErrHere`). |
 
 `Build`, `Run` and `Release` are handles by id (`ID()`):
 `Workspace.BuildByID`, `RunByID` and `ReleaseByID` give one for an id
@@ -143,7 +169,7 @@ caller most often acts on are sentinels for `errors.Is`
 `ErrEntitiesNotServed`). Each call's reasons are listed with it in the
 contract, and in the comments of the generated client beneath
 `sdk/go/api`. What the SDK refuses itself is a sentinel too:
-`ErrWorkspaceUnnamed`, `ErrHere`, and, of a workspace that cannot be
+`ErrWorkspaceUnnamed`, `ErrHere`, `ErrBuiltInside`, and, of a workspace that cannot be
 worked in, `ErrWorkspaceFailed` and `ErrWorkspacePaused`, each also
 `ErrWorkspaceNotReady`. `frontseat.Reason(err)` is a shorthand for the
 reason and the domain.

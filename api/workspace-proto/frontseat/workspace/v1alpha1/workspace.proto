@@ -1,26 +1,29 @@
 // frontseat.workspace.v1alpha1: workspaces. A workspace is a working area
 // of repositories joined into one graph, for a person, an agent or a job.
 // It lives in a sandbox, which is its isolation and knows nothing of it,
-// and a daemon there holds its source and builds it: one workspace and
-// one daemon in a sandbox, which this API has no way to say otherwise.
+// and a supervisor there holds its source: one workspace and one
+// supervisor in a sandbox, which this API has no way to say otherwise.
 //
 // The control plane alone serves this service, and is the one writer of
 // what a workspace is asked for: it makes a sandbox for a new one, tells
-// the daemon there what to hold and reads back what it holds, and ends
-// one. It also forwards calls to each workspace's build API, and
-// connections to its shell and to a port of its sandbox, by the
-// workspace's name, and forwards nothing else to a workspace. A
-// workspace is changed from outside it: inside its sandbox its source is
-// fixed, and the command line there calls its daemon's build API alone.
+// the supervisor there what to hold and reads back what it holds, and
+// ends one. It also forwards connections to each workspace's shell and
+// to a port of its sandbox, by the workspace's name, and forwards
+// nothing else to a workspace. A workspace is changed from outside it:
+// inside its sandbox its source is fixed. A workspace is built from
+// inside it: the build API (frontseat.build.v1alpha1) is served there,
+// by a build daemon the command line starts in the sandbox, on its
+// loopback, and the control plane neither serves that API nor forwards
+// a call of it.
 //
 // Every call to a control plane is a person's, known by the token they
 // present as a bearer token. A call that presents none is refused
 // UNAUTHENTICATED with the reason IDENTITY_MISSING, and one whose token
 // the control plane does not know with IDENTITY_INVALID, each in
 // ErrorInfo of the control plane's own domain, frontseat.dev, in which
-// every service it serves refuses a caller it does not know; a call
-// forwarded to a workspace's build API, and a connection to its shell
-// or to a port of its sandbox, are held to the same. A workspace belongs
+// every service it serves refuses a caller it does not know; a
+// connection to a workspace's shell or to a port of its sandbox is held
+// to the same. A workspace belongs
 // to its owner, the caller who asked for it first. Its name is unique
 // among all the workspaces of a control plane, whoever owns them. A
 // caller who names a workspace
@@ -28,9 +31,6 @@
 // NOT_OWNER, by every call of this service, and no caller is listed
 // another's workspaces. What this service refuses by name carries ErrorInfo of
 // the domain workspace.frontseat.dev, with the reason each call names.
-// A call sent to a workspace's build API address that is not a call of
-// the build API is not forwarded: it is refused UNIMPLEMENTED with the
-// reason CALL_NOT_SERVED.
 //
 // A connection to a port of a workspace's sandbox is asked for at
 // /workspaces/{name}/ports/{port} of the control plane's address, as a
@@ -42,7 +42,7 @@
 // nothing of what speaks there. The connection ends, both ways, when
 // either end does. {port} is the port's number, from 1 to 65535, in
 // digits alone. A connection is carried to any port but one, the port
-// of the daemon's internal source API, which is the control plane's
+// of the supervisor's internal source API, which is the control plane's
 // own: that port, and whatever is written for {port} that is no port
 // so written, is refused UNIMPLEMENTED with the reason PORT_NOT_SERVED,
 // as a call is refused, and nothing is asked of the sandbox. A refusal
@@ -54,8 +54,8 @@
 // A workspace is kept as what was asked for, its spec, and what is so,
 // its status. A call writes the spec and returns; the control plane then
 // works until the status matches it. It works from the spec it keeps: a
-// control plane or a daemon that was stopped and started again carries
-// on from there, and the daemon is told again what to hold.
+// control plane or a supervisor that was stopped and started again carries
+// on from there, and the supervisor is told again what to hold.
 syntax = "proto3";
 
 package frontseat.workspace.v1alpha1;
@@ -133,7 +133,7 @@ service WorkspaceService {
   }
 
   // WaitWorkspace returns a workspace once it is ready, has failed or is
-  // paused. One whose sandbox does not come to run, or whose daemon does
+  // paused. One whose sandbox does not come to run, or whose supervisor does
   // not come to answer, has failed. One that is ending is waited for
   // until it is gone, and waiting then ends NOT_FOUND. A call that is
   // cut off can simply be made again.
@@ -149,9 +149,9 @@ service WorkspaceService {
   // spec is given whole: everything the workspace has, and what is
   // added. Nothing can be taken away, and the fields of the spec that
   // are set once cannot be changed. The control plane tells the
-  // workspace's daemon to clone what is new. Where the daemon refuses,
+  // workspace's supervisor to clone what is new. Where the supervisor refuses,
   // the call is refused and the workspace keeps the spec it had. The
-  // call returns once the daemon has accepted; WaitWorkspace returns
+  // call returns once the supervisor has accepted; WaitWorkspace returns
   // when what was added is there.
   //
   // Entities added are resolved as CreateWorkspace resolves them, and
@@ -168,13 +168,13 @@ service WorkspaceService {
   //   (SPEC_FIXED); a repository's address holds a user or a password
   //   (REMOTE_CREDENTIALED); an entity added is refused as
   //   CreateWorkspace refuses one (ENTITY_INVALID, ENTITY_AMBIGUOUS). Or
-  //   the daemon refuses what is added, with the reason it gives: it
+  //   the supervisor refuses what is added, with the reason it gives: it
   //   cannot hold a repository added where it holds its source
   //   (SOURCE_UNFIT), or was told no repository (SOURCE_MISSING) or no
   //   valid generation (GENERATION_INVALID).
   // - FAILED_PRECONDITION: the workspace is not ready
   //   (WORKSPACE_NOT_READY), or is ending (WORKSPACE_ENDING). Or the
-  //   daemon refuses what is added, with the reason it gives: it is
+  //   supervisor refuses what is added, with the reason it gives: it is
   //   still cloning what it was told before (SOURCE_POPULATING), or it
   //   was started over a directory it was given and clones nothing
   //   (SOURCE_MOUNTED).
@@ -184,7 +184,7 @@ service WorkspaceService {
   //   message says which (REACH_NOT_SERVED). Or entities are added,
   //   and the control plane resolves none (ENTITIES_NOT_SERVED).
   // - UNAVAILABLE: the catalog did not answer, as for CreateWorkspace
-  //   (ENTITIES_UNAVAILABLE). Or the workspace's daemon was not reached;
+  //   (ENTITIES_UNAVAILABLE). Or the workspace's supervisor was not reached;
   //   no reason is given then.
   rpc UpdateWorkspace(UpdateWorkspaceRequest) returns (UpdateWorkspaceResponse);
 
@@ -206,7 +206,7 @@ message Workspace {
   // Name names it among all the workspaces of a control plane, whoever
   // owns them: lower-case letters, digits and dashes, at most 48. It is
   // what every command and call says to mean this workspace, and its
-  // daemon is told it.
+  // supervisor is told it.
   string name = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Spec is what it was asked for with.
   WorkspaceSpec spec = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
@@ -221,13 +221,13 @@ message Workspace {
 
 // WorkspaceSpec is what a workspace is asked for with.
 message WorkspaceSpec {
-  // Repositories are repositories for its daemon to clone, each by an
+  // Repositories are repositories for its supervisor to clone, each by an
   // address that holds no user and no password.
   repeated RepositorySource repositories = 1;
   // Entities are entities whose source it holds, with the entities they
   // depend on. The control plane looks each up in the Backstage catalog
   // its operator configured, finds the repositories and directories
-  // that hold them, and its daemon clones those. A control plane with
+  // that hold them, and its supervisor clones those. A control plane with
   // no catalog configured serves no entities: it refuses a spec that
   // names one UNIMPLEMENTED, with the reason ENTITIES_NOT_SERVED. A
   // reference may be written short, as a person types it: an empty kind
@@ -235,7 +235,7 @@ message WorkspaceSpec {
   // provided the catalog holds one entity of that kind and name. The
   // workspace's status says which entity each one resolved to.
   repeated frontseat.type.v1alpha1.EntityRef entities = 2;
-  // `whole_repositories` has the daemon clone every file of the
+  // `whole_repositories` has the supervisor clone every file of the
   // entities' repositories, not only the directories the entities own.
   bool whole_repositories = 3;
   // Push lets it push to the repositories named, with the credential the
@@ -283,28 +283,22 @@ message WorkspaceStatus {
   // one starting or ending, what is holding it up, which the control
   // plane tries again. Empty where nothing went wrong.
   string failure = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // `build_uri` is the address at which its daemon's build API
-  // (frontseat.build.v1alpha1) is called. It is an address of the
-  // control plane, which forwards calls of that API, and no others, to
-  // the daemon. A client uses it as given; a person never types it.
-  // Empty until the workspace has a sandbox.
-  string build_uri = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // Repositories are the repositories it holds, as its daemon says.
-  repeated Repository repositories = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Repositories are the repositories it holds, as its supervisor says.
+  repeated Repository repositories = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Entities are what the entities it was asked for resolved to, and the
   // components they depend on: each entity, and the repository and
   // directory that hold it. They were resolved once, when each was
   // asked for, and are not resolved again.
-  repeated LocatedEntity entities = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
+  repeated LocatedEntity entities = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
 
   // State is where a workspace is.
   enum State {
     // STATE_UNSPECIFIED: not known.
     STATE_UNSPECIFIED = 0;
-    // STATE_STARTING: its sandbox was asked for and its daemon does not
+    // STATE_STARTING: its sandbox was asked for and its supervisor does not
     // answer yet.
     STATE_STARTING = 1;
-    // STATE_POPULATING: its daemon is cloning what was asked for.
+    // STATE_POPULATING: its supervisor is cloning what was asked for.
     STATE_POPULATING = 2;
     // STATE_READY: it holds what was asked for, and can be worked in.
     STATE_READY = 3;
@@ -313,7 +307,7 @@ message WorkspaceStatus {
     // whoever operates the control plane pauses its sandbox.
     // CreateWorkspace, by its owner, resumes it.
     STATE_PAUSED = 4;
-    // STATE_FAILED: its sandbox failed, or its daemon could not clone
+    // STATE_FAILED: its sandbox failed, or its supervisor could not clone
     // what was asked for; failure says which. What it held may still be
     // there, and it is ended only by DeleteWorkspace or its lifetime.
     STATE_FAILED = 5;
@@ -411,7 +405,7 @@ message Repository {
   // Name is the workspace's name for it: what a label and a path name it
   // by.
   string name = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // Remote is where it was cloned from; empty for a directory the daemon
+  // Remote is where it was cloned from; empty for a directory the supervisor
   // was started over and did not clone.
   string remote = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Commit is the commit it stands at.

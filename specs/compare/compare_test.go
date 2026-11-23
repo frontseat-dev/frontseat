@@ -22,6 +22,7 @@ import (
 	"connectrpc.com/connect/v2"
 	"github.com/frontseat-dev/frontseat/testsupport/testforge"
 
+	"github.com/frontseat-dev/frontseat/sandbox/testsupport/testbuild"
 	"github.com/frontseat-dev/frontseat/sdk/go"
 	"github.com/frontseat-dev/frontseat/stack/testsupport/testbox"
 	"github.com/frontseat-dev/frontseat/testsupport/testworkload"
@@ -53,12 +54,15 @@ type tool struct {
 	// ran says how many actions a build ran, from what it printed. It is
 	// asked after the build has been timed.
 	ran func(t *testing.T, printed string) string
-	// endpoint is the build API, for frontseat; empty for other tools.
-	endpoint string
 	// fixture is the private Frontseat workspace, as its owner reaches
-	// it, and sandbox the sandbox it owns; nil and empty for other tools.
+	// it through the control plane that keeps it, and sandbox the sandbox
+	// it owns; nil and empty for other tools.
 	fixture *frontseat.Workspace
 	sandbox string
+	// built is what the workspace's build daemon builds, in its sandbox,
+	// as the SDK reaches it from outside (testbuild); nil for other
+	// tools.
+	built func(t *testing.T) *frontseat.Workspace
 	// dir is the workspace of a tool that builds one on this machine, and
 	// try builds one target of it, and says what it printed and whether it
 	// failed; empty and nil for other tools.
@@ -354,7 +358,21 @@ func frontseatInASandbox(t *testing.T, shape testworkload.Shape) tool {
 	if err != nil {
 		t.Fatal(err)
 	}
-	made, daemon := opened.Workspace, opened.Status.GetStatus().GetBuildUri()
+	made := opened.Workspace
+	// A workspace is built from inside it: what a build did is read of
+	// the build daemon there, over a port carried into the sandbox.
+	built := func(t *testing.T) *frontseat.Workspace {
+		t.Helper()
+		daemon, err := testbuild.Workspace(made).Daemon(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		here, err := daemon.Here()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return here
+	}
 	lives, err := workspaceSandbox(ctx, made.Name())
 	if err != nil {
 		t.Fatal(err)
@@ -383,15 +401,15 @@ func frontseatInASandbox(t *testing.T, shape testworkload.Shape) tool {
 	}
 	run := regexp.MustCompile(`(?m)^(build_[0-9a-f]+)  `)
 	return tool{
-		name:     "frontseat",
-		endpoint: daemon,
-		fixture:  made,
-		sandbox:  lives,
-		close:    release,
-		counted:  regexp.MustCompile(`(?m)^build_[0-9a-f]+  .* in ([0-9.]+(?:ms|s))$`),
-		about:    "this checkout: the daemon and the workspace in a sandbox, built there by the box's own frontseat and a file changed there, over SSH, its actions on the local grid",
+		name:    "frontseat",
+		fixture: made,
+		built:   built,
+		sandbox: lives,
+		close:   release,
+		counted: regexp.MustCompile(`(?m)^build_[0-9a-f]+  .* in ([0-9.]+(?:ms|s))$`),
+		about:   "this checkout: the workspace in a sandbox, built there by the box's own frontseat, through the build daemon it starts there, and a file changed there, over SSH, its actions on the local grid",
 		// A workspace is built from inside it: by the box's own command
-		// line, which asks the daemon beside it.
+		// line, which asks the build daemon it starts there.
 		build: func(t *testing.T) string {
 			return said(t, "/opt/frontseat/bin/frontseat build", "")
 		},
@@ -400,7 +418,7 @@ func frontseatInASandbox(t *testing.T, shape testworkload.Shape) tool {
 			if found == nil {
 				return "?"
 			}
-			got, err := made.BuildByID(found[1]).Describe(context.Background())
+			got, err := built(t).BuildByID(found[1]).Describe(context.Background())
 			if err != nil {
 				t.Fatal(err)
 			}

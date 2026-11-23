@@ -4,8 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"net"
-	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -40,10 +39,10 @@ threading.Timer(300, os._exit, (0,)).start()
 sys.stdin.read()
 os._exit(0)`
 
-// heardAt says a line to a port of the workspace's sandbox, reached as
-// the SDK reaches it, through the control plane, and returns what is
-// said back; or why nothing was.
-func (w *Workspace) heardAt(port int, line string) (string, error) {
+// saidAt is the first line a port of the workspace's sandbox says,
+// reached as the SDK reaches it, through the control plane, once each
+// line given was said to it; or why nothing was said.
+func (w *Workspace) saidAt(port int, lines ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	conn, err := w.sdk().Forward(ctx, port)
@@ -51,10 +50,29 @@ func (w *Workspace) heardAt(port int, line string) (string, error) {
 		return "", err
 	}
 	defer conn.Close()
-	if _, err := fmt.Fprintln(conn, line); err != nil {
-		return "", err
+	for _, line := range lines {
+		if _, err := fmt.Fprintln(conn, line); err != nil {
+			return "", err
+		}
 	}
 	return bufio.NewReader(conn).ReadString('\n')
+}
+
+// speaksSSHAt is why a port of the workspace's sandbox did not say that
+// it speaks SSH, as a shell says first to whoever connects; nil where
+// it did.
+func (w *Workspace) speaksSSHAt(port int) error {
+	said, err := w.saidAt(port)
+	if err == nil && !strings.HasPrefix(said, "SSH-") {
+		err = fmt.Errorf("the port %d said %q first, and a shell says its SSH version", port, said)
+	}
+	return err
+}
+
+// heardAt says a line to a port of the workspace's sandbox, and returns
+// what is said back; or why nothing was.
+func (w *Workspace) heardAt(port int, line string) (string, error) {
+	return w.saidAt(port, line)
 }
 
 // Workspaces in sandboxes / A port of a workspace's sandbox is reached as bytes by its owner.
@@ -63,9 +81,9 @@ func (w *Workspace) heardAt(port int, line string) (string, error) {
 // the loopback there and on a port the sandbox was not made to open, is
 // reached by the workspace's owner through the control plane, which
 // carries the bytes and knows nothing of what speaks. The port of the
-// daemon's source API is the control plane's alone, and is refused by
-// name. The control is a port the sandbox was made to open, the
-// daemon's build API's, reached the same way.
+// supervisor's source API is the control plane's alone, and is refused
+// by name. The control is a port the sandbox was made to open, its
+// shell's, reached the same way.
 func TestAPortOfAWorkspacesSandboxIsReachedAsBytesByItsOwner(t *testing.T) {
 	spec := newScenario(t)
 
@@ -92,28 +110,22 @@ func TestAPortOfAWorkspacesSandboxIsReachedAsBytesByItsOwner(t *testing.T) {
 	}
 
 	// A port the sandbox was made to open, reached through the control
-	// plane as the others are below: the daemon's build API answers.
-	declared := &http.Client{Timeout: 30 * time.Second, Transport: &http.Transport{DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-		return workspace.sdk().Forward(ctx, ports.Daemon)
-	}}}
-	answered, declaredErr := declared.Get("http://sandbox/")
-	if declaredErr == nil {
-		answered.Body.Close()
-	}
+	// plane as the others are below: the shell says what it speaks.
+	declaredErr := workspace.speaksSSHAt(ports.Shell)
 
 	back, loopbackErr := workspace.heardAt(loopback, "outside")
 	if loopbackErr != nil || back != "the box heard outside\n" {
 		elsewhere, everywhereErr := workspace.heardAt(everywhere, "outside")
 		switch {
 		case declaredErr != nil:
-			t.Fatalf("no port of the sandbox is reached through the control plane, one the sandbox was made to open neither: the daemon's (%d): %v; an undeclared port on the loopback: %q, %v", ports.Daemon, declaredErr, back, loopbackErr)
+			t.Fatalf("no port of the sandbox is reached through the control plane, one the sandbox was made to open neither: the shell's (%d): %v; an undeclared port on the loopback: %q, %v", ports.Shell, declaredErr, back, loopbackErr)
 		case everywhereErr == nil && elsewhere == "the box heard outside\n":
 			t.Fatalf("the gateway does not reach a port bound to the loopback: the port %d, listened on at 127.0.0.1 alone, said %q (%v), while the port %d, listened on at every address, was reached, and neither was declared", loopback, back, loopbackErr, everywhere)
 		default:
-			t.Fatalf("the gateway does not reach a port the sandbox did not declare: the port %d, on the loopback, said %q (%v), and the port %d, at every address, said %q (%v), while the daemon's port (%d), which the sandbox was made to open, was reached", loopback, back, loopbackErr, everywhere, elsewhere, everywhereErr, ports.Daemon)
+			t.Fatalf("the gateway does not reach a port the sandbox did not declare: the port %d, on the loopback, said %q (%v), and the port %d, at every address, said %q (%v), while the shell's port (%d), which the sandbox was made to open, was reached", loopback, back, loopbackErr, everywhere, elsewhere, everywhereErr, ports.Shell)
 		}
 	}
-	spec.Expect(declaredErr).NotTo(HaveOccurred(), "the control: the daemon's port, which the sandbox was made to open")
+	spec.Expect(declaredErr).NotTo(HaveOccurred(), "the control: the shell's port, which the sandbox was made to open")
 	// One connection after another, each its own.
 	spec.Expect(workspace.heardAt(loopback, "again")).To(Equal("the box heard again\n"))
 

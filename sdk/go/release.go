@@ -112,7 +112,7 @@ func (r *Release) Wait(ctx context.Context) (*buildv1.Release, error) {
 }
 
 func (w *Workspace) releases(ctx context.Context) (buildv1alpha1connect.ReleaseServiceClient, error) {
-	daemon, err := w.at(ctx)
+	daemon, err := w.at()
 	if err != nil {
 		return nil, err
 	}

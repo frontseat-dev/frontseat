@@ -1,6 +1,7 @@
-// Package box builds the box image: what a sandbox that holds a daemon
-// runs. It is the daemon, the client and the plugins, built from this
-// repository as it stands, laid on the sandbox image the local grid's
+// Package box builds the box image: what a workspace's sandbox runs. It
+// is the box's supervisor, the command line, which is the build daemon
+// it starts too, and the plugins, built from this repository as it
+// stands, laid on the sandbox image the local grid's
 // workers run (local.Files.Image). Nothing is fetched over the
 // network.
 //
@@ -40,8 +41,8 @@ var built = time.Unix(0, 0)
 
 // Build is what one build of the box image is given.
 type Build struct {
-	// Root is this repository's root: where the daemon and the client are
-	// built from, and where box is.
+	// Root is this repository's root: where the supervisor and the
+	// command line are built from, and where box is.
 	Root string
 	// Tag is a name the image is tagged beside the one of its content,
 	// for a person to ask for it by (frontseat-box:local); empty, none.
@@ -51,8 +52,9 @@ type Build struct {
 	// Architecture is the container runtime's: "aarch64" or "arm64" for
 	// arm64, anything else for amd64. Empty, the runtime is asked.
 	Architecture string
-	// Plugins are the wasm modules the daemon loads, by name: the image
-	// holds each as plugins/<name>.wasm, and the daemon loads every one.
+	// Plugins are the wasm modules a build loads, by name: the image
+	// holds each as plugins/<name>.wasm, and a build daemon in the box
+	// loads every one.
 	Plugins map[string][]byte
 	// Log is where the build says what it does; nil says nothing.
 	Log io.Writer
@@ -95,7 +97,7 @@ func (b Build) Run(ctx context.Context) (string, error) {
 		return "", err
 	}
 
-	for _, binary := range []string{"frontseatd", "frontseat", "frontseat-runner", "frontseat-server", "frontseat-stack", "frontseat-confine"} {
+	for _, binary := range []string{"frontseat-box", "frontseat", "frontseat-runner", "frontseat-server", "frontseat-stack", "frontseat-confine"} {
 		say("building %s for linux/%s", binary, goarch)
 		if err := linux(ctx, b.Root, binary, goarch, filepath.Join(laid, binary)); err != nil {
 			return "", err
@@ -334,7 +336,7 @@ func goarchOf(ctx context.Context, architecture string) (string, error) {
 // with its package: cmd/<binary> of the Component that owns it.
 var programs = map[string]string{
 	"frontseat":         "cli/cmd/frontseat",
-	"frontseatd":        "cmd/frontseatd",
+	"frontseat-box":     "cmd/frontseat-box",
 	"frontseat-runner":  "cmd/frontseat-runner",
 	"frontseat-server":  "cmd/frontseat-server",
 	"frontseat-stack":   "cmd/frontseat-stack",

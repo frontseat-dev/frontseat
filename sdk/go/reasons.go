@@ -8,9 +8,6 @@ const (
 	ReasonActionNotFound = "ACTION_NOT_FOUND"
 	// ReasonBuildNotFound: no build has the id.
 	ReasonBuildNotFound = "BUILD_NOT_FOUND"
-	// ReasonCallNotServed: a call to a workspace's build API is none of
-	// its calls.
-	ReasonCallNotServed = "CALL_NOT_SERVED"
 	// ReasonConflictingOwnership: two entities own one directory.
 	ReasonConflictingOwnership = "CONFLICTING_OWNERSHIP"
 	// ReasonCredentialHostInvalid: a credential's host is not one.

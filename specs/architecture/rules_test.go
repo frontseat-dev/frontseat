@@ -101,6 +101,12 @@ var policies = []policy{
 	// The sandbox API is no part of the SDK: a test asks it, and opens a
 	// tunnel to a sandbox's port, through this.
 	{"sandbox/testsupport/testsandbox", []string{"sdk/go/api/**", "sandbox/api/**", "testsupport/testwire"}},
+	// A workspace is built from inside it: a test outside asks the build
+	// daemon of a box through the SDK, which carries it to a port there
+	// and reads what the daemon builds, presenting the daemon's token as
+	// the SDK presents one; where the daemon says it serves is where
+	// every program finds it. It knows nothing of the daemon itself.
+	{"sandbox/testsupport/testbuild", []string{"sdk/go", "sdk/go/bearer", "core/ports"}},
 	// What the local stack is, read from its files: one reader, for the
 	// stack's control plane, the box and the test support, which links
 	// nothing of the server.
@@ -1223,6 +1229,7 @@ func TestWhatIsNoClientsIsFound(t *testing.T) {
 		module + "/testsupport/testfiles":               true,
 		module + "/stack/testsupport/testgrid":          true,
 		module + "/sandbox/testsupport/testsandbox":     true,
+		module + "/sandbox/testsupport/testbuild":       true,
 		module + "/workspace/server/controlplanetest":   true,
 		module + "/workspace/server/toldtest":           true,
 		module + "/specs/buildtest":                     true,

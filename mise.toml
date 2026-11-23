@@ -52,7 +52,7 @@ checksum_url = 'https://static.rust-lang.org/dist/rust-std-{{ version }}-wasm32-
 
 [env]
 # What `mise run build` makes of this checkout is on the PATH here, so
-# that frontseat, frontseatd, frontseat-server and frontseat-stack are the ones just built.
+# that frontseat, frontseatd, frontseat-box, frontseat-server and frontseat-stack are the ones just built.
 _.path = ["./dist/bin"]
 # Cargo is told where the wasm standard library is, in whatever has it:
 # an action that does not name it is told nothing.
@@ -70,7 +70,7 @@ CARGO_TARGET_WASM32_WASIP1_RUSTFLAGS = { value = "{% if tools['http:rust-std-was
 [tasks.build]
 description = "Build Frontseat from this checkout into dist/ (dist/bin is on the PATH here), and the image each workspace runs (the box), tagged frontseat-box:local too"
 sources = ["api/**", "cli/**", "cmd/**", "core/**", "common/**", "testsupport/**", "sandbox/**", "build/**", "grid/**", "workspace/**", "stack/**", "sdk/**", "specs/cmd/**", "specs/internal/**", "plugins/**", "Cargo.toml", "Cargo.lock", "go.work", "go.work.sum", "mise.lock"]
-outputs = ["dist/bin/frontseat", "dist/bin/frontseatd", "dist/bin/frontseat-server", "dist/bin/frontseat-stack", "dist/plugins"]
+outputs = ["dist/bin/frontseat", "dist/bin/frontseatd", "dist/bin/frontseat-box", "dist/bin/frontseat-server", "dist/bin/frontseat-stack", "dist/plugins"]
 run = [
   { task = "build:programs" },
   "dist/bin/frontseat-stack box --tag frontseat-box:local --plugins dist/plugins",
@@ -85,6 +85,7 @@ run = [
   "mkdir -p dist/bin",
   "go build -o dist/bin/frontseat ./cli/cmd/frontseat",
   "go build -o dist/bin/frontseatd ./cmd/frontseatd",
+  "go build -o dist/bin/frontseat-box ./cmd/frontseat-box",
   "go build -o dist/bin/frontseat-server ./cmd/frontseat-server",
   "go build -o dist/bin/frontseat-stack ./cmd/frontseat-stack",
   "go run ./specs/cmd/prepare-modules -dist dist/plugins",
