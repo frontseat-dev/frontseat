@@ -100,7 +100,16 @@ func Open(root string, mounted bool, system vcs.System) (*Workspace, error) {
 	if err := populate.Settle(root, recorded.Repositories); err != nil {
 		return nil, err
 	}
-	if found && len(recorded.Repositories) > 0 {
+	// What the workspace is, is kept beside the manifest and written
+	// into it: a manifest that says its fill never ended is of a daemon
+	// that stopped midway, or failed, and what it records is not whole
+	// until it is told a source again.
+	unfinished := recorded.State != ""
+	recorded.State = ""
+	switch {
+	case found && unfinished:
+		w.manifest, w.state, w.message = recorded, Failed, errClosed.Error()
+	case found && len(recorded.Repositories) > 0:
 		w.manifest, w.state = recorded, Ready
 	}
 	return w, nil
@@ -223,15 +232,30 @@ func (w *Workspace) Populate(generation int64, checkouts []record.Checkout, loca
 	// Counted with the lock held, as Close reads closed: no pass is
 	// counted once Close waits for them.
 	w.passes.Add(1)
+	filling := w.manifest
 	w.mu.Unlock()
+
+	// The manifest says the workspace is being filled before anything is
+	// brought, and until all of it is recorded: a build reads it, and
+	// takes nothing of a directory that says so. A fill that fails says
+	// that.
+	fail := func(err error) {
+		w.mu.Lock()
+		failed := w.manifest
+		w.set(Failed, err.Error())
+		w.mu.Unlock()
+		failed.State = manifest.Failed
+		_ = manifest.Write(w.root, failed)
+	}
+	filling.State = manifest.Filling
+	if err := manifest.Write(w.root, filling); err != nil {
+		fail(err)
+		w.passes.Done()
+		return nil
+	}
 
 	go func() {
 		defer w.passes.Done()
-		fail := func(err error) {
-			w.mu.Lock()
-			w.set(Failed, err.Error())
-			w.mu.Unlock()
-		}
 		for _, c := range checkouts {
 			at := -1
 			for i, r := range held {
@@ -269,6 +293,7 @@ func (w *Workspace) Populate(generation int64, checkouts []record.Checkout, loca
 				w.manifest.Repositories = held
 				recorded := w.manifest
 				w.mu.Unlock()
+				recorded.State = manifest.Failed
 				if kept := w.record(recorded); kept != nil {
 					err = errors.Join(err, kept)
 				}

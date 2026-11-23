@@ -1,6 +1,8 @@
 package manifest
 
 import (
+	"fmt"
+
 	"github.com/frontseat-dev/frontseat/common/record"
 	"github.com/frontseat-dev/frontseat/sdk/go/entity"
 )
@@ -16,7 +18,20 @@ type Manifest struct {
 	// Known are the entities the workspace knows where to find: those
 	// asked for and those they depend on.
 	Known []Entity `yaml:"known,omitempty"`
+	// State is what the workspace is, where what the manifest records is
+	// not whole: Filling, from before anything of a fill is brought until
+	// all of it is recorded, or Failed, after a fill that did not end.
+	// Empty, what is recorded is whole. Whoever fills the workspace
+	// writes it; a build, which reads the directory and no one else,
+	// takes nothing of a workspace that says either.
+	State string `yaml:"state,omitempty"`
 }
+
+// The states a manifest says.
+const (
+	Filling = "filling"
+	Failed  = "failed"
+)
 
 // Entity is an entity a workspace knows, and where it lives.
 type Entity struct {
@@ -48,10 +63,20 @@ func (e Entity) Within() error {
 // Within holds a manifest to the workspace it is of: every repository
 // and every entity it names is within it.
 func (m Manifest) Within(revision func(name string) error) error {
+	if m.State != "" && m.State != Filling && m.State != Failed {
+		return fmt.Errorf("%w: its state is none a workspace is in", record.ErrUnfit)
+	}
+	named := map[string]bool{}
 	for _, r := range m.Repositories {
 		if err := r.Within(revision); err != nil {
 			return err
 		}
+		// A repository is one directory of the workspace, by its name:
+		// two of one name are one directory said to be two things.
+		if named[r.Name] {
+			return fmt.Errorf("%w: a repository is recorded twice, and a name is one directory of the workspace", record.ErrUnfit)
+		}
+		named[r.Name] = true
 	}
 	for _, e := range m.Known {
 		if err := e.Within(); err != nil {

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/frontseat-dev/frontseat/common/record"
+	"github.com/frontseat-dev/frontseat/common/record/manifest"
 	"github.com/frontseat-dev/frontseat/common/vcs"
 )
 
@@ -210,5 +211,50 @@ func TestARepositoryThatFailsOfItselfWhileTheWorkspaceClosesSaysWhy(t *testing.T
 
 	if now := ended(t, w); now.State != Failed || !strings.Contains(now.Message, "services is in the workspace already") {
 		t.Errorf("the workspace is %v (%s), want failed, saying the repository is there already", now.State, now.Message)
+	}
+}
+
+// A workspace says in its manifest that it is being filled, from before
+// anything of the fill is brought until all of it is recorded, and that
+// its last fill failed: a build reads the directory and nothing else, and
+// is not to take a repository being widened in place, or one a fill left
+// midway, for one that is whole. A workspace opened over a manifest that
+// says either is not ready. The control is the same workspace once it
+// was filled, whose manifest says neither.
+func TestAWorkspaceSaysInItsManifestThatItIsBeingFilledAndThatAFillFailed(t *testing.T) {
+	system, w, asked := underWay(t)
+	said := func() string {
+		t.Helper()
+		recorded, found, err := manifest.Read(w.Root(), system.Revision)
+		if err != nil || !found {
+			t.Fatalf("the workspace's manifest: found %v, %v", found, err)
+		}
+		return recorded.State
+	}
+	if state := said(); state != manifest.Filling {
+		t.Fatalf("while a repository is brought, the manifest says %q; want %q", state, manifest.Filling)
+	}
+	w.Close()
+	if state := said(); state != manifest.Failed {
+		t.Fatalf("after a fill that failed, the manifest says %q; want %q", state, manifest.Failed)
+	}
+
+	system.through.Store(true)
+	reopened, err := Open(w.Root(), false, system)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reopened.Close()
+	if now, _ := reopened.Now(); now.State != Failed {
+		t.Errorf("opened over a manifest that says its fill failed, the workspace is %v; want failed", now.State)
+	}
+	if err := reopened.Populate(2, asked, nil); err != nil {
+		t.Fatal(err)
+	}
+	if now := ended(t, reopened); now.State != Ready {
+		t.Fatalf("asked again, the workspace is %v (%s); want ready", now.State, now.Message)
+	}
+	if state := said(); state != "" {
+		t.Errorf("the control: filled, the manifest says %q; want nothing", state)
 	}
 }

@@ -1,9 +1,12 @@
 package directory_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -61,16 +64,104 @@ func opened(t *testing.T, root string, alone bool) (*directory.Directory, *asked
 func TestADirectoryHoldsWhatItsManifestRecordsNow(t *testing.T) {
 	root := t.TempDir()
 	d, _ := opened(t, root, false)
-	if held, err := d.Repositories(); err != nil || len(held) != 0 {
+	if held, err := d.Holds(); err != nil || len(held.Repositories) != 0 {
 		t.Fatalf("a directory with no manifest holds %v (%v); want nothing", held, err)
 	}
 	recorded(t, root, record.Repository{Name: "code", Remote: "https://forge.example/code.git", Commit: commit})
-	if held, err := d.Repositories(); err != nil || len(held) != 1 || held[0].Name != "code" {
+	if held, err := d.Holds(); err != nil || len(held.Repositories) != 1 || held.Repositories[0].Name != "code" {
 		t.Fatalf("it holds %v (%v); want the repository recorded since it was opened", held, err)
 	}
 	recorded(t, root, record.Repository{Name: "other", Remote: "https://forge.example/other.git", Commit: commit})
-	if held, err := d.Repositories(); err != nil || len(held) != 1 || held[0].Name != "other" {
+	if held, err := d.Holds(); err != nil || len(held.Repositories) != 1 || held.Repositories[0].Name != "other" {
 		t.Errorf("it holds %v (%v); want what the manifest records now", held, err)
+	}
+}
+
+// A manifest is read each time it is asked of, and never taken for the
+// one read before by how its file looks: whatever runs in the directory
+// can write it in place, at the length it had and the time it said. The
+// control is the first reading, of what was written first.
+func TestAManifestWrittenInPlaceAtTheSameLengthAndTimeIsReadAgain(t *testing.T) {
+	root := t.TempDir()
+	d, _ := opened(t, root, false)
+	recorded(t, root, record.Repository{Name: "code", Remote: "https://forge.example/code.git", Commit: commit})
+	if held, err := d.Holds(); err != nil || len(held.Repositories) != 1 || held.Repositories[0].Name != "code" {
+		t.Fatalf("the control: it holds %v (%v); want what was written first", held, err)
+	}
+	file := filepath.Join(root, filepath.FromSlash(manifest.File))
+	before, err := os.Stat(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	was, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := bytes.ReplaceAll(was, []byte("code"), []byte("evil"))
+	if len(now) != len(was) || bytes.Equal(now, was) {
+		t.Fatalf("the fixture writes %q over %q, which is not another manifest of its length", now, was)
+	}
+	// In place: the same file of the disk, written through.
+	if err := os.WriteFile(file, now, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(file, before.ModTime(), before.ModTime()); err != nil {
+		t.Fatal(err)
+	}
+	if held, err := d.Holds(); err != nil || len(held.Repositories) != 1 || held.Repositories[0].Name != "evil" {
+		t.Errorf("it holds %v (%v); want what the manifest says now", held, err)
+	}
+}
+
+// What a directory holds is of one reading: its repositories and the
+// entities it knows, each in a repository of that answer. A manifest
+// that cannot be read is an error, and not a directory that knows no
+// entity; the control is the same manifest, read.
+func TestWhatADirectoryHoldsIsOfOneReadingAndAManifestNotReadIsAnError(t *testing.T) {
+	root := t.TempDir()
+	d, _ := opened(t, root, false)
+	file := filepath.Join(root, filepath.FromSlash(manifest.File))
+	recorded(t, root, record.Repository{Name: "code", Remote: "https://forge.example/code.git", Commit: commit})
+	written, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(file, append(written, "known:\n  - ref: component:default/gateway\n    repository: code\n    root: gateway\n"...), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	held, err := d.Holds()
+	if err != nil || len(held.Repositories) != 1 || len(held.Entities) != 1 || held.Entities[0].Repository != held.Repositories[0].Name || held.Entities[0].Root != "gateway" {
+		t.Fatalf("the control: it holds %v (%v); want the repository and the entity that lives in it", held, err)
+	}
+	if err := os.WriteFile(file, []byte("version: 1\nanother: reader\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if held, err := d.Holds(); err == nil {
+		t.Errorf("a manifest that is not read holds %v; want an error, and not a directory that knows nothing", held)
+	}
+}
+
+// A directory whose manifest says it is being filled, or that its last
+// fill failed, holds nothing a build may take: what is recorded there is
+// not whole. Each is refused as what it is, by an error a caller knows
+// (ErrNotWhole), which says which. The control is the same manifest
+// saying neither.
+func TestADirectoryBeingFilledOrWhoseFillFailedHoldsNothingToBuild(t *testing.T) {
+	root := t.TempDir()
+	d, _ := opened(t, root, false)
+	held := []record.Repository{{Name: "code", Remote: "https://forge.example/code.git", Commit: commit}}
+	for state, says := range map[string]string{manifest.Filling: "being filled", manifest.Failed: "failed"} {
+		if err := manifest.Write(root, manifest.Manifest{Repositories: held, State: state}); err != nil {
+			t.Fatal(err)
+		}
+		got, err := d.Holds()
+		if !errors.Is(err, directory.ErrNotWhole) || !strings.Contains(err.Error(), says) || len(got.Repositories) != 0 {
+			t.Errorf("a manifest that says %q: held %v (%v); want nothing, refused as not whole and saying it is %s", state, got, err, says)
+		}
+	}
+	recorded(t, root, held...)
+	if got, err := d.Holds(); err != nil || len(got.Repositories) != 1 {
+		t.Errorf("the control: a manifest that says neither holds %v (%v); want its repository", got, err)
 	}
 }
 
@@ -106,7 +197,7 @@ func TestADirectoryAloneIsOneRepositoryOfNoName(t *testing.T) {
 	recorded(t, root, record.Repository{Name: "code", Remote: "https://forge.example/code.git", Commit: commit})
 	d, system := opened(t, root, true)
 	ctx := context.Background()
-	if held, err := d.Repositories(); err != nil || len(held) != 0 {
+	if held, err := d.Holds(); err != nil || len(held.Repositories) != 0 {
 		t.Errorf("alone, it holds %v (%v); want no repository by a name", held, err)
 	}
 	if _, err := d.Standing(ctx, ""); err != nil || len(system.standing) != 1 || system.standing[0] != root {
@@ -131,8 +222,20 @@ func TestAManifestThatNamesAPlaceOutsideIsRefused(t *testing.T) {
 		root := t.TempDir()
 		recorded(t, root, bad)
 		d, _ := opened(t, root, false)
-		if held, err := d.Repositories(); err == nil {
+		held, err := d.Holds()
+		if err == nil {
 			t.Errorf("%s: held %v; want it refused", name, held)
+			continue
+		}
+		// What refuses it is told to whoever asked for a build, and
+		// repeats nothing the manifest said; what it is, is kept.
+		if !errors.Is(err, record.ErrUnfit) {
+			t.Errorf("%s: refused as %v; want it kept that the manifest is unfit", name, err)
+		}
+		for _, said := range []string{strconv.Quote(bad.Name), strconv.Quote(bad.Commit)} {
+			if strings.Contains(err.Error(), said) {
+				t.Errorf("%s: the refusal repeats %s of the manifest: %v", name, said, err)
+			}
 		}
 	}
 }
