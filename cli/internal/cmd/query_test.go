@@ -32,9 +32,9 @@ func component(name string) *typev1.EntityRef {
 
 func (g *graphed) ListEntities(context.Context, *buildv1.ListEntitiesRequest) (*buildv1.ListEntitiesResponse, error) {
 	return &buildv1.ListEntitiesResponse{Entities: []*buildv1.Entity{
-		{Ref: component("gateway"), Repository: "platform", Roots: []string{"gateway"}, DependsOn: []*typev1.EntityRef{component("ledger")}},
-		{Ref: component("ledger"), Repository: "platform", Roots: []string{"ledger"}, DependsOn: []*typev1.EntityRef{component("money")}},
-		{Ref: component("money"), Repository: "libs", Roots: []string{"money"}},
+		{Ref: component("gateway"), Repository: "platform", Commit: standing["platform"], Roots: []string{"gateway"}, DependsOn: []*typev1.EntityRef{component("ledger")}},
+		{Ref: component("ledger"), Repository: "platform", Commit: standing["platform"], Roots: []string{"ledger"}, DependsOn: []*typev1.EntityRef{component("money")}},
+		{Ref: component("money"), Repository: "libs", Commit: standing["libs"], Roots: []string{"money"}},
 	}}, nil
 }
 
@@ -118,16 +118,14 @@ func reasoned(t *testing.T, from, to string, commits map[string]string) plain.An
 var standing = map[string]string{"platform": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "libs": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}
 
 // Why one entity depends on another is the shortest chain between them:
-// each step with what is required and the line that says so. A daemon
-// says nothing of the commits its repositories stand at, so the command,
-// which asks a daemon alone, says the chain without them; where they are
-// known, each step says the commit the entity required is at in its
-// repository, which is shown of the answer itself.
+// each step with what is required, the line that says so, and the
+// commit the entity required is at in its repository, as the daemon
+// says it of each entity.
 func TestQueryWhySaysWhyAndAtWhichCommit(t *testing.T) {
 	printed, code, err := asking(t, &graphed{}, "query", "gateway", "--why", "money")
 	want := "gateway -> ledger -> money\n" +
-		"  gateway -> ledger  go:example.com/ledger  platform/gateway/go.mod:5\n" +
-		"  ledger -> money  go:example.com/money  platform/ledger/go.mod:4\n"
+		"  gateway -> ledger  go:example.com/ledger  platform/gateway/go.mod:5  ledger at platform@aaaaaaaaaaaa\n" +
+		"  ledger -> money  go:example.com/money  platform/ledger/go.mod:4  money at libs@bbbbbbbbbbbb\n"
 	if err != nil || code != 0 || printed != want {
 		t.Errorf("query --why ended %d, %v, printing\n%s\nwant\n%s", code, err, printed, want)
 	}
@@ -146,8 +144,8 @@ func TestQueryWhySaysWhyAndAtWhichCommit(t *testing.T) {
 	want = "gateway -> go:github.com/spf13/cobra\n" +
 		"  gateway -> go:github.com/spf13/cobra  platform/gateway/go.mod:6 at v1.9.1\n" +
 		"gateway -> ledger -> money -> go:github.com/spf13/cobra\n" +
-		"  gateway -> ledger  go:example.com/ledger  platform/gateway/go.mod:5\n" +
-		"  ledger -> money  go:example.com/money  platform/ledger/go.mod:4\n" +
+		"  gateway -> ledger  go:example.com/ledger  platform/gateway/go.mod:5  ledger at platform@aaaaaaaaaaaa\n" +
+		"  ledger -> money  go:example.com/money  platform/ledger/go.mod:4  money at libs@bbbbbbbbbbbb\n" +
 		"  money -> go:github.com/spf13/cobra  libs/money/go.mod:3 at v1.8.0\n"
 	if err != nil || code != 0 || printed != want {
 		t.Errorf("query --why of a requirement ended %d, %v, printing\n%s\nwant\n%s", code, err, printed, want)
@@ -208,7 +206,7 @@ func TestQueryWritesJSONForAProgram(t *testing.T) {
 		t.Fatalf("query --json wrote %s", printed)
 	}
 	last := got.Why.Paths[0][1]
-	if last.From != "component:default/ledger" || last.To != "component:default/money" || last.Commit != "" || last.Repository != "libs" || last.Because[0].Origin != "platform/ledger/go.mod:4" {
+	if last.From != "component:default/ledger" || last.To != "component:default/money" || last.Commit != "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" || last.Repository != "libs" || last.Because[0].Origin != "platform/ledger/go.mod:4" {
 		t.Errorf("the last step is %+v", last)
 	}
 	// Where the commits are known, a step says its repository's, by

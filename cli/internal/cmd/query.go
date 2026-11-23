@@ -78,10 +78,15 @@ program to read.`,
 		var answer plain.Answer
 		switch {
 		case queryWhy != "":
-			// Which commit each repository stands at is the workspace's to
-			// say, and the daemon asked here says none: a chain is said
-			// without it.
+			// Which commit each repository stands at the daemon says of
+			// each entity, as the workspace records it; of a checkout it
+			// was given it says none, and a chain is said without it.
 			commits := map[string]string{}
+			for _, e := range g.entities {
+				if e.GetCommit() != "" {
+					commits[e.GetRepository()] = e.GetCommit()
+				}
+			}
 			why, err := g.why(target, queryWhy, commits)
 			if err != nil {
 				return err
