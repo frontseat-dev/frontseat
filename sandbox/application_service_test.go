@@ -212,18 +212,19 @@ func buildApplication(t *testing.T) (string, string) {
 	root := fixtureRoot(t)
 	testpins.Go(t, root)
 	// The probe imports the production relay. Give its isolated repository
-	// that source too, under its real internal package path: a host build
-	// can see the parent module, but the grid sees only this fixture.
-	wrote(t, root, "app/go.mod", "module github.com/frontseat-dev/frontseat/server\n\ngo 1.27\n")
+	// that source too, under its real package path: a host build can see
+	// the relay's own module, but the grid sees only this fixture, which
+	// is a module one directory above where the relay's is.
+	wrote(t, root, "app/go.mod", "module github.com/frontseat-dev/frontseat/common\n\ngo 1.27\n")
 	source, err := testmodule.Root()
 	if err != nil {
 		t.Fatal(err)
 	}
-	routes, err := os.ReadFile(filepath.Join(source, "server", "internal", "confine", "routes.go"))
+	routes, err := os.ReadFile(filepath.Join(source, "common", "confine", "routes.go"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	wrote(t, root, "app/internal/confine/routes.go", string(routes))
+	wrote(t, root, "app/confine/routes.go", string(routes))
 	wrote(t, root, "app/catalog-info.yaml", "apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata:\n  name: app\nspec:\n  type: service\n  lifecycle: experimental\n  owner: team\n")
 	files, err := os.ReadDir("testdata/service-route")
 	if err != nil {
@@ -243,7 +244,7 @@ func buildApplication(t *testing.T) (string, string) {
 	// every proof run. Its artifact may still be reused by several instances.
 	identity := unique()
 	wrote(t, root, "app/stamp.go", "package main\nimport \"os\"\nfunc init() { os.Setenv(\"APPLICATION_BUILD\", \""+identity+"\") }\n")
-	return buildArtifact(t, root, "//app:go.compile", "../../.frontseat/home/go/bin/server", "actor"), identity
+	return buildArtifact(t, root, "//app:go.compile", "../../.frontseat/home/go/bin/common", "actor"), identity
 }
 
 // fixtureRoot is a new directory for a fixture repository, named "fixture":
