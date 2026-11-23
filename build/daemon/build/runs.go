@@ -104,6 +104,20 @@ type builds struct {
 	going sync.WaitGroup
 }
 
+// busy says whether a run has not ended.
+func (rs *builds) busy() bool {
+	rs.mu.Lock()
+	defer rs.mu.Unlock()
+	for _, r := range rs.order {
+		select {
+		case <-r.done:
+		default:
+			return true
+		}
+	}
+	return false
+}
+
 // errStopped is a run asked of a daemon that has ended.
 var errStopped = errors.New("the daemon is ending, and makes no run")
 

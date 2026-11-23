@@ -394,6 +394,8 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		{"workspace/box/supervisor/supervisor.go", "build/engine/exec", false},
 		{"build/daemon/daemon/daemon.go", "workspace/box/supervisor", true},
 		{"build/daemon/daemon/daemon.go", "build/daemon/settings", true},
+		{"build/daemon/daemon/serve.go", "common/record/manifest", true},
+		{"build/daemon/daemon/serve.go", "workspace/server/controlplane", false},
 		{"build/daemon/settings/settings.go", "build/daemon/build", true},
 		{"build/daemon/settings/settings.go", "workspace/box/source", false},
 		{"build/daemon/settings/settings.go", "core/ports", false},
