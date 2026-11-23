@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/frontseat-dev/frontseat/build/daemon/build"
 	"github.com/frontseat-dev/frontseat/build/daemon/settings"
 	"github.com/frontseat-dev/frontseat/common/record/manifest"
@@ -81,7 +83,7 @@ func Serve(ctx context.Context, o Options) error {
 	if err != nil {
 		return err
 	}
-	ctx = signals.Context(ctx)
+	ctx = apart(signals.Context(ctx))
 	var plugins [][]byte
 	for _, path := range read.Plugins {
 		module, err := os.ReadFile(path)
@@ -100,6 +102,15 @@ func Serve(ctx context.Context, o Options) error {
 		idle = idleFor
 	}
 	return Keep(ctx, Life{State: o.State, Said: Info{Version: o.Version, Settings: digest, Directory: directory, Environment: Environment(read.Given)}, Handler: made.Handler, Busy: made.Busy, Idle: idle})
+}
+
+// apart is a context that is part of no trace. A daemon is started by a
+// command and outlives it: what it serves afterwards is each caller's
+// own, a trace of its own or the one the caller says, and never a part
+// of the command that happened to start the daemon, whose trace would
+// otherwise hold every build the daemon ever made.
+func apart(ctx context.Context) context.Context {
+	return trace.ContextWithSpanContext(ctx, trace.SpanContext{})
 }
 
 // Read reads a daemon's settings from a file, and returns with them what

@@ -11,6 +11,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"go.opentelemetry.io/otel/trace"
 )
 
 // kept starts a daemon's life over a state directory of the test's,
@@ -228,5 +230,21 @@ func TestABuildDaemonAskedToStopWithItsTokenEndsItself(t *testing.T) {
 		}
 	case <-time.After(30 * time.Second):
 		t.Fatal("asked to stop, the daemon never ended")
+	}
+}
+
+// What a daemon serves is part of no trace of the command that started
+// it: the daemon outlives that command, and every build it made after
+// would be one trace with it. The control is the context it was started
+// in, which is part of that command's trace.
+func TestWhatADaemonServesIsNoPartOfTheTraceItWasStartedIn(t *testing.T) {
+	started := trace.ContextWithSpanContext(t.Context(), trace.NewSpanContext(trace.SpanContextConfig{
+		TraceID: trace.TraceID{1}, SpanID: trace.SpanID{2}, TraceFlags: trace.FlagsSampled,
+	}))
+	if !trace.SpanContextFromContext(started).IsValid() {
+		t.Fatal("the control: the context a daemon is started in is part of no trace")
+	}
+	if within := trace.SpanContextFromContext(apart(started)); within.IsValid() {
+		t.Errorf("what the daemon serves is part of the trace %s it was started in", within.TraceID())
 	}
 }
