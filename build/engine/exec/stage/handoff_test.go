@@ -140,8 +140,8 @@ func TestADownloadingFetchIsGivenWhatWasFetchedAndUnpacksItOffline(t *testing.T)
 	}
 	// The control: the daemon has no asset service.
 	_, err := Of(t.Context(), snapshot, action, installed(), nil, nil)
-	if err == nil || !strings.Contains(err.Error(), "--assets") {
-		t.Errorf("without an asset service: %v; want a refusal naming --assets", err)
+	if err == nil || !strings.Contains(err.Error(), "grid.assets") {
+		t.Errorf("without an asset service: %v; want a refusal naming grid.assets", err)
 	}
 }
 

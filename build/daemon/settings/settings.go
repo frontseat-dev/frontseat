@@ -69,7 +69,7 @@ func told(f buildfile.File, dir string) (Settings, error) {
 	if f.Grid.Address == "" {
 		return Settings{}, errors.New("grid.address is not said: a build's actions run on a grid")
 	}
-	plugins, err := Modules(nil, from(f.Plugins))
+	plugins, err := Modules(from(f.Plugins))
 	if err != nil {
 		return Settings{}, err
 	}
@@ -99,14 +99,11 @@ func told(f buildfile.File, dir string) (Settings, error) {
 // variable is a variable's name.
 var variable = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
-// Modules is the plugins given one by one, and after them every
-// <name>.wasm of a directory of plugins, by name. A directory named that
-// holds none is refused: a daemon with none of the plugins it was
-// pointed at would refuse every repository later, and say less.
-func Modules(plugins []string, directory string) ([]string, error) {
-	if directory == "" {
-		return plugins, nil
-	}
+// Modules is every <name>.wasm of a directory of plugins, by name. A
+// directory that holds none is refused: a daemon with none of the
+// plugins it was pointed at would refuse every repository later, and say
+// less.
+func Modules(directory string) ([]string, error) {
 	entries, err := os.ReadDir(directory)
 	if err != nil {
 		return nil, fmt.Errorf("the directory of plugins: %w", err)
@@ -120,7 +117,7 @@ func Modules(plugins []string, directory string) ([]string, error) {
 	if len(found) == 0 {
 		return nil, fmt.Errorf("the directory of plugins, %s, holds no <name>.wasm", directory)
 	}
-	return append(plugins, found...), nil
+	return found, nil
 }
 
 // Rewrites holds which proxy stands in for each public site a download

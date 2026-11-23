@@ -60,11 +60,11 @@ func TestTheLocalBuildMakesAWorkspaceAndBuildsIt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	made := []string{"bin/frontseat", "bin/frontseatd", "bin/frontseat-box", "bin/frontseat-server", "bin/frontseat-stack"}
+	made := []string{"bin/frontseat", "bin/frontseat-box", "bin/frontseat-server", "bin/frontseat-stack"}
 	for name := range plugins {
 		made = append(made, "plugins/"+name+".wasm")
 	}
-	if len(made) == 5 {
+	if len(made) == 4 {
 		t.Fatal("no plugin was prepared for this test")
 	}
 	for _, made := range made {

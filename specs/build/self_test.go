@@ -41,7 +41,7 @@ func TestBuildsThisRepositorySModulesAndAPIFromItsCommittedConfiguration(t *test
 		"//cli:go.compile", "//cli:go.lint",
 		"//build/engine:go.compile", "//build/engine:go.lint",
 		"//build/daemon:go.compile", "//workspace/server:go.compile", "//core:go.compile",
-		"//cmd/frontseatd:go.compile", "//cmd/frontseat-box:go.compile", "//cmd/frontseat-confine:go.compile",
+		"//cmd/frontseat-box:go.compile", "//cmd/frontseat-confine:go.compile",
 		"//stack:go.compile",
 		"//sdk/go:go.compile", "//sdk/go:go.lint",
 		"//api:buf.lint", "//api:buf.generate/sdk", "//api:buf.generate/daemon", "//api:buf.generate/runner", "//api:buf.generate/source", "//api:buf.generate/sandbox",
@@ -136,7 +136,7 @@ func TestIsTheDomainItsCatalogFilesDeclareWhoseComponentsOwnEveryProject(t *test
 		spec.Expect(in).To(HaveLen(1), ref)
 		spec.Expect(systems).To(ContainElement(in[0]), ref)
 	}
-	spec.Expect(components).To(ContainElements(append(shared, "component:frontseat/api", "component:frontseat/cli", "component:frontseat/build-engine", "component:frontseat/build-daemon", "component:frontseat/workspace-server", "component:frontseat/workspace-box", "component:frontseat/sandbox", "component:frontseat/core", "component:frontseat/frontseatd", "component:frontseat/frontseat-box", "component:frontseat/frontseat-confine", "component:frontseat/stack", "component:frontseat/go-sdk", "component:frontseat/plugin-sdk", "component:frontseat/go-plugin", "component:frontseat/backstage-plugin")))
+	spec.Expect(components).To(ContainElements(append(shared, "component:frontseat/api", "component:frontseat/cli", "component:frontseat/build-engine", "component:frontseat/build-daemon", "component:frontseat/workspace-server", "component:frontseat/workspace-box", "component:frontseat/sandbox", "component:frontseat/core", "component:frontseat/frontseat-box", "component:frontseat/frontseat-confine", "component:frontseat/stack", "component:frontseat/go-sdk", "component:frontseat/plugin-sdk", "component:frontseat/go-plugin", "component:frontseat/backstage-plugin")))
 	// The APIs, the Resources and the Location are entities that own no
 	// source, and what is said of the APIs comes out as Backstage's
 	// relations, both ways.

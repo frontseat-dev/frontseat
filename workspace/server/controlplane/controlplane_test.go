@@ -550,7 +550,7 @@ func TestAWorkspaceIsNamedByWhatItWasAskedFor(t *testing.T) {
 // terms, by rules: a host fetched from for the requests a fetch of each
 // repository asks, by the fetching programs, with the host's credential
 // where one is kept and a push only where the workspace pushes; the grid
-// and its asset service by the daemon's program. A repository whose
+// and its asset service by the build's program. A repository whose
 // remote the system clones over https, though it is written otherwise,
 // is fetched by the rule of the host it is cloned from. It is told the
 // workspace's name, who commits and whose key gets in.

@@ -193,7 +193,7 @@ func TestATokenIsNotSentInTheClear(t *testing.T) {
 	grid := &reapitest.Answering{}
 	address := grid.Serve(t)
 	config := access.Config{Token: token(t, "aaa.bbb.ccc")}
-	if err := config.Check(); err == nil || !strings.Contains(err.Error(), "--grid-ca") || !strings.Contains(err.Error(), "in the clear") {
+	if err := config.Check(); err == nil || !strings.Contains(err.Error(), "grid.authorities") || !strings.Contains(err.Error(), "in the clear") {
 		t.Errorf("checked: %v; want it refused, naming what is missing", err)
 	}
 	byGrid, byAssets := ask(t, config, address)
@@ -285,7 +285,7 @@ func TestATokenIsToldOnlyToAGridOfNamedAuthorities(t *testing.T) {
 	file := token(t, "aaa.bbb.ccc\n")
 	by := access.Config{TLS: true, Token: file}
 	err := by.Check()
-	if err == nil || !strings.Contains(err.Error(), "--grid-ca") || !strings.Contains(err.Error(), "--grid-token") || strings.Contains(err.Error(), "aaa.bbb.ccc") {
+	if err == nil || !strings.Contains(err.Error(), "grid.authorities") || !strings.Contains(err.Error(), "grid.token") || strings.Contains(err.Error(), "aaa.bbb.ccc") {
 		t.Errorf("a token, and the system's authorities: %v", err)
 	}
 	if _, _, err := by.Options(); err == nil {

@@ -122,7 +122,7 @@ func New(ctx context.Context, config Config) (*Daemon, error) {
 // it, and a daemon that cannot read its token (reapi.Settled).
 func dial(ctx context.Context, config Grid) (*reapi.Grid, error) {
 	if config.Address == "" {
-		return nil, fmt.Errorf("no grid: give --grid")
+		return nil, fmt.Errorf("no grid: the settings say none (grid.address)")
 	}
 	deadline := time.Now().Add(30 * time.Second)
 	var grid *reapi.Grid

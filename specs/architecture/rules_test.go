@@ -251,8 +251,9 @@ var policies = []policy{
 	// It resolves entities through the Backstage its operator gives it
 	// (workspace/server/backstage), held over a fake one in its tests.
 	{"workspace/server/controlplane/**", []string{"sdk/go/api/**", "sandbox/api/**", "sdk/go/entity", "workspace/server/controlplane/**", "sandbox", "workspace/server/backstage", "core/secretfile", "common/record", "common/vcs", "common/told", "common/told/sourceapi/**", "sandbox/testsupport/drivertest", "testsupport/backstagetest", "core/plain", "core/ports", "sdk/go", "core/page", "core/refusal", "common/record/records", "core/poll"}},
-	// A test starts a daemon as frontseatd does, and a control plane as
-	// frontseat-server does, each with the test support beside it.
+	// A test starts a build over a directory with what fills it beside,
+	// and a control plane as frontseat-server does, each with the test
+	// support beside it.
 	{"specs/buildtest", []string{"build/daemon/build", "core/telemetry", "testsupport/**", "sdk/go/api/**", "workspace/box/source", "common/told", "workspace/server/toldtest", "common/told/sourceapi/**", "common/vcs/chosen"}},
 	// A fake Backstage, of entities written as catalog files write them.
 	{"testsupport/backstagetest", []string{"sdk/go/entity"}},
@@ -261,9 +262,6 @@ var policies = []policy{
 	// It serves the sandbox service beneath the plane to the test alone,
 	// and says how the plane's owner is known as the SDK's clients take it.
 	{"workspace/server/controlplanetest", []string{"sandbox/api/**", "workspace/server/controlplane", "core/page", "workspace/server/backstage", "sandbox", "testsupport/**", "sdk/go/api/**", "sdk/go", "common/vcs/chosen"}},
-	// The daemon: a thin main over the package that is it, which reads
-	// its flags and serves the build API over what it is told.
-	{"cmd/frontseatd", []string{"build/daemon/daemon"}},
 	// A box's supervisor: a thin main over what holds the sandbox's lock,
 	// fills the workspace as the control plane tells it and serves its
 	// shell, and knows no build.
@@ -276,7 +274,6 @@ var policies = []policy{
 	// it is told, and where a workspace's manifest is. Nothing of a box,
 	// a sandbox or a control plane, so that the command line may link it.
 	{"build/daemon/life", []string{"build/daemon/build", "build/daemon/settings", "common/record/manifest", "common/vcs/chosen", "core/httpserver", "core/telemetry"}},
-	{"build/daemon/daemon", []string{"build/daemon/build", "build/daemon/settings", "build/daemon/life", "workspace/box/source", "workspace/box/supervisor", "core/httpserver", "core/telemetry", "core/ports", "common/vcs/chosen"}},
 	// The local stack's control plane: the control plane, told what the
 	// stack is by the stack's own package.
 	{"cmd/frontseat-server", []string{"workspace/server/controlplane", "workspace/server/backstage", "core/httpserver", "core/secretfile", "core/telemetry", "stack/local", "core/ports", "common/vcs/chosen"}},
@@ -1128,8 +1125,7 @@ var clientShares = map[string]string{
 // (owner, 2026-11-23): its life, what it is told, the build it serves
 // and the engine beneath it, with what those are built on. It is the
 // build's alone: nothing of a box, of a control plane, of a sandbox, of
-// the grid's runner or of the stack's programs, and not frontseatd's
-// program, which composes what fills a workspace.
+// the grid's runner or of the stack's programs.
 var clientBuilds = []string{
 	"build/daemon/life", "build/daemon/settings", "build/daemon/build", "build/daemon/directory", "build/engine",
 	"common/record", "common/runner", "common/vcs",
@@ -1218,7 +1214,6 @@ func TestWhatIsNoClientsIsFound(t *testing.T) {
 		module + "/build/daemon/life":                   false,
 		module + "/build/engine/model":                  false,
 		module + "/common/vcs/chosen":                   false,
-		module + "/build/daemon/daemon":                 true,
 		module + "/workspace/box/supervisor":            true,
 		module + "/build/engine/exec/tools/toolstest":   true,
 		module + "/grid/runner":                         true,
@@ -1682,20 +1677,20 @@ func buildsOfWhatFills(imports map[string][]string) []string {
 
 // A build needs a directory, and not whoever filled it: the build and
 // the directory it reads, and their tests, import nothing of what fills
-// a workspace, which the daemon's program starts beside them.
+// a workspace, which a box's supervisor holds and no build does.
 func TestTheBuildReadsItsDirectoryAndNothingOfWhatFillsIt(t *testing.T) {
 	root := repositoryRoot(t)
 	for _, file := range buildsOfWhatFills(importsUnder(t, root, root)) {
 		t.Errorf("%s imports %s: a build reads its directory, and knows nothing of what fills it", file, whatFills)
 	}
 	// The controls: a file of the build that imports it is found, a test
-	// of the build too; the daemon's program is not.
+	// of the build too; a box's supervisor, which holds it, is not.
 	planted := map[string][]string{
-		"build/daemon/build/runs.go":      {module + "/" + whatFills},
-		"build/daemon/build/run_test.go":  {module + "/" + whatFills},
-		"build/daemon/daemon/daemon.go":   {module + "/" + whatFills},
-		"build/daemon/directory/read.go":  {module + "/common/record"},
-		"build/daemon/directory/other.go": {module + "/" + whatFills},
+		"build/daemon/build/runs.go":             {module + "/" + whatFills},
+		"build/daemon/build/run_test.go":         {module + "/" + whatFills},
+		"workspace/box/supervisor/supervisor.go": {module + "/" + whatFills},
+		"build/daemon/directory/read.go":         {module + "/common/record"},
+		"build/daemon/directory/other.go":        {module + "/" + whatFills},
 	}
 	if found := buildsOfWhatFills(planted); !slices.Equal(found, []string{"build/daemon/build/run_test.go", "build/daemon/build/runs.go", "build/daemon/directory/other.go"}) {
 		t.Errorf("of what was planted, found %v", found)
@@ -1730,14 +1725,13 @@ var moduleOrder = []string{
 	"stack",
 	"sandbox",
 	"build/engine",
+	"build/daemon",
 	"grid",
 	"workspace/box",
-	"build/daemon",
 	"workspace/server",
 	// The programs, each a thin main over the part it runs.
 	"cmd/frontseat-confine",
 	"cmd/frontseat-runner",
-	"cmd/frontseatd",
 	"cmd/frontseat-box",
 	"cmd/frontseat-server",
 	"cmd/frontseat-stack",

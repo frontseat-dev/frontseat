@@ -186,7 +186,7 @@ func front(t *testing.T, config *tls.Config) string {
 func TestAGridsOwnWordsAreNotTakenForTheDaemonsTransport(t *testing.T) {
 	relaying := &reapitest.Answering{Code: codes.Unavailable, Words: `Backend "storage-0": connection error: desc = "transport: authentication handshake failed: tls: first record does not look like a TLS handshake"`}
 	_, err := reapi.Dial(t.Context(), reapi.Config{Address: relaying.Serve(t)})
-	if err == nil || reapi.Settled(err) || strings.Contains(err.Error(), "could not be asked over TLS") || strings.Contains(err.Error(), "--grid-tls") {
+	if err == nil || reapi.Settled(err) || strings.Contains(err.Error(), "could not be asked over TLS") || strings.Contains(err.Error(), "grid.tls") {
 		t.Errorf("a grid asked in the clear that speaks of a handshake: %v", err)
 	}
 	// Over TLS too, what an admitted grid says in its words is not the

@@ -224,9 +224,8 @@ the change that fixes it.
   `TestAWorkspacesBuildIsReadFromOutsideByItsOwnerThroughAPortCarriedThere` and
   `TestAPortOfAWorkspacesSandboxIsReachedAsBytesByItsOwner`.
 - **One state root per program.** What a program keeps is beneath one
-  directory: `frontseatd --state` (its runs),
-  `frontseat-server --state`, `frontseat-runner --state`, and the command
-  line's `$XDG_CONFIG_HOME/frontseat` (else `~/.config/frontseat`) on
+  directory: `frontseat-server --state`, `frontseat-runner --state`, and
+  the command line's `$XDG_CONFIG_HOME/frontseat` (else `~/.config/frontseat`) on
   every system, where a build daemon it started keeps its own beneath
   `build/`, in a directory named for the directory it builds. A
   workspace's sandbox has no such root: what is kept there is beneath
@@ -456,8 +455,8 @@ the change that fixes it.
   names it (`{frontseat.artifacts}`, `{frontseat.notes}`,
   `{frontseat.remote}`, `{frontseat.prerelease}`, and the version's).
   Its environment holds, of where the daemon runs, the variables it
-  names that the daemon was told it may be given (`frontseatd
-  --publish-environment`), and no other: that is how a tool is handed
+  names that the daemon was told it may be given (its settings'
+  `publish.environment`), and no other: that is how a tool is handed
   its token, in a job. It is ended, with whatever it started, after
   thirty minutes. What is said of it is the end of what it printed,
   with each of those values left out. An artifact it could not be given,
@@ -495,8 +494,9 @@ the change that fixes it.
   asked for; a daemon given a token this way holds a credential, which
   is for a job that already holds it and never for a workspace's
   sandbox, where credentials stay outside; the time limit, that
-  nothing a publish started outlives it, and the daemon's flag have no
-  test; a token a tool prints changed, as encoded, is not left out; no
+  nothing a publish started outlives it, and that a daemon whose
+  settings name a variable gives it to a publish have no test; a token
+  a tool prints changed, as encoded, is not left out; no
   spec publishes against the local stack.
 - A job releases from its own checkout. A build daemon the command
   line starts in a directory with no workspace's manifest takes it for a
@@ -504,8 +504,7 @@ the change that fixes it.
   `TestADirectoryWithNoManifestIsACheckoutAndOneWithItAWorkspace`), as
   this repository's own job does, which runs `frontseat build`, `test`
   and `ship` and starts no daemon by hand
-  (`.github/workflows/frontseat-job.yml`); `frontseatd --checkout`,
-  with `--name`, is the same for a daemon started by hand. A checkout is
+  (`.github/workflows/frontseat-job.yml`). A checkout is
   one repository, of no name, in the daemon's directory, which it builds
   and releases from as it is and brings nothing into. It plans from the checkout's history, tags there, and
   pushes each tag to where the checkout says it was brought from: its
@@ -531,9 +530,8 @@ the change that fixes it.
   follows each, beside it),
   `TestACheckoutThatCouldNotBePushedFromIsNotPlannedFrom`,
   `TestACheckoutOfPartOfItsHistoryIsNotReleasedFrom`,
-  `TestWhereARepositorySaysItWasBroughtFrom`,
-  `TestADirectoryWithinARepositoryIsNotOne` and
-  `TestADaemonGivenACheckoutIsNamed`. Not held: where the tag goes is
+  `TestWhereARepositorySaysItWasBroughtFrom` and
+  `TestADirectoryWithinARepositoryIsNotOne`. Not held: where the tag goes is
   what the checkout says, so whoever makes the checkout says where, and
   to what the credential is presented is whatever the job's environment
   told git, which nothing here scopes; an origin that is a directory is
@@ -627,7 +625,7 @@ the change that fixes it.
   The source is never rewritten for a version: a release commits
   nothing. A name of these in an action that is not versioned, or one
   the host does not fill, is refused. Frontseat says its own with
-  `frontseat version` and `frontseatd --version`. Held by:
+  `frontseat version`. Held by:
   `TestWhatAReleaseBuildsIsGivenItsVersion`,
   `TestAVersionedActionIsGivenTheVersionWhereItNamesIt`,
   `TestOnlyAVersionedActionNamesTheVersion` and the Go plugin's
@@ -652,15 +650,15 @@ the change that fixes it.
   every server program is built on); `common/<name>`, what some parts
   use and others do not, each a module of its own (`confine`, `git`,
   `vcs`, `record`, `told`, `runner`); `stack` (the local stack and the
-  box); `sandbox`; `build/engine`; `grid` (the runner); `workspace/box`
+  box); `sandbox`; `build/engine`; `build/daemon` (the build daemon the
+  command line starts for a directory, which knows nothing of a box);
+  `grid` (the runner); `workspace/box`
   (what fills a workspace, and a box's supervisor, `frontseat-box`: the
   one program of a sandbox that works for the control plane, holding
   its lock, filling its workspace and serving its shell, and knowing no
   build: it is the box's program (`stack/box.Dockerfile`), and a build
-  in a box is the command line's, through the build daemon it starts.
-  `frontseatd`, the daemon and the supervisor as one program, is in no
-  image and runs in no sandbox; *target*: it is deleted);
-  `build/daemon`; `workspace/server` (the
+  in a box is the command line's, through the build daemon it starts;
+  no program is both); `workspace/server` (the
   control plane); a module for each program, `cmd/<binary>`, a thin
   `main` over the part it runs; `cli` (the command line) and `specs`.
   Each requires only modules beneath it in that order, which is written
@@ -795,12 +793,11 @@ the change that fixes it.
   packages are named for their service and version (`buildv1`,
   `pluginv1`). Held by: `TestARepositoryPackageIsImportedByItsOwnName`,
   which leaves out only the generated `*.pb.go` and `*.connect.go`.
-- A binary is `cmd/<binary>` of its module (`cmd/frontseatd`,
+- A binary is `cmd/<binary>` of its module (`cmd/frontseat-box`,
   `specs/cmd/gate`); a `main` anywhere else is refused by
   `TestEveryPublicPackageIsInAnSDKOrOnTheList`. *Target*: each is a thin
   `main` over a package of its module's, as `cli/cmd/frontseat` is over
-  `cli/internal/cmd`, `cmd/frontseatd` over
-  `build/daemon/daemon` and `cmd/frontseat-box` over
+  `cli/internal/cmd` and `cmd/frontseat-box` over
   `workspace/box/supervisor`; `specs/cmd/gate`, `specs/cmd/prepare-modules`
   and `cmd/frontseat-server` are not yet, and nothing checks it.
 - Every path of this repository a file names is there
@@ -920,16 +917,18 @@ the change that fixes it.
   port in the clear too, since OpenShell's gateway has no rule that asks
   for TLS (`TestTheGatewayStillSendsACredentialInTheClearWhereASandboxAsks`).
 - **A grid that asks who a daemon is, is told by a token the daemon reads
-  from a file** (owner, 2026-11-16): `frontseatd --grid-token FILE`, with
-  `--grid-ca FILE`, for the grid and its asset service alike
-  (`build/engine/exec/access`). A token is told only to a grid
-  known by authorities the daemon was named: the system's (`--grid-tls`)
-  are chosen by the environment, and a variable would choose who is told
+  from a file** (owner, 2026-11-16): its settings name the file
+  (`grid.token`), with a PEM file of the grid's authorities
+  (`grid.authorities`), for the grid and its asset service alike
+  (`build/engine/exec/access`, `docs/build-settings.md`). A token is told
+  only to a grid known by authorities the daemon was named: the system's
+  (`grid.tls`) are chosen by the environment, and a variable would
+  choose who is told
   the token. The token is a JSON Web Token that admits its bearer to the
   grid and nothing else, lives for minutes, and is replaced, the file
   whole and by a rename, by whoever was given it: the daemon knows
   nothing of where it comes from. It is sent to the grid and to the
-  asset service `--assets` names; never in the clear, never an argument
+  asset service `grid.assets` names; never in the clear, never an argument
   or an environment variable, and no refusal repeats it. Whatever the
   daemon's sandbox runs as the daemon's user can read the file: a fix, a
   launched program, a shell. So the token is one that may ask the grid
@@ -946,6 +945,10 @@ the change that fixes it.
   and
   neither the grid nor its asset service is reached through a proxy the
   environment names. Held by: `TestATokenIsNotSentInTheClear`,
+  `TestSettingsThatAreWrongAreRefusedWhenTheyAreRead` (settings that
+  would send a token in the clear, or to a grid known by the system's
+  authorities, or name a file that cannot be read, are refused when the
+  daemon starts),
   `TestAGridThatCannotBeAskedOverTLSIsNotOneThatIsNotUpYet`,
   `TestAGridThatRefusesTheDaemonsSideOfTLSIsNotWaitedFor`,
   `TestAGridThatCannotBeAskedAsToldIsNotWaitedFor`,
@@ -1045,7 +1048,7 @@ mise run docs:serve       # serve the TechDocs site on http://localhost:8000
 | `core/ports` | Every port a box and the local stack are reached on, and where a box's sandbox keeps its lock, its build settings and its build daemons' state |
 | `testsupport/*` | Test facilities: pins, Wasm modules, fixtures (`testfiles`, `testforge`, `commits`), budgets |
 | `stack/testsupport/*` | The local stack's test facilities: the box, the gateway, the grid and the owner's token a test is given |
-| `specs/buildtest`, `workspace/server/controlplanetest` | A daemon and a control plane started for a test, as `frontseatd` and `frontseat-server` start them |
+| `specs/buildtest`, `workspace/server/controlplanetest` | A build started for a test with what fills its directory beside it, and a control plane as `frontseat-server` starts one |
 | `sandbox/testsupport/drivertest` | What any sandbox driver is tested with: the conformance, a running sandbox of the test's own, the driver that holds sandboxes in memory |
 | `sandbox/testsupport/testcontainer` | A sandbox driver over the container runtime, for a server's tests that need a runtime; no program makes a sandbox with it |
 | `sandbox/testsupport/testsandbox` | The sandbox API's client and a tunnel to a sandbox's port, for tests: the SDK has none |

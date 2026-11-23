@@ -71,7 +71,7 @@ func TestGridErrorsKeepTheirCancellationMeaning(t *testing.T) {
 				if said := err != nil && strings.Contains(err.Error(), "did not admit this daemon"); said != refused || NotAdmitted(err) != refused {
 					t.Errorf("said not admitted = %t, want %t: %v", said, refused, err)
 				}
-				if operation == "execute" && (code == codes.Unauthenticated || code == codes.PermissionDenied) && (!strings.Contains(err.Error(), "where it ran") || strings.Contains(err.Error(), "--grid-token")) {
+				if operation == "execute" && (code == codes.Unauthenticated || code == codes.PermissionDenied) && (!strings.Contains(err.Error(), "where it ran") || strings.Contains(err.Error(), "grid.token")) {
 					t.Errorf("a worker's refusal: %v", err)
 				}
 			})

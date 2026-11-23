@@ -7,14 +7,11 @@
 # cannot build yet, the images, mise builds; CONTRIBUTING.md says which.
 plugins:
   go:
-    # What a released frontseat says its version by (frontseat version,
-    # frontseatd --version): the release writes it in where each is
-    # linked.
+    # What a released frontseat says its version by (frontseat version):
+    # the release writes it in where the command line is linked.
     version:
       - github.com/frontseat-dev/frontseat/cli/internal/cmd.version=version
       - github.com/frontseat-dev/frontseat/cli/internal/cmd.commit=commit
-      - main.version=version
-      - main.commit=commit
   # The plugins and the SDK's conformance examples are wasm modules:
   # each cdylib is built to wasm32-wasip1 too.
   cargo:

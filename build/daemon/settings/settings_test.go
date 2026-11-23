@@ -110,28 +110,36 @@ func TestSettingsThatSayOnlyWhatTheyMustAskTheGridPlainly(t *testing.T) {
 // the daemon starts, not at the first build: a key it does not know,
 // another version, a second document, a rewrite that is no expression or
 // is given twice, a platform's property twice, plugins that are not
-// there, a grid that could not be asked so. The control is the sound
-// file, which TestABuildDaemonsSettingsAreReadFromOneFile reads.
+// there, a grid that could not be asked so: a token is never sent in the
+// clear nor to a grid known by the system's authorities, which the
+// environment chooses, and a file named is one the daemon can read. No
+// refusal repeats the token. The control is the sound file, which
+// TestABuildDaemonsSettingsAreReadFromOneFile reads.
 func TestSettingsThatAreWrongAreRefusedWhenTheyAreRead(t *testing.T) {
 	for name, change := range map[string][2]string{
-		"a key that is none":                  {"version: 1\n", "version: 1\nlisten: 0.0.0.0:7600\n"},
-		"a key of the grid's that is none":    {"  instance: frontseat/p/b\n", "  instance: frontseat/p/b\n  proxy: http://proxy\n"},
-		"another version":                     {"version: 1\n", "version: 2\n"},
-		"no version":                          {"version: 1\n", ""},
-		"a second document":                   {"publish:\n", "---\npublish:\n"},
-		"no grid":                             {"  address: grid.example:8980\n", ""},
-		"no plugins":                          {"plugins: plugins\n", ""},
-		"a directory of plugins not there":    {"plugins: plugins\n", "plugins: elsewhere\n"},
-		"a rewrite that is no expression":     {`from: '^https://b c/(.*)$'`, `from: '^(https://b c/(.*)$'`},
-		"a rewrite given twice":               {`from: '^https://b c/(.*)$'`, `from: '^https://static\.crates\.io/crates/([^/]+)/([^/]+)/download$'`},
-		"a rewrite to nowhere":                {"      to: 'http://other/$1'\n", ""},
-		"a property given twice":              {"  ISA: x86-64\n", "  ISA: x86-64\n  ISA: aarch64\n"},
-		"a token and no authorities":          {"  authorities: ca.pem\n", ""},
-		"a token's file that is not there":    {"  token: token\n", "  token: missing\n"},
-		"a variable that is no name":          {"[GH_TOKEN, NPM_TOKEN]", "[GH_TOKEN, 'NPM TOKEN']"},
-		"a variable given twice":              {"[GH_TOKEN, NPM_TOKEN]", "[GH_TOKEN, GH_TOKEN]"},
-		"a platform that is no properties":    {"platform:\n", "platform: linux\nextra:\n"},
-		"plugins that are a list, not a path": {"plugins: plugins\n", "plugins: [plugins]\n"},
+		"a key that is none":                    {"version: 1\n", "version: 1\nlisten: 0.0.0.0:7600\n"},
+		"a key of the grid's that is none":      {"  instance: frontseat/p/b\n", "  instance: frontseat/p/b\n  proxy: http://proxy\n"},
+		"another version":                       {"version: 1\n", "version: 2\n"},
+		"no version":                            {"version: 1\n", ""},
+		"a second document":                     {"publish:\n", "---\npublish:\n"},
+		"no grid":                               {"  address: grid.example:8980\n", ""},
+		"no plugins":                            {"plugins: plugins\n", ""},
+		"a directory of plugins not there":      {"plugins: plugins\n", "plugins: elsewhere\n"},
+		"a rewrite that is no expression":       {`from: '^https://b c/(.*)$'`, `from: '^(https://b c/(.*)$'`},
+		"a rewrite given twice":                 {`from: '^https://b c/(.*)$'`, `from: '^https://static\.crates\.io/crates/([^/]+)/([^/]+)/download$'`},
+		"a rewrite to nowhere":                  {"      to: 'http://other/$1'\n", ""},
+		"a rewrite of nothing":                  {"    - from: '^https://b c/(.*)$'\n      to:", "    - to:"},
+		"a property given twice":                {"  ISA: x86-64\n", "  ISA: x86-64\n  ISA: aarch64\n"},
+		"a token in the clear":                  {"  authorities: ca.pem\n", ""},
+		"a token, and the system's authorities": {"  authorities: ca.pem\n", "  tls: true\n"},
+		"a token's file that is not there":      {"  token: token\n", "  token: missing\n"},
+		"authorities that are not there":        {"  authorities: ca.pem\n  token: token\n", "  authorities: missing\n"},
+		"authorities that hold none":            {"  authorities: ca.pem\n  token: token\n", "  authorities: plugins/README\n"},
+		"a token where authorities fail":        {"  authorities: ca.pem\n", "  authorities: plugins/README\n"},
+		"a variable that is no name":            {"[GH_TOKEN, NPM_TOKEN]", "[GH_TOKEN, 'NPM TOKEN']"},
+		"a variable given twice":                {"[GH_TOKEN, NPM_TOKEN]", "[GH_TOKEN, GH_TOKEN]"},
+		"a platform that is no properties":      {"platform:\n", "platform: linux\nextra:\n"},
+		"plugins that are a list, not a path":   {"plugins: plugins\n", "plugins: [plugins]\n"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if !strings.Contains(sound, change[0]) {
@@ -139,6 +147,8 @@ func TestSettingsThatAreWrongAreRefusedWhenTheyAreRead(t *testing.T) {
 			}
 			if got, err := read(t, laid(t), strings.Replace(sound, change[0], change[1], 1)); err == nil {
 				t.Errorf("it was read: %+v", got)
+			} else if strings.Contains(err.Error(), "aaa.bbb.ccc") {
+				t.Errorf("the refusal repeats the token: %v", err)
 			}
 		})
 	}
@@ -184,10 +194,8 @@ func TestTheExampleOfTheSettingsPageIsRead(t *testing.T) {
 	}
 }
 
-// A directory of plugins loads every <name>.wasm in it, after the
-// plugins given one by one, and nothing else it holds; one that holds
-// none is refused by name. The control is a daemon given no directory,
-// which loads what it was given alone.
+// A directory of plugins loads every <name>.wasm in it, by name, and
+// nothing else it holds; one that holds none is refused by name.
 func TestADirectoryOfPluginsLoadsEveryModuleInIt(t *testing.T) {
 	dir := t.TempDir()
 	for _, name := range []string{"go.wasm", "buf.wasm", "README.md"} {
@@ -198,15 +206,12 @@ func TestADirectoryOfPluginsLoadsEveryModuleInIt(t *testing.T) {
 	if err := os.Mkdir(filepath.Join(dir, "not-a-plugin.wasm"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	got, err := settings.Modules([]string{"/opt/one.wasm"}, dir)
-	if want := []string{"/opt/one.wasm", filepath.Join(dir, "buf.wasm"), filepath.Join(dir, "go.wasm")}; err != nil || !reflect.DeepEqual(got, want) {
+	got, err := settings.Modules(dir)
+	if want := []string{filepath.Join(dir, "buf.wasm"), filepath.Join(dir, "go.wasm")}; err != nil || !reflect.DeepEqual(got, want) {
 		t.Errorf("plugins = %v, %v; want %v", got, err, want)
 	}
-	if got, err := settings.Modules([]string{"/opt/one.wasm"}, ""); err != nil || !reflect.DeepEqual(got, []string{"/opt/one.wasm"}) {
-		t.Errorf("with no directory: %v, %v; want the one plugin given", got, err)
-	}
 	empty := t.TempDir()
-	if _, err := settings.Modules(nil, empty); err == nil || !strings.Contains(err.Error(), "holds no <name>.wasm") {
+	if _, err := settings.Modules(empty); err == nil || !strings.Contains(err.Error(), "holds no <name>.wasm") {
 		t.Errorf("a directory of no plugins: %v, want it refused by name", err)
 	}
 }

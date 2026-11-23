@@ -36,7 +36,7 @@ func TestARuleIsForTheProgramsNamed(t *testing.T) {
 	if got := programs(nil); len(got) != 1 || got[0].Path != "/**" {
 		t.Errorf("with none named: %+v, want any program", got)
 	}
-	if got := programs([]string{"/opt/frontseat/bin/frontseatd", "/usr/bin/git"}); len(got) != 2 || got[0].Path != "/opt/frontseat/bin/frontseatd" || got[1].Path != "/usr/bin/git" {
+	if got := programs([]string{"/opt/frontseat/bin/frontseat-box", "/usr/bin/git"}); len(got) != 2 || got[0].Path != "/opt/frontseat/bin/frontseat-box" || got[1].Path != "/usr/bin/git" {
 		t.Errorf("with two named: %+v", got)
 	}
 }

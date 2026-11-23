@@ -62,7 +62,7 @@ func TestASandboxHoldsOneSupervisorWhichStandsInItsWorkspaceAndKnowsItsName(t *t
 	spec.Expect(workspace.prints("for p in $(" + supervisors + "); do readlink $p/cwd; done")).To(Equal("/work"))
 	// It knows its name, as the sandbox's lock says it, which is how the
 	// command line there knows it runs inside a workspace's sandbox.
-	spec.Expect(workspace.prints("head -1 /var/lib/frontseat/daemon.lock")).To(Equal(workspace.Workspace))
+	spec.Expect(workspace.prints("head -1 /var/lib/frontseat/box.lock")).To(Equal(workspace.Workspace))
 
 	// A second is refused, whatever it is told: of the same workspace, or
 	// of another.
@@ -82,7 +82,6 @@ func TestASandboxHoldsOneSupervisorWhichStandsInItsWorkspaceAndKnowsItsName(t *t
 	spec.Expect(daemons).To(HaveLen(1))
 	spec.Expect(workspace.prints("readlink " + daemons[0] + "/cwd")).To(Equal("/work"))
 	spec.Expect(workspace.exits("test -s /var/lib/frontseat/build.yaml")).To(Equal(0))
-	spec.Expect(workspace.exits("test -e /opt/frontseat/bin/frontseatd")).NotTo(Equal(0))
 }
 
 // Workspaces in sandboxes / A workspace's build is read from outside its sandbox by its owner, through a port carried there.

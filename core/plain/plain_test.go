@@ -111,7 +111,7 @@ func TestAPathAProgramAParameterAndASecretAreWrittenPlainly(t *testing.T) {
 			t.Errorf("the path %q was taken", path)
 		}
 	}
-	for _, program := range []string{"/usr/bin/git", "/opt/frontseat/bin/frontseatd"} {
+	for _, program := range []string{"/usr/bin/git", "/opt/frontseat/bin/frontseat-box"} {
 		if !plain.Program(program) {
 			t.Errorf("the program %q was refused", program)
 		}

@@ -134,9 +134,9 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		{"workspace/server/controlplane/rules.go", "core/plain", true},
 		// What the local control plane is known to its gateway by is a
 		// secret in files of its own, held as its other secrets are; a
-		// daemon keeps none so.
+		// box's supervisor keeps none so.
 		{"cmd/frontseat-server/main.go", "core/secretfile", true},
-		{"cmd/frontseatd/main.go", "core/secretfile", false},
+		{"cmd/frontseat-box/main.go", "core/secretfile", false},
 		{"build/engine/exec/fix/fix.go", "build/engine/exec/here", true},
 		{"build/engine/exec/publish/publish.go", "build/engine/exec/here", true},
 		{"build/engine/exec/publish/publish.go", "build/engine/pluginhost", true},
@@ -211,7 +211,7 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		// given it, and only their tests choose it themselves. What
 		// fills a workspace names the system in its tests alone.
 		{"cmd/frontseat-server/main.go", "common/vcs/chosen", true},
-		{"build/daemon/daemon/daemon.go", "common/vcs/chosen", true},
+		{"build/daemon/life/serve.go", "common/vcs/chosen", true},
 		{"workspace/box/source/workspace.go", "common/vcs/chosen", true},
 		{"workspace/server/controlplane/controlplane_test.go", "common/vcs/chosen", true},
 		{"workspace/server/controlplane/controlplane.go", "common/vcs/chosen", false},
@@ -344,8 +344,8 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		// The ports are said once, and read by what opens, serves or asks
 		// them, which reads nothing else of the stack for them.
 		{"workspace/server/controlplane/rules.go", "core/ports", true},
-		{"build/daemon/daemon/daemon.go", "core/ports", true},
-		{"build/daemon/daemon/daemon.go", "stack/local", false},
+		{"workspace/box/supervisor/supervisor.go", "core/ports", true},
+		{"workspace/box/supervisor/supervisor.go", "stack/local", false},
 		{"cli/internal/machine/token.go", "core/ports", true},
 		{"cli/internal/machine/token.go", "stack", false},
 		{"cli/internal/machine/token.go", "sdk/go/bearer", true},
@@ -396,30 +396,24 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		{"specs/build/builds_test.go", "sdk/go", true},
 		{"specs/build/builds_test.go", "specs/buildtest", false},
 		{"specs/build/support_test.go", "specs/buildtest", true},
-		{"build/daemon/daemon/daemon.go", "build/daemon/build", true},
-		{"build/daemon/daemon/daemon.go", "build/engine/pluginhost", false},
-		// The daemon's program is a thin main over the daemon.
-		{"cmd/frontseatd/main.go", "build/daemon/daemon", true},
+		{"build/daemon/life/serve.go", "build/engine/pluginhost", false},
+		// A box's program is a thin main over its supervisor.
 		{"cmd/frontseat-box/main.go", "workspace/box/supervisor", true},
 		{"cmd/frontseat-box/main.go", "workspace/box/source", false},
 		{"cmd/frontseat-box/main.go", "build/daemon/build", false},
 		{"workspace/box/supervisor/supervisor.go", "workspace/box/source", true},
 		{"workspace/box/supervisor/supervisor.go", "build/daemon/build", false},
 		{"workspace/box/supervisor/supervisor.go", "build/engine/exec", false},
-		{"build/daemon/daemon/daemon.go", "workspace/box/supervisor", true},
-		{"build/daemon/daemon/daemon.go", "build/daemon/settings", true},
+		{"build/daemon/life/serve.go", "build/daemon/settings", true},
 		{"build/daemon/life/serve.go", "common/record/manifest", true},
 		{"build/daemon/life/serve.go", "build/daemon/build", true},
 		{"build/daemon/life/serve.go", "workspace/server/controlplane", false},
 		{"build/daemon/life/serve.go", "workspace/box/source", false},
 		{"build/daemon/life/serve.go", "workspace/box/supervisor", false},
 		{"build/daemon/life/serve.go", "core/ports", false},
-		{"build/daemon/daemon/daemon.go", "build/daemon/life", true},
 		{"cli/internal/machine/builder.go", "build/daemon/life", true},
-		{"cli/internal/machine/builder.go", "build/daemon/daemon", false},
 		{"cli/internal/machine/directory.go", "common/record/manifest", true},
 		{"cli/internal/cmd/daemon.go", "build/daemon/life", true},
-		{"cli/internal/cmd/daemon.go", "build/daemon/daemon", false},
 		{"specs/cli/directory_test.go", "build/daemon/life", true},
 		{"specs/cli/directory_test.go", "build/daemon/build", false},
 		{"build/daemon/settings/settings.go", "build/daemon/build", true},
@@ -430,7 +424,6 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		{"common/record/buildfile/buildfile.go", "core/ports", false},
 		{"build/daemon/settings/settings.go", "workspace/box/source", false},
 		{"build/daemon/settings/settings.go", "core/ports", false},
-		{"cmd/frontseatd/main.go", "build/daemon/build", false},
 		{"build/daemon/build/service.go", "build/engine/pluginhost/conformance", false},
 		{"build/engine/pluginhost/host_test.go", "build/engine/pluginhost/conformance", true},
 		{"build/engine/engine/evaluate/catalog_rewrite_test.go", "build/engine/pluginhost/conformance", true},
@@ -495,7 +488,7 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		{"build/engine/exec/stage/stage.go", "build/engine/exec/access", false},
 		{"build/engine/exec/tools/tools.go", "build/engine/exec/access", false},
 		{"build/engine/exec/access/access.go", "build/engine/exec", false},
-		{"build/daemon/daemon/daemon.go", "build/engine/exec/access", false},
+		{"build/daemon/life/serve.go", "build/engine/exec/access", false},
 		// Evaluation writes the source groups of the actions it plans.
 		{"build/engine/engine/evaluate/evaluate.go", "build/engine/pattern", true},
 		{"build/engine/exec/schedule/schedule.go", "build/engine/pattern", false},
