@@ -45,7 +45,8 @@ var (
 // where none serves: each directory has its own, in a state directory
 // beneath the command line's that is that directory's alone. One that
 // serves is taken where it is the daemon this command would start, of
-// this program, told the settings as they are now, for this directory;
+// this program, told the settings as they are now, for this directory,
+// with what a publish may be given as it is here;
 // any other is asked to stop, and another is started. It is known to
 // serve by answering to its token, never by what it left behind.
 func BuildDaemon(ctx context.Context, directory string) (Builder, error) {
@@ -56,7 +57,7 @@ func BuildDaemon(ctx context.Context, directory string) (Builder, error) {
 	if _, err := os.Stat(settings); errors.Is(err, fs.ErrNotExist) {
 		return Builder{}, ErrNoSettings
 	}
-	_, told, err := life.Read(settings)
+	read, told, err := life.Read(settings)
 	if err != nil {
 		return Builder{}, err
 	}
@@ -72,9 +73,9 @@ func BuildDaemon(ctx context.Context, directory string) (Builder, error) {
 	if err != nil {
 		return Builder{}, err
 	}
-	want := life.Info{Version: is, Settings: told, Directory: directory}
+	want := life.Info{Version: is, Settings: told, Directory: directory, Environment: life.Environment(read.Given)}
 	wanted := func(said life.Info) bool {
-		return said.Version == want.Version && said.Settings == want.Settings && said.Directory == want.Directory
+		return said.Version == want.Version && said.Settings == want.Settings && said.Directory == want.Directory && said.Environment == want.Environment
 	}
 	if said, err := life.Told(state); err == nil && serves(ctx, said) {
 		if wanted(said) {
@@ -170,7 +171,7 @@ func executable() (string, error) {
 // detached starts this program as a build daemon (frontseat daemon), in
 // a session of its own, so that it goes on when the command that
 // started it and its terminal are gone. What it prints is kept in its
-// state directory.
+// state directory, after what the daemons before it there printed.
 func detached(o life.Options) error {
 	self, err := os.Executable()
 	if err != nil {
@@ -179,7 +180,7 @@ func detached(o life.Options) error {
 	if err := os.MkdirAll(o.State, 0o700); err != nil {
 		return err
 	}
-	said, err := os.OpenFile(filepath.Join(o.State, logFile), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	said, err := os.OpenFile(filepath.Join(o.State, logFile), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 	if err != nil {
 		return err
 	}

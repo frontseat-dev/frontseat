@@ -42,6 +42,10 @@ type Info struct {
 	Version   string `json:"version"`
 	Settings  string `json:"settings"`
 	Directory string `json:"directory"`
+	// Environment is what the variables a publish may be given were
+	// where it was started (Environment): it keeps them for as long as
+	// it lives, so a command where they are otherwise starts another.
+	Environment string `json:"environment"`
 	// PID is its process.
 	PID int `json:"pid"`
 }

@@ -84,12 +84,46 @@ jobs:
           done
           cat "$RUNNER_TEMP/grid-token.log"
           exit 1
-      # The daemon is given this checkout, and named, which is how the
-      # command line beside it finds it. What publishes a release may be
-      # given GH_TOKEN, and git is told how to present it to this
-      # repository's origin, as a sandbox's daemon is told: by the settings
-      # its environment counts.
-      - name: Start the daemon on the grid
+      # frontseat builds the directory it is run in through a build daemon
+      # it starts for itself, on the grid this machine is told: the job
+      # says it, in the settings a daemon reads when it starts
+      # (docs/build-settings.md), beneath a configuration directory of its
+      # own, which lasts as long as the job. The token's file is named, and
+      # nothing of the token is written there.
+      - name: Tell frontseat its grid
+        run: |
+          config="$RUNNER_TEMP/config"
+          echo "XDG_CONFIG_HOME=$config" >> "$GITHUB_ENV"
+          mkdir -p "$config/frontseat"
+          cat > "$config/frontseat/build.yaml" <<EOF
+          version: 1
+          plugins: $GITHUB_WORKSPACE/dist/plugins
+          grid:
+            address: $GRID
+            instance: $GRID_INSTANCE
+            assets: $GRID_ASSETS
+            authorities: $GRID_CA
+            token: $GRID_TOKEN
+          platform:
+            OSFamily: linux
+            ISA: x86-64
+            container-image: $GRID_WORKERS
+          publish:
+            environment: [GH_TOKEN]
+          EOF
+      - name: Build
+        run: dist/bin/frontseat build
+      # Tests that need services of their own are not served by this grid
+      # yet, and say so.
+      - name: Test
+        run: dist/bin/frontseat test
+      # What publishes a release may be given GH_TOKEN, and git is told how
+      # to present it to this repository's origin, by the settings its
+      # environment counts. Neither is given to the steps before: the
+      # daemon that built and tested had none, and a command where what a
+      # publish may be given is otherwise starts a daemon of its own.
+      - name: Release
+        if: ${{ inputs.release }}
         env:
           GH_TOKEN: ${{ github.token }}
           GIT_CONFIG_COUNT: "2"
@@ -97,35 +131,7 @@ jobs:
           GIT_CONFIG_VALUE_0: x-access-token
           GIT_CONFIG_KEY_1: credential.https://github.com.helper
           GIT_CONFIG_VALUE_1: "!f() { printf '%s\\n' \"password=$GH_TOKEN\"; }; f"
-        run: |
-          nohup dist/bin/frontseatd \
-            --name "$GITHUB_REPOSITORY" \
-            --checkout \
-            --workspace "$GITHUB_WORKSPACE" \
-            --state "$RUNNER_TEMP/frontseatd" \
-            --plugins dist/plugins \
-            --grid "$GRID" --instance "$GRID_INSTANCE" --assets "$GRID_ASSETS" \
-            --grid-tls --grid-ca "$GRID_CA" --grid-token "$GRID_TOKEN" \
-            --platform OSFamily=linux --platform ISA=x86-64 --platform "container-image=$GRID_WORKERS" \
-            --publish-environment GH_TOKEN \
-            > "$RUNNER_TEMP/frontseatd.log" 2>&1 &
-          daemon=$!
-          for _ in $(seq 60); do
-            curl -s -o /dev/null http://127.0.0.1:7600/ && exit 0
-            kill -0 "$daemon" 2>/dev/null || break
-            sleep 1
-          done
-          cat "$RUNNER_TEMP/frontseatd.log"
-          exit 1
-      - name: Build
-        run: dist/bin/frontseat build
-      # Tests that need services of their own are not served by this grid
-      # yet, and say so.
-      - name: Test
-        run: dist/bin/frontseat test
-      - name: Release
-        if: ${{ inputs.release }}
         run: dist/bin/frontseat ship domain:frontseat
-      - name: The daemon's log
+      - name: What the build daemons said
         if: always()
-        run: cat "$RUNNER_TEMP/frontseatd.log" || true
+        run: cat "$RUNNER_TEMP"/config/frontseat/build/*/daemon.log || true
