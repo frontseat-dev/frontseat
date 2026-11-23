@@ -22,7 +22,11 @@ type runtime struct {
 	// earlier is what the runtime says of the container a stack had
 	// through frontseat 0.1.0: its name where there is one.
 	earlier string
-	// done is what was done, in order: "rm", "run <image>", "load <box>".
+	// without is how many times more the grid is asked for its workers
+	// and has not all of them.
+	without int
+	// done is what was done, in order: "rm", "run <image>", "load <box>",
+	// and each time the grid was asked for its workers, as it was asked.
 	done []string
 	// ran is what the container was made with.
 	ran []string
@@ -51,6 +55,13 @@ func (r *runtime) docker(_ context.Context, arguments ...string) (string, error)
 		r.done = append(r.done, "run "+arguments[len(arguments)-1])
 		r.ran = arguments
 		return "", nil
+	case arguments[0] == "exec" && arguments[2] == "frontseat-runner":
+		r.done = append(r.done, strings.Join(arguments[2:], " "))
+		if r.without > 0 {
+			r.without--
+			return "frontseat-runner ready: the scheduler has 0 of 12 workers\n", errors.New("exit status 1")
+		}
+		return "", nil
 	case arguments[0] == "exec" && arguments[2] == "test":
 		return "", nil
 	case arguments[0] == "exec" && arguments[2] == "cat":
@@ -58,6 +69,33 @@ func (r *runtime) docker(_ context.Context, arguments ...string) (string, error)
 	}
 	r.t.Fatalf("the stack asked the runtime what it was not expected to: docker %s", line)
 	return "", nil
+}
+
+// ready is how the grid is asked whether it has its workers: the stack's
+// own program, in its container, of the scheduler there, for the twelve
+// the image's files say.
+const ready = "frontseat-runner ready --scheduler 127.0.0.1:8984 --workers 12"
+
+// The stack is up once its grid builds: bringing it up returns only when
+// the scheduler has every worker, asked again until it has, since one
+// that has none yet refuses every action. The control is
+// TestAStackRunsTheImageAndBoxOfItsCheckout, whose grid has them at
+// once and is asked once.
+func TestTheStackIsUpOnceItsGridHasItsWorkers(t *testing.T) {
+	r, s, _ := stackOf(t, "")
+	r.without = 2
+	if err := s.Up(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	asked := 0
+	for _, did := range r.done {
+		if did == ready {
+			asked++
+		}
+	}
+	if asked != 3 || r.done[len(r.done)-1] != ready {
+		t.Errorf("up did %q; want the grid asked for its workers until it had them, three times, and nothing after", r.done)
+	}
 }
 
 // checkouts are each test's checkout, by the test.
@@ -113,7 +151,7 @@ func TestAStackRunsTheImageAndBoxOfItsCheckout(t *testing.T) {
 	if want := []string{"box", "image on frontseat-box:a11111111111"}; !slices.Equal(*built, want) {
 		t.Errorf("built %q, want %q", *built, want)
 	}
-	if want := []string{"rm", "run frontseat-stack:b22222222222", "load frontseat-box:a11111111111"}; !slices.Equal(r.done, want) {
+	if want := []string{"rm", "run frontseat-stack:b22222222222", "load frontseat-box:a11111111111", ready}; !slices.Equal(r.done, want) {
 		t.Errorf("did %q, want %q", r.done, want)
 	}
 	here, err := filepath.EvalSymlinks(s.Root)

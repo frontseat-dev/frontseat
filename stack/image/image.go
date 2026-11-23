@@ -13,3 +13,14 @@ import (
 //
 //go:embed rootfs/etc/frontseat/runner-image
 var Runner []byte
+
+// Slots is the file that says how many actions the grid's worker runs at
+// once, each a worker to the scheduler (rootfs/etc/frontseat/slots), and
+// Services the one that says how many tests with services it runs
+// beside them (rootfs/etc/frontseat/services), each a worker too.
+//
+//go:embed rootfs/etc/frontseat/slots
+var Slots []byte
+
+//go:embed rootfs/etc/frontseat/services
+var Services []byte

@@ -23,12 +23,15 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/frontseat-dev/frontseat/core/ports"
 	"github.com/frontseat-dev/frontseat/stack/box"
 	"github.com/frontseat-dev/frontseat/stack/internal/poll"
 	"github.com/frontseat-dev/frontseat/stack/local"
@@ -122,7 +125,40 @@ func (s Stack) Up(ctx context.Context) error {
 	if err := s.give(ctx, built); err != nil {
 		return err
 	}
-	return s.layOut(ctx)
+	if err := s.layOut(ctx); err != nil {
+		return err
+	}
+	return s.workers(ctx)
+}
+
+// workersWithin is how long the grid is given to have its workers: each
+// is a runner sandbox the gateway makes, of an image it may first pull.
+const workersWithin = 10 * time.Minute
+
+// workers waits for the grid to have its workers: the stack is up once
+// it builds, and a scheduler refuses every action of a platform it has
+// no worker of yet. The stack's own program is asked, in its container,
+// of the scheduler there (frontseat-runner ready), for as many workers
+// as the image's files say it runs.
+func (s Stack) workers(ctx context.Context) error {
+	want, err := local.Workers()
+	if err != nil {
+		return err
+	}
+	asked := []string{"exec", Name, "frontseat-runner", "ready", "--scheduler", net.JoinHostPort("127.0.0.1", strconv.Itoa(ports.Scheduler)), "--workers", strconv.Itoa(want)}
+	said := ""
+	there, err := poll.Tries(ctx, int(workersWithin/time.Second), time.Second, func() bool {
+		out, err := s.run(ctx, asked...)
+		said = strings.TrimSpace(out)
+		return err == nil
+	})
+	if err != nil {
+		return err
+	}
+	if !there {
+		return fmt.Errorf("the grid did not have its %d workers in %s (%s): docker logs %s", want, workersWithin, said, Name)
+	}
+	return nil
 }
 
 // Down brings the stack down, whichever checkout started it. Its volume
