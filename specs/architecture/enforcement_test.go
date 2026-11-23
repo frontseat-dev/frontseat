@@ -191,6 +191,27 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		// the sandbox service knows nothing of what lives in a sandbox.
 		{"workspace/server/controlplanetest/controlplanetest.go", "workspace/server/controlplane", true},
 		{"workspace/server/controlplanetest/controlplanetest.go", "common/vcs/chosen", true},
+		// The version control system is chosen by the program that
+		// composes a part, and by what fills a workspace where it is
+		// opened with the default; the control plane and the build are
+		// given it, and only their tests choose it themselves. What
+		// fills a workspace names the system in its tests alone.
+		{"cmd/frontseat-server/main.go", "common/vcs/chosen", true},
+		{"build/daemon/daemon/daemon.go", "common/vcs/chosen", true},
+		{"workspace/box/source/workspace.go", "common/vcs/chosen", true},
+		{"workspace/server/controlplane/controlplane_test.go", "common/vcs/chosen", true},
+		{"workspace/server/controlplane/controlplane.go", "common/vcs/chosen", false},
+		{"build/daemon/build/run_test.go", "common/vcs/chosen", true},
+		{"build/daemon/build/runs.go", "common/vcs/chosen", false},
+		{"workspace/box/source/workspace_test.go", "common/vcs/git", true},
+		{"workspace/box/source/workspace.go", "common/vcs/git", false},
+		// The test support at the top reads nothing of the stack, which is
+		// above it; the stack's own does.
+		{"testsupport/testfiles/tree.go", "stack/local", false},
+		{"testsupport/testfiles/tree.go", "core/ports", false},
+		{"stack/testsupport/testbox/testbox.go", "stack/local", true},
+		{"stack/testsupport/testbox/testbox.go", "core/ports", false},
+		{"sandbox/testsupport/testcontainer/container.go", "stack/local", false},
 		{"sandbox/sandbox.go", "workspace/server/controlplane", false},
 		{"sandbox/sandbox_test.go", "workspace/box/source", false},
 		{"sandbox/sandbox_test.go", "workspace/server/controlplanetest", false},
@@ -390,7 +411,9 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		// stream with the SDK's one public reader, not its transport,
 		// which is the SDK's alone.
 		{"workspace/server/controlplane/controlplane_test.go", "sdk/go/internal/transport", false},
-		{"workspace/server/controlplane/controlplane_test.go", "workspace/box/source", true},
+		// What fills a workspace is the daemon's in a box, beneath no part
+		// of the control plane, its tests neither.
+		{"workspace/server/controlplane/controlplane_test.go", "workspace/box/source", false},
 		{"workspace/server/controlplane/rules.go", "workspace/box/source", false},
 		{"build/daemon/build/history_test.go", "sdk/go/internal/transport", false},
 		{"workspace/server/controlplane/controlplane_test.go", "sdk/go/api/frontseat/workspace/v1alpha1/workspacev1alpha1connect", true},

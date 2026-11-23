@@ -21,10 +21,11 @@ import (
 // SDK, each with why: what it embeds and composes around, and never
 // copies. Every other Go package is this repository's own. Its path can
 // be imported, since the repository is many modules and Go's internal
-// directories reach across none of them; what holds who imports it is
-// its module's go.mod and the order of the modules
-// (TestAModuleRequiresOnlyWhatIsBeneathIt), and nothing outside the
-// repository is to rely on it.
+// directories reach across none of them; what holds who imports it,
+// within the repository, is the order of the modules and what the
+// importing module's go.mod requires
+// (TestAPackageImportsOnlyWhatItsModuleRequiresBeneathIt), and nothing
+// outside the repository is to rely on it.
 var public = map[string]string{
 	"sandbox":                                "the sandbox service: frontseat-enterprise embeds it (owner's ruling)",
 	"sandbox/driver":                         "the port the sandbox service drives its drivers through, for frontseat-enterprise's drivers to implement (owner's ruling)",

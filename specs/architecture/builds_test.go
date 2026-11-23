@@ -104,10 +104,41 @@ func TestWhatBuildsAProgramFromSourceSaysSo(t *testing.T) {
 	for _, wrong := range unsaid(files, fromSource) {
 		t.Error(wrong)
 	}
-	for rel := range fromSource {
-		if beneath(path.Dir(rel), "testsupport") {
-			t.Errorf("%s is test support that builds a program from source: the gate builds it before the tests", rel)
+	for _, rel := range builtByTestSupport(fromSource) {
+		t.Errorf("%s is test support that builds a program from source: the gate builds it before the tests", rel)
+	}
+}
+
+// builtByTestSupport are the files of those listed that are test
+// support, wherever it is (forTests): a test file is a test, and none.
+func builtByTestSupport(listed map[string]string) []string {
+	var out []string
+	for _, rel := range slices.Sorted(maps.Keys(listed)) {
+		if !strings.HasSuffix(rel, "_test.go") && testSupport(path.Dir(rel)) {
+			out = append(out, rel)
 		}
+	}
+	return out
+}
+
+// The control: test support that builds a program is found wherever it
+// is, at the top, beside its module or among the specs; what builds the
+// box, and a test, are not.
+func TestTestSupportThatBuildsAProgramIsFound(t *testing.T) {
+	refused := []string{
+		"sandbox/testsupport/testcontainer/container.go",
+		"specs/buildtest/buildtest.go",
+		"stack/testsupport/testbox/testbox.go",
+		"testsupport/testpins/pins.go",
+		"workspace/server/controlplanetest/controlplanetest.go",
+		"workspace/server/toldtest/toldtest.go",
+	}
+	listed := map[string]string{"stack/box/box.go": "the box", "sandbox/service_route_test.go": "its fixture"}
+	for _, rel := range refused {
+		listed[rel] = "a program"
+	}
+	if found := builtByTestSupport(listed); !slices.Equal(found, refused) {
+		t.Errorf("found %v, want %v", found, refused)
 	}
 }
 
