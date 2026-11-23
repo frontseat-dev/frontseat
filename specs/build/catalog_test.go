@@ -51,7 +51,7 @@ func TestCatalogAliasesCannotHideStaleComponentDependenciesFromBuildChecksOrFixe
 	workspace.write("platform/gateway/catalog-info.yaml", aliased)
 	build := workspace.build()
 	spec.Expect(build.run.GetFailure()).To(BeEmpty())
-	spec.Expect(build.outcomeOf("//platform/gateway:catalog.depends-on")).To(Equal("rewrite"))
+	spec.Expect(build.outcomeOf("//platform/gateway:catalog.depends-on")).To(Equal("rewritten"))
 	workspace.build(fixing())
 	spec.Expect(workspace.build().outcomeOf("//platform/gateway:catalog.depends-on")).To(Equal("passed"))
 	graph := workspace.catalogEntities()
@@ -129,7 +129,7 @@ func TestACatalogFileSCommentsAndOtherFieldsSurviveTheRewriteThatPutsItInStep(t 
 	workspace := spec.catalogWorkspace()
 	commented := "# The gateway, which fronts the shop.\n" + strings.Replace(catalogFixture, "  dependsOn: [component:greet, resource:database]", "  # what it leans on\n  dependsOn: [component:invented, resource:database] # kept in step", 1)
 	workspace.write("platform/gateway/catalog-info.yaml", commented)
-	spec.Expect(workspace.build().outcomeOf("//platform/gateway:catalog.depends-on")).To(Equal("rewrite"))
+	spec.Expect(workspace.build().outcomeOf("//platform/gateway:catalog.depends-on")).To(Equal("rewritten"))
 	fixed := workspace.build(of("//platform/gateway:catalog.depends-on"), fixing())
 	spec.Expect(fixed.outcome()).To(Equal("SUCCESS"), fixed.diagnostics())
 	after := workspace.file("platform/gateway/catalog-info.yaml")
@@ -147,7 +147,7 @@ func TestAnInverseTheFileStatesIsHeldToTheSourceAnInventedDependentIsTakenOutATr
 
 	workspace := spec.catalogWorkspace()
 	workspace.write("platform/gateway/catalog-info.yaml", strings.Replace(catalogFixture, "  dependsOn: [component:greet, resource:database]", "  dependsOn: [component:greet, resource:database]\n  dependencyOf: [component:invented]", 1))
-	spec.Expect(workspace.build().outcomeOf("//platform/gateway:catalog.depends-on")).To(Equal("rewrite"))
+	spec.Expect(workspace.build().outcomeOf("//platform/gateway:catalog.depends-on")).To(Equal("rewritten"))
 	fixed := workspace.build(of("//platform/gateway:catalog.depends-on"), fixing())
 	spec.Expect(fixed.outcome()).To(Equal("SUCCESS"), fixed.diagnostics())
 	spec.Expect(workspace.file("platform/gateway/catalog-info.yaml")).NotTo(ContainSubstring("component:invented"))
@@ -270,7 +270,7 @@ func TestALocationIsKeptAsItIsWrittenAndItsTargetsAreNotFollowed(t *testing.T) {
 	// What a Location lists is Backstage's to read: frontseat finds
 	// catalog files by their name alone.
 	spec.Expect(graph).NotTo(HaveKey("component:default/listed"))
-	spec.Expect(workspace.build().outcomeOf("//platform/gateway:catalog.depends-on")).To(Equal("rewrite"))
+	spec.Expect(workspace.build().outcomeOf("//platform/gateway:catalog.depends-on")).To(Equal("rewritten"))
 	fixed := workspace.build(of("//platform/gateway:catalog.depends-on"), fixing())
 	spec.Expect(fixed.outcome()).To(Equal("SUCCESS"), fixed.diagnostics())
 	after := workspace.file("platform/gateway/catalog-info.yaml")

@@ -64,7 +64,7 @@ func TestAnExportTheRepositorySMiseTomlSetsTooIsRefusedByNameNotReplaced(t *test
 
 	build := workspace.build()
 
-	spec.Expect(build.outcomeOf("//svc:go.test/.")).To(Equal("error"))
+	spec.Expect(build.outcomeOf("//svc:go.test/.")).To(Equal("errored"))
 	spec.Expect(build.saysOf("//svc:go.test/.")).To(ContainSubstring("must be given GREETER_ADDR as it is, and mise sets GREETER_ADDR"))
 }
 
@@ -78,7 +78,7 @@ func TestAnExportNamedAsWhatRunsATestSetsItselfIsRefusedByName(t *testing.T) {
 
 	build := workspace.build()
 
-	spec.Expect(build.outcomeOf("//svc:go.test/.")).To(Equal("error"))
+	spec.Expect(build.outcomeOf("//svc:go.test/.")).To(Equal("errored"))
 	spec.Expect(build.saysOf("//svc:go.test/.")).To(ContainSubstring("must be given HOME as it is, and what runs and confines it sets HOME itself"))
 }
 
