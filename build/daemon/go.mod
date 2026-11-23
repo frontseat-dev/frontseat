@@ -10,8 +10,8 @@ require (
 	github.com/frontseat-dev/frontseat/common/record v0.0.0
 	github.com/frontseat-dev/frontseat/common/vcs v0.0.0
 	github.com/frontseat-dev/frontseat/core v0.0.0
-	github.com/frontseat-dev/frontseat/stack v0.0.0
 	github.com/frontseat-dev/frontseat/sdk/go v0.0.0
+	github.com/frontseat-dev/frontseat/stack v0.0.0
 	github.com/frontseat-dev/frontseat/testsupport v0.0.0
 	github.com/frontseat-dev/frontseat/workspace/box v0.0.0
 	go.opentelemetry.io/otel v1.47.0
@@ -73,7 +73,8 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.47.0 // indirect
 	go.opentelemetry.io/otel/trace v1.47.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.11.1 // indirect
-	go.yaml.in/yaml/v4 v4.0.0 // indirect
+	go.yaml.in/yaml/v4 v4.0.0
+
 	golang.org/x/crypto v0.58.0 // indirect
 	golang.org/x/net v0.60.0 // indirect
 	golang.org/x/oauth2 v0.37.0 // indirect

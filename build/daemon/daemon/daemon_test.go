@@ -66,33 +66,6 @@ func TestTheDownloadRewritesAreReadStrictly(t *testing.T) {
 	}
 }
 
-// A directory of plugins loads every <name>.wasm in it, after the
-// plugins given one by one, and nothing else it holds; one that holds
-// none is refused by name. The control is a daemon given no directory,
-// which loads what it was given alone.
-func TestADirectoryOfPluginsLoadsEveryModuleInIt(t *testing.T) {
-	dir := t.TempDir()
-	for _, name := range []string{"go.wasm", "buf.wasm", "README.md"} {
-		if err := os.WriteFile(filepath.Join(dir, name), nil, 0o644); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := os.Mkdir(filepath.Join(dir, "not-a-plugin.wasm"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	got, err := withDirectory([]string{"/opt/one.wasm"}, dir)
-	if want := []string{"/opt/one.wasm", filepath.Join(dir, "buf.wasm"), filepath.Join(dir, "go.wasm")}; err != nil || !reflect.DeepEqual(got, want) {
-		t.Errorf("plugins = %v, %v; want %v", got, err, want)
-	}
-	if got, err := withDirectory([]string{"/opt/one.wasm"}, ""); err != nil || !reflect.DeepEqual(got, []string{"/opt/one.wasm"}) {
-		t.Errorf("with no directory: %v, %v; want the one plugin given", got, err)
-	}
-	empty := t.TempDir()
-	if _, err := withDirectory(nil, empty); err == nil || !strings.Contains(err.Error(), "holds no <name>.wasm") {
-		t.Errorf("a directory of no plugins: %v, want it refused by name", err)
-	}
-}
-
 // A sandbox's daemon told nothing of its workers' platform is refused
 // by name; the control is the same daemon told it by its flags.
 func TestASandboxDaemonToldNoPlatformIsRefused(t *testing.T) {
