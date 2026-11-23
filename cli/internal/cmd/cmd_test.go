@@ -456,39 +456,20 @@ func TestOneCommandLineLeavesNothingForTheNext(t *testing.T) {
 	}
 }
 
-// A command that asks a workspace is told which by its name, and asks
-// its daemon where the control plane that keeps it says: the workspace
-// named, and not the one the environment's daemon manages. No command
-// takes a daemon's address, and those that do not ask a daemon take no
-// workspace this way. The control is the same command with no name,
-// which asks the environment's.
+// A command that builds in a workspace is told which by its name, and is
+// run in the sandbox of the workspace named, and not of the one last
+// opened (TestWithAWorkspaceSelectedWhatBuildsIsRunInItsSandbox). No
+// command takes a daemon's address, and those that do not ask a daemon
+// take no workspace this way. The control is the same command inside a
+// sandbox, which asks the daemon there, and is refused another's name.
 func TestAWorkspaceIsNamedAndNotAddressed(t *testing.T) {
 	d := &daemonOf{}
-	api := connect.NewServer()
-	buildv1alpha1connect.RegisterReleaseServiceHandler(api, d)
-	daemon := http.NewServeMux()
-	connecthttp.Mount(daemon, api)
-	// The control plane, which keeps the workspace "named" and leads to
-	// its daemon by its name.
-	plane := http.NewServeMux()
-	var at string
-	keeps := connect.NewServer()
-	workspacev1alpha1connect.RegisterWorkspaceServiceHandler(keeps, keeping{daemon: func() string { return at }})
-	connecthttp.Mount(plane, keeps)
-	plane.Handle("/workspaces/named/build/", http.StripPrefix("/workspaces/named/build", daemon))
-	srv := httptest.NewServer(plane)
-	t.Cleanup(srv.Close)
-	at = srv.URL + "/workspaces/named/build"
-	serverAt(t, srv.URL)
-	lastOpened(t, srv.URL, "another")
-	if _, _, err := runAt(t, context.Background(), "", "ship", "plan", "greet", "--workspace", "named"); err != nil {
-		t.Fatal(err)
-	}
-	if len(d.planned) != 1 {
-		t.Errorf("the workspace named was asked %d times", len(d.planned))
-	}
-	if _, _, err := runAt(t, context.Background(), "", "ship", "plan", "greet", "--workspace", "not-there"); err == nil || !strings.Contains(err.Error(), "not-there") {
-		t.Errorf("a workspace that is not there: %v, want it said", err)
+	plane, _ := counted(t)
+	serverAt(t, plane)
+	lastOpened(t, plane, "another")
+	b := standingIn(t)
+	if _, _, err := runAt(t, context.Background(), "", "ship", "plan", "greet", "--workspace", "named"); err != nil || !slices.Equal(b.workspaces, []string{"named"}) {
+		t.Fatalf("the plan was run in the sandboxes of %q (%v), want in that of the workspace named", b.workspaces, err)
 	}
 	// Inside a workspace's sandbox, its own daemon is asked, and no
 	// other: a name is given outside.
@@ -496,8 +477,8 @@ func TestAWorkspaceIsNamedAndNotAddressed(t *testing.T) {
 	if _, _, err := run(t, other, "ship", "plan", "greet"); err != nil || len(other.planned) != 1 {
 		t.Errorf("inside, with no name, the daemon there was asked %d times (%v)", len(other.planned), err)
 	}
-	if _, _, err := run(t, other, "ship", "plan", "greet", "--workspace", "named"); err == nil || !strings.Contains(err.Error(), "--workspace is given outside") || len(d.planned) != 1 {
-		t.Errorf("inside, another workspace named: %v, and it was asked %d times; want it refused by name, and asked once", err, len(d.planned))
+	if _, _, err := run(t, other, "ship", "plan", "greet", "--workspace", "named"); err == nil || !strings.Contains(err.Error(), "--workspace is given outside") || len(other.planned) != 1 || len(b.workspaces) != 1 {
+		t.Errorf("inside, another workspace named: %v, its daemon asked %d times, and %d commands run in a sandbox; want it refused by name, and nothing more asked", err, len(other.planned), len(b.workspaces))
 	}
 	for _, args := range [][]string{{"build", "--endpoint", "x"}, {"workspace", "open", "--workspace", "x"}, {"workspace", "ssh", "--endpoint", "x"}} {
 		if _, _, err := run(t, d, args...); err == nil || !strings.Contains(err.Error(), "unknown flag") {
@@ -577,9 +558,10 @@ func TestEveryCommandAsksTheOneControlPlaneTheRuleNames(t *testing.T) {
 	}
 }
 
-// frontseat --help says which control plane every command asks, and how
-// a command is told which workspace; the control is a command's own
-// help, which says neither.
+// frontseat --help says which control plane every command asks, how a
+// command is told which workspace, and that it is run in that
+// workspace's sandbox, over its shell; the control is a command's own
+// help, which says none of it.
 func TestTheHelpSaysWhichServerAndWorkspaceAreAsked(t *testing.T) {
 	printed := &strings.Builder{}
 	rootCmd.SetOut(printed)
@@ -587,7 +569,7 @@ func TestTheHelpSaysWhichServerAndWorkspaceAreAsked(t *testing.T) {
 	if _, err := Execute(context.Background(), []string{"--help"}); err != nil {
 		t.Fatal(err)
 	}
-	for _, said := range []string{"~/.config/frontseat/local/server", "http://127.0.0.1:7700", "local/token", "--workspace NAME", "last opened"} {
+	for _, said := range []string{"~/.config/frontseat/local/server", "http://127.0.0.1:7700", "local/token", "--workspace NAME", "last opened", "run in that workspace's sandbox,\nover its shell", "an SSH client", "this machine's key"} {
 		if !strings.Contains(printed.String(), said) {
 			t.Errorf("frontseat --help does not say %q:\n%s", said, printed)
 		}
@@ -596,7 +578,7 @@ func TestTheHelpSaysWhichServerAndWorkspaceAreAsked(t *testing.T) {
 	if _, err := Execute(context.Background(), []string{"build", "cancel", "--help"}); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(printed.String(), "local/server") {
+	if strings.Contains(printed.String(), "local/server") || strings.Contains(printed.String(), "over its shell") {
 		t.Errorf("a command's own help says the rule again:\n%s", printed)
 	}
 }

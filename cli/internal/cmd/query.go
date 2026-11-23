@@ -78,19 +78,10 @@ program to read.`,
 		var answer plain.Answer
 		switch {
 		case queryWhy != "":
-			// Which commit each repository stands at is the workspace's
-			// to say, which is described outside its sandbox alone:
-			// inside, a chain is said without it.
+			// Which commit each repository stands at is the workspace's to
+			// say, and the daemon asked here says none: a chain is said
+			// without it.
 			commits := map[string]string{}
-			if w.Name() != "" {
-				held, err := w.Describe(ctx)
-				if err != nil {
-					return err
-				}
-				for _, r := range held.GetStatus().GetRepositories() {
-					commits[r.GetName()] = r.GetCommit()
-				}
-			}
 			why, err := g.why(target, queryWhy, commits)
 			if err != nil {
 				return err

@@ -22,11 +22,13 @@ const token = "746f6b656e2d6f662d7468652d636f6d6d616e642d6c696e65732d7465737473"
 
 // The token laid out beside the control plane the command line asks is
 // presented to it, by every command that asks it, and to no other
-// origin: not to a workspace's daemon the control plane says is
-// elsewhere. A token another could read is refused, without being said.
-// The controls are a daemon of the control plane's own origin, which is
-// presented it, and a machine with no token, whose commands present
-// none.
+// origin: a command that builds in a workspace is run in its sandbox,
+// and presents it to no one, and the daemon beside a command inside a
+// sandbox is presented none. (That the SDK presents it to no address a
+// control plane answers with is the SDK's to show,
+// TestATokenIsPresentedToItsOriginAlone.) A token another could read is
+// refused, without being said. The control is a machine with no token,
+// whose commands present none.
 func TestTheTokenIsPresentedToTheControlPlaneAlone(t *testing.T) {
 	var mu sync.Mutex
 	var presented []string
@@ -45,19 +47,17 @@ func TestTheTokenIsPresentedToTheControlPlaneAlone(t *testing.T) {
 		presented = nil
 		return got
 	}
-	// A daemon elsewhere, and one beneath the control plane.
+	// A daemon elsewhere, and the control plane.
 	builds := connect.NewServer()
 	buildv1alpha1connect.RegisterBuildServiceHandler(builds, &daemonOf{})
 	daemon := http.NewServeMux()
 	connecthttp.Mount(daemon, builds)
 	elsewhere := httptest.NewServer(recording(daemon))
 	t.Cleanup(elsewhere.Close)
-	var daemonAt string
 	api := connect.NewServer()
-	workspacev1alpha1connect.RegisterWorkspaceServiceHandler(api, keeping{daemon: func() string { return daemonAt }})
+	workspacev1alpha1connect.RegisterWorkspaceServiceHandler(api, keeping{daemon: func() string { return elsewhere.URL }})
 	mux := http.NewServeMux()
 	connecthttp.Mount(mux, api)
-	mux.Handle("/workspaces/named/build/", http.StripPrefix("/workspaces/named/build", daemon))
 	srv := httptest.NewServer(recording(mux))
 	t.Cleanup(srv.Close)
 	recorded := srv.URL
@@ -70,19 +70,15 @@ func TestTheTokenIsPresentedToTheControlPlaneAlone(t *testing.T) {
 	if got := taken(); len(got) != 1 || got[0] != plane+" Bearer "+token {
 		t.Errorf("the control plane was presented %q, want the token", got)
 	}
-	daemonAt = recorded + "/workspaces/named/build"
-	if _, _, err := runAt(t, context.Background(), "", "build", "list", "--workspace", "named"); err != nil {
-		t.Fatal(err)
+	// A command that builds in a workspace is run in its sandbox: the
+	// token is presented to no one for it, neither to the control plane
+	// nor to the daemon the control plane says is elsewhere.
+	b := standingIn(t)
+	if _, _, err := runAt(t, context.Background(), "", "build", "list", "--workspace", "named"); err != nil || len(b.given) != 1 {
+		t.Fatalf("build list of a workspace named: %v, run in a sandbox %d times", err, len(b.given))
 	}
-	if got := taken(); len(got) != 2 || got[1] != plane+" Bearer "+token {
-		t.Errorf("a daemon beneath the control plane was presented %q, want the token", got)
-	}
-	daemonAt = elsewhere.URL
-	if _, _, err := runAt(t, context.Background(), "", "build", "list", "--workspace", "named"); err != nil {
-		t.Fatal(err)
-	}
-	if got := taken(); len(got) != 2 || got[1] != elsewhere.URL[len("http://"):]+" " {
-		t.Errorf("a daemon elsewhere was presented %q, want nothing", got)
+	if got := taken(); len(got) != 0 {
+		t.Errorf("for a build in a workspace's sandbox, %q were asked; want no one", got)
 	}
 
 	// Inside a workspace's sandbox, the daemon beside is presented no
@@ -149,6 +145,9 @@ func TestMain(m *testing.M) {
 	// And runs outside any workspace's sandbox, whatever the machine the
 	// tests run on is; a test that runs inside one says so (runAt).
 	inside = outside
+	// And opens no shell of this machine's: a test that runs a command
+	// in a workspace's sandbox stands in for it (standingIn).
+	inBox = unboxed
 	code := m.Run()
 	// The directory is the tests' own, made just above.
 	_ = os.RemoveAll(config)

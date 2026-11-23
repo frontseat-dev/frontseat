@@ -15,7 +15,7 @@ how it ends.
 | 36 | the server refused who asked: no token, or a token it does not take (`UNAUTHENTICATED`, `PERMISSION_DENIED`) |
 | 37 | the server did not answer (`UNAVAILABLE`, `DEADLINE_EXCEEDED`), or stopped answering before what was followed ended |
 | 130 | interrupted (Ctrl-C, `SIGTERM`); nothing more is printed |
-| 255 | `workspace ssh`: the SSH client could not get in |
+| 255 | `workspace ssh`, and a command that builds, tests, runs, queries or releases with a workspace selected, which is run in its sandbox over its shell: the SSH client could not get in |
 
 `frontseat run` exits with its program's own exit code, so 1, 2, 36, 37
 and 130 from it may be the program's.
