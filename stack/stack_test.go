@@ -125,7 +125,7 @@ func stackOf(t *testing.T, from string) (*runtime, Stack, *[]string) {
 	s := Stack{Root: root, docker: r.docker,
 		build: func(context.Context) (string, error) {
 			*built = append(*built, "box")
-			return "frontseat-box:a11111111111", nil
+			return "frontseat-box-image:a11111111111", nil
 		},
 		image: func(_ context.Context, box string) (string, error) {
 			*built = append(*built, "image on "+box)
@@ -148,10 +148,10 @@ func TestAStackRunsTheImageAndBoxOfItsCheckout(t *testing.T) {
 	if err := s.Up(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if want := []string{"box", "image on frontseat-box:a11111111111"}; !slices.Equal(*built, want) {
+	if want := []string{"box", "image on frontseat-box-image:a11111111111"}; !slices.Equal(*built, want) {
 		t.Errorf("built %q, want %q", *built, want)
 	}
-	if want := []string{"rm", "run frontseat-stack:b22222222222", "load frontseat-box:a11111111111", ready}; !slices.Equal(r.done, want) {
+	if want := []string{"rm", "run frontseat-stack:b22222222222", "load frontseat-box-image:a11111111111", ready}; !slices.Equal(r.done, want) {
 		t.Errorf("did %q, want %q", r.done, want)
 	}
 	here, err := filepath.EvalSymlinks(s.Root)

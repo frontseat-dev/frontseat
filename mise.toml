@@ -61,19 +61,19 @@ CARGO_TARGET_WASM32_WASIP1_RUSTFLAGS = { value = "{% if tools['http:rust-std-was
 # frontseat built from this checkout, into dist/: the command, the daemon
 # and the local control plane for this machine, the plugins as wasm, and
 # the box image a workspace sandbox runs, tagged by what it holds and
-# frontseat-box:local beside, for a person to ask for it by. It is what a
+# frontseat-box-image:local beside, for a person to ask for it by. It is what a
 # contributor tries frontseat with (CONTRIBUTING.md, "Quick start"), and
 # what specs/cli proves. A run with nothing changed does nothing. The plugins
 # are built by the program that builds them for the tests
 # (specs/cmd/prepare-modules), which reads which there are from the Cargo
 # workspace; the box by its one build (stack/box, frontseat-stack box).
 [tasks.build]
-description = "Build Frontseat from this checkout into dist/ (dist/bin is on the PATH here), and the image each workspace runs (the box), tagged frontseat-box:local too"
+description = "Build Frontseat from this checkout into dist/ (dist/bin is on the PATH here), and the image each workspace runs (the box), tagged frontseat-box-image:local too"
 sources = ["api/**", "cli/**", "cmd/**", "core/**", "common/**", "testsupport/**", "sandbox/**", "build/**", "grid/**", "workspace/**", "stack/**", "sdk/**", "specs/cmd/**", "specs/internal/**", "plugins/**", "Cargo.toml", "Cargo.lock", "go.work", "go.work.sum", "mise.lock"]
 outputs = ["dist/bin/frontseat", "dist/bin/frontseat-box", "dist/bin/frontseat-server", "dist/bin/frontseat-stack", "dist/plugins"]
 run = [
   { task = "build:programs" },
-  "dist/bin/frontseat-stack box --tag frontseat-box:local --plugins dist/plugins",
+  "dist/bin/frontseat-stack box --tag frontseat-box-image:local --plugins dist/plugins",
 ]
 
 # The programs and the plugins alone, and no image: what a job builds

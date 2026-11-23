@@ -41,7 +41,7 @@ func TestBuildsThisRepositorySModulesAndAPIFromItsCommittedConfiguration(t *test
 		"//cli:go.compile", "//cli:go.lint",
 		"//build/engine:go.compile", "//build/engine:go.lint",
 		"//build/daemon:go.compile", "//workspace/server:go.compile", "//core:go.compile",
-		"//cmd/frontseat-box:go.compile", "//cmd/frontseat-confine:go.compile",
+		"//cmd/frontseat-box-image:go.compile", "//cmd/frontseat-confine:go.compile",
 		"//stack:go.compile",
 		"//sdk/go:go.compile", "//sdk/go:go.lint",
 		"//api:buf.lint", "//api:buf.generate/sdk", "//api:buf.generate/daemon", "//api:buf.generate/runner", "//api:buf.generate/source", "//api:buf.generate/sandbox",

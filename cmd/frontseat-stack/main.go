@@ -95,7 +95,7 @@ var words = map[string]func(arguments []string) int{
 	},
 	"box": func(arguments []string) int {
 		options := flag.NewFlagSet("frontseat-stack box", flag.ContinueOnError)
-		tag := options.String("tag", "", "a name to tag the image with beside its tag of its content, for a person to ask for it by (frontseat-box:local)")
+		tag := options.String("tag", "", "a name to tag the image with beside its tag of its content, for a person to ask for it by (frontseat-box-image:local)")
 		plugins := options.String("plugins", "dist/plugins", "the directory holding the plugins, each a <name>.wasm")
 		return checkout(options, arguments, func(ctx context.Context, root string) error {
 			modules, err := box.PluginsIn(*plugins)

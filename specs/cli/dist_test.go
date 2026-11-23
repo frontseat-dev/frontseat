@@ -73,7 +73,7 @@ func TestTheLocalBuildMakesAWorkspaceAndBuildsIt(t *testing.T) {
 		}
 	}
 	// The box of this checkout, by its tag of its content: what mise run
-	// build tagged frontseat-box:local may since be another checkout's,
+	// build tagged frontseat-box-image:local may since be another checkout's,
 	// and a build that changes nothing is the same image, at once.
 	printed := strings.Fields(ran(t, root, 10*time.Minute, filepath.Join(root, "dist", "bin", "frontseat-stack"), "box", "--plugins", filepath.Join(root, "dist", "plugins")))
 	if len(printed) == 0 {
