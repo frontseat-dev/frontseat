@@ -18,6 +18,12 @@ package ports
 // asks on the loopback, at Daemon.
 const Lock = "/var/lib/frontseat/daemon.lock"
 
+// Settings is where, in a box's sandbox, a build daemon is told its
+// settings (build.yaml): its supervisor writes them there from what the
+// control plane told it, and a command that builds there reads them
+// there.
+const Settings = "/var/lib/frontseat/build.yaml"
+
 // A box's ports: what a workspace's sandbox is reached on.
 const (
 	// Daemon is where a box's daemon serves the build API: what the

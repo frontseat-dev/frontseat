@@ -9,6 +9,7 @@ import (
 
 	"github.com/frontseat-dev/frontseat/build/daemon/build"
 	"github.com/frontseat-dev/frontseat/build/daemon/settings"
+	"github.com/frontseat-dev/frontseat/common/record/buildfile"
 	"github.com/frontseat-dev/frontseat/testsupport/testauthority"
 	"github.com/frontseat-dev/frontseat/testsupport/testmodule"
 )
@@ -207,5 +208,32 @@ func TestADirectoryOfPluginsLoadsEveryModuleInIt(t *testing.T) {
 	empty := t.TempDir()
 	if _, err := settings.Modules(nil, empty); err == nil || !strings.Contains(err.Error(), "holds no <name>.wasm") {
 		t.Errorf("a directory of no plugins: %v, want it refused by name", err)
+	}
+}
+
+// What a box's supervisor writes, the file's shape and no more, is what
+// a daemon reads: the grid, its assets, the platform and the plugins it
+// was told, with nothing said of how the grid is asked. The control is
+// the same file with no grid, which no daemon can be told.
+func TestWhatIsWrittenAsTheFilesShapeIsReadAsSettings(t *testing.T) {
+	dir := laid(t)
+	file := filepath.Join(dir, "build.yaml")
+	written := buildfile.File{Plugins: filepath.Join(dir, "plugins"), Grid: buildfile.Grid{Address: "grid:8980", Assets: "grid:8983"}, Platform: map[string]string{"OSFamily": "linux", "ISA": "aarch64"}}
+	if err := buildfile.Write(file, written); err != nil {
+		t.Fatal(err)
+	}
+	got, err := settings.Read(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Grid.Address != "grid:8980" || got.Grid.Assets != "grid:8983" || got.Grid.TLS || got.Platform["ISA"] != "aarch64" || len(got.Plugins) != 2 {
+		t.Errorf("read %+v; want what was written", got)
+	}
+	written.Grid = buildfile.Grid{}
+	if err := buildfile.Write(file, written); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := settings.Read(file); err == nil {
+		t.Errorf("the control: settings of no grid were read: %+v", got)
 	}
 }

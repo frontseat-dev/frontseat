@@ -135,6 +135,9 @@ var policies = []policy{
 	// store, for the workspaces, the sandboxes, the credentials and a
 	// workspace's manifest.
 	{"common/record/records", []string{}},
+	// The file a build daemon is told its settings in, as it is written:
+	// its shape alone, for whoever writes it and whoever reads it.
+	{"common/record/buildfile", []string{"common/record/records"}},
 	// A secret kept in a file that is the server's alone: the owner's
 	// token, and the token presented to Backstage.
 	{"core/secretfile", []string{}},
@@ -259,10 +262,10 @@ var policies = []policy{
 	// fills the workspace as the control plane tells it and serves its
 	// shell, and knows no build.
 	{"cmd/frontseat-box", []string{"workspace/box/supervisor"}},
-	{"workspace/box/supervisor", []string{"workspace/box/source", "core/httpserver", "core/telemetry", "core/ports", "common/told/sourceapi/**"}},
+	{"workspace/box/supervisor", []string{"workspace/box/source", "core/httpserver", "core/telemetry", "core/ports", "common/told/sourceapi/**", "common/record/buildfile"}},
 	// What a build daemon is told, read from one file: the build's own
 	// types, and nothing of a workspace, a sandbox or a control plane.
-	{"build/daemon/settings", []string{"build/daemon/build"}},
+	{"build/daemon/settings", []string{"build/daemon/build", "common/record/buildfile"}},
 	// A build daemon's life, for a directory: the build it serves, what
 	// it is told, and where a workspace's manifest is. Nothing of a box,
 	// a sandbox or a control plane, so that the command line may link it.
