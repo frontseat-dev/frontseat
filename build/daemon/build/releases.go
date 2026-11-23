@@ -195,7 +195,7 @@ func (rs *releases) create(ctx context.Context, request *buildv1.CreateReleaseRe
 	// it again. A daemon given a checkout, as a job's is, publishes.
 	if !workspace.Alone() {
 		if label, found := publishedBy(evaluated.Actions, evaluated.Entities, planned); found {
-			return nil, &refusedRelease{codes.Unimplemented, "PUBLISH_NOT_SERVED", fmt.Sprintf("%s publishes what this release ships, and a release from a workspace publishes nothing: release from a checkout given the daemon, as a job does (frontseatd --checkout)", label)}
+			return nil, &refusedRelease{codes.Unimplemented, "PUBLISH_NOT_SERVED", fmt.Sprintf("%s publishes what this release ships, and a release from a workspace publishes nothing: release from a checkout the daemon was given, a directory with no workspace's manifest, as a job does", label)}
 		}
 	}
 	// What moves is built for production, as a production build builds

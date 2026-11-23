@@ -429,8 +429,8 @@ version, with `{frontseat.version}`, `{frontseat.tag}`,
 
 `Publish.environment` names the variables of where the daemon runs that
 its tool reads a token from, as `GH_TOKEN`. It is given one only where
-whoever runs the daemon said it may be (`frontseatd
---publish-environment`); its environment holds nothing else of where
+whoever runs the daemon said it may be (`publish.environment`, in the
+daemon's settings); its environment holds nothing else of where
 the daemon runs. It runs as the daemon does, and is not confined. Name it
 `publish`, or `publish`, a slash and what it publishes to.
 

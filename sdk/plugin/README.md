@@ -131,8 +131,8 @@ The module is `target/wasm32-wasip1/release/<crate>.wasm`.
 
 ## Enable it
 
-The daemon loads a module it is given (`frontseatd --plugin make.wasm`,
-or every `<name>.wasm` of a directory with `--plugins`), and a
+A build daemon loads every `<name>.wasm` of the directory its settings
+name (`plugins`, in `build.yaml`), and a
 repository enables a plugin by its name in its `frontseat.yaml`, with
 the options it sets:
 

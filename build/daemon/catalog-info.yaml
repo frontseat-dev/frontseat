@@ -3,14 +3,14 @@ kind: Component
 metadata:
   name: build-daemon
   namespace: frontseat
-  description: "The build: the build API served over a directory, which it reads as it is, and the daemon's program beneath its main"
+  description: "The build: the build API served over a directory, which it reads as it is, what a build daemon is told, and its life for a directory"
 spec:
   type: service
   lifecycle: experimental
   owner: jbadeau
   system: build
   providesApis: [api:build-api]
-  dependsOn: [component:api, component:apko-plugin, component:backstage-plugin, component:buf-plugin, component:build-engine, component:cargo-plugin, component:confine, component:container-plugin, component:core, component:git, component:github-plugin, component:go-plugin, component:go-sdk, component:jest-plugin, component:npm-plugin, component:plugin-sdk, component:postgres-plugin, component:record, component:release-plugin, component:runner-contract, component:stack, component:testsupport, component:told, component:vcs, component:workspace-box]
+  dependsOn: [component:api, component:apko-plugin, component:backstage-plugin, component:buf-plugin, component:build-engine, component:cargo-plugin, component:confine, component:container-plugin, component:core, component:git, component:github-plugin, component:go-plugin, component:go-sdk, component:jest-plugin, component:npm-plugin, component:plugin-sdk, component:postgres-plugin, component:record, component:release-plugin, component:runner-contract, component:stack, component:testsupport, component:vcs]
   frontseat:
     # The plugin host's tests, and those that load a plugin, run each
     # plugin's wasm module, from where its crate's wasm action left it

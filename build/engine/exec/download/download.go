@@ -143,7 +143,7 @@ const fetchWithin = 5 * time.Minute
 // first download.
 func Dial(ctx context.Context, config Config) (*Client, error) {
 	if config.Address == "" {
-		return nil, fmt.Errorf("no asset service: give --assets")
+		return nil, fmt.Errorf("no asset service: the settings say none (grid.assets)")
 	}
 	rules, err := rules(config.Rewrites)
 	if err != nil {

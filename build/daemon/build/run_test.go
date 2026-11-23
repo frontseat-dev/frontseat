@@ -472,5 +472,5 @@ func TestARunThatDoesNotExistIsNotFound(t *testing.T) {
 }
 
 // readWith is the version control system the tests' directories are
-// read with: the one the daemon's program gives a build.
+// read with: the one a build daemon gives a build (life.Serve).
 func readWith() directory.System { return chosen.System() }

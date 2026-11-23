@@ -188,9 +188,19 @@ func TestASupervisorWritesWhatABuildInItsWorkspaceIsTold(t *testing.T) {
 	if _, err := os.Stat(none); err == nil {
 		t.Error("the control: a supervisor told no grid wrote settings")
 	}
-	// A property that is none, or given twice, is refused where it is
-	// asked.
-	for _, wrongly := range [][]string{{"--name", "payments", "--platform", "ISA"}, {"--name", "payments", "--platform", "ISA=a", "--platform", "ISA=b"}} {
+	// Told a grid and nothing of what its workers are, it writes nothing
+	// and does not start: a build would guess this machine's.
+	guessed := t.TempDir()
+	if _, err := supervisor.Open(supervisor.Config{Source: "127.0.0.1:0", Workspace: filepath.Join(guessed, "work"), Name: "payments", Lock: filepath.Join(guessed, "box.lock"), Settings: filepath.Join(guessed, "build.yaml"),
+		Build: buildfile.File{Plugins: "/opt/frontseat/plugins", Grid: buildfile.Grid{Address: "grid:8980"}}}); err == nil || !strings.Contains(err.Error(), "--platform") {
+		t.Errorf("a supervisor told a grid and no platform: %v; want it refused, naming --platform", err)
+	}
+	if _, err := os.Stat(filepath.Join(guessed, "build.yaml")); err == nil {
+		t.Error("a supervisor told a grid and no platform wrote settings")
+	}
+	// A property that is none, of no name, or given twice, is refused
+	// where it is asked.
+	for _, wrongly := range [][]string{{"--name", "payments", "--platform", "ISA"}, {"--name", "payments", "--platform", "=linux"}, {"--name", "payments", "--platform", "ISA=a", "--platform", "ISA=b"}} {
 		if err := supervisor.Run(t.Context(), wrongly); err != supervisor.ErrUsage {
 			t.Errorf("asked %q: %v; want %v", wrongly, err, supervisor.ErrUsage)
 		}

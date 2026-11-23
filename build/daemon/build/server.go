@@ -21,8 +21,8 @@ type configuration struct {
 	// Workspace is the workspace's directory.
 	Workspace string
 	// Mounted says the directory is one repository the daemon was given,
-	// rather than a workspace it populates: a job's checkout
-	// (frontseatd --checkout), or a test's.
+	// rather than a workspace something fills: a job's checkout, which
+	// has no workspace's manifest (life.Alone), or a test's.
 	Mounted bool
 	// System is the version control system the directory's repositories
 	// are read with.

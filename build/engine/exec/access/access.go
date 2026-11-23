@@ -96,10 +96,10 @@ func (c Config) secure() bool { return c.TLS || c.Authorities != "" }
 // the daemon was named no authorities of. It reads nothing.
 func (c Config) clear() error {
 	if c.Token != "" && !c.secure() {
-		return errors.New("a grid token is never sent in the clear: give --grid-ca with --grid-token")
+		return errors.New("a grid token is never sent in the clear: say grid.authorities with grid.token")
 	}
 	if c.Token != "" && c.Authorities == "" {
-		return errors.New("a grid token is told only to a grid known by authorities the daemon was named: give --grid-ca with --grid-token, the system's authorities (--grid-tls) are chosen by the environment")
+		return errors.New("a grid token is told only to a grid known by authorities the daemon was named: say grid.authorities with grid.token, the system's authorities (grid.tls) are chosen by the environment")
 	}
 	return nil
 }
@@ -216,7 +216,7 @@ func (h *Handshakes) Said(who, address string, err error) error {
 	if err == nil || !h.Refused() || Unsent(err) {
 		return err
 	}
-	return &untrusted{fmt.Errorf("%s at %s could not be asked over TLS as the daemon was told to ask it (--grid-tls, --grid-ca): it answers in the clear or not in HTTP/2, is not known by those authorities or by that name, or refuses what the daemon offered, or asks for a certificate of the daemon's, which it has none of: %w", who, address, err)}
+	return &untrusted{fmt.Errorf("%s at %s could not be asked over TLS as the daemon was told to ask it (grid.tls, grid.authorities): it answers in the clear or not in HTTP/2, is not known by those authorities or by that name, or refuses what the daemon offered, or asks for a certificate of the daemon's, which it has none of: %w", who, address, err)}
 }
 
 // untrusted is the error of a server that was reached and could not be
@@ -504,9 +504,9 @@ func (c Config) Refused(who string, err error) error {
 	if !NotAdmitted(err) {
 		return err
 	}
-	by := "it was given no token to be told who asks by (--grid-token)"
+	by := "it was given no token to be told who asks by (grid.token)"
 	if c.Token != "" {
-		by = "it is told who asks by the token " + c.Token + " holds (--grid-token), which whoever was given it renews"
+		by = "it is told who asks by the token " + c.Token + " holds (grid.token), which whoever was given it renews"
 	}
 	return fmt.Errorf("%s did not admit this daemon; %s: %w", who, by, err)
 }

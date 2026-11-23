@@ -84,6 +84,14 @@ func Open(config Config) (*Supervisor, error) {
 	// the first command in the workspace finds it: whole, in place of
 	// what a supervisor before this one wrote.
 	if config.Build.Grid.Address != "" {
+		// A build asks every action for the platform of its grid's
+		// workers, so that an action is of the image it runs in: told a
+		// grid and nothing of its workers, a build would guess this
+		// machine's.
+		if len(config.Build.Platform) == 0 {
+			s.Close()
+			return nil, errors.New("the supervisor was told a grid and nothing of what its workers are: it is given --platform, as the control plane that made its sandbox says them")
+		}
 		if config.Settings == "" {
 			config.Settings = ports.Settings
 		}

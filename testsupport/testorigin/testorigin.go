@@ -93,7 +93,7 @@ func (o *Origin) Asked(name, version string) int {
 }
 
 // Rewrites are what a daemon is told to fetch crates.io's downloads from
-// this origin by (frontseatd --rewrite), as the grid's asset service
+// this origin by (its settings' grid.rewrites), as the grid's asset service
 // reaches this machine.
 func (o *Origin) Rewrites() map[string]string {
 	at := "http://host.docker.internal:" + strconv.Itoa(o.port)

@@ -35,12 +35,12 @@ gh = "2.105.0"
   must be there already: the release pushed it, and `gh` makes none. A
   release there already for the tag is an error.
 - **A release publishes from a checkout the daemon was given**, as a
-  job's is (`frontseatd --checkout`). A release from a workspace whose
+  job's is: a directory with no workspace's manifest. A release from a workspace whose
   plan this would publish is refused before anything is built or
   tagged (`PUBLISH_NOT_SERVED`): a workspace's sandbox reaches no forge.
 - **Its token is `GH_TOKEN`**, of where the daemon runs, given only
-  where the daemon was told it may be (`frontseatd --publish-environment
-  GH_TOKEN`). In a GitHub job that is the job's own token, with
+  where the daemon's settings say it may be (`publish.environment:
+  [GH_TOKEN]`, in `build.yaml`). In a GitHub job that is the job's own token, with
   `contents: write`.
 - **Its tool is `gh`, pinned by the repository.** A repository that
   lists the plugin and pins no `gh` is refused when it is analysed,

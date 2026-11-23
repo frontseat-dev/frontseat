@@ -18,7 +18,7 @@ package ports
 // writes the name of its workspace in it. The command line finds it
 // there, and knows by it that it runs inside a workspace's sandbox,
 // where what it builds is told and kept at Settings and Builds.
-const Lock = "/var/lib/frontseat/daemon.lock"
+const Lock = "/var/lib/frontseat/box.lock"
 
 // Settings is where, in a box's sandbox, a build daemon is told its
 // settings (build.yaml): its supervisor writes them there from what the

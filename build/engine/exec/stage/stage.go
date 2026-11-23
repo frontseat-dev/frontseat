@@ -163,7 +163,7 @@ func of(ctx context.Context, snapshot *source.Snapshot, action plan.Action, prov
 	fetch := action.Declared.GetFetch() != nil || action.Declared.GetSharedFetch() != nil
 	if declared := action.Declared.GetSharedFetch().GetDownloads(); len(declared) > 0 {
 		if downloads == nil {
-			return exec.Action{}, fmt.Errorf("%s downloads, and the daemon was given no asset service to download with (--assets)", action.Label)
+			return exec.Action{}, fmt.Errorf("%s downloads, and the daemon was given no asset service to download with (grid.assets)", action.Label)
 		}
 		var unpacking, cutting []string
 		for _, each := range declared {

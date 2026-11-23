@@ -115,7 +115,6 @@ spec:
     - ./cmd/frontseat-server/catalog-info.yaml
     - ./cmd/frontseat-stack/catalog-info.yaml
     - ./cmd/frontseat-runner/catalog-info.yaml
-    - ./cmd/frontseatd/catalog-info.yaml
     - ./common/confine/catalog-info.yaml
     - ./common/git/catalog-info.yaml
     - ./common/record/catalog-info.yaml

@@ -1,6 +1,8 @@
-// Package buildtest starts a daemon for a test, as frontseatd starts
-// one: over a workspace directory, with the Go and Backstage plugins, running
-// actions on the grid of the local stack. A test then speaks to
+// Package buildtest starts a daemon for a test: the build, as a build
+// daemon serves it, and what fills its directory beside it, as a box's
+// supervisor holds it, in one process, over a workspace directory, with
+// the Go and Backstage plugins, running actions on the grid of the
+// local stack. A test then speaks to
 // it as any client does, through the build API at the address returned,
 // and tells it what to hold as the control plane does (Bring), through
 // its source API, which no client reaches, its entities resolved as the
@@ -63,8 +65,8 @@ func Mounted(t testing.TB, checkout string, additionalPlugins ...[]byte) string 
 type Options struct {
 	// Plugins are Wasm modules it loads beside the real plugins.
 	Plugins [][]byte
-	// Rewrites send a download's address elsewhere (frontseatd
-	// --rewrite): a regular expression over it to what replaces it.
+	// Rewrites send a download's address elsewhere (the settings'
+	// grid.rewrites): a regular expression over it to what replaces it.
 	Rewrites map[string]string
 }
 
@@ -76,7 +78,7 @@ func MountedWith(t testing.TB, checkout string, options Options) string {
 func start(t testing.TB, workspace string, mounted bool, rewrites map[string]string, additionalPlugins ...[]byte) string {
 	t.Helper()
 	ctx := context.Background()
-	signals, stop, err := telemetry.Setup(ctx, "frontseatd")
+	signals, stop, err := telemetry.Setup(ctx, "frontseat")
 	t.Cleanup(func() {
 		if err := telemetry.Ended(stop); err != nil {
 			t.Error(err)
@@ -105,8 +107,8 @@ func start(t testing.TB, workspace string, mounted bool, rewrites map[string]str
 	for _, from := range slices.Sorted(maps.Keys(rewrites)) {
 		ordered = append(ordered, build.Rewrite{From: from, To: rewrites[from]})
 	}
-	// What fills the directory, beside the build, as frontseatd has it:
-	// stopped after the build is.
+	// What fills the directory, beside the build, as a box's supervisor
+	// holds it: stopped after the build is.
 	held, err := source.New(workspace, mounted)
 	if err != nil {
 		t.Fatal(err)

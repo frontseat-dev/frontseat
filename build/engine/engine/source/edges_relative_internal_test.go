@@ -2,7 +2,7 @@ package source
 
 import "testing"
 
-// frontseatd's --workspace is "." unless it is told otherwise.
+// A daemon may be told its workspace as ".", its own directory.
 // What the daemon keeps of a file that has gone is then never let go:
 // the keeper knows a file by "name" and looks for those beneath "./".
 func TestWhatIsKnownOfAFileThatIsGoneIsLetGoWhereverTheWorkspaceIs(t *testing.T) {
