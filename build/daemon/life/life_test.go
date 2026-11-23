@@ -231,6 +231,43 @@ func TestABuildDaemonAskedToStopWithItsTokenEndsItself(t *testing.T) {
 	case <-time.After(30 * time.Second):
 		t.Fatal("asked to stop, the daemon never ended")
 	}
+	if Held(state) {
+		t.Error("a daemon that has ended still holds its state directory")
+	}
+}
+
+// A state directory is held for as long as a daemon lives in it, and by
+// none before one started or after it ended: what would start another
+// there asks, since a daemon stops answering before it has let go. The
+// control is the directory before any daemon.
+func TestAStateDirectoryIsHeldWhileADaemonLivesInIt(t *testing.T) {
+	state := filepath.Join(t.TempDir(), "state")
+	if Held(state) {
+		t.Fatal("the control: a directory no daemon was started in is held")
+	}
+	ctx, stop := context.WithCancel(t.Context())
+	ended := make(chan error, 1)
+	go func() {
+		ended <- Keep(ctx, Life{State: state, Handler: answering, Busy: never, Idle: time.Hour})
+	}()
+	for begun := time.Now(); ; time.Sleep(5 * time.Millisecond) {
+		if _, err := Told(state); err == nil {
+			break
+		}
+		if time.Since(begun) > 30*time.Second {
+			t.Fatal("the daemon never said where it serves")
+		}
+	}
+	if !Held(state) {
+		t.Error("a directory a daemon serves is held by none")
+	}
+	stop()
+	if err := <-ended; err != nil {
+		t.Fatal(err)
+	}
+	if Held(state) {
+		t.Error("a directory whose daemon ended is still held")
+	}
 }
 
 // What a daemon serves is part of no trace of the command that started
