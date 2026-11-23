@@ -104,8 +104,15 @@ func start(t testing.TB, workspace string, mounted bool, rewrites map[string]str
 	for _, from := range slices.Sorted(maps.Keys(rewrites)) {
 		ordered = append(ordered, build.Rewrite{From: from, To: rewrites[from]})
 	}
+	// What fills the directory, beside the build, as frontseatd has it:
+	// stopped after the build is.
+	held, err := source.New(workspace, mounted)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(held.Close)
 	daemon, err := build.New(ctx, build.Config{
-		Workspace: workspace, Mounted: mounted,
+		Workspace: workspace, Mounted: mounted, System: source.System(),
 		Plugins:  append(append([][]byte(nil), modules...), additionalPlugins...),
 		Grid:     build.Grid{Address: testgrid.Address(t), Assets: testgrid.Assets(t), Rewrites: ordered},
 		Platform: testgrid.Platform(), Builds: t.TempDir(), Telemetry: signals,
@@ -116,9 +123,9 @@ func start(t testing.TB, workspace string, mounted bool, rewrites map[string]str
 	t.Cleanup(daemon.Close)
 	srv := httptest.NewServer(daemon.Handler)
 	t.Cleanup(srv.Close)
-	source := httptest.NewServer(daemon.Source)
-	t.Cleanup(source.Close)
-	sources.Store(srv.URL, source.URL)
+	told := httptest.NewServer(source.Serve(held))
+	t.Cleanup(told.Close)
+	sources.Store(srv.URL, told.URL)
 	t.Cleanup(func() { sources.Delete(srv.URL) })
 	return srv.URL
 }

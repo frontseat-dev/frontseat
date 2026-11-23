@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/frontseat-dev/frontseat/server/internal/directory"
 	"github.com/frontseat-dev/frontseat/server/internal/exec/access"
 	"github.com/frontseat-dev/frontseat/server/internal/exec/download"
 	"github.com/frontseat-dev/frontseat/server/internal/exec/reapi"
@@ -54,6 +55,9 @@ func (g Grid) access() access.Config {
 type Config struct {
 	Workspace string
 	Mounted   bool
+	// System is the version control system the directory's repositories
+	// are read with.
+	System    directory.System
 	Builds    string
 	Plugins   [][]byte
 	Grid      Grid
@@ -64,8 +68,8 @@ type Config struct {
 	Given []string
 }
 
-// New opens the grid and plugin runtime, then serves the build and source
-// APIs. Close joins runs before releasing those owned services.
+// New opens the grid and plugin runtime, then serves the build API. Close
+// joins runs before releasing those owned services.
 func New(ctx context.Context, config Config) (*Daemon, error) {
 	ctx = config.Telemetry.Context(ctx)
 	grid, err := dial(ctx, config.Grid)
@@ -101,7 +105,7 @@ func New(ctx context.Context, config Config) (*Daemon, error) {
 		names = append(names, plugin.Description.GetName())
 	}
 	daemon, err := newDaemon(configuration{
-		Workspace: config.Workspace, Mounted: config.Mounted, Builds: config.Builds,
+		Workspace: config.Workspace, Mounted: config.Mounted, System: config.System, Builds: config.Builds,
 		Plugins: loaded, Executor: grid, Downloads: downloads, Platform: config.Platform, Telemetry: config.Telemetry, Given: config.Given,
 	})
 	if err != nil {

@@ -128,7 +128,17 @@ var policies = []policy{
 	{"server/internal/backstage", []string{"sdk/go/entity", "sdk/go/bearer", "server/internal/plain", "server/internal/secretfile", "server/internal/source/record", "server/testsupport/backstagetest"}},
 	// What a test service is held to: one check, for the daemon and the grid's runner.
 	{"server/internal/testservice", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/image", "server/internal/plain"}},
-	{"server/internal/build", []string{"sdk/go/api/**", "sdk/go/entity", "sdk/go/enum", "server/internal/poll", "server/internal/pluginapi/**", "server/internal/exec/publish", "server/internal/exec/tools", "server/telemetry", "server/internal/build", "server/internal/source/told/toldtest", "server/internal/engine/evaluate", "server/internal/engine/graph", "server/internal/engine/plan", "server/internal/engine/release", "server/internal/engine/source", "server/internal/exec", "server/internal/exec/access", "server/internal/exec/download", "server/internal/exec/program", "server/internal/exec/run", "server/internal/history", "server/internal/model", "server/internal/wire", "server/internal/pluginhost", "server/internal/source", "server/internal/source/record", "server/internal/source/told", "server/internal/sourceapi/**", "server/internal/page", "server/internal/refusal"}},
+	// The build reads its directory (server/internal/directory) and
+	// nothing of what fills it; its tests alone start what does, beside
+	// it, as the daemon's program has it
+	// (TestTheBuildReadsItsDirectoryAndNothingOfWhatFillsIt).
+	{"server/internal/build", []string{"sdk/go/api/**", "sdk/go/entity", "sdk/go/enum", "server/internal/poll", "server/internal/pluginapi/**", "server/internal/exec/publish", "server/internal/exec/tools", "server/telemetry", "server/internal/build", "server/internal/source/told/toldtest", "server/internal/engine/evaluate", "server/internal/engine/graph", "server/internal/engine/plan", "server/internal/engine/release", "server/internal/engine/source", "server/internal/exec", "server/internal/exec/access", "server/internal/exec/download", "server/internal/exec/program", "server/internal/exec/run", "server/internal/history", "server/internal/model", "server/internal/wire", "server/internal/pluginhost", "server/internal/source", "server/internal/source/record", "server/internal/source/vcs", "server/internal/directory", "server/internal/manifest", "server/internal/source/told", "server/internal/sourceapi/**", "server/internal/page", "server/internal/refusal"}},
+	// A directory as a build reads it: the workspace's manifest in it,
+	// and its repositories' history through the version control port.
+	{"server/internal/directory", []string{"server/internal/directory", "server/internal/manifest", "server/internal/source/record", "server/internal/source/vcs"}},
+	// The workspace's manifest, which what fills a directory writes and
+	// a build reads.
+	{"server/internal/manifest", []string{"server/internal/manifest", "server/internal/records", "server/internal/source/record", "sdk/go/entity", "server/testsupport/testfiles"}},
 	{"server/internal/history", []string{"sdk/go/api/**"}},
 	// The plugin contract's Go, generated for the daemon alone.
 	{"server/internal/pluginapi/**", []string{"sdk/go/api/**"}},
@@ -180,7 +190,7 @@ var policies = []policy{
 	{"server/internal/exec/fix", []string{"server/telemetry", "server/internal/exec", "server/internal/exec/here", "server/internal/exec/tools", "server/internal/engine/plan", "server/internal/engine/source", "server/internal/model", "server/internal/pattern", "server/internal/pins"}},
 	{"server/internal/exec/program", []string{"sdk/go/api/**", "server/internal/pluginapi/**", "server/internal/exec", "server/internal/exec/tools", "server/internal/engine/plan", "server/internal/model", "server/internal/confine"}},
 	{"server/internal/exec/run", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/pluginapi/**", "server/telemetry", "server/internal/exec", "server/internal/exec/download", "server/internal/exec/tools", "server/internal/exec/fix", "server/internal/exec/stage", "server/internal/exec/schedule", "server/internal/engine/plan", "server/internal/engine/source", "server/internal/model", "server/internal/runnerapi/**"}},
-	{"server/internal/source/**", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/source/**", "server/internal/refusal", "server/internal/sourceapi/**", "server/internal/confine", "server/internal/records"}},
+	{"server/internal/source/**", []string{"sdk/go/api/**", "sdk/go/entity", "server/internal/source/**", "server/internal/refusal", "server/internal/sourceapi/**", "server/internal/confine", "server/internal/records", "server/internal/manifest"}},
 	{"server/internal/source/record", []string{"sdk/go/entity", "server/internal/source/record"}},
 	// A daemon told, for a test, what the control plane would tell it:
 	// its entities resolved through a fake Backstage.
@@ -1479,5 +1489,49 @@ func TestEquallySpecificOwnersAreRejected(t *testing.T) {
 		if owner("sdk/go/entity/proto.go") != nil {
 			t.Errorf("ambiguous ownership %s accepted", duplicate)
 		}
+	}
+}
+
+// whatFills is what fills a workspace's directory as the control plane
+// tells it: what a build is no part of.
+const whatFills = "server/internal/source"
+
+// buildsOfWhatFills returns each file of the build, or of the directory
+// it reads, that imports what fills the directory; tests apart, which
+// start it beside the build as the daemon's program does.
+func buildsOfWhatFills(imports map[string][]string) []string {
+	var out []string
+	for file, imported := range imports {
+		file = filepath.ToSlash(file)
+		if strings.HasSuffix(file, "_test.go") || !(strings.HasPrefix(file, "server/internal/build/") || strings.HasPrefix(file, "server/internal/directory/")) {
+			continue
+		}
+		if slices.Contains(imported, module+"/"+whatFills) {
+			out = append(out, file)
+		}
+	}
+	slices.Sort(out)
+	return out
+}
+
+// A build needs a directory, and not whoever filled it: the build and
+// the directory it reads import nothing of what fills a workspace, which
+// the daemon's program starts beside them.
+func TestTheBuildReadsItsDirectoryAndNothingOfWhatFillsIt(t *testing.T) {
+	root := repositoryRoot(t)
+	for _, file := range buildsOfWhatFills(importsUnder(t, root, root)) {
+		t.Errorf("%s imports %s: a build reads its directory, and knows nothing of what fills it", file, whatFills)
+	}
+	// The controls: a file of the build that imports it is found; a test
+	// of the build, and the daemon's program, are not.
+	planted := map[string][]string{
+		"server/internal/build/runs.go":      {module + "/" + whatFills},
+		"server/internal/build/run_test.go":  {module + "/" + whatFills},
+		"server/internal/daemon/daemon.go":   {module + "/" + whatFills},
+		"server/internal/directory/read.go":  {module + "/server/internal/source/record"},
+		"server/internal/directory/other.go": {module + "/" + whatFills},
+	}
+	if found := buildsOfWhatFills(planted); !slices.Equal(found, []string{"server/internal/build/runs.go", "server/internal/directory/other.go"}) {
+		t.Errorf("of what was planted, found %v", found)
 	}
 }

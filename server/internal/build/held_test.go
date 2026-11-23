@@ -38,7 +38,7 @@ func TestARunIsEndedOnlyByTheDaemonThatRunsIt(t *testing.T) {
 			}
 			// A directory is one daemon's at a time: a second daemon given
 			// the first's does not start, and one given its own does.
-			second, err := newDaemon(configuration{Workspace: workspace, Mounted: true, Executor: scripted{}, Builds: other})
+			second, err := newDaemon(configuration{Workspace: workspace, Mounted: true, System: readWith(), Executor: scripted{}, Builds: other})
 			if shared != (err != nil) {
 				t.Fatalf("a second daemon: %v; want it refused where the directory is the first's, and only there", err)
 			}

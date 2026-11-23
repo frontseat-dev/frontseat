@@ -24,7 +24,7 @@ func TestADaemonMadeAnewKeepsNothingOfTheOneBefore(t *testing.T) {
 	}
 	asked := func(plugins []*pluginhost.Plugin) (*buildv1.ListProjectsResponse, error, int) {
 		t.Helper()
-		served, err := newDaemon(configuration{Workspace: root, Mounted: true, Builds: runs, Executor: scripted{}, Plugins: plugins})
+		served, err := newDaemon(configuration{Workspace: root, Mounted: true, System: readWith(), Builds: runs, Executor: scripted{}, Plugins: plugins})
 		if err != nil {
 			t.Fatal(err)
 		}

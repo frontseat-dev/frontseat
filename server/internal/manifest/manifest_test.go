@@ -1,13 +1,13 @@
 package manifest_test
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/frontseat-dev/frontseat/server/internal/source/internal/manifest"
-	"github.com/frontseat-dev/frontseat/server/internal/source/internal/vcs/git"
+	"github.com/frontseat-dev/frontseat/server/internal/manifest"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testfiles"
 )
 
@@ -27,7 +27,7 @@ func TestAManifestIsReadAsItWasWritten(t *testing.T) {
 	dir := t.TempDir()
 	testfiles.Tree(t, dir, map[string]string{manifest.File: sound})
 
-	got, found, err := manifest.Read(dir, git.System{}.Revision)
+	got, found, err := manifest.Read(dir, revision)
 
 	if err != nil || !found {
 		t.Fatalf("read: found %v, err %v", found, err)
@@ -62,7 +62,7 @@ func TestAManifestThatNamesWhatAWorkspaceCannotHoldIsNotRead(t *testing.T) {
 			dir := t.TempDir()
 			testfiles.Tree(t, dir, map[string]string{manifest.File: strings.Replace(sound, change[0], change[1], 1)})
 
-			_, _, err := manifest.Read(dir, git.System{}.Revision)
+			_, _, err := manifest.Read(dir, revision)
 
 			if err == nil {
 				t.Error("it was read")
@@ -92,7 +92,7 @@ func TestAManifestOfAnotherVersionOrWithAKeyUnknownIsNotRead(t *testing.T) {
 			dir := t.TempDir()
 			testfiles.Tree(t, dir, map[string]string{manifest.File: strings.Replace(sound, c.change, c.to, 1)})
 
-			_, _, err := manifest.Read(dir, git.System{}.Revision)
+			_, _, err := manifest.Read(dir, revision)
 
 			if err == nil || !strings.Contains(err.Error(), c.says) {
 				t.Errorf("read: %v, want it refused, naming %s", err, c.says)
@@ -109,7 +109,7 @@ func TestAManifestOfAnotherVersionOrWithAKeyUnknownIsNotRead(t *testing.T) {
 func TestAManifestIsWrittenWholeInThePlaceOfTheOneItReplaces(t *testing.T) {
 	dir := t.TempDir()
 	testfiles.Tree(t, dir, map[string]string{manifest.File: sound})
-	whole, _, err := manifest.Read(dir, git.System{}.Revision)
+	whole, _, err := manifest.Read(dir, revision)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +120,7 @@ func TestAManifestIsWrittenWholeInThePlaceOfTheOneItReplaces(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	again, found, err := manifest.Read(dir, git.System{}.Revision)
+	again, found, err := manifest.Read(dir, revision)
 	if err != nil || !found || len(again.Known) != 0 || len(again.Repositories) != 1 {
 		t.Errorf("read back %+v (found %v, %v), want the repository and no entity", again, found, err)
 	}
@@ -143,7 +143,7 @@ func TestAManifestIsWrittenWholeInThePlaceOfTheOneItReplaces(t *testing.T) {
 			done = true
 		default:
 		}
-		read, found, err := manifest.Read(dir, git.System{}.Revision)
+		read, found, err := manifest.Read(dir, revision)
 		if err != nil || !found || len(read.Repositories) != 1 {
 			t.Fatalf("a manifest read while it is written is %+v (found %v, %v), want all of one", read, found, err)
 		}
@@ -173,4 +173,14 @@ func TestWhatAWriteLeftUnfinishedIsCleared(t *testing.T) {
 	if err != nil || strings.Join(names, ",") != "other.yaml,workspace.yaml" {
 		t.Errorf("beside the manifest are %v (%v), want the manifest and other.yaml", names, err)
 	}
+}
+
+// revision holds a name to being a commit's hash written in full, as the
+// version control system a workspace is brought with does: the manifest
+// is read with whatever its reader holds a revision to.
+func revision(name string) error {
+	if len(name) != 40 || strings.Trim(name, "0123456789abcdef") != "" {
+		return errors.New("is not a commit's full hash")
+	}
+	return nil
 }

@@ -330,7 +330,16 @@ func serve(ctx context.Context, listen, sourceAddress, workspace, runs string, m
 		}
 		modulesBytes = append(modulesBytes, module)
 	}
-	daemon, err := build.New(ctx, build.Config{Workspace: workspace, Plugins: modulesBytes, Grid: config, Platform: platform, Telemetry: signals, Builds: runs, Given: given, Mounted: checkout})
+	// What fills the workspace's directory, as the control plane tells
+	// it, is beside the build and no part of it: the build reads the
+	// directory as it is. It is stopped once the build has stopped
+	// reading.
+	held, err := source.New(workspace, checkout)
+	if err != nil {
+		return err
+	}
+	defer held.Close()
+	daemon, err := build.New(ctx, build.Config{Workspace: workspace, System: source.System(), Plugins: modulesBytes, Grid: config, Platform: platform, Telemetry: signals, Builds: runs, Given: given, Mounted: checkout})
 	if err != nil {
 		return err
 	}
@@ -356,7 +365,7 @@ func serve(ctx context.Context, listen, sourceAddress, workspace, runs string, m
 	sourced := make(chan error, 1)
 	go func() {
 		defer cancel()
-		sourced <- httpserver.Serve(serving, told, daemon.Source)
+		sourced <- httpserver.Serve(serving, told, signals.Handler(source.Serve(held), "source API"))
 	}()
 	err = httpserver.Serve(serving, listener, daemon.Handler)
 	cancel()

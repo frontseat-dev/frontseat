@@ -1,6 +1,6 @@
 package source_test
 
-import "github.com/frontseat-dev/frontseat/server/internal/source/internal/manifest"
+import "github.com/frontseat-dev/frontseat/server/internal/manifest"
 
 import "github.com/frontseat-dev/frontseat/server/internal/source/record"
 
