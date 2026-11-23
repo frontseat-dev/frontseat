@@ -160,14 +160,33 @@ func withoutIPv6(failed error) func(string) (net.Conn, error) {
 	}
 }
 
-// A machine without [::1] has nothing there to prove; any other failure
-// to reach the port there is a refusal.
-func TestALoopbackTheMachineDoesNotHaveIsNotProven(t *testing.T) {
-	for _, missing := range []error{syscall.EADDRNOTAVAIL, syscall.ENETUNREACH} {
+// unshared is a listener on every address at a port no other process of
+// this machine holds on a loopback, proven as the machine dials: a port
+// the system hands out may be one another process took at 127.0.0.1
+// alone, which is what proving is for, and no fault of what is tested
+// with it. A machine that hands out ten such in a row fails the test.
+func unshared(t *testing.T) net.Listener {
+	t.Helper()
+	for range 10 {
 		l, err := net.Listen("tcp", "0.0.0.0:0")
 		if err != nil {
 			t.Fatal(err)
 		}
+		if proven(l, dialled) == nil {
+			return l
+		}
+		_ = l.Close()
+	}
+	t.Fatal("ten ports in a row were held by another process too")
+	return nil
+}
+
+// A machine without [::1] has nothing there to prove; any other failure
+// to reach the port there is a refusal. The control is the same
+// listener proven as the machine dials, which it is before each case.
+func TestALoopbackTheMachineDoesNotHaveIsNotProven(t *testing.T) {
+	for _, missing := range []error{syscall.EADDRNOTAVAIL, syscall.ENETUNREACH} {
+		l := unshared(t)
 		if l.Addr().(*net.TCPAddr).IP.To4() != nil {
 			_ = l.Close()
 			t.Skip("this machine listens on every address over IPv4 alone, and dials no [::1]")
