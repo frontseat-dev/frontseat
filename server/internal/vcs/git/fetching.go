@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	rungit "github.com/frontseat-dev/frontseat/server/git"
-	"github.com/frontseat-dev/frontseat/server/internal/source/vcs"
+	"github.com/frontseat-dev/frontseat/server/internal/vcs"
 )
 
 // Cloned implements vcs.Fetching: a remote as git clones it in a

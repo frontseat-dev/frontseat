@@ -20,7 +20,7 @@ import (
 	"github.com/frontseat-dev/frontseat/server/internal/engine/config"
 	"github.com/frontseat-dev/frontseat/server/internal/model"
 	pluginv1 "github.com/frontseat-dev/frontseat/server/internal/pluginapi/frontseat/plugin/v1alpha1"
-	"github.com/frontseat-dev/frontseat/server/internal/source/vcs"
+	"github.com/frontseat-dev/frontseat/server/internal/vcs"
 )
 
 // History is what planning asks of a repository's history, by the

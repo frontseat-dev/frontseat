@@ -9,7 +9,7 @@ import (
 	"testing/synctest"
 	"time"
 
-	"github.com/frontseat-dev/frontseat/server/internal/source/record"
+	"github.com/frontseat-dev/frontseat/server/internal/record"
 )
 
 // Hold the real evaluator gate, so each source a graph request acquires would

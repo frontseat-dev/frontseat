@@ -4,7 +4,7 @@ import (
 	"github.com/frontseat-dev/frontseat/sdk/go/entity"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/graph"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/plan"
-	"github.com/frontseat-dev/frontseat/server/internal/source/record"
+	"github.com/frontseat-dev/frontseat/server/internal/record"
 	"sort"
 )
 

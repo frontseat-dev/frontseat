@@ -1,6 +1,6 @@
 package plan
 
-import "github.com/frontseat-dev/frontseat/server/internal/source/record"
+import "github.com/frontseat-dev/frontseat/server/internal/record"
 
 import "github.com/frontseat-dev/frontseat/sdk/go/entity"
 

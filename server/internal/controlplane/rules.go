@@ -15,8 +15,8 @@ import (
 	"github.com/frontseat-dev/frontseat/local/ports"
 	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/plain"
-	"github.com/frontseat-dev/frontseat/server/internal/source/told"
-	"github.com/frontseat-dev/frontseat/server/internal/source/vcs"
+	"github.com/frontseat-dev/frontseat/server/internal/told"
+	"github.com/frontseat-dev/frontseat/server/internal/vcs"
 	sandboxv1 "github.com/frontseat-dev/frontseat/server/sandbox/api/frontseat/sandbox/v1alpha1"
 )
 

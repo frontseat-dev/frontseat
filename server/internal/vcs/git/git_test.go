@@ -17,8 +17,8 @@ import (
 	"testing"
 
 	rungit "github.com/frontseat-dev/frontseat/server/git"
-	"github.com/frontseat-dev/frontseat/server/internal/source/internal/vcs/git"
-	"github.com/frontseat-dev/frontseat/server/internal/source/vcs"
+	"github.com/frontseat-dev/frontseat/server/internal/vcs"
+	"github.com/frontseat-dev/frontseat/server/internal/vcs/git"
 )
 
 func TestARepositoryGivenNoNameIsNamedAsGitNamesItsDirectory(t *testing.T) {

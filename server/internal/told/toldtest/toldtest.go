@@ -12,8 +12,8 @@ import (
 	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/entity"
 	"github.com/frontseat-dev/frontseat/server/internal/backstage"
-	"github.com/frontseat-dev/frontseat/server/internal/source/told"
 	sourcev1 "github.com/frontseat-dev/frontseat/server/internal/sourceapi/frontseat/source/v1alpha1"
+	"github.com/frontseat-dev/frontseat/server/internal/told"
 	"github.com/frontseat-dev/frontseat/server/testsupport/backstagetest"
 )
 

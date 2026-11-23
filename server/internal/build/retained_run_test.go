@@ -5,7 +5,7 @@ import (
 	"context"
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/evaluate"
-	"github.com/frontseat-dev/frontseat/server/internal/source/record"
+	"github.com/frontseat-dev/frontseat/server/internal/record"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	"testing"
 	"time"

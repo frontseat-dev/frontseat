@@ -7,6 +7,7 @@ import (
 	"github.com/frontseat-dev/frontseat/server/internal/directory"
 	"github.com/frontseat-dev/frontseat/server/internal/source"
 	"github.com/frontseat-dev/frontseat/server/internal/sourceapi/frontseat/source/v1alpha1/sourcev1alpha1connect"
+	"github.com/frontseat-dev/frontseat/server/internal/vcs/chosen"
 	"io"
 	"net/http/httptest"
 	"os"
@@ -487,4 +488,4 @@ func TestARunThatDoesNotExistIsNotFound(t *testing.T) {
 
 // readWith is the version control system the tests' directories are
 // read with: the one the daemon's program gives a build.
-func readWith() directory.System { return source.System() }
+func readWith() directory.System { return chosen.System() }

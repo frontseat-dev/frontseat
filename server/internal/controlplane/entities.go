@@ -13,9 +13,9 @@ import (
 	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/entity"
 	"github.com/frontseat-dev/frontseat/server/internal/backstage"
-	"github.com/frontseat-dev/frontseat/server/internal/source/record"
-	"github.com/frontseat-dev/frontseat/server/internal/source/told"
+	"github.com/frontseat-dev/frontseat/server/internal/record"
 	sourcev1 "github.com/frontseat-dev/frontseat/server/internal/sourceapi/frontseat/source/v1alpha1"
+	"github.com/frontseat-dev/frontseat/server/internal/told"
 )
 
 // notServed is the reason a control plane that resolves no entities

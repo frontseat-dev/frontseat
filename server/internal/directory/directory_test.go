@@ -9,8 +9,8 @@ import (
 
 	"github.com/frontseat-dev/frontseat/server/internal/directory"
 	"github.com/frontseat-dev/frontseat/server/internal/manifest"
-	"github.com/frontseat-dev/frontseat/server/internal/source/record"
-	"github.com/frontseat-dev/frontseat/server/internal/source/vcs"
+	"github.com/frontseat-dev/frontseat/server/internal/record"
+	"github.com/frontseat-dev/frontseat/server/internal/vcs"
 )
 
 // asked is a version control system that says which directory it was

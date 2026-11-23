@@ -59,10 +59,10 @@ import (
 	"github.com/frontseat-dev/frontseat/server/internal/poll"
 	"github.com/frontseat-dev/frontseat/server/internal/records"
 	"github.com/frontseat-dev/frontseat/server/internal/refusal"
-	"github.com/frontseat-dev/frontseat/server/internal/source/told"
-	"github.com/frontseat-dev/frontseat/server/internal/source/vcs"
 	sourcev1 "github.com/frontseat-dev/frontseat/server/internal/sourceapi/frontseat/source/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/sourceapi/frontseat/source/v1alpha1/sourcev1alpha1connect"
+	"github.com/frontseat-dev/frontseat/server/internal/told"
+	"github.com/frontseat-dev/frontseat/server/internal/vcs"
 	"github.com/frontseat-dev/frontseat/server/sandbox"
 	sandboxv1 "github.com/frontseat-dev/frontseat/server/sandbox/api/frontseat/sandbox/v1alpha1"
 )

@@ -23,7 +23,7 @@ import (
 	"github.com/frontseat-dev/frontseat/server/internal/exec/tools"
 	"github.com/frontseat-dev/frontseat/server/internal/model"
 	"github.com/frontseat-dev/frontseat/server/internal/pluginhost"
-	"github.com/frontseat-dev/frontseat/server/internal/source/record"
+	"github.com/frontseat-dev/frontseat/server/internal/record"
 )
 
 // errReleaseNotFound is what asking for a release no daemon made, or one

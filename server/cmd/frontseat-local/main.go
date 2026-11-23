@@ -44,7 +44,7 @@ import (
 	"github.com/frontseat-dev/frontseat/server/internal/controlplane"
 	"github.com/frontseat-dev/frontseat/server/internal/httpserver"
 	"github.com/frontseat-dev/frontseat/server/internal/secretfile"
-	"github.com/frontseat-dev/frontseat/server/internal/source"
+	"github.com/frontseat-dev/frontseat/server/internal/vcs/chosen"
 	"github.com/frontseat-dev/frontseat/server/telemetry"
 )
 
@@ -268,7 +268,7 @@ func serve(ctx context.Context, f told) error {
 	plane, err := controlplane.OverGateway(controlplane.Config{
 		PublicURL: public, State: f.state, Box: f.box, Callers: callers,
 		Grid:     controlplane.Grid{Hosts: grid.Hosts(), Arguments: grid.Arguments()},
-		Fetching: source.Fetching(), Entities: entities,
+		Fetching: chosen.System(), Entities: entities,
 	}, controlplane.Gateway{Address: gateway, Identity: f.identity, Runtime: f.runtime})
 	if err != nil {
 		return err

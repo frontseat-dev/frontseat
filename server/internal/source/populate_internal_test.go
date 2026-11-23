@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/frontseat-dev/frontseat/server/internal/source/record"
-	"github.com/frontseat-dev/frontseat/server/internal/source/vcs"
+	"github.com/frontseat-dev/frontseat/server/internal/record"
+	"github.com/frontseat-dev/frontseat/server/internal/vcs"
 )
 
 // stalled is a version control system whose remote accepts and never

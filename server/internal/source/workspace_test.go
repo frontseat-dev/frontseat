@@ -2,7 +2,7 @@ package source_test
 
 import "github.com/frontseat-dev/frontseat/server/internal/manifest"
 
-import "github.com/frontseat-dev/frontseat/server/internal/source/record"
+import "github.com/frontseat-dev/frontseat/server/internal/record"
 
 import "github.com/frontseat-dev/frontseat/sdk/go/entity"
 
@@ -16,7 +16,7 @@ import (
 
 	"github.com/frontseat-dev/frontseat/server/internal/source"
 
-	"github.com/frontseat-dev/frontseat/server/internal/source/internal/vcs/git"
+	"github.com/frontseat-dev/frontseat/server/internal/vcs/git"
 )
 
 // settled waits for a workspace to stop being populated and returns it

@@ -24,10 +24,11 @@ import (
 	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/build"
 	"github.com/frontseat-dev/frontseat/server/internal/source"
-	"github.com/frontseat-dev/frontseat/server/internal/source/told"
-	"github.com/frontseat-dev/frontseat/server/internal/source/told/toldtest"
 	sourcev1 "github.com/frontseat-dev/frontseat/server/internal/sourceapi/frontseat/source/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/sourceapi/frontseat/source/v1alpha1/sourcev1alpha1connect"
+	"github.com/frontseat-dev/frontseat/server/internal/told"
+	"github.com/frontseat-dev/frontseat/server/internal/told/toldtest"
+	"github.com/frontseat-dev/frontseat/server/internal/vcs/chosen"
 	"github.com/frontseat-dev/frontseat/server/telemetry"
 	"github.com/frontseat-dev/frontseat/server/testsupport/backstagetest"
 	"github.com/frontseat-dev/frontseat/server/testsupport/testgrid"
@@ -112,7 +113,7 @@ func start(t testing.TB, workspace string, mounted bool, rewrites map[string]str
 	}
 	t.Cleanup(held.Close)
 	daemon, err := build.New(ctx, build.Config{
-		Workspace: workspace, Mounted: mounted, System: source.System(),
+		Workspace: workspace, Mounted: mounted, System: chosen.System(),
 		Plugins:  append(append([][]byte(nil), modules...), additionalPlugins...),
 		Grid:     build.Grid{Address: testgrid.Address(t), Assets: testgrid.Assets(t), Rewrites: ordered},
 		Platform: testgrid.Platform(), Builds: t.TempDir(), Telemetry: signals,
@@ -152,7 +153,7 @@ func Bring(ctx context.Context, at string, spec *workspacev1.WorkspaceSpec, cata
 		return err
 	}
 	generation := generations.Add(1)
-	telling, err := toldtest.Spec(ctx, spec, generation, catalog, source.Fetching().NameOf)
+	telling, err := toldtest.Spec(ctx, spec, generation, catalog, chosen.System().NameOf)
 	if err != nil {
 		return err
 	}

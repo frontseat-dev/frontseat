@@ -13,10 +13,10 @@ import (
 	"time"
 
 	"github.com/frontseat-dev/frontseat/server/internal/manifest"
+	"github.com/frontseat-dev/frontseat/server/internal/record"
 	"github.com/frontseat-dev/frontseat/server/internal/source/internal/populate"
-	"github.com/frontseat-dev/frontseat/server/internal/source/internal/vcs/git"
-	"github.com/frontseat-dev/frontseat/server/internal/source/record"
-	"github.com/frontseat-dev/frontseat/server/internal/source/vcs"
+	"github.com/frontseat-dev/frontseat/server/internal/vcs"
+	"github.com/frontseat-dev/frontseat/server/internal/vcs/chosen"
 )
 
 // State is whether a workspace can be built.
@@ -346,15 +346,7 @@ func at(ref string) string {
 	return ref
 }
 
-// Fetching is what the default version control system says of fetching a
-// repository from inside a sandbox, for whatever lets a sandbox fetch.
-func Fetching() vcs.Fetching { return git.System{} }
-
-// System is the default version control system, for whoever reads a
-// directory's repositories beside what fills it.
-func System() git.System { return git.System{} }
-
 // New opens a workspace with the default version control system.
 func New(root string, mounted bool) (*Workspace, error) {
-	return Open(root, mounted, git.System{})
+	return Open(root, mounted, chosen.System())
 }

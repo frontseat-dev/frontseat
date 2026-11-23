@@ -27,6 +27,7 @@ import (
 	"github.com/frontseat-dev/frontseat/server/internal/build"
 	"github.com/frontseat-dev/frontseat/server/internal/httpserver"
 	"github.com/frontseat-dev/frontseat/server/internal/source"
+	"github.com/frontseat-dev/frontseat/server/internal/vcs/chosen"
 	"github.com/frontseat-dev/frontseat/server/telemetry"
 )
 
@@ -339,7 +340,7 @@ func serve(ctx context.Context, listen, sourceAddress, workspace, runs string, m
 		return err
 	}
 	defer held.Close()
-	daemon, err := build.New(ctx, build.Config{Workspace: workspace, System: source.System(), Plugins: modulesBytes, Grid: config, Platform: platform, Telemetry: signals, Builds: runs, Given: given, Mounted: checkout})
+	daemon, err := build.New(ctx, build.Config{Workspace: workspace, System: chosen.System(), Plugins: modulesBytes, Grid: config, Platform: platform, Telemetry: signals, Builds: runs, Given: given, Mounted: checkout})
 	if err != nil {
 		return err
 	}

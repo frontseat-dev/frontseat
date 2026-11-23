@@ -26,7 +26,7 @@ import (
 	"strings"
 
 	rungit "github.com/frontseat-dev/frontseat/server/git"
-	"github.com/frontseat-dev/frontseat/server/internal/source/vcs"
+	"github.com/frontseat-dev/frontseat/server/internal/vcs"
 )
 
 // System is git, as the program of that name on the daemon's path.

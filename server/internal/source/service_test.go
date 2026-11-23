@@ -12,9 +12,9 @@ import (
 	"github.com/frontseat-dev/frontseat/sdk/go"
 	"github.com/frontseat-dev/frontseat/server/internal/refusal"
 	"github.com/frontseat-dev/frontseat/server/internal/source"
-	"github.com/frontseat-dev/frontseat/server/internal/source/vcs"
 	sourcev1 "github.com/frontseat-dev/frontseat/server/internal/sourceapi/frontseat/source/v1alpha1"
 	"github.com/frontseat-dev/frontseat/server/internal/sourceapi/frontseat/source/v1alpha1/sourcev1alpha1connect"
+	"github.com/frontseat-dev/frontseat/server/internal/vcs"
 )
 
 // stalled is the tapes system, whose clones wait until the test lets

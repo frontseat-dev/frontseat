@@ -18,7 +18,7 @@ import (
 	"github.com/frontseat-dev/frontseat/server/internal/engine/config"
 	"github.com/frontseat-dev/frontseat/server/internal/engine/plan"
 	"github.com/frontseat-dev/frontseat/server/internal/model"
-	"github.com/frontseat-dev/frontseat/server/internal/source/record"
+	"github.com/frontseat-dev/frontseat/server/internal/record"
 )
 
 const digest = "docker.io/library/busybox:1.37@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec"
