@@ -14,7 +14,7 @@ how it ends.
 | 3, 4, 8, … | a build's own exit code, as the build API names them (`build`, `test`, `build events`): 3 a test failed, 4 no tests were found (`NO_TESTS_FOUND`), 8 interrupted |
 | 36 | the server refused who asked: no token, or a token it does not take (`UNAUTHENTICATED`, `PERMISSION_DENIED`) |
 | 37 | the server did not answer (`UNAVAILABLE`, `DEADLINE_EXCEEDED`), or stopped answering before what was followed ended |
-| 130 | interrupted (Ctrl-C, `SIGTERM`); nothing more is printed |
+| 130 | interrupted (Ctrl-C, `SIGTERM`); nothing more is printed. `workspace forward` serves until it is interrupted, and so ends this way |
 | 255 | `workspace ssh`: the SSH client could not get in |
 
 `frontseat run` exits with its program's own exit code, so 1, 2, 36, 37

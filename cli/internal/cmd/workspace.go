@@ -17,7 +17,7 @@ import (
 // workspaceCmd is the group of commands that are asked of the control plane about workspaces.
 var workspaceCmd = &cobra.Command{
 	Use:   "workspace",
-	Short: "Open, fill, list and delete workspaces, and reach their shells, from outside them",
+	Short: "Open, fill, list and delete workspaces, and reach their shells and ports, from outside them",
 	Args:  cobra.ArbitraryArgs,
 	RunE:  named("a workspace command"),
 	// Inside a workspace's sandbox its source is fixed: every workspace

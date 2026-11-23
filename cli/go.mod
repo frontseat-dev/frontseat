@@ -4,6 +4,7 @@ go 1.27.3
 
 require (
 	connectrpc.com/connect/v2 v2.0.2
+	github.com/coder/websocket v1.8.15
 	github.com/frontseat-dev/frontseat/build/daemon v0.0.0
 	github.com/frontseat-dev/frontseat/common/git v0.0.0
 	github.com/frontseat-dev/frontseat/common/record v0.0.0
@@ -33,7 +34,6 @@ require (
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/chainguard-dev/git-urls v1.0.2 // indirect
-	github.com/coder/websocket v1.8.15 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
 	github.com/frontseat-dev/frontseat/build/engine v0.0.0 // indirect

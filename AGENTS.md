@@ -125,6 +125,12 @@ the change that fixes it.
   runs nothing: it names the workspace and says to run the command in
   it, by the command's own name and nothing it was given, and no control
   plane, daemon or SSH client is asked.
+  `workspace forward [NAME] PORT` reaches a port of a workspace's
+  sandbox from this machine: it listens on this machine's loopback and
+  nowhere else, at the same port unless `--listen` says another, and
+  carries each connection there through that control plane
+  (`Workspace.Forward`), until it is interrupted, when it has ended
+  everything it started.
   With no workspace selected, it works on the directory it is run in,
   and asks no control plane either: it asks the build daemon of that
   directory, the nearest above it that is a
@@ -150,6 +156,8 @@ the change that fixes it.
   `TestWithNoWorkspaceTheCommandLineBuildsItsDirectoryThroughADaemonItStarts`,
   `TestInsideAWorkspaceItsSourceIsFixed`,
   `TestTheTokenIsPresentedToTheControlPlaneAlone`,
+  `TestAPortOfThisMachineIsCarriedToAPortOfAWorkspacesSandbox`,
+  `TestAPortIsCarriedFromTheLoopbackAlone`,
   `TestNoCommandAsksAControlPlaneOnAnotherMachineInClear` and the SDK's
   `TestATokenIsPresentedToItsOriginAlone` and
   `TestATokenIsNotPresentedInClearToAnotherMachine`.
@@ -163,11 +171,22 @@ the change that fixes it.
   Inside a sandbox the source is fixed; it is filled from outside. The
   source port is no boundary inside the box: what holds the workspace is
   that nothing is read back as what was asked for.
+  From outside, the control plane carries a workspace's owner, and no
+  one else, to its shell (`/workspaces/{name}/shell`) and to a port of
+  its sandbox (`/workspaces/{name}/ports/{port}`), as bytes of which it
+  reads nothing, by one handler; the port of the source API it carries
+  no one to, the owner neither, and refuses by name with whatever is
+  written for a port and is none, written one way (`plain.Port`):
+  `UNIMPLEMENTED`, `PORT_NOT_SERVED`, with nothing of the sandbox asked.
   Held by: `TestADaemonStartedAgainOrToldFromInsideIsToldWhatTheControlPlaneKeeps`,
   `TestADaemonThatIsBringingIsKnownByItsReasonAndNotByItsWords`,
-  `TestWhatADaemonRefusesToHoldIsRefusedByAReason` and the sandbox
-  specs `TestInsideAWorkspaceItsSourceIsFixedAndItIsFilledFromOutside`
-  and `TestTheDaemonsSourceAPIIsTheControlPlanesAlone`.
+  `TestWhatADaemonRefusesToHoldIsRefusedByAReason`,
+  `TestAPortOfAWorkspacesSandboxIsCarriedToItsOwnerAlone`, the SDK's
+  `TestAPortOfAWorkspaceIsAskedOfItsControlPlaneByItsNumber` and
+  `TestATunnelRefusedByNameIsReadByItsReason`, and the sandbox
+  specs `TestInsideAWorkspaceItsSourceIsFixedAndItIsFilledFromOutside`,
+  `TestTheDaemonsSourceAPIIsTheControlPlanesAlone` and
+  `TestAPortOfAWorkspacesSandboxIsReachedAsBytesByItsOwner`.
 - **One state root per program.** What a program keeps is beneath one
   directory: `frontseatd --state` (its runs; the sandbox's one lock is
   the sandbox's, at one path whatever the daemon is told),
@@ -817,7 +836,8 @@ the change that fixes it.
   server alone; so is what one part of the server serves another alone,
   the daemon's source API (`frontseat.source.v1alpha1`), on a port of
   its own (`Source` in `core/ports`) that no route of the control plane's
-  leads to.
+  leads to, the one that carries a caller to a port of a sandbox
+  neither.
 - A change to the plugin contract raises `ABI` in the SDK and the host's
   range in the same change; the conformance fixtures name the number.
 - Held by: the API's rules over the contracts as Buf builds them

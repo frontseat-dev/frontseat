@@ -8,8 +8,9 @@
 // hold through the daemon's source API (frontseat.source.v1alpha1), at a
 // generation it keeps, and reads back what the daemon holds. It goes on
 // from what was asked for after it or the daemon was stopped. A client
-// is led to a workspace's build API and shell by the workspace's name,
-// and to nothing else of its daemon.
+// is led to a workspace's build API by the workspace's name, and its
+// owner is carried, as bytes, to its shell and to a port of its sandbox;
+// to the daemon's source API, no one is.
 //
 // Every call is from someone: a call that presents no token its
 // Authenticator knows is refused before anything is asked of it. The
@@ -50,6 +51,7 @@ import (
 	"github.com/frontseat-dev/frontseat/common/told/sourceapi/frontseat/source/v1alpha1/sourcev1alpha1connect"
 	"github.com/frontseat-dev/frontseat/common/vcs"
 	"github.com/frontseat-dev/frontseat/core/page"
+	"github.com/frontseat-dev/frontseat/core/plain"
 	"github.com/frontseat-dev/frontseat/core/poll"
 	"github.com/frontseat-dev/frontseat/core/ports"
 	"github.com/frontseat-dev/frontseat/core/refusal"
@@ -123,7 +125,8 @@ type Entities interface {
 // Plane is a control plane that is serving.
 type Plane struct {
 	// Handler serves its API to callers it knows: workspaces, and the
-	// ways to each workspace's build API and shell.
+	// ways to each workspace's build API, its shell and the ports of
+	// its sandbox.
 	http.Handler
 	// Sandboxes is the sandbox service it makes sandboxes with, for the
 	// process that serves it, and never served by it.
@@ -180,11 +183,10 @@ func Serve(c Config) (*Plane, error) {
 			c.Sandboxes.Proxy(&unredirected{ResponseWriter: w}, r, id, ports.Daemon, rest)
 		}
 	})
-	mux.HandleFunc("/workspaces/{name}/shell", func(w http.ResponseWriter, r *http.Request) {
-		if id, ok := s.sandboxOf(w, r); ok {
-			c.Sandboxes.Tunnel(w, r, id, ports.Shell)
-		}
-	})
+	// A workspace's shell, and a port of its sandbox: bytes, carried to
+	// its owner alone, by one way.
+	mux.HandleFunc("/workspaces/{name}/shell", s.carried(func(*http.Request) (int, bool) { return ports.Shell, true }))
+	mux.HandleFunc("/workspaces/{name}/ports/{port...}", s.carried(func(r *http.Request) (int, bool) { return plain.Port(r.PathValue("port")) }))
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
@@ -842,6 +844,35 @@ func (s *service) sandboxOf(w http.ResponseWriter, r *http.Request) (string, boo
 		return "", false
 	}
 	return id, true
+}
+
+// carried answers a request with a tunnel to a port of the sandbox of
+// the workspace it names, for the workspace's owner alone: bytes, both
+// ways, of which the control plane reads nothing, so that it knows
+// nothing of what speaks there. Which port is read from the request,
+// with whether it names one. What names none, a port written as
+// anything but its number among it, is refused by name, and so is the
+// port of the daemon's source API, which the control plane alone dials
+// and leads no caller to (AGENTS.md, "A workspace has one writer"):
+// each PORT_NOT_SERVED, with nothing of the sandbox asked, and without
+// what was written said back. Whoever is not the owner is refused
+// first, as for any way to the workspace, and told nothing of its
+// ports.
+func (s *service) carried(port func(*http.Request) (int, bool)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, ok := s.sandboxOf(w, r)
+		if !ok {
+			return
+		}
+		switch to, written := port(r); {
+		case !written:
+			_ = refusals.Write(w, r, refusedFor(connect.CodeUnimplemented, "PORT_NOT_SERVED", "the control plane carries a connection to a port of a workspace's sandbox, a number from 1 to 65535 written in digits alone, and what was asked for is none"))
+		case to == ports.Source:
+			_ = refusals.Write(w, r, refusedFor(connect.CodeUnimplemented, "PORT_NOT_SERVED", "the control plane carries no connection to the port of a workspace's source API, which is the control plane's alone"))
+		default:
+			s.Sandboxes.Tunnel(w, r, id, to)
+		}
+	}
 }
 
 // passing is the context of a pass over a workspace, called with its

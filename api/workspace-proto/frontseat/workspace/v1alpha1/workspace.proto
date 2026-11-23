@@ -8,10 +8,10 @@
 // what a workspace is asked for: it makes a sandbox for a new one, tells
 // the daemon there what to hold and reads back what it holds, and ends
 // one. It also forwards calls to each workspace's build API, and
-// connections to its shell, by the workspace's name, and forwards
-// nothing else to a workspace. A workspace is changed from outside it:
-// inside its sandbox its source is fixed, and the command line there
-// calls its daemon's build API alone.
+// connections to its shell and to a port of its sandbox, by the
+// workspace's name, and forwards nothing else to a workspace. A
+// workspace is changed from outside it: inside its sandbox its source is
+// fixed, and the command line there calls its daemon's build API alone.
 //
 // Every call to a control plane is a person's, known by the token they
 // present as a bearer token. A call that presents none is refused
@@ -19,10 +19,11 @@
 // the control plane does not know with IDENTITY_INVALID, each in
 // ErrorInfo of the control plane's own domain, frontseat.dev, in which
 // every service it serves refuses a caller it does not know; a call
-// forwarded to a workspace's build API, and a connection to its shell,
-// are held to the same. A workspace belongs to its owner, the caller
-// who asked for it first. Its name is unique among all the workspaces of
-// a control plane, whoever owns them. A caller who names a workspace
+// forwarded to a workspace's build API, and a connection to its shell
+// or to a port of its sandbox, are held to the same. A workspace belongs
+// to its owner, the caller who asked for it first. Its name is unique
+// among all the workspaces of a control plane, whoever owns them. A
+// caller who names a workspace
 // that is another's is refused PERMISSION_DENIED with the reason
 // NOT_OWNER, by every call of this service, and no caller is listed
 // another's workspaces. What this service refuses by name carries ErrorInfo of
@@ -30,6 +31,25 @@
 // A call sent to a workspace's build API address that is not a call of
 // the build API is not forwarded: it is refused UNIMPLEMENTED with the
 // reason CALL_NOT_SERVED.
+//
+// A connection to a port of a workspace's sandbox is asked for at
+// /workspaces/{name}/ports/{port} of the control plane's address, as a
+// WebSocket, and to its shell at /workspaces/{name}/shell. Each is the
+// workspace's owner's alone, and anyone else is refused NOT_OWNER as
+// above. What is written to the WebSocket, in binary messages, is what
+// is connected to the port inside the sandbox reads, and what that
+// writes is read from it: the control plane carries the bytes and knows
+// nothing of what speaks there. The connection ends, both ways, when
+// either end does. {port} is the port's number, from 1 to 65535, in
+// digits alone. A connection is carried to any port but one, the port
+// of the daemon's internal source API, which is the control plane's
+// own: that port, and whatever is written for {port} that is no port
+// so written, is refused UNIMPLEMENTED with the reason PORT_NOT_SERVED,
+// as a call is refused, and nothing is asked of the sandbox. A refusal
+// is answered in place of the WebSocket, as the Connect protocol writes
+// a unary call's error. A workspace that is in no sandbox yet, and a
+// port nothing in the sandbox listens on, are no refusal by name: the
+// answer is an HTTP status that is not the WebSocket's.
 //
 // A workspace is kept as what was asked for, its spec, and what is so,
 // its status. A call writes the spec and returns; the control plane then
