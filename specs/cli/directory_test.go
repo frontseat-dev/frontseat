@@ -92,6 +92,16 @@ func TestWithNoWorkspaceTheCommandLineBuildsItsDirectoryThroughADaemonItStarts(t
 			if answer, err := http.DefaultClient.Do(request); err == nil {
 				_ = answer.Body.Close()
 			}
+			// It has ended once it has let go of its directory: until
+			// then it still writes there, what it knows of the files it
+			// built among it, and the directory is not the test's to
+			// remove.
+			for asked := time.Now(); life.Held(state); time.Sleep(20 * time.Millisecond) {
+				if time.Since(asked) > 30*time.Second {
+					t.Errorf("the build daemon asked to stop still holds %s half a minute on", state)
+					break
+				}
+			}
 		}
 	})
 
