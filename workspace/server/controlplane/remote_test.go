@@ -3,6 +3,7 @@ package controlplane
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -10,6 +11,7 @@ import (
 	connect "connectrpc.com/connect/v2"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/frontseat-dev/frontseat/core/ports"
 	"github.com/frontseat-dev/frontseat/core/refusal"
 	sandboxv1 "github.com/frontseat-dev/frontseat/sandbox/api/frontseat/sandbox/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go"
@@ -102,6 +104,37 @@ func TestARemoteWorkspaceIsRefusedByNameWhereNoStoreIsServed(t *testing.T) {
 // status says where each stands. Asked for again, it is the one there
 // is, and is not held again. When it ends, what is held is let go of,
 // once its sandbox is gone.
+// A stored repository whose mount keeps a layer is given its sandbox
+// with the layer too: where a build looks for it, at the repository's
+// name, and to be read alone, since a build believes a layer only where
+// nothing in the sandbox could have written it. The repository itself is
+// bound to be written, as before. The control is a mount that keeps no
+// layer, whose sandbox is given the repository and nothing more
+// (TestARemoteWorkspaceIsHeldOnceMountedAndLetGoOfWhenItEnds).
+func TestAStoredRepositorysLayerIsBoundWhereABuildLooksForItToBeReadAlone(t *testing.T) {
+	s, held := over(t), sourcestest.New(mountedBeneath)
+	held.Layers = "/var/lib/a-store/layers"
+	client, _, _ := served(t, s, t.TempDir(), serving(held))
+	if _, err := client.CreateWorkspace(context.Background(), &workspacev1.CreateWorkspaceRequest{Spec: &workspacev1.WorkspaceSpec{Stored: []*workspacev1.StoredRepository{{Repository: "services"}}}}); err != nil {
+		t.Fatal(err)
+	}
+	waited(t, client, "services")
+	var given []string
+	for _, v := range s.sandbox(s.of("services")).GetVolumes() {
+		if v.GetKind() != sandboxv1.Volume_KIND_HOST || v.GetSubpath() != "" {
+			t.Errorf("the volume %v is no directory of the machine, bound whole", v)
+		}
+		given = append(given, fmt.Sprintf("%s=%s read-only=%t", v.GetSource(), v.GetPath(), v.GetReadOnly()))
+	}
+	want := []string{
+		mountedBeneath + "/services/services=/work/services read-only=false",
+		"/var/lib/a-store/layers/services/services=" + ports.Mounted + "/services read-only=true",
+	}
+	if !slices.Equal(given, want) {
+		t.Errorf("its sandbox is given %q, want the repository to be written and its layer to be read alone, %q", given, want)
+	}
+}
+
 func TestARemoteWorkspaceIsHeldOnceMountedAndLetGoOfWhenItEnds(t *testing.T) {
 	ctx := context.Background()
 	s, held := over(t), sourcestest.New(mountedBeneath)
@@ -428,6 +461,8 @@ func TestAWorkspaceWhoseStoredRepositoriesAreNotHeldAsAskedIsNotMade(t *testing.
 	}
 	for what, holds := range map[string]func(sources.Workspace) sources.Held{
 		"a directory that climbs":       change(func(h *sources.Held) { h.Volumes[0].Source = mountedBeneath + "/../../etc" }),
+		"a layer that climbs":           change(func(h *sources.Held) { h.Volumes[0].Layer = mountedBeneath + "/../../etc" }),
+		"a layer named relatively":      change(func(h *sources.Held) { h.Volumes[0].Layer = "layers/services" }),
 		"a directory named relatively":  change(func(h *sources.Held) { h.Volumes[0].Source = "services" }),
 		"the whole machine":             change(func(h *sources.Held) { h.Volumes[0].Source = "/" }),
 		"no directory":                  change(func(h *sources.Held) { h.Volumes = nil }),

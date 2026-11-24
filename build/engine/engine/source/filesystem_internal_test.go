@@ -89,14 +89,14 @@ func TestWhatWasSavedBeforeIsLeftAsItWasByADaemonThatSavesNothing(t *testing.T) 
 	}
 }
 
-// Of two repositories, one on a file system that dates a file's changes
-// itself and one on a file system that does not, what was known of the
-// first is saved and used, and nothing of the second: its file is read
-// by the daemon started again, and is not in what was saved.
-func TestOfTwoRepositoriesOnlyTheOneWhoseFileSystemIsTrustedIsSaved(t *testing.T) {
+// repositories is a workspace of repositories of one file each, and
+// where each file is, in the order named.
+func repositories(t *testing.T, names ...string) (Tree, []string) {
+	t.Helper()
 	root := t.TempDir()
+	tree := Tree{Root: root, Paths: map[string]string{}}
 	var files []string
-	for _, repository := range []string{"dated", "undated"} {
+	for _, repository := range names {
 		file := filepath.Join(root, repository, "file")
 		if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
 			t.Fatal(err)
@@ -105,8 +105,17 @@ func TestOfTwoRepositoriesOnlyTheOneWhoseFileSystemIsTrustedIsSaved(t *testing.T
 			t.Fatal(err)
 		}
 		files = append(files, file)
+		tree.Paths[repository] = repository
 	}
-	tree := Tree{Root: root, Paths: map[string]string{"dated": "dated", "undated": "undated"}}
+	return tree, files
+}
+
+// Of two repositories, one on a file system that dates a file's changes
+// itself and one on a file system that does not, what was known of the
+// first is saved and used, and nothing of the second: its file is read
+// by the daemon started again, and is not in what was saved.
+func TestOfTwoRepositoriesOnlyTheOneWhoseFileSystemIsTrustedIsSaved(t *testing.T) {
+	tree, files := repositories(t, "dated", "undated")
 	on := func(directory string) (string, bool) {
 		if filepath.Base(directory) == "undated" {
 			return exfat(directory)

@@ -44,7 +44,7 @@ type graphSourceError struct {
 }
 
 func (s *graphService) source(ctx context.Context) (evaluate.Source, []record.Located, error) {
-	tree, entities, err := sourceOf(s.runs.workspace)
+	tree, entities, err := sourceOf(s.runs.workspace, s.runs.layers)
 	if err != nil {
 		return nil, nil, &graphSourceError{err, codes.FailedPrecondition}
 	}

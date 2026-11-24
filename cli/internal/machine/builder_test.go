@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/frontseat-dev/frontseat/build/daemon/life"
 	"github.com/frontseat-dev/frontseat/common/record/manifest"
+	"github.com/frontseat-dev/frontseat/core/ports"
 )
 
 // started stands in for starting a build daemon: each is a daemon's life
@@ -28,6 +30,9 @@ type started struct {
 	t  *testing.T
 	mu sync.Mutex
 	n  int
+	// layers is where each was told its mounted repositories' layers
+	// are, in the order they were started.
+	layers []string
 	// busy is whether the daemons have something in hand.
 	busy atomic.Bool
 }
@@ -38,6 +43,7 @@ const closing = 50 * time.Millisecond
 func (s *started) start(o life.Options) (*begun, error) {
 	s.mu.Lock()
 	s.n++
+	s.layers = append(s.layers, o.Layers)
 	s.mu.Unlock()
 	over, failed := make(chan struct{}), new(atomic.Pointer[error])
 	child := &begun{ended: over, failed: func() bool { return failed.Load() != nil }, printed: func() string {
@@ -664,14 +670,20 @@ func TestABuildDaemonStartedWithOtherPublishVariablesIsReplaced(t *testing.T) {
 // beneath the sandbox's own directory, named for the directory it
 // builds: nothing of it is read from, or kept beneath, the command
 // line's configuration, which a sandbox has none of. A sandbox whose
-// supervisor wrote no settings has no build daemon. The control is the
-// same directory asked for outside, on a machine told its grid, whose
-// daemon is another, kept beneath the command line's own root.
+// supervisor wrote no settings has no build daemon. It is told where
+// the layers of the workspace's mounted repositories are, which only a
+// sandbox has. The control is the same directory asked for outside, on
+// a machine told its grid, whose daemon is another, kept beneath the
+// command line's own root, and told of no layers: outside a sandbox
+// none is read.
 func TestInsideASandboxABuildDaemonIsToldAndKeptWhereTheSandboxSays(t *testing.T) {
 	s, file := settled(t)
 	sandbox := t.TempDir()
 	before := boxed
-	boxed = kept{settings: filepath.Join(sandbox, "build.yaml"), state: filepath.Join(sandbox, "build")}
+	if before.layers != ports.Mounted || before.settings != ports.Settings || before.state != ports.Builds {
+		t.Errorf("inside a sandbox the daemons are told and kept at %+v; want the sandbox's own paths, each said once", before)
+	}
+	boxed = kept{settings: filepath.Join(sandbox, "build.yaml"), state: filepath.Join(sandbox, "build"), layers: filepath.Join(sandbox, "mounted")}
 	t.Cleanup(func() { boxed = before })
 	here := t.TempDir()
 
@@ -700,6 +712,9 @@ func TestInsideASandboxABuildDaemonIsToldAndKeptWhereTheSandboxSays(t *testing.T
 	outside, err := BuildDaemon(t.Context(), here, false)
 	if err != nil || outside.Address == within.Address || s.count() != 2 {
 		t.Errorf("the control: outside, %+v, %v, after %d daemons; want another, of the machine's own settings", outside, err, s.count())
+	}
+	if !slices.Equal(s.layers, []string{boxed.layers, ""}) {
+		t.Errorf("the daemons were told their layers are at %q; want the sandbox's inside it, and none outside", s.layers)
 	}
 }
 

@@ -105,7 +105,10 @@ func placed(directory string) (place, bool) {
 // keep one (filesystem.go, which names them and why): of one on any
 // other, or on one the system does not name, nothing saved is used and
 // nothing is saved, the daemon started again reads its files, and the
-// daemon is told so once (Unkept). A daemon none of whose repositories
+// daemon is told so once (Unkept). Nor is anything saved, or used, of a
+// repository something else mounted, whatever file system it is said
+// to be on: how its files look is the mount's to say, and every file
+// the mount gave has the same times (HashAttribute). A daemon none of whose repositories
 // is on such a file system saves nothing, and leaves what was saved
 // before it as it was: that is used again only by a daemon that finds
 // the repository where it was, on a file system it trusts, and of a
@@ -149,13 +152,14 @@ func OpenKeeper(file, program string) *Keeper {
 // begin is told the directory a run that begins is of, and where each
 // of its repositories is. The first run takes up what the daemon before
 // this one saved, as far as it is of this directory and of a repository
-// on a file system that dates a file's changes itself (OpenKeeper).
-func (k *Keeper) begin(root string, places map[string]place) {
+// on a file system that dates a file's changes itself (OpenKeeper), and
+// of none that something else mounted (HashAttribute).
+func (k *Keeper) begin(root string, places map[string]place, mounted map[string]bool) {
 	now := k.clock().UnixNano()
 	k.mu.Lock()
 	defer k.mu.Unlock()
 	before := k.before
-	k.before, k.root, k.places = nil, root, places
+	k.before, k.root, k.places, k.mounted = nil, root, places, mounted
 	if k.file != "" {
 		k.dated(places)
 	}
@@ -218,7 +222,7 @@ func (k *Keeper) Save() error {
 		}
 		// As the file system is now, asked again: what is saved outlasts
 		// the daemon.
-		if _, dates := k.on(at.Directory); dates {
+		if _, dates := k.on(at.Directory); dates && !k.mounted[name] {
 			s.Repositories[name] = savedRepository{Place: at, Files: map[string]savedFile{}}
 		}
 	}

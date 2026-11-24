@@ -66,6 +66,16 @@ of the remote's path). `workspace create --remote` asks for each
 `--repository` so, and for each `--entity` as it is named: the control
 plane holds the repositories its entities are in from the store too.
 
+A build in a remote workspace reads a mounted repository as it reads a
+clone, beside any the workspace cloned: its manifest
+(`.frontseat/workspace.yaml`) records it as mounted, at the changeset
+it stands at, which is what is said wherever a repository's commit is
+(`frontseat query`). A mounted repository has no history: a workspace
+that holds one releases nothing, and `frontseat release` there is
+refused by name (`RELEASE_NOT_SERVED`), before anything is built or
+tagged. What a build goes by of a mounted repository's files is in
+[the build settings](build-settings.md#a-mounted-repository).
+
 ## Which workspace is selected
 
 Opening a workspace (`workspace open`, `workspace create`) selects it

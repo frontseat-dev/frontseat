@@ -141,10 +141,16 @@ type Unkept struct {
 	// FileSystem is the file system it is on, as the system names it;
 	// none where the system does not say.
 	FileSystem string
+	// Mounted says it is a repository something else mounted, which is
+	// why nothing of it is kept, whatever its file system.
+	Mounted bool
 }
 
 // String says it, as a daemon says it in its log.
 func (u Unkept) String() string {
+	if u.Mounted {
+		return fmt.Sprintf("what is known of the files of %s is not kept across restarts, because the repository is mounted and how its files look is the mount's to say: a daemon started again asks the mount of each once", u.Directory)
+	}
 	of := "which the system does not name"
 	if u.FileSystem != "" {
 		of = u.FileSystem
@@ -179,17 +185,20 @@ func (k *Keeper) on(directory string) (string, bool) {
 // asked once for as long as the daemon runs: this is on the way of
 // every run. The keeper's lock is held.
 func (k *Keeper) dated(places map[string]place) {
-	for _, at := range places {
+	for name, at := range places {
 		if _, asked := k.dates[at]; asked {
 			continue
 		}
 		fileSystem, dates := k.on(at.Directory)
+		// A repository something else mounted is kept nothing of,
+		// whatever its file system is said to be.
+		dates = dates && !k.mounted[name]
 		if k.dates == nil {
 			k.dates = map[place]bool{}
 		}
 		k.dates[at] = dates
 		if !dates {
-			k.untold = append(k.untold, Unkept{Directory: at.Directory, FileSystem: fileSystem})
+			k.untold = append(k.untold, Unkept{Directory: at.Directory, FileSystem: fileSystem, Mounted: k.mounted[name]})
 		}
 	}
 }

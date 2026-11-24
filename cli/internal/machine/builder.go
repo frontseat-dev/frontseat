@@ -171,7 +171,7 @@ func BuildDaemon(ctx context.Context, directory string, inside bool) (Builder, e
 		case child != nil:
 			return Builder{}, fmt.Errorf("the build daemon ended as it was started: %s (all it said is in %s)", child.printed(), filepath.Join(state, logFile))
 		default:
-			if child, err = spawn(life.Options{Directory: directory, State: state, Settings: settings, Version: want.Version}); err != nil {
+			if child, err = spawn(life.Options{Directory: directory, State: state, Settings: settings, Version: want.Version, Layers: where.layers}); err != nil {
 				return Builder{}, fmt.Errorf("starting the build daemon: %w", err)
 			}
 		}
@@ -284,7 +284,7 @@ func detached(o life.Options) (*begun, error) {
 		return nil, err
 	}
 	defer said.Close()
-	command := exec.Command(self, "daemon", "--directory", o.Directory, "--state", o.State, "--settings", o.Settings, "--version", o.Version)
+	command := exec.Command(self, "daemon", "--directory", o.Directory, "--state", o.State, "--settings", o.Settings, "--version", o.Version, "--layers", o.Layers)
 	command.Dir = o.Directory
 	command.Stdout, command.Stderr = said, said
 	command.SysProcAttr = &syscall.SysProcAttr{Setsid: true}

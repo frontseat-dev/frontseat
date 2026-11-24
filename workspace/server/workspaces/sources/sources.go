@@ -101,4 +101,12 @@ type Volume struct {
 	// Source is the directory, as the machine names it: an absolute
 	// path written plainly.
 	Source string
+	// Layer is the directory of the repository's layer, as the machine
+	// names it, where what mounts the repository keeps one: it is bound
+	// where a build looks for it (ports.Mounted, at the repository's
+	// name), for the sandbox to read and never to write. It holds the
+	// mount's stamp, by which a build takes a file's hash from the mount
+	// without reading the file. Empty where there is none: a build then
+	// reads every file.
+	Layer string
 }

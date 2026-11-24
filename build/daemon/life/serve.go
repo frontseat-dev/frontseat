@@ -54,6 +54,11 @@ type Options struct {
 	// Idle is how long it has nothing to do before it ends itself;
 	// zero, three hours.
 	Idle time.Duration
+	// Layers is the directory beneath which each repository something
+	// else mounted in the directory it builds has its layer, by the
+	// repository's name (build.Config.Layers): a command that starts it
+	// in a workspace's sandbox names it. Empty, no layer is read.
+	Layers string
 }
 
 // Serve is a build daemon for a directory: it serves the build API on
@@ -107,7 +112,7 @@ func Serve(ctx context.Context, o Options) error {
 		return err
 	}
 	ctx = apart(signals.Context(ctx))
-	made, err := build.New(ctx, build.Config{Workspace: directory, System: chosen.System(), Plugins: read.Modules, Grid: read.Settings.Grid, Platform: read.Settings.Platform, Telemetry: signals, Builds: filepath.Join(o.State, Builds), Files: filepath.Join(o.State, Files), Program: read.Made.Program, Given: read.Settings.Given, Mounted: alone, Log: os.Stderr})
+	made, err := build.New(ctx, build.Config{Workspace: directory, System: chosen.System(), Plugins: read.Modules, Grid: read.Settings.Grid, Platform: read.Settings.Platform, Telemetry: signals, Builds: filepath.Join(o.State, Builds), Files: filepath.Join(o.State, Files), Program: read.Made.Program, Given: read.Settings.Given, Mounted: alone, Log: os.Stderr, Layers: o.Layers})
 	if err != nil {
 		return err
 	}
