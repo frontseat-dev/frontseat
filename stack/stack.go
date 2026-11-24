@@ -104,7 +104,7 @@ func (s Stack) Up(ctx context.Context) error {
 	if err := s.Ready(ctx); err != nil {
 		return err
 	}
-	if _, err := s.run(ctx, "rm", "--force", Name); err != nil {
+	if err := s.Remove(ctx, Name); err != nil {
 		return err
 	}
 	kept, err := os.MkdirTemp("", "frontseat-stack-")
@@ -161,6 +161,42 @@ func (s Stack) workers(ctx context.Context) error {
 	return nil
 }
 
+// endsWithin is how long the runtime is given to end a container it was
+// told to remove, and round how long is waited before it is told again.
+var (
+	endsWithin = 2 * time.Minute
+	round      = time.Second
+)
+
+// Remove removes a container of the stack's, a test's stack's among
+// them, and returns when there is none of the name. The container is
+// the caller's own, by the name the caller gave it. A runtime told to
+// remove one kills it and waits a while for it to have ended; on a busy
+// machine a stack, with every sandbox inside it, takes longer than that
+// to end, and the runtime says it could not kill it, though it did and
+// the container ends. So the runtime is told again, which removes what
+// has ended and is content where there is none, until it has or the
+// container is still there after endsWithin: then it is said, with the
+// last the runtime said.
+func (s Stack) Remove(ctx context.Context, name string) error {
+	_, err := s.run(ctx, "rm", "--force", name)
+	if err == nil {
+		return nil
+	}
+	waited, done := context.WithTimeout(ctx, endsWithin)
+	defer done()
+	for {
+		select {
+		case <-waited.Done():
+			return fmt.Errorf("the container %s was not removed within %s: %w", name, endsWithin, err)
+		case <-time.After(round):
+		}
+		if _, err = s.run(waited, "rm", "--force", name); err == nil {
+			return nil
+		}
+	}
+}
+
 // Down brings the stack down, whichever checkout started it. Its volume
 // is kept.
 func (s Stack) Down(ctx context.Context) error {
@@ -172,7 +208,7 @@ func (s Stack) Down(ctx context.Context) error {
 	// program's own stack too, and holds the same ports. Its volume is
 	// kept as this one's is.
 	for _, name := range []string{Name, Earlier} {
-		if _, err := s.run(ctx, "rm", "--force", name); err != nil {
+		if err := s.Remove(ctx, name); err != nil {
 			return err
 		}
 	}

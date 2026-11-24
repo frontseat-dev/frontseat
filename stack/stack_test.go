@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 // runtime stands in for the container runtime: it answers what the
@@ -25,6 +26,9 @@ type runtime struct {
 	// without is how many times more the grid is asked for its workers
 	// and has not all of them.
 	without int
+	// ending is how many times more the runtime, told to remove the
+	// stack's container, says it could not kill it.
+	ending int
 	// done is what was done, in order: "rm", "run <image>", "load <box>",
 	// and each time the grid was asked for its workers, as it was asked.
 	done []string
@@ -42,6 +46,10 @@ func (r *runtime) docker(_ context.Context, arguments ...string) (string, error)
 	case arguments[0] == "ps":
 		return r.from + "\n", nil
 	case line == "rm --force "+Name:
+		if r.ending > 0 {
+			r.ending--
+			return "", errors.New("could not kill container: tried to kill container, but did not receive an exit event")
+		}
 		r.done = append(r.done, "rm")
 		r.from = ""
 		return "", nil
@@ -245,6 +253,31 @@ func TestDownRemovesTheContainerAndKeepsItsVolume(t *testing.T) {
 	}
 	if want := []string{"rm"}; !slices.Equal(r.done, want) {
 		t.Fatalf("down did %q, want %q", r.done, want)
+	}
+}
+
+// A runtime that says it could not kill the stack's container has
+// killed it, and the container ends: the stack is brought down once
+// there is none, and not failed by what the runtime said meanwhile. The
+// control is a container that never ends, which is said, with what the
+// runtime said of it.
+func TestAStackIsDownOnceItsContainerHasEndedWhateverTheRuntimeSaidMeanwhile(t *testing.T) {
+	before, each := endsWithin, round
+	t.Cleanup(func() { endsWithin, round = before, each })
+	endsWithin, round = 5*time.Second, time.Millisecond
+	r, s, _ := stackOf(t, "/elsewhere")
+	r.ending = 3
+	if err := s.Down(context.Background()); err != nil {
+		t.Fatalf("down, of a container that took a while to end: %v", err)
+	}
+	if want := []string{"rm"}; !slices.Equal(r.done, want) || r.ending != 0 {
+		t.Fatalf("down did %q with the runtime to be told %d times more; want %q, once the container had ended", r.done, r.ending, want)
+	}
+	endsWithin = 20 * time.Millisecond
+	r.ending = 1 << 30
+	err := s.Down(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "was not removed within") || !strings.Contains(err.Error(), "did not receive an exit event") {
+		t.Fatalf("the control, a container that never ends: %v; want it said, with what the runtime said", err)
 	}
 }
 
