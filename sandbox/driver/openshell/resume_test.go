@@ -7,12 +7,14 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
 	sdk "github.com/ai-openshell/sdk-go/openshell/v1"
 	"github.com/frontseat-dev/frontseat/sandbox/driver"
 	"github.com/frontseat-dev/frontseat/sandbox/testsupport/drivertest"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testgateway"
 	"github.com/frontseat-dev/frontseat/testsupport/testrequired"
 )
 
@@ -22,6 +24,8 @@ type failureCapture struct {
 	driver.Driver
 	t       *testing.T
 	gateway *sdk.Client
+	// captured are the sandboxes whose failure was captured: once each.
+	captured map[string]bool
 }
 
 // A running sandbox is not proof that the box's supervisor has survived
@@ -109,25 +113,40 @@ func answerAfterResume(t *testing.T, ctx context.Context, d driver.Driver, id st
 
 func captureFailures(t *testing.T, d driver.Driver) driver.Driver {
 	t.Helper()
-	return &failureCapture{Driver: d, t: t, gateway: gatewayClient(t)}
+	return &failureCapture{Driver: d, t: t, gateway: gatewayClient(t), captured: map[string]bool{}}
 }
 
 func (d *failureCapture) Observe(ctx context.Context, id string) (driver.Sandbox, error) {
 	got, err := d.Driver.Observe(ctx, id)
-	if got.State == driver.Failed {
-		capture, stop := context.WithTimeout(context.WithoutCancel(ctx), 15*time.Second)
+	if got.State == driver.Failed && !d.captured[id] {
+		d.captured[id] = true
+		capture, stop := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
 		defer stop()
-		if record, e := d.gateway.Sandboxes().Get(capture, "default", id); e == nil {
-			status, _ := json.Marshal(record.Status)
-			d.t.Logf("failed sandbox %s status: %s", id, status)
-		} else {
-			d.t.Logf("failure status capture: %v", e)
+		// The sandbox as the gateway holds it, found as the driver finds
+		// it: what it says of it, and what it kept of what it printed.
+		held, e := heldAs(capture, d.gateway, id)
+		if e != nil || len(held) == 0 {
+			d.t.Logf("failure status capture: the gateway holds %d sandboxes of %s (%v)", len(held), id, e)
 		}
-		if logs, e := d.gateway.Sandboxes().GetLogs(capture, "default", id, sdk.WithLogLines(100)); e == nil {
-			data, _ := json.Marshal(logs)
-			d.t.Logf("failed sandbox %s logs: %s", id, data)
+		for _, sandbox := range held {
+			status, _ := json.Marshal(sandbox.Status)
+			d.t.Logf("failed sandbox %s status: %s", id, status)
+			if logs, e := d.gateway.Sandboxes().GetLogs(capture, "default", sandbox.Name, sdk.WithLogLines(100)); e == nil {
+				data, _ := json.Marshal(logs)
+				d.t.Logf("failed sandbox %s logs: %s", id, redacted(data))
+			} else {
+				d.t.Logf("failure log capture: %v", e)
+			}
+		}
+		// Its containers, as the runtime holds them: which ended, how,
+		// and when. The gateway says only that one did.
+		if names, e := containersOf(capture, d.gateway, id); e != nil {
+			d.t.Logf("failure container capture: %v", e)
 		} else {
-			d.t.Logf("failure log capture: %v", e)
+			for _, name := range names {
+				said, e := testgateway.Runtime(capture, "inspect", "--format", "{{.Name}} {{.State.Status}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}} started={{.State.StartedAt}} finished={{.State.FinishedAt}} error={{.State.Error}}", "--", name)
+				d.t.Logf("failed sandbox %s container: %s (%v)", id, strings.TrimSpace(string(said)), e)
+			}
 		}
 		// The gateway exposes its supervisor's trace, not the workload's
 		// stderr. Read only this fixture's supervisor before it is deleted.
@@ -135,6 +154,17 @@ func (d *failureCapture) Observe(ctx context.Context, id string) (driver.Sandbox
 			d.t.Logf("failure supervisor capture: %v", e)
 		} else {
 			d.t.Logf("failed sandbox %s supervisor: %s", id, logged)
+		}
+		// And what it is said to be from then on, for half a minute:
+		// whether a sandbox said to have failed stays so. Nothing is
+		// decided by it: what was observed is returned as it was.
+		last := ""
+		for began := time.Now(); time.Since(began) < 30*time.Second; time.Sleep(200 * time.Millisecond) {
+			later, e := d.Driver.Observe(capture, id)
+			if now := fmt.Sprintf("%v %q %v", later.State, later.Message, e); now != last {
+				d.t.Logf("failed sandbox %s, %s on: %s", id, time.Since(began).Round(time.Millisecond), now)
+				last = now
+			}
 		}
 	}
 	return got, err
