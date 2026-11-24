@@ -9,6 +9,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -60,6 +62,10 @@ type Workspace struct {
 	// generation is the generation of the source it was last told to
 	// hold; zero for one told none since it was opened.
 	generation int64
+	// stored are the stored repositories it was last told are mounted
+	// in it, which it clones none of and keeps no record of: a
+	// supervisor started again is told them again.
+	stored []Stored
 	// changed is closed, and replaced, each time the state changes.
 	changed chan struct{}
 }
@@ -154,6 +160,44 @@ type Holding struct {
 	Generation int64
 	// Repositories are what it holds.
 	Repositories []record.Repository
+	// Stored are the stored repositories it was told are mounted in it.
+	Stored []Stored
+}
+
+// Stored is a repository of the control plane's snapshot store that is
+// mounted in the workspace, at its directory, before the supervisor is
+// told of it: the supervisor clones nothing for it, reaches no store,
+// and says it holds it as it was told.
+type Stored struct {
+	// Name is the workspace's name for it, and its directory there.
+	Name string
+	// Repository is the store's name for it.
+	Repository string
+	// Changeset is the changeset it is mounted at.
+	Changeset string
+	// Roots are the directories taken of it; empty for all of it.
+	Roots []string
+}
+
+// mountedAt holds a stored repository to the workspace it is mounted
+// in: its name is one directory of it, which is there, since nothing is
+// brought to it, and it is told at a changeset of a repository.
+func (s Stored) mountedAt(root string) error {
+	if err := record.Directory(s.Name); err != nil {
+		return err
+	}
+	if s.Repository == "" || s.Changeset == "" {
+		return fmt.Errorf("%w: the stored repository %s is told with no name of the store's, or at no changeset", record.ErrUnfit, s.Name)
+	}
+	for _, taken := range s.Roots {
+		if err := record.Beneath(s.Name, "the directory", taken); err != nil {
+			return err
+		}
+	}
+	if info, err := os.Stat(filepath.Join(root, s.Name)); err != nil || !info.IsDir() {
+		return fmt.Errorf("%w: the stored repository %s is not mounted at its directory in the workspace, and a supervisor brings none", record.ErrUnfit, s.Name)
+	}
+	return nil
 }
 
 // Now returns the workspace as it stands, and a channel that is closed
@@ -161,7 +205,7 @@ type Holding struct {
 func (w *Workspace) Now() (Holding, <-chan struct{}) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	return Holding{State: w.state, Message: w.message, Generation: w.generation, Repositories: w.manifest.Repositories}, w.changed
+	return Holding{State: w.state, Message: w.message, Generation: w.generation, Repositories: w.manifest.Repositories, Stored: w.stored}, w.changed
 }
 
 // Entities returns the entities the workspace knows, each with where it
@@ -194,7 +238,12 @@ func (w *Workspace) set(state State, message string) {
 // failure that says so. A source told once the workspace is closed is
 // held at its generation and failed, so that whoever reads it back reads
 // that generation refused because the supervisor stopped.
-func (w *Workspace) Populate(generation int64, checkouts []record.Checkout, located []record.Located) error {
+//
+// The stored repositories are those mounted in the workspace, which it
+// is told and brings none of: each is held to its directory there, and
+// to a name nothing it clones has, and they are what it says it holds
+// of the store from then on.
+func (w *Workspace) Populate(generation int64, checkouts []record.Checkout, located []record.Located, stored []Stored) error {
 	if w.mounted {
 		return errMounted
 	}
@@ -210,6 +259,11 @@ func (w *Workspace) Populate(generation int64, checkouts []record.Checkout, loca
 			return err
 		}
 	}
+	for _, s := range stored {
+		if err := s.mountedAt(w.root); err != nil {
+			return err
+		}
+	}
 	w.mu.Lock()
 	if w.state == Populating {
 		w.mu.Unlock()
@@ -222,7 +276,11 @@ func (w *Workspace) Populate(generation int64, checkouts []record.Checkout, loca
 			return err
 		}
 	}
-	w.generation = generation
+	if name := cloned(stored, held, checkouts); name != "" {
+		w.mu.Unlock()
+		return fmt.Errorf("%w: %s is a stored repository, mounted in the workspace, and is asked for or held as a clone too: a name is one directory of the workspace", record.ErrUnfit, name)
+	}
+	w.generation, w.stored = generation, stored
 	if w.closed {
 		w.set(Failed, errClosed.Error())
 		w.mu.Unlock()
@@ -361,6 +419,25 @@ func another(held []record.Repository, c record.Checkout) error {
 		}
 	}
 	return nil
+}
+
+// cloned names a stored repository that the workspace holds as a clone,
+// or is asked to clone, or is told twice; "" where there is none.
+func cloned(stored []Stored, held []record.Repository, checkouts []record.Checkout) string {
+	taken := map[string]bool{}
+	for _, r := range held {
+		taken[r.Name] = true
+	}
+	for _, c := range checkouts {
+		taken[c.Name] = true
+	}
+	for _, s := range stored {
+		if taken[s.Name] {
+			return s.Name
+		}
+		taken[s.Name] = true
+	}
+	return ""
 }
 
 // at names a branch or tag as it is spoken of.

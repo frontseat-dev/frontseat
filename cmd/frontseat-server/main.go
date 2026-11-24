@@ -31,14 +31,12 @@ import (
 	"strconv"
 	"syscall"
 
-	"github.com/frontseat-dev/frontseat/common/vcs/chosen"
 	"github.com/frontseat-dev/frontseat/core/httpserver"
 	"github.com/frontseat-dev/frontseat/core/ports"
 	"github.com/frontseat-dev/frontseat/core/secretfile"
 	"github.com/frontseat-dev/frontseat/core/telemetry"
 	"github.com/frontseat-dev/frontseat/stack/local"
-	"github.com/frontseat-dev/frontseat/workspace/server/backstage"
-	"github.com/frontseat-dev/frontseat/workspace/server/controlplane"
+	"github.com/frontseat-dev/frontseat/workspace/server/workspaces"
 )
 
 // kept is where a person's programs keep what must outlive them, by the
@@ -186,24 +184,16 @@ const identityLimit = 1 << 20
 // catalogOf is the Backstage entities are resolved through, as its flags
 // give it: none without --backstage, and nothing else of it then. Its
 // token is read now, once.
-func catalogOf(base, tokenFile string, loopback bool) (*backstage.Catalog, error) {
+func catalogOf(base, tokenFile string, loopback bool) (*workspaces.Backstage, error) {
 	if base == "" {
 		if tokenFile != "" || loopback {
 			return nil, errors.New("--backstage-token and --backstage-loopback are said of a Backstage: name it with --backstage")
 		}
 		return nil, nil
 	}
-	var token string
-	if tokenFile != "" {
-		read, err := backstage.ReadToken(tokenFile)
-		if err != nil {
-			return nil, fmt.Errorf("--backstage-token: %w", err)
-		}
-		token = read
-	}
-	catalog, err := backstage.New(backstage.Config{Base: base, Token: token, Loopback: loopback})
+	catalog, err := workspaces.BackstageAt(base, tokenFile, loopback)
 	if err != nil {
-		return nil, fmt.Errorf("--backstage: %w", err)
+		return nil, fmt.Errorf("--backstage, --backstage-token: %w", err)
 	}
 	return catalog, nil
 }
@@ -226,7 +216,7 @@ type told struct {
 	box string
 	// catalog is the Backstage entities are resolved through; nil for
 	// none.
-	catalog *backstage.Catalog
+	catalog *workspaces.Backstage
 }
 
 func serve(ctx context.Context, f told) error {
@@ -251,20 +241,12 @@ func serve(ctx context.Context, f told) error {
 	if err != nil {
 		return err
 	}
-	callers, err := controlplane.OwnerToken(f.token)
-	if err != nil {
-		return err
-	}
-	// A nil catalog is no resolver at all, and not one that is nil.
-	var entities controlplane.Entities
-	if f.catalog != nil {
-		entities = f.catalog
-	}
-	plane, err := controlplane.OverGateway(controlplane.Config{
-		PublicURL: public, State: f.state, Box: f.box, Callers: callers,
-		Grid:     controlplane.Grid{Hosts: grid.Hosts(), Arguments: grid.Arguments()},
-		Fetching: chosen.System(), Entities: entities,
-	}, controlplane.Gateway{Address: gateway, Identity: f.identity, Runtime: f.runtime})
+	// It is given nothing that serves stored repositories: every
+	// workspace it serves is local, and a remote one is refused by name.
+	plane, err := workspaces.New(public, workspaces.Gateway{Address: gateway, Identity: f.identity, Runtime: f.runtime}, workspaces.Config{
+		State: f.state, OwnerToken: f.token, Box: f.box, Backstage: f.catalog,
+		Grid: workspaces.Grid{Hosts: grid.Hosts(), Arguments: grid.Arguments()},
+	})
 	if err != nil {
 		return err
 	}

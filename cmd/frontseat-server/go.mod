@@ -3,7 +3,6 @@ module github.com/frontseat-dev/frontseat/cmd/frontseat-server
 go 1.27.3
 
 require (
-	github.com/frontseat-dev/frontseat/common/vcs v0.0.0
 	github.com/frontseat-dev/frontseat/core v0.0.0
 	github.com/frontseat-dev/frontseat/stack v0.0.0
 	github.com/frontseat-dev/frontseat/testsupport v0.0.0
@@ -23,6 +22,7 @@ require (
 	github.com/frontseat-dev/frontseat/common/git v0.0.0 // indirect
 	github.com/frontseat-dev/frontseat/common/record v0.0.0 // indirect
 	github.com/frontseat-dev/frontseat/common/told v0.0.0 // indirect
+	github.com/frontseat-dev/frontseat/common/vcs v0.0.0 // indirect
 	github.com/frontseat-dev/frontseat/sandbox v0.0.0 // indirect
 	github.com/frontseat-dev/frontseat/sdk/go v0.0.0 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect

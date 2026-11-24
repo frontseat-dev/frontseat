@@ -106,6 +106,10 @@ func (System) Standing(ctx context.Context, directory string) (vcs.Standing, err
 	return standing, nil
 }
 
+// NameOf implements vcs.Checkout: a repository is named as git names the
+// directory it clones its remote into.
+func (System) NameOf(remote string) string { return rungit.Name(remote) }
+
 // Same implements vcs.Checkout: two remotes are one repository where
 // they are what a sandbox clones as the same, whatever their spelling.
 func (System) Same(one, other string) bool {

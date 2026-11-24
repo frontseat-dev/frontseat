@@ -62,7 +62,7 @@ func overStalled(t *testing.T) (*stalled, *Workspace, []record.Checkout) {
 func underWay(t *testing.T) (*stalled, *Workspace, []record.Checkout) {
 	t.Helper()
 	system, w, asked := overStalled(t)
-	if err := w.Populate(1, asked, nil); err != nil {
+	if err := w.Populate(1, asked, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 	<-system.entered
@@ -96,7 +96,7 @@ func TestARepositoryNotBroughtWithinItsBoundFailsTheWorkspaceWhichSaysSo(t *test
 	defer w.Close()
 	w.within = 50 * time.Millisecond
 
-	if err := w.Populate(1, asked, nil); err != nil {
+	if err := w.Populate(1, asked, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -105,7 +105,7 @@ func TestARepositoryNotBroughtWithinItsBoundFailsTheWorkspaceWhichSaysSo(t *test
 		t.Errorf("the workspace is %v (%s), want failed, saying the repository was not brought within its bound", now.State, now.Message)
 	}
 	system.through.Store(true)
-	if err := w.Populate(2, asked, nil); err != nil {
+	if err := w.Populate(2, asked, nil, nil); err != nil {
 		t.Fatalf("asked again: %v", err)
 	}
 	if now := ended(t, w); now.State != Ready {
@@ -134,7 +134,7 @@ func TestClosingAWorkspaceStopsWhatIsBringingItsRepositories(t *testing.T) {
 		t.Errorf("the workspace is %v (%s), want failed, saying the supervisor stopped", now.State, now.Message)
 	}
 	system.through.Store(true)
-	if err := w.Populate(2, asked, nil); err != nil {
+	if err := w.Populate(2, asked, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 	if now, _ := w.Now(); now.State != Failed || system.left.Load() != 1 {
@@ -163,7 +163,7 @@ func TestAWorkspaceOpenedAgainOverACloneStoppedMidwayBringsIt(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer reopened.Close()
-	if err := reopened.Populate(1, asked, nil); err != nil {
+	if err := reopened.Populate(1, asked, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 	if now := ended(t, reopened); now.State != Ready {
@@ -182,7 +182,7 @@ func TestAWorkspaceOpenedAgainOverACloneStoppedMidwayBringsIt(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer held.Close()
-	if err := held.Populate(1, asked, nil); err != nil {
+	if err := held.Populate(1, asked, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 	if now := ended(t, held); now.State != Failed || !strings.Contains(now.Message, "services is in the workspace already") {
@@ -205,7 +205,7 @@ func TestARepositoryThatFailsOfItselfWhileTheWorkspaceClosesSaysWhy(t *testing.T
 	}
 	w.stop()
 
-	if err := w.Populate(1, asked, nil); err != nil {
+	if err := w.Populate(1, asked, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -248,7 +248,7 @@ func TestAWorkspaceSaysInItsManifestThatItIsBeingFilledAndThatAFillFailed(t *tes
 	if now, _ := reopened.Now(); now.State != Failed {
 		t.Errorf("opened over a manifest that says its fill failed, the workspace is %v; want failed", now.State)
 	}
-	if err := reopened.Populate(2, asked, nil); err != nil {
+	if err := reopened.Populate(2, asked, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 	if now := ended(t, reopened); now.State != Ready {

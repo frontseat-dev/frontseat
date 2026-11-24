@@ -328,6 +328,60 @@ the change that fixes it.
   says which are there, and whether the route must refuse one is not
   decided. A connection whose caller does not answer its closing is
   waited for as long as the WebSocket's closing is given, five seconds.
+- **A workspace is local or remote.** Local is the default, and what
+  this repository serves: its repositories are cloned in its sandbox,
+  committed to there and pushed from there. Remote holds its
+  repositories from a snapshot store, mounted in its sandbox and not
+  cloned, on a task (`WorkspaceSpec.stored`, `task`, `land`): the
+  contract, the Go SDK and the command line (`workspace open --remote`,
+  `workspace create --remote`, `--task`) say it, and what serves it is
+  frontseat-enterprise's, behind the control plane's one port
+  (`sources.Sources`: `Hold` and `Release`). This repository holds no
+  store, no mount and no task: a control plane given nothing that
+  serves stored repositories, as `frontseat-server` is, refuses a spec
+  that names a stored repository, a task or a landing `UNIMPLEMENTED`,
+  `STORE_NOT_SERVED`, at `CreateWorkspace` and at `UpdateWorkspace`,
+  before anything is made. Given one, it has the workspace's stored
+  repositories held once, by its name and owner, when it is made, and
+  not where anything else of the spec is refused; gives its sandbox the
+  directory held for each, at the repository's directory in the
+  workspace, and nothing of the store, no way out to it and no
+  credential of it; tells its supervisor each is mounted, at the
+  changeset it stands at, which the supervisor clones nothing for and
+  says it holds; and has what is held let go of once the workspace's
+  sandbox is gone. What the port says is held to what was asked before
+  it reaches a sandbox, and what it says of a failure is logged and
+  told to no caller (`STORE_UNAVAILABLE`). What a remote workspace
+  holds is said when it is made: nothing is added to it. Held by:
+  `TestARemoteWorkspaceIsRefusedByNameWhereNoStoreIsServed`,
+  `TestARemoteWorkspaceIsHeldOnceMountedAndLetGoOfWhenItEnds`,
+  `TestAControlPlaneThatStartsAgainKeepsWhatWasHeldForARemoteWorkspace`,
+  `TestTheRepositoriesOfARemoteWorkspacesEntitiesAreHeldAndNotCloned`,
+  `TestWhatIsAskedOfTheStoreIsHeldBeforeItIsAsked`,
+  `TestAWorkspaceWhoseStoredRepositoriesAreNotHeldAsAskedIsNotMade`,
+  `TestAWorkspaceThatLandsWithNoTaskNamedLandsOnOneOfItsOwnName`,
+  `TestAControlPlaneIsComposedWithWhatServesStoredRepositoriesOrNone`,
+  the supervisor's
+  `TestAStoredRepositoryIsHeldAsItIsMountedAndNothingIsBroughtForIt` and
+  `TestAStoredRepositoryThatIsNotMountedAsToldIsRefusedByName`, the
+  SDK's `TestARemoteWorkspaceIsAskedForByWhatItHoldsOfTheStore`, the
+  command line's
+  `TestOpenRemoteAsksForTheCheckoutsRepositoryFromTheStoreOnATask`,
+  `TestCreateRemoteAsksForWhatIsNamedFromTheStore`,
+  `TestARemoteWorkspaceRefusedByAControlPlaneThatServesNoneIsSaidByName`,
+  `TestRemoteAndLocalFlagsAreNotMixed` and
+  `TestACheckoutsRemoteWorkspaceIsAskedForByItsRepositoryInTheStore`,
+  and the sandbox spec
+  `TestARemoteWorkspaceIsRefusedByNameByAControlPlaneGivenNoStoreAndNothingIsMade`.
+  Not held: nothing here serves a remote workspace but what its tests
+  hold in memory (`sourcestest`), so that a sandbox is in truth given a
+  mounted repository, by a gateway let bind one, is proven by no test
+  of this repository; a supervisor says it holds a stored repository on
+  the control plane's word and its directory being there, and a build
+  reads nothing of one yet (its manifest records none); the store's
+  name for a repository the command line names by its remote, or an
+  entity resolved to, is the name its version control system gives it,
+  which two forges may both give.
 - **One state root per program.** What a program keeps is beneath one
   directory: `frontseat-server --state`, `frontseat-runner --state`, and
   the command line's `$XDG_CONFIG_HOME/frontseat` (else `~/.config/frontseat`) on
@@ -823,8 +877,14 @@ the change that fixes it.
   `specs/architecture/visibility_test.go`): the sandbox service, its
   generated API, its driver port and the OpenShell driver (`sandbox`,
   `sandbox/api/...`, `sandbox/driver`, `sandbox/driver/openshell`),
-  which it embeds and composes around and never copies; and what those
-  show in what they export is of an SDK or on that list too
+  which it embeds and composes around and never copies; and the control
+  plane as it is composed (`workspace/server/workspaces`: `New` over an
+  OpenShell gateway, which `frontseat-server` is a thin `main` over)
+  with its one port, what serves a remote workspace's stored
+  repositories (`workspace/server/workspaces/sources`), which it
+  implements; how the control plane is made
+  (`workspace/server/controlplane`) stays the repository's own. What
+  those show in what they export is of an SDK or on that list too
   (`TestPublicFeatureSignaturesHideImplementationTypes`). A binary's
   `main` is `cmd/<binary>`; test support is `testsupport/<name>` at
   the top, or beside the module it starts (`stack/testsupport`,
@@ -1164,6 +1224,8 @@ mise run docs:serve       # serve the TechDocs site on http://localhost:8000
 | `testsupport/*` | Test facilities: pins, Wasm modules, fixtures (`testfiles`, `testforge`, `commits`), budgets |
 | `stack/testsupport/*` | The local stack's test facilities: the box, the gateway, the grid and the owner's token a test is given |
 | `specs/buildtest`, `workspace/server/controlplanetest` | A build started for a test with what fills its directory beside it, and a control plane as `frontseat-server` starts one |
+| `workspace/server/workspaces` | The control plane as it is composed, over an OpenShell gateway: what `frontseat-server` serves and frontseat-enterprise composes around |
+| `workspace/server/workspaces/sources`, `.../sourcestest` | The port a remote workspace's stored repositories are held through, and what holds them in memory for a test |
 | `sandbox/testsupport/drivertest` | What any sandbox driver is tested with: the conformance, a running sandbox of the test's own, the driver that holds sandboxes in memory, and a connection to a port that keeps how it was used (`Watched`) |
 | `sandbox/testsupport/testcontainer` | A sandbox driver over the container runtime, for a server's tests that need a runtime; no program makes a sandbox with it |
 | `sandbox/testsupport/testsandbox` | The sandbox API's client and a tunnel to a sandbox's port, for tests: the SDK has none |

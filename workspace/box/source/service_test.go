@@ -33,13 +33,22 @@ func (s stalled) Clone(ctx context.Context, directory string, from vcs.Source) (
 // returns a client of it.
 func sourceOver(t *testing.T, mounted bool, system vcs.System) sourcev1alpha1connect.SourceServiceClient {
 	t.Helper()
-	held, err := source.Open(t.TempDir(), mounted, system)
+	_, api := supervising(t, t.TempDir(), mounted, system)
+	return api
+}
+
+// supervising is a supervisor over a directory, as one is started over
+// a workspace, and a client of its source API. Its server is closed
+// when the test ends.
+func supervising(t *testing.T, root string, mounted bool, system vcs.System) (*source.Workspace, sourcev1alpha1connect.SourceServiceClient) {
+	t.Helper()
+	held, err := source.Open(root, mounted, system)
 	if err != nil {
 		t.Fatal(err)
 	}
 	srv := httptest.NewServer(source.Serve(held))
 	t.Cleanup(srv.Close)
-	return sourcev1alpha1connect.NewSourceServiceClient(connect.NewClient(connecthttp.NewTransport(srv.Client(), srv.URL)))
+	return held, sourcev1alpha1connect.NewSourceServiceClient(connect.NewClient(connecthttp.NewTransport(srv.Client(), srv.URL)))
 }
 
 // reasonOf holds that a refusal is of a code and a reason of the source

@@ -40,6 +40,7 @@ import (
 	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1/workspacev1alpha1connect"
 	"github.com/frontseat-dev/frontseat/testsupport/backstagetest"
+	"github.com/frontseat-dev/frontseat/workspace/server/workspaces/sources"
 )
 
 // managing is the supervisor of one sandbox of the tests, as its source
@@ -103,6 +104,10 @@ func (m *managing) now() *sourcev1.Source {
 	} else {
 		for _, repository := range m.spec.GetRepositories() {
 			out.Repositories = append(out.Repositories, &sourcev1.Repository{Name: "held", Remote: repository.GetRemote(), Commit: "0123abcd"})
+		}
+		// What it is told is mounted, it says it holds as it was told.
+		for _, stored := range m.spec.GetStored() {
+			out.Repositories = append(out.Repositories, &sourcev1.Repository{Name: stored.GetName(), Commit: stored.GetChangeset(), Roots: stored.GetRoots(), Stored: stored.GetRepository()})
 		}
 	}
 	return out
@@ -1579,7 +1584,7 @@ func (a authoring) Authoring(string, string) map[string]string { return a.told }
 func TestWhoCommitsIsToldByNoVariableOfAnothers(t *testing.T) {
 	ask := func(said map[string]string) error {
 		s := &service{Config: Config{Box: "registry.example/acme/box:1", Fetching: authoring{told: said}}}
-		_, err := s.sandbox(context.Background(), "x", "ada", &workspacev1.WorkspaceSpec{}, told.Resolved{})
+		_, err := s.sandbox(context.Background(), "x", "ada", &workspacev1.WorkspaceSpec{}, told.Resolved{}, sources.Held{})
 		return err
 	}
 	if err := ask(map[string]string{"A_SYSTEM_AUTHOR": "Ada <ada@example.org>"}); err != nil {
