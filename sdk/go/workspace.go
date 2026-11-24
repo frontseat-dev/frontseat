@@ -25,8 +25,15 @@ import (
 )
 
 // WorkspaceSpec is what a workspace holds and how it is made. Its source is in
-// its sandbox, cloned there by its supervisor: no directory of the caller's
-// machine is given to it.
+// its sandbox, and no directory of the caller's machine is given to it.
+//
+// A workspace is local or remote. A local one, the default, clones its
+// repositories in its sandbox, where they are committed to and pushed
+// from. A remote one holds repositories from the control plane's
+// snapshot store (Stored, Task, Land), mounted in its sandbox and not
+// cloned. A remote workspace is served by Frontseat Enterprise alone:
+// any other control plane refuses a spec that asks for one by name,
+// ReasonStoreNotServed, and makes nothing.
 type WorkspaceSpec struct {
 	// Name names the workspace; empty for the name the control plane
 	// gives what is asked for.
@@ -36,6 +43,19 @@ type WorkspaceSpec struct {
 	Image string
 	// Repositories are repositories for the supervisor to clone.
 	Repositories []Repository
+	// Stored are repositories it holds from the control plane's snapshot
+	// store, mounted in its sandbox and not cloned: a remote workspace's.
+	// They are said when it is made.
+	Stored []StoredRepository
+	// Task is the task every stored repository it holds works on, where
+	// the repository names none of its own nor where to stand. Where it
+	// is set, the repositories its Entities are in are held from the
+	// store too, and not cloned. It is said when the workspace is made.
+	Task string
+	// Land asks that what a test that passes in it tested be landed on
+	// the task of each stored repository it changed. It is said when the
+	// workspace is made.
+	Land bool
 	// Entities are entities whose source the workspace holds, each as a
 	// person types one (entity.ParsePattern reads gateway, system:kiosk,
 	// component:default/gateway). The control plane resolves them through
@@ -80,6 +100,23 @@ type Repository struct {
 	Ref string
 }
 
+// StoredRepository is a repository of the control plane's snapshot store
+// for a workspace to hold: at a ref or a changeset, or on a task.
+type StoredRepository struct {
+	// Repository is the store's name for it.
+	Repository string
+	// At is a ref of the store, or a changeset by its id; empty for the
+	// store's main, and where Task is set.
+	At string
+	// Name is the workspace's name for it, and its directory there;
+	// empty for the store's name.
+	Name string
+	// Roots are the directories to take of it; none for all of it.
+	Roots []string
+	// Task is the task it works on; empty for the workspace's, or none.
+	Task string
+}
+
 // Author is who what is committed in a workspace is by.
 type Author struct {
 	// Name is the author's name, as a commit says it.
@@ -90,9 +127,12 @@ type Author struct {
 
 // proto is the spec as the API carries it.
 func (s WorkspaceSpec) proto() (*workspacev1.WorkspaceSpec, error) {
-	spec := &workspacev1.WorkspaceSpec{WholeRepositories: s.Whole, Push: s.Push, Image: s.Image, AuthorizedKey: s.AuthorizedKey}
+	spec := &workspacev1.WorkspaceSpec{WholeRepositories: s.Whole, Push: s.Push, Image: s.Image, AuthorizedKey: s.AuthorizedKey, Task: s.Task, Land: s.Land}
 	for _, r := range s.Repositories {
 		spec.Repositories = append(spec.Repositories, &workspacev1.RepositorySource{Remote: r.Remote, Ref: r.Ref})
+	}
+	for _, r := range s.Stored {
+		spec.Stored = append(spec.Stored, &workspacev1.StoredRepository{Repository: r.Repository, At: r.At, Name: r.Name, Roots: r.Roots, Task: r.Task})
 	}
 	refs, err := refs(s.Entities)
 	if err != nil {
@@ -305,7 +345,8 @@ func (w *Workspace) Describe(ctx context.Context) (*workspacev1.Workspace, error
 
 // Add has the workspace hold more: what more names is added to what it
 // was asked for, and it is waited for until it can be worked in again.
-// Only the source more names is read of it.
+// Only the repositories and entities more names are read of it: what a
+// workspace holds of the store is said when it is made.
 func (w *Workspace) Add(ctx context.Context, more WorkspaceSpec) error {
 	if err := w.named(); err != nil {
 		return err

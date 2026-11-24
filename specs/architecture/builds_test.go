@@ -132,6 +132,7 @@ func TestTestSupportThatBuildsAProgramIsFound(t *testing.T) {
 		"testsupport/testpins/pins.go",
 		"workspace/server/controlplanetest/controlplanetest.go",
 		"workspace/server/toldtest/toldtest.go",
+		"workspace/server/workspaces/sourcestest/sourcestest.go",
 	}
 	listed := map[string]string{"stack/box/box.go": "the box", "sandbox/service_route_test.go": "its fixture"}
 	for _, rel := range refused {

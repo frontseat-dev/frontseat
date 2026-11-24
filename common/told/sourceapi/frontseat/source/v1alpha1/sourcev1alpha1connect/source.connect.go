@@ -80,10 +80,10 @@ type SourceServiceClient interface {
 	//
 	// ### Errors
 	// - INVALID_ARGUMENT: the generation is less than one
-	//   (GENERATION_INVALID); the spec names no repository
-	//   (SOURCE_MISSING); a repository it names, or the place it gives for
-	//   an entity, cannot be held in the directory where the supervisor holds
-	//   its source (SOURCE_UNFIT).
+	//   (GENERATION_INVALID); the spec names no repository, cloned or
+	//   stored (SOURCE_MISSING); a repository it names, or the place it
+	//   gives for an entity, cannot be held in the directory where the
+	//   supervisor holds its source (SOURCE_UNFIT).
 	// - FAILED_PRECONDITION: the supervisor is still cloning what it was told
 	//   before, and is to be told again once it is done
 	//   (SOURCE_POPULATING); the supervisor was started over a directory it
@@ -121,10 +121,10 @@ type SourceServiceHandler interface {
 	//
 	// ### Errors
 	// - INVALID_ARGUMENT: the generation is less than one
-	//   (GENERATION_INVALID); the spec names no repository
-	//   (SOURCE_MISSING); a repository it names, or the place it gives for
-	//   an entity, cannot be held in the directory where the supervisor holds
-	//   its source (SOURCE_UNFIT).
+	//   (GENERATION_INVALID); the spec names no repository, cloned or
+	//   stored (SOURCE_MISSING); a repository it names, or the place it
+	//   gives for an entity, cannot be held in the directory where the
+	//   supervisor holds its source (SOURCE_UNFIT).
 	// - FAILED_PRECONDITION: the supervisor is still cloning what it was told
 	//   before, and is to be told again once it is done
 	//   (SOURCE_POPULATING); the supervisor was started over a directory it

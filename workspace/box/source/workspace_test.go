@@ -51,7 +51,7 @@ func TestOfSeveralAskedToFillAWorkspaceAtOnceOneIsTakenAndTheRestRefused(t *test
 	for range askers {
 		go func() {
 			<-start
-			answers <- w.Populate(1, asked, nil)
+			answers <- w.Populate(1, asked, nil, nil)
 		}()
 	}
 	close(start)
@@ -76,7 +76,7 @@ func TestNothingIsClonedIntoACheckoutTheSandboxWasGiven(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := w.Populate(1, []record.Checkout{{Name: "services", Remote: "file:///nowhere"}}, nil); err == nil {
+	if err := w.Populate(1, []record.Checkout{{Name: "services", Remote: "file:///nowhere"}}, nil, nil); err == nil {
 		t.Error("a mounted checkout was populated")
 	}
 }
@@ -130,7 +130,7 @@ func TestNothingIsClonedWhereOneOfWhatWasAskedCannotBeHeld(t *testing.T) {
 	}
 	sound := record.Checkout{Name: "services", Remote: forge.Repository("services"), Ref: "main"}
 
-	err = w.Populate(1, []record.Checkout{sound, {Name: "../elsewhere", Remote: forge.Repository("platform"), Ref: "main"}}, nil)
+	err = w.Populate(1, []record.Checkout{sound, {Name: "../elsewhere", Remote: forge.Repository("platform"), Ref: "main"}}, nil, nil)
 
 	if err == nil {
 		t.Error("the workspace took a repository named out of it")
@@ -145,7 +145,7 @@ func TestNothingIsClonedWhereOneOfWhatWasAskedCannotBeHeld(t *testing.T) {
 		t.Errorf("the workspace holds %v, want nothing", made)
 	}
 
-	if err := w.Populate(1, []record.Checkout{sound}, nil); err != nil {
+	if err := w.Populate(1, []record.Checkout{sound}, nil, nil); err != nil {
 		t.Fatalf("what it can hold was refused: %v", err)
 	}
 	if now := settled(t, w); now.State != source.Ready {
@@ -162,7 +162,7 @@ func TestAnEntityPlacedOutOfTheWorkspaceIsNotKnown(t *testing.T) {
 		"in a repository out of the workspace": {Ref: ref, Repository: "../elsewhere", Root: "hello"},
 		"in a directory out of its repository": {Ref: ref, Repository: "services", Root: "../../elsewhere"},
 	} {
-		if err := w.Populate(1, sound, []record.Located{located}); err == nil {
+		if err := w.Populate(1, sound, []record.Located{located}, nil); err == nil {
 			t.Errorf("the workspace took an entity %s", name)
 			settled(t, w)
 		}
@@ -197,7 +197,7 @@ func TestAWorkspaceWhoseManifestNamesAPlaceOutsideItIsNotOpened(t *testing.T) {
 func TestAWorkspaceIsNotGivenASecondCheckoutOfARepositoryItHolds(t *testing.T) {
 	forge, w := overForge(t)
 	holds := record.Checkout{Name: "services", Remote: forge.Repository("services"), Ref: "main"}
-	if err := w.Populate(1, []record.Checkout{holds}, nil); err != nil {
+	if err := w.Populate(1, []record.Checkout{holds}, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 	if now := settled(t, w); now.State != source.Ready {
@@ -208,12 +208,12 @@ func TestAWorkspaceIsNotGivenASecondCheckoutOfARepositoryItHolds(t *testing.T) {
 		"from another remote": {Name: "services", Remote: forge.Repository("platform"), Ref: "main"},
 		"at another branch":   {Name: "services", Remote: forge.Repository("services"), Ref: "release"},
 	} {
-		if err := w.Populate(1, []record.Checkout{asked}, nil); err == nil {
+		if err := w.Populate(1, []record.Checkout{asked}, nil, nil); err == nil {
 			t.Errorf("asked for services %s, the workspace took it", name)
 			settled(t, w)
 		}
 	}
-	if err := w.Populate(1, []record.Checkout{holds}, nil); err != nil {
+	if err := w.Populate(1, []record.Checkout{holds}, nil, nil); err != nil {
 		t.Errorf("asked for what it holds, the workspace refused: %v", err)
 	}
 	if now := settled(t, w); now.State != source.Ready || len(now.Repositories) != 1 {
@@ -228,14 +228,14 @@ func TestAWorkspaceThatFailedToFillIsFilledByAskingAgain(t *testing.T) {
 	forge, w := overForge(t)
 	services := record.Checkout{Name: "services", Remote: forge.Repository("services"), Ref: "main"}
 
-	if err := w.Populate(1, []record.Checkout{services, {Name: "platform", Remote: forge.Repository("platform"), Ref: "no-such-branch"}}, nil); err != nil {
+	if err := w.Populate(1, []record.Checkout{services, {Name: "platform", Remote: forge.Repository("platform"), Ref: "no-such-branch"}}, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 	if now := settled(t, w); now.State != source.Failed {
 		t.Fatalf("the workspace is %v, want failed: platform has no such branch", now.State)
 	}
 
-	if err := w.Populate(1, []record.Checkout{services, {Name: "platform", Remote: forge.Repository("platform"), Ref: "main"}}, nil); err != nil {
+	if err := w.Populate(1, []record.Checkout{services, {Name: "platform", Remote: forge.Repository("platform"), Ref: "main"}}, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 	if now := settled(t, w); now.State != source.Ready || len(now.Repositories) != 2 {

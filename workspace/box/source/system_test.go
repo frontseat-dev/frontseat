@@ -65,7 +65,7 @@ func TestAWorkspaceAsksTheVersionControlSystemItWasGiven(t *testing.T) {
 		t.Errorf("the repository is named %q, want reels, as the system names it", got)
 	}
 
-	if err := w.Populate(1, []record.Checkout{{Name: "reels", Remote: "vault/reels"}}, nil); err != nil {
+	if err := w.Populate(1, []record.Checkout{{Name: "reels", Remote: "vault/reels"}}, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 	now := settled(t, w)
@@ -107,7 +107,7 @@ func TestAWorkspaceThatBringsRepositoriesNeedsAVersionControlSystem(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := mounted.Populate(1, []record.Checkout{{Name: "reels", Remote: "vault/reels"}}, nil); err == nil {
+	if err := mounted.Populate(1, []record.Checkout{{Name: "reels", Remote: "vault/reels"}}, nil, nil); err == nil {
 		t.Error("something was cloned into a mounted checkout")
 	}
 	if got := mounted.NameOf("vault/reels"); got != "" {
@@ -127,7 +127,7 @@ func TestARefusedSecondRemoteOfARepositoryIsNotRepeated(t *testing.T) {
 	defer w.Close()
 	holds := []record.Checkout{{Name: "reels", Remote: "https://x:tok3n-held@vault/reels"}}
 	bring := func(asked []record.Checkout) error {
-		err := w.Populate(1, asked, nil)
+		err := w.Populate(1, asked, nil, nil)
 		for err == nil {
 			now, changed := w.Now()
 			if now.State != source.Populating {

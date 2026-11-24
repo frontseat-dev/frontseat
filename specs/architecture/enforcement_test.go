@@ -205,12 +205,14 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		// the sandbox service knows nothing of what lives in a sandbox.
 		{"workspace/server/controlplanetest/controlplanetest.go", "workspace/server/controlplane", true},
 		{"workspace/server/controlplanetest/controlplanetest.go", "common/vcs/chosen", true},
-		// The version control system is chosen by the program that
-		// composes a part, and by what fills a workspace where it is
+		// The version control system is chosen by what composes a part (a
+		// program, or for the control plane the package a program and
+		// frontseat-enterprise compose it by), and by what fills a workspace where it is
 		// opened with the default; the control plane and the build are
 		// given it, and only their tests choose it themselves. What
 		// fills a workspace names the system in its tests alone.
-		{"cmd/frontseat-server/main.go", "common/vcs/chosen", true},
+		{"workspace/server/workspaces/workspaces.go", "common/vcs/chosen", true},
+		{"cmd/frontseat-server/main.go", "common/vcs/chosen", false},
 		{"build/daemon/life/serve.go", "common/vcs/chosen", true},
 		{"workspace/box/source/workspace.go", "common/vcs/chosen", true},
 		{"workspace/server/controlplane/controlplane_test.go", "common/vcs/chosen", true},
@@ -335,7 +337,36 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		{"stack/container.go", "core/httpserver", false},
 		// The local stack's program is the control plane told what the
 		// stack is; the control plane is told nothing of the stack.
-		{"cmd/frontseat-server/main.go", "workspace/server/controlplane", true},
+		// It is a thin main over the control plane that can be composed,
+		// and names nothing of how one is made. That package is over the
+		// control plane, and takes the port of what serves stored
+		// repositories, which names nothing of this repository; the
+		// control plane names the port and not what composes it. What
+		// holds stored repositories in memory is for tests alone.
+		{"cmd/frontseat-server/main.go", "workspace/server/workspaces", true},
+		{"cmd/frontseat-server/main.go", "workspace/server/controlplane", false},
+		{"cmd/frontseat-server/main.go", "workspace/server/backstage", false},
+		{"workspace/server/workspaces/workspaces.go", "workspace/server/controlplane", true},
+		{"workspace/server/workspaces/workspaces.go", "workspace/server/workspaces/sources", true},
+		{"workspace/server/workspaces/workspaces.go", "sandbox/driver/openshell", false},
+		{"workspace/server/workspaces/workspaces.go", "workspace/server/workspaces/sourcestest", false},
+		{"workspace/server/workspaces/workspaces_test.go", "workspace/server/workspaces/sourcestest", true},
+		{"workspace/server/controlplane/remote.go", "workspace/server/workspaces/sources", true},
+		{"workspace/server/controlplane/remote.go", "workspace/server/workspaces", false},
+		{"workspace/server/controlplane/remote.go", "workspace/server/workspaces/sourcestest", false},
+		{"workspace/server/controlplane/remote_test.go", "workspace/server/workspaces/sourcestest", true},
+		{"workspace/server/workspaces/sources/sources.go", "workspace/server/controlplane", false},
+		{"workspace/server/workspaces/sources/sources.go", "sdk/go/api/frontseat/workspace/v1alpha1", false},
+		{"workspace/server/workspaces/sources/sources.go", "common/told", false},
+		{"workspace/server/workspaces/sourcestest/sourcestest.go", "workspace/server/workspaces/sources", true},
+		{"workspace/server/workspaces/sourcestest/sourcestest.go", "workspace/server/controlplane", false},
+		{"workspace/box/source/service.go", "workspace/server/workspaces/sources", false},
+		// A command reads a checkout through the port of what reads one,
+		// and names no version control system.
+		{"cli/internal/cmd/open.go", "cli/internal/vcs", true},
+		{"cli/internal/cmd/remote_test.go", "cli/internal/vcs", true},
+		{"cli/internal/cmd/open.go", "cli/internal/vcs/git", false},
+		{"cli/internal/cmd/remote_test.go", "cli/internal/vcs/git", false},
 		{"cmd/frontseat-server/main.go", "stack/local", true},
 		{"cmd/frontseat-stack/main.go", "stack", true},
 		{"cmd/frontseat-server/main.go", "sandbox", false},

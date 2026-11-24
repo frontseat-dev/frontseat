@@ -32,6 +32,8 @@ var public = map[string]string{
 	"sandbox/driver/openshell":               "the one OpenShell driver, which frontseat-enterprise composes around and never copies (owner's ruling)",
 	"sandbox/api/frontseat/sandbox/v1alpha1": "the sandbox API's generated Go (api/buf.gen.sandbox.yaml), which the sandbox service serves and frontseat-enterprise embeds with it; it has no client in the Go SDK",
 	"sandbox/api/frontseat/sandbox/v1alpha1/sandboxv1alpha1connect": "the sandbox API's generated Connect handler and client, for the service, the control plane, the runner and frontseat-enterprise",
+	"workspace/server/workspaces":                                   "the control plane, which frontseat-enterprise composes around and never copies (owner's ruling, 2026-11-22)",
+	"workspace/server/workspaces/sources":                           "the port the control plane holds a remote workspace's stored repositories through, for frontseat-enterprise to implement: the control plane's one port, in a package of its own so that the control plane itself, which the package that composes it imports, can name it",
 }
 
 // forOutsiders is whether a package of the repository is one whoever is

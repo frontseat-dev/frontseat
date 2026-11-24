@@ -36,10 +36,10 @@ service SourceService {
   //
   // ### Errors
   // - INVALID_ARGUMENT: the generation is less than one
-  //   (GENERATION_INVALID); the spec names no repository
-  //   (SOURCE_MISSING); a repository it names, or the place it gives for
-  //   an entity, cannot be held in the directory where the supervisor holds
-  //   its source (SOURCE_UNFIT).
+  //   (GENERATION_INVALID); the spec names no repository, cloned or
+  //   stored (SOURCE_MISSING); a repository it names, or the place it
+  //   gives for an entity, cannot be held in the directory where the
+  //   supervisor holds its source (SOURCE_UNFIT).
   // - FAILED_PRECONDITION: the supervisor is still cloning what it was told
   //   before, and is to be told again once it is done
   //   (SOURCE_POPULATING); the supervisor was started over a directory it
@@ -102,6 +102,26 @@ message SourceSpec {
   // is among the repositories. The supervisor resolves nothing itself: this
   // is all it knows of which entity is where.
   repeated LocatedEntity entities = 3;
+  // Stored are the repositories the workspace holds from the control
+  // plane's snapshot store, each mounted in the sandbox at its
+  // directory before the supervisor was started: the supervisor clones
+  // none of them, is given no credential of the store, and says it
+  // holds each as it is told it here.
+  repeated StoredSource stored = 4;
+}
+
+// StoredSource is a repository of the snapshot store that is mounted in
+// the sandbox, at the changeset the control plane says.
+message StoredSource {
+  // Name is the supervisor's name for it: the one directory of the
+  // workspace it is mounted at.
+  string name = 1 [(google.api.field_behavior) = REQUIRED];
+  // Repository is the store's name for it.
+  string repository = 2 [(google.api.field_behavior) = REQUIRED];
+  // Changeset is the id of the changeset it is mounted at.
+  string changeset = 3 [(google.api.field_behavior) = REQUIRED];
+  // Roots are the directories taken of it; empty for all of it.
+  repeated string roots = 4;
 }
 
 // LocatedEntity is an entity, and where its source is.
@@ -134,12 +154,16 @@ message Repository {
   // Name is its name: what a label and a path name it by. Empty for a
   // directory the supervisor was started over and did not clone.
   string name = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // Remote is where it was cloned from.
+  // Remote is where it was cloned from; empty for a stored repository.
   string remote = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // Commit is the commit it stands at.
+  // Commit is the commit it stands at; for a stored repository, the
+  // changeset it was told.
   string commit = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Roots are the directories taken of it; empty for all of it.
   repeated string roots = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Stored is the snapshot store's name for it, where it is mounted and
+  // was not cloned; empty for one that was cloned.
+  string stored = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
 }
 
 // SetSourceRequest gives a supervisor the source to hold.
