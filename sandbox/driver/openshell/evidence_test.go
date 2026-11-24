@@ -85,15 +85,12 @@ func supervisor(name string) bool {
 // container runtime labels them with; never by a name, which another's
 // sandbox may share.
 func containersOf(ctx context.Context, gateway *sdk.Client, id string) ([]string, error) {
-	held, err := gateway.Sandboxes().ListAll(ctx, "default", sdk.ListOptions{LabelSelector: "frontseat.dev/sandbox=" + id})
+	held, err := heldAs(ctx, gateway, id)
 	if err != nil {
 		return nil, err
 	}
 	var names []string
 	for _, sandbox := range held {
-		if sandbox.Labels["frontseat.dev/sandbox"] != id || sandbox.ID == "" {
-			continue
-		}
 		listed, err := testgateway.Runtime(ctx, "ps", "--all", "--filter", "label=openshell.ai/sandbox-id="+sandbox.ID, "--format", "{{.Names}}")
 		if err != nil {
 			return nil, err
@@ -101,6 +98,23 @@ func containersOf(ctx context.Context, gateway *sdk.Client, id string) ([]string
 		names = append(names, strings.Fields(string(listed))...)
 	}
 	return names, nil
+}
+
+// heldAs is the sandbox of an id as the gateway holds it, found as the
+// driver finds it, by its id's label; none where the gateway holds none
+// of that id.
+func heldAs(ctx context.Context, gateway *sdk.Client, id string) ([]*sdk.Sandbox, error) {
+	listed, err := gateway.Sandboxes().ListAll(ctx, "default", sdk.ListOptions{LabelSelector: "frontseat.dev/sandbox=" + id})
+	if err != nil {
+		return nil, err
+	}
+	var held []*sdk.Sandbox
+	for _, sandbox := range listed {
+		if sandbox.Labels["frontseat.dev/sandbox"] == id && sandbox.ID != "" {
+			held = append(held, sandbox)
+		}
+	}
+	return held, nil
 }
 
 var (
