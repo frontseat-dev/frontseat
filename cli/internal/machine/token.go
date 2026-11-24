@@ -107,3 +107,56 @@ func Server() (string, error) {
 	}
 	return plane.Server(), nil
 }
+
+// implied is the port of a scheme's address that names none.
+var implied = map[string]string{"http": "80", "https": "443"}
+
+// SamePlane is whether two addresses name one control plane: the same
+// origin, as the token is presented to one (bearer.SameOrigin), whatever
+// the case the scheme and the host are written in, and whether or not a
+// scheme's own port (80 of http, 443 of https) is written out. Nothing
+// is resolved: localhost and 127.0.0.1 are two names, and two control
+// planes here, as they are two origins to the token.
+func SamePlane(one, other string) bool {
+	return bearer.SameOrigin(origin(one), origin(other))
+}
+
+// origin is an address as its origin is compared: without the port its
+// scheme implies; nil where it is no address.
+func origin(address string) *url.URL {
+	at, err := url.Parse(address)
+	if err != nil {
+		return nil
+	}
+	if port := at.Port(); port != "" && port == implied[strings.ToLower(at.Scheme)] {
+		at.Host = strings.TrimSuffix(at.Host, ":"+port)
+	}
+	return at
+}
+
+// Places are the files that tell the command line, as they are named on
+// this machine: the one that names the control plane it asks, the token
+// beside it, and the one that tells this machine's build daemons their
+// grid.
+type Places struct {
+	Server, Token, Settings string
+}
+
+// Where returns the files that tell the command line, as they are named
+// on this machine: beneath $XDG_CONFIG_HOME where it is set. It reads
+// none of them.
+func Where() (Places, error) {
+	server, err := local.ServerFile()
+	if err != nil {
+		return Places{}, err
+	}
+	token, err := local.TokenFile()
+	if err != nil {
+		return Places{}, err
+	}
+	outside, err := keeps(false)
+	if err != nil {
+		return Places{}, err
+	}
+	return Places{Server: server, Token: token, Settings: outside.settings}, nil
+}

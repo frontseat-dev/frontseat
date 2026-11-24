@@ -35,6 +35,15 @@ gives one, credential list lists them by host, and credential delete
 lets go of one.`,
 	Args: cobra.ArbitraryArgs,
 	RunE: named("a credential command"),
+	// Inside a workspace's sandbox no control plane is asked, and a
+	// credential is what no sandbox holds: every credential command is
+	// refused there, before a secret is read or anything is asked.
+	PersistentPreRunE: func(*cobra.Command, []string) error {
+		if inside() {
+			return errors.New("inside a workspace's sandbox no credential is given, listed or let go of: the control plane keeps your credentials outside every sandbox, and is asked of them from outside")
+		}
+		return nil
+	},
 }
 
 // credentialSetCmd gives the control plane a host's credential.

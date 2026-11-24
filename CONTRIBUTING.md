@@ -80,6 +80,12 @@ lets go of it.
 - **A workspace is not what you expected.** `frontseat workspace list`
   lists yours, `frontseat workspace describe NAME` says what
   one holds, and `frontseat workspace delete NAME` ends one.
+- **`frontseat build` says a workspace is open.** The workspace you
+  last opened is selected on this machine, and is built from inside it:
+  `frontseat workspace ssh -- frontseat build`. To build the directory
+  you are in instead, `frontseat workspace close` forgets the selection
+  here and ends nothing; `frontseat workspace open NAME` selects the
+  workspace again.
 
 ## Getting started as a contributor, in full
 

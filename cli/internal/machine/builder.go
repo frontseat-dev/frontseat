@@ -20,9 +20,12 @@ import (
 )
 
 // Builder is the build daemon of a directory, as the command line asks
-// it: where it serves, on the loopback, and the token it is asked with.
+// it: where it serves, on the loopback, the token it is asked with, and
+// the file that holds all it printed, for whoever is told it did not
+// answer.
 type Builder struct {
 	Address, Token string
+	Log            string
 }
 
 // ErrNoSettings is a machine, or a workspace's sandbox, that was told
@@ -74,13 +77,16 @@ func BuildDaemon(ctx context.Context, directory string, inside bool) (Builder, e
 	if err != nil {
 		return Builder{}, err
 	}
+	found := func(said life.Info) Builder {
+		return Builder{Address: said.Address, Token: said.Token, Log: filepath.Join(state, logFile)}
+	}
 	want := life.Info{Version: is, Settings: told, Directory: directory, Environment: life.Environment(read.Given)}
 	wanted := func(said life.Info) bool {
 		return said.Version == want.Version && said.Settings == want.Settings && said.Directory == want.Directory && said.Environment == want.Environment
 	}
 	if said, err := life.Told(state); err == nil && serves(ctx, said) {
 		if wanted(said) {
-			return Builder{Address: said.Address, Token: said.Token}, nil
+			return found(said), nil
 		}
 		stopped(ctx, state, said)
 	}
@@ -89,7 +95,7 @@ func BuildDaemon(ctx context.Context, directory string, inside bool) (Builder, e
 	}
 	for begun := time.Now(); time.Since(begun) < startsWithin; {
 		if said, err := life.Told(state); err == nil && wanted(said) && serves(ctx, said) {
-			return Builder{Address: said.Address, Token: said.Token}, nil
+			return found(said), nil
 		}
 		select {
 		case <-ctx.Done():

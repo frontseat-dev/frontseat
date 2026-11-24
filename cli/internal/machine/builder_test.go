@@ -81,7 +81,8 @@ func settled(t *testing.T) (*started, string) {
 // and starts one where there is none: once, however often it asks. The
 // next command finds the one that serves, by what it said of itself and
 // by asking it with its token. A directory beside it has a daemon of its
-// own. The control is the first ask, which starts one.
+// own, and each is said with where what it printed is kept. The control
+// is the first ask, which starts one.
 func TestTheBuildDaemonOfADirectoryIsStartedOnceAndFoundAgain(t *testing.T) {
 	s, _ := settled(t)
 	here, beside := t.TempDir(), t.TempDir()
@@ -99,6 +100,15 @@ func TestTheBuildDaemonOfADirectoryIsStartedOnceAndFoundAgain(t *testing.T) {
 	other, err := BuildDaemon(t.Context(), beside, false)
 	if err != nil || other.Address == first.Address || s.count() != 2 {
 		t.Errorf("a directory beside it: %+v, %v, after %d daemons; want a daemon of its own", other, err, s.count())
+	}
+	// Each says where all its daemon printed is kept: in that daemon's
+	// own state directory, for whoever is told it did not answer.
+	where, err := keeps(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.Log != filepath.Join(where.of(here), "daemon.log") || again.Log != first.Log || other.Log != filepath.Join(where.of(beside), "daemon.log") {
+		t.Errorf("what the daemons printed is said to be in %q, %q and %q; want each in its own state directory, beneath %s", first.Log, again.Log, other.Log, where.state)
 	}
 }
 

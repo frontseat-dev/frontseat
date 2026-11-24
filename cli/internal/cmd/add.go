@@ -42,7 +42,7 @@ what it holds once it can be worked in again.`,
 
 func init() {
 	workspaceCmd.AddCommand(addCmd)
-	addCmd.Flags().StringArrayVar(&addRepositories, "repository", nil, "a repository for the daemon to clone, URL or URL#REF")
+	addCmd.Flags().StringArrayVar(&addRepositories, "repository", nil, "a repository for the workspace to clone, URL or URL#REF")
 	addCmd.Flags().StringArrayVar(&addEntities, "entity", nil, "an entity whose source to clone, resolved through the control plane's Backstage catalog")
 	addCmd.Flags().BoolVar(&addWhole, "whole", false, "clone the entities' repositories whole, not only the directories the entities govern")
 }

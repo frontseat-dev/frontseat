@@ -138,8 +138,20 @@ the change that fixes it.
   Outside a sandbox, where a workspace is selected, the one last opened
   of the control plane asked, such a command is refused by name and
   runs nothing: it names the workspace and says to run the command in
-  it, by the command's own name and nothing it was given, and no control
-  plane, daemon or SSH client is asked.
+  it, by the command's own name and nothing it was given, and what
+  forgets the selection, and no control plane, daemon or SSH client is
+  asked. The selection is this machine's (`context.json`), read in its
+  format alone and believed no further than a workspace's name and a
+  server's address: one last opened of another control plane, which is
+  another origin (`machine.SamePlane`: the scheme and host in any case,
+  a scheme's own port written or not, and nothing resolved), is none
+  selected here to a command that builds, and a `workspace` command told
+  no name is told whose it is. `workspace close` forgets it and asks no
+  one, removing a file it cannot read; `workspace delete` forgets it
+  where the workspace it ended, or was told there is none of, is the
+  one selected of the control plane asked. Whether one is selected is
+  read without the token, and with none selected nothing of a control
+  plane's files is read.
   `workspace forward [NAME] PORT` reaches a port of a workspace's
   sandbox from this machine: it listens on this machine's loopback and
   nowhere else, at the same port unless `--listen` says another, and
@@ -160,11 +172,24 @@ the change that fixes it.
   command starts none. So the command line links the build daemon and
   what it is built on, and nothing of a box, a control plane, a sandbox
   or the runner (`clientBuilds`, `TestClientProductionDependencyClosure`).
+  Only a command made one that works where it is run
+  (`worksWhereItIsRun`) is given that daemon. A server that did not
+  answer, or refused who asked, is said as the one the command asked:
+  the control plane, by its files as they are named on this machine, or
+  the build daemon, with where what it printed is kept.
   `frontseat --help` says so. Held by:
   `TestEveryCommandAsksTheOneControlPlaneTheRuleNames`,
   `TestAWorkspaceThatIsOpenIsBuiltFromInsideIt`,
   `TestNoCommandThatBuildsTakesAWorkspace`,
   `TestWithNoWorkspaceSelectedABuildAsksTheDaemonOfItsDirectory`,
+  `TestAWorkspaceIsSelectedWhereItsControlPlaneIsTheOriginAsked`,
+  `TestABuildOfThisMachinesDirectoryReadsNothingOfTheControlPlanes`,
+  `TestOnlyACommandThatWorksWhereItIsRunIsGivenTheDirectorysDaemon`,
+  `TestClosingAWorkspaceForgetsItHereAndAsksNoOne`,
+  `TestAContextThatCannotBeReadIsRemovedByClosing`,
+  `TestDeletingASelectedWorkspaceThatIsGoneForgetsItHere`,
+  `TestDeletingAWorkspaceForgetsOnlyTheOneSelectedOfItsControlPlane`,
+  `TestAServerThatFailedIsSaidAsTheOneThatWasAsked`,
   `TestTheBuildDaemonOfADirectoryIsStartedOnceAndFoundAgain`,
   `TestABuildDaemonOfAnotherVersionOrOtherSettingsIsReplaced`,
   `TestABuildDaemonSaysWhereItServesAndIsAskedWithItsToken`, the spec
@@ -178,6 +203,7 @@ the change that fixes it.
   `TestTheTokenIsPresentedToTheControlPlaneAlone`,
   `TestAPortOfThisMachineIsCarriedToAPortOfAWorkspacesSandbox`,
   `TestAPortIsCarriedFromTheLoopbackAlone`,
+  `TestOnlyAnAddressOfTheLoopbackIsListenedOn`,
   `TestNoCommandAsksAControlPlaneOnAnotherMachineInClear` and the SDK's
   `TestATokenIsPresentedToItsOriginAlone` and
   `TestATokenIsNotPresentedInClearToAnotherMachine`.

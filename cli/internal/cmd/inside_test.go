@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -43,9 +44,10 @@ func (k *told) changes() int {
 }
 
 // Inside a workspace's sandbox its source is fixed: a workspace command,
-// adding to it, describing it, listing, opening, ending, a shell, a
-// port carried to it, a credential, is refused by name before anything
-// is asked or listened on, and the control plane is told nothing. The
+// adding to it, describing it, listing, opening, closing, ending, a
+// shell, a port carried to it, is refused by name before anything is
+// asked or listened on, and the control plane is told nothing; so is a
+// credential command, as what it is: no sandbox holds a credential. The
 // control is the same `workspace add` run outside, which the control
 // plane is told; and, inside, a release planned, which the daemon there
 // is asked.
@@ -74,16 +76,35 @@ func TestInsideAWorkspaceItsSourceIsFixed(t *testing.T) {
 		{"workspace", "delete", "named"},
 		{"workspace", "ssh", "true"},
 		{"workspace", "forward", "8080", "--listen", "127.0.0.1:0"},
-		{"credential", "set", "forge.example"},
-		{"credential", "list"},
-		{"credential", "delete", "forge.example"},
+		{"workspace", "close"},
 	} {
 		if _, _, err := run(t, d, args...); err == nil || !strings.Contains(err.Error(), "its source is fixed") {
 			t.Errorf("inside, %v: %v; want it refused by name", args, err)
 		}
 	}
+	// A credential is no workspace's source: it is refused as what it
+	// is, kept outside every sandbox, before a secret is read.
+	secretFrom = strings.NewReader("a-made-up-secret\n")
+	t.Cleanup(func() { secretFrom = nil })
+	for _, args := range [][]string{
+		{"credential", "set", "forge.example"},
+		{"credential", "list"},
+		{"credential", "delete", "forge.example"},
+	} {
+		if _, _, err := run(t, d, args...); err == nil || !strings.Contains(err.Error(), "inside a workspace's sandbox no credential is given, listed or let go of") || strings.Contains(err.Error(), "source is fixed") {
+			t.Errorf("inside, %v: %v; want it refused as a credential, which no sandbox holds", args, err)
+		}
+	}
+	if left, _ := io.ReadAll(secretFrom); string(left) != "a-made-up-secret\n" {
+		t.Errorf("inside, a secret was read: %q is left of it", left)
+	}
 	if asked != 0 || plane.changes() != 0 {
 		t.Fatalf("inside, the control plane was asked %d times, and told %d changes", asked, plane.changes())
+	}
+	// What is selected outside is no business of a sandbox's: closing is
+	// refused there, and forgets nothing.
+	if held, found, err := machine.ReadContext(); err != nil || !found || held.Workspace != "named" {
+		t.Errorf("inside, workspace close forgot the selection: %+v, %v, %v", held, found, err)
 	}
 	// Inside, the build daemon there is asked what it builds and releases.
 	if _, code, err := run(t, d, "ship", "plan", "greet"); err != nil || code != 0 || len(d.planned) != 1 {

@@ -15,8 +15,10 @@ import (
 // part of either, so `frontseat workspace open` breaks no command beside it.
 func TestTheContextIsReadWholeWhileItIsWritten(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-	long := strings.Repeat("w", 64<<10)
-	if err := WriteContext(Context{Server: "http://a", Workspace: long}); err != nil {
+	// Two contexts of two lengths: a part of either is none.
+	long, short := "http://"+strings.Repeat("w", 200)+".example", "w"
+	written := []Context{{Server: long, Workspace: strings.Repeat("w", 48)}, {Server: "http://a", Workspace: short}}
+	if err := WriteContext(written[0]); err != nil {
 		t.Fatal(err)
 	}
 	stop := make(chan struct{})
@@ -28,7 +30,7 @@ func TestTheContextIsReadWholeWhileItIsWritten(t *testing.T) {
 				return
 			default:
 			}
-			if err := WriteContext(Context{Server: "http://a", Workspace: long[:len(long)-i%2]}); err != nil {
+			if err := WriteContext(written[i%2]); err != nil {
 				t.Error(err)
 				return
 			}
@@ -36,7 +38,7 @@ func TestTheContextIsReadWholeWhileItIsWritten(t *testing.T) {
 	})
 	for range 2000 {
 		c, found, err := ReadContext()
-		if err != nil || !found || c.Server != "http://a" || len(c.Workspace) < len(long)-1 {
+		if err != nil || !found || (c != written[0] && c != written[1]) {
 			close(stop)
 			writing.Wait()
 			t.Fatalf("read while it was written: %v, found %v, %v; want it whole", err, found, c.Server)
@@ -69,14 +71,43 @@ func TestTheContextFileIsWrittenInItsFormat(t *testing.T) {
 	}
 	// It is read in its format alone: a key it does not have (an older
 	// build's) or a second object is refused, naming the file, never read
-	// past.
-	for _, written := range []string{`{"server":"http://s","workspace":"w","build":"http://b","sandbox":"sbx"}`, `{"server":"http://s","workspace":"w"}{"workspace":"x"}`} {
+	// past. So is a workspace that is no workspace's name, which would be
+	// printed to a terminal as it is, and a server that is no server's
+	// address. The refusal says what removes the file, and nothing the
+	// file holds.
+	for _, written := range []string{
+		`{"server":"http://s","workspace":"w","build":"http://b","sandbox":"sbx"}`,
+		`{"server":"http://s","workspace":"w"}{"workspace":"x"}`,
+		`{"server":"http://s","workspace":"w\u001b[2Jsecret-word"}`,
+		`{"server":"http://s","workspace":"Secret-Word"}`,
+		`{"server":"http://s","workspace":""}`,
+		`{"server":"http://s"}`,
+		`{"server":"secret-word","workspace":"w"}`,
+		`{"server":"http://s/secret-word","workspace":"w"}`,
+		`{"server":"http://secret-word@s","workspace":"w"}`,
+		`{"workspace":"w"}`,
+		`secret-word`,
+		``,
+	} {
 		if err := os.WriteFile(at, []byte(written), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		if c, _, err := ReadContext(); err == nil || !strings.Contains(err.Error(), at) {
-			t.Errorf("%s was read as %+v (%v), want it refused by the file's name", written, c, err)
+		c, found, err := ReadContext()
+		if err == nil || found || c != (Context{}) || !strings.Contains(err.Error(), at) || !strings.Contains(err.Error(), "`frontseat workspace close` removes it") {
+			t.Errorf("%s was read as %+v, %v (%v), want it refused by the file's name, with what removes it", written, c, found, err)
+		} else if strings.Contains(strings.ToLower(err.Error()), "secret-word") {
+			t.Errorf("the refusal of %s repeats what the file holds: %v", written, err)
 		}
+	}
+	// One that is forgotten is none, and no mistake, read or not.
+	if err := ForgetContext(); err != nil {
+		t.Fatal(err)
+	}
+	if c, found, err := ReadContext(); err != nil || found {
+		t.Errorf("forgotten, it is read as %+v, %v (%v)", c, found, err)
+	}
+	if err := ForgetContext(); err != nil {
+		t.Errorf("forgetting what is not there: %v", err)
 	}
 }
 
@@ -192,4 +223,68 @@ func serverNamed(t *testing.T, written string) (string, error) {
 		t.Fatal(err)
 	}
 	return Server()
+}
+
+// Two addresses name one control plane where they are one origin: the
+// scheme and the host in whatever case, a scheme's own port written out
+// or not. Nothing is resolved: localhost and a loopback address are two
+// names, as they are two origins to the token. The controls are another
+// port, another scheme and another host.
+func TestTwoAddressesOfOneOriginAreOneControlPlane(t *testing.T) {
+	for _, c := range []struct {
+		one, other string
+		same       bool
+	}{
+		{"http://127.0.0.1:7700", "http://127.0.0.1:7700", true},
+		{"https://frontseat.example", "https://FrontSeat.Example", true},
+		{"https://frontseat.example", "HTTPS://frontseat.example", true},
+		{"https://frontseat.example", "https://frontseat.example:443", true},
+		{"https://frontseat.example:443", "https://frontseat.example", true},
+		{"http://localhost", "http://localhost:80", true},
+		{"http://[::1]:80", "http://[::1]", true},
+		{"http://localhost:7700", "http://LOCALHOST:7700", true},
+		// Two names of this machine are two control planes.
+		{"http://localhost:7700", "http://127.0.0.1:7700", false},
+		{"http://127.0.0.1:7700", "http://[::1]:7700", false},
+		// Another port, a port that is another scheme's own, another
+		// scheme, another host.
+		{"http://127.0.0.1:7700", "http://127.0.0.1:7701", false},
+		{"https://frontseat.example", "https://frontseat.example:80", false},
+		{"http://frontseat.example:443", "http://frontseat.example", false},
+		{"http://frontseat.example", "https://frontseat.example", false},
+		{"http://frontseat.example:80", "https://frontseat.example:443", false},
+		{"https://frontseat.example", "https://frontseat.example.evil.example", false},
+		{"https://frontseat.example:4430", "https://frontseat.example:443", false},
+		// What is no address is no control plane, itself neither.
+		{"", "", false},
+		{"frontseat.example", "frontseat.example", false},
+		{"http://%zz", "http://%zz", false},
+	} {
+		if got := SamePlane(c.one, c.other); got != c.same {
+			t.Errorf("%q and %q are one control plane: %t, want %t", c.one, c.other, got, c.same)
+		}
+		if got := SamePlane(c.other, c.one); got != c.same {
+			t.Errorf("%q and %q, the other way: %t, want %t", c.other, c.one, got, c.same)
+		}
+	}
+}
+
+// The files that tell the command line are said as they are named on
+// this machine: beneath $XDG_CONFIG_HOME where it is set, and beneath
+// ~/.config where it is not, which is the control.
+func TestTheFilesThatTellTheCommandLineAreNamedAsTheyAreHere(t *testing.T) {
+	config := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", config)
+	if got, err := Where(); err != nil || got != (Places{
+		Server:   filepath.Join(config, "frontseat", "local", "server"),
+		Token:    filepath.Join(config, "frontseat", "local", "token"),
+		Settings: filepath.Join(config, "frontseat", "build.yaml"),
+	}) {
+		t.Errorf("with XDG_CONFIG_HOME set, the files are %+v (%v)", got, err)
+	}
+	t.Setenv("XDG_CONFIG_HOME", "")
+	t.Setenv("HOME", "/home/someone")
+	if got, err := Where(); err != nil || got.Token != "/home/someone/.config/frontseat/local/token" || got.Settings != "/home/someone/.config/frontseat/build.yaml" {
+		t.Errorf("the control: with none, the files are %+v (%v)", got, err)
+	}
 }

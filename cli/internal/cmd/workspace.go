@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -51,18 +50,26 @@ func init() {
 }
 
 // subject is the workspace a workspace command is of: the one named,
-// or, with none, the one last opened (selected). Where there is none to
-// take, it says that the command takes a name too.
+// or, with none, the one selected, the one last opened of the control
+// plane asked now (selected). Where there is none to take, or the one
+// last opened is of another control plane, it says so, and that the
+// command takes a name too.
 func subject(args []string) (*frontseat.Workspace, error) {
 	if len(args) == 0 {
-		fs, name, err := selected()
-		if errors.Is(err, errNoWorkspace) || errors.Is(err, errElsewhere) {
-			return nil, fmt.Errorf("%w, or name one, as this command takes a workspace's NAME", err)
+		chosen, err := selected()
+		switch {
+		case err != nil:
+			return nil, err
+		case chosen.name == "":
+			return nil, fmt.Errorf("%w, or name one, as this command takes a workspace's NAME", errNoWorkspace)
+		case !chosen.here:
+			return nil, fmt.Errorf("the workspace last opened, %s, is of the control plane at %s, and the command line asks the one at %s (frontseat --help): open one there, or name one, as this command takes a workspace's NAME", chosen.name, chosen.plane, chosen.asked)
 		}
+		fs, err := server()
 		if err != nil {
 			return nil, err
 		}
-		return fs.Workspace(name), nil
+		return fs.Workspace(chosen.name), nil
 	}
 	if !frontseat.IsWorkspaceName(args[0]) {
 		return nil, fmt.Errorf("%q is no workspace's name: one is lower-case letters, digits and dashes, at most 48", args[0])

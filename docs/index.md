@@ -49,7 +49,7 @@ frontseat test               # run its tests on the grid
 |---|---|
 | `api/` | The contracts, and nothing else |
 | `sdk/go`, `sdk/plugin`, `sdk/plugin-test` | The Go SDK, the Rust plugin SDK and its testkit |
-| `cmd/` | Every server program, each a thin `main`: the daemon, the control plane, the runner and the confiner |
+| `cmd/` | Every server program, each a thin `main`: the control plane (`frontseat-server`), the local stack (`frontseat-stack`), a box's supervisor (`frontseat-box`), the runner and the confiner. The build daemon is the command line's own (`frontseat daemon`, in `cli/`) |
 | `build/` | The build: its engine, and the build API served over a directory |
 | `workspace/` | Workspaces: the control plane, and what fills a workspace's directory |
 | `sandbox/`, `grid/` | The sandbox service and its drivers; the grid's runner |
