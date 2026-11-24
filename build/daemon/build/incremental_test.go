@@ -331,3 +331,52 @@ func TestARunAsksTheGridAboutEveryActionThatIsReady(t *testing.T) {
 		t.Errorf("the grid was asked about %d actions at once at most; want all fifteen, none waiting for another", grid.most)
 	}
 }
+
+// A daemon started again where one ended knows what that one knew of
+// the directory's files, which it saved in its state as it ended: its
+// first run reads none of them to know what they held, where they look
+// as they did, and reads one that changed while no daemon ran, though
+// it is as long as it was. The controls are the first run of all, and
+// the first run of a daemon that is told no file to read it from: each
+// reads what it sends.
+func TestADaemonStartedAgainReadsNoFileTheOneBeforeItKnew(t *testing.T) {
+	workspace := oneModule(t)
+	settled(t, workspace)
+	state := t.TempDir()
+	recorder, signals := recording(t)
+	// started is the first run of a daemon started over the state, which
+	// ends once the run has, and what the run read.
+	started := func(files string) int {
+		t.Helper()
+		c := serveAs(t, configuration{Workspace: workspace, Mounted: true, Builds: filepath.Join(state, "builds"), Files: files, Executor: asking{edited: &sync.Once{}}, Telemetry: signals})
+		defer c.daemon.Close()
+		succeeded(t, c, create(t, c.runs))
+		run := costOf(t, recorder)
+		return run.readEvaluating + run.readRunning
+	}
+	saved := filepath.Join(state, "files")
+	first := started(saved)
+	if first == 0 {
+		t.Fatal("the first run of all read no file; want what it sends read")
+	}
+	if info, err := os.Stat(saved); err != nil || info.Mode() != 0o600 {
+		t.Fatalf("a daemon that ended left %v in its state, err %v; want what it knew of its files, its user's alone", info, err)
+	}
+	if again := started(saved); again != 0 {
+		t.Errorf("the first run of a daemon started again read %d files; want none", again)
+	}
+	// Two that ask of one file at once may each read it, so what a run
+	// reads is no fewer than its files, and is held to no exact number.
+	every := started("")
+	if every == 0 {
+		t.Errorf("the first run of a daemon told no file of what was known read none; the first of all read %d", first)
+	}
+
+	// Changed while no daemon ran, and as long as it was.
+	write(t, workspace, "hello/main.go", "package main\n\nfunc main(){ }\n")
+	// It is read once it has settled, and so once.
+	time.Sleep(30 * time.Millisecond)
+	if changed := started(saved); changed == 0 || changed >= every {
+		t.Errorf("with one file changed while no daemon ran, the first run of the daemon started after read %d files; want that one, and not the %d a daemon that knows nothing reads", changed, every)
+	}
+}

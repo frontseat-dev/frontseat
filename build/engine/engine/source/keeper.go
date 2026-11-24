@@ -32,12 +32,36 @@ import (
 // the same ("racily clean" entries), and
 // Bazel waits the moment out at the end of a build
 // (TimestampGranularityMonitor).
+//
+// A keeper opened from a file (OpenKeeper) is saved there when its
+// daemon ends (Save), and the daemon started after it knows what it
+// knew, as far as that says there.
 type Keeper struct {
 	// now is the time; time.Now unless a test says otherwise.
 	now func() time.Time
+	// file is where it is saved, so that what it knew outlives the
+	// daemon, and program the program that saves it there; no file, it
+	// is not saved.
+	file, program string
 
 	mu    sync.Mutex
 	files map[string]kept
+	// before is what the daemon before this one saved, until the first
+	// run begins and says what directory it is asked of.
+	before *saved
+	// root and places are the directory the run that began last was of,
+	// and where each of its repositories was; no places, no run has
+	// begun.
+	root   string
+	places map[string]place
+}
+
+// clock is the time.
+func (k *Keeper) clock() time.Time {
+	if k.now != nil {
+		return k.now()
+	}
+	return time.Now()
 }
 
 // settles is how long after a file was last written or changed what it
@@ -63,6 +87,7 @@ func (k *Keeper) Take(ctx context.Context, tree Tree) (*Snapshot, error) {
 	}
 	tree.Root = root
 	s := &Snapshot{Tree: tree, keeper: k, repositories: map[string]*taken{}}
+	places := make(map[string]place, len(tree.Paths))
 	for _, repository := range tree.Repositories() {
 		// A repository may be reached through a link, the workspace's own
 		// directory among them: its files are where the link leads.
@@ -76,6 +101,15 @@ func (k *Keeper) Take(ctx context.Context, tree Tree) (*Snapshot, error) {
 			return nil, fmt.Errorf("listing the repository %s: %w", repository, err)
 		}
 		s.repositories[repository] = t
+		if at, known := placed(t.directory); known {
+			places[repository] = at
+		}
+	}
+	// What the daemon before this one saved is taken up before what is
+	// no longer listed is let go, so that nothing saved outlives its
+	// file.
+	k.begin(root, places)
+	for _, t := range s.repositories {
 		k.only(t)
 	}
 	return s, nil
@@ -103,12 +137,12 @@ func (k *Keeper) kept(at string, as looked) (kept, bool) {
 // the day it names. Not held: the daemon's clock is held against the
 // disk's, and a disk whose clock runs behind the daemon's by more than
 // the moment (a remote one) has a file settle too soon.
-func (k *Keeper) settled(as looked) bool {
-	now := time.Now
-	if k.now != nil {
-		now = k.now
-	}
-	at, last := now().UnixNano(), newest(as)
+func (k *Keeper) settled(as looked) bool { return settledBy(as, k.clock().UnixNano()) }
+
+// settledBy reports whether a file that looks so had settled by a time,
+// in nanoseconds.
+func settledBy(as looked, at int64) bool {
+	last := newest(as)
 	if as.written > at && as.changed <= at {
 		last = as.changed
 	}

@@ -23,6 +23,18 @@ func begun(t *testing.T, keeper *source.Keeper, tree source.Tree) *source.Snapsh
 	return snapshot
 }
 
+// readOnce is a first run of a keeper, which reads a file, once, and
+// what the file held.
+func readOnce(t *testing.T, keeper *source.Keeper, tree source.Tree, file string) (*source.Snapshot, string) {
+	t.Helper()
+	first := begun(t, keeper, tree)
+	was, _, _, err := first.File(file)
+	if err != nil || first.Hashed() != 1 {
+		t.Fatalf("the first run read %d files, err %v; want the one", first.Hashed(), err)
+	}
+	return first, was
+}
+
 // A daemon keeps what a file held for as long as the file looks the
 // same: the run after reads only what looks different.
 func TestAFileThatLooksAsItDidIsNotReadAgain(t *testing.T) {
@@ -31,11 +43,7 @@ func TestAFileThatLooksAsItDidIsNotReadAgain(t *testing.T) {
 	keeper := &source.Keeper{}
 	settled()
 
-	first := begun(t, keeper, tree)
-	was, _, _, err := first.File(inside)
-	if err != nil || first.Hashed() != 1 {
-		t.Fatalf("the first run read %d files, err %v; want the one", first.Hashed(), err)
-	}
+	first, was := readOnce(t, keeper, tree, inside)
 	// Asked again by the same run, it is not read again.
 	if _, _, _, err := first.File(inside); err != nil || first.Hashed() != 1 {
 		t.Errorf("asked twice, the run read %d files, err %v; want the one, once", first.Hashed(), err)

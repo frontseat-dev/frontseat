@@ -67,6 +67,11 @@ type Config struct {
 	Grid      Grid
 	Platform  map[string]string
 	Telemetry *telemetry.Signals
+	// Files is the file what the daemon knows of the directory's files
+	// is saved in when it ends and read from when it starts, in its
+	// state and never beneath the directory; Program is the program the
+	// daemon is, by content: one saved by another is not read.
+	Files, Program string
 	// Given are the variables of where the daemon runs that what
 	// publishes a release may be given, each by its name.
 	Given []string
@@ -109,7 +114,7 @@ func New(ctx context.Context, config Config) (*Daemon, error) {
 		names = append(names, plugin.Description.GetName())
 	}
 	daemon, err := newDaemon(configuration{
-		Workspace: config.Workspace, Mounted: config.Mounted, System: config.System, Builds: config.Builds,
+		Workspace: config.Workspace, Mounted: config.Mounted, System: config.System, Builds: config.Builds, Files: config.Files, Program: config.Program,
 		Plugins: loaded, Executor: grid, Downloads: downloads, Platform: config.Platform, Telemetry: config.Telemetry, Given: config.Given,
 	})
 	if err != nil {

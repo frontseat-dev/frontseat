@@ -42,7 +42,8 @@ type Snapshot struct {
 	Tree
 
 	keeper *Keeper
-	// hashed counts the files read with nothing known of what they held.
+	// hashed counts the files read for what they held: those nothing was
+	// known of, and those known of but read again, not having settled.
 	hashed atomic.Int64
 
 	mu           sync.Mutex
@@ -172,10 +173,11 @@ func list(ctx context.Context, at, directory string) (*taken, error) {
 	return t, err
 }
 
-// Hashed returns how many files the run has read with nothing known of
-// what they held: not by the run, and not by the daemon of the file as
-// it looked. A file read for its content, where what it holds is known,
-// is not counted.
+// Hashed returns how many files the run has read to know what they held:
+// with nothing known of it, not by the run and not by the daemon of the
+// file as it looked, or known only from before the file had settled. A
+// file read for its content, where what it holds is known, is not
+// counted.
 func (s *Snapshot) Hashed() int { return int(s.hashed.Load()) }
 
 // Read returns a file of a repository, and whether it is there for
@@ -817,6 +819,9 @@ func (s *Snapshot) once(t *taken, repository, name, key string, when knew, read 
 		}
 		return known.held, true, nil
 	}
+	// A file read only to hash it, though what it held is known, is read
+	// again: it had not settled when it was known.
+	hashing := read == nil
 	if read == nil {
 		read = func(file *os.File) (string, int64, error) {
 			sum := sha256.New()
@@ -824,7 +829,7 @@ func (s *Snapshot) once(t *taken, repository, name, key string, when knew, read 
 			return hex.EncodeToString(sum.Sum(nil)), size, err
 		}
 	}
-	if !asked {
+	if !asked || hashing {
 		s.hashed.Add(1)
 	}
 	sum, size, err := read(file)

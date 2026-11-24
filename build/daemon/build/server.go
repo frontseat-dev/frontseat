@@ -9,6 +9,7 @@ import (
 	"connectrpc.com/connect/v2/connecthttp"
 	"github.com/frontseat-dev/frontseat/build/daemon/directory"
 	"github.com/frontseat-dev/frontseat/build/engine/engine/evaluate"
+	"github.com/frontseat-dev/frontseat/build/engine/engine/source"
 	"github.com/frontseat-dev/frontseat/build/engine/exec"
 	"github.com/frontseat-dev/frontseat/build/engine/exec/download"
 	"github.com/frontseat-dev/frontseat/build/engine/pluginhost"
@@ -45,6 +46,11 @@ type configuration struct {
 	// did and what its actions printed, the newest of them, for the
 	// daemon that comes after this one to find.
 	Builds string
+	// Files is the file the daemon saves what it knows of the
+	// directory's files in when it ends, for the daemon that comes after
+	// this one to read, and Program the program that saves it, which
+	// alone reads it (source.OpenKeeper); no file, nothing is saved.
+	Files, Program string
 	// Now is the time, by which runs that have only just ended are kept;
 	// the machine's own unless a test says otherwise.
 	Now func() time.Time
@@ -107,6 +113,11 @@ func newDaemon(config configuration) (*Daemon, error) {
 		return nil, err
 	}
 	runs.given = config.Given
+	if config.Files != "" {
+		// What the daemon before this one knew of the directory's files,
+		// where it ended as a daemon ends. No run has begun yet.
+		runs.files = source.OpenKeeper(config.Files, config.Program)
+	}
 	buildv1alpha1connect.RegisterBuildServiceHandler(api, &buildService{runs: runs})
 	graph := &graphService{runs: runs}
 	// What the daemon keeps of an evaluation, and how many graph requests
