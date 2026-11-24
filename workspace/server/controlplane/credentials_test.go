@@ -259,7 +259,7 @@ func TestAWorkspaceIsItsOwners(t *testing.T) {
 	if listed, err := workspaces(owner).ListWorkspaces(ctx, &workspacev1.ListWorkspacesRequest{}); err != nil || len(listed.GetWorkspaces()) != 1 {
 		t.Errorf("Ada is listed %v (%v), want her workspace", listed.GetWorkspaces(), err)
 	}
-	if status, said := asked(t, "POST", address+"/workspaces/adas/shell", owner, "{}"); status != 200 {
+	if status, said := asked(t, "POST", address+"/workspaces/adas/shell", owner, "{}"); status != ledOn {
 		t.Errorf("Ada reaching her shell: %d %s", status, said)
 	}
 	if _, err := workspaces(owner).DeleteWorkspace(ctx, &workspacev1.DeleteWorkspaceRequest{Name: "adas"}); err != nil {

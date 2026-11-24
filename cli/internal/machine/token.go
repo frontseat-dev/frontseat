@@ -109,30 +109,18 @@ func Server() (string, error) {
 	return plane.Server(), nil
 }
 
-// implied is the port of a scheme's address that names none.
-var implied = map[string]string{"http": "80", "https": "443"}
-
 // SamePlane is whether two addresses name one control plane: the same
-// origin, as the token is presented to one (bearer.SameOrigin), whatever
-// the case the scheme and the host are written in, and whether or not a
-// scheme's own port (80 of http, 443 of https) is written out. Nothing
-// is resolved: localhost and 127.0.0.1 are two names, and two control
-// planes here, as they are two origins to the token.
+// origin, as the token is presented to one (bearer.SameOrigin).
 func SamePlane(one, other string) bool {
-	return bearer.SameOrigin(origin(one), origin(other))
-}
-
-// origin is an address as its origin is compared: without the port its
-// scheme implies; nil where it is no address.
-func origin(address string) *url.URL {
-	at, err := url.Parse(address)
+	first, err := url.Parse(one)
 	if err != nil {
-		return nil
+		return false
 	}
-	if port := at.Port(); port != "" && port == implied[strings.ToLower(at.Scheme)] {
-		at.Host = strings.TrimSuffix(at.Host, ":"+port)
+	second, err := url.Parse(other)
+	if err != nil {
+		return false
 	}
-	return at
+	return bearer.SameOrigin(first, second)
 }
 
 // Places are the files that tell the command line, as they are named on

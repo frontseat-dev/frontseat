@@ -96,3 +96,11 @@ The directory a command builds is the nearest above where it is run that
 holds a workspace's manifest or a repository's `frontseat.yaml`, and is
 yours: one that another user owns is passed over, as git passes over a
 repository that is not its user's.
+
+In a sandbox the file is the sandbox's user's to write, as everything
+beneath `/var/lib/frontseat` is. The supervisor writes it when it
+starts, which holds against an accident and not against a program in
+the sandbox, which may write another or start a daemon told otherwise.
+A sandbox is one trust domain: whatever runs in it reaches what its
+build daemon reaches, the grid among it, and no credential of the grid
+or of a forge is kept in it.

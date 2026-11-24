@@ -47,9 +47,13 @@
 // so written, is refused UNIMPLEMENTED with the reason PORT_NOT_SERVED,
 // as a call is refused, and nothing is asked of the sandbox. A refusal
 // is answered in place of the WebSocket, as the Connect protocol writes
-// a unary call's error. A workspace that is in no sandbox yet, and a
-// port nothing in the sandbox listens on, are no refusal by name: the
-// answer is an HTTP status that is not the WebSocket's.
+// a unary call's error. A workspace that is in no sandbox yet is
+// refused FAILED_PRECONDITION with the reason WORKSPACE_NOT_READY. A
+// port that is not reached, as one nothing in the sandbox listens on,
+// is refused FAILED_PRECONDITION with the reason PORT_UNREACHED, and
+// nothing more is said of why. A workspace is carried 64 connections at
+// once, its shells among them: one more is refused RESOURCE_EXHAUSTED
+// with the reason TUNNELS_EXHAUSTED, until one of them has ended.
 //
 // A workspace is kept as what was asked for, its spec, and what is so,
 // its status. A call writes the spec and returns; the control plane then

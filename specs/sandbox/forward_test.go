@@ -136,11 +136,14 @@ func TestAPortOfAWorkspacesSandboxIsReachedAsBytesByItsOwner(t *testing.T) {
 	spec.Expect(connect.CodeOf(err)).To(Equal(connect.CodeUnimplemented), "the source API's port: %v", err)
 	spec.Expect(reason).To(Equal(frontseat.ReasonPortNotServed))
 	spec.Expect(domain).To(Equal(frontseat.DomainWorkspace))
-	// A port nothing listens on is no refusal by name, and carries
-	// nothing.
+	// A port nothing listens on carries nothing. Where the gateway says
+	// so when it is connected to, the control plane refuses it by name,
+	// PORT_UNREACHED; where the gateway opens its stream and ends it,
+	// nothing is read. Which of the two OpenShell does was not known
+	// when this was written, so either is taken, and no other refusal.
 	back, err = workspace.heardAt(18082, "outside")
 	spec.Expect(err).To(HaveOccurred(), "a port nothing listens on said %q", back)
-	if reason, _ := frontseat.Reason(err); reason != "" {
-		t.Errorf("a port nothing listens on was refused by name, %s: %v", reason, err)
+	if reason, domain := frontseat.Reason(err); reason != "" && (reason != frontseat.ReasonPortUnreached || domain != frontseat.DomainWorkspace || connect.CodeOf(err) != connect.CodeFailedPrecondition) {
+		t.Errorf("a port nothing listens on was refused by name otherwise than as not reached, %s in %s: %v", reason, domain, err)
 	}
 }

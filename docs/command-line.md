@@ -69,3 +69,22 @@ control plane's address nor its token. Where a server did not answer
 (37) or refused who asked (36), the command says which it asked: the
 control plane, or the build daemon of the directory, with the file that
 holds what that daemon printed.
+
+Inside a sandbox is where the sandbox's supervisor runs: the command
+line knows it by the sandbox's lock (`/var/lib/frontseat/box.lock`),
+which names the workspace and which the supervisor holds for as long as
+it runs. A file of that name that no one holds, left by an earlier
+program, is not a sandbox.
+
+## What a carried port is open to
+
+`workspace forward` listens on this machine's loopback and nowhere
+else, so nothing on another machine reaches it. Every program of this
+machine does, whoever runs it: while the command runs, any of them
+reaches the workspace's port through it, and is asked nothing. What the
+port serves is what decides who may use it.
+
+A workspace is carried 64 connections at once, its shells among them;
+one more is refused (`TUNNELS_EXHAUSTED`) until one has ended. A port
+nothing listens on in the sandbox is refused too (`PORT_UNREACHED`),
+and a workspace that is in no sandbox yet (`WORKSPACE_NOT_READY`).

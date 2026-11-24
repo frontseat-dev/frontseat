@@ -109,45 +109,45 @@ func wire(at string) *connect.Client { return testwire.Conn(at, testowner.Client
 // sandbox as its owner can (testbuild): a workspace is built from inside
 // it, so the daemon is the one the command line starts there, started
 // where none serves, and asked over a port the control plane carries.
-func (r reached) daemon() testbuild.Daemon {
+// A box with none fails the spec, and the spec's end lets go of what
+// carried it there.
+func (w *Workspace) daemon() *testbuild.Daemon {
+	w.scenario.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
-	daemon, err := testbuild.Workspace(r.sdk()).Daemon(ctx)
-	if err != nil {
-		panic(err)
-	}
-	return daemon
+	return testbuild.Workspace(w.sdk()).Daemon(ctx, w.scenario.TB)
 }
 
 // here is what a workspace's build daemon builds, as the SDK reaches
 // it: the workspace of a client made for that daemon.
-func (r reached) here() *frontseat.Workspace {
-	here, err := r.daemon().Here()
+func (w *Workspace) here() *frontseat.Workspace {
+	w.scenario.Helper()
+	here, err := w.daemon().Here()
 	if err != nil {
-		panic(err)
+		w.scenario.TB.Fatal(err)
 	}
 	return here
 }
 
 // built is a connection to a workspace's build daemon, over the wire,
 // for what a spec asks that the SDK does not serve.
-func built(r reached) *connect.Client {
-	daemon := r.daemon()
+func built(w *Workspace) *connect.Client {
+	daemon := w.daemon()
 	return testwire.Conn(daemon.Address, daemon.HTTP)
 }
 
 // buildsAt, graphAt and runsAt are the builds, the graph and the runs
 // of a workspace's build daemon, over the wire.
-func buildsAt(r reached) buildv1alpha1connect.BuildServiceClient {
-	return buildv1alpha1connect.NewBuildServiceClient(built(r))
+func buildsAt(w *Workspace) buildv1alpha1connect.BuildServiceClient {
+	return buildv1alpha1connect.NewBuildServiceClient(built(w))
 }
 
-func graphAt(r reached) buildv1alpha1connect.GraphServiceClient {
-	return buildv1alpha1connect.NewGraphServiceClient(built(r))
+func graphAt(w *Workspace) buildv1alpha1connect.GraphServiceClient {
+	return buildv1alpha1connect.NewGraphServiceClient(built(w))
 }
 
-func runsAt(r reached) buildv1alpha1connect.RunServiceClient {
-	return buildv1alpha1connect.NewRunServiceClient(built(r))
+func runsAt(w *Workspace) buildv1alpha1connect.RunServiceClient {
+	return buildv1alpha1connect.NewRunServiceClient(built(w))
 }
 
 // workspacesAt are the workspaces of the control plane at an address,
@@ -397,15 +397,9 @@ func (spec *scenario) theWorkspace() *Workspace {
 		}
 	}
 	if shared == nil {
-		checkout := spec.aRepository()
-		testfiles.Tree(spec.TB, checkout, map[string]string{
-			"hello/go.mod":  "module example.com/hello\n\ngo 1.27\n",
-			"hello/main.go": "package main\n\nfunc main() {}\n",
-		})
-		testpins.Go(spec.TB, checkout)
 		ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 		defer cancel()
-		create := spec.cloning(checkout)
+		create := spec.cloning(spec.aRepositoryOfHello())
 		create.Server, create.Image, create.Name = server, image, aName()
 		got, _, err := made(ctx, create)
 		if got.Sandbox != "" {
@@ -415,6 +409,19 @@ func (spec *scenario) theWorkspace() *Workspace {
 		shared = &got
 	}
 	return &Workspace{scenario: spec, reached: *shared}
+}
+
+// aRepositoryOfHello is a repository a spec wrote that holds one Go
+// module, hello.
+func (spec *scenario) aRepositoryOfHello() string {
+	spec.Helper()
+	checkout := spec.aRepository()
+	testfiles.Tree(spec.TB, checkout, map[string]string{
+		"hello/go.mod":  "module example.com/hello\n\ngo 1.27\n",
+		"hello/main.go": "package main\n\nfunc main() {}\n",
+	})
+	testpins.Go(spec.TB, checkout)
+	return checkout
 }
 
 const sandboxCatalog = "apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata: {name: app}\nspec: {type: service, lifecycle: production, owner: team}\n---\napiVersion: backstage.io/v1alpha1\nkind: Group\nmetadata: {name: team}\nspec: {type: team, children: []}\n"
@@ -769,7 +776,7 @@ func (w *Workspace) checkedThenFixed(target, path, unformatted string) *buildv1.
 	fixed := w.build(func(r *buildv1.CreateBuildRequest) {
 		r.Targets, r.Only, r.Fix = []string{target}, []string{"format"}, true
 	})
-	actions, err := buildsAt(w.reached).ListBuildActions(context.Background(), &buildv1.ListBuildActionsRequest{PageSize: 1000, BuildId: fixed.run.GetId()})
+	actions, err := buildsAt(w).ListBuildActions(context.Background(), &buildv1.ListBuildActionsRequest{PageSize: 1000, BuildId: fixed.run.GetId()})
 	w.scenario.Expect(err).NotTo(HaveOccurred())
 	w.scenario.Expect(fixed.outcome()).To(Equal("SUCCESS"), actions.String())
 	return actions
@@ -944,7 +951,7 @@ func (w *Workspace) uniqueRetainedProgram() {
 
 func (w *Workspace) retainedToolProject() *buildv1.Project {
 	w.Helper()
-	listed, err := graphAt(w.reached).ListProjects(context.Background(), &buildv1.ListProjectsRequest{PageSize: 1000})
+	listed, err := graphAt(w).ListProjects(context.Background(), &buildv1.ListProjectsRequest{PageSize: 1000})
 	w.Expect(err).NotTo(HaveOccurred())
 	var matching []*buildv1.Project
 	for _, p := range listed.GetProjects() {
@@ -958,7 +965,7 @@ func (w *Workspace) retainedToolProject() *buildv1.Project {
 
 func (b *Build) retainedCompileResult() *buildv1.ActionResult {
 	b.Helper()
-	listed, err := buildsAt(b.of.reached).ListBuildActions(context.Background(), &buildv1.ListBuildActionsRequest{PageSize: 1000, BuildId: b.run.GetId()})
+	listed, err := buildsAt(b.of).ListBuildActions(context.Background(), &buildv1.ListBuildActionsRequest{PageSize: 1000, BuildId: b.run.GetId()})
 	b.Expect(err).NotTo(HaveOccurred())
 	if b.outcome() != "SUCCESS" {
 		b.Logf("Run failure: %s\n", b.run.GetFailure())

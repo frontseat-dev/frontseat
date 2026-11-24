@@ -241,7 +241,7 @@ func TestACallWithoutTheOwnersTokenIsRefused(t *testing.T) {
 	if err != nil || len(listed.GetWorkspaces()) != 1 {
 		t.Errorf("ListWorkspaces with the owner's token: %v, %v", listed, err)
 	}
-	if status, body := asked(t, http.MethodPost, address+"/workspaces/code/shell", owner, "{}"); status != http.StatusOK {
+	if status, body := asked(t, http.MethodPost, address+"/workspaces/code/shell", owner, "{}"); status != ledOn {
 		t.Errorf("the way to the shell with the owner's token: %d %s", status, body)
 	}
 	for _, token := range []string{owner, another, owner[:32]} {
@@ -295,7 +295,7 @@ func TestNoCallOfTheBuildAPIIsServedOrForwardedByTheControlPlane(t *testing.T) {
 	}
 	// The control: the ways it has.
 	for _, path := range []string{"/workspaces/code/shell", "/workspaces/code/ports/8080"} {
-		if status, said := asked(t, http.MethodGet, address+path, owner, ""); status != http.StatusOK {
+		if status, said := asked(t, http.MethodGet, address+path, owner, ""); status != ledOn {
 			t.Errorf("the control: %s: %d %s, want it led on", path, status, said)
 		}
 	}

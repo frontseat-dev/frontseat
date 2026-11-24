@@ -110,3 +110,44 @@ func mustParse(t *testing.T, origin string) *url.URL {
 	}
 	return at
 }
+
+// Two addresses are of one origin where their scheme, host and port are
+// the same, however they are written: in whatever case, and with or
+// without the port the scheme implies. Another port, another scheme and
+// another name are another origin, a name that resolves to the same
+// machine among them.
+func TestAnOriginIsItsSchemeHostAndPortHoweverTheyAreWritten(t *testing.T) {
+	for _, c := range []struct {
+		one, other string
+		same       bool
+	}{
+		{"https://frontseat.example", "https://frontseat.example:443", true},
+		{"http://frontseat.example", "http://frontseat.example:80", true},
+		{"HTTPS://Frontseat.Example", "https://frontseat.example", true},
+		{"wss://frontseat.example/workspaces/a/shell", "https://frontseat.example:443", true},
+		{"ws://127.0.0.1:7700/x", "http://127.0.0.1:7700", true},
+		{"http://[::1]:7700", "http://[::1]:7700", true},
+		{"https://frontseat.example", "https://frontseat.example:80", false},
+		{"http://frontseat.example", "http://frontseat.example:443", false},
+		{"https://frontseat.example", "http://frontseat.example", false},
+		{"https://frontseat.example:8443", "https://frontseat.example", false},
+		{"http://localhost:7700", "http://127.0.0.1:7700", false},
+		{"https://frontseat.example", "https://frontseat.example.evil.example", false},
+		{"https://frontseat.example", "//", false},
+	} {
+		one, err := url.Parse(c.one)
+		if err != nil {
+			t.Fatal(err)
+		}
+		other, err := url.Parse(c.other)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := bearer.SameOrigin(one, other); got != c.same {
+			t.Errorf("%q and %q are of one origin: %t, want %t", c.one, c.other, got, c.same)
+		}
+		if got := bearer.SameOrigin(other, one); got != c.same {
+			t.Errorf("%q and %q are of one origin: %t, want %t", c.other, c.one, got, c.same)
+		}
+	}
+}

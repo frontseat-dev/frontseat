@@ -27,6 +27,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -133,7 +134,9 @@ type Plane struct {
 	stop      func()
 }
 
-// Close stops working on workspaces. They stay as they are.
+// Close stops working on workspaces, and ends every connection it is
+// carrying to one (carry): it returns once each has ended, both ways,
+// and nothing it started is running. The workspaces stay as they are.
 func (p *Plane) Close() { p.stop() }
 
 // Serve returns a control plane over a sandbox service, taking up the
@@ -169,12 +172,23 @@ func Serve(c Config) (*Plane, error) {
 	mux.HandleFunc("/workspaces/{name}/shell", s.carried(func(*http.Request) (int, bool) { return ports.Shell, true }))
 	mux.HandleFunc("/workspaces/{name}/ports/{port...}", s.carried(func(r *http.Request) (int, bool) { return plain.Port(r.PathValue("port")) }))
 	ctx, cancel := context.WithCancel(context.Background())
+	s.serving = ctx
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
 		s.work(ctx)
 	}()
-	return &Plane{Handler: s.known(mux), Sandboxes: c.Sandboxes, stop: func() { cancel(); <-done; s.working.Wait() }}, nil
+	return &Plane{Handler: s.known(mux), Sandboxes: c.Sandboxes, stop: func() {
+		// No connection is carried from here on, and those that are end
+		// with the context.
+		s.carrying.Lock()
+		s.stopped = true
+		s.carrying.Unlock()
+		cancel()
+		<-done
+		s.working.Wait()
+		s.tunnels.Wait()
+	}}, nil
 }
 
 // refusals writes a refusal as the caller's protocol says it.
@@ -252,11 +266,29 @@ type service struct {
 	woken chan struct{}
 	// working are the passes under way.
 	working sync.WaitGroup
+	// serving ends when the control plane is closed.
+	serving context.Context
+	// carrying guards how many connections are carried to each workspace
+	// (held.carried) and stopped, after which none is; tunnels are those
+	// under way.
+	carrying sync.Mutex
+	stopped  bool
+	tunnels  sync.WaitGroup
 }
+
+// most is how many connections the control plane carries at once to one
+// workspace's sandbox, its shell's among them: each holds a stream of
+// whatever provides the sandbox for as long as it lasts. A person's
+// shells, and a browser's six connections to each of a handful of
+// servers, are well beneath it.
+const most = 64
 
 // held is one workspace: what is kept of it, and what the last pass over
 // it found.
 type held struct {
+	// carried is how many connections are carried to its sandbox now,
+	// guarded by the service's carrying.
+	carried int
 	// pass is held by whoever works on the workspace: one at a time.
 	pass sync.Mutex
 	// stopping guards stop, which ends the pass working on it now, if
@@ -756,23 +788,69 @@ func (s *service) DeleteWorkspace(ctx context.Context, req *workspacev1.DeleteWo
 	return &workspacev1.DeleteWorkspaceResponse{}, nil
 }
 
-// sandboxOf reads which workspace a request names, and answers the
-// request itself where there is none, or none in a sandbox yet.
-func (s *service) sandboxOf(w http.ResponseWriter, r *http.Request) (string, bool) {
+// sandboxOf reads which workspace a request names and which sandbox it
+// is in, and answers the request itself where there is none, or none in
+// a sandbox yet: that one is refused as any workspace that cannot be
+// worked in yet, WORKSPACE_NOT_READY.
+func (s *service) sandboxOf(w http.ResponseWriter, r *http.Request) (*held, string, bool) {
 	h, err := s.owned(r.Context(), r.PathValue("name"))
 	if err != nil {
 		_ = refusals.Write(w, r, err)
-		return "", false
+		return nil, "", false
 	}
 	id := ""
 	if living := h.living.Load(); living != nil {
 		id = *living
 	}
 	if id == "" {
-		http.Error(w, "the workspace is in no sandbox yet", http.StatusServiceUnavailable)
-		return "", false
+		_ = refusals.Write(w, r, refusedFor(connect.CodeFailedPrecondition, "WORKSPACE_NOT_READY", fmt.Sprintf("the workspace %s is in no sandbox yet, and is reached once it is", h.workspace.GetName())))
+		return nil, "", false
 	}
-	return id, true
+	return h, id, true
+}
+
+// carry answers a request with a tunnel to a port of a workspace's
+// sandbox, and returns when the tunnel has ended, both ways
+// (sandbox.Carry): when either end does, when the request does, or when
+// the control plane is closed, which waits for it. A workspace is
+// carried at most so many at once (most): one more is refused by name,
+// RESOURCE_EXHAUSTED with TUNNELS_EXHAUSTED, until one has ended. A port
+// that is not reached is refused by name too, FAILED_PRECONDITION with
+// PORT_UNREACHED, as the sandbox service refuses its own (and for its
+// reason: sandbox.Server.Tunnel): what the sandbox service said of it is
+// logged here and told to no caller, since it holds whatever stands
+// between the control plane and the sandbox cared to say.
+func (s *service) carry(w http.ResponseWriter, r *http.Request, h *held, in string, port int) {
+	s.carrying.Lock()
+	switch {
+	case s.stopped:
+		s.carrying.Unlock()
+		_ = refusals.Write(w, r, connect.NewError(connect.CodeUnavailable, "the control plane is stopping"))
+		return
+	case h.carried >= most:
+		s.carrying.Unlock()
+		_ = refusals.Write(w, r, refusedFor(connect.CodeResourceExhausted, "TUNNELS_EXHAUSTED", fmt.Sprintf("the workspace %s is carried as many connections as one is at once, %d: another is carried once one of them has ended", h.workspace.GetName(), most)))
+		return
+	}
+	h.carried++
+	s.tunnels.Add(1)
+	s.carrying.Unlock()
+	defer func() {
+		s.carrying.Lock()
+		h.carried--
+		s.carrying.Unlock()
+		s.tunnels.Done()
+	}()
+	ctx, cancel := context.WithCancel(r.Context())
+	defer cancel()
+	defer context.AfterFunc(s.serving, cancel)()
+	inside, err := s.Sandboxes.Dial(ctx, in, port)
+	if err != nil {
+		log.Printf("controlplane: the port %d of the workspace %s was not reached: %v", port, h.workspace.GetName(), err)
+		_ = refusals.Write(w, r, refusedFor(connect.CodeFailedPrecondition, "PORT_UNREACHED", "the port of the workspace's sandbox was not reached: nothing answers there, or the sandbox is not running"))
+		return
+	}
+	sandbox.Carry(w, r.WithContext(ctx), inside)
 }
 
 // carried answers a request with a tunnel to a port of the sandbox of
@@ -786,10 +864,11 @@ func (s *service) sandboxOf(w http.ResponseWriter, r *http.Request) (string, boo
 // each PORT_NOT_SERVED, with nothing of the sandbox asked, and without
 // what was written said back. Whoever is not the owner is refused
 // first, as for any way to the workspace, and told nothing of its
-// ports.
+// ports. What is carried, how many at once, and what a port that is not
+// reached is told, is carry's.
 func (s *service) carried(port func(*http.Request) (int, bool)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		id, ok := s.sandboxOf(w, r)
+		h, id, ok := s.sandboxOf(w, r)
 		if !ok {
 			return
 		}
@@ -799,7 +878,7 @@ func (s *service) carried(port func(*http.Request) (int, bool)) http.HandlerFunc
 		case to == ports.Source:
 			_ = refusals.Write(w, r, refusedFor(connect.CodeUnimplemented, "PORT_NOT_SERVED", "the control plane carries no connection to the port of a workspace's source API, which is the control plane's alone"))
 		default:
-			s.Sandboxes.Tunnel(w, r, id, to)
+			s.carry(w, r, h, id, to)
 		}
 	}
 }

@@ -85,7 +85,7 @@ func TestTheSupervisorsSourceAPIIsTheControlPlanesAlone(t *testing.T) {
 	spec.Expect(err).NotTo(HaveOccurred())
 	answer.Body.Close()
 	spec.Expect(answer.StatusCode).To(Equal(http.StatusNotFound))
-	_, err = buildsAt(workspace.reached).ListBuilds(context.Background(), &buildv1.ListBuildsRequest{PageSize: 1})
+	_, err = buildsAt(workspace).ListBuilds(context.Background(), &buildv1.ListBuildsRequest{PageSize: 1})
 	spec.Expect(err).NotTo(HaveOccurred())
 	// The control: the control plane told the supervisor what to hold
 	// through it, and reads back what it holds.
