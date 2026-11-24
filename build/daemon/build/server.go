@@ -1,6 +1,7 @@
 package build
 
 import (
+	"io"
 	"net/http"
 	"sync"
 	"time"
@@ -51,6 +52,9 @@ type configuration struct {
 	// this one to read, and Program the program that saves it, which
 	// alone reads it (source.OpenKeeper); no file, nothing is saved.
 	Files, Program string
+	// Log is where the daemon says what a person who reads its log
+	// should know of it; none, it is said to telemetry alone.
+	Log io.Writer
 	// Now is the time, by which runs that have only just ended are kept;
 	// the machine's own unless a test says otherwise.
 	Now func() time.Time
@@ -112,7 +116,7 @@ func newDaemon(config configuration) (*Daemon, error) {
 	if err != nil {
 		return nil, err
 	}
-	runs.given = config.Given
+	runs.given, runs.said = config.Given, config.Log
 	if config.Files != "" {
 		// What the daemon before this one knew of the directory's files,
 		// where it ended as a daemon ends. No run has begun yet.

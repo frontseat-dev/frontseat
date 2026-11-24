@@ -3,6 +3,7 @@ package build
 import (
 	"context"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/frontseat-dev/frontseat/build/daemon/directory"
@@ -75,6 +76,10 @@ type Config struct {
 	// Given are the variables of where the daemon runs that what
 	// publishes a release may be given, each by its name.
 	Given []string
+	// Log is where the daemon says what a person who reads its log
+	// should know of it, a line each; none, it is said to telemetry
+	// alone.
+	Log io.Writer
 }
 
 // New opens the grid and plugin runtime, then serves the build API. Close
@@ -115,7 +120,7 @@ func New(ctx context.Context, config Config) (*Daemon, error) {
 	}
 	daemon, err := newDaemon(configuration{
 		Workspace: config.Workspace, Mounted: config.Mounted, System: config.System, Builds: config.Builds, Files: config.Files, Program: config.Program,
-		Plugins: loaded, Executor: grid, Downloads: downloads, Platform: config.Platform, Telemetry: config.Telemetry, Given: config.Given,
+		Plugins: loaded, Executor: grid, Downloads: downloads, Platform: config.Platform, Telemetry: config.Telemetry, Given: config.Given, Log: config.Log,
 	})
 	if err != nil {
 		release()

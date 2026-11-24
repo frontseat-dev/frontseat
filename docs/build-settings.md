@@ -89,7 +89,15 @@ workspace's sandbox beneath `/var/lib/frontseat/build`. The file is
 believed only while the daemon holds that directory's lock
 (`daemon.lock`): what a daemon that died left there is removed by the
 next command, which starts one. What a daemon printed is beside it
-(`daemon.log`), begun anew once it is over four mebibytes. In a sandbox
+(`daemon.log`), begun anew once it is over four mebibytes. What a daemon
+knew of a repository's files is kept for the daemon after it only where
+the repository is on a file system known to date a file's changes
+itself, which is what tells a file rewritten with its times set back
+from one left alone: APFS and HFS+ on macOS; ext4, XFS, Btrfs, tmpfs,
+F2FS, bcachefs, ZFS and an overlay on Linux. On any other (FAT, exFAT,
+a network or FUSE mount, virtiofs, 9p, or one the system does not name)
+nothing of it is kept, a daemon started again reads every file once,
+and the daemon says so in `daemon.log`, once for each repository. In a sandbox
 the command line starts the daemon as it does anywhere, for the
 workspace's directory: its supervisor writes the file, removes it where
 it is told no grid, and builds nothing.
