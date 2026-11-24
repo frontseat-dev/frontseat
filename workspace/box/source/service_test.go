@@ -77,12 +77,15 @@ func TestWhatASupervisorRefusesToHoldIsRefusedByAReason(t *testing.T) {
 	}
 	// Waited after the generation it brings, with a deadline, it is
 	// answered before the deadline, still bringing it: a deadline the
-	// caller reaches is a supervisor that does not answer.
-	waiting, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
+	// caller reaches is a supervisor that does not answer. It answers in
+	// the last fifth of the time it is given, so the time given leaves
+	// the answer more than a busy machine takes to carry it: at half a
+	// second, a tenth of one was not enough on the grid.
+	waiting, cancel := context.WithTimeout(ctx, 3*time.Second)
 	started := time.Now()
 	still, err := api.WaitSource(waiting, &sourcev1.WaitSourceRequest{Generation: 1})
 	cancel()
-	if err != nil || still.GetSource().GetState() != sourcev1.Source_STATE_POPULATING || time.Since(started) < 200*time.Millisecond {
+	if err != nil || still.GetSource().GetState() != sourcev1.Source_STATE_POPULATING || time.Since(started) < time.Second {
 		t.Errorf("waited after the generation it brings: %v (%v) after %v, want it waited for, and answered bringing before the deadline", still.GetSource(), err, time.Since(started))
 	}
 	close(system.gate)
