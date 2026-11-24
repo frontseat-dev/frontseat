@@ -12,12 +12,15 @@ package settings
 import (
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"regexp"
 	"runtime"
 	"slices"
+	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/frontseat-dev/frontseat/build/daemon/build"
 	"github.com/frontseat-dev/frontseat/common/record/buildfile"
@@ -39,11 +42,24 @@ type Settings struct {
 
 // Read reads a daemon's settings from a file (buildfile). A path the
 // file names is from the file's own directory. It is refused where it
-// says a key that is none, another version or a second document, where
-// its plugins are not there, and where its grid could not be asked as it
-// says.
+// is not written as the file is (buildfile.Parse), where its plugins are
+// not there, and where its grid could not be asked as it says.
 func Read(path string) (Settings, error) {
-	said, err := buildfile.Read(path)
+	raw, err := Bytes(path)
+	if err != nil {
+		return Settings{}, err
+	}
+	return Parse(raw, path)
+}
+
+// Bytes is what a settings file holds, for whoever reads it once and
+// both parses and identifies what it read (Parse).
+func Bytes(path string) ([]byte, error) { return buildfile.Bytes(path) }
+
+// Parse reads a daemon's settings from what its file holds, as Read
+// does; path is the file, which what it names is beside.
+func Parse(raw []byte, path string) (Settings, error) {
+	said, err := buildfile.Parse(raw, path)
 	if err != nil {
 		return Settings{}, err
 	}
@@ -68,6 +84,15 @@ func told(f buildfile.File, dir string) (Settings, error) {
 	}
 	if f.Grid.Address == "" {
 		return Settings{}, errors.New("grid.address is not said: a build's actions run on a grid")
+	}
+	if !reached(f.Grid.Address) {
+		return Settings{}, errors.New("grid.address is no address: it is a host and a port, host:port")
+	}
+	if f.Grid.Assets != "" && !reached(f.Grid.Assets) {
+		return Settings{}, errors.New("grid.assets is no address: it is a host and a port, host:port")
+	}
+	if strings.ContainsFunc(f.Grid.Instance, unicode.IsSpace) {
+		return Settings{}, errors.New("grid.instance holds a space: an instance is named in one word")
 	}
 	plugins, err := Modules(from(f.Plugins))
 	if err != nil {
@@ -99,10 +124,31 @@ func told(f buildfile.File, dir string) (Settings, error) {
 // variable is a variable's name.
 var variable = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
+// reached is whether an address is a host and a port and nothing else:
+// a name or a number, and a port of one to 65535 written in tens. What
+// names another way to reach something (unix:, dns:) is none.
+func reached(address string) bool {
+	host, port, err := net.SplitHostPort(address)
+	if err != nil || host == "" {
+		return false
+	}
+	if number, err := strconv.ParseUint(port, 10, 16); err != nil || number == 0 || strconv.FormatUint(number, 10) != port {
+		return false
+	}
+	for _, r := range host {
+		if !(r >= 'a' && r <= 'z') && !(r >= 'A' && r <= 'Z') && !(r >= '0' && r <= '9') && !strings.ContainsRune(".-_:", r) {
+			return false
+		}
+	}
+	return true
+}
+
 // Modules is every <name>.wasm of a directory of plugins, by name. A
 // directory that holds none is refused: a daemon with none of the
 // plugins it was pointed at would refuse every repository later, and say
-// less.
+// less. So is a <name>.wasm that is no file of its own, a link or a
+// directory: it is named, and never left out in silence, since a daemon
+// short of a plugin it was pointed at builds something else.
 func Modules(directory string) ([]string, error) {
 	entries, err := os.ReadDir(directory)
 	if err != nil {
@@ -110,9 +156,13 @@ func Modules(directory string) ([]string, error) {
 	}
 	var found []string
 	for _, entry := range entries {
-		if entry.Type().IsRegular() && strings.HasSuffix(entry.Name(), ".wasm") {
-			found = append(found, filepath.Join(directory, entry.Name()))
+		if !strings.HasSuffix(entry.Name(), ".wasm") {
+			continue
 		}
+		if !entry.Type().IsRegular() {
+			return nil, fmt.Errorf("the plugin %s is no file of its own, a link or a directory: a plugin is a <name>.wasm, a file", filepath.Join(directory, entry.Name()))
+		}
+		found = append(found, filepath.Join(directory, entry.Name()))
 	}
 	if len(found) == 0 {
 		return nil, fmt.Errorf("the directory of plugins, %s, holds no <name>.wasm", directory)

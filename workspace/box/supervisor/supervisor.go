@@ -12,6 +12,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"os"
 	"path/filepath"
@@ -45,7 +46,7 @@ type Config struct {
 	// Build is what a build in the workspace is told, as the control
 	// plane said it: the grid, and the plugins of the box. With a grid,
 	// it is written to Settings, which is where a build there reads it
-	// (ports.Settings where empty); with none, nothing is written.
+	// (ports.Settings where empty); with none, what is there is removed.
 	Build    buildfile.File
 	Settings string
 }
@@ -83,22 +84,9 @@ func Open(config Config) (*Supervisor, error) {
 	// What a build is told is written before anything is served, so that
 	// the first command in the workspace finds it: whole, in place of
 	// what a supervisor before this one wrote.
-	if config.Build.Grid.Address != "" {
-		// A build asks every action for the platform of its grid's
-		// workers, so that an action is of the image it runs in: told a
-		// grid and nothing of its workers, a build would guess this
-		// machine's.
-		if len(config.Build.Platform) == 0 {
-			s.Close()
-			return nil, errors.New("the supervisor was told a grid and nothing of what its workers are: it is given --platform, as the control plane that made its sandbox says them")
-		}
-		if config.Settings == "" {
-			config.Settings = ports.Settings
-		}
-		if err := buildfile.Write(config.Settings, config.Build); err != nil {
-			s.Close()
-			return nil, fmt.Errorf("what a build in the workspace is told: %w", err)
-		}
+	if err := config.tell(); err != nil {
+		s.Close()
+		return nil, err
 	}
 	if config.AuthorizedKey != "" {
 		closeShell, err := Shell(program, config.Shell, config.Workspace, config.AuthorizedKey)
@@ -120,6 +108,39 @@ func Open(config Config) (*Supervisor, error) {
 		return nil, err
 	}
 	return s, nil
+}
+
+// tell writes what a build in the workspace is told where a build reads
+// it, or, told no grid, removes what is there: a sandbox told none
+// builds on none, and not on the grid a supervisor before this one was
+// told. The file is the supervisor's own to delete: it is the one
+// program that writes it, at the sandbox's one path for it, and there is
+// one supervisor in a sandbox. A path that is no file, and one that
+// cannot be written or removed, fails the start, saying which it is.
+func (config Config) tell() error {
+	path := config.Settings
+	if path == "" {
+		path = ports.Settings
+	}
+	if there, err := os.Lstat(path); err == nil && !there.Mode().IsRegular() {
+		return fmt.Errorf("what a build in the workspace is told is kept in %s, which is no file (%s): it is the supervisor's own file", path, there.Mode().Type())
+	}
+	if config.Build.Grid.Address == "" {
+		if err := os.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("what a build in the workspace was told before, in %s: %w", path, err)
+		}
+		return nil
+	}
+	// A build asks every action for the platform of its grid's workers,
+	// so that an action is of the image it runs in: told a grid and
+	// nothing of its workers, a build would guess this machine's.
+	if len(config.Build.Platform) == 0 {
+		return errors.New("the supervisor was told a grid and nothing of what its workers are: it is given --platform, as the control plane that made its sandbox says them")
+	}
+	if err := buildfile.Write(path, config.Build); err != nil {
+		return fmt.Errorf("what a build in the workspace is told, in %s: %w", path, err)
+	}
+	return nil
 }
 
 // Source is the address the source API is served on.
@@ -163,6 +184,24 @@ var ErrUsage = errors.New(program + " was asked wrongly")
 // Run is the supervisor, given the arguments after its name: it serves
 // until the context ends. Its flags are a set of its own.
 func Run(ctx context.Context, args []string) error {
+	config, err := asked(args)
+	if err != nil || config == nil {
+		return err
+	}
+	if err := Stood(&config.Workspace, nil); err != nil {
+		return err
+	}
+	s, err := Open(*config)
+	if err != nil {
+		return err
+	}
+	return s.Serve(ctx)
+}
+
+// asked is what a supervisor is told by its arguments; nil where it was
+// asked only what its flags are, and ErrUsage where it was asked wrongly,
+// which it has said.
+func asked(args []string) (*Config, error) {
 	flags := flag.NewFlagSet(program, flag.ContinueOnError)
 	var config Config
 	flags.StringVar(&config.Source, "source", net.JoinHostPort("127.0.0.1", strconv.Itoa(ports.Source)), "the address to serve the source API on: what the control plane tells the box to hold, which no route of the control plane's leads a caller to")
@@ -190,23 +229,16 @@ func Run(ctx context.Context, args []string) error {
 	flags.SetOutput(os.Stderr)
 	switch err := flags.Parse(args); {
 	case errors.Is(err, flag.ErrHelp):
-		return nil
+		return nil, nil
 	case err != nil:
-		return ErrUsage
+		return nil, ErrUsage
 	}
 	if flags.NArg() > 0 {
 		fmt.Fprintf(flags.Output(), "%q is no flag of %s, which takes flags alone\n", flags.Arg(0), program)
 		flags.Usage()
-		return ErrUsage
+		return nil, ErrUsage
 	}
-	if err := Stood(&config.Workspace, nil); err != nil {
-		return err
-	}
-	s, err := Open(config)
-	if err != nil {
-		return err
-	}
-	return s.Serve(ctx)
+	return &config, nil
 }
 
 // Sole makes this program the one of its sandbox that manages its

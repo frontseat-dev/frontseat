@@ -121,6 +121,7 @@ type daemonAsked struct {
 // of the one that was asked (Failed).
 var (
 	marked  bool
+	waited  context.Context
 	reached *daemonAsked
 )
 
@@ -143,7 +144,9 @@ func building() (*frontseat.Workspace, error) {
 	if err != nil {
 		return nil, err
 	}
-	found, err := builder(context.Background(), built, within)
+	// The command's own context: a command that is interrupted while it
+	// waits for a daemon ends then.
+	found, err := builder(waited, built, within)
 	switch {
 	case errors.Is(err, machine.ErrNoSettings) && within:
 		return nil, fmt.Errorf("this workspace's sandbox was told no grid to build on: its supervisor wrote no build settings, which the control plane that made the sandbox tells it")
@@ -228,7 +231,7 @@ plane is none selected here.
 // Execute runs the command the arguments name, and returns the exit code
 // it ends with, and why it failed where it did (Failed says it).
 func Execute(ctx context.Context, args []string) (int, error) {
-	exitCode, marked, reached = 0, false, nil
+	exitCode, marked, waited, reached = 0, false, nil, nil
 	fresh(rootCmd, ctx)
 	rootCmd.SetArgs(args)
 	if err := rootCmd.ExecuteContext(ctx); err != nil {
@@ -361,7 +364,7 @@ func worksWhereItIsRun(cmd *cobra.Command) {
 	cmd.Annotations[whereItIsRun] = "true"
 	run := cmd.RunE
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		marked = true
+		marked, waited = true, cmd.Context()
 		if inside() {
 			return run(cmd, args)
 		}

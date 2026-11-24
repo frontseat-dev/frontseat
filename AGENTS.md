@@ -163,12 +163,28 @@ the change that fixes it.
   directory, the nearest above it that is a
   workspace or a repository, which the command line starts of itself
   (`frontseat daemon`, this program again) where this machine was told
-  its grid (`build.yaml`, `docs/build-settings.md`). That daemon serves
+  its grid (`build.yaml`, `docs/build-settings.md`). The directory is
+  the user's own, by its owner as git holds a repository to its user: a
+  marker in another's is passed over. The settings are theirs alone to
+  write, as where the control plane is: a file or a directory others
+  may write is refused. That daemon serves
   on the loopback, to the token it says in its state directory, which
-  is its user's alone, and is taken where it is the daemon the command
-  would start: of this program, by its file's digest, told the settings
-  as they are, for this directory. Any other is asked to stop and
-  another started; one with nothing to do ends itself. A `workspace`
+  is its user's alone. It is known for a daemon by three things, and by
+  nothing it left behind: its state directory's lock is held, which a
+  daemon lets go of last, after everything of it has ended, and by
+  ending however it ends; what it says there is an address of the
+  loopback and a token a daemon mints (`life.Told`); and it gives its
+  own answer to its own call (`life.HelloPath`). What a daemon that died
+  left is removed, and whatever has its port is asked nothing. It is
+  taken where it is the daemon the command
+  would start: made of this program, the settings as they are, every
+  plugin they load and the authorities they name, each by its content,
+  read whole by every command and by the daemon when it starts
+  (`life.Read`), for this directory, with what a publish may be given as
+  it is here. Any other is asked to stop and
+  another started, unless it has something in hand: that one stays, and
+  the command ends saying so (`machine.ErrBusy`). One with nothing to do
+  ends itself. A `workspace`
   command starts none. So the command line links the build daemon and
   what it is built on, and nothing of a box, a control plane, a sandbox
   or the runner (`clientBuilds`, `TestClientProductionDependencyClosure`).
@@ -192,6 +208,14 @@ the change that fixes it.
   `TestAServerThatFailedIsSaidAsTheOneThatWasAsked`,
   `TestTheBuildDaemonOfADirectoryIsStartedOnceAndFoundAgain`,
   `TestABuildDaemonOfAnotherVersionOrOtherSettingsIsReplaced`,
+  `TestABuildDaemonWhosePluginsWereWrittenAgainIsReplaced`,
+  `TestWhatADaemonIsMadeOfIsSaidByContent`,
+  `TestWhatADeadDaemonLeftIsNotTakenForADaemon`,
+  `TestOnlyADaemonsOwnAnswerIsTakenForServing`,
+  `TestADaemonHoldsItsDirectoryUntilEverythingOfItHasEnded`,
+  `TestABusyBuildDaemonIsNotStoppedForACommandThatWouldStartAnother`,
+  `TestAMarkerInAnotherUsersDirectoryIsPassedOver`,
+  `TestSettingsOthersCouldWriteStartNoBuildDaemon`,
   `TestABuildDaemonSaysWhereItServesAndIsAskedWithItsToken`, the spec
   `TestWithNoWorkspaceTheCommandLineBuildsItsDirectoryThroughADaemonItStarts`,
   `TestInsideAWorkspaceItsSourceIsFixed`,

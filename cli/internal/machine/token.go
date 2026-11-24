@@ -85,10 +85,11 @@ func Server() (string, error) {
 	}
 	// It says where the token goes, and so is the person's alone to
 	// write, as the token is theirs alone to read.
-	if !info.Mode().IsRegular() || info.Mode().Perm()&0o022 != 0 {
+	file, directory := open(path, info)
+	if file {
 		return "", fmt.Errorf("%s can be written by others (%s), or is no file: it says where the owner's token is sent, so it is yours alone (chmod 600)", path, info.Mode().Perm())
 	}
-	if dir, err := os.Stat(filepath.Dir(path)); err != nil || dir.Mode().Perm()&0o022 != 0 {
+	if directory {
 		return "", fmt.Errorf("%s can be written by others: it holds the owner's token and where it is sent, so it is yours alone (chmod 700)", filepath.Dir(path))
 	}
 	raw, err := os.ReadFile(path)
@@ -159,4 +160,16 @@ func Where() (Places, error) {
 		return Places{}, err
 	}
 	return Places{Server: server, Token: token, Settings: outside.settings}, nil
+}
+
+// open says what of a file is open to others to write, the file as it
+// was found without following a link: the file itself, where its group
+// or others may write it or it is no file of its own, a link among
+// them; and the directory it is in, where they may write that, or it
+// cannot be asked. What says where a token is sent, or what a build
+// runs, is held to neither: it is its person's alone to write.
+func open(path string, found fs.FileInfo) (file, directory bool) {
+	file = !found.Mode().IsRegular() || found.Mode().Perm()&0o022 != 0
+	dir, err := os.Stat(filepath.Dir(path))
+	return file, err != nil || dir.Mode().Perm()&0o022 != 0
 }
