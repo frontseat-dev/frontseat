@@ -284,10 +284,7 @@ func runArtifact(t *testing.T, root, target string) (*buildv1.ActionResult, stri
 	if err != nil {
 		t.Fatal(err)
 	}
-	daemon, err := box.Daemon(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
+	daemon := box.Daemon(ctx, t)
 	runs := buildv1alpha1connect.NewBuildServiceClient(connect.NewClient(connecthttp.NewTransport(daemon.HTTP, daemon.Address)))
 	created, err := runs.CreateBuild(ctx, &buildv1.CreateBuildRequest{Targets: []string{target}})
 	if err != nil {

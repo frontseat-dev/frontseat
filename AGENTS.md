@@ -119,7 +119,9 @@ the change that fixes it.
   asked over https alone, and the SDK sends a token in clear to none
   (`bearer.Private`). No command takes a server by a flag.
   Inside a workspace's sandbox, which the command line knows by the
-  sandbox's lock its supervisor holds (`Lock` in `core/ports`), a command
+  sandbox's lock its supervisor holds (`Lock` in `core/ports`: one that
+  names a workspace and is held now, not a file an earlier program left
+  there), a command
   asks no control plane, and every `workspace` command is refused by
   name. A command that builds there asks the build daemon of the
   workspace's directory, which it starts of itself as it does outside
@@ -223,14 +225,27 @@ the change that fixes it.
   `TestInsideASandboxABuildDaemonIsToldAndKeptWhereTheSandboxSays`,
   `TestInsideASandboxOnlyTheWorkspacesDirectoryIsBuilt`, the sandbox
   specs `TestASandboxHoldsOneSupervisorWhichStandsInItsWorkspaceAndKnowsItsName`
-  and `TestTheGridIsReachedByWhatBuildsAndByNothingElseInTheSandbox`,
+  and `TestWhatBuildsReachesTheGridAndAnotherProgramAShellStartsDoesNot`,
   `TestTheTokenIsPresentedToTheControlPlaneAlone`,
   `TestAPortOfThisMachineIsCarriedToAPortOfAWorkspacesSandbox`,
   `TestAPortIsCarriedFromTheLoopbackAlone`,
   `TestOnlyAnAddressOfTheLoopbackIsListenedOn`,
-  `TestNoCommandAsksAControlPlaneOnAnotherMachineInClear` and the SDK's
+  `TestNoCommandAsksAControlPlaneOnAnotherMachineInClear`,
+  `TestOnlyALockThatNamesAWorkspaceAndIsHeldIsInside` and the SDK's
   `TestATokenIsPresentedToItsOriginAlone` and
-  `TestATokenIsNotPresentedInClearToAnotherMachine`.
+  `TestATokenIsNotPresentedInClearToAnotherMachine`. Not held: the way
+  to the grid is for a program, and that program is the command line
+  whole. It runs a program of the workspace's (`frontseat run`) and is
+  the build daemon of whatever settings it is given (`frontseat daemon
+  --settings`), so whatever runs in a box reaches the grid by one
+  command of it. The rule keeps a shell's other programs from the grid
+  by accident, and is no boundary against what runs in the box: a box
+  is one trust domain, and no credential of the grid or of a forge is
+  in it. The lock says a supervisor runs to whoever cannot write its
+  directory: whoever can may hold a lock there, and be taken for one.
+  And what `workspace forward` listens on is this machine's loopback,
+  which every program of this machine reaches, whoever runs it: a port
+  carried there is as open as that.
 - **A workspace has one writer.** The control plane alone serves
   `frontseat.workspace.v1alpha1` and keeps what a workspace is asked for;
   it tells the workspace's box's supervisor (`frontseat-box`, the
@@ -252,7 +267,10 @@ the change that fixes it.
   before anything is asked (`ErrBuiltInside`); the build API is asked of
   a build daemon, by a client made for it (`Client.Here`). A test that
   reads a build from outside reaches the box's build daemon as an owner
-  can, over a port carried there (`sandbox/testsupport/testbuild`).
+  can, over a port carried there (`sandbox/testsupport/testbuild`),
+  which takes it only where it is the box's one daemon, of the
+  workspace's directory, and answers to its token, and lets go of what
+  carried the test there when the test ends.
   From outside, the control plane carries a workspace's owner, and no
   one else, to its shell (`/workspaces/{name}/shell`) and to a port of
   its sandbox (`/workspaces/{name}/ports/{port}`), as bytes of which it
@@ -260,19 +278,56 @@ the change that fixes it.
   no one to, the owner neither, and refuses by name with whatever is
   written for a port and is none, written one way (`plain.Port`):
   `UNIMPLEMENTED`, `PORT_NOT_SERVED`, with nothing of the sandbox asked.
+  A workspace in no sandbox yet is refused `FAILED_PRECONDITION`,
+  `WORKSPACE_NOT_READY`, and a port that is not reached
+  `FAILED_PRECONDITION`, `PORT_UNREACHED`: most often nothing listens
+  there, which asking again does not mend. What the sandbox service
+  said of it is logged and told to no caller. A workspace is carried 64
+  connections at once, each a stream of whatever provides its sandbox,
+  and one more is refused `RESOURCE_EXHAUSTED`, `TUNNELS_EXHAUSTED`,
+  until one has ended. A connection that is carried has ended both
+  ways, and nothing of it runs, when its handler returns
+  (`sandbox.Carry`): when either end does, or the control plane is
+  closed, which waits for each.
   Held by: `TestADaemonStartedAgainOrToldFromInsideIsToldWhatTheControlPlaneKeeps`,
   `TestASandboxHoldsOneSupervisor`,
   `TestNoCallOfTheBuildAPIIsServedOrForwardedByTheControlPlane`, the
   SDK's `TestAWorkspaceAControlPlaneKeepsIsBuiltFromInsideIt`,
   `TestADaemonThatIsBringingIsKnownByItsReasonAndNotByItsWords`,
   `TestWhatADaemonRefusesToHoldIsRefusedByAReason`,
-  `TestAPortOfAWorkspacesSandboxIsCarriedToItsOwnerAlone`, the SDK's
+  `TestAPortOfAWorkspacesSandboxIsCarriedToItsOwnerAlone`,
+  `TestAPortThatIsNotReachedIsRefusedByNameAndNothingOfWhatWasSaidOfItIsToldTheCaller`,
+  `TestAWorkspaceInNoSandboxYetIsRefusedItsPortsByName`,
+  `TestAWorkspaceIsCarriedSoManyConnectionsAtOnceAndNoMore`,
+  `TestAControlPlaneThatIsClosedHasEndedWhatItCarried`, the sandbox
+  service's `TestATunnelHasEndedBothWaysWhenItsHandlerReturns` and
+  `TestAPortThatIsNotReachedIsRefusedByNameAndNothingOfTheDriversWordsIsSaid`,
+  the test support's `TestTheBuildDaemonOfABoxIsAskedWithItsTokenBeforeATestIsGivenIt`,
+  `TestABoxThatDoesNotHoldItsOneBuildDaemonIsSaidWithWhatWasFound`,
+  `TestLettingGoOfABuildDaemonEndsWhatWasCarriedToIt` and
+  `TestWhatATestReadsOfABuildDaemonIsWhatOneSaysOfItself`, the SDK's
   `TestAPortOfAWorkspaceIsAskedOfItsControlPlaneByItsNumber` and
   `TestATunnelRefusedByNameIsReadByItsReason`, and the sandbox
   specs `TestInsideAWorkspaceItsSourceIsFixedAndItIsFilledFromOutside`,
   `TestTheSupervisorsSourceAPIIsTheControlPlanesAlone`,
   `TestAWorkspacesBuildIsReadFromOutsideByItsOwnerThroughAPortCarriedThere` and
-  `TestAPortOfAWorkspacesSandboxIsReachedAsBytesByItsOwner`.
+  `TestAPortOfAWorkspacesSandboxIsReachedAsBytesByItsOwner`. Not held:
+  the supervisor serves its source API and its shell on every address
+  of the box (`stack/box.Dockerfile`), and the source API asks no one
+  who they are. Whatever reaches the sandbox's address, its further
+  containers among them, which share its network, can tell the
+  supervisor what to hold, until the control plane tells it again.
+  Bound to the loopback, as the supervisor binds them where it is told
+  nothing, they would be reached through OpenShell if it reaches a port
+  there, as the spec of the port route says it does, and not through a
+  plain container's published port, as the test driver reaches one
+  (`sandbox/testsupport/testcontainer`), under which no box is run
+  here; that was not tried. The port route carries the owner to any port of
+  the box's loopback but the source API's, one the sandbox never said
+  it opens too: `TestNothingListensOnABoxsLoopbackThatTheSpecsDoNotExpect`
+  says which are there, and whether the route must refuse one is not
+  decided. A connection whose caller does not answer its closing is
+  waited for as long as the WebSocket's closing is given, five seconds.
 - **One state root per program.** What a program keeps is beneath one
   directory: `frontseat-server --state`, `frontseat-runner --state`, and
   the command line's `$XDG_CONFIG_HOME/frontseat` (else `~/.config/frontseat`) on
@@ -284,6 +339,11 @@ the change that fixes it.
   holds, the build settings the supervisor writes (`Settings`), and,
   beneath `Builds`, the state of each build daemon the command line
   starts there, named for the directory it builds as it is outside.
+  Not held: all of it is the sandbox's user's to write. The settings
+  the supervisor writes when it starts hold against an accident, and
+  not against a process in the box, which may write others or start a
+  daemon told otherwise: a box is one trust domain, and credentials
+  stay outside it (Security).
 - **A port is said once**, in `core/ports`: a box's supervisor's
   defaults, the control plane and the test support read it there; a
   build daemon serves on a port of the loopback it chooses, and says
@@ -871,7 +931,12 @@ the change that fixes it.
 
 - A contract holds only what is served and proven: nothing unserved, no
   `reserved`, no field kept for later. No backwards compatibility until
-  Frontseat is public: a change replaces what was there.
+  Frontseat is public: a change replaces what was there. Not held: a
+  command line and a control plane say nothing to each other of the
+  contract each was built for. Where a change replaced what was there,
+  as when the fields of `WorkspaceStatus` were numbered anew, a command
+  line built before reads a newer server's answer wrongly and in
+  silence, and is not refused by name.
 - Calls are named `Describe` (never `Get`), `List`, `Create`, `Update`,
   `Delete`, `Wait`, `Stream…`, `Cancel`, and a few named verbs (`Plan`,
   `Exec`, `Pause`, `Resume`, `Set`). Every call has its own request and
@@ -1099,10 +1164,10 @@ mise run docs:serve       # serve the TechDocs site on http://localhost:8000
 | `testsupport/*` | Test facilities: pins, Wasm modules, fixtures (`testfiles`, `testforge`, `commits`), budgets |
 | `stack/testsupport/*` | The local stack's test facilities: the box, the gateway, the grid and the owner's token a test is given |
 | `specs/buildtest`, `workspace/server/controlplanetest` | A build started for a test with what fills its directory beside it, and a control plane as `frontseat-server` starts one |
-| `sandbox/testsupport/drivertest` | What any sandbox driver is tested with: the conformance, a running sandbox of the test's own, the driver that holds sandboxes in memory |
+| `sandbox/testsupport/drivertest` | What any sandbox driver is tested with: the conformance, a running sandbox of the test's own, the driver that holds sandboxes in memory, and a connection to a port that keeps how it was used (`Watched`) |
 | `sandbox/testsupport/testcontainer` | A sandbox driver over the container runtime, for a server's tests that need a runtime; no program makes a sandbox with it |
 | `sandbox/testsupport/testsandbox` | The sandbox API's client and a tunnel to a sandbox's port, for tests: the SDK has none |
-| `sandbox/testsupport/testbuild` | The build daemon of a workspace's sandbox, reached by a test from outside as the workspace's owner can: started by a command in the box, found by what it says of itself there, asked over a port carried into the sandbox |
+| `sandbox/testsupport/testbuild` | The build daemon of a workspace's sandbox, reached by a test from outside as the workspace's owner can: started by a command in the box, found by what it says of itself there, asked over a port carried into the sandbox; taken only where it is the box's one daemon, of the workspace's directory, and answers to its token, and let go of when the test ends |
 | `testsupport/testwire` | A test's one way to a generated client over the wire, for what the SDK does not serve |
 | `specs/cmd/gate`, `specs/cmd/prepare-modules` | The gate programs, and what builds the plugins for the tests and for `dist/` |
 | `specs/architecture` | The architecture test: the repository's rules, its catalog, its imports and what is public |

@@ -363,11 +363,7 @@ func frontseatInASandbox(t *testing.T, shape testworkload.Shape) tool {
 	// the build daemon there, over a port carried into the sandbox.
 	built := func(t *testing.T) *frontseat.Workspace {
 		t.Helper()
-		daemon, err := testbuild.Workspace(made).Daemon(context.Background())
-		if err != nil {
-			t.Fatal(err)
-		}
-		here, err := daemon.Here()
+		here, err := testbuild.Workspace(made).Daemon(context.Background(), t).Here()
 		if err != nil {
 			t.Fatal(err)
 		}

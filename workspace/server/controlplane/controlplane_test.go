@@ -22,7 +22,6 @@ import (
 
 	connect "connectrpc.com/connect/v2"
 	"connectrpc.com/connect/v2/connecthttp"
-	"github.com/coder/websocket"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
@@ -35,6 +34,7 @@ import (
 	"github.com/frontseat-dev/frontseat/core/refusal"
 	sandboxv1 "github.com/frontseat-dev/frontseat/sandbox/api/frontseat/sandbox/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sandbox/api/frontseat/sandbox/v1alpha1/sandboxv1alpha1connect"
+	"github.com/frontseat-dev/frontseat/sandbox/testsupport/drivertest"
 	"github.com/frontseat-dev/frontseat/sdk/go"
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
@@ -184,11 +184,22 @@ type sandboxes struct {
 	deleted []string
 	resumed []string
 	led     []string
-	// speaks is whether a tunnel is opened, and not only kept as led on:
-	// it says which sandbox and port it leads to, on a line, and then
-	// says back whatever it is told.
+	// speaks is whether what is connected to at a port says anything: it
+	// says which sandbox and port it is, on a line, and then says back
+	// whatever it is told. Otherwise the port ends at once.
 	speaks bool
+	// unreached is why no port of a sandbox but its source API's is
+	// connected to, in the sandbox service's own words; nil where each
+	// is.
+	unreached error
+	// inside are the connections made to the ports of its sandboxes but
+	// the source API's, as each was used.
+	inside []*drivertest.Watched
 }
+
+// ledOn is how a request that asks for no WebSocket is answered once it
+// was led to a port of a workspace's sandbox: it is told to ask for one.
+const ledOn = http.StatusUpgradeRequired
 
 func over(t *testing.T) *sandboxes {
 	return &sandboxes{t: t, starts: sandboxv1.Sandbox_STATE_RUNNING, kept: map[string]string{}, inUse: map[string]bool{}, made: map[string]*sandboxv1.CreateSandboxRequest{}, named: map[string]string{}, state: map[string]sandboxv1.Sandbox_State{}, daemons: map[string]*managing{}, servers: map[string]*httptest.Server{}}
@@ -309,14 +320,45 @@ func (s *sandboxes) keeps(owner, host string) {
 }
 
 func (s *sandboxes) Dial(ctx context.Context, id string, port int) (net.Conn, error) {
+	if port != ports.Source {
+		return s.lead(id, port)
+	}
 	s.mu.Lock()
 	server := s.servers[id]
 	gone := s.made[id] == nil
 	s.mu.Unlock()
-	if server == nil || gone || port != ports.Source {
+	if server == nil || gone {
 		return nil, errors.New("the test's sandbox holds nothing there")
 	}
 	return (&net.Dialer{}).DialContext(ctx, "tcp", server.Listener.Addr().String())
+}
+
+// lead connects to a port of a sandbox that is not its source API's,
+// and keeps that it was led to and how the connection is used.
+func (s *sandboxes) lead(id string, port int) (net.Conn, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.led = append(s.led, fmt.Sprintf("%s:%d/a tunnel", id, port))
+	if s.unreached != nil {
+		return nil, s.unreached
+	}
+	inside := drivertest.Watch()
+	s.inside = append(s.inside, inside)
+	go func(speaks bool) {
+		defer inside.Far.Close()
+		if speaks {
+			fmt.Fprintf(inside.Far, "%s:%d\n", id, port)
+			_, _ = io.Copy(inside.Far, inside.Far)
+		}
+	}(s.speaks)
+	return inside, nil
+}
+
+// carried are the connections made to the ports of its sandboxes.
+func (s *sandboxes) carried() []*drivertest.Watched {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return slices.Clone(s.inside)
 }
 
 func (s *sandboxes) Proxy(w http.ResponseWriter, r *http.Request, id string, port int, rest string) {
@@ -325,19 +367,11 @@ func (s *sandboxes) Proxy(w http.ResponseWriter, r *http.Request, id string, por
 	s.led = append(s.led, fmt.Sprintf("%s:%d/%s", id, port, rest))
 }
 
-func (s *sandboxes) Tunnel(w http.ResponseWriter, r *http.Request, id string, port int) {
-	s.Proxy(w, r, id, port, "a tunnel")
-	if !s.speaks {
-		return
-	}
-	socket, err := websocket.Accept(w, r, nil)
-	if err != nil {
-		return
-	}
-	inside := websocket.NetConn(r.Context(), socket, websocket.MessageBinary)
-	defer inside.Close()
-	fmt.Fprintf(inside, "%s:%d\n", id, port)
-	_, _ = io.Copy(inside, inside)
+// Tunnel is the sandbox service's own way to a port, which the control
+// plane does not take: it connects (Dial) and carries the connection
+// itself, so that what it refuses is its own to say.
+func (s *sandboxes) Tunnel(http.ResponseWriter, *http.Request, string, int) {
+	s.t.Error("the control plane answered with the sandbox service's own tunnel")
 }
 
 // asked are the sandboxes that were asked for, in order, and ended those
@@ -714,7 +748,7 @@ func TestAWorkspaceAskedForAgainIsTheOneThereIs(t *testing.T) {
 	if told, _ := s.daemon("sbx_1").was(); told != 1 {
 		t.Errorf("its daemon was told %d times, want once", told)
 	}
-	for path, status := range map[string]int{"/workspaces/code/shell": 200, "/workspaces/another/shell": 404} {
+	for path, status := range map[string]int{"/workspaces/code/shell": ledOn, "/workspaces/another/shell": 404} {
 		if got, said := asked(t, http.MethodGet, address+path, owner, ""); got != status {
 			t.Errorf("%s answered %d %s, want %d", path, got, said, status)
 		}

@@ -133,15 +133,24 @@ func TestAWorkspaceSSandboxIsMadeByOpenShell(t *testing.T) {
 	spec.Expect(workspace.madeBy()).To(Equal("openshell"))
 }
 
-// Workspaces in sandboxes / The grid is reached by what builds and what it starts, and by nothing else in the sandbox.
+// Workspaces in sandboxes / What builds reaches the grid, and another program a shell starts does not.
 //
 // The way to the grid is for one program, the command line, which is
 // the build daemon it starts too: the gateway lets a connection through
 // for that program or any that started it. So a build in the sandbox
-// reaches the grid, and neither a program run in the workspace's shell,
-// which the box's supervisor serves, nor one the server runs beside it
-// does.
-func TestTheGridIsReachedByWhatBuildsAndByNothingElseInTheSandbox(t *testing.T) {
+// reaches the grid, and neither a program run in the workspace's shell
+// that is not the command line, which the box's supervisor serves, nor
+// one the server runs beside it does.
+//
+// It proves no more than that. The command line is let through whoever
+// starts it and whatever it is told: it runs a program of the
+// workspace's (frontseat run) and is the build daemon of any settings
+// (frontseat daemon --settings), so whatever runs in the box reaches
+// the grid by one command of it. The rule keeps a shell's other
+// programs from the grid by accident, and is no boundary against what
+// runs in the box (AGENTS.md, "The command line asks one server", Not
+// held).
+func TestWhatBuildsReachesTheGridAndAnotherProgramAShellStartsDoesNot(t *testing.T) {
 	spec := newScenario(t)
 
 	workspace := spec.theWorkspace()

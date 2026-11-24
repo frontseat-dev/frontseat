@@ -393,7 +393,8 @@ func (w *Workspace) Delete(ctx context.Context) error {
 // Shell returns a connection to the workspace's shell, through the
 // control plane that keeps it: what an SSH client speaks over, logging
 // in with a key the workspace was made to let in (WorkspaceSpec.AuthorizedKey).
-// The connection lasts as long as the context.
+// The connection lasts as long as the context. It is refused as Forward
+// refuses a port.
 func (w *Workspace) Shell(ctx context.Context) (net.Conn, error) {
 	return w.tunnel(ctx, "/shell")
 }
@@ -414,8 +415,11 @@ var ErrPortInvalid = errors.New("a port of a workspace's sandbox is a number fro
 //
 // The control plane carries no one to the port of the supervisor's source
 // API, which is its own: that is refused with ReasonPortNotServed. A
-// port nothing listens on in the sandbox is no refusal by name: the
-// control plane says it could not reach it.
+// port that is not reached, as one nothing listens on in the sandbox,
+// is refused with ReasonPortUnreached, and nothing more is said of why;
+// a workspace that is in no sandbox yet as ErrWorkspaceNotReady; and
+// one connection more than a workspace is carried at once with
+// ReasonTunnelsExhausted, until one of them has ended.
 func (w *Workspace) Forward(ctx context.Context, port int) (net.Conn, error) {
 	if port < 1 || port > 65535 {
 		return nil, ErrPortInvalid

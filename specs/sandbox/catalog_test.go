@@ -17,7 +17,7 @@ func TestTheSandboxDiscoversCatalogEntitiesAndRecoversAfterAMalformedDescriptorI
 	spec := newScenario(t)
 
 	workspace := spec.catalogWorkspace()
-	graph := graphAt(workspace.reached)
+	graph := graphAt(workspace)
 	listed, err := graph.ListEntities(context.Background(), &buildv1.ListEntitiesRequest{PageSize: 1000})
 	spec.Expect(err).NotTo(HaveOccurred())
 	spec.Expect(listed.GetEntities()).To(HaveLen(2))
@@ -48,7 +48,7 @@ func TestTheSandboxDiscoversCatalogEntitiesAndRecoversAfterAMalformedDescriptorI
 	spec.Expect(listed.GetEntities()).To(HaveLen(2))
 	built := workspace.build()
 	spec.Expect(built.outcome()).To(Equal("SUCCESS"))
-	actions, err := buildsAt(workspace.reached).ListBuildActions(context.Background(), &buildv1.ListBuildActionsRequest{PageSize: 1000, BuildId: built.run.GetId()})
+	actions, err := buildsAt(workspace).ListBuildActions(context.Background(), &buildv1.ListBuildActionsRequest{PageSize: 1000, BuildId: built.run.GetId()})
 	spec.Expect(err).NotTo(HaveOccurred())
 	var compiled bool
 	for _, action := range actions.GetActions() {

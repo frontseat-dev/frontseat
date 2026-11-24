@@ -80,6 +80,10 @@ const (
 	// asked for of a workspace's sandbox: it is the port of the daemon's
 	// source API, which is the control plane's own, or it is no port.
 	ReasonPortNotServed = "PORT_NOT_SERVED"
+	// ReasonPortUnreached: the port asked for of a workspace's sandbox
+	// was not reached: nothing answers there, or the sandbox is not
+	// running.
+	ReasonPortUnreached = "PORT_UNREACHED"
 	// ReasonProfileUnknown: the workspace defines no profile of the name.
 	ReasonProfileUnknown = "PROFILE_UNKNOWN"
 	// ReasonPushNotServed: a workspace that may push is asked of a
@@ -138,6 +142,10 @@ const (
 	ReasonSpecInvalid = "SPEC_INVALID"
 	// ReasonTargetMissing: a run names no program.
 	ReasonTargetMissing = "TARGET_MISSING"
+	// ReasonTunnelsExhausted: the workspace is carried as many
+	// connections, to its shell and the ports of its sandbox, as one is
+	// at once.
+	ReasonTunnelsExhausted = "TUNNELS_EXHAUSTED"
 	// ReasonWorkspaceDiffers: a workspace of the name is there and is
 	// asked for otherwise.
 	ReasonWorkspaceDiffers = "WORKSPACE_DIFFERS"

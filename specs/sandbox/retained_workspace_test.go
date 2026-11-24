@@ -28,7 +28,7 @@ func TestRetainedWorkspaceSharesGraphAnalysisAndValidatesChangedSource(t *testin
 
 	// The generated Connect client uses no Frontseat client wrapper: an
 	// HTTP client of the caller's that presents the owner's token.
-	raw := buildsAt(w.reached)
+	raw := buildsAt(w)
 	second := w.buildWith(raw, retainedCompileOnly)
 	spec.Expect(second.retainedCompileResult().GetProvenance()).To(Equal(buildv1.Provenance_PROVENANCE_GRID_CACHE))
 	warm := second.retainedStages(collector, true, true, false)
@@ -89,7 +89,7 @@ func TestRetainedWorkspacesAreIsolatedAndReconstructAfterRestart(t *testing.T) {
 	spec.Expect(restarted.retainedCompileResult().GetProvenance()).To(Equal(buildv1.Provenance_PROVENANCE_GRID_CACHE))
 	restarted.retainedStages(restartedCollector, false, false, true)
 	spec.Expect(first.retainedToolProject().GetProvides()).To(ContainElement("go:example.com/private"))
-	recorded, err := buildsAt(first.reached).DescribeBuild(context.Background(), &buildv1.DescribeBuildRequest{BuildId: warm.run.GetId()})
+	recorded, err := buildsAt(first).DescribeBuild(context.Background(), &buildv1.DescribeBuildRequest{BuildId: warm.run.GetId()})
 	spec.Expect(err).NotTo(HaveOccurred())
 	spec.Expect(recorded.GetBuild().GetId()).To(Equal(warm.run.GetId()))
 	spec.Expect(recorded.GetBuild().GetExitCode()).To(Equal(buildv1.ExitCode_EXIT_CODE_SUCCESS))

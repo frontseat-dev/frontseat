@@ -799,7 +799,7 @@ func (s *Server) held(w http.ResponseWriter, r *http.Request) (id string, port i
 	_, made := s.records[id]
 	s.mu.Unlock()
 	if !made {
-		http.Error(w, "no sandbox has that id", http.StatusNotFound)
+		_ = refusals.Write(w, r, unreached(driver.ErrNotFound))
 		return "", 0, false
 	}
 	return id, port, true
@@ -829,33 +829,95 @@ func (s *Server) Dial(ctx context.Context, id string, port int) (net.Conn, error
 	_, made := s.records[id]
 	s.mu.Unlock()
 	if !made {
-		return nil, errors.New("no sandbox has the id asked for")
+		return nil, fmt.Errorf("no sandbox has the id asked for: %w", driver.ErrNotFound)
 	}
 	return s.driver.Dial(ctx, id, port)
 }
 
-// Tunnel answers a request with a tunnel to a port of a sandbox.
+// Tunnel answers a request with a tunnel to a port of a sandbox. A port
+// that is not reached is refused by name, in the sandbox service's
+// domain, as a call is refused: NOT_FOUND with SANDBOX_NOT_FOUND where
+// no sandbox has the id, FAILED_PRECONDITION with PORT_UNREACHED
+// otherwise. What the driver said of it is logged here and told to no
+// caller: it holds whatever stands between the service and the sandbox
+// cared to say. Whoever serves a way of its own to a sandbox's port, in
+// a domain of its own, dials (Dial), refuses as it does, and carries
+// the connection (Carry).
 func (s *Server) Tunnel(w http.ResponseWriter, r *http.Request, id string, port int) {
 	inside, err := s.Dial(r.Context(), id, port)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadGateway)
+		_ = refusals.Write(w, r, unreached(err))
 		return
 	}
-	defer inside.Close()
+	Carry(w, r, inside)
+}
+
+// refusals writes a refusal as the caller's protocol says it.
+var refusals = connecthttp.NewErrorWriter()
+
+// unreached is what a caller is told of a port that was not reached.
+// FAILED_PRECONDITION, since most often nothing listens there yet, which
+// asking again does not mend and starting what listens does: UNAVAILABLE
+// would have every client that retries of itself ask the driver again
+// and again for a stream to nothing.
+func unreached(err error) *connect.Error {
+	if errors.Is(err, driver.ErrNotFound) {
+		return refuse(connect.CodeNotFound, "SANDBOX_NOT_FOUND", "no sandbox has the id asked for")
+	}
+	log.Printf("sandbox: a port was not reached: %v", err)
+	return refuse(connect.CodeFailedPrecondition, "PORT_UNREACHED", "the port of the sandbox was not reached: nothing answers there, or the sandbox is not running")
+}
+
+// Carry answers a request with a tunnel to a connection already made to
+// a port inside a sandbox, which it takes and closes: a WebSocket of
+// binary messages, whose bytes are the port's. It returns when the
+// tunnel has ended, both ways: when either end does, or the request's
+// context, which the server's ending ends. Nothing it started is then
+// running: each direction is ended and waited for, and only then is the
+// connection closed, where the connection can be told to stop (a
+// deadline); one that cannot (a stream of a driver's) is closed to end
+// what reads it, and that is waited for too. A connection says it
+// takes no deadline (os.ErrNoDeadline): one that took a deadline and
+// did not heed it would be waited for without end.
+func Carry(w http.ResponseWriter, r *http.Request, inside net.Conn) {
 	socket, err := websocket.Accept(w, r, nil)
 	if err != nil {
-		// Accept has answered the request.
+		// Accept has answered the request, and nothing uses the
+		// connection yet.
+		_ = inside.Close()
 		return
 	}
-	outside := websocket.NetConn(r.Context(), socket, websocket.MessageBinary)
 	socket.SetReadLimit(message)
-	done := make(chan struct{}, 2)
-	go func() { _, _ = io.Copy(inside, outside); done <- struct{}{} }()
-	go func() { _, _ = io.Copy(outside, inside); done <- struct{}{} }()
-	<-done
+	outside := websocket.NetConn(r.Context(), socket, websocket.MessageBinary)
+	in, out := make(chan struct{}), make(chan struct{})
+	go func() { defer close(in); _, _ = io.Copy(inside, outside) }()
+	go func() { defer close(out); _, _ = io.Copy(outside, inside) }()
+	select {
+	case <-in:
+	case <-out:
+	case <-r.Context().Done():
+	}
+	// Whatever still reads or writes the port is told to stop: by a
+	// deadline, or, where the connection takes none, by its closing.
+	closed := inside.SetDeadline(time.Now()) != nil
+	if closed {
+		_ = inside.Close()
+	}
 	// The socket is told it is over, so that the other end reads the end
-	// of the port and not a connection that broke.
-	_ = socket.Close(websocket.StatusNormalClosure, "")
+	// of the port and not a connection that broke; that ends whatever
+	// still reads or writes the socket, within the time its closing is
+	// given. A request that has ended, as the server's ending ends it,
+	// waits for no answer to that: the socket is closed.
+	if r.Context().Err() != nil {
+		_ = socket.CloseNow()
+	} else {
+		_ = socket.Close(websocket.StatusNormalClosure, "")
+	}
+	<-in
+	<-out
+	if !closed {
+		_ = inside.Close()
+	}
 }
 
 // port passes a request on to a port inside a sandbox.

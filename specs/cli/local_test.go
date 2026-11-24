@@ -4,6 +4,7 @@
 package e2e
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -94,11 +95,7 @@ func builtIn(t *testing.T, box testbuild.Box) (*buildv1.Build, string) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
-	daemon, err := box.Daemon(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	here, err := daemon.Here()
+	here, err := box.Daemon(ctx, t).Here()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -350,11 +347,13 @@ func TestAWorkspaceOpenedByEntityClonesWhatItsBackstageSays(t *testing.T) {
 	// box as the person who made it runs one, by the command line's
 	// shell, and a port is carried there by the control plane.
 	ended, labels := builtIn(t, testbuild.Box{
-		Run: func(ctx context.Context, line string) (string, error) {
+		Run: func(ctx context.Context, line string) (string, string, error) {
 			run := exec.CommandContext(ctx, command, "workspace", "ssh", name, "--", line)
 			run.Env = append(os.Environ(), "XDG_CONFIG_HOME="+config)
-			said, err := run.CombinedOutput()
-			return string(said), err
+			var complained bytes.Buffer
+			run.Stderr = &complained
+			printed, err := run.Output()
+			return string(printed), complained.String(), err
 		},
 		Dial: made.Forward,
 	})

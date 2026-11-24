@@ -104,13 +104,29 @@ func Private(address *url.URL) bool {
 
 // SameOrigin is whether an address is of an origin: the same scheme,
 // host and port, a WebSocket's address (ws, wss) being of the HTTP
-// origin it is opened over (http, https). An address or an origin with
-// no host is of none.
+// origin it is opened over (http, https), in whatever case the scheme
+// and the host are written, and whether or not a scheme's own port (80
+// of http, 443 of https) is written out. Nothing is resolved: localhost
+// and 127.0.0.1 are two hosts, and two origins. An address or an origin
+// with no host is of none.
 func SameOrigin(address, origin *url.URL) bool {
 	if address == nil || origin == nil || address.Host == "" || origin.Host == "" {
 		return false
 	}
-	return strings.EqualFold(httpScheme(address.Scheme), httpScheme(origin.Scheme)) && strings.EqualFold(address.Host, origin.Host)
+	one, other := strings.ToLower(httpScheme(address.Scheme)), strings.ToLower(httpScheme(origin.Scheme))
+	return one == other && strings.EqualFold(address.Hostname(), origin.Hostname()) && port(address, one) == port(origin, other)
+}
+
+// implied is the port of a scheme's address that names none.
+var implied = map[string]string{"http": "80", "https": "443"}
+
+// port is the port an address of a scheme is of: the one written, or
+// the scheme's own.
+func port(address *url.URL, scheme string) string {
+	if written := address.Port(); written != "" {
+		return written
+	}
+	return implied[scheme]
 }
 
 // httpScheme is the HTTP scheme a WebSocket's is opened over, and any

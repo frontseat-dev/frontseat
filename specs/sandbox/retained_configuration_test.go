@@ -22,7 +22,7 @@ func TestRetainedWorkspaceRevalidatesOptionsAndRecoversAfterMalformedSettings(t 
 	collector := w.observeRetained()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
-	graph, runs := graphAt(w.reached), buildsAt(w.reached)
+	graph, runs := graphAt(w), buildsAt(w)
 	original := w.holds("/work/lab/frontseat.yaml")
 	w.uniqueRetainedProgram()
 	// The same source succeeds with the tag absent and fails with it set.

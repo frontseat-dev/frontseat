@@ -115,9 +115,12 @@ func counting(t *testing.T) (*httptest.Server, *atomic.Int32) {
 // tunnelling is a control plane that opens a tunnel wherever it is
 // asked for one, and says in it, on a line, the path it was asked at
 // and what was presented to it, then says back what it is told; but
-// beneath /workspaces/kept/ports/7601, which it refuses by name as a
-// control plane does, and beneath /workspaces/starting, where it
-// answers as one whose workspace is in no sandbox yet.
+// beneath /workspaces/kept/ports/7601 and /workspaces/kept/ports/9,
+// which it refuses by name as a control plane does the port of the
+// source API and one that is not reached, beneath /workspaces/starting,
+// where it refuses as one whose workspace is in no sandbox yet, and
+// beneath /workspaces/behind, where it answers as what stands in front
+// of a control plane that is not there does.
 type tunnelling struct {
 	mu    sync.Mutex
 	asked []string
@@ -127,16 +130,25 @@ func (s *tunnelling) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	s.asked = append(s.asked, r.URL.EscapedPath())
 	s.mu.Unlock()
-	switch r.URL.Path {
-	case "/workspaces/kept/ports/7601":
-		refusal := connect.NewError(connect.CodeUnimplemented, "the test's control plane leads no one there")
-		if named, err := connectproto.NewErrorDetail(&errdetails.ErrorInfo{Reason: "PORT_NOT_SERVED", Domain: DomainWorkspace}); err == nil {
+	refuse := func(code connect.Code, reason string) {
+		refusal := connect.NewError(code, "the test's control plane leads no one there")
+		if named, err := connectproto.NewErrorDetail(&errdetails.ErrorInfo{Reason: reason, Domain: DomainWorkspace}); err == nil {
 			refusal = refusal.WithDetail(named)
 		}
 		_ = connecthttp.NewErrorWriter().Write(w, r, refusal)
+	}
+	switch r.URL.Path {
+	case "/workspaces/kept/ports/7601":
+		refuse(connect.CodeUnimplemented, "PORT_NOT_SERVED")
+		return
+	case "/workspaces/kept/ports/9":
+		refuse(connect.CodeFailedPrecondition, "PORT_UNREACHED")
 		return
 	case "/workspaces/starting/ports/8080", "/workspaces/starting/shell":
-		http.Error(w, "the workspace is in no sandbox yet", http.StatusServiceUnavailable)
+		refuse(connect.CodeFailedPrecondition, "WORKSPACE_NOT_READY")
+		return
+	case "/workspaces/behind/ports/8080", "/workspaces/behind/shell":
+		http.Error(w, "nothing is behind here", http.StatusBadGateway)
 		return
 	}
 	socket, err := websocket.Accept(w, r, nil)
@@ -225,11 +237,22 @@ func TestATunnelRefusedByNameIsReadByItsReason(t *testing.T) {
 	if !errors.As(err, &refused) || refused.Code != connect.CodeUnimplemented || refused.Reason != ReasonPortNotServed || refused.Domain != DomainWorkspace {
 		t.Errorf("a port refused by name: %v, want an Error of unimplemented, %s, %s", err, ReasonPortNotServed, DomainWorkspace)
 	}
+	if _, err = fs.Workspace("kept").Forward(ctx, 9); !errors.As(err, &refused) || refused.Code != connect.CodeFailedPrecondition || refused.Reason != ReasonPortUnreached || refused.Domain != DomainWorkspace {
+		t.Errorf("a port that is not reached: %v, want an Error of failed precondition, %s, %s", err, ReasonPortUnreached, DomainWorkspace)
+	}
 	_, port := fs.Workspace("starting").Forward(ctx, 8080)
 	_, shell := fs.Workspace("starting").Shell(ctx)
 	for what, err := range map[string]error{"a port": port, "a shell": shell} {
-		if err == nil || errors.As(err, &refused) || !strings.Contains(err.Error(), "503") {
-			t.Errorf("%s of a workspace in no sandbox yet: %v, want it said by its status, as no refusal by name", what, err)
+		if !errors.Is(err, ErrWorkspaceNotReady) || !errors.As(err, &refused) || refused.Domain != DomainWorkspace {
+			t.Errorf("%s of a workspace in no sandbox yet: %v, want it refused as not ready", what, err)
+		}
+	}
+	_, port = fs.Workspace("behind").Forward(ctx, 8080)
+	_, shell = fs.Workspace("behind").Shell(ctx)
+	for what, err := range map[string]error{"a port": port, "a shell": shell} {
+		refused = nil
+		if err == nil || errors.As(err, &refused) || !strings.Contains(err.Error(), "502") {
+			t.Errorf("%s answered by what is no control plane: %v, want it said by its status, as no refusal by name", what, err)
 		}
 	}
 }

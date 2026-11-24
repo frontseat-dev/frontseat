@@ -17,7 +17,7 @@ func TestRetainedWorkspaceAnswersConcurrentGraphCallersDuringABuild(t *testing.T
 	spec := newScenario(t)
 	w := spec.retainedTool(spec.retainedPlane())
 	collector := w.observeRetained()
-	graph := graphAt(w.reached)
+	graph := graphAt(w)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	want, err := graph.ListProjects(ctx, &buildv1.ListProjectsRequest{PageSize: 1000})
