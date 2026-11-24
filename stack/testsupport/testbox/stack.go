@@ -41,13 +41,14 @@ func Stack(t testing.TB) string {
 	image := StackImage(t)
 	own := testrun.ID(t, "frontseat-test-stack")
 	t.Cleanup(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 		defer cancel()
 		// The container, then its volume, which it holds until it is gone.
-		for _, removing := range [][]string{{"rm", "--force", own}, {"volume", "rm", own}} {
-			if out, err := exec.CommandContext(ctx, "docker", removing...).CombinedOutput(); err != nil {
-				t.Errorf("removing the test's stack (%s): %v: %s", removing[0], err, out)
-			}
+		if err := (stack.Stack{}).Remove(ctx, own); err != nil {
+			t.Errorf("removing the test's stack's container: %v", err)
+		}
+		if out, err := exec.CommandContext(ctx, "docker", "volume", "rm", own).CombinedOutput(); err != nil {
+			t.Errorf("removing the test's stack's volume: %v: %s", err, out)
 		}
 	})
 	if out, err := exec.Command("docker", "volume", "create", "--label", testrun.Label+"="+testrun.This(), own).CombinedOutput(); err != nil {
@@ -75,8 +76,8 @@ func started(t testing.TB, own, image string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if out, err := exec.Command("docker", "rm", "--force", own).CombinedOutput(); err != nil {
-		t.Fatalf("removing the test's stack's container: %v: %s", err, out)
+	if err := (stack.Stack{}).Remove(context.Background(), own); err != nil {
+		t.Fatalf("removing the test's stack's container: %v", err)
 	}
 	c := stack.Container{Name: own, Image: image, Volume: own, Labels: map[string]string{testrun.Label: testrun.This()}}
 	if out, err := exec.Command("docker", c.Arguments(profile)...).CombinedOutput(); err != nil {
