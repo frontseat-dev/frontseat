@@ -132,6 +132,13 @@ func (rs *builds) stop() {
 		r.cancel()
 	}
 	rs.going.Wait()
+	// What it knew of the directory's files is kept for the daemon after
+	// it, once no run reads them, and while the state is still this
+	// daemon's: whoever ends it lets go of the state only after this
+	// (life.Take). Lost, the files are only read again, and what was
+	// saved before stays, which is gone by no further than each file
+	// still looks as it did.
+	_ = rs.files.Save()
 	// A fix's work is the daemon's for as long as it runs, and nothing's
 	// after. What cannot be removed now is cleared by the daemon that
 	// keeps its runs here next. It is removed while the runs' directory

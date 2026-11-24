@@ -28,6 +28,11 @@ import (
 // would otherwise be read as something it was not.
 const Builds = "builds-3"
 
+// Files is the file in a daemon's state where what it knew of the
+// directory's files is saved when it ends, for the daemon after it: read
+// once the state is taken, and written before it is let go of.
+const Files = "files"
+
 // idleFor is how long a build daemon has nothing to do before it ends
 // itself, where it is told no other: what it knew of its files is kept,
 // so the daemon after it reads only what changed. Bazel's server waits
@@ -102,7 +107,7 @@ func Serve(ctx context.Context, o Options) error {
 		return err
 	}
 	ctx = apart(signals.Context(ctx))
-	made, err := build.New(ctx, build.Config{Workspace: directory, System: chosen.System(), Plugins: read.Modules, Grid: read.Settings.Grid, Platform: read.Settings.Platform, Telemetry: signals, Builds: filepath.Join(o.State, Builds), Given: read.Settings.Given, Mounted: alone})
+	made, err := build.New(ctx, build.Config{Workspace: directory, System: chosen.System(), Plugins: read.Modules, Grid: read.Settings.Grid, Platform: read.Settings.Platform, Telemetry: signals, Builds: filepath.Join(o.State, Builds), Files: filepath.Join(o.State, Files), Program: read.Made.Program, Given: read.Settings.Given, Mounted: alone})
 	if err != nil {
 		return err
 	}

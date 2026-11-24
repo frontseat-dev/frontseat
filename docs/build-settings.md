@@ -79,7 +79,9 @@ release: that one is left, and the command ends, saying in what the
 daemon differs. Wait for what it has in hand, or cancel it from where it
 was started. A daemon with nothing to do for three hours ends itself.
 
-What a daemon keeps, its builds and what it says of where it serves
+What a daemon keeps, its builds, what it knew of the directory's files
+when it ended (`files`, so that the daemon started after it reads only
+the files that have changed since) and what it says of where it serves
 (`daemon.json`: its address on the loopback and the token it is asked
 with, its user's alone to read), is in a directory named for the
 directory it builds: beneath `build/` beside the file, and in a
