@@ -42,11 +42,11 @@ var (
 	modules  [][]byte
 	buildErr error
 
-	// sources are where each daemon started serves its source API, by
-	// the address of its build API.
+	// sources are where the source API beside each daemon started is
+	// served, by the address of its build API.
 	sources sync.Map
-	// generations counts what the daemons are told, as the control plane
-	// counts what it tells.
+	// generations counts what is told through them, as the control plane
+	// counts what it tells a supervisor.
 	generations atomic.Int64
 )
 
@@ -133,7 +133,7 @@ func start(t testing.TB, workspace string, mounted bool, rewrites map[string]str
 	return srv.URL
 }
 
-// sourceOf is the source API of the daemon whose build API is at an
+// sourceOf is the source API beside the daemon whose build API is at an
 // address.
 func sourceOf(at string) (sourcev1alpha1connect.SourceServiceClient, error) {
 	found, ok := sources.Load(at)
@@ -143,8 +143,9 @@ func sourceOf(at string) (sourcev1alpha1connect.SourceServiceClient, error) {
 	return sourcev1alpha1connect.NewSourceServiceClient(connect.NewClient(connecthttp.NewTransport(http.DefaultClient, found.(string)))), nil
 }
 
-// Bring tells the daemon whose build API is at an address to hold what
-// a spec names, as the control plane tells it, and returns once it holds
+// Bring tells what fills the directory of the daemon whose build API is
+// at an address to hold what a spec names, as the control plane tells a
+// supervisor, and returns once it holds
 // it, or why it does not: its refusal, a refusal of the catalog, or why
 // bringing it failed. Its entities are resolved as the control plane
 // resolves them, through a fake Backstage; with none, a spec of
@@ -172,8 +173,8 @@ func Bring(ctx context.Context, at string, spec *workspacev1.WorkspaceSpec, cata
 	return nil
 }
 
-// Held is what the daemon whose build API is at an address holds, as a
-// workspace's status says it.
+// Held is what the directory of the daemon whose build API is at an
+// address holds, as a workspace's status says it.
 func Held(ctx context.Context, at string) (*workspacev1.WorkspaceStatus, error) {
 	api, err := sourceOf(at)
 	if err != nil {

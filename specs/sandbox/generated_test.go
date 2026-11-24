@@ -8,8 +8,8 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// The daemon in a sandbox speaks to the grid itself, with the same plugins
-// and inferred artifact bindings as any daemon. A consumer must compile
+// The build daemon in a sandbox speaks to the grid itself, with the same
+// plugins and inferred artifact bindings as any daemon. A consumer must compile
 // real generated source without a generated copy in the checkout.
 // Generated sources in sandboxes / Buf generation reaches a Go consumer through the sandbox API.
 func TestBufGenerationReachesAGoConsumerThroughTheSandboxAPI(t *testing.T) {

@@ -43,7 +43,7 @@ func TestThePlatformNamesTheImageEveryRunnerSandboxIsMadeOf(t *testing.T) {
 	}
 }
 
-func TestADaemonIsToldTheGridAndItsWorkersPlatformByItsFlags(t *testing.T) {
+func TestASupervisorIsToldTheGridAndItsWorkersPlatformByItsFlags(t *testing.T) {
 	grid, err := local.Embedded.Grid("grid.example:8980")
 	if err != nil {
 		t.Fatal(err)
@@ -60,6 +60,6 @@ func TestADaemonIsToldTheGridAndItsWorkersPlatformByItsFlags(t *testing.T) {
 		want = append(want, "--platform="+name+"="+platform[name])
 	}
 	if told := grid.Arguments(); !slices.Equal(told, want) {
-		t.Errorf("the daemon is told %q; want %q", told, want)
+		t.Errorf("the supervisor is told %q; want %q", told, want)
 	}
 }

@@ -10,12 +10,12 @@ import (
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 )
 
-// The daemon resolves nothing: it is told repositories by name and where
+// The supervisor resolves nothing: it is told repositories by name and where
 // entities are by whole reference. A repository without a name, and an
 // entity located by less than its whole reference, are refused
 // SOURCE_UNFIT before anything is brought; so is a spec of entities
 // alone. The control is the same, told whole.
-func TestWhatTheDaemonIsToldIsWholeOrRefused(t *testing.T) {
+func TestWhatTheSupervisorIsToldIsWholeOrRefused(t *testing.T) {
 	held, err := Open(t.TempDir(), false, git.System{})
 	if err != nil {
 		t.Fatal(err)

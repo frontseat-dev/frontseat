@@ -6,7 +6,7 @@ kind: API
 metadata:
   name: build-api
   namespace: frontseat
-  description: "Builds, the graph, runs and releases of a workspace, served by its daemon over Connect"
+  description: "Builds, the graph, runs and releases of a workspace, served by a build daemon over Connect"
 spec:
   type: grpc
   lifecycle: experimental

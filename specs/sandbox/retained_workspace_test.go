@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-// These specs exercise the retained engine in the real workspace daemon:
+// These specs exercise the retained engine in a real workspace's build daemon:
 // cloned source in an OpenShell sandbox, reached through its control plane.
 // They make no claim about process-memory bounds or comparative build latency.
 // shares graph analysis with routed builds and validates changed sandbox source.
@@ -51,7 +51,7 @@ func TestRetainedWorkspaceSharesGraphAnalysisAndValidatesChangedSource(t *testin
 	spec.Expect(w.askingAfterItsSandbox()).To(HaveOccurred())
 }
 
-// isolates two workspaces and reconstructs evaluation after the daemon restarts.
+// isolates two workspaces and reconstructs evaluation after the build daemon restarts.
 func TestRetainedWorkspacesAreIsolatedAndReconstructAfterRestart(t *testing.T) {
 	spec := newScenario(t)
 	at := spec.retainedPlane()
@@ -76,7 +76,7 @@ func TestRetainedWorkspacesAreIsolatedAndReconstructAfterRestart(t *testing.T) {
 
 	before := first.retainedDaemonIdentity()
 	first.pause()
-	// Reopen waits for the workspace daemon. ResumeSandbox alone starts
+	// Reopen waits for the workspace's supervisor. ResumeSandbox alone starts
 	// its sandbox and can return before the build API is listening.
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	reopened, _, err := made(ctx, making{Server: first.Server, WorkspaceSpec: frontseat.WorkspaceSpec{Name: first.Workspace, AuthorizedKey: testidentity.Authorized()}})

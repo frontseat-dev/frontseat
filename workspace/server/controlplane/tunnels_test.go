@@ -65,7 +65,7 @@ func (s sentTo) refused(address string) error {
 // bytes, both ways, by the workspace's name and the port's number, and
 // the control plane knows nothing of what speaks there; its shell is
 // carried the same way, as it was. Another is refused it as they are
-// refused the shell, and so is no one. The port of the daemon's source
+// refused the shell, and so is no one. The port of the supervisor's source
 // API, which is the control plane's alone, is carried to nobody, the
 // owner neither, and what is written where a port goes and is no port,
 // written one way, is refused: each PORT_NOT_SERVED, and nothing of the

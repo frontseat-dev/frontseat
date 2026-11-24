@@ -14,9 +14,9 @@ import (
 )
 
 // A workspace is what a person or an agent asks the control plane for:
-// where a daemon lives and what it manages, in one sandbox of its own.
+// where a supervisor lives and what it manages, in one sandbox of its own.
 // The control plane makes it, names it, says which there are, leads to
-// its daemon by its name, and ends it. A sandbox is its isolation, and
+// its supervisor by its name, and ends it. A sandbox is its isolation, and
 // is asked for by itself only by what is no person: a runner, a worker.
 //
 // These specs ask the workspace API as any client does, with the
@@ -140,7 +140,7 @@ func (spec *scenario) asked(ctx context.Context, request *workspacev1.CreateWork
 	name := made.GetWorkspace().GetName()
 	spec.Cleanup(func() { ended(name) })
 	last := spec.ready(ctx, workspaces, name)
-	// As it is once ready: where its daemon is is known once its
+	// As it is once ready: where its supervisor is is known once its
 	// sandbox is.
 	return &workspacev1.CreateWorkspaceResponse{Workspace: last, Created: made.GetCreated()}
 }

@@ -397,11 +397,11 @@ func (spec *scenario) entities(names ...string) []*typev1.EntityRef {
 	return out
 }
 
-// bring has the daemon bring what a request names, and returns why it
-// would not.
+// bring has what fills its directory bring what a request names, and
+// returns why it would not.
 func (w *Workspace) bring(request *workspacev1.WorkspaceSpec) error {
 	// The control plane resolves entities through its Backstage and tells
-	// a daemon what to hold, and no client does: the test support does
+	// a supervisor what to hold, and no client does: the test support does
 	// both here, through a fake Backstage of the source's entities.
 	var catalog backstagetest.Served
 	if w.source != nil {
@@ -560,8 +560,8 @@ func (spec *scenario) workspaceOfRepository(name string) *Workspace {
 }
 
 // workspaceSomethingElseMade returns a workspace made as a platform makes
-// one before a daemon starts: it clones what an entity needs and writes
-// down what it brought, and only then is the daemon started.
+// one before a supervisor starts: it clones what an entity needs and
+// writes down what it brought, and only then is the daemon started.
 func (spec *scenario) workspaceSomethingElseMade(entity, repository string) *Workspace {
 	spec.Helper()
 	directory := spec.TB.TempDir()

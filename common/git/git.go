@@ -1,5 +1,5 @@
 // Package git is git as frontseat runs it, for the client's version
-// control package and for the daemon's alike: the one place that starts
+// control package and for a workspace's alike: the one place that starts
 // the program, and the one place that reads a remote as git writes one.
 //
 // A repository can come from anywhere, and what its configuration says
@@ -93,12 +93,12 @@ const waitDelay = 2 * time.Second
 type Options struct {
 	// Offline is git that reaches nothing over any transport, fetches no
 	// object it lacks and starts no SSH client: what asks no remote, as
-	// the client reads a checkout of this machine and the daemon asks
-	// where a repository stands.
+	// the client reads a checkout of this machine and a supervisor or a
+	// build daemon asks where a repository stands.
 	Offline bool
 	// Told keeps what a sandbox tells git in its environment of how to
 	// reach a remote: the settings it counts (GIT_CONFIG_COUNT,
-	// GIT_CONFIG_KEY_n, GIT_CONFIG_VALUE_n), as a daemon is told how a
+	// GIT_CONFIG_KEY_n, GIT_CONFIG_VALUE_n), as a program there is told how a
 	// credential is presented, and the authorities a server's certificate
 	// is checked against (GIT_SSL_CAINFO, GIT_SSL_CAPATH), as OpenShell
 	// tells it those of its proxy. The settings come after what is told

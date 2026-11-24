@@ -1,6 +1,6 @@
 // Package vcs is what a workspace asks of a version control system: to
 // bring a repository, and to bring more of one. Git is one (common/vcs/git), and a
-// program chooses which a daemon has.
+// program chooses which it has.
 package vcs
 
 import "context"
@@ -76,8 +76,8 @@ type History interface {
 	// has at another is refused, and nothing there is changed.
 	PushTag(ctx context.Context, directory, remote, name string) error
 	// Origin is where a repository says it was brought from: what a
-	// daemon given a checkout, and told of no remote, pushes its tags
-	// to. It is what the repository says, and is held to as any address
+	// build daemon given a checkout, and told of no remote, pushes its
+	// tags to. It is what the repository says, and is held to as any address
 	// a caller names is.
 	Origin(ctx context.Context, directory string) (string, error)
 }

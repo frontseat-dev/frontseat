@@ -26,7 +26,7 @@ const (
 	// ReasonCredentialUsernameInvalid: a credential's username is not
 	// one.
 	ReasonCredentialUsernameInvalid = "CREDENTIAL_USERNAME_INVALID"
-	// ReasonDaemonEnding: the workspace's daemon is ending.
+	// ReasonDaemonEnding: the build daemon is ending.
 	ReasonDaemonEnding = "DAEMON_ENDING"
 	// ReasonDuplicateEntity: an entity is described twice.
 	ReasonDuplicateEntity = "DUPLICATE_ENTITY"
@@ -53,8 +53,8 @@ const (
 	// ReasonGeneratedWithoutConsent: what is generated is beyond what its
 	// Component may write.
 	ReasonGeneratedWithoutConsent = "GENERATED_WITHOUT_CONSENT"
-	// ReasonGenerationInvalid: the workspace's daemon was told what to
-	// hold at a generation it has passed.
+	// ReasonGenerationInvalid: the workspace's supervisor was told what
+	// to hold at a generation it has passed.
 	ReasonGenerationInvalid = "GENERATION_INVALID"
 	// ReasonIdentityInvalid: the caller's token is not one the control
 	// plane knows.
@@ -66,7 +66,7 @@ const (
 	ReasonImageNotServed = "IMAGE_NOT_SERVED"
 	// ReasonLifetimeInvalid: a workspace's lifetime is not one.
 	ReasonLifetimeInvalid = "LIFETIME_INVALID"
-	// ReasonLogNotKept: the daemon no longer keeps what an action
+	// ReasonLogNotKept: the build daemon no longer keeps what an action
 	// printed.
 	ReasonLogNotKept = "LOG_NOT_KEPT"
 	// ReasonNameInvalid: a workspace's name is not one.
@@ -77,8 +77,9 @@ const (
 	// give.
 	ReasonPageTokenInvalid = "PAGE_TOKEN_INVALID"
 	// ReasonPortNotServed: the control plane carries no one to the port
-	// asked for of a workspace's sandbox: it is the port of the daemon's
-	// source API, which is the control plane's own, or it is no port.
+	// asked for of a workspace's sandbox: it is the port of the
+	// supervisor's source API, which is the control plane's own, or it is
+	// no port.
 	ReasonPortNotServed = "PORT_NOT_SERVED"
 	// ReasonPortUnreached: the port asked for of a workspace's sandbox
 	// was not reached: nothing answers there, or the sandbox is not
@@ -105,15 +106,15 @@ const (
 	ReasonReleaseNotCancellable = "RELEASE_NOT_CANCELLABLE"
 	// ReasonReleaseNotFound: no release has the id.
 	ReasonReleaseNotFound = "RELEASE_NOT_FOUND"
-	// ReasonReleaseNotServed: the workspace's daemon releases nothing.
+	// ReasonReleaseNotServed: the build daemon releases nothing.
 	ReasonReleaseNotServed = "RELEASE_NOT_SERVED"
 	// ReasonRemoteCredentialed: a repository's address holds a user or a
 	// password.
 	ReasonRemoteCredentialed = "REMOTE_CREDENTIALED"
 	// ReasonRequestIDInvalid: a request id is longer than one may be.
 	ReasonRequestIDInvalid = "REQUEST_ID_INVALID"
-	// ReasonRunsExhausted: the daemon has as many runs that have not
-	// ended as it keeps.
+	// ReasonRunsExhausted: the build daemon has as many runs that have
+	// not ended as it keeps.
 	ReasonRunsExhausted = "RUNS_EXHAUSTED"
 	// ReasonRunNotFound: no run has the id.
 	ReasonRunNotFound = "RUN_NOT_FOUND"
@@ -128,8 +129,8 @@ const (
 	// ReasonSourceMounted: the workspace's source is mounted, and is not
 	// cloned into.
 	ReasonSourceMounted = "SOURCE_MOUNTED"
-	// ReasonSourcePopulating: the workspace's daemon is still bringing
-	// what it was told before.
+	// ReasonSourcePopulating: the workspace's supervisor is still
+	// bringing what it was told before.
 	ReasonSourcePopulating = "SOURCE_POPULATING"
 	// ReasonSourceUnfit: what the workspace is to hold cannot be held.
 	ReasonSourceUnfit = "SOURCE_UNFIT"
@@ -164,9 +165,9 @@ var (
 	// ErrWorkspaceNotFound: no workspace of the caller's has the name.
 	ErrWorkspaceNotFound = &Error{Reason: ReasonWorkspaceNotFound, Domain: DomainWorkspace}
 	// ErrWorkspaceNotReady: the workspace cannot be worked in yet. The
-	// SDK refuses so too, before a daemon is asked, a workspace that
-	// Open or Add waited for and found otherwise than ready, and one
-	// whose daemon is asked before it has one.
+	// SDK refuses so too, before a build daemon is asked, a workspace
+	// that Open or Add waited for and found otherwise than ready, and
+	// one whose build daemon is asked before it has one.
 	ErrWorkspaceNotReady = &Error{Reason: ReasonWorkspaceNotReady}
 	// ErrBuildNotFound: no build has the id.
 	ErrBuildNotFound = &Error{Reason: ReasonBuildNotFound, Domain: DomainBuild}

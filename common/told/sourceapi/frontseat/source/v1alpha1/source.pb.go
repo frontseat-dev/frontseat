@@ -1,20 +1,20 @@
-// frontseat.source.v1alpha1: the source a workspace's daemon holds, as
-// the control plane tells it. The control plane keeps what a workspace
-// is asked for and is the one writer of it: it gives the daemon the
-// whole source to hold, at a generation, and reads back what the daemon
-// holds; the daemon keeps no spec of its own. A daemon holds one source,
-// and so a source has no name.
+// frontseat.source.v1alpha1: the source a workspace's supervisor holds,
+// as the control plane tells it. The control plane keeps what a
+// workspace is asked for and is the one writer of it: it gives the
+// supervisor the whole source to hold, at a generation, and reads back
+// what the supervisor holds; the supervisor keeps no spec of its own. A
+// supervisor holds one source, and so a source has no name.
 //
-// It is the daemon's internal API, not a public one. It is served on a
-// port of its own, beside the build API's. The control plane calls it,
+// It is the supervisor's internal API, not a public one. It is served on a
+// port of its own. The control plane calls it,
 // and forwards no caller's request to it. No client, SDK or command
 // line calls it, and its Go is the server's alone
 // (common/told/sourceapi). The port is not a security boundary
-// inside the daemon's sandbox, where any program may reach it. What
+// inside the supervisor's sandbox, where any program may reach it. What
 // protects a workspace is that the control plane never takes what a
-// workspace is asked for from the daemon: it keeps that itself, and
-// where a daemon holds another generation than the control plane's, it
-// tells the daemon its own again.
+// workspace is asked for from the supervisor: it keeps that itself, and
+// where a supervisor holds another generation than the control plane's, it
+// tells the supervisor its own again.
 //
 // What it refuses by name carries ErrorInfo of the domain
 // source.frontseat.dev, whose reason the control plane acts on.
@@ -102,14 +102,14 @@ func (Source_State) EnumDescriptor() ([]byte, []int) {
 	return file_frontseat_source_v1alpha1_source_proto_rawDescGZIP(), []int{0, 0}
 }
 
-// Source is what a daemon holds, and how cloning it went.
+// Source is what a supervisor holds, and how cloning it went.
 type Source struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// State is how far cloning it is.
 	State Source_State `protobuf:"varint,1,opt,name=state,proto3,enum=frontseat.source.v1alpha1.Source_State" json:"state,omitempty"`
 	// Failure says why cloning it failed; empty where it did not.
 	Failure string `protobuf:"bytes,2,opt,name=failure,proto3" json:"failure,omitempty"`
-	// Generation is the generation it last accepted; zero for a daemon
+	// Generation is the generation it last accepted; zero for a supervisor
 	// that was told none since it started.
 	Generation int64 `protobuf:"varint,3,opt,name=generation,proto3" json:"generation,omitempty"`
 	// Repositories are the repositories it holds.
@@ -176,7 +176,7 @@ func (x *Source) GetRepositories() []*Repository {
 	return nil
 }
 
-// SourceSpec is the whole source a daemon is to hold.
+// SourceSpec is the whole source a supervisor is to hold.
 type SourceSpec struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Generation numbers the specs the control plane has given, from
@@ -187,7 +187,7 @@ type SourceSpec struct {
 	// for, and those the control plane resolved its entities to.
 	Repositories []*RepositorySource `protobuf:"bytes,2,rep,name=repositories,proto3" json:"repositories,omitempty"`
 	// Entities are the entities the control plane resolved, and where each
-	// is among the repositories. The daemon resolves nothing itself: this
+	// is among the repositories. The supervisor resolves nothing itself: this
 	// is all it knows of which entity is where.
 	Entities      []*LocatedEntity `protobuf:"bytes,3,rep,name=entities,proto3" json:"entities,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -310,7 +310,7 @@ func (x *LocatedEntity) GetRoot() string {
 	return ""
 }
 
-// RepositorySource is a repository for the daemon to clone.
+// RepositorySource is a repository for the supervisor to clone.
 type RepositorySource struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Remote is its URL.
@@ -320,7 +320,7 @@ type RepositorySource struct {
 	Ref string `protobuf:"bytes,2,opt,name=ref,proto3" json:"ref,omitempty"`
 	// Roots are the directories to take of it; empty for all of it.
 	Roots []string `protobuf:"bytes,3,rep,name=roots,proto3" json:"roots,omitempty"`
-	// Name is the daemon's name for it: the one directory it is cloned
+	// Name is the supervisor's name for it: the one directory it is cloned
 	// into.
 	Name          string `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -385,11 +385,11 @@ func (x *RepositorySource) GetName() string {
 	return ""
 }
 
-// Repository is one repository a daemon holds.
+// Repository is one repository a supervisor holds.
 type Repository struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Name is its name: what a label and a path name it by. Empty for a
-	// directory the daemon was started over and did not clone.
+	// directory the supervisor was started over and did not clone.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Remote is where it was cloned from.
 	Remote string `protobuf:"bytes,2,opt,name=remote,proto3" json:"remote,omitempty"`
@@ -459,7 +459,7 @@ func (x *Repository) GetRoots() []string {
 	return nil
 }
 
-// SetSourceRequest gives a daemon the source to hold.
+// SetSourceRequest gives a supervisor the source to hold.
 type SetSourceRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Spec is the whole source, at its generation.

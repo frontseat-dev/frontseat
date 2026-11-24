@@ -5,9 +5,10 @@ import (
 	"testing"
 )
 
-// A workspace is the source a daemon holds and builds. You make one by
-// naming what you want to work on: an entity from the catalog, or a
-// repository. The daemon finds where that source lives and clones it.
+// A workspace is the source a supervisor holds and a build daemon
+// builds. You make one by naming what you want to work on: an entity
+// from the catalog, or a repository. The supervisor finds where that
+// source lives and clones it.
 //
 // Naming an entity is the usual way. The catalog is a Backstage catalog,
 // asked over its API: it says which repository and directory an entity
@@ -21,11 +22,11 @@ import (
 // system, or for everything a team owns, and it stays right as the
 // catalog changes.
 //
-// A daemon does not have to be the one that brings the source. On a
-// platform, a sandbox can be given its source before the daemon in it
-// starts: the platform clones what the entities need and writes down what
-// it brought, in the same words a daemon uses. A daemon that starts in
-// such a workspace builds it as it stands.
+// A supervisor does not have to be the one that brings the source. On a
+// platform, a sandbox can be given its source before the supervisor in
+// it starts: the platform clones what the entities need and writes down
+// what it brought, in the same words a supervisor uses. A build daemon
+// that starts in such a workspace builds it as it stands.
 //
 // The specs use the company's source, which support_test.go describes.
 // Workspaces / An entity brings its own directory and those it depends on.

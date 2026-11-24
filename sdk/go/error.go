@@ -143,7 +143,7 @@ const (
 	// DomainWorkspace is the workspace API's.
 	DomainWorkspace = "workspace.frontseat.dev"
 	// DomainBuild is the build API's: builds, runs, releases and the
-	// graph, which a workspace's daemon serves.
+	// graph, which a build daemon serves.
 	DomainBuild = "build.frontseat.dev"
 	// DomainCredential is the credential API's.
 	DomainCredential = "credential.frontseat.dev"

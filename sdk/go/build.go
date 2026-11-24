@@ -43,7 +43,7 @@ type Build struct {
 	w  *Workspace
 }
 
-// ID is the build's id, as the daemon gave it: "build_" and more.
+// ID is the build's id, as the build daemon gave it: "build_" and more.
 func (b *Build) ID() string { return b.id }
 
 // Build starts a build, and returns it at once: it goes on whether or
@@ -82,7 +82,7 @@ func (w *Workspace) Builds(ctx context.Context) iter.Seq2[*buildv1.Build, error]
 }
 
 // BuildByID is the workspace's build of an id. Nothing is asked of the
-// daemon until a call is made.
+// build daemon until a call is made.
 func (w *Workspace) BuildByID(id string) *Build { return &Build{id: id, w: w} }
 
 // Describe returns the build as it is now.

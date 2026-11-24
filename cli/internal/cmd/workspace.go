@@ -108,7 +108,7 @@ func printWorkspace(to io.Writer, held *workspacev1.Workspace) {
 	for _, r := range held.GetStatus().GetRepositories() {
 		switch {
 		case r.GetName() == "":
-			line("  a directory the daemon was given")
+			line("  a directory the supervisor was given")
 		case len(r.GetRoots()) == 0:
 			line("  %s  %.12s  whole", r.GetName(), r.GetCommit())
 		default:

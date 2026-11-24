@@ -73,7 +73,7 @@ func fetched(address string) (plain.Origin, string, error) {
 // cloned reads where a sandbox clones a repository from, as its remote
 // is written: the address the version control system says the remote is
 // cloned from, which it converts where the remote is written for
-// another transport, read as an address is (fetched). The daemon in the
+// another transport, read as an address is (fetched). The supervisor in the
 // sandbox reads the remote by the same system, so what is refused here
 // is what it would refuse, and what a rule is written for is what it
 // asks. Whether a remote names someone is the system's to say, by

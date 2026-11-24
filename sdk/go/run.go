@@ -27,7 +27,7 @@ type RunRequest struct {
 }
 
 // Run is one run of a program, by its id: the program is built, then
-// run where the workspace's daemon is.
+// run where the workspace's build daemon is.
 type Run struct {
 	id string
 	// buildID is the id of the build of what the program is made of,
@@ -36,12 +36,12 @@ type Run struct {
 	w       *Workspace
 }
 
-// ID is the run's id, as the daemon gave it: "run_" and more.
+// ID is the run's id, as the build daemon gave it: "run_" and more.
 func (r *Run) ID() string { return r.id }
 
 // BuildID is the id of the build of what the program is made of: as
-// Run was answered, or, for a run by its id alone, as the daemon
-// describes it.
+// Run was answered, or, for a run by its id alone, as the build
+// daemon describes it.
 func (r *Run) BuildID(ctx context.Context) (string, error) {
 	if r.buildID != "" {
 		return r.buildID, nil
@@ -54,8 +54,8 @@ func (r *Run) BuildID(ctx context.Context) (string, error) {
 }
 
 // Run builds a program of the workspace and runs it, and returns the
-// run at once. The program is the daemon's: it goes on until it ends or
-// the run is cancelled, whether or not it is followed.
+// run at once. The program is the build daemon's: it goes on until it
+// ends or the run is cancelled, whether or not it is followed.
 func (w *Workspace) Run(ctx context.Context, request RunRequest) (*Run, error) {
 	api, err := w.runs(ctx)
 	if err != nil {
@@ -85,7 +85,7 @@ func (w *Workspace) Runs(ctx context.Context) iter.Seq2[*buildv1.Run, error] {
 }
 
 // RunByID is the workspace's run of an id. Nothing is asked of the
-// daemon until a call is made.
+// build daemon until a call is made.
 func (w *Workspace) RunByID(id string) *Run { return &Run{id: id, w: w} }
 
 // Describe returns the run as it is now.

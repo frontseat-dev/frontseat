@@ -25,7 +25,7 @@ const unfinished = ".frontseat/cloning"
 // as the manifest records it. Roots make it a partial checkout: only
 // those directories are there. A clone that fails leaves nothing where
 // it was to be, and one asked into a place that is taken touches
-// nothing. One that is never let fail or finish, in a daemon that ends,
+// nothing. One that is never let fail or finish, in a supervisor that ends,
 // leaves its directory said to be unfinished, for Settle.
 func Clone(ctx context.Context, system vcs.System, workspace string, c record.Checkout) (cloned record.Repository, err error) {
 	if err := c.Within(); err != nil {
@@ -68,7 +68,7 @@ func Clone(ctx context.Context, system vcs.System, workspace string, c record.Ch
 // Settle clears what clones left unfinished in a workspace, given the
 // repositories its manifest records: a clone whose repository is
 // recorded is finished, and one whose repository is not was stopped
-// midway, by a daemon that ended, and its directory is removed, so that
+// midway, by a supervisor that ended, and its directory is removed, so that
 // the repository is cloned anew when it is asked for. It is called
 // where nothing is being cloned in the workspace: when it is opened, and
 // once a pass has recorded what it brought. Whatever runs in the

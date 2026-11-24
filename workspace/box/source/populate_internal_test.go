@@ -131,7 +131,7 @@ func TestClosingAWorkspaceStopsWhatIsBringingItsRepositories(t *testing.T) {
 		t.Errorf("Close returned with %d clones ended, want the one joined", left)
 	}
 	if now, _ := w.Now(); now.State != Failed || !strings.Contains(now.Message, errClosed.Error()) {
-		t.Errorf("the workspace is %v (%s), want failed, saying the daemon stopped", now.State, now.Message)
+		t.Errorf("the workspace is %v (%s), want failed, saying the supervisor stopped", now.State, now.Message)
 	}
 	system.through.Store(true)
 	if err := w.Populate(2, asked, nil); err != nil {
@@ -142,11 +142,11 @@ func TestClosingAWorkspaceStopsWhatIsBringingItsRepositories(t *testing.T) {
 	}
 }
 
-// A daemon that ends while a repository is being cloned, killed with
-// its sandbox, leaves what it had cloned so far; the daemon started
+// A supervisor that ends while a repository is being cloned, killed with
+// its sandbox, leaves what it had cloned so far; the supervisor started
 // again over the same directory is told the same source and brings the
 // repository. What is on the disk while the clone is under way is what
-// such a daemon leaves. The control: a directory of the repository's
+// such a supervisor leaves. The control: a directory of the repository's
 // name that no clone of the workspace made is another's, and is refused.
 func TestAWorkspaceOpenedAgainOverACloneStoppedMidwayBringsIt(t *testing.T) {
 	_, w, asked := underWay(t)

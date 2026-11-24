@@ -342,7 +342,7 @@ func (spec *scenario) commitsIn(directory string, args ...string) {
 
 // cloning is a workspace to make that clones what a spec wrote in a
 // directory aRepository gave it, committed as it is now. A sandbox is
-// given no directory of this machine: its daemon clones, as from any
+// given no directory of this machine: its supervisor clones, as from any
 // remote.
 func (spec *scenario) cloning(directory string) making {
 	spec.Helper()

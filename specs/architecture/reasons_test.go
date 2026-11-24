@@ -26,7 +26,7 @@ import (
 // only what is given is read.
 
 // refusing are the server's packages that refuse by name, each with the
-// proto packages whose contracts name its reasons. What the daemon's
+// proto packages whose contracts name its reasons. What the supervisor's
 // source API refuses, the control plane says on in the workspace API's
 // domain (controlplane.relayed): its reasons are named in both.
 var refusing = map[string][]string{

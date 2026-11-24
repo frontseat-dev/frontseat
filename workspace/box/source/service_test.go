@@ -18,7 +18,7 @@ import (
 )
 
 // stalled is the tapes system, whose clones wait until the test lets
-// them go on: a daemon is bringing for as long as the test says.
+// them go on: a supervisor is bringing for as long as the test says.
 type stalled struct {
 	*tapes
 	gate chan struct{}
@@ -29,7 +29,7 @@ func (s stalled) Clone(ctx context.Context, directory string, from vcs.Source) (
 	return s.tapes.Clone(ctx, directory, from)
 }
 
-// sourceOver serves the source API of a daemon over a system, and
+// sourceOver serves the source API of a supervisor over a system, and
 // returns a client of it.
 func sourceOver(t *testing.T, mounted bool, system vcs.System) sourcev1alpha1connect.SourceServiceClient {
 	t.Helper()
@@ -52,14 +52,14 @@ func reasonOf(t *testing.T, err error, code connect.Code, want string) {
 	}
 }
 
-// What a daemon refuses to hold is refused by a reason of its own:
+// What a supervisor refuses to hold is refused by a reason of its own:
 // another source while it brings one, SOURCE_POPULATING; nothing to
 // bring, SOURCE_MISSING; a repository it cannot hold, SOURCE_UNFIT; and
 // anything, where it was given a checkout, SOURCE_MOUNTED; one told at
 // no generation, GENERATION_INVALID. The control
 // is the same source told once bringing is done, which is taken, at the
 // generation told.
-func TestWhatADaemonRefusesToHoldIsRefusedByAReason(t *testing.T) {
+func TestWhatASupervisorRefusesToHoldIsRefusedByAReason(t *testing.T) {
 	ctx := context.Background()
 	system := stalled{tapes: &tapes{}, gate: make(chan struct{})}
 	api := sourceOver(t, false, system)
@@ -77,7 +77,7 @@ func TestWhatADaemonRefusesToHoldIsRefusedByAReason(t *testing.T) {
 	}
 	// Waited after the generation it brings, with a deadline, it is
 	// answered before the deadline, still bringing it: a deadline the
-	// caller reaches is a daemon that does not answer.
+	// caller reaches is a supervisor that does not answer.
 	waiting, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
 	started := time.Now()
 	still, err := api.WaitSource(waiting, &sourcev1.WaitSourceRequest{Generation: 1})
@@ -109,11 +109,11 @@ func TestWhatADaemonRefusesToHoldIsRefusedByAReason(t *testing.T) {
 	reasonOf(t, err, connect.CodeFailedPrecondition, "SOURCE_MOUNTED")
 }
 
-// A daemon keeps no spec: started again over what it brought, it holds
+// A supervisor keeps no spec: started again over what it brought, it holds
 // that and was told no generation, so that whoever tells it knows to
-// tell it again. The control is the daemon before, which holds the
+// tell it again. The control is the supervisor before, which holds the
 // generation it was told.
-func TestADaemonStartedAgainHoldsWhatItBroughtAndNoGeneration(t *testing.T) {
+func TestASupervisorStartedAgainHoldsWhatItBroughtAndNoGeneration(t *testing.T) {
 	ctx := context.Background()
 	root, system := t.TempDir(), &tapes{}
 	first, err := source.Open(root, false, system)

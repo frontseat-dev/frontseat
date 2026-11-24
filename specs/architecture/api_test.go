@@ -35,7 +35,7 @@ var served = []protoreflect.FullName{
 	"frontseat.workspace.v1alpha1",
 	"frontseat.credential.v1alpha1",
 	"frontseat.sandbox.v1alpha1",
-	// The daemon's internal API, which the control plane alone asks.
+	// The supervisor's internal API, which the control plane alone asks.
 	"frontseat.source.v1alpha1",
 }
 
@@ -963,7 +963,7 @@ func handles(fn *ast.FuncDecl, imported map[string]string) string {
 }
 
 // generatedPackage is the Go package the generated code of a served proto
-// package is in: the server's own for the daemon's internal API
+// package is in: the server's own for the supervisor's internal API
 // (api/buf.gen.source.yaml) and the sandbox API (api/buf.gen.sandbox.yaml),
 // and the Go SDK's for every other.
 func generatedPackage(pkg protoreflect.FullName) string {

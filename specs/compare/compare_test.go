@@ -280,7 +280,7 @@ func buck2(t *testing.T, shape testworkload.Shape) tool {
 }
 
 // frontseatInASandbox is frontseat as a person runs it: the command, and a sandbox
-// that holds the daemon and the workspace, with the actions
+// that holds the build daemon and the workspace, with the actions
 // on the local grid. The source is cloned into the sandbox, and a file
 // is changed there, over the sandbox's SSH, as an editor changes one:
 // nothing of the workspace is on this machine.

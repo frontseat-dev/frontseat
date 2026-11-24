@@ -3,7 +3,7 @@
 // resource: it has an id, it outlives the call that made it, and its
 // record says what each unit became.
 //
-// A daemon keeps every release that has not ended, and the twelve
+// A build daemon keeps every release that has not ended, and the twelve
 // newest of those that have, for as long as it runs: a daemon started
 // again has none, though the tags its releases wrote are in its
 // checkout. A release the daemon no longer keeps is refused NOT_FOUND

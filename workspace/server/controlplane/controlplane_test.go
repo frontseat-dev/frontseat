@@ -42,7 +42,7 @@ import (
 	"github.com/frontseat-dev/frontseat/testsupport/backstagetest"
 )
 
-// managing is the daemon of one sandbox of the tests, as its source
+// managing is the supervisor of one sandbox of the tests, as its source
 // API answers: it holds what it was told to, at the generation told,
 // says so, and fails to bring it where the test has it fail.
 type managing struct {
@@ -60,7 +60,7 @@ type managing struct {
 	// bringing is whether it says it is still bringing what it was told.
 	bringing bool
 	// stalls is whether it answers nothing, and keeps whoever asks
-	// waiting for as long as they will wait, as a daemon too busy to
+	// waiting for as long as they will wait, as a supervisor too busy to
 	// answer does.
 	stalls atomic.Bool
 	// only, set before stalls, is the one call that stalls; "" for any.
@@ -85,8 +85,8 @@ func (m *managing) was() (int, *workspacev1.WorkspaceSpec) {
 	return m.told, out
 }
 
-// restarted is the daemon started again: it holds what it brought, and
-// was told nothing since, as a daemon keeps no spec.
+// restarted is the supervisor started again: it holds what it brought, and
+// was told nothing since, as a supervisor keeps no spec.
 func (m *managing) restarted() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -132,7 +132,7 @@ func (m *managing) WaitSource(ctx context.Context, _ *sourcev1.WaitSourceRequest
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.silent {
-		return nil, connect.NewError(connect.CodeUnavailable, "the test's daemon says nothing")
+		return nil, connect.NewError(connect.CodeUnavailable, "the test's supervisor says nothing")
 	}
 	return &sourcev1.WaitSourceResponse{Source: m.now()}, nil
 }
@@ -151,7 +151,7 @@ func (m *managing) SetSource(ctx context.Context, req *sourcev1.SetSourceRequest
 }
 
 // sandboxes is a sandbox service of the tests: it makes sandboxes that
-// are records and a daemon each, and keeps what it was asked.
+// are records and a supervisor each, and keeps what it was asked.
 type sandboxes struct {
 	sandboxv1alpha1connect.UnimplementedSandboxServiceHandler
 	t *testing.T
@@ -163,7 +163,7 @@ type sandboxes struct {
 	inUse map[string]bool
 	// keepsNot is what SetCredential refuses with, where it is set.
 	keepsNot error
-	// fails, silent and refusing are what each daemon made from now on
+	// fails, silent and refusing are what each supervisor made from now on
 	// does.
 	fails    string
 	silent   bool
@@ -174,16 +174,16 @@ type sandboxes struct {
 	// refuses is why a sandbox is not made, while it is said.
 	refuses string
 
-	mu      sync.Mutex
-	made    map[string]*sandboxv1.CreateSandboxRequest // by sandbox
-	named   map[string]string                          // request to sandbox
-	order   []string
-	state   map[string]sandboxv1.Sandbox_State
-	daemons map[string]*managing
-	servers map[string]*httptest.Server
-	deleted []string
-	resumed []string
-	led     []string
+	mu          sync.Mutex
+	made        map[string]*sandboxv1.CreateSandboxRequest // by sandbox
+	named       map[string]string                          // request to sandbox
+	order       []string
+	state       map[string]sandboxv1.Sandbox_State
+	supervisors map[string]*managing
+	servers     map[string]*httptest.Server
+	deleted     []string
+	resumed     []string
+	led         []string
 	// speaks is whether what is connected to at a port says anything: it
 	// says which sandbox and port it is, on a line, and then says back
 	// whatever it is told. Otherwise the port ends at once.
@@ -202,7 +202,7 @@ type sandboxes struct {
 const ledOn = http.StatusUpgradeRequired
 
 func over(t *testing.T) *sandboxes {
-	return &sandboxes{t: t, starts: sandboxv1.Sandbox_STATE_RUNNING, kept: map[string]string{}, inUse: map[string]bool{}, made: map[string]*sandboxv1.CreateSandboxRequest{}, named: map[string]string{}, state: map[string]sandboxv1.Sandbox_State{}, daemons: map[string]*managing{}, servers: map[string]*httptest.Server{}}
+	return &sandboxes{t: t, starts: sandboxv1.Sandbox_STATE_RUNNING, kept: map[string]string{}, inUse: map[string]bool{}, made: map[string]*sandboxv1.CreateSandboxRequest{}, named: map[string]string{}, state: map[string]sandboxv1.Sandbox_State{}, supervisors: map[string]*managing{}, servers: map[string]*httptest.Server{}}
 }
 
 func (s *sandboxes) CreateSandbox(_ context.Context, asked *sandboxv1.CreateSandboxRequest) (*sandboxv1.CreateSandboxResponse, error) {
@@ -216,14 +216,14 @@ func (s *sandboxes) CreateSandbox(_ context.Context, asked *sandboxv1.CreateSand
 		id = fmt.Sprintf("sbx_%d", len(s.order)+1)
 		s.made[id], s.named[asked.GetRequestId()], s.state[id] = asked, id, s.starts
 		s.order = append(s.order, id)
-		daemon := &managing{fails: s.fails, silent: s.silent, refuses: s.refusing}
+		supervisor := &managing{fails: s.fails, silent: s.silent, refuses: s.refusing}
 		api := connect.NewServer()
-		sourcev1alpha1connect.RegisterSourceServiceHandler(api, daemon)
+		sourcev1alpha1connect.RegisterSourceServiceHandler(api, supervisor)
 		mux := http.NewServeMux()
 		connecthttp.Mount(mux, api)
 		server := httptest.NewServer(mux)
 		s.t.Cleanup(server.Close)
-		s.daemons[id], s.servers[id] = daemon, server
+		s.supervisors[id], s.servers[id] = supervisor, server
 	}
 	return &sandboxv1.CreateSandboxResponse{Sandbox: &sandboxv1.Sandbox{Id: id, Spec: asked.GetSpec()}}, nil
 }
@@ -416,10 +416,10 @@ func (s *sandboxes) of(name string) string {
 	return found
 }
 
-func (s *sandboxes) daemon(id string) *managing {
+func (s *sandboxes) supervisor(id string) *managing {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.daemons[id]
+	return s.supervisors[id]
 }
 
 // system is a version control system that says of a fetch what a test
@@ -434,9 +434,9 @@ func (system) Pushes(repository string) []vcs.Request {
 }
 func (system) Programs() []string { return []string{"/usr/bin/a-fetcher"} }
 
-// Cloned reads a remote as the system a daemon has reads it
+// Cloned reads a remote as the system a supervisor has reads it
 // (chosen.System), since what the control plane refuses of a remote,
-// and what it writes a rule for, is held to what the daemon in the
+// and what it writes a rule for, is held to what the supervisor in the
 // sandbox would clone.
 func (system) Cloned(remote string) (string, error) {
 	return chosen.System().Cloned(remote)
@@ -615,10 +615,10 @@ func TestTheSandboxAWorkspaceLivesInIsWrittenAsRules(t *testing.T) {
 	if in.GetLabels()[Named] != "a-workspace" || in.GetImage() != "registry.example/acme/box:1" || !slices.Equal(in.GetPorts(), []int32{7601, 2222}) || in.GetEgress().GetMode() != sandboxv1.Egress_MODE_ALLOW_LISTED {
 		t.Errorf("its sandbox carries %v, runs %q, serves %v and reaches by %v", in.GetLabels(), in.GetImage(), in.GetPorts(), in.GetEgress().GetMode())
 	}
-	// Its daemon is told by its flags, and nothing of where the daemon is
-	// is told the command line beside it, which finds its daemon itself.
+	// Its supervisor is told by its flags, and nothing of where a build
+	// daemon is is told the command line beside it, which finds its own.
 	if told, want := in.GetArguments(), []string{"--grid=grid.example:8980", "--assets=assets.example:8983", "--platform=a=b", "--name=a-workspace", "--authorized-key=ssh-ed25519 AAAA a-key"}; !slices.Equal(told, want) {
-		t.Errorf("its daemon is told %q, want %q", told, want)
+		t.Errorf("its supervisor is told %q, want %q", told, want)
 	}
 	want := map[string]string{
 		"A_SYSTEM_AUTHOR": "Someone <someone@forge.example>", "A_SYSTEM_PRESENTS": "someone at https://forge.example:443 by A_STAND_IN",
@@ -649,10 +649,10 @@ func TestTheSandboxAWorkspaceLivesInIsWrittenAsRules(t *testing.T) {
 			t.Errorf("rule %d is\n%v\nwant\n%v", i, got[i], rules[i])
 		}
 	}
-	// Its daemon was told what it is to hold, once, and what it holds is
-	// the daemon's word.
-	if told, holds := s.daemon(s.of(ready.GetName())).was(); told != 1 || !proto.Equal(source(holds), source(spec)) || len(ready.GetStatus().GetRepositories()) != len(spec.GetRepositories()) {
-		t.Errorf("its daemon was told %d times to hold %v, and is said to hold %v", told, holds, ready.GetStatus().GetRepositories())
+	// Its supervisor was told what it is to hold, once, and what it holds is
+	// the supervisor's word.
+	if told, holds := s.supervisor(s.of(ready.GetName())).was(); told != 1 || !proto.Equal(source(holds), source(spec)) || len(ready.GetStatus().GetRepositories()) != len(spec.GetRepositories()) {
+		t.Errorf("its supervisor was told %d times to hold %v, and is said to hold %v", told, holds, ready.GetStatus().GetRepositories())
 	}
 
 	// A push adds what a push asks, of each repository, and is of
@@ -683,7 +683,7 @@ func TestTheSandboxAWorkspaceLivesInIsWrittenAsRules(t *testing.T) {
 // once. Asked for with less than it has, or with no key, it is still
 // that one; asked for with more, with other source, or with another key
 // let into its shell, which is said once, it is refused by name and is
-// as it was. Its daemon and its shell are led to by its name.
+// as it was. Its supervisor and its shell are led to by its name.
 func TestAWorkspaceAskedForAgainIsTheOneThereIs(t *testing.T) {
 	s := over(t)
 	client, address, _ := served(t, s, t.TempDir(), nil)
@@ -745,8 +745,8 @@ func TestAWorkspaceAskedForAgainIsTheOneThereIs(t *testing.T) {
 	if len(s.asked()) != 2 || len(s.ended()) != 0 {
 		t.Errorf("asking again made %v and ended %v", s.asked(), s.ended())
 	}
-	if told, _ := s.daemon("sbx_1").was(); told != 1 {
-		t.Errorf("its daemon was told %d times, want once", told)
+	if told, _ := s.supervisor("sbx_1").was(); told != 1 {
+		t.Errorf("its supervisor was told %d times, want once", told)
 	}
 	for path, status := range map[string]int{"/workspaces/code/shell": ledOn, "/workspaces/another/shell": 404} {
 		if got, said := asked(t, http.MethodGet, address+path, owner, ""); got != status {
@@ -765,7 +765,7 @@ func TestAWorkspaceAskedForAgainIsTheOneThereIs(t *testing.T) {
 }
 
 // A control plane that starts again goes on from what was asked for: a
-// workspace whose sandbox was not yet running, and whose daemon was told
+// workspace whose sandbox was not yet running, and whose supervisor was told
 // nothing, is made ready by the one that comes after. The control is the
 // first, which could not.
 func TestAControlPlaneThatStartsAgainGoesOnFromWhatWasAskedFor(t *testing.T) {
@@ -788,7 +788,7 @@ func TestAControlPlaneThatStartsAgainGoesOnFromWhatWasAskedFor(t *testing.T) {
 	s.set("sbx_1", sandboxv1.Sandbox_STATE_RUNNING)
 	after, _, _ := served(t, s, state, nil)
 	ready := waited(t, after, "kept")
-	if ready.GetStatus().GetState() != workspacev1.WorkspaceStatus_STATE_READY || s.of(ready.GetName()) != "sbx_1" || func() bool { n, _ := s.daemon("sbx_1").was(); return n != 1 }() || len(s.asked()) != 1 {
+	if ready.GetStatus().GetState() != workspacev1.WorkspaceStatus_STATE_READY || s.of(ready.GetName()) != "sbx_1" || func() bool { n, _ := s.supervisor("sbx_1").was(); return n != 1 }() || len(s.asked()) != 1 {
 		t.Errorf("under the one that came after it is %v, in %v", ready.GetStatus(), s.asked())
 	}
 }
@@ -852,27 +852,27 @@ func TestARecordOfNoOnesWorkspaceIsRefusedWhenTheControlPlaneStarts(t *testing.T
 	}
 }
 
-// A workspace that is ended is gone promptly though its daemon answers
+// A workspace that is ended is gone promptly though its supervisor answers
 // nothing, as one too busy to does: the ending does not wait on what
-// was being asked of the daemon. The control is the same workspace's
-// daemon answering, which is gone as promptly.
-func TestAWorkspaceIsEndedPromptlyThoughItsDaemonAnswersNothing(t *testing.T) {
+// was being asked of the supervisor. The control is the same workspace's
+// supervisor answering, which is gone as promptly.
+func TestAWorkspaceIsEndedPromptlyThoughItsSupervisorAnswersNothing(t *testing.T) {
 	for _, stalls := range []bool{false, true} {
 		s, client := made(t, "x", of("https://forge.example/acme/code.git"))
 		waited(t, client, "x")
-		daemon := s.daemon(s.of("x"))
+		supervisor := s.supervisor(s.of("x"))
 		if stalls {
 			// A pass that asks it, and waits on it, before the ending is
 			// asked for.
-			daemon.asked = make(chan string, 1)
-			daemon.stalls.Store(true)
+			supervisor.asked = make(chan string, 1)
+			supervisor.stalls.Store(true)
 			select {
-			case <-daemon.asked:
+			case <-supervisor.asked:
 			case <-time.After(5 * time.Second):
-				t.Fatal("no pass asked its daemon")
+				t.Fatal("no pass asked its supervisor")
 			}
 		}
-		endedPromptly(t, client, "x", fmt.Sprintf("its daemon stalling %v", stalls))
+		endedPromptly(t, client, "x", fmt.Sprintf("its supervisor stalling %v", stalls))
 	}
 }
 
@@ -890,16 +890,16 @@ func endedPromptly(t *testing.T, client workspacev1alpha1connect.WorkspaceServic
 	}
 }
 
-// A workspace that is ended while it is being updated, its daemon told
+// A workspace that is ended while it is being updated, its supervisor told
 // what is added and answering nothing, is gone promptly, and the update
 // is refused as one of a workspace that is ending. The control is the
-// same update with nothing ended, which waits for the daemon still.
+// same update with nothing ended, which waits for the supervisor still.
 func TestAWorkspaceEndedWhileItIsUpdatedIsGonePromptly(t *testing.T) {
 	s, client := made(t, "x", of("https://forge.example/acme/code.git"))
 	waited(t, client, "x")
-	daemon := s.daemon(s.of("x"))
-	daemon.asked, daemon.only = make(chan string, 8), "SetSource"
-	daemon.stalls.Store(true)
+	supervisor := s.supervisor(s.of("x"))
+	supervisor.asked, supervisor.only = make(chan string, 8), "SetSource"
+	supervisor.stalls.Store(true)
 	updated := make(chan error, 1)
 	go func() {
 		more := of("https://forge.example/acme/code.git")
@@ -909,20 +909,20 @@ func TestAWorkspaceEndedWhileItIsUpdatedIsGonePromptly(t *testing.T) {
 	}()
 	for until := time.After(5 * time.Second); ; {
 		select {
-		case call := <-daemon.asked:
+		case call := <-supervisor.asked:
 			if call != "SetSource" {
 				continue
 			}
 		case err := <-updated:
-			t.Fatalf("the update ended before it told its daemon: %v", err)
+			t.Fatalf("the update ended before it told its supervisor: %v", err)
 		case <-until:
-			t.Fatal("the update did not tell its daemon")
+			t.Fatal("the update did not tell its supervisor")
 		}
 		break
 	}
 	select {
 	case err := <-updated:
-		t.Fatalf("the control: the update did not wait for its daemon: %v", err)
+		t.Fatalf("the control: the update did not wait for its supervisor: %v", err)
 	case <-time.After(200 * time.Millisecond):
 	}
 	endedPromptly(t, client, "x", "ended while it was updated")
@@ -966,7 +966,7 @@ func TestAWorkspaceThatIsEndedIsGoneAndItsNameCanBeGivenAgain(t *testing.T) {
 		t.Fatalf("the name given again: %v, %v", again, err)
 	}
 	second := waited(t, client, "x")
-	if second.GetStatus().GetState() != workspacev1.WorkspaceStatus_STATE_READY || s.of(second.GetName()) == lived || func() bool { n, _ := s.daemon(s.of(second.GetName())).was(); return n != 1 }() {
+	if second.GetStatus().GetState() != workspacev1.WorkspaceStatus_STATE_READY || s.of(second.GetName()) == lived || func() bool { n, _ := s.supervisor(s.of(second.GetName())).was(); return n != 1 }() {
 		t.Errorf("the second of the name is %v", second.GetStatus())
 	}
 	if got := second.GetStatus().GetRepositories(); len(got) != 1 || got[0].GetRemote() != "https://forge.example/acme/another.git" {
@@ -974,10 +974,10 @@ func TestAWorkspaceThatIsEndedIsGoneAndItsNameCanBeGivenAgain(t *testing.T) {
 	}
 }
 
-// A workspace whose daemon could not bring what was asked for has
+// A workspace whose supervisor could not bring what was asked for has
 // failed, and says why; asked for again, it is tried again, in the same
 // sandbox, and is ready where what failed no longer does. One whose
-// daemon never comes to answer has failed too, and waiting for it ends.
+// supervisor never comes to answer has failed too, and waiting for it ends.
 func TestAWorkspaceThatFailedSaysWhyAndIsTriedAgainWhenAskedFor(t *testing.T) {
 	s := over(t)
 	s.fails = "the branch later is not at the remote"
@@ -991,10 +991,10 @@ func TestAWorkspaceThatFailedSaysWhyAndIsTriedAgainWhenAskedFor(t *testing.T) {
 	if failed.GetStatus().GetState() != workspacev1.WorkspaceStatus_STATE_FAILED || !strings.Contains(failed.GetStatus().GetFailure(), "not at the remote") {
 		t.Fatalf("it is %v, want failed, saying why", failed.GetStatus())
 	}
-	daemon := s.daemon("sbx_1")
-	daemon.mu.Lock()
-	daemon.fails = ""
-	daemon.mu.Unlock()
+	supervisor := s.supervisor("sbx_1")
+	supervisor.mu.Lock()
+	supervisor.fails = ""
+	supervisor.mu.Unlock()
 	s.mu.Lock()
 	s.fails = ""
 	s.mu.Unlock()
@@ -1003,8 +1003,8 @@ func TestAWorkspaceThatFailedSaysWhyAndIsTriedAgainWhenAskedFor(t *testing.T) {
 		t.Fatalf("asked for again it was answered %v (%v), want the one there is, as it was found", again, err)
 	}
 	ready := waited(t, client, "later")
-	if told, _ := daemon.was(); ready.GetStatus().GetState() != workspacev1.WorkspaceStatus_STATE_READY || s.of(ready.GetName()) != "sbx_1" || told != 2 || len(s.ended()) != 0 {
-		t.Errorf("tried again it is %v, its daemon told %d times, and %v was ended", ready.GetStatus(), told, s.ended())
+	if told, _ := supervisor.was(); ready.GetStatus().GetState() != workspacev1.WorkspaceStatus_STATE_READY || s.of(ready.GetName()) != "sbx_1" || told != 2 || len(s.ended()) != 0 {
+		t.Errorf("tried again it is %v, its supervisor told %d times, and %v was ended", ready.GetStatus(), told, s.ended())
 	}
 
 	s.mu.Lock()
@@ -1014,7 +1014,7 @@ func TestAWorkspaceThatFailedSaysWhyAndIsTriedAgainWhenAskedFor(t *testing.T) {
 		t.Fatal(err)
 	}
 	if never := waited(t, client, "silent"); never.GetStatus().GetState() != workspacev1.WorkspaceStatus_STATE_FAILED || !strings.Contains(never.GetStatus().GetFailure(), "does not answer") {
-		t.Errorf("one whose daemon never answers is %v, want failed, saying so", never.GetStatus())
+		t.Errorf("one whose supervisor never answers is %v, want failed, saying so", never.GetStatus())
 	}
 }
 
@@ -1068,7 +1068,7 @@ func TestAPausedWorkspaceIsGoneOnWithAndALifetimeEnds(t *testing.T) {
 }
 
 // A workspace is brought more by its spec, given whole: what is added
-// within what its sandbox reaches is told to its daemon, an entity added
+// within what its sandbox reaches is told to its supervisor, an entity added
 // resolved and those it had not resolved again; a repository its
 // sandbox was not made to fetch is refused by name, by its address or by
 // an entity's, and so is a spec that leaves out what the workspace has
@@ -1088,9 +1088,9 @@ func TestAWorkspaceIsBroughtMoreByItsSpec(t *testing.T) {
 	if _, err := client.UpdateWorkspace(ctx, &workspacev1.UpdateWorkspaceRequest{Name: "grows", Spec: more}); err != nil {
 		t.Fatalf("more within what its sandbox reaches: %v", err)
 	}
-	holds := toldAgain(t, s.daemon("sbx_1"), 2)
+	holds := toldAgain(t, s.supervisor("sbx_1"), 2)
 	if len(holds.GetEntities()) != 1 || holds.GetEntities()[0].GetRoot() != "payments" || len(holds.GetRepositories()) != 2 || holds.GetRepositories()[1].GetName() != "code" {
-		t.Errorf("its daemon was last told to hold %v", holds)
+		t.Errorf("its supervisor was last told to hold %v", holds)
 	}
 	asked := len(fake.Asked())
 	twice := proto.Clone(more).(*workspacev1.WorkspaceSpec)
@@ -1126,7 +1126,7 @@ func TestAWorkspaceIsBroughtMoreByItsSpec(t *testing.T) {
 
 // A workspace whose sandbox could not be made has failed, says why, and
 // is made when it is asked for again: what failed is the control plane's
-// own, and is tried again as one of its daemon's is.
+// own, and is tried again as one of its supervisor's is.
 func TestAWorkspaceWhoseSandboxCouldNotBeMadeIsMadeWhenAskedForAgain(t *testing.T) {
 	s := over(t)
 	s.refuses = "the gateway is away"
@@ -1313,10 +1313,10 @@ func TestAWorkspaceAskedForWithLessIsTheOneThereIs(t *testing.T) {
 	}
 }
 
-// What a workspace's daemon would refuse to bring is refused when it is
+// What a workspace's supervisor would refuse to bring is refused when it is
 // asked for, and is not kept: the workspace is as it was, and is asked for
 // again as it was. One that is not ready is brought more once it is.
-func TestWhatADaemonRefusesToBringIsNotKept(t *testing.T) {
+func TestWhatASupervisorRefusesToBringIsNotKept(t *testing.T) {
 	spec := &workspacev1.WorkspaceSpec{Repositories: []*workspacev1.RepositorySource{{Remote: "https://forge.example/acme/code.git", Ref: "main"}}}
 	s := over(t)
 	client, _, _ := served(t, s, t.TempDir(), resolving(t, backstagetest.Serve(t, catalogOfTheTests)))
@@ -1325,16 +1325,16 @@ func TestWhatADaemonRefusesToBringIsNotKept(t *testing.T) {
 		t.Fatal(err)
 	}
 	waited(t, client, "kept")
-	daemon := s.daemon("sbx_1")
-	daemon.mu.Lock()
-	daemon.refuses = refusal.New(refusal.Source, connect.CodeInvalidArgument, "SOURCE_UNFIT", "the repository payments cannot be held")
-	daemon.mu.Unlock()
+	supervisor := s.supervisor("sbx_1")
+	supervisor.mu.Lock()
+	supervisor.refuses = refusal.New(refusal.Source, connect.CodeInvalidArgument, "SOURCE_UNFIT", "the repository payments cannot be held")
+	supervisor.mu.Unlock()
 	refused := proto.Clone(spec).(*workspacev1.WorkspaceSpec)
 	refused.Entities = []*typev1.EntityRef{{Kind: "component", Namespace: "default", Name: "payments"}}
 	if _, err := client.UpdateWorkspace(ctx, &workspacev1.UpdateWorkspaceRequest{Name: "kept", Spec: refused}); connect.CodeOf(err) != connect.CodeInvalidArgument || !strings.Contains(err.Error(), "payments") {
-		t.Fatalf("what the daemon refuses: %v, want its refusal", err)
+		t.Fatalf("what the supervisor refuses: %v, want its refusal", err)
 	} else if reason, domain := frontseat.Reason(err); reason != "SOURCE_UNFIT" || domain != refusal.Workspace {
-		t.Errorf("what the daemon refused by name is said with the reason %q of %q, want SOURCE_UNFIT of the workspace API", reason, domain)
+		t.Errorf("what the supervisor refused by name is said with the reason %q of %q, want SOURCE_UNFIT of the workspace API", reason, domain)
 	}
 	got, err := client.DescribeWorkspace(ctx, &workspacev1.DescribeWorkspaceRequest{Name: "kept"})
 	if err != nil || len(got.GetWorkspace().GetSpec().GetEntities()) != 0 || len(got.GetWorkspace().GetStatus().GetEntities()) != 0 {
@@ -1405,30 +1405,30 @@ func TestWhatReachesAProgramsConfigurationIsHeld(t *testing.T) {
 }
 
 // The control plane is the one writer of what a workspace holds: a
-// daemon started again holds no generation and is told again, and one
+// supervisor started again holds no generation and is told again, and one
 // told otherwise from inside its sandbox, which holds another
 // generation, is told the control plane's own; what the control plane
 // keeps of the workspace is as it was asked for. The control is a
-// daemon left alone, which is told once however many passes go by.
-func TestADaemonStartedAgainOrToldFromInsideIsToldWhatTheControlPlaneKeeps(t *testing.T) {
+// supervisor left alone, which is told once however many passes go by.
+func TestASupervisorStartedAgainOrToldFromInsideIsToldWhatTheControlPlaneKeeps(t *testing.T) {
 	spec := of("https://forge.example/acme/code.git")
 	s, client := made(t, "kept", spec)
 	ctx := context.Background()
 	waited(t, client, "kept")
-	daemon := s.daemon("sbx_1")
+	supervisor := s.supervisor("sbx_1")
 	toldTimes := func(want int) {
 		t.Helper()
 		deadline := time.Now().Add(5 * time.Second)
 		for {
-			n, holds := daemon.was()
-			daemon.mu.Lock()
-			generation := daemon.generation
-			daemon.mu.Unlock()
+			n, holds := supervisor.was()
+			supervisor.mu.Lock()
+			generation := supervisor.generation
+			supervisor.mu.Unlock()
 			if n == want && generation == 1 && proto.Equal(source(holds), source(spec)) {
 				return
 			}
 			if time.Now().After(deadline) {
-				t.Fatalf("its daemon was told %d times, at the generation %d, to hold %v; want %d times, at 1, what was asked for", n, generation, holds, want)
+				t.Fatalf("its supervisor was told %d times, at the generation %d, to hold %v; want %d times, at 1, what was asked for", n, generation, holds, want)
 			}
 			time.Sleep(10 * time.Millisecond)
 		}
@@ -1436,14 +1436,14 @@ func TestADaemonStartedAgainOrToldFromInsideIsToldWhatTheControlPlaneKeeps(t *te
 	// Left alone, it is told once, over many passes.
 	time.Sleep(300 * time.Millisecond)
 	toldTimes(1)
-	daemon.restarted()
+	supervisor.restarted()
 	toldTimes(2)
 	// Told otherwise from inside its sandbox: another generation, and
 	// more than was asked for.
-	daemon.mu.Lock()
-	daemon.generation = 99
-	daemon.spec = told.Spec(of("https://forge.example/acme/code.git", "https://forge.example/acme/more.git"), 99, told.Resolved{}, system{}.NameOf)
-	daemon.mu.Unlock()
+	supervisor.mu.Lock()
+	supervisor.generation = 99
+	supervisor.spec = told.Spec(of("https://forge.example/acme/code.git", "https://forge.example/acme/more.git"), 99, told.Resolved{}, system{}.NameOf)
+	supervisor.mu.Unlock()
 	toldTimes(3)
 	kept, err := client.DescribeWorkspace(ctx, &workspacev1.DescribeWorkspaceRequest{Name: "kept"})
 	if err != nil || !proto.Equal(source(kept.GetWorkspace().GetSpec()), source(spec)) {
@@ -1451,12 +1451,12 @@ func TestADaemonStartedAgainOrToldFromInsideIsToldWhatTheControlPlaneKeeps(t *te
 	}
 }
 
-// A daemon that is bringing what it was told before refuses to be told
+// A supervisor that is bringing what it was told before refuses to be told
 // more by a reason, SOURCE_POPULATING, and the workspace is populating
 // while it does: the control plane acts on the reason, never on the
-// words. The control is a daemon whose refusal says "populating" in its
+// words. The control is a supervisor whose refusal says "populating" in its
 // words under another reason, which leaves the workspace failed.
-func TestADaemonThatIsBringingIsKnownByItsReasonAndNotByItsWords(t *testing.T) {
+func TestASupervisorThatIsBringingIsKnownByItsReasonAndNotByItsWords(t *testing.T) {
 	for what, c := range map[string]struct {
 		refusal error
 		want    workspacev1.WorkspaceStatus_State
@@ -1479,7 +1479,7 @@ func TestADaemonThatIsBringingIsKnownByItsReasonAndNotByItsWords(t *testing.T) {
 					return
 				}
 				if time.Now().After(deadline) {
-					t.Fatalf("a daemon refusing by %s leaves the workspace %v (%v), want %v", what, got.GetWorkspace().GetStatus(), err, c.want)
+					t.Fatalf("a supervisor refusing by %s leaves the workspace %v (%v), want %v", what, got.GetWorkspace().GetStatus(), err, c.want)
 				}
 				time.Sleep(10 * time.Millisecond)
 			}
@@ -1487,31 +1487,32 @@ func TestADaemonThatIsBringingIsKnownByItsReasonAndNotByItsWords(t *testing.T) {
 	}
 }
 
-// A daemon that is bringing what it was told, for longer than a daemon
-// is waited for to answer, is populating, and has not failed: it
-// answers, saying so. The control is a daemon that says nothing, which
-// has failed (TestAWorkspaceThatFailedSaysWhyAndIsTriedAgainWhenAskedFor).
-// What it was told to add is said to be brought from the answer.
-func TestADaemonThatIsLongBringingIsPopulatingAndNotFailed(t *testing.T) {
+// A supervisor that is bringing what it was told, for longer than a
+// supervisor is waited for to answer, is populating, and has not
+// failed: it answers, saying so. The control is a supervisor that says
+// nothing, which has failed
+// (TestAWorkspaceThatFailedSaysWhyAndIsTriedAgainWhenAskedFor). What it
+// was told to add is said to be brought from the answer.
+func TestASupervisorThatIsLongBringingIsPopulatingAndNotFailed(t *testing.T) {
 	spec := of("https://forge.example/acme/code.git")
 	s, client := made(t, "slow", spec)
 	ctx := context.Background()
 	waited(t, client, "slow")
-	daemon := s.daemon("sbx_1")
-	daemon.mu.Lock()
-	daemon.bringing = true
-	daemon.mu.Unlock()
+	supervisor := s.supervisor("sbx_1")
+	supervisor.mu.Lock()
+	supervisor.bringing = true
+	supervisor.mu.Unlock()
 	more := proto.Clone(spec).(*workspacev1.WorkspaceSpec)
 	more.WholeRepositories = true
 	updated, err := client.UpdateWorkspace(ctx, &workspacev1.UpdateWorkspaceRequest{Name: "slow", Spec: more})
 	if err != nil || updated.GetWorkspace().GetStatus().GetState() != workspacev1.WorkspaceStatus_STATE_POPULATING {
 		t.Fatalf("what was added is said to be %v (%v), want it populating", updated.GetWorkspace().GetStatus().GetState(), err)
 	}
-	// Longer than a daemon is waited for to answer (Answers, 300 ms here).
+	// Longer than a supervisor is waited for to answer (Answers, 300 ms here).
 	time.Sleep(time.Second)
 	got, err := client.DescribeWorkspace(ctx, &workspacev1.DescribeWorkspaceRequest{Name: "slow"})
 	if err != nil || got.GetWorkspace().GetStatus().GetState() != workspacev1.WorkspaceStatus_STATE_POPULATING {
-		t.Errorf("a daemon long bringing leaves the workspace %v (%v), want populating", got.GetWorkspace().GetStatus(), err)
+		t.Errorf("a supervisor long bringing leaves the workspace %v (%v), want populating", got.GetWorkspace().GetStatus(), err)
 	}
 }
 
@@ -1591,8 +1592,8 @@ func TestWhoCommitsIsToldByNoVariableOfAnothers(t *testing.T) {
 	}
 }
 
-// A repository's address is read once, as the daemon in the sandbox
-// reads it, when the workspace is asked for: what the daemon would
+// A repository's address is read once, as the supervisor in the sandbox
+// reads it, when the workspace is asked for: what the supervisor would
 // refuse, or would fetch from where no rule leads, is refused then, and
 // nothing of it is kept, said back or made. An address with a query,
 // which may hold a token; a host written as an address, in any
@@ -1603,7 +1604,7 @@ func TestWhoCommitsIsToldByNoVariableOfAnothers(t *testing.T) {
 // workspace with its address written as one is, and written for ssh,
 // naming git or no one, which the system clones over https and a rule
 // is written for.
-func TestARepositorysAddressIsReadOnceAsTheDaemonReadsIt(t *testing.T) {
+func TestARepositorysAddressIsReadOnceAsTheSupervisorReadsIt(t *testing.T) {
 	const refusedValue = "v4lue-of-adas"
 	s := over(t)
 	client, _, _ := served(t, s, t.TempDir(), nil)

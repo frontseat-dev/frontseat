@@ -637,7 +637,7 @@ func said(t *testing.T, ran string) []string {
 	return strings.Fields(string(out))
 }
 
-// What the daemon asks of a repository runs nothing the repository's
+// What is asked of a repository runs nothing the repository's
 // configuration names: a filter that would be run to say whether a file
 // changed is not, a file monitor is not, a hook that would be run as a
 // tag is written is not, and the program that verifies a signature,
@@ -1587,9 +1587,9 @@ func broughtHistory(t *testing.T) (remote, clone string) {
 }
 
 // A name is held to git's rule for a tag by git alone, asked where
-// nothing is: a repository the daemon happens to run in, whose settings
-// git cannot list, does not make a sound name unsound. The name git does
-// not take is refused there as anywhere.
+// nothing is: a repository the build daemon happens to run in, whose
+// settings git cannot list, does not make a sound name unsound. The
+// name git does not take is refused there as anywhere.
 func TestATagNameIsHeldToGitsRuleWhereverTheDaemonRuns(t *testing.T) {
 	ctx := context.Background()
 	_, clone := broughtHistory(t)

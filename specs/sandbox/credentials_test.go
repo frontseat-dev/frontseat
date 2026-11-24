@@ -63,7 +63,7 @@ func TestAWorkspaceClonesARepositoryThatAsksAPasswordWhichItsSandboxNeverHolds(t
 
 	isolated := spec.inASandboxOfItsOwn(private)
 
-	// The daemon cloned it, and it builds.
+	// The supervisor cloned it, and it builds.
 	spec.Expect(isolated.prints("ls " + code)).To(ContainSubstring("hello"))
 	spec.Expect(isolated.build().outcome()).To(Equal("SUCCESS"))
 	// Nothing in the sandbox holds the password: not what it is told,

@@ -29,7 +29,7 @@ import (
 	"github.com/frontseat-dev/frontseat/common/vcs"
 )
 
-// System is git, as the program of that name on the daemon's path.
+// System is git, as the program of that name on the path.
 type System struct{}
 
 var _ vcs.System = System{}
@@ -284,7 +284,7 @@ func (s System) Changes(ctx context.Context, directory, since string, directorie
 // holds every reference to (git check-ref-format). The name is given as
 // the reference it would be, so that it is never read as an option. Git
 // is asked in a directory made for the question, where nothing is: the
-// one the daemon runs in may be in a repository, whose settings are not
+// one the build daemon runs in may be in a repository, whose settings are not
 // this question's. A git that fails otherwise than by refusing the name
 // says so itself.
 func (System) TagName(ctx context.Context, name string) error {
@@ -441,8 +441,8 @@ func (System) Ignored(ctx context.Context, directory string) ([]string, error) {
 
 // Tag writes a tag as the reference it is, only where there is none: so
 // that a name is never read as an option, and two that tag at once do
-// not write over each other. It is a tag with no message: a daemon has
-// no one to sign one as.
+// not write over each other. It is a tag with no message: a build daemon
+// has no one to sign one as.
 func (s System) Tag(ctx context.Context, directory, name, revision string) error {
 	if err := s.TagName(ctx, name); err != nil {
 		return fmt.Errorf("git tag: %q %w", name, err)
@@ -473,13 +473,13 @@ func (s System) Tag(ctx context.Context, directory, name, revision string) error
 	return nil
 }
 
-// in is git as the daemon runs it in a directory to ask what is there:
+// in is git as it is run in a directory to ask what is there:
 // it reaches no remote and fetches nothing a partial clone lacks.
 func in(ctx context.Context, directory string) rungit.Git {
 	return rungit.In(ctx, directory, rungit.Options{Offline: true})
 }
 
-// fetching is git as the daemon runs it in a directory to fetch from a
+// fetching is git as it is run in a directory to fetch from a
 // remote: that remote alone, with what its sandbox was told, which says
 // how a credential is presented.
 func fetching(ctx context.Context, directory, remote string) rungit.Git {

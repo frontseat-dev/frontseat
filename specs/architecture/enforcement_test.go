@@ -113,7 +113,7 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		{"build/engine/pluginapi/frontseat/plugin/v1alpha1/plugin.pb.go", "sdk/go/api/frontseat/build/v1alpha1", true},
 		{"workspace/box/source/workspace.go", "build/engine/pluginapi/frontseat/plugin/v1alpha1", false},
 		{"sdk/go/entity/proto.go", "build/engine/pluginapi/frontseat/plugin/v1alpha1", false},
-		// The daemon's internal API is the daemon's to serve and the
+		// The supervisor's internal API is the supervisor's to serve and the
 		// control plane's to ask, and no client's: the SDK and the
 		// command line link none of it.
 		{"workspace/box/source/service.go", "common/told/sourceapi/frontseat/source/v1alpha1/sourcev1alpha1connect", true},
@@ -448,7 +448,7 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		// stream with the SDK's one public reader, not its transport,
 		// which is the SDK's alone.
 		{"workspace/server/controlplane/controlplane_test.go", "sdk/go/internal/transport", false},
-		// What fills a workspace is the daemon's in a box, beneath no part
+		// What fills a workspace is the supervisor's in a box, beneath no part
 		// of the control plane, its tests neither.
 		{"workspace/server/controlplane/controlplane_test.go", "workspace/box/source", false},
 		{"workspace/server/controlplane/rules.go", "workspace/box/source", false},

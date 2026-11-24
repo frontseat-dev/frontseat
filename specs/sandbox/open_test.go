@@ -18,7 +18,7 @@ import (
 // A person standing in a checkout opens the workspace of its repository
 // and branch with one command, and has the same one again each time:
 // the workspace is found by what it is of, which its sandbox carries,
-// and not by anything this machine remembers. Its daemon clones the
+// and not by anything this machine remembers. Its supervisor clones the
 // branch from the remote. Nothing of the checkout is given to it.
 //
 // What a checkout says of itself (its remote, its branch, who commits)
@@ -114,7 +114,7 @@ func TestAWorkspaceWhoseMakingWasStoppedBeforeItHeldItsRepositoryIsFilledWhenItI
 	spec := newScenario(t)
 
 	// A branch the remote does not hold yet: the sandbox is made, and
-	// its daemon's clone fails, as it would have been stopped.
+	// its supervisor's clone fails, as it would have been stopped.
 	repository := spec.aRepositoryWithABranch("main")
 	checkout := aCheckoutOf(repository, "later")
 	stopped, err := spec.attempting(checkout)

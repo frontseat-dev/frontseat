@@ -18,7 +18,7 @@ import (
 )
 
 // refused is how a source's refusal to be brought is answered: what was
-// asked is at fault where the daemon cannot hold it, and that it is
+// asked is at fault where the supervisor cannot hold it, and that it is
 // bringing another, or brings nothing, otherwise.
 func refused(err error) error {
 	switch {
@@ -35,7 +35,7 @@ func refuse(code connect.Code, reason, message string) *connect.Error {
 	return refusal.New(refusal.Source, code, reason, message)
 }
 
-// brought has a daemon bring what a spec names that it does not hold
+// brought has a supervisor bring what a spec names that it does not hold
 // yet: the repositories named, and where the entities the control plane
 // resolved are among them, which it records. It resolves nothing itself.
 // What it holds stays, and the spec's generation is the one it holds
@@ -68,10 +68,10 @@ func brought(held *Workspace, req *sourcev1.SourceSpec) error {
 	return nil
 }
 
-// holding serves frontseat.source.v1alpha1 for the source a daemon
+// holding serves frontseat.source.v1alpha1 for the source a supervisor
 // holds: it brings what it is told and says what it holds. It keeps no
 // spec: the control plane that tells it keeps what was asked for, and
-// tells a daemon started again anew.
+// tells a supervisor started again anew.
 type holding struct {
 	workspace *Workspace
 }
@@ -101,7 +101,7 @@ func (s *holding) now() (*sourcev1.Source, <-chan struct{}) {
 	return out, changed
 }
 
-// SetSource brings what the spec names and the daemon does not hold.
+// SetSource brings what the spec names and the supervisor does not hold.
 // What it holds already stays, so that telling it again changes nothing.
 func (s *holding) SetSource(_ context.Context, req *sourcev1.SetSourceRequest) (*sourcev1.SetSourceResponse, error) {
 	if err := brought(s.workspace, req.GetSpec()); err != nil {
@@ -115,7 +115,7 @@ func (s *holding) SetSource(_ context.Context, req *sourcev1.SetSourceRequest) (
 // where the generation it holds is not the one asked after. A caller
 // that gave a deadline is answered before it, as the source is then,
 // still being brought: so that a deadline its caller reaches means the
-// daemon did not answer, never that it is busy.
+// supervisor did not answer, never that it is busy.
 func (s *holding) WaitSource(ctx context.Context, req *sourcev1.WaitSourceRequest) (*sourcev1.WaitSourceResponse, error) {
 	var answer <-chan time.Time
 	if deadline, ok := ctx.Deadline(); ok {
@@ -139,8 +139,9 @@ func (s *holding) WaitSource(ctx context.Context, req *sourcev1.WaitSourceReques
 }
 
 // Serve is the source API (frontseat.source.v1alpha1) over the source a
-// daemon holds: what a daemon serves on its source port alone, which the
-// control plane dials and leads no one to. Nothing else is served there.
+// supervisor holds: what a supervisor serves on its source port alone,
+// which the control plane dials and leads no one to. Nothing else is
+// served there.
 func Serve(held *Workspace) http.Handler {
 	api := connect.NewServer()
 	sourcev1alpha1connect.RegisterSourceServiceHandler(api, &holding{workspace: held})

@@ -23,7 +23,7 @@ const (
 	Credential = "credential.frontseat.dev"
 	// Sandbox is the sandbox service's.
 	Sandbox = "sandbox.frontseat.dev"
-	// Source is the daemon's internal source API's, which the control
+	// Source is the supervisor's internal source API's, which the control
 	// plane alone asks and acts on by its reasons.
 	Source = "source.frontseat.dev"
 )

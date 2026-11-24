@@ -6,7 +6,7 @@ kind: API
 metadata:
   name: source-api
   namespace: frontseat
-  description: "The source a workspace's daemon holds: the daemon's internal API, which the control plane alone asks, over Connect"
+  description: "The source a workspace's supervisor holds: the supervisor's internal API, which the control plane alone asks, over Connect"
 spec:
   type: grpc
   lifecycle: experimental
