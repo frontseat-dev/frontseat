@@ -1,8 +1,10 @@
-// Command frontseat is the client: the command line. It talks to a
-// daemon over the build API and holds no build state. It runs on Linux
-// and macOS, the platforms its catalog file ships it for, and nothing of
-// the daemon is linked into it. Its
-// commands are in cmd, one to a file.
+// Command frontseat is the client: the command line. A workspace
+// command asks the control plane; a command that builds asks the build
+// daemon of where it is run, over the build API, which is this program
+// again (frontseat daemon): the command line links the build daemon and
+// starts it for itself, and links nothing of a box, a control plane, a
+// sandbox or the runner. It runs on Linux and macOS, the platforms its
+// catalog file ships it for. Its commands are in cmd, one to a file.
 package main
 
 import (

@@ -23,9 +23,9 @@ var created struct {
 var createCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Make a workspace of repositories or entities",
-	Long: `Make a workspace of the repositories and entities named, and make it the
-workspace the other commands ask: the one there is of what they name,
-as it was left, or a new one. A repository is named by its address over
+	Long: `Make a workspace of the repositories and entities named, and select it
+on this machine, as workspace open does: the one there is of what they
+name, as it was left, or a new one. A repository is named by its address over
 http or https, URL or URL#REF; an entity as kind:name, resolved through
 the Backstage catalog the control plane's operator gives it, and refused
 where it has none.

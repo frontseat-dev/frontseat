@@ -22,11 +22,14 @@ var (
 	openShell, openNoShell bool
 )
 
-// openCmd opens a workspace, and makes it the one the other commands ask.
+// openCmd opens a workspace, and selects it on this machine (kept).
 var openCmd = &cobra.Command{
 	Use:   "open [NAME]",
 	Short: "Open a workspace: one there is, by its name, or this checkout's",
-	Long: `Open a workspace and make it the workspace the other commands ask.
+	Long: `Open a workspace, and select it on this machine: the workspace
+commands told no name ask it, and build, test, run, query and ship are
+run in it (frontseat workspace ssh), and refused outside it, until
+frontseat workspace close forgets it here.
 
 Named, it is the workspace there is of that name, as it was left. With
 no name, it is the workspace of the repository this checkout is of, at
@@ -90,8 +93,10 @@ as far as the credential the control plane keeps lets it.`,
 	},
 }
 
-// kept makes a workspace that was opened the one the other commands
-// ask; of one that could not be opened, it says that it is still there.
+// kept selects a workspace that was opened on this machine: the
+// workspace commands told no name ask it, and what builds is run in it,
+// until `workspace close` forgets it or another is opened. Of one that
+// could not be opened, it says that it is still there.
 func kept(fs *frontseat.Client, got frontseat.OpenResult, err error) error {
 	if err != nil {
 		return left(err, got.Workspace)
@@ -169,7 +174,7 @@ func entered(ctx context.Context, repository string) error {
 // entering is what a shell opened on a workspace runs first: it goes to
 // the repository's directory, where the workspace's name for it is one
 // directory's name written plainly, and becomes a login shell there.
-// The name is the daemon's word: one that is anything else is gone to by
+// The name is the word of the box's supervisor: one that is anything else is gone to by
 // no one, and the shell begins where a shell there begins.
 func entering(repository string) string {
 	const login = `if command -v bash >/dev/null 2>&1; then exec bash -l; else exec sh -l; fi`

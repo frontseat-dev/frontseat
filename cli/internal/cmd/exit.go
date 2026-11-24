@@ -60,7 +60,8 @@ const exitCodes = `Exit codes:
 // and what is said of it, for a person, empty where nothing is
 // (interrupted). What a server refused is said by its message, without
 // the code word Connect puts before it, and with what to do where the
-// command line knows.
+// command line knows: of a server that did not answer or refused who
+// asked, which server the command asked (unanswered, unauthorized).
 func Failed(ctx context.Context, err error) (int, string) {
 	if ctx.Err() != nil && (errors.Is(err, context.Canceled) || connect.CodeOf(err) == connect.CodeCanceled) {
 		return ExitInterrupted, ""
@@ -80,7 +81,7 @@ func Failed(ctx context.Context, err error) (int, string) {
 	reason, _ := frontseat.Reason(err)
 	switch code := raw.Code(); {
 	case code == connect.CodeUnauthenticated:
-		return ExitUnauthorized, said + "\nthe control plane refused your token: it is ~/.config/frontseat/local/token, beside the server it is for"
+		return ExitUnauthorized, said + "\n" + unauthorized()
 	case code == connect.CodePermissionDenied:
 		return ExitUnauthorized, withReason(said, reason)
 	case code == connect.CodeUnavailable || code == connect.CodeDeadlineExceeded:
@@ -88,7 +89,7 @@ func Failed(ctx context.Context, err error) (int, string) {
 	case reason == frontseat.ReasonWorkspaceNotFound:
 		return ExitRefused, withReason(said, reason) + "\n`frontseat workspace list` lists the workspaces there are"
 	case code == connect.CodeUnimplemented && strings.HasSuffix(reason, "_NOT_SERVED"):
-		return ExitRefused, said + "\nthis control plane does not serve it [" + reason + "]"
+		return ExitRefused, said + "\n" + unserving() + " does not serve it [" + reason + "]"
 	}
 	return ExitRefused, withReason(said, reason)
 }

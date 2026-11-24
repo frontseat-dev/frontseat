@@ -31,6 +31,8 @@ import (
 type daemonOf struct {
 	buildv1alpha1connect.UnimplementedReleaseServiceHandler
 	buildv1alpha1connect.UnimplementedBuildServiceHandler
+	// asked is how often it was asked anything at all, whatever the call.
+	asked   atomic.Int32
 	state   buildv1.Release_State
 	planned []*buildv1.PlanReleaseRequest
 	created []*buildv1.CreateReleaseRequest
@@ -151,7 +153,7 @@ func run(t *testing.T, d *daemonOf, args ...string) (string, int, error) {
 
 func runWith(t *testing.T, ctx context.Context, d *daemonOf, args ...string) (string, int, error) {
 	t.Helper()
-	return runAt(t, ctx, serving(t, func(api *connect.Server) {
+	return runAt(t, ctx, counting(t, &d.asked, func(api *connect.Server) {
 		buildv1alpha1connect.RegisterReleaseServiceHandler(api, d)
 		buildv1alpha1connect.RegisterBuildServiceHandler(api, d)
 	}), args...)
@@ -161,11 +163,21 @@ func runWith(t *testing.T, ctx context.Context, d *daemonOf, args ...string) (st
 // puts on a Connect server, and returns the address they are served at.
 func serving(t *testing.T, register func(api *connect.Server)) string {
 	t.Helper()
+	return counting(t, &atomic.Int32{}, register)
+}
+
+// counting is serving, counting every request made there, whatever it
+// asks and however it is answered.
+func counting(t *testing.T, asked *atomic.Int32, register func(api *connect.Server)) string {
+	t.Helper()
 	api := connect.NewServer()
 	register(api)
 	mux := http.NewServeMux()
 	connecthttp.Mount(mux, api)
-	srv := httptest.NewServer(mux)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		asked.Add(1)
+		mux.ServeHTTP(w, r)
+	}))
 	t.Cleanup(srv.Close)
 	return srv.URL
 }
@@ -227,6 +239,14 @@ func serverAt(t *testing.T, server string) string {
 func lastOpened(t *testing.T, server, workspaceName string) {
 	t.Helper()
 	if err := machine.WriteContext(machine.Context{Server: server, Workspace: workspaceName}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// noneOpened has the test's commands find no workspace selected.
+func noneOpened(t *testing.T) {
+	t.Helper()
+	if err := machine.ForgetContext(); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -567,8 +587,8 @@ func TestEveryCommandAsksTheOneControlPlaneTheRuleNames(t *testing.T) {
 // frontseat --help says which control plane every command asks, and
 // where a command that builds works: inside a workspace's sandbox on
 // that workspace, outside on the directory it is run in, and, while a
-// workspace is open, nowhere, with how it is run in the workspace. No
-// flag names a workspace. The control is a command's own help, which
+// workspace is selected, nowhere, with how it is run in the workspace
+// and what forgets the selection. No flag names a workspace. The control is a command's own help, which
 // says none of it.
 func TestTheHelpSaysWhichServerAndWorkspaceAreAsked(t *testing.T) {
 	printed := &strings.Builder{}
@@ -577,7 +597,7 @@ func TestTheHelpSaysWhichServerAndWorkspaceAreAsked(t *testing.T) {
 	if _, err := Execute(context.Background(), []string{"--help"}); err != nil {
 		t.Fatal(err)
 	}
-	for _, said := range []string{"~/.config/frontseat/local/server", "http://127.0.0.1:7700", "local/token", "Inside a workspace's sandbox", "frontseat workspace ssh -- frontseat build", "the directory they are run in", "the one last opened", "they are refused and say to run them in it"} {
+	for _, said := range []string{"~/.config/frontseat/local/server", "http://127.0.0.1:7700", "local/token", "Inside a workspace's sandbox", "frontseat workspace ssh -- frontseat build", "the directory they are run in", "the one last opened", "they are refused and say to run them in it", "~/.config/frontseat/build.yaml", "frontseat\nworkspace close forgets the selection here", "this\nmachine's directory again; the workspace goes on", "of another control\nplane is none selected here"} {
 		if !strings.Contains(printed.String(), said) {
 			t.Errorf("frontseat --help does not say %q:\n%s", said, printed)
 		}

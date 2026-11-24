@@ -33,6 +33,10 @@ address, which is one of this machine's loopback: a port of a sandbox
 is led to no network by this command. Once it listens, it says on one
 line what it listens on and where that leads.
 
+The listener is on this machine's loopback, and is no one's alone: any
+program of this machine, of any of its users, reaches the sandbox's
+port through it for as long as this runs, as with ssh -L.
+
 The connections go through the control plane, to the workspace's owner
 alone. A connection ends, both ways, when either end does. One that
 cannot be carried is ended, and said on standard error; the command

@@ -136,6 +136,17 @@ func outside() bool { return false }
 // machine's, so that none is presented to the tests' servers; a test
 // that wants one lays out its own.
 func TestMain(m *testing.M) {
+	// The command line names its own program as its SSH client's proxy
+	// command (ssh.go), and under test that program is this one: started
+	// so, it would run every test again, each starting the next. So it
+	// runs tests only as the go command starts it, with flags of the
+	// tests' alone, and ends at once as anything else.
+	for _, argument := range os.Args[1:] {
+		if !strings.HasPrefix(argument, "-test.") {
+			_, _ = os.Stderr.WriteString("the tests of the command line run no command: they are not started with arguments" + "\n")
+			os.Exit(2)
+		}
+	}
 	config, err := os.MkdirTemp("", "frontseat-cli-tests-")
 	if err != nil {
 		panic(err)
@@ -153,7 +164,10 @@ func TestMain(m *testing.M) {
 }
 
 // No command asks a control plane on another machine in clear: named
-// with http, it is refused by every command before anything is sent,
+// with http, it is refused by every command that asks the control plane
+// (one that builds this machine's directory asks none, and reads
+// nothing of its files:
+// TestABuildOfThisMachinesDirectoryReadsNothingOfTheControlPlanes) before anything is sent,
 // the token and a credential's secret among it, and the refusal does not
 // repeat the address. The control is the same commands asking a control
 // plane on this machine over http
@@ -170,8 +184,6 @@ func TestNoCommandAsksAControlPlaneOnAnotherMachineInClear(t *testing.T) {
 		{"workspace", "ssh", "--stdio", "named"},
 		{"credential", "set", "forge.example"},
 		{"credential", "list"},
-		{"build", "list"},
-		{"build"},
 	} {
 		_, _, err := runAt(t, context.Background(), "", command...)
 		switch {
@@ -186,11 +198,12 @@ func TestNoCommandAsksAControlPlaneOnAnotherMachineInClear(t *testing.T) {
 // A server that does not answer is said to be the one it is, with what
 // starts it where the command line knows: the local stack by the
 // stack's own program, which someone with a released frontseat has, and
-// another control plane as the one the server file names.
+// another control plane as the one the server file names, by that
+// file's name on this machine.
 func TestAServerThatDoesNotAnswerIsSaidWithWhatStartsIt(t *testing.T) {
-	serverAt(t, "http://127.0.0.1:1")
+	kept := serverAt(t, "http://127.0.0.1:1")
 	_, code, err := runAt(t, context.Background(), "", "workspace", "list")
-	if _, said := Failed(context.Background(), err); code != ExitUnanswered || !strings.Contains(said, "the control plane frontseat/local/server names does not answer") || strings.Contains(said, "mise") {
+	if _, said := Failed(context.Background(), err); code != ExitUnanswered || !strings.Contains(said, "the control plane "+filepath.Join(kept, "server")+" names does not answer") || strings.Contains(said, "mise") {
 		t.Errorf("a control plane that does not answer: %d, %q", code, said)
 	}
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())

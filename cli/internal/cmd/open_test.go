@@ -28,7 +28,7 @@ func TestWhatTheWorkspaceDoesNotHoldIsSaidInWords(t *testing.T) {
 }
 
 // A shell opened on a workspace begins in the repository's directory
-// where the daemon's name for it is one directory's, written plainly; a
+// where the supervisor's name for it is one directory's, written plainly; a
 // name that is anything else, which a shell would read as more than a
 // name, is gone to by no one.
 func TestAShellOpenedOnAWorkspaceBeginsInItsRepository(t *testing.T) {

@@ -1,6 +1,7 @@
 // Package machine is what the command line keeps and reads on this
-// machine: the context its commands go to, the key it logs in to
-// sandboxes with, and the checkout it is run in.
+// machine: the workspace selected here (the context), the key it logs
+// in to sandboxes with, the checkout it is run in, and the build daemon
+// of a directory, which it starts.
 package machine
 
 import (
@@ -12,12 +13,17 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/frontseat-dev/frontseat/sdk/go"
 	"github.com/frontseat-dev/frontseat/stack/local"
 )
 
-// Context is the workspace last opened, and the control plane that keeps
-// it: what a command asks where it is told no workspace. The context
-// file holds it as these keys say, in the command line's format.
+// Context is the workspace selected on this machine, the one last
+// opened, and the control plane that keeps it. A workspace command told
+// no name asks that one; and while it is selected, of the control plane
+// asked now, what builds, tests, runs, queries or releases is run in it
+// and not on this machine's directory. `frontseat workspace close`
+// forgets it here. The context file holds it as these keys say, in the
+// command line's format.
 type Context struct {
 	Server    string `json:"server"`
 	Workspace string `json:"workspace"`
@@ -49,10 +55,13 @@ func contextFile() (string, error) {
 	return beneath("context.json")
 }
 
-// ReadContext returns the context: the workspace last opened. It says
+// ReadContext returns the context: the workspace selected here. It says
 // whether there is one. The file is read in its format alone: a key it
-// does not have, or more than one object, is refused, naming the file,
-// which the next workspace opened writes again.
+// does not have, more than one object, a workspace that is no
+// workspace's name or a server that is no server's address is refused,
+// naming the file and never what it holds, which is believed and
+// printed by no one: `frontseat workspace close` removes such a file,
+// and the next workspace opened writes it again.
 func ReadContext() (Context, bool, error) {
 	path, err := contextFile()
 	if err != nil {
@@ -68,10 +77,22 @@ func ReadContext() (Context, bool, error) {
 	var c Context
 	strict := json.NewDecoder(bytes.NewReader(raw))
 	strict.DisallowUnknownFields()
-	if err := strict.Decode(&c); err != nil || strict.More() {
-		return Context{}, false, fmt.Errorf("%s is not written in the command line's format: delete it, and open a workspace again", path)
+	if err := strict.Decode(&c); err != nil || strict.More() || !frontseat.IsWorkspaceName(c.Workspace) {
+		return Context{}, false, unread(path)
 	}
-	return c, true, nil
+	// A server is what the SDK makes a client for, as the server file's
+	// is (Server); it is said back as that client says it.
+	plane, err := frontseat.New(c.Server)
+	if err != nil {
+		return Context{}, false, unread(path)
+	}
+	return Context{Server: plane.Server(), Workspace: c.Workspace}, true, nil
+}
+
+// unread is a context file that does not say a context, by the file's
+// name and with the way out.
+func unread(path string) error {
+	return fmt.Errorf("%s is not written in the command line's format, and says no workspace selected here: `frontseat workspace close` removes it, and the next workspace opened writes it again", path)
 }
 
 // WriteContext keeps the context, replacing the one there was at once.
@@ -94,7 +115,10 @@ func WriteContext(c Context) error {
 	return keep(path, append(raw, '\n'))
 }
 
-// ForgetContext removes the context.
+// ForgetContext removes the context, read or not: the file is the
+// command line's own, on this machine, at the one path it keeps its
+// context (contextFile), and nothing of a control plane's. One that is
+// not there is forgotten already.
 func ForgetContext() error {
 	path, err := contextFile()
 	if err != nil {
