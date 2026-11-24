@@ -287,7 +287,7 @@ func localServer(t *testing.T, program string, flags ...string) (string, string)
 func TestAWorkspaceOpenedByEntityClonesWhatItsBackstageSays(t *testing.T) {
 	testgrid.InSandbox(t)
 	image := testbox.Image(t)
-	// The daemon in the sandbox clones from the forge over HTTP, as from
+	// The supervisor in the sandbox clones from the forge over HTTP, as from
 	// any remote; the control plane resolves through the Backstage.
 	forge := testforge.Served(t)
 	catalog := backstagetest.Serve(t, forge.Entities(t))

@@ -12,8 +12,8 @@ import (
 	"testing"
 )
 
-// Repository settings are mutable inputs even though the daemon's loaded Wasm
-// plugins are fixed. The graph and the worker must agree after a warm settings
+// Repository settings are mutable inputs even though the build daemon's loaded
+// Wasm plugins are fixed. The graph and the worker must agree after a warm settings
 // change; a cached success cannot hide malformed settings or prevent repair.
 // revalidates repository options for graph queries and real builds, refuses malformed settings and recovers.
 func TestRetainedWorkspaceRevalidatesOptionsAndRecoversAfterMalformedSettings(t *testing.T) {

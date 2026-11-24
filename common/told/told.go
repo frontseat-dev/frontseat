@@ -1,9 +1,9 @@
-// Package told is a workspace's spec as its daemon is told it through
-// the daemon's source API (frontseat.source.v1alpha1), and what a daemon
-// says it holds as a workspace's status: the one translation between the
-// workspace API and the source API, for the control plane, which is the
-// one writer of what a workspace holds, and for the test support that
-// stands in for it.
+// Package told is a workspace's spec as its supervisor is told it
+// through the supervisor's source API (frontseat.source.v1alpha1), and
+// what a supervisor says it holds as a workspace's status: the one
+// translation between the workspace API and the source API, for the
+// control plane, which is the one writer of what a workspace holds, and
+// for the test support that stands in for it.
 package told
 
 import (
@@ -13,13 +13,13 @@ import (
 	"github.com/frontseat-dev/frontseat/sdk/go/entity"
 )
 
-// The reasons a daemon refuses a source by, as ErrorInfo of the source
-// API's domain: what the control plane acts on, and relays under its own,
-// never the words.
+// The reasons a supervisor refuses a source by, as ErrorInfo of the
+// source API's domain: what the control plane acts on, and relays under
+// its own, never the words.
 const (
 	// Populating is a source told while another is being brought.
 	Populating = "SOURCE_POPULATING"
-	// Mounted is a source told to a daemon that was given a checkout.
+	// Mounted is a source told to a supervisor that was given a checkout.
 	Mounted = "SOURCE_MOUNTED"
 	// Missing is a source that names nothing to bring.
 	Missing = "SOURCE_MISSING"
@@ -38,7 +38,7 @@ type Resolved struct {
 	Located   []record.Located  `json:"located,omitempty"`
 }
 
-// Spec is what a workspace's spec asks its daemon to hold, at a
+// Spec is what a workspace's spec asks its supervisor to hold, at a
 // generation: the repositories it was asked for, each named as nameOf names it
 // from its remote, and those its entities resolved
 // to, whole where the spec asks for them whole; and where its entities
@@ -70,7 +70,7 @@ func Entities(resolved Resolved) []*workspacev1.LocatedEntity {
 	return out
 }
 
-// Status is what a daemon says it holds, as a workspace's status says
+// Status is what a supervisor says it holds, as a workspace's status says
 // it.
 func Status(held *sourcev1.Source) *workspacev1.WorkspaceStatus {
 	out := &workspacev1.WorkspaceStatus{State: workspacev1.WorkspaceStatus_STATE_STARTING, Failure: held.GetFailure()}

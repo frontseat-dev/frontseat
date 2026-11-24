@@ -11,8 +11,8 @@ import (
 	"github.com/frontseat-dev/frontseat/core/ports"
 )
 
-// When you work in the same sandbox as the daemon, you open it from your
-// editor: VS Code's remote development, or JetBrains Gateway. Both reach
+// When you work in the same sandbox as the supervisor, you open it from
+// your editor: VS Code's remote development, or JetBrains Gateway. Both reach
 // a machine over SSH and install what they need themselves, so a sandbox
 // only has to let you in.
 //

@@ -17,15 +17,15 @@ import (
 
 // plane is a control plane that says what a test has it say, and keeps
 // what it was asked: enough to show what opening asks of one, and what
-// it never asks. Its one workspace's daemon says what the test has it
-// hold.
+// it never asks. Its one workspace's supervisor says what the test has
+// it hold.
 type plane struct {
 	workspacev1alpha1connect.UnimplementedWorkspaceServiceHandler
 	// answers is how a request for a workspace is answered; nil for a
 	// refusal, which refused then says.
 	answers *workspacev1.CreateWorkspaceResponse
 	refused error
-	// holds are the remotes of what the workspace's daemon holds.
+	// holds are the remotes of what the workspace's supervisor holds.
 	holds []string
 	// kept is what the workspace there is was made with; nil for none.
 	kept *workspacev1.WorkspaceSpec

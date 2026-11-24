@@ -25,7 +25,7 @@ import (
 )
 
 // WorkspaceSpec is what a workspace holds and how it is made. Its source is in
-// its sandbox, cloned there by its daemon: no directory of the caller's
+// its sandbox, cloned there by its supervisor: no directory of the caller's
 // machine is given to it.
 type WorkspaceSpec struct {
 	// Name names the workspace; empty for the name the control plane
@@ -34,7 +34,7 @@ type WorkspaceSpec struct {
 	// Image is the box image its sandbox runs; empty for the control
 	// plane's own.
 	Image string
-	// Repositories are repositories for the daemon to clone.
+	// Repositories are repositories for the supervisor to clone.
 	Repositories []Repository
 	// Entities are entities whose source the workspace holds, each as a
 	// person types one (entity.ParsePattern reads gateway, system:kiosk,
@@ -134,7 +134,7 @@ const (
 	// OpenOutcomeCreated is a workspace that was made now.
 	OpenOutcomeCreated
 	// OpenOutcomeFilled is a workspace that was there and held nothing
-	// yet, whose daemon cloned now.
+	// yet, whose supervisor cloned now.
 	OpenOutcomeFilled
 )
 
@@ -176,8 +176,8 @@ func (c *Client) Workspaces(ctx context.Context) iter.Seq2[*workspacev1.Workspac
 }
 
 // Open gives the workspace a spec asks for: the one the control plane
-// keeps, as it was left, or a new one, whose daemon clones what the
-// spec names. It returns once the workspace can be worked in. A spec
+// keeps, as it was left, or a new one, whose supervisor clones what
+// the spec names. It returns once the workspace can be worked in. A spec
 // that names a workspace and nothing more than the key that may open a
 // shell in it opens the one there is by that name, and makes none.
 //

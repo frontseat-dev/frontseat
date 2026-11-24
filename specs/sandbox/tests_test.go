@@ -14,8 +14,8 @@ import (
 // A module's tests are an action for each package that has tests, and a
 // package's test runs where the go command would run it: in the
 // package's directory, with the fixtures under it. Here that is asked of
-// a daemon in a workspace's sandbox, which cloned the repository: the
-// plugin is the sandbox image's own, and the grid runs what it said.
+// a build daemon in a workspace's sandbox, whose supervisor cloned the
+// repository: the plugin is the sandbox image's own, and the grid runs what it said.
 // A package's tests, in a workspace's sandbox / A package beneath a module is tested in its own directory, with its fixture.
 func TestAPackageBeneathAModuleIsTestedInItsOwnDirectoryWithItsFixture(t *testing.T) {
 	spec := newScenario(t)

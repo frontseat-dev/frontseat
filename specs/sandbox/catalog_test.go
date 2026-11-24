@@ -9,8 +9,8 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// The catalog plugin runs in the sandbox's daemon, with the same SDK and API
-// as the build plugins. Its descriptors must survive the real sandbox image,
+// The catalog plugin runs in the sandbox's build daemon, with the same SDK
+// and API as the build plugins. Its descriptors must survive the real sandbox image,
 // cloned source, Wasm runtime and client tunnel, including error recovery.
 // Catalogs in sandboxes / The sandbox discovers catalog entities and recovers after a malformed descriptor is repaired.
 func TestTheSandboxDiscoversCatalogEntitiesAndRecoversAfterAMalformedDescriptorIsRepaired(t *testing.T) {

@@ -1,4 +1,4 @@
-// Package toldtest tells a daemon, for a test, what the control plane
+// Package toldtest tells a supervisor, for a test, what the control plane
 // would: a workspace's spec with its entities resolved through a fake
 // Backstage (backstagetest), as the control plane resolves them through
 // its operator's.
@@ -17,7 +17,7 @@ import (
 	"github.com/frontseat-dev/frontseat/workspace/server/backstage"
 )
 
-// Spec is what a daemon is told of a spec at a generation, its entities
+// Spec is what a supervisor is told of a spec at a generation, its entities
 // resolved through a fake Backstage, each repository named as nameOf
 // names one. With no Backstage, a spec of entities is refused, as a
 // control plane given none refuses it.

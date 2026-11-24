@@ -289,12 +289,12 @@ the change that fixes it.
   ways, and nothing of it runs, when its handler returns
   (`sandbox.Carry`): when either end does, or the control plane is
   closed, which waits for each.
-  Held by: `TestADaemonStartedAgainOrToldFromInsideIsToldWhatTheControlPlaneKeeps`,
+  Held by: `TestASupervisorStartedAgainOrToldFromInsideIsToldWhatTheControlPlaneKeeps`,
   `TestASandboxHoldsOneSupervisor`,
   `TestNoCallOfTheBuildAPIIsServedOrForwardedByTheControlPlane`, the
   SDK's `TestAWorkspaceAControlPlaneKeepsIsBuiltFromInsideIt`,
-  `TestADaemonThatIsBringingIsKnownByItsReasonAndNotByItsWords`,
-  `TestWhatADaemonRefusesToHoldIsRefusedByAReason`,
+  `TestASupervisorThatIsBringingIsKnownByItsReasonAndNotByItsWords`,
+  `TestWhatASupervisorRefusesToHoldIsRefusedByAReason`,
   `TestAPortOfAWorkspacesSandboxIsCarriedToItsOwnerAlone`,
   `TestAPortThatIsNotReachedIsRefusedByNameAndNothingOfWhatWasSaidOfItIsToldTheCaller`,
   `TestAWorkspaceInNoSandboxYetIsRefusedItsPortsByName`,
@@ -544,8 +544,8 @@ the change that fixes it.
   `TestAReleasePushesItsTagsAndSaysWhichItCouldNot`,
   `TestATagIsPushedAloneAndNeverOverAnother` and
   `TestAPushGoesToTheRemoteGivenAndSaysNothingTheRepositoryAdds`. Not
-  held: the daemon is not told whether it may push, and tries, so a
-  workspace opened without `--push` ends unpushed by its gateway's
+  held: the build daemon is not told whether it may push, and tries, so
+  a workspace opened without `--push` ends unpushed by its gateway's
   refusal, which no test makes; of several tags, those sent before one is
   refused stay sent, and those after it are not tried; a remote given
   as a directory runs its own hooks as the daemon; why a push failed
@@ -555,7 +555,7 @@ the change that fixes it.
   action kind `Publish`; `kind: publish` on an entity's own action) and runs
   a forge's command line or a registry's client. Nothing of Frontseat's
   speaks to a forge or a registry. No build runs it. A release runs it
-  once every tag is pushed, where the daemon is
+  once every tag is pushed, where the build daemon is
   (`build/engine/exec/publish`, beside a fix in
   `build/engine/exec/here`) and never on the grid, with the tools the
   repository pins, for each unit it tagged then: the unit that owns the
@@ -693,7 +693,7 @@ the change that fixes it.
 - A release from a workspace publishes nothing: one whose plan
   something would publish is refused before anything is built or
   tagged, `UNIMPLEMENTED` with `PUBLISH_NOT_SERVED`, naming what
-  publishes. What publishes runs where the daemon is, and a workspace's
+  publishes. What publishes runs where the build daemon is, and a workspace's
   sandbox is let through to no forge or registry, so it would tag, push
   and then fail, leaving a release that making it again does not
   finish. A release publishes from a checkout the daemon was given, as a
@@ -1031,8 +1031,8 @@ the change that fixes it.
   host over https goes with a request a sandbox sends to that host and
   port in the clear too, since OpenShell's gateway has no rule that asks
   for TLS (`TestTheGatewayStillSendsACredentialInTheClearWhereASandboxAsks`).
-- **A grid that asks who a daemon is, is told by a token the daemon reads
-  from a file** (owner, 2026-11-16): its settings name the file
+- **A grid that asks who a build daemon is, is told by a token the daemon
+  reads from a file** (owner, 2026-11-16): its settings name the file
   (`grid.token`), with a PEM file of the grid's authorities
   (`grid.authorities`), for the grid and its asset service alike
   (`build/engine/exec/access`, `docs/build-settings.md`). A token is told
@@ -1144,9 +1144,9 @@ mise run docs:serve       # serve the TechDocs site on http://localhost:8000
 | `build/engine/pluginhost` | Wasm calls, read tracking, plugin-answer validation |
 | `core/httpserver` | A server command's HTTP listener and request lifetime |
 | `core/image` | An image's reference, read by Docker's own parser, and what the container runtime says an image is started with (`Started`) |
-| `common/runner/testservice` | What a service for tests is held to, for the daemon and the runner |
+| `common/runner/testservice` | What a service for tests is held to, for the build daemon and the runner |
 | `common/confine` | How a worker starts and confines an action (`frontseat-confine`) |
-| `build/engine/exec/here` | A command made ready to run where the daemon is, with the grid's tools: a fix, and what publishes |
+| `build/engine/exec/here` | A command made ready to run where the build daemon is, with the grid's tools: a fix, and what publishes |
 | `core/plain` | Text and names that every reader reads alike: the one reader of a name from outside, a host (`Hostname`), its origin (`OriginOf`, `Ruled`), a path, a program, a parameter, a secret |
 | `common/record/records` | A directory of records, each written whole and read strictly: the control plane's workspaces and credentials, the sandbox service's sandboxes, a workspace's manifest (`Write`) |
 | `core/secretfile` | A secret read from a file and a directory that are the server's alone |

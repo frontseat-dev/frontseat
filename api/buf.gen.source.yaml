@@ -1,5 +1,5 @@
-# The daemon's internal API (frontseat.source.v1alpha1), in Go, for the
-# server alone: the control plane tells a workspace's daemon what to
+# The supervisor's internal API (frontseat.source.v1alpha1), in Go, for the
+# server alone: the control plane tells a workspace's supervisor what to
 # hold through it, and nothing else asks it. It is generated into the
 # server's internal packages (common/told/sourceapi), with its
 # Connect handler and client, and never into the Go SDK; the types of

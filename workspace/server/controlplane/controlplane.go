@@ -106,7 +106,7 @@ type Config struct {
 	// Every is how often a workspace that is not yet as asked is worked
 	// on; zero for a quarter of a second.
 	Every time.Duration
-	// Answers is how long a daemon is waited for once its sandbox runs,
+	// Answers is how long a supervisor is waited for once its sandbox runs,
 	// before the workspace has failed; zero for two minutes.
 	Answers time.Duration
 	// Starts is how long a sandbox is waited for to run, before the
@@ -292,7 +292,7 @@ type held struct {
 	// pass is held by whoever works on the workspace: one at a time.
 	pass sync.Mutex
 	// stopping guards stop, which ends the pass working on it now, if
-	// one is: an ending does not wait on what a pass asks of its daemon.
+	// one is: an ending does not wait on what a pass asks of its supervisor.
 	// interrupted holds that an ending was asked for and is not yet
 	// recorded, so that a pass begun after it is stopped too; turn names
 	// the pass whose stop it holds. An ending pass is never stopped.
@@ -307,7 +307,7 @@ type held struct {
 	// made is the spec its sandbox was made for.
 	made *workspacev1.WorkspaceSpec
 	// resolved is what its entities resolved to, each once, when it was
-	// asked for: its daemon is told from it, and it is never resolved
+	// asked for: its supervisor is told from it, and it is never resolved
 	// again.
 	resolved told.Resolved
 	// sandbox is the sandbox it lives in, once one was asked for.
@@ -321,19 +321,19 @@ type held struct {
 	requests []string
 	// ending is whether it was asked to end.
 	ending bool
-	// generation counts what its daemon was told to hold: one for what it
-	// was made with, and one more for each spec its daemon took after.
-	// A daemon that holds another, started again or told otherwise from
+	// generation counts what its supervisor was told to hold: one for what it
+	// was made with, and one more for each spec its supervisor took after.
+	// A supervisor that holds another, started again or told otherwise from
 	// inside its sandbox, is told this one.
 	generation int64
-	// failed is why its sandbox could not be made or its daemon told;
+	// failed is why its sandbox could not be made or its supervisor told;
 	// empty while neither failed. It stands until it is asked for again.
 	failed string
 	// again asks that what failed be tried again, and resume that a
 	// paused sandbox be gone on with.
 	again, resume bool
 	// running is since when its sandbox runs with no answer from its
-	// daemon; zero while it answers or does not run.
+	// supervisor; zero while it answers or does not run.
 	running time.Time
 	// starting is since when its sandbox was found not yet running; zero
 	// once it runs.
@@ -601,7 +601,7 @@ func (s *service) ListWorkspaces(ctx context.Context, req *workspacev1.ListWorks
 	out := &workspacev1.ListWorkspacesResponse{}
 	for _, h := range all {
 		// As the last pass found each: a list is not held up by one
-		// workspace whose daemon is slow to answer.
+		// workspace whose supervisor is slow to answer.
 		if seen := h.seen.Load(); seen != nil {
 			out.Workspaces = append(out.Workspaces, seen)
 		}
@@ -678,8 +678,8 @@ func (s *service) UpdateWorkspace(ctx context.Context, req *workspacev1.UpdateWo
 	if !proto.Equal(once(has), asked) {
 		return nil, refusedFor(connect.CodeInvalidArgument, "SPEC_FIXED", "the spec changes what is said once of a workspace: whether it pushes, who commits, whose key gets in, its image, its lifetime")
 	}
-	// What is added is told its daemon now, and kept only where the
-	// daemon took it: what it would refuse is refused here, and is never
+	// What is added is told its supervisor now, and kept only where the
+	// supervisor took it: what it would refuse is refused here, and is never
 	// kept to be told again and again.
 	if h.sandbox == "" || h.seen.Load().GetStatus().GetState() != workspacev1.WorkspaceStatus_STATE_READY {
 		return nil, refusedFor(connect.CodeFailedPrecondition, "WORKSPACE_NOT_READY", fmt.Sprintf("the workspace %s is not ready, and is brought more once it is", h.workspace.GetName()))
@@ -705,7 +705,7 @@ func (s *service) UpdateWorkspace(ctx context.Context, req *workspacev1.UpdateWo
 	kept.Repositories, kept.Entities, kept.WholeRepositories = wanted.GetRepositories(), wanted.GetEntities(), wanted.GetWholeRepositories()
 	// An ending asked for meanwhile stops it, as it stops a pass.
 	telling, cancel := h.stoppable(ctx, 2*time.Minute)
-	answered, err := s.daemon(h.sandbox).SetSource(telling, &sourcev1.SetSourceRequest{Spec: told.Spec(kept, h.generation+1, resolved, s.nameOf)})
+	answered, err := s.supervisor(h.sandbox).SetSource(telling, &sourcev1.SetSourceRequest{Spec: told.Spec(kept, h.generation+1, resolved, s.nameOf)})
 	stopped := errors.Is(telling.Err(), context.Canceled) && ctx.Err() == nil
 	cancel()
 	if stopped {
@@ -714,7 +714,7 @@ func (s *service) UpdateWorkspace(ctx context.Context, req *workspacev1.UpdateWo
 	if err != nil {
 		return nil, relayed(err)
 	}
-	// The daemon took the generation: it is never given again, though
+	// The supervisor took the generation: it is never given again, though
 	// what was told with it is not kept where keeping fails.
 	h.generation++
 	before, resolvedBefore := h.workspace.Spec, h.resolved
@@ -859,7 +859,7 @@ func (s *service) carry(w http.ResponseWriter, r *http.Request, h *held, in stri
 // nothing of what speaks there. Which port is read from the request,
 // with whether it names one. What names none, a port written as
 // anything but its number among it, is refused by name, and so is the
-// port of the daemon's source API, which the control plane alone dials
+// port of the supervisor's source API, which the control plane alone dials
 // and leads no caller to (AGENTS.md, "A workspace has one writer"):
 // each PORT_NOT_SERVED, with nothing of the sandbox asked, and without
 // what was written said back. Whoever is not the owner is refused
@@ -1024,11 +1024,11 @@ func (s *service) reconcile(ctx context.Context, h *held) {
 	h.show(s.view(h, status))
 }
 
-// daemon is a client of the source API of the daemon in a workspace's
-// sandbox, on its source port, reached inside this server and through
-// nothing a client could reach instead: no route of the control plane's
-// leads there.
-func (s *service) daemon(sandbox string) sourcev1alpha1connect.SourceServiceClient {
+// supervisor is a client of the source API of the supervisor in a
+// workspace's sandbox, on its source port, reached inside this server
+// and through nothing a client could reach instead: no route of the
+// control plane's leads there.
+func (s *service) supervisor(sandbox string) sourcev1alpha1connect.SourceServiceClient {
 	over := &http.Client{Transport: &http.Transport{
 		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
 			return s.Sandboxes.Dial(ctx, sandbox, ports.Source)
@@ -1165,14 +1165,14 @@ func (s *service) step(ctx context.Context, h *held) *workspacev1.WorkspaceStatu
 		}
 		return &workspacev1.WorkspaceStatus{State: workspacev1.WorkspaceStatus_STATE_STARTING}
 	}
-	// Its daemon, which holds its source: what the workspace is to hold
+	// Its supervisor, which holds its source: what the workspace is to hold
 	// is told to it, at the generation kept, and what it holds is read
 	// from it. Nothing it says is kept as what was asked for.
-	daemon := s.daemon(h.sandbox)
+	supervisor := s.supervisor(h.sandbox)
 	asking, cancel := context.WithTimeout(ctx, 5*time.Second)
 	// It answers before the deadline, bringing or not: one that does
 	// not has not answered.
-	waited, err := daemon.WaitSource(asking, &sourcev1.WaitSourceRequest{Generation: h.generation})
+	waited, err := supervisor.WaitSource(asking, &sourcev1.WaitSourceRequest{Generation: h.generation})
 	cancel()
 	if err != nil {
 		// It starts a moment after its sandbox does; one that does not
@@ -1182,7 +1182,7 @@ func (s *service) step(ctx context.Context, h *held) *workspacev1.WorkspaceStatu
 		}
 		if time.Since(h.running) > s.Answers {
 			h.again = false
-			return failed("its daemon does not answer: " + err.Error())
+			return failed("its supervisor does not answer: " + err.Error())
 		}
 		return &workspacev1.WorkspaceStatus{State: workspacev1.WorkspaceStatus_STATE_STARTING}
 	}
@@ -1196,7 +1196,7 @@ func (s *service) step(ctx context.Context, h *held) *workspacev1.WorkspaceStatu
 	telling := held.GetGeneration() != h.generation || (h.again && held.GetState() == sourcev1.Source_STATE_FAILED)
 	if telling && !busy {
 		telling, cancel := context.WithTimeout(ctx, 2*time.Minute)
-		answered, err := daemon.SetSource(telling, &sourcev1.SetSourceRequest{Spec: told.Spec(h.workspace.GetSpec(), h.generation, h.resolved, s.nameOf)})
+		answered, err := supervisor.SetSource(telling, &sourcev1.SetSourceRequest{Spec: told.Spec(h.workspace.GetSpec(), h.generation, h.resolved, s.nameOf)})
 		cancel()
 		// One that is bringing what it was told before is told again
 		// once that is done: it says so by its reason, never its words.
@@ -1205,7 +1205,7 @@ func (s *service) step(ctx context.Context, h *held) *workspacev1.WorkspaceStatu
 		}
 		h.again = false
 		if err != nil {
-			h.failed = "its daemon could not be had to bring what was asked for: " + err.Error()
+			h.failed = "its supervisor could not be had to bring what was asked for: " + err.Error()
 			return failed(h.failed)
 		}
 		held = answered.GetSource()
@@ -1229,7 +1229,7 @@ type stored struct {
 	Owner string `json:"owner,omitempty"`
 	// Ending is whether it was asked to end.
 	Ending bool `json:"ending,omitempty"`
-	// Generation counts what its daemon was told to hold.
+	// Generation counts what its supervisor was told to hold.
 	Generation int64 `json:"generation,omitempty"`
 	// Resolved is what its entities resolved to.
 	Resolved told.Resolved `json:"resolved,omitzero"`
@@ -1253,7 +1253,7 @@ func (s *service) keep(h *held) error {
 
 // recover takes up the workspaces a control plane before this one kept:
 // each is worked on from what was asked for, wherever the one before
-// stopped. A record of no one's workspace, or of one whose daemon was
+// stopped. A record of no one's workspace, or of one whose supervisor was
 // told of no generation, is none this server wrote, and is refused: a
 // workspace is its owner's alone.
 func (s *service) recover() error {
@@ -1284,7 +1284,7 @@ func (s *service) recover() error {
 			return unread(err)
 		}
 		if kept.Owner == "" || kept.Generation < 1 {
-			return unread(errors.New("it names no owner, or no generation its daemon was told"))
+			return unread(errors.New("it names no owner, or no generation its supervisor was told"))
 		}
 		h.sandbox, h.requests, h.owner, h.ending, h.generation, h.resolved = kept.Sandbox, kept.Requests, kept.Owner, kept.Ending, kept.Generation, kept.Resolved
 		state := workspacev1.WorkspaceStatus_STATE_STARTING
@@ -1354,8 +1354,8 @@ func OverGateway(c Config, gateway Gateway) (*Plane, error) {
 // ports.Builds).
 var written = []string{"/work", "/var/lib/frontseat"}
 
-// relayed is a daemon's refusal as the control plane says it on: what
-// the daemon refused by name is refused by the same reason, in the
+// relayed is a supervisor's refusal as the control plane says it on: what
+// the supervisor refused by name is refused by the same reason, in the
 // workspace API's domain, and anything else with its code and words.
 func relayed(err error) error {
 	var said *connect.Error

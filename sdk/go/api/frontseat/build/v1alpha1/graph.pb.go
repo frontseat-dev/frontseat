@@ -55,8 +55,8 @@ type Entity struct {
 	// settings its members inherit. Unset for any other.
 	Release *EntityRelease `protobuf:"bytes,7,opt,name=release,proto3" json:"release,omitempty"`
 	// Commit is the commit its repository stands at, as the workspace
-	// records it of what it brought; empty where the daemon was given one
-	// repository as it is, and brought none.
+	// records it of what was brought; empty where the build daemon was
+	// given one repository as it is, and none was brought.
 	Commit        string `protobuf:"bytes,8,opt,name=commit,proto3" json:"commit,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -614,7 +614,7 @@ func (x *ProjectRequirement) GetVersion() string {
 type ProjectRef struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Repository is the workspace's name for its repository; empty where the
-	// daemon was given one directory and cloned nothing.
+	// build daemon was given one directory and nothing was cloned.
 	Repository string `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 	// Root is its directory, relative to the repository; empty for the
 	// repository's root.

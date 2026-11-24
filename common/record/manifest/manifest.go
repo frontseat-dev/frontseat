@@ -14,7 +14,7 @@ import (
 	"github.com/frontseat-dev/frontseat/common/record/records"
 )
 
-// version is the manifest's version this daemon writes, and the one it
+// version is the manifest's version this program writes, and the one it
 // reads.
 const version = 1
 
@@ -22,7 +22,7 @@ const version = 1
 // it has one. The file is the workspace's, and whatever runs there can
 // write it: one that names a place outside the workspace, or a commit
 // that is not one as revision holds it, is an error. So is one of
-// another version, or with a key this daemon does not write: another
+// another version, or with a key this program does not write: another
 // reader meant something by it that this one would pass over.
 func Read(dir string, revision func(name string) error) (Manifest, bool, error) {
 	raw, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(File)))
@@ -58,7 +58,7 @@ func Read(dir string, revision func(name string) error) (Manifest, bool, error) 
 }
 
 // Settle removes what a write that was never finished left beside the
-// manifest, in a daemon that ended between making it and putting it in
+// manifest, in a supervisor that ended between making it and putting it in
 // place. It is called where nothing is being written: when the
 // workspace is opened.
 func Settle(dir string) error {
@@ -68,7 +68,7 @@ func Settle(dir string) error {
 // Write keeps the manifest in the workspace's directory, whole or as it
 // was: it is written beside the one it replaces and put in its place,
 // so that whoever reads it finds all of it or the one before, and a
-// daemon stopped while it writes leaves the one that was there.
+// supervisor stopped while it writes leaves the one that was there.
 func Write(dir string, m Manifest) error {
 	m.Version = version
 	raw, err := yaml.Marshal(m)

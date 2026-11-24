@@ -16,7 +16,7 @@ modules:
   - path: workspace-proto
   # Credentials: a person's secrets for the hosts their workspaces reach.
   - path: credential-proto
-  # The source a workspace's daemon holds: the daemon's internal API,
+  # The source a workspace's supervisor holds: the supervisor's internal API,
   # which the control plane alone asks.
   - path: source-proto
   # What a worker's runner is told to start for a test: a file of the

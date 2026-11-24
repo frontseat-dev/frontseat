@@ -27,11 +27,12 @@ const Variable = "FRONTSEAT_TEST_GRID"
 // (testrequired.Missing). It is where the local stack serves the Remote
 // Execution API, or FRONTSEAT_TEST_GRID where that is set. Where it is
 // the local stack's, the workers are first given this checkout's
-// confiner, frontseat-confine (Confiner): a daemon this checkout builds starts every
-// action by it, and a grid that another checkout's stack runs has only
-// what that checkout installed. A grid FRONTSEAT_TEST_GRID names is given
-// nothing: it must hold this checkout's form already, or its actions are
-// not started (reapi says so).
+// confiner, frontseat-confine (Confiner): a build daemon this checkout
+// builds starts every action by it, and a grid that another checkout's
+// stack runs has only what that checkout installed. A grid
+// FRONTSEAT_TEST_GRID names is given nothing: it must hold this
+// checkout's form already, or its actions are not started (reapi says
+// so).
 func Address(t testing.TB) string {
 	t.Helper()
 	testrequired.Stack(t)
@@ -74,7 +75,7 @@ func Confiner(t testing.TB) string {
 }
 
 // Confined is what a command another tool sends the grid begins with, as
-// frontseat's daemon begins each action's: this checkout's confiner, its
+// frontseat's build daemon begins each action's: this checkout's confiner, its
 // spec and the way up to the action's root, its input root, where an
 // action of Bazel's runs (confine.Arguments). The grid's runner runs no
 // other command.
@@ -88,8 +89,8 @@ func Confined(t testing.TB) []string {
 	return []string{confiner, spec, "."}
 }
 
-// InSandbox returns what a daemon in a sandbox on this machine is told
-// of the grid: its address as a container reaches it, its asset service
+// InSandbox returns what a supervisor in a sandbox on this machine is
+// told of the grid: its address as a container reaches it, its asset service
 // and its workers' platform. It skips the test where no grid answers.
 func InSandbox(t testing.TB) local.Grid {
 	t.Helper()

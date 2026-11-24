@@ -23,7 +23,7 @@ import (
 
 // real is the real sandbox service, over a driver the test holds, as
 // the control plane asks it: its calls go to the service itself, served
-// as it is served to anyone. It leads to no port, so no daemon answers
+// as it is served to anyone. It leads to no port, so no supervisor answers
 // and a workspace over it does not come to be ready.
 type real struct {
 	sandboxv1alpha1connect.UnimplementedSandboxServiceHandler

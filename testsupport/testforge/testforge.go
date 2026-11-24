@@ -129,8 +129,8 @@ func TestCannotChangeWhatItWasGiven(t *testing.T) {
 }
 `
 
-// Make makes a forge that is cloned from its directory, by a daemon of
-// this machine.
+// Make makes a forge that is cloned from its directory, by a supervisor
+// of this machine.
 func Make(t testing.TB) Forge {
 	t.Helper()
 	dir := t.TempDir()

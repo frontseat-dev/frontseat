@@ -63,21 +63,21 @@ func resolving(t *testing.T, fake backstagetest.Served) func(*Config) {
 	return func(c *Config) { c.Entities = catalog }
 }
 
-// toldAgain waits until a daemon was told so many times, and returns
+// toldAgain waits until a supervisor was told so many times, and returns
 // what it was told last.
-func toldAgain(t *testing.T, daemon *managing, times int) *sourcev1.SourceSpec {
+func toldAgain(t *testing.T, supervisor *managing, times int) *sourcev1.SourceSpec {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
 	for {
-		n, _ := daemon.was()
-		daemon.mu.Lock()
-		spec := daemon.spec
-		daemon.mu.Unlock()
+		n, _ := supervisor.was()
+		supervisor.mu.Lock()
+		spec := supervisor.spec
+		supervisor.mu.Unlock()
 		if n >= times {
 			return spec
 		}
 		if time.Now().After(deadline) {
-			t.Fatalf("its daemon was told %d times, want %d", n, times)
+			t.Fatalf("its supervisor was told %d times, want %d", n, times)
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
@@ -125,7 +125,7 @@ func TestAWorkspaceOfEntitiesIsRefusedWhereNoneAreServed(t *testing.T) {
 }
 
 // An entity resolves on the control plane to the repositories that hold
-// it and the components it depends on, which its daemon is told by name
+// it and the components it depends on, which its supervisor is told by name
 // with where each entity is, and which its sandbox reaches alone: the
 // catalog's host is not among what it reaches. The status says what
 // each resolved to.
@@ -138,7 +138,7 @@ func TestAnEntityResolvesToTheRepositoriesItsSandboxReachesAlone(t *testing.T) {
 		t.Fatal(err)
 	}
 	ready := waited(t, client, "gateway")
-	holds := toldAgain(t, s.daemon(s.of("gateway")), 1)
+	holds := toldAgain(t, s.supervisor(s.of("gateway")), 1)
 	var repositories, located []string
 	for _, r := range holds.GetRepositories() {
 		repositories = append(repositories, r.GetName()+"="+r.GetRemote()+"@"+r.GetRef()+":"+strings.Join(r.GetRoots(), ","))
@@ -147,10 +147,10 @@ func TestAnEntityResolvesToTheRepositoriesItsSandboxReachesAlone(t *testing.T) {
 		located = append(located, l.GetRef().GetKind()+":"+l.GetRef().GetNamespace()+"/"+l.GetRef().GetName()+"@"+l.GetRepository()+"/"+l.GetRoot())
 	}
 	if got := strings.Join(repositories, " "); got != "platform=https://forge.example/acme/platform@main:gateway services=https://forge.example/acme/services@main:greet" {
-		t.Errorf("its daemon was told the repositories %s", got)
+		t.Errorf("its supervisor was told the repositories %s", got)
 	}
 	if got := strings.Join(located, " "); got != "component:default/gateway@platform/gateway component:default/greet@services/greet" {
-		t.Errorf("its daemon was told the entities are %s", got)
+		t.Errorf("its supervisor was told the entities are %s", got)
 	}
 	if entities := ready.GetStatus().GetEntities(); len(entities) != 2 || entities[0].GetRepository() != "platform" || entities[1].GetRoot() != "greet" {
 		t.Errorf("its status says its entities are %v", entities)
@@ -174,8 +174,8 @@ func TestAnEntityResolvesToTheRepositoriesItsSandboxReachesAlone(t *testing.T) {
 }
 
 // What a workspace's entities resolved to is kept with it, and every
-// later telling of its daemon is from it: after the catalog changes, a
-// daemon started again, and a control plane started again, tell what
+// later telling of its supervisor is from it: after the catalog changes, a
+// supervisor started again, and a control plane started again, tell what
 // was resolved when it was asked for. The control is a workspace asked
 // for after the change, which resolves to what the catalog says now.
 func TestAResolutionIsKeptAndNotDoneAgain(t *testing.T) {
@@ -188,20 +188,20 @@ func TestAResolutionIsKeptAndNotDoneAgain(t *testing.T) {
 		t.Fatal(err)
 	}
 	waited(t, client, "kept")
-	toldAgain(t, s.daemon("sbx_1"), 1)
+	toldAgain(t, s.supervisor("sbx_1"), 1)
 	fake.Set(t, strings.Replace(catalogOfTheTests, "code.git/tree/main/payments", "code.git/tree/main/moved", 1))
 	asked := len(fake.Asked())
-	s.daemon("sbx_1").restarted()
-	again := toldAgain(t, s.daemon("sbx_1"), 2)
+	s.supervisor("sbx_1").restarted()
+	again := toldAgain(t, s.supervisor("sbx_1"), 2)
 	if again.GetEntities()[0].GetRoot() != "payments" || again.GetRepositories()[0].GetRoots()[0] != "payments" {
-		t.Errorf("a daemon started again was told %v, want what was resolved", again)
+		t.Errorf("a supervisor started again was told %v, want what was resolved", again)
 	}
 	first.Close()
 	after, _, _ := served(t, s, state, resolving(t, fake))
-	s.daemon("sbx_1").restarted()
-	recovered := toldAgain(t, s.daemon("sbx_1"), 3)
+	s.supervisor("sbx_1").restarted()
+	recovered := toldAgain(t, s.supervisor("sbx_1"), 3)
 	if recovered.GetEntities()[0].GetRoot() != "payments" || recovered.GetRepositories()[0].GetRoots()[0] != "payments" {
-		t.Errorf("under a control plane started again, its daemon was told %v", recovered)
+		t.Errorf("under a control plane started again, its supervisor was told %v", recovered)
 	}
 	if described, err := after.DescribeWorkspace(ctx, &workspacev1.DescribeWorkspaceRequest{Name: "kept"}); err != nil || described.GetWorkspace().GetStatus().GetEntities()[0].GetRoot() != "payments" {
 		t.Errorf("a control plane started again says its entities are %v (%v)", described.GetWorkspace().GetStatus().GetEntities(), err)
@@ -213,7 +213,7 @@ func TestAResolutionIsKeptAndNotDoneAgain(t *testing.T) {
 		t.Fatal(err)
 	}
 	waited(t, after, "fresh")
-	if fresh := toldAgain(t, s.daemon(s.of("fresh")), 1); fresh.GetEntities()[0].GetRoot() != "moved" {
+	if fresh := toldAgain(t, s.supervisor(s.of("fresh")), 1); fresh.GetEntities()[0].GetRoot() != "moved" {
 		t.Errorf("the control, a workspace asked for after the change, was told %v", fresh)
 	}
 }

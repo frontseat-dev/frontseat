@@ -100,7 +100,7 @@ func Tracer(ctx context.Context) trace.Tracer {
 }
 
 // Pipeline starts a CI/CD pipeline run below the command that requested it.
-// The daemon resource remains the service; run identity is scoped to this span,
+// The build daemon resource remains the service; run identity is scoped to this span,
 // never attached to the shared provider or to metric dimensions.
 func Pipeline(ctx context.Context, name, id string) (context.Context, trace.Span) {
 	action := semconv.CICDPipelineActionNameRun
@@ -124,7 +124,7 @@ func Result(span trace.Span, result attribute.KeyValue, errorType, message strin
 	}
 }
 
-// PipelineDuration measures the executing state, from the daemon starting work
+// PipelineDuration measures the executing state, from the build daemon starting work
 // through its last task. Transport instrumentation measures requests separately.
 // IDs and action labels must not be metric dimensions. The SDK supplies exemplars.
 func PipelineDuration(ctx context.Context, name string, elapsed time.Duration, result attribute.KeyValue, errorType string) {

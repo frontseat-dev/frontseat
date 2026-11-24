@@ -17,7 +17,7 @@ import (
 // building, looking at what it holds, opening a shell. Nothing of the
 // sandbox is exposed on its own.
 //
-// A workspace's source is in its sandbox: the daemon clones it there, and
+// A workspace's source is in its sandbox: the supervisor clones it there, and
 // no directory of your machine is given to a sandbox. The specs use a
 // workspace that cloned a repository holding one Go module, hello.
 // Workspaces in sandboxes / The repository you name is what the workspace holds.

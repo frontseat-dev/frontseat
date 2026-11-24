@@ -1,7 +1,7 @@
 // frontseat.build.v1alpha1: runs. A run runs a program the
 // workspace builds: it builds what the program is made of, on the grid,
-// as any build does, and then starts the program where the daemon is, in
-// the daemon's own sandbox, with the arguments it was given. It is a
+// as any build does, and then starts the program where the build daemon
+// is, in the daemon's own sandbox, with the arguments it was given. It is a
 // resource: it has an id, it outlives the call that made it, and it is
 // there until the program ends or it is stopped.
 //

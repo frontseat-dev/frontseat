@@ -1,6 +1,6 @@
 // Package testbox gives a test the box image, built from this repository
-// as it stands by the box's one build (stack/box): the daemon and the
-// client for Linux and the plugins, laid on the sandbox image the local
+// as it stands by the box's one build (stack/box): the supervisor and the
+// command line for Linux and the plugins, laid on the sandbox image the local
 // grid's workers run.
 //
 // The image is built by the gate before the tests run (Variable), never

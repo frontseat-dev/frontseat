@@ -3,7 +3,7 @@ kind: Component
 metadata:
   name: workspace-box
   namespace: frontseat
-  description: "What fills a workspace's directory as the control plane tells it, and serves its shell: the daemon's source API"
+  description: "What fills a workspace's directory as the control plane tells it, and serves its shell: the supervisor's source API"
 spec:
   type: service
   lifecycle: experimental

@@ -15,7 +15,7 @@ import (
 	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1/workspacev1alpha1connect"
 )
 
-// graphed is a workspace's daemon whose graph is three components:
+// graphed is a workspace's build daemon whose graph is three components:
 // gateway needs ledger, which needs money, in another repository; both
 // gateway and money require cobra, from outside the workspace. It keeps
 // what it was asked to build.

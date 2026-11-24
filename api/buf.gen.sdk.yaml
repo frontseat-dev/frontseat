@@ -33,7 +33,7 @@ plugins:
 # Every module of the workspace (buf.yaml), but the protos copied in from
 # googleapis, whose Go their owners publish, the plugin contract, whose
 # Go is the daemon's alone (buf.gen.daemon.yaml), and what the runner is
-# told, the daemon's internal API and the sandbox API, whose Go is the
+# told, the supervisor's internal API and the sandbox API, whose Go is the
 # server's alone (buf.gen.runner.yaml, buf.gen.source.yaml,
 # buf.gen.sandbox.yaml).
 inputs:

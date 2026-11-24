@@ -22,8 +22,8 @@ type Shell struct {
 }
 
 // NewShell starts workspace editor access. With no authorized keys it returns
-// nil: a sandbox intended only for a daemon serves no editor endpoint, and
-// the nil Shell is one that serves nothing, which Wait and Close take.
+// nil: a sandbox intended only for a supervisor serves no editor endpoint,
+// and the nil Shell is one that serves nothing, which Wait and Close take.
 func NewShell(config ShellConfig) (*Shell, error) {
 	keys, err := shell.Authorized(config.AuthorizedKeys)
 	if err != nil || len(keys) == 0 {

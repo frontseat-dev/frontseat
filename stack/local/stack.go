@@ -88,9 +88,10 @@ func ISA(goarch string) string {
 	return map[string]string{"arm64": "aarch64", "amd64": "x86-64"}[goarch]
 }
 
-// Grid is what a daemon on this machine is told of the stack's grid.
+// Grid is what a box's supervisor on this machine is told of the
+// stack's grid.
 type Grid struct {
-	// Address is the grid's, host:port, as the daemon reaches it.
+	// Address is the grid's, host:port, as a build daemon reaches it.
 	Address string
 	// Assets is the asset service's, host:port, on the grid's host.
 	Assets string
@@ -98,9 +99,10 @@ type Grid struct {
 	Platform map[string]string
 }
 
-// Grid returns what a daemon is told of the grid at an address, as a
-// sandbox reaches it: its workers' platform, and the asset service on the
-// same host, which fetches a download from where it names.
+// Grid returns what a box's supervisor is told of the grid at an
+// address, as a sandbox reaches it: its workers' platform, and the
+// asset service on the same host, which fetches a download from where
+// it names.
 func (f Files) Grid(address string) (Grid, error) {
 	platform, err := f.Platform()
 	if err != nil {

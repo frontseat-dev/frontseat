@@ -3,7 +3,7 @@ kind: Component
 metadata:
   name: told
   namespace: frontseat
-  description: "What a box's daemon is told of what a workspace is asked for, and the generated Go of the daemon's source API"
+  description: "What a box's supervisor is told of what a workspace is asked for, and the generated Go of the supervisor's source API"
 spec:
   type: library
   lifecycle: experimental

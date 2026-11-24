@@ -19,12 +19,12 @@ type Release struct {
 	w       *Workspace
 }
 
-// ID is the release's id, as the daemon gave it: "rel_" and more.
+// ID is the release's id, as the build daemon gave it: "rel_" and more.
 func (r *Release) ID() string { return r.id }
 
 // BuildID is the id of its production build, empty for a release that
 // builds nothing: as Release was answered, or, for a release by its id
-// alone, as the daemon describes it.
+// alone, as the build daemon describes it.
 func (r *Release) BuildID(ctx context.Context) (string, error) {
 	if r.built {
 		return r.buildID, nil
@@ -87,7 +87,7 @@ func (w *Workspace) Release(ctx context.Context, request ReleaseRequest) (*Relea
 }
 
 // ReleaseByID is the workspace's release of an id. Nothing is asked of
-// the daemon until a call is made.
+// the build daemon until a call is made.
 func (w *Workspace) ReleaseByID(id string) *Release { return &Release{id: id, w: w} }
 
 // Describe returns the release as it is now.

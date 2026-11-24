@@ -73,7 +73,7 @@ func TestAManifestThatNamesWhatAWorkspaceCannotHoldIsNotRead(t *testing.T) {
 	}
 }
 
-// A manifest is read as what this daemon writes and nothing more: a key
+// A manifest is read as what this program writes and nothing more: a key
 // it does not know, a version it does not write, or a second document,
 // is one another reader meant something by, and is refused by name, as
 // is a manifest that says nothing. The control is
@@ -156,7 +156,7 @@ func TestAManifestIsWrittenWholeInThePlaceOfTheOneItReplaces(t *testing.T) {
 	}
 }
 
-// What a write left beside the manifest, by a daemon that ended before
+// What a write left beside the manifest, by a supervisor that ended before
 // putting it in place, is cleared; the manifest, and what is beside it
 // of another name, are kept.
 func TestWhatAWriteLeftUnfinishedIsCleared(t *testing.T) {

@@ -72,7 +72,7 @@ var policies = []policy{
 	{"cli/internal/cmd", []string{"sdk/go/api/**", "sdk/go/entity", "sdk/go/enum", "sdk/go", "cli/internal/machine", "cli/internal/ui/**", "core/telemetry", "core/plain", "build/daemon/life"}},
 	{"core/telemetry", []string{}},
 	// Git as frontseat runs it, hardened, and how it writes a remote: one
-	// implementation for the client's adapter and the daemon's.
+	// implementation for the client's adapter and a workspace's.
 	{"common/git", []string{"common/confine"}},
 	// The test support at the top is beneath every module but the SDK, and
 	// reads nothing of what is above it: what the local stack is, and its
@@ -115,7 +115,7 @@ var policies = []policy{
 	// program carries.
 	{"stack/image", []string{}},
 	// The ports frontseat's programs are reached on, each said once: the
-	// daemon's defaults, the control plane, the command line, the stack's
+	// supervisor's defaults, the control plane, the command line, the stack's
 	// own control plane and the test support all read them here.
 	{"core/ports", []string{}},
 	// The box's one build, from what the stack says it is laid on; and
@@ -130,7 +130,7 @@ var policies = []policy{
 	{"core/image", []string{}},
 	{"common/confine", []string{}},
 	// Asking again until what is asked is done: one loop, for the
-	// daemon's dial, the control plane, the sandbox service and its
+	// build daemon's dial, the control plane, the sandbox service and its
 	// gateway's driver, the runner and the test support that waits so.
 	{"core/poll", []string{}},
 	// Whether what leads out of a sandbox is written plainly: one reader
@@ -170,8 +170,8 @@ var policies = []policy{
 	// from the contracts (api/buf.gen.runner.yaml): no API, the server's
 	// own.
 	{"common/runner/runnerapi/**", []string{"sdk/go/api/**"}},
-	// The daemon's internal API, generated from the contracts
-	// (api/buf.gen.source.yaml): the daemon serves it and the control
+	// The supervisor's internal API, generated from the contracts
+	// (api/buf.gen.source.yaml): the supervisor serves it and the control
 	// plane alone asks it, through the one translation between it and
 	// the workspace API (common/told). Nothing a client
 	// links names it.
@@ -216,11 +216,11 @@ var policies = []policy{
 	{"build/engine/exec/run", []string{"sdk/go/api/**", "sdk/go/entity", "build/engine/pluginapi/**", "core/telemetry", "build/engine/exec", "build/engine/exec/download", "build/engine/exec/tools", "build/engine/exec/fix", "build/engine/exec/stage", "build/engine/exec/schedule", "build/engine/engine/plan", "build/engine/engine/source", "build/engine/model", "common/runner/runnerapi/**"}},
 	{"workspace/box/source/**", []string{"sdk/go/api/**", "sdk/go/entity", "workspace/box/source/**", "core/refusal", "common/told/sourceapi/**", "common/confine", "common/record/records", "common/record/manifest", "common/record", "common/vcs", "common/vcs/chosen", "common/told"}},
 	{"common/record", []string{"sdk/go/entity", "common/record"}},
-	// A daemon told, for a test, what the control plane would tell it:
+	// A supervisor told, for a test, what the control plane would tell it:
 	// its entities resolved through a fake Backstage.
 	{"workspace/server/toldtest", []string{"sdk/go/api/**", "sdk/go/entity", "workspace/server/backstage", "common/told", "common/told/sourceapi/**", "testsupport/backstagetest"}},
-	// What a box's daemon is told of what a workspace is asked for, and
-	// what it says back: the control plane's and the daemon's alike.
+	// What a box's supervisor is told of what a workspace is asked for, and
+	// what it says back: the control plane's and the supervisor's alike.
 	{"common/told", []string{"sdk/go/api/**", "sdk/go/entity", "common/record", "common/told/sourceapi/**"}},
 	{"common/vcs", []string{"common/vcs"}},
 	{"common/vcs/git", []string{"common/vcs", "common/git"}},
@@ -234,16 +234,16 @@ var policies = []policy{
 	{"sandbox/driver/openshell", []string{"sdk/go/api/**", "sandbox/**", "sandbox/testsupport/drivertest", "core/plain", "core/poll", "core/ports"}},
 	// A driver of the container runtime, for tests alone: what an image
 	// starts is asked through the image package, as the gateway's way
-	// asks it. Its tests start a box and ask its daemon.
+	// asks it. Its tests start a box and ask its supervisor.
 	// Test support of the sandbox's own, beside it: each piece says what
 	// it imports, and one that says nothing imports nothing.
 	{"sandbox/testsupport/**", []string{}},
 	{"sandbox/testsupport/testcontainer", []string{"sandbox/testsupport/**", "sandbox/driver", "core/image", "testsupport/**", "core/ports", "sdk/go/api/**", "common/told", "common/told/sourceapi/**"}},
 	// The control plane keeps workspaces over the sandboxes they live in,
 	// and asks the version control system through its port (vcs.Fetching)
-	// what reaching a repository takes. It tells a workspace's daemon
-	// what to hold through the daemon's source API, and reads back what
-	// it holds.
+	// what reaching a repository takes. It tells a workspace's supervisor
+	// what to hold through the supervisor's source API, and reads back
+	// what it holds.
 	// Its tests hold it over the real sandbox service, over the driver
 	// that holds sandboxes in memory (drivertest.Memory): that driver is
 	// for tests, and is refused to what is none. It opens a box's ports
@@ -536,7 +536,7 @@ func repositoryRoot(t *testing.T) string {
 }
 
 // versionControl are the packages that name a version control system,
-// one on each side: the daemon's, which brings a repository and reads
+// one on each side: a workspace's, which brings a repository and reads
 // its history, and the client's, which reads a checkout of this machine.
 // Each is chosen by the one package beside it and by nothing else.
 var versionControl = map[string]string{

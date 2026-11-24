@@ -1,7 +1,7 @@
 // Package driver is the port between the sandbox API and whatever makes
 // sandboxes. A driver supplies a sandbox's lifecycle and a way to reach a
 // port inside it, and says what it can enforce. Everything inside a
-// sandbox is the daemon's, the same on every provider.
+// sandbox is the program's that runs there, the same on every provider.
 //
 //	openshell     NVIDIA OpenShell's gateway, on whatever it stands on;
 //	              what makes every sandbox a program makes

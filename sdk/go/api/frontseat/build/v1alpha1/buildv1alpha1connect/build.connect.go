@@ -1,5 +1,5 @@
 // frontseat.build.v1alpha1: builds. A build builds targets, on the
-// daemon of a workspace. A release builds too: it makes a build of its
+// build daemon of a workspace. A release builds too: it makes a build of its
 // own (ReleaseService, release.proto). A build is a resource: it has an
 // id, it outlives the call that made it, and anything that may see it
 // can watch it, read its results and cancel it.

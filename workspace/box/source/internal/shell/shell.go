@@ -3,11 +3,11 @@
 // JetBrains Gateway ask of a host, less one thing: a command or a
 // terminal, and connections forwarded to and from the sandbox's ports.
 // It serves no transfer of files: nothing is uploaded to a sandbox,
-// whose source its daemon clones, and what changes there is changed by
+// whose source its supervisor clones, and what changes there is changed by
 // work done in it. A sandbox image needs no SSH server of its own.
 //
 // It is for a sandbox that a person works in. A sandbox that holds only
-// a daemon does not serve it.
+// a supervisor does not serve it.
 package shell
 
 import (

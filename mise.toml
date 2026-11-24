@@ -58,8 +58,8 @@ _.path = ["./dist/bin"]
 # an action that does not name it is told nothing.
 CARGO_TARGET_WASM32_WASIP1_RUSTFLAGS = { value = "{% if tools['http:rust-std-wasm32-wasip1'] %}-L {{ tools['http:rust-std-wasm32-wasip1'].path }}/rust-std-wasm32-wasip1/lib/rustlib/wasm32-wasip1/lib -L {{ tools['http:rust-std-wasm32-wasip1'].path }}/rust-std-wasm32-wasip1/lib/rustlib/wasm32-wasip1/lib/self-contained{% endif %}", tools = true }
 
-# frontseat built from this checkout, into dist/: the command, the daemon
-# and the local control plane for this machine, the plugins as wasm, and
+# frontseat built from this checkout, into dist/: the command, the box's
+# supervisor and the local control plane for this machine, the plugins as wasm, and
 # the box image a workspace sandbox runs, tagged by what it holds and
 # frontseat-box-image:local beside, for a person to ask for it by. It is what a
 # contributor tries frontseat with (CONTRIBUTING.md, "Quick start"), and
@@ -247,7 +247,7 @@ run = "docker run --rm --init --user \"$(id -u):$(id -g)\" -p 8000:8000 -v \"$PW
 
 # What is generated from the contracts: the Go SDK's Go, and the
 # server's of the plugin contract, of what a runner is told and of the
-# daemon's source API, each by a template of its own (four), and the
+# supervisor's source API, each by a template of its own (four), and the
 # plugin SDK's Rust, by its generator. `check` holds each to what this
 # writes.
 [tasks.protos]

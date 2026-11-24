@@ -1,7 +1,7 @@
-// Package source is the source a daemon holds: the repositories in its
+// Package source is the source a supervisor holds: the repositories in its
 // directory, what they were made from, and whether they can be built.
 // It is filled from repositories and entities, as the control plane
-// tells it through the daemon's source API (Serve), and keeps no spec of
+// tells it through the supervisor's source API (Serve), and keeps no spec of
 // its own.
 package source
 
@@ -33,14 +33,14 @@ const (
 	Failed
 )
 
-// Workspace is what a daemon holds.
+// Workspace is what a supervisor holds.
 type Workspace struct {
 	root string
 	// system is the version control system the repositories are
 	// brought with; none for a mounted checkout, which brings none.
 	system vcs.System
 	// mounted says the directory is a checkout the sandbox was given, one
-	// repository with no name, which the daemon neither clones nor
+	// repository with no name, which the supervisor neither clones nor
 	// records.
 	mounted bool
 	// within is how long one repository may take to be brought.
@@ -77,7 +77,7 @@ const broughtWithin = 30 * time.Minute
 // Open returns the workspace in a directory: a mounted checkout, or what
 // the directory's manifest records, or nothing yet. Its repositories are
 // brought with a version control system, which a mounted checkout, that
-// brings none, does without. Close it when the daemon stops.
+// brings none, does without. Close it when the supervisor stops.
 func Open(root string, mounted bool, system vcs.System) (*Workspace, error) {
 	w := &Workspace{root: root, mounted: mounted, system: system, within: broughtWithin, changed: make(chan struct{})}
 	w.bringing, w.stop = context.WithCancel(context.Background())
@@ -92,7 +92,7 @@ func Open(root string, mounted bool, system vcs.System) (*Workspace, error) {
 	if err != nil {
 		return nil, fmt.Errorf("the workspace's manifest: %w", err)
 	}
-	// Nothing is brought while a workspace is opened: what a daemon that
+	// Nothing is brought while a workspace is opened: what a supervisor that
 	// ended left unfinished is cleared, so that it is brought anew.
 	if err := manifest.Settle(root); err != nil {
 		return nil, fmt.Errorf("the workspace's manifest: %w", err)
@@ -101,7 +101,7 @@ func Open(root string, mounted bool, system vcs.System) (*Workspace, error) {
 		return nil, err
 	}
 	// What the workspace is, is kept beside the manifest and written
-	// into it: a manifest that says its fill never ended is of a daemon
+	// into it: a manifest that says its fill never ended is of a supervisor
 	// that stopped midway, or failed, and what it records is not whole
 	// until it is told a source again.
 	unfinished := recorded.State != ""
@@ -193,7 +193,7 @@ func (w *Workspace) set(state State, message string) {
 // and none once the workspace is closed: either ends the pass as a
 // failure that says so. A source told once the workspace is closed is
 // held at its generation and failed, so that whoever reads it back reads
-// that generation refused because the daemon stopped.
+// that generation refused because the supervisor stopped.
 func (w *Workspace) Populate(generation int64, checkouts []record.Checkout, located []record.Located) error {
 	if w.mounted {
 		return errMounted
@@ -338,11 +338,11 @@ func (w *Workspace) record(m manifest.Manifest) error {
 // told again once that is done.
 var errPopulating = errors.New("the workspace is being populated already")
 
-// errClosed is a source told to a daemon that is stopping, or one it
+// errClosed is a source told to a supervisor that is stopping, or one it
 // was bringing when it stopped.
-var errClosed = errors.New("the daemon stopped before the workspace was populated")
+var errClosed = errors.New("the supervisor stopped before the workspace was populated")
 
-// errMounted is a source told to a daemon that was given a checkout.
+// errMounted is a source told to a supervisor that was given a checkout.
 var errMounted = errors.New("the workspace is a checkout the sandbox was given; nothing is cloned into it")
 
 // another says a checkout asks for a second checkout of a repository
