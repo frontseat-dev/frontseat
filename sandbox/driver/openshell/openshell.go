@@ -419,8 +419,19 @@ func observed(held *client.Sandbox) driver.Sandbox {
 	case client.SandboxError, client.SandboxCompleted:
 		out.State = driver.Failed
 		out.Message = "the sandbox is " + strings.ToLower(string(held.Status.Phase))
-		// Why, as the gateway says it.
+		// Why, as the gateway says it: each condition that does not hold,
+		// by its name and the gateway's reason for it, with what the
+		// gateway says of it where it says anything. The reason is what
+		// tells one failure from another: a sandbox the gateway is still
+		// bringing back says so there and says nothing else.
 		for _, condition := range held.Status.Conditions {
+			if condition.Status == "True" {
+				continue
+			}
+			out.Message += "; " + condition.Type
+			if condition.Reason != "" {
+				out.Message += " (" + condition.Reason + ")"
+			}
 			if condition.Message != "" {
 				out.Message += ": " + condition.Message
 			}
