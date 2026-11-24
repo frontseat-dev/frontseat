@@ -12,6 +12,7 @@ import (
 	"github.com/frontseat-dev/frontseat/common/told"
 	sourcev1 "github.com/frontseat-dev/frontseat/common/told/sourceapi/frontseat/source/v1alpha1"
 	"github.com/frontseat-dev/frontseat/core/plain"
+	"github.com/frontseat-dev/frontseat/core/ports"
 	sandboxv1 "github.com/frontseat-dev/frontseat/sandbox/api/frontseat/sandbox/v1alpha1"
 	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
 	"github.com/frontseat-dev/frontseat/workspace/server/workspaces/sources"
@@ -156,8 +157,8 @@ func asAsked(asked []sources.Stored, held sources.Held) error {
 		stands[standing.Name] = true
 	}
 	for _, volume := range held.Volumes {
-		if !wanted[volume.Repository] || bound[volume.Repository] || !plain.Absolute(volume.Source) {
-			return errors.New("a directory is given for no repository asked for, twice, or is none named absolutely and plainly")
+		if !wanted[volume.Repository] || bound[volume.Repository] || !plain.Absolute(volume.Source) || (volume.Layer != "" && !plain.Absolute(volume.Layer)) {
+			return errors.New("a directory is given for no repository asked for, twice, or is none named absolutely and plainly, its layer among them")
 		}
 		bound[volume.Repository] = true
 	}
@@ -183,11 +184,17 @@ func (s *service) release(ctx context.Context, name, owner string) error {
 
 // bound are the volumes a workspace's sandbox is given for its stored
 // repositories: each directory held for one, at the repository's
-// directory in the workspace.
+// directory in the workspace; and its layer, where it has one, where a
+// build looks for it (ports.Mounted), to be read alone: a build trusts
+// what a layer says only where nothing in the sandbox could have
+// written it.
 func bound(held sources.Held) []*sandboxv1.Volume {
 	var out []*sandboxv1.Volume
 	for _, volume := range held.Volumes {
 		out = append(out, &sandboxv1.Volume{Name: "stored-" + volume.Repository, Kind: sandboxv1.Volume_KIND_HOST, Source: volume.Source, Path: path.Join(workdir, volume.Repository)})
+		if volume.Layer != "" {
+			out = append(out, &sandboxv1.Volume{Name: "layer-" + volume.Repository, Kind: sandboxv1.Volume_KIND_HOST, Source: volume.Layer, Path: path.Join(ports.Mounted, volume.Repository), ReadOnly: true})
+		}
 	}
 	return out
 }

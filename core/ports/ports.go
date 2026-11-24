@@ -6,7 +6,9 @@
 // inside a box (Lock), the build daemon it starts there for itself, on
 // a port of the loopback that daemon chooses and says (Builds); the
 // stack's image's files and the box's Dockerfile, which cannot read Go,
-// are held to these by its test (local, ports_test). A port that only
+// are held to these by its test (local, ports_test). Where a repository
+// something else mounted in a box says what it is, and what whatever
+// mounts one keeps to, is here too (Mounted). A port that only
 // the processes of the stack's container dial among themselves, on its
 // loopback (the grid's storage and scheduler, the gateway's health), is
 // no port frontseat's programs are reached on: its image's files say
@@ -31,6 +33,56 @@ const Settings = "/var/lib/frontseat/build.yaml"
 // directory it builds: what it says of where it serves (daemon.json)
 // among it. It is the sandbox's own, and its user's to write.
 const Builds = "/var/lib/frontseat/build"
+
+// Mounted is where, in a box's sandbox, each repository of the
+// workspace that something else mounted there, and that was not cloned,
+// has its layer: a directory at Mounted/<name>, <name> being the
+// workspace's name for the repository, which stands at <name> in the
+// workspace's directory. Whatever mounts a repository for a workspace
+// keeps to what follows, and a build reads the repository by it
+// (source.Mount and source.HashAttribute, in
+// build/engine/engine/source, say what a build does with it).
+//
+// What is where:
+//
+//   - The repository is a directory at its name in the workspace's
+//     directory, there before the sandbox's supervisor is told of it.
+//     A build lists and reads it as it does any directory.
+//   - Its layer, Mounted/<name>, is on a file system mounted read-only
+//     in the sandbox, there when the sandbox is made: nothing in the
+//     sandbox writes it, and nothing in the sandbox can mount one.
+//   - The layer holds one file a build reads, stamp: one moment, the
+//     mount's stamp, written as RFC 3339 with nanoseconds, in UTC, on
+//     one line. A layer may hold more; a build reads nothing else of
+//     it.
+//
+// What a file of the repository says of itself:
+//
+//   - A regular file that is as the mount gave it has the stamp as its
+//     change time, to the nanosecond, and says the SHA-256 of what it
+//     holds in the extended attribute user.frontseat.sha256, as 64
+//     hexadecimal digits in lower case.
+//   - A file the workspace made, or changed in any way (what it holds,
+//     its mode, its times, an attribute of it, its name), is not shown
+//     with the stamp as its change time from then on, whenever it was
+//     changed and whatever the clock said then.
+//   - The mount alone says the attribute and a change time: nothing in
+//     the sandbox sets either.
+//   - For as long as the layer says one stamp, a file shown with that
+//     stamp as its change time holds what it held, at the size and with
+//     the mode it had, when the stamp was first said. A mount that
+//     comes to give anything else, as one moved to another state of
+//     the repository does, says another stamp, one it never said
+//     before, and shows no file with the one before; and once it has
+//     answered anything of a file as it gives it now (its change time,
+//     its size, its mode or the attribute), it answers nothing of the
+//     file as it gave it before, to whoever asks the mount itself and
+//     not what the kernel kept of an earlier answer.
+//
+// A mount that cannot hold to one of these says no stamp, or shows a
+// file without the attribute: a build then reads the file, as it reads
+// any.
+const Mounted = "/var/lib/frontseat/mounted"
 
 // A box's ports: what a workspace's sandbox is reached on.
 const (

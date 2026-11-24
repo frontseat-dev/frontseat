@@ -247,3 +247,54 @@ func TestADirectoryIsNotOpenedWithNoVersionControlSystem(t *testing.T) {
 		t.Error("a directory was opened with no version control system")
 	}
 }
+
+// A directory holds a repository something else mounted there as it
+// holds a clone, by its record: where a commit is asked of it, the
+// changeset it stands at is said. It has no history: whatever is asked
+// of its version control system, where it stands, its tags, what
+// changed, what is uncommitted or ignored, a tag made or pushed, where
+// it was brought from, is refused as mounted, and the system is asked
+// nothing of it. The control is the clone beside it, of which the
+// system is asked, in its own directory.
+func TestADirectoryHoldsAMountedRepositoryAndAsksNoHistoryOfIt(t *testing.T) {
+	root := t.TempDir()
+	d, system := opened(t, root, false)
+	recorded(t, root, record.Repository{Name: "code", Remote: "https://forge.example/code.git", Commit: commit})
+	if mounted, err := d.Mounted(); err != nil || mounted != "" {
+		t.Fatalf("the control, a directory of clones, holds the mounted repository %q (%v); want none", mounted, err)
+	}
+	recorded(t, root,
+		record.Repository{Name: "code", Remote: "https://forge.example/code.git", Commit: commit},
+		record.Repository{Name: "stored", Commit: "changeset-9", Roots: []string{"greet"}, Mounted: true})
+	held, err := d.Holds()
+	if err != nil || len(held.Repositories) != 2 || !held.Repositories[1].Mounted || held.Repositories[1].Commit != "changeset-9" || held.Repositories[0].Mounted {
+		t.Fatalf("it holds %+v (%v); want the clone, and the mounted repository at its changeset", held.Repositories, err)
+	}
+	if mounted, err := d.Mounted(); err != nil || mounted != "stored" {
+		t.Errorf("it names the mounted repository %q (%v); want stored", mounted, err)
+	}
+	ctx := context.Background()
+	for what, ask := range map[string]func(repository string) error{
+		"where it stands":      func(r string) error { _, err := d.Standing(ctx, r); return err },
+		"its tags":             func(r string) error { _, err := d.Tags(ctx, r); return err },
+		"what changed":         func(r string) error { _, err := d.Changes(ctx, r, commit, nil); return err },
+		"what is uncommitted":  func(r string) error { _, err := d.Uncommitted(ctx, r); return err },
+		"what is ignored":      func(r string) error { _, _, err := d.Ignored(ctx, r); return err },
+		"a tag made":           func(r string) error { return d.Tag(ctx, r, "v1.0.0", commit) },
+		"a tag pushed":         func(r string) error { return d.PushTag(ctx, r, "v1.0.0") },
+		"where it was brought": func(r string) error { _, err := d.Remote(ctx, r); return err },
+	} {
+		if err := ask("stored"); !errors.Is(err, directory.ErrMounted) {
+			t.Errorf("%s, asked of the mounted repository: %v; want it refused as mounted", what, err)
+		}
+	}
+	if len(system.standing) != 0 {
+		t.Errorf("the version control system was asked where %v stands; want nothing asked of a mounted repository", system.standing)
+	}
+	if _, err := d.Standing(ctx, "code"); err != nil || len(system.standing) != 1 || system.standing[0] != filepath.Join(root, "code") {
+		t.Errorf("the control, the clone: asked of %v (%v); want its own directory", system.standing, err)
+	}
+	if remote, err := d.Remote(ctx, "code"); err != nil || remote != "https://forge.example/code.git" {
+		t.Errorf("the control, the clone, was brought from %q (%v); want its remote", remote, err)
+	}
+}

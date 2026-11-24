@@ -114,3 +114,31 @@ the sandbox, which may write another or start a daemon told otherwise.
 A sandbox is one trust domain: whatever runs in it reaches what its
 build daemon reaches, the grid among it, and no credential of the grid
 or of a forge is kept in it.
+
+## A mounted repository
+
+A remote workspace's repositories are mounted in its sandbox by what
+serves them, and not cloned. The build daemon reads one as it reads a
+clone: it lists it, and reads and hashes what it sends. Nothing it knew
+of a mounted repository's files is kept for the daemon after it,
+whatever file system the repository is said to be on, and the daemon
+says so in `daemon.log`.
+
+What mounts a repository keeps to a layout, which is written once, for
+whoever writes a mount, where the sandbox's paths are (`Mounted`, in
+`core/ports/ports.go`): the repository at its name in the workspace's
+directory, a layer of its own mounted read-only beside the sandbox's
+other state, which says the mount's stamp, and on each file the mount
+gave the SHA-256 of what it holds, in an extended attribute.
+
+A file whose change time is the stamp is one the mount gave and nothing
+changed. The daemon takes such a file at the hash its attribute says,
+without reading it, where the stamp was read from a layer mounted
+read-only, the attribute is a hash as the layout writes one, and the
+file, asked of the mount afresh before the attribute and after, looks
+as it did. Any other file is read and hashed as any is: one the
+workspace wrote or changed, one with no attribute, and every file where
+the layer says no stamp. The mount is asked again by every build:
+nothing it said is kept from one to the next. A daemon is told where
+the layers are only in a sandbox, by the command line that starts it;
+outside one no layer is read.

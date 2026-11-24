@@ -21,6 +21,10 @@ type Memory struct {
 	// Beneath is the directory each repository is said to be mounted
 	// beneath, on the machine sandboxes are made on: an absolute path.
 	Beneath string
+	// Layers is the directory each repository's layer is said to be
+	// beneath, as Beneath is of the repository; empty for a mount that
+	// keeps no layer.
+	Layers string
 
 	mu       sync.Mutex
 	fails    error
@@ -77,7 +81,11 @@ func (m *Memory) Hold(_ context.Context, w sources.Workspace) (sources.Held, err
 	var out sources.Held
 	for _, asked := range w.Stored {
 		out.Repositories = append(out.Repositories, sources.Standing{Name: asked.Name, Repository: asked.Repository, Changeset: Changeset(asked), Roots: slices.Clone(asked.Roots)})
-		out.Volumes = append(out.Volumes, sources.Volume{Repository: asked.Name, Source: Mounted(m.Beneath, w.Name, asked.Name)})
+		volume := sources.Volume{Repository: asked.Name, Source: Mounted(m.Beneath, w.Name, asked.Name)}
+		if m.Layers != "" {
+			volume.Layer = Mounted(m.Layers, w.Name, asked.Name)
+		}
+		out.Volumes = append(out.Volumes, volume)
 	}
 	m.held[w.Name] = w
 	return out, nil

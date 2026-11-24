@@ -80,6 +80,13 @@ type Config struct {
 	// should know of it, a line each; none, it is said to telemetry
 	// alone.
 	Log io.Writer
+	// Layers is the directory beneath which each repository something
+	// else mounted in the workspace has its layer, by its name, as the
+	// layout of a mounted repository says (Mounted, in core/ports):
+	// whoever starts the daemon in a workspace's sandbox names it. None,
+	// as outside a sandbox, no layer is read, and every file of such a
+	// repository is.
+	Layers string
 }
 
 // New opens the grid and plugin runtime, then serves the build API. Close
@@ -119,7 +126,7 @@ func New(ctx context.Context, config Config) (*Daemon, error) {
 		names = append(names, plugin.Description.GetName())
 	}
 	daemon, err := newDaemon(configuration{
-		Workspace: config.Workspace, Mounted: config.Mounted, System: config.System, Builds: config.Builds, Files: config.Files, Program: config.Program,
+		Workspace: config.Workspace, Mounted: config.Mounted, System: config.System, Builds: config.Builds, Files: config.Files, Program: config.Program, Layers: config.Layers,
 		Plugins: loaded, Executor: grid, Downloads: downloads, Platform: config.Platform, Telemetry: config.Telemetry, Given: config.Given, Log: config.Log,
 	})
 	if err != nil {
