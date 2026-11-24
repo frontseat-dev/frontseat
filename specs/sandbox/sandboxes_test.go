@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/frontseat-dev/frontseat/specs/internal/dated"
 )
 
 // A workspace lives in a sandbox: a machine of its own, with its
@@ -53,25 +55,6 @@ func TestWhatRunsInASandboxIsNotRootAndTheSandboxMountsNothingOfTheGrid(t *testi
 	spec.Expect(workspace.build().outcome()).To(Equal("SUCCESS"))
 }
 
-// datingChangesItself are the file systems of Linux a build daemon
-// trusts to date a file's changes themselves, each by the number statfs
-// answers for it: where a workspace is on one, what its build daemon
-// knows of its files is kept for the daemon started after it. It
-// mirrors the build engine's own list (linuxDates, in
-// build/engine/engine/source/filesystem.go), which a spec may not
-// import and which says why each is on it; the architecture test holds
-// the two to each other (TestTheFileSystemsASpecTrustsAreTheOnesABuildDaemonTrusts).
-var datingChangesItself = map[uint32]string{
-	0x0000ef53: "ext4",
-	0x58465342: "xfs",
-	0x9123683e: "btrfs",
-	0x01021994: "tmpfs",
-	0xf2f52010: "f2fs",
-	0xca451a4e: "bcachefs",
-	0x2fc12fc1: "zfs",
-	0x794c7630: "overlayfs",
-}
-
 // statfsOf prints the number statfs answers for the file system of the
 // directory it is given, as a build daemon there asks it.
 const statfsOf = `import ctypes, sys
@@ -96,13 +79,13 @@ func TestAWorkspaceIsOnAFileSystemABuildDaemonKeepsWhatItKnowsOn(t *testing.T) {
 	said := workspace.prints("python3 -c '" + statfsOf + "' " + code)
 	magic, err := strconv.ParseUint(said, 16, 32)
 	spec.Expect(err).NotTo(HaveOccurred(), "what statfs answers for %s was not read: %q", code, said)
-	name, trusted := datingChangesItself[uint32(magic)]
+	name, trusted := dated.Linux[uint32(magic)]
 	// For whoever reads the run: the file system by its number and, where
 	// the box has a stat that names it, its name, and what is mounted
 	// where the repository is, an overlay's layers among it.
 	t.Logf("%s is on the file system %#x (%s), which stat names %q", code, magic, name, workspace.prints("stat -f -c %T "+code+" 2>/dev/null"))
 	t.Logf("mounted there: %s", workspace.prints("grep -E ' (/|/work|"+code+") ' /proc/self/mountinfo"))
-	spec.Expect(trusted).To(BeTrue(), "a workspace's repository (%s) is on the file system %#x, which a build daemon does not trust to date a file's changes itself: what a daemon knows of the files is not kept across restarts in a workspace, and every daemon started there reads them all. Decide whether that file system keeps a change time of its own that no writer can set, and where it does add it to linuxDates (build/engine/engine/source/filesystem.go) and to this spec's list, with why", code, magic)
+	spec.Expect(trusted).To(BeTrue(), "a workspace's repository (%s) is on the file system %#x, which a build daemon does not trust to date a file's changes itself: what a daemon knows of the files is not kept across restarts in a workspace, and every daemon started there reads them all. Decide whether that file system keeps a change time of its own that no writer can set, and where it does add it to linuxDates (build/engine/engine/source/filesystem.go) and to the specs' list (specs/internal/dated), with why", code, magic)
 }
 
 // Workspaces in sandboxes / A sandbox holds one supervisor, which stands in its workspace and knows its name, and a build there starts its own daemon.

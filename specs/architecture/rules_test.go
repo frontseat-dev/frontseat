@@ -311,7 +311,7 @@ var policies = []policy{
 	// The command line's specs read what a build daemon the command line
 	// started said of itself, and stop it.
 	{"specs/cli", []string{"sdk/go", "sdk/go/api/**", "sandbox/api/**", "sdk/go/entity", "testsupport/**", "core/ports", "build/daemon/life"}},
-	{"specs/local", []string{"testsupport/**", "stack/local", "core/ports", "stack/box"}},
+	{"specs/local", []string{"testsupport/**", "stack/local", "core/ports", "stack/box", "specs/internal/**"}},
 	{"specs/compare", []string{"sdk/go", "sdk/go/api/**", "sandbox/api/**", "testsupport/**"}},
 	{"specs/**", []string{"sdk/go", "sdk/go/api/**", "sandbox/api/**", "sdk/go/entity", "testsupport/**", "core/telemetry", "specs/internal/**", "core/ports"}},
 	// The gate programs: what runs the specs and every other test, and
