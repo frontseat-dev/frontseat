@@ -93,23 +93,41 @@ func placed(directory string) (place, bool) {
 // A path saved is only ever compared with the path of a file a run
 // lists; nothing is opened by it.
 //
-// What is trusted, of a keeper that never stopped and of this one
-// alike: that the disk dates every change to a file itself (when
-// anything of it last changed, which nothing that writes the file can
-// set), by a clock that tells no moment twice. Then a file that looks
-// as it did, which file of the disk it is and when it changed among
-// that, holds what it held: rewritten in place with its times set
+// What is trusted: that the disk dates every change to a file itself
+// (when anything of it last changed, which nothing that writes the file
+// can set), by a clock that tells no moment twice. Then a file that
+// looks as it did, which file of the disk it is and when it changed
+// among that, holds what it held: rewritten in place with its times set
 // back, or replaced by another moved into its place, it changed later
-// than it had. Not held, and for longer now than a daemon lives: a disk
-// that keeps no such time (it tells when the file was written, which
-// the writer sets), and a clock set back to the very moment a file last
-// changed, to what the disk can tell apart, with the daemon started
-// again once it is right again. A change neither shows lasts until the
-// file looks otherwise; what cures it is deleting the saved file while
-// no daemon runs, which restarting the daemon used to do. And the file
-// is the daemon's user's to write, as is everything of its state, so
-// whatever runs as that user may plant in it what a file held, which
-// the daemon started after it goes by.
+// than it had. A disk that keeps no such time tells when the file was
+// written, which the writer sets, so what was saved is used, and
+// anything is saved, only of a repository on a file system known to
+// keep one (filesystem.go, which names them and why): of one on any
+// other, or on one the system does not name, nothing saved is used and
+// nothing is saved, the daemon started again reads its files, and the
+// daemon is told so once (Unkept). A daemon none of whose repositories
+// is on such a file system saves nothing, and leaves what was saved
+// before it as it was: that is used again only by a daemon that finds
+// the repository where it was, on a file system it trusts, and of a
+// file that looks as it did then, as if no daemon had run between. A
+// keeper that never stopped is held to none of this: while its daemon
+// runs it goes by how a file looks on any file system, as it did before
+// anything was saved.
+//
+// Not held, and for longer now than a daemon lives: a clock set back to
+// the very moment a file last changed, to what the disk can tell apart,
+// with the daemon started again once it is right again. A change that
+// does not show lasts until the file looks otherwise; what cures it is
+// deleting the saved file while no daemon runs, which restarting the
+// daemon used to do. Not held either: an overlay is trusted whatever
+// file system is beneath it, which cannot be asked from inside a
+// container; a repository is asked of where its own directory is, and
+// a directory within it that is another file system is taken to be as
+// the repository is; and a disk written through something that sets
+// its change times, as its device itself may be by whoever holds it.
+// And the file is the daemon's user's to write, as is everything of its
+// state, so whatever runs as that user may plant in it what a file
+// held, which the daemon started after it goes by.
 func OpenKeeper(file, program string) *Keeper {
 	k := &Keeper{file: file, program: program}
 	// A file and nothing else: a pipe there would be waited on.
@@ -130,18 +148,22 @@ func OpenKeeper(file, program string) *Keeper {
 
 // begin is told the directory a run that begins is of, and where each
 // of its repositories is. The first run takes up what the daemon before
-// this one saved, as far as it is of this directory (OpenKeeper).
+// this one saved, as far as it is of this directory and of a repository
+// on a file system that dates a file's changes itself (OpenKeeper).
 func (k *Keeper) begin(root string, places map[string]place) {
 	now := k.clock().UnixNano()
 	k.mu.Lock()
 	defer k.mu.Unlock()
 	before := k.before
 	k.before, k.root, k.places = nil, root, places
+	if k.file != "" {
+		k.dated(places)
+	}
 	if before == nil || before.Root != root || before.Saved > now {
 		return
 	}
 	for name, was := range before.Repositories {
-		if at, there := places[name]; !there || at != was.Place {
+		if at, there := places[name]; !there || at != was.Place || !k.dates[at] {
 			continue
 		}
 		for rel, file := range was.Files {
@@ -165,7 +187,10 @@ var errBeneath = errors.New("what a daemon knows of its files is kept in its sta
 // Save saves what the keeper knows, whole or not at all and for its
 // user alone, where it was opened from; a keeper not opened from a file
 // is not saved. What it knows of a repository the directory no longer
-// holds is not saved: it would outlive the repository. A keeper no run
+// holds is not saved: it would outlive the repository. Nor is what it
+// knows of a repository on a file system not known to date a file's
+// changes itself, and where every repository is on one nothing is
+// written, and what was saved before stays (OpenKeeper). A keeper no run
 // of which has begun knows nothing new, and of no directory: what was
 // saved before it stays. It is never saved beneath a repository it
 // keeps the files of, where it would be a file of the build.
@@ -191,11 +216,19 @@ func (k *Keeper) Save() error {
 			k.mu.Unlock()
 			return errBeneath
 		}
-		s.Repositories[name] = savedRepository{Place: at, Files: map[string]savedFile{}}
+		// As the file system is now, asked again: what is saved outlasts
+		// the daemon.
+		if _, dates := k.on(at.Directory); dates {
+			s.Repositories[name] = savedRepository{Place: at, Files: map[string]savedFile{}}
+		}
+	}
+	if len(k.places) > 0 && len(s.Repositories) == 0 {
+		k.mu.Unlock()
+		return nil
 	}
 	for at, file := range k.files {
 		name, rel, there := k.within(at)
-		if !there {
+		if _, trusted := s.Repositories[name]; !there || !trusted {
 			continue
 		}
 		s.Repositories[name].Files[rel] = savedFile{

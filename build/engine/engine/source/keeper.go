@@ -43,6 +43,10 @@ type Keeper struct {
 	// daemon, and program the program that saves it there; no file, it
 	// is not saved.
 	file, program string
+	// fileSystem is the file system a directory is on and whether it is
+	// known to date a file's changes itself; the system's own answer
+	// (fileSystemOf) unless a test says otherwise.
+	fileSystem func(directory string) (string, bool)
 
 	mu    sync.Mutex
 	files map[string]kept
@@ -54,6 +58,12 @@ type Keeper struct {
 	// begun.
 	root   string
 	places map[string]place
+	// dates is whether each place a run of a keeper that is saved held a
+	// repository at is on a file system known to date a file's changes
+	// itself, and untold those that are not, until the daemon has been
+	// told of them (Unkept).
+	dates  map[place]bool
+	untold []Unkept
 }
 
 // clock is the time.

@@ -71,7 +71,10 @@ type builds struct {
 	tools string
 	// given are the variables of where the daemon runs that what
 	// publishes a release may be given: those the daemon was told.
-	given    []string
+	given []string
+	// said is where the daemon says what a person who reads its log
+	// should know of it; none, it is said to telemetry alone.
+	said     io.Writer
 	executor exec.Executor
 	// downloads brings what a shared fetch downloads to the grid; nil
 	// where the daemon was given no asset service.
@@ -436,6 +439,15 @@ func (rs *builds) work(ctx context.Context, r *run) (code buildv1.ExitCode, fail
 	_, taking := telemetry.Start(ctx, "snapshot")
 	snapshot, err := rs.files.Take(ctx, tree)
 	telemetry.End(taking, err)
+	// Said once of each repository, in the daemon's log and to
+	// telemetry: a person who finds every file read after a restart
+	// finds why.
+	for _, unkept := range rs.files.Unkept() {
+		telemetry.Message(ctx, log.SeverityWarn, unkept.String())
+		if rs.said != nil {
+			fmt.Fprintln(rs.said, "frontseat:", unkept)
+		}
+	}
 	if err != nil {
 		return exitInternal, err, ctx.Err() != nil
 	}
