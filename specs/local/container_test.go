@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/frontseat-dev/frontseat/core/ports"
+	"github.com/frontseat-dev/frontseat/specs/internal/dated"
 	"github.com/frontseat-dev/frontseat/stack/box"
 	"github.com/frontseat-dev/frontseat/stack/local"
 	"github.com/frontseat-dev/frontseat/stack/testsupport/testbox"
@@ -101,7 +102,29 @@ func TestTheStackBootsAsOneContainer(t *testing.T) {
 	if out, err := exec.CommandContext(ctx, "docker", "exec", own, "sh", "-c", ask).CombinedOutput(); err != nil || !strings.Contains(string(out), "has address") {
 		t.Errorf("the container's resolver answered no address of a host the grid's fetches reach: %v\n%s", err, out)
 	}
+	// Every sandbox's files are an overlay over the stack's own storage,
+	// on its one volume. A build daemon in a workspace keeps what it
+	// knows of its files across restarts where the file system dates a
+	// file's changes itself, and takes an overlay to: which is so only
+	// where what is beneath it does. So the storage is on a file system
+	// a build daemon trusts, that keeps its own files.
+	said, err := exec.CommandContext(ctx, "docker", "exec", own, "stat", "-f", "-c", "%t", sandboxes).Output()
+	if err != nil {
+		t.Fatalf("the file system of the stack's sandboxes (%s) was not asked: %v", sandboxes, err)
+	}
+	magic, err := strconv.ParseUint(strings.TrimSpace(string(said)), 16, 32)
+	if err != nil {
+		t.Fatalf("the file system of the stack's sandboxes was said as %q", said)
+	}
+	if name, trusted := dated.Linux[uint32(magic)]; !trusted || magic == dated.Overlay {
+		t.Errorf("the stack keeps its sandboxes (%s) on the file system %#x (%s), which is not one that keeps its own files and dates their changes itself: a build daemon in a workspace trusts the overlay above it, and would keep across restarts what such a file system does not let it know", sandboxes, magic, name)
+	}
 }
+
+// sandboxes is where the stack keeps its sandboxes' files, which every
+// sandbox's own are an overlay over: what its image's storage.conf says
+// (stack/image/rootfs/etc/containers/storage.conf).
+const sandboxes = "/var/lib/frontseat/containers/storage"
 
 // The services of the API the specs of the stack's container ask, as a
 // call is named after them.

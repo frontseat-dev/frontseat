@@ -308,6 +308,8 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		// stack, the test support and the spec of the stack's container.
 		{"specs/local/container_test.go", "stack/local", true},
 		{"specs/local/container_test.go", "stack", false},
+		{"specs/local/container_test.go", "specs/internal/dated", true},
+		{"specs/local/container_test.go", "specs/sandbox", false},
 		// The server asks again until what it asks is done by one loop;
 		// a package that waits on nothing does not import it.
 		{"build/daemon/build/build.go", "core/poll", true},

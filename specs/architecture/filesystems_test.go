@@ -66,7 +66,7 @@ func TestTheFileSystemsASpecTrustsAreTheOnesABuildDaemonTrusts(t *testing.T) {
 	if len(trusted) == 0 {
 		t.Fatal("the build engine names no file system it trusts (linuxDates): nothing was held to it")
 	}
-	mirrored := numbered(t, read("specs/sandbox/sandboxes_test.go"), "datingChangesItself")
+	mirrored := numbered(t, read("specs/internal/dated/dated.go"), "Linux")
 	if !maps.Equal(trusted, mirrored) {
 		t.Errorf("the spec takes a build daemon to trust %v, and it trusts %v: they are one list, written twice", mirrored, trusted)
 	}
