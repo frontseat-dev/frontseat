@@ -132,11 +132,13 @@ func (rs *builds) stop() {
 		r.cancel()
 	}
 	rs.going.Wait()
-	rs.history.Release()
 	// A fix's work is the daemon's for as long as it runs, and nothing's
 	// after. What cannot be removed now is cleared by the daemon that
-	// keeps its runs here next.
+	// keeps its runs here next. It is removed while the runs' directory
+	// is still this daemon's: let go of first, the daemon after this one
+	// could have its own work there removed.
 	_ = os.RemoveAll(rs.tools)
+	rs.history.Release()
 }
 
 // newBuilds returns a daemon's builds: those kept in a directory by the

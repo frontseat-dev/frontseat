@@ -109,6 +109,32 @@ func TestAGridOfAnotherAuthorityIsRefused(t *testing.T) {
 	}
 }
 
+// A grid is known by the authorities whoever asks read, where they did:
+// the file written again since is not read, so that the grid a daemon
+// asks is known by the bytes the daemon is identified by. The control is
+// the same file with nothing read before: it is read then.
+func TestAGridIsKnownByTheAuthoritiesThatWereReadAndNotTheFileAgain(t *testing.T) {
+	known, other := testauthority.New(t), testauthority.New(t)
+	address := (&reapitest.Answering{Certificate: &known.Server}).Serve(t)
+	read, err := os.ReadFile(known.File)
+	if err != nil {
+		t.Fatal(err)
+	}
+	since, err := os.ReadFile(other.File)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(known.File, since, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if byGrid, byAssets := ask(t, access.Config{Authorities: known.File, Known: read}, address); byGrid != nil || byAssets != nil {
+		t.Errorf("known by the authorities read before their file was written again: %v, %v; want the grid reached", byGrid, byAssets)
+	}
+	if byGrid, byAssets := ask(t, access.Config{Authorities: known.File}, address); code(byGrid) != codes.Unavailable || code(byAssets) != codes.Unavailable {
+		t.Errorf("the control, nothing read before: %v, %v; want the file as it is now, which does not know the grid", byGrid, byAssets)
+	}
+}
+
 // The token a call carries is the file's as it is then: one replaced
 // while the daemon runs is the one the next call carries.
 func TestATokenReplacedIsTheOneTheNextCallCarries(t *testing.T) {

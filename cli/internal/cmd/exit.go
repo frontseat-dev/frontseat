@@ -7,6 +7,7 @@ import (
 
 	"connectrpc.com/connect/v2"
 
+	"github.com/frontseat-dev/frontseat/cli/internal/machine"
 	"github.com/frontseat-dev/frontseat/sdk/go"
 )
 
@@ -65,6 +66,12 @@ const exitCodes = `Exit codes:
 func Failed(ctx context.Context, err error) (int, string) {
 	if ctx.Err() != nil && (errors.Is(err, context.Canceled) || connect.CodeOf(err) == connect.CodeCanceled) {
 		return ExitInterrupted, ""
+	}
+	if errors.Is(err, machine.ErrBusy) {
+		// The directory's build daemon has a build in hand and is not the
+		// one this command would start: it was not stopped, and nothing
+		// was started.
+		return ExitRefused, err.Error()
 	}
 	if errors.Is(err, errUnfinished) {
 		return ExitUnanswered, err.Error()

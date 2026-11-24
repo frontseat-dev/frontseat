@@ -194,34 +194,60 @@ func TestADirectoryWithNoManifestIsACheckoutAndOneWithItAWorkspace(t *testing.T)
 	}
 }
 
-// A daemon asked to stop, with its token, ends itself: the command that
-// finds a daemon of another version, other settings or another directory
-// asks it so, and starts its own. Asked without the token it goes on.
-func TestABuildDaemonAskedToStopWithItsTokenEndsItself(t *testing.T) {
-	state := filepath.Join(t.TempDir(), "state")
-	info, ended := kept(t, state, answering, never, time.Hour)
-	stop := func(token string) int {
-		t.Helper()
-		request, err := http.NewRequest(http.MethodPost, "http://"+info.Address+StopPath, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		request.Header.Set("Authorization", "Bearer "+token)
-		answer, err := http.DefaultClient.Do(request)
-		if err != nil {
-			t.Fatal(err)
-		}
-		_ = answer.Body.Close()
-		return answer.StatusCode
+// asked asks a daemon one of its own calls, with a token, and returns
+// the status it answered with.
+func asked(t *testing.T, info Info, method, path, token string) int {
+	t.Helper()
+	request, err := http.NewRequest(method, "http://"+info.Address+path, nil)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if status := stop("not its token"); status != http.StatusUnauthorized {
+	request.Header.Set("Authorization", "Bearer "+token)
+	answer, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = answer.Body.Close()
+	return answer.StatusCode
+}
+
+// A daemon asked to stop, with its token, ends itself where it has
+// nothing in hand: the command that finds a daemon of another version,
+// other settings or another directory asks it so, and starts its own.
+// One that has a build in hand, or a call under way, refuses and stays:
+// what it has in hand is someone's. Asked without the token it goes on.
+// The control is the same daemon with nothing in hand, which ends.
+func TestABuildDaemonAskedToStopEndsItselfUnlessItHasSomethingInHand(t *testing.T) {
+	state := filepath.Join(t.TempDir(), "state")
+	var busy atomic.Bool
+	held, let := make(chan struct{}, 1), make(chan struct{})
+	info, ended := kept(t, state, http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/held" {
+			held <- struct{}{}
+			<-let
+		}
+	}), busy.Load, time.Hour)
+	if status := asked(t, info, http.MethodPost, StopPath, "not its token"); status != http.StatusUnauthorized {
 		t.Fatalf("asked to stop without its token it answered %d", status)
 	}
-	if status := reached(t, info, info.Token); status != http.StatusOK {
-		t.Fatalf("the control: after that it answered %d; want it still serving", status)
+	busy.Store(true)
+	if status := asked(t, info, http.MethodPost, StopPath, info.Token); status != http.StatusConflict {
+		t.Fatalf("asked to stop with a build in hand it answered %d; want %d", status, http.StatusConflict)
 	}
-	if status := stop(info.Token); status != http.StatusNoContent {
-		t.Fatalf("asked to stop with its token it answered %d", status)
+	busy.Store(false)
+	answered := make(chan int, 1)
+	go func() { answered <- asked(t, info, http.MethodGet, "/held", info.Token) }()
+	<-held
+	if status := asked(t, info, http.MethodPost, StopPath, info.Token); status != http.StatusConflict {
+		t.Fatalf("asked to stop with a call under way it answered %d; want %d", status, http.StatusConflict)
+	}
+	close(let)
+	<-answered
+	if status := reached(t, info, info.Token); status != http.StatusOK {
+		t.Fatalf("after it refused to stop it answered %d; want it still serving", status)
+	}
+	if status := asked(t, info, http.MethodPost, StopPath, info.Token); status != http.StatusNoContent {
+		t.Fatalf("the control: asked to stop with nothing in hand it answered %d", status)
 	}
 	select {
 	case err := <-ended:
@@ -233,6 +259,168 @@ func TestABuildDaemonAskedToStopWithItsTokenEndsItself(t *testing.T) {
 	}
 	if Held(state) {
 		t.Error("a daemon that has ended still holds its state directory")
+	}
+}
+
+// A daemon gives its own answer to its own call, to its token: 204 and
+// nothing, which is how the command that finds it knows it for a build
+// daemon, and not for whatever answers on a port. It is no call of what
+// the daemon serves, and without the token it is refused as any is. The
+// control is a call of what it serves, which is answered otherwise.
+func TestABuildDaemonGivesItsOwnAnswerToItsOwnCall(t *testing.T) {
+	info, _ := kept(t, filepath.Join(t.TempDir(), "state"), answering, never, time.Hour)
+	if status := asked(t, info, http.MethodGet, HelloPath, info.Token); status != http.StatusNoContent {
+		t.Errorf("asked its own call with its token it answered %d; want %d", status, http.StatusNoContent)
+	}
+	if status := asked(t, info, http.MethodGet, HelloPath, "not its token"); status != http.StatusUnauthorized {
+		t.Errorf("asked its own call without its token it answered %d", status)
+	}
+	if status := reached(t, info, info.Token); status != http.StatusOK {
+		t.Errorf("the control: a call of what it serves answered %d", status)
+	}
+}
+
+// What a daemon says of itself is believed only as a daemon writes it:
+// an address of the loopback, written as a number, and a port, and a
+// token a daemon mints. A name, an address beyond this machine, a path,
+// a user or another token is refused, and the refusal repeats nothing of
+// the file, which may hold a token. The control is what a daemon wrote.
+func TestWhatADaemonSaysOfItselfIsHeldToWhatADaemonWrites(t *testing.T) {
+	state := t.TempDir()
+	token := strings.Repeat("0a", 32)
+	write := func(address, token string) {
+		t.Helper()
+		raw, err := json.Marshal(Info{Address: address, Token: token, Version: "secret-version"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(state, infoFile), raw, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, address := range []string{"127.0.0.1:7600", "[::1]:7600"} {
+		write(address, token)
+		if said, err := Told(state); err != nil || said.Address != address || said.Token != token {
+			t.Fatalf("the control: what a daemon wrote at %s is read as %+v, %v", address, said, err)
+		}
+	}
+	for name, said := range map[string][2]string{
+		"a name":                     {"localhost:7600", token},
+		"an address of another host": {"192.0.2.7:7600", token},
+		"every address":              {"0.0.0.0:7600", token},
+		"a path":                     {"127.0.0.1:7600/secret-path", token},
+		"a user":                     {"secret-user@127.0.0.1:7600", token},
+		"no port":                    {"127.0.0.1", token},
+		"the port that is none":      {"127.0.0.1:0", token},
+		"a port written otherwise":   {"127.0.0.1:07600", token},
+		"a short token":              {"127.0.0.1:7600", "secret-token"},
+		"a token and a line":         {"127.0.0.1:7600", token + "\r\nsecret-header: 1"},
+		"no token":                   {"127.0.0.1:7600", ""},
+	} {
+		write(said[0], said[1])
+		got, err := Told(state)
+		if err == nil {
+			t.Errorf("%s was read: %+v", name, got)
+		} else if strings.Contains(err.Error(), "secret") {
+			t.Errorf("%s: the refusal repeats what the file holds: %v", name, err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(state, infoFile), []byte(`{"address": secret-word`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Told(state); err == nil || strings.Contains(err.Error(), "secret") {
+		t.Errorf("what is no JSON: %v; want it refused, repeating nothing", err)
+	}
+}
+
+// What a file in a state directory says is believed only while a daemon
+// holds the directory: held by none, the file is what a daemon that died
+// left, it names no daemon, and it is removed. The control is a daemon
+// that lives there, whose file is read and stays.
+func TestWhatADaemonLeftIsBelievedOnlyWhileTheDirectoryIsHeld(t *testing.T) {
+	state := filepath.Join(t.TempDir(), "state")
+	if said, held, err := Living(state); held || err != nil || said != (Info{}) {
+		t.Fatalf("a directory that is not there: %+v, held %t, %v", said, held, err)
+	}
+	if err := os.MkdirAll(state, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	left, err := json.Marshal(Info{Address: "127.0.0.1:7600", Token: strings.Repeat("0a", 32), PID: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(state, infoFile), left, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Told(state); err != nil {
+		t.Fatalf("what a dead daemon left is not what a daemon writes: %v", err)
+	}
+	if said, held, err := Living(state); held || err != nil || said != (Info{}) {
+		t.Errorf("beside what a dead daemon left: %+v, held %t, %v; want no daemon", said, held, err)
+	}
+	if _, err := os.Stat(filepath.Join(state, infoFile)); err == nil {
+		t.Error("what a dead daemon left is still there")
+	}
+	info, _ := kept(t, state, answering, never, time.Hour)
+	if said, held, err := Living(state); !held || err != nil || said != info {
+		t.Errorf("the control: a directory a daemon lives in: %+v, held %t, %v; want %+v", said, held, err, info)
+	}
+	if _, err := os.Stat(filepath.Join(state, infoFile)); err != nil {
+		t.Errorf("the control: what a living daemon says was removed: %v", err)
+	}
+}
+
+// A daemon lets go of its state directory last: after it has taken back
+// what it said, and after the rest of it has ended, its build closed and
+// what that keeps in the directory released, however long that takes. A
+// daemon started where the lock is free finds nothing of the one before.
+// The control is the directory once that has ended, which none holds.
+func TestADaemonHoldsItsDirectoryUntilEverythingOfItHasEnded(t *testing.T) {
+	state := filepath.Join(t.TempDir(), "state")
+	closing, closed := make(chan struct{}), make(chan struct{})
+	ctx, stop := context.WithCancel(t.Context())
+	ended := make(chan error, 1)
+	go func() {
+		ended <- Keep(ctx, Life{State: state, Handler: answering, Busy: never, Idle: time.Hour, Ended: func() {
+			close(closing)
+			<-closed
+		}})
+	}()
+	stop()
+	select {
+	case <-closing:
+	case <-time.After(30 * time.Second):
+		t.Fatal("a daemon that was stopped never ended the rest of itself")
+	}
+	if _, err := Told(state); err == nil {
+		t.Error("a daemon that is ending the rest of itself still says where it serves")
+	}
+	for range 20 {
+		if !Held(state) {
+			t.Fatal("a daemon let go of its directory while the rest of it was still ending")
+		}
+		time.Sleep(time.Millisecond)
+	}
+	if _, held, _ := Living(state); !held {
+		t.Error("a daemon that is still ending is held by none, asked as the command line asks")
+	}
+	select {
+	case err := <-ended:
+		t.Fatalf("the daemon's life returned (%v) while the rest of it was still ending", err)
+	default:
+	}
+	close(closed)
+	if err := <-ended; err != nil {
+		t.Fatal(err)
+	}
+	if Held(state) {
+		t.Error("the control: a directory whose daemon has ended altogether is still held")
+	}
+	// One refused the directory ends the rest of itself too.
+	first, _ := kept(t, state, answering, never, time.Hour)
+	var ran atomic.Bool
+	if err := Keep(t.Context(), Life{State: state, Handler: answering, Busy: never, Idle: time.Hour, Ended: func() { ran.Store(true) }}); err == nil || !ran.Load() {
+		t.Errorf("a daemon refused the directory of %s: %v, the rest of it ended: %t; want it refused, and ended", first.Address, err, ran.Load())
 	}
 }
 

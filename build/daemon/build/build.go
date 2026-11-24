@@ -39,6 +39,10 @@ type Grid struct {
 	TLS         bool
 	Authorities string
 	Token       string
+	// Known is what the authorities' file held when the daemon's
+	// settings were read: the grid is known by those bytes, which the
+	// daemon is identified by, and the file is not read again.
+	Known []byte
 }
 
 // Check says what is wrong with how the grid is to be asked, before
@@ -48,7 +52,7 @@ func (g Grid) Check() error { return g.access().Check() }
 
 // access is how the grid and its asset service are asked.
 func (g Grid) access() access.Config {
-	return access.Config{TLS: g.TLS, Authorities: g.Authorities, Token: g.Token}
+	return access.Config{TLS: g.TLS, Authorities: g.Authorities, Known: g.Known, Token: g.Token}
 }
 
 // Config is the source, plugins and services a build daemon owns.

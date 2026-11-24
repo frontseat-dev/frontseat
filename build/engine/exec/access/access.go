@@ -84,6 +84,10 @@ type Config struct {
 	// Authorities is a PEM file of the authorities the grid is known by,
 	// in place of the system's. Naming it asks over TLS.
 	Authorities string
+	// Known is what the authorities' file held when whoever asks read
+	// it, where they did: the grid is then known by those bytes, and the
+	// file is not read again. A daemon is identified by them (life.Read).
+	Known []byte
 	// Token is a file holding the bearer token the grid admits the daemon
 	// by, read again for every call.
 	Token string
@@ -129,9 +133,15 @@ func (c Config) pool() (*x509.CertPool, error) {
 	if c.Authorities == "" {
 		return nil, nil
 	}
-	pem, err := held(c.Authorities, authorities)
-	if err != nil {
-		return nil, fmt.Errorf("the grid's authorities: %w", err)
+	pem := c.Known
+	if pem == nil {
+		var err error
+		if pem, err = held(c.Authorities, authorities); err != nil {
+			return nil, fmt.Errorf("the grid's authorities: %w", err)
+		}
+	}
+	if len(pem) > authorities {
+		return nil, fmt.Errorf("the grid's authorities: %s holds more than %d bytes", c.Authorities, authorities)
 	}
 	pool := x509.NewCertPool()
 	if !pool.AppendCertsFromPEM(pem) {
