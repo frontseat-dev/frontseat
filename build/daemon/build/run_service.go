@@ -26,7 +26,7 @@ func (s *runService) CreateRun(ctx context.Context, request *buildv1.CreateRunRe
 	if request.GetTarget() == "" {
 		return nil, refuse(connect.CodeInvalidArgument, "TARGET_MISSING", "name the program to run, as it is printed")
 	}
-	if _, _, err := sourceOf(s.programs.builds.workspace, s.programs.builds.layers); err != nil {
+	if _, _, err := sourceOf(s.programs.builds.workspace); err != nil {
 		return nil, refuse(connect.CodeFailedPrecondition, "WORKSPACE_NOT_READY", err.Error())
 	}
 	profile, err := profileOf(request.GetProfile())

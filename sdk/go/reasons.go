@@ -141,14 +141,6 @@ const (
 	ReasonSpecIncomplete = "SPEC_INCOMPLETE"
 	// ReasonSpecInvalid: a spec is not written as one is.
 	ReasonSpecInvalid = "SPEC_INVALID"
-	// ReasonStoreNotServed: a remote workspace, one that holds stored
-	// repositories, works on a task or lands, is asked of a control plane
-	// that was given nothing that serves stored repositories: Frontseat
-	// Enterprise serves them.
-	ReasonStoreNotServed = "STORE_NOT_SERVED"
-	// ReasonStoreUnavailable: what serves stored repositories did not
-	// hold those a workspace was asked for; nothing was made.
-	ReasonStoreUnavailable = "STORE_UNAVAILABLE"
 	// ReasonTargetMissing: a run names no program.
 	ReasonTargetMissing = "TARGET_MISSING"
 	// ReasonTunnelsExhausted: the workspace is carried as many

@@ -155,17 +155,16 @@ func TestNoTestLooksUpForWhatItReads(t *testing.T) {
 	// is: at the top, beside its module, or among the specs; a program's
 	// file is not a test's.
 	for file, held := range map[string]bool{
-		"build/daemon/build/run_test.go":                         true,
-		"testsupport/testfiles/tree.go":                          true,
-		"stack/testsupport/testgrid/grid.go":                     true,
-		"sandbox/testsupport/testsandbox/testsandbox.go":         true,
-		"workspace/server/controlplanetest/controlplanetest.go":  true,
-		"workspace/server/toldtest/toldtest.go":                  true,
-		"workspace/server/workspaces/sourcestest/sourcestest.go": true,
-		"specs/buildtest/buildtest.go":                           true,
-		"build/daemon/build/runs.go":                             false,
-		"workspace/server/controlplane/controlplane.go":          false,
-		"stack/stack.go":                                         false,
+		"build/daemon/build/run_test.go":                        true,
+		"testsupport/testfiles/tree.go":                         true,
+		"stack/testsupport/testgrid/grid.go":                    true,
+		"sandbox/testsupport/testsandbox/testsandbox.go":        true,
+		"workspace/server/controlplanetest/controlplanetest.go": true,
+		"workspace/server/toldtest/toldtest.go":                 true,
+		"specs/buildtest/buildtest.go":                          true,
+		"build/daemon/build/runs.go":                            false,
+		"workspace/server/controlplane/controlplane.go":         false,
+		"stack/stack.go":                                        false,
 	} {
 		if forATest(file) != held {
 			t.Errorf("%s is held as a test's: %v, want %v", file, !held, held)

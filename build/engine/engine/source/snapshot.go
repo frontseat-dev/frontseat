@@ -752,9 +752,7 @@ func (s *Snapshot) once(t *taken, repository, name, key string, when knew, read 
 		if err != nil || !info.Mode().IsRegular() || look(info) != when.was {
 			return held{}, false, &Changed{Repository: repository, Path: key}
 		}
-		// Nothing is gone by of a file shown at its mount's stamp but
-		// what the mount says of it now, below.
-		if !asked && !s.stamped(repository, when.was) {
+		if !asked {
 			known, asked = s.keeper.kept(at, when.was)
 		}
 		// What was read before the file had settled is not gone by as
@@ -811,8 +809,7 @@ func (s *Snapshot) once(t *taken, repository, name, key string, when knew, read 
 	}
 	// mine is whether the run itself has gone by what the file held.
 	mine := when.asked
-	stamped := s.stamped(repository, now)
-	if !asked && !stamped {
+	if !asked {
 		// What the daemon knew the file held when it looked as it does.
 		known, asked = s.keeper.kept(at, now)
 	}
@@ -821,20 +818,6 @@ func (s *Snapshot) once(t *taken, repository, name, key string, when knew, read 
 			return held{}, false, errAgain
 		}
 		return known.held, true, nil
-	}
-	// A file of a mounted repository that is shown at the mount's stamp
-	// is one the mount gave and nothing changed: it holds what its
-	// attribute says, and is not read (HashAttribute). The run goes by
-	// that for as long as it lasts, and nothing of it is kept for the
-	// next, which asks the mount again.
-	if read == nil && !asked && stamped {
-		if hash, said := s.keeper.said(file, info); said {
-			found := kept{looked: now, settled: true, held: held{hash: hash, size: info.Size(), executable: info.Mode()&0o100 != 0}}
-			if !s.keep(t, key, when, &found) {
-				return held{}, false, errAgain
-			}
-			return found.held, true, nil
-		}
 	}
 	// A file read only to hash it, though what it held is known, is read
 	// again: it had not settled when it was known.
@@ -866,12 +849,6 @@ func (s *Snapshot) once(t *taken, repository, name, key string, when knew, read 
 	}
 	if !s.keep(t, key, when, &found) {
 		return held{}, false, errAgain
-	}
-	if stamped {
-		// How a file shown at the stamp looks says nothing of whether
-		// it is the one read here: every file the mount gave looks so.
-		s.keeper.forget(at)
-		return found.held, true, nil
 	}
 	s.keeper.keep(at, found)
 	return found.held, true, nil

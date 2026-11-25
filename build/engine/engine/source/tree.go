@@ -13,11 +13,6 @@ type Tree struct {
 	// Paths are the repositories' directories, relative to Root, by the
 	// workspace's name for each.
 	Paths map[string]string
-	// Mounted are the repositories something else mounted in the
-	// workspace, and that were not cloned, by the workspace's name for
-	// each, with what its layer said when the tree was read (Mount). A
-	// repository that is not named here is read as a clone is.
-	Mounted map[string]Mount
 }
 
 // Repositories names the repositories, sorted.

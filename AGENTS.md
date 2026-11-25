@@ -328,117 +328,6 @@ the change that fixes it.
   says which are there, and whether the route must refuse one is not
   decided. A connection whose caller does not answer its closing is
   waited for as long as the WebSocket's closing is given, five seconds.
-- **A workspace is local or remote.** Local is the default, and what
-  this repository serves: its repositories are cloned in its sandbox,
-  committed to there and pushed from there. Remote holds its
-  repositories from a snapshot store, mounted in its sandbox and not
-  cloned, on a task (`WorkspaceSpec.stored`, `task`, `land`): the
-  contract, the Go SDK and the command line (`workspace open --remote`,
-  `workspace create --remote`, `--task`) say it, and what serves it is
-  frontseat-enterprise's, behind the control plane's one port
-  (`sources.Sources`: `Hold` and `Release`). This repository holds no
-  store, no mount and no task: a control plane given nothing that
-  serves stored repositories, as `frontseat-server` is, refuses a spec
-  that names a stored repository, a task or a landing `UNIMPLEMENTED`,
-  `STORE_NOT_SERVED`, at `CreateWorkspace` and at `UpdateWorkspace`,
-  before anything is made. Given one, it has the workspace's stored
-  repositories held once, by its name and owner, when it is made, and
-  not where anything else of the spec is refused; gives its sandbox the
-  directory held for each, at the repository's directory in the
-  workspace, and nothing of the store, no way out to it and no
-  credential of it; tells its supervisor each is mounted, at the
-  changeset it stands at, which the supervisor clones nothing for,
-  says it holds, and records in the workspace's manifest as mounted, at
-  that changeset, beside what it cloned (told again, the same); and has
-  what is held let go of once the workspace's sandbox is gone. What the port says is held to what was asked before
-  it reaches a sandbox, and what it says of a failure is logged and
-  told to no caller (`STORE_UNAVAILABLE`). What a remote workspace
-  holds is said when it is made: nothing is added to it.
-  A build reads a mounted repository as it reads a clone, by the
-  manifest alone: it is a repository of the workspace, listed, read
-  and hashed, and where a commit is asked of it (`Entity.commit`) the
-  changeset it stands at is said. It has no history: its version
-  control system is asked nothing of it (`directory.ErrMounted`), and
-  a workspace that holds one releases nothing, `PlanRelease` and
-  `CreateRelease` refused `UNIMPLEMENTED`, `RELEASE_NOT_SERVED`, before
-  anything is built or tagged. What mounts a repository keeps to a
-  layout said once (`Mounted`, in `core/ports`): the repository at its
-  name in the workspace, and a layer of its own, mounted read-only at
-  `Mounted/<name>`, that says the mount's stamp; a file the mount gave
-  and nothing changed has the stamp as its change time and says its
-  SHA-256 in an extended attribute (`source.HashAttribute`). A build
-  takes such a file at that hash without reading it, and only so: the
-  stamp read from a layer mounted read-only, which nothing in a
-  sandbox can make; the file's change time the stamp; the attribute a
-  hash as the layout writes one; and the file, asked of the mount
-  afresh before the attribute and after, looking as the run holds it
-  to. Any other file is read. Nothing a mount said, and nothing read
-  of a file shown at the stamp, is kept from one run to the next, and
-  nothing of a mounted repository is saved for the daemon after, on
-  whatever file system: how its files look is the mount's to say. A
-  build daemon is told where the layers are by the command line that
-  starts it, in a sandbox alone (`frontseat daemon --layers`); outside
-  one no layer is read. Held by:
-  `TestARemoteWorkspaceIsRefusedByNameWhereNoStoreIsServed`,
-  `TestARemoteWorkspaceIsHeldOnceMountedAndLetGoOfWhenItEnds`,
-  `TestAControlPlaneThatStartsAgainKeepsWhatWasHeldForARemoteWorkspace`,
-  `TestTheRepositoriesOfARemoteWorkspacesEntitiesAreHeldAndNotCloned`,
-  `TestWhatIsAskedOfTheStoreIsHeldBeforeItIsAsked`,
-  `TestAWorkspaceWhoseStoredRepositoriesAreNotHeldAsAskedIsNotMade`,
-  `TestAWorkspaceThatLandsWithNoTaskNamedLandsOnOneOfItsOwnName`,
-  `TestAControlPlaneIsComposedWithWhatServesStoredRepositoriesOrNone`,
-  the supervisor's
-  `TestAStoredRepositoryIsHeldAsItIsMountedAndNothingIsBroughtForIt`,
-  `TestAStoredRepositoryIsRecordedWhileTheWorkspaceIsFilledAndWhereItsFillFailed` and
-  `TestAStoredRepositoryThatIsNotMountedAsToldIsRefusedByName`, the
-  manifest's `TestAMountedRepositoryIsRecordedAtItsChangesetAndFromNoRemote`,
-  the build daemon's
-  `TestADirectoryHoldsAMountedRepositoryAndAsksNoHistoryOfIt`,
-  `TestABuildOfAWorkspaceReadsAMountedRepositoryBesideAClone` and
-  `TestAReleaseFromAWorkspaceThatHoldsAMountedRepositoryIsRefusedByName`,
-  the engine's
-  `TestAFileShownAtItsMountsStampHoldsWhatItsAttributeSays`,
-  `TestAFileThatDoesNotLookAsItDidOnceItsAttributeIsAskedIsRead`,
-  `TestNothingOfAFileShownAtItsMountsStampIsKeptForTheRunAfter`,
-  `TestNothingOfAMountedRepositoryIsSavedOrUsedByTheDaemonAfter`,
-  `TestALayerSaysAStampOnlyWhereItIsReadOnlyAndWrittenAsTheLayoutSays` and
-  `TestAFilesHashAttributeIsReadAsTheSystemKeepsIt`, the command
-  line's `TestInsideASandboxABuildDaemonIsToldAndKeptWhereTheSandboxSays`, the
-  SDK's `TestARemoteWorkspaceIsAskedForByWhatItHoldsOfTheStore`, the
-  command line's
-  `TestOpenRemoteAsksForTheCheckoutsRepositoryFromTheStoreOnATask`,
-  `TestCreateRemoteAsksForWhatIsNamedFromTheStore`,
-  `TestARemoteWorkspaceRefusedByAControlPlaneThatServesNoneIsSaidByName`,
-  `TestRemoteAndLocalFlagsAreNotMixed` and
-  `TestACheckoutsRemoteWorkspaceIsAskedForByItsRepositoryInTheStore`,
-  and the sandbox spec
-  `TestARemoteWorkspaceIsRefusedByNameByAControlPlaneGivenNoStoreAndNothingIsMade`.
-  Not held: nothing here serves a remote workspace but what its tests
-  hold in memory (`sourcestest`), so that a sandbox is in truth given a
-  mounted repository, by a gateway let bind one, is proven by no test
-  of this repository; a supervisor says it holds a stored repository on
-  the control plane's word and its directory being there. A sandbox is
-  given a repository's layer where what serves stored repositories says
-  one (`sources.Volume.Layer`), bound where a build looks for it and to
-  be read alone
-  (`TestAStoredRepositorysLayerIsBoundWhereABuildLooksForItToBeReadAlone`);
-  that a gateway binds it so, and that a build there takes a stamp from
-  it, is proven against no sandbox. That a file is taken at its attribute is proven on a
-  directory a test lays out and through what stands in for the mount's
-  answers, on the machine the tests run on; against no mount, and not
-  on Linux's own way of asking a mount afresh (`AT_STATX_FORCE_SYNC`)
-  or of saying a file system is read-only, which are compiled and
-  vetted here and run by nothing. That a mount keeps to the layout is
-  the mount's to hold, and is held by nothing here: one that showed a
-  changed file at its stamp, or said an attribute that is no hash of
-  what it gives, would be believed. A layout made up inside a box is
-  believed as far as a file system mounted read-only there holds a
-  file named stamp. And how a mounted repository's files look, to a
-  running daemon, is gone by for a file not shown at the stamp as on
-  any file system. The store's
-  name for a repository the command line names by its remote, or an
-  entity resolved to, is the name its version control system gives it,
-  which two forges may both give.
 - **One state root per program.** What a program keeps is beneath one
   directory: `frontseat-server --state`, `frontseat-runner --state`, and
   the command line's `$XDG_CONFIG_HOME/frontseat` (else `~/.config/frontseat`) on
@@ -447,12 +336,9 @@ the change that fixes it.
   workspace's sandbox has no such root: what is kept there is beneath
   `/var/lib/frontseat`, each at one path whatever any program is told
   (`core/ports`): the sandbox's one lock (`Lock`), which its supervisor
-  holds, the build settings the supervisor writes (`Settings`),
+  holds, the build settings the supervisor writes (`Settings`), and,
   beneath `Builds`, the state of each build daemon the command line
-  starts there, named for the directory it builds as it is outside,
-  and, beneath `Mounted`, the layer of each repository something else
-  mounted in the workspace, which is mounted read-only there and is
-  no one's in the sandbox to write.
+  starts there, named for the directory it builds as it is outside.
   Not held: all of it is the sandbox's user's to write. The settings
   the supervisor writes when it starts hold against an accident, and
   not against a process in the box, which may write others or start a
@@ -937,14 +823,8 @@ the change that fixes it.
   `specs/architecture/visibility_test.go`): the sandbox service, its
   generated API, its driver port and the OpenShell driver (`sandbox`,
   `sandbox/api/...`, `sandbox/driver`, `sandbox/driver/openshell`),
-  which it embeds and composes around and never copies; and the control
-  plane as it is composed (`workspace/server/workspaces`: `New` over an
-  OpenShell gateway, which `frontseat-server` is a thin `main` over)
-  with its one port, what serves a remote workspace's stored
-  repositories (`workspace/server/workspaces/sources`), which it
-  implements; how the control plane is made
-  (`workspace/server/controlplane`) stays the repository's own. What
-  those show in what they export is of an SDK or on that list too
+  which it embeds and composes around and never copies; and what those
+  show in what they export is of an SDK or on that list too
   (`TestPublicFeatureSignaturesHideImplementationTypes`). A binary's
   `main` is `cmd/<binary>`; test support is `testsupport/<name>` at
   the top, or beside the module it starts (`stack/testsupport`,
@@ -1276,16 +1156,14 @@ mise run docs:serve       # serve the TechDocs site on http://localhost:8000
 | `core/page` | A List cut into pages, by `page_size` and `page_token`, and every page of another's List gathered (`All`) |
 | `common/vcs`, `.../vcs/chosen` | What a workspace asks of a version control system, and the one that is used |
 | `common/record`, `common/record/manifest` | A workspace's repositories and entities as they are recorded, and the manifest in its directory (`.frontseat/workspace.yaml`) that what fills it writes and a build reads |
-| `build/daemon/directory` | A directory as a build reads it: what its manifest records, and its repositories' history, of which a mounted one has none (`ErrMounted`) |
+| `build/daemon/directory` | A directory as a build reads it: what its manifest records, and its repositories' history |
 | `common/told` | What a box's supervisor is told of what a workspace is asked for |
 | `stack/local` | What the local stack is, read from its files: the workers' image and platform, what a sandbox is told; the checkout a program is started at (`Checkout`); the directory the command line keeps what it keeps in, and the owner's token and server files beneath it (`Config`, `TokenFile`, `ServerFile`); the container runtime's architecture (`Architecture`, `GOARCH`) and the stack's Podman (`Podman`), each asked one way |
 | `stack/internal/poll` | Asking again until the stack's container comes to something (`Tries`): the box's build's and the stack's |
-| `core/ports` | Every port a box and the local stack are reached on, where a box's sandbox keeps its lock, its build settings and its build daemons' state, and where a mounted repository's layer is, with the layout whatever mounts one keeps to (`Mounted`) |
+| `core/ports` | Every port a box and the local stack are reached on, and where a box's sandbox keeps its lock, its build settings and its build daemons' state |
 | `testsupport/*` | Test facilities: pins, Wasm modules, fixtures (`testfiles`, `testforge`, `commits`), budgets |
 | `stack/testsupport/*` | The local stack's test facilities: the box, the gateway, the grid and the owner's token a test is given |
 | `specs/buildtest`, `workspace/server/controlplanetest` | A build started for a test with what fills its directory beside it, and a control plane as `frontseat-server` starts one |
-| `workspace/server/workspaces` | The control plane as it is composed, over an OpenShell gateway: what `frontseat-server` serves and frontseat-enterprise composes around |
-| `workspace/server/workspaces/sources`, `.../sourcestest` | The port a remote workspace's stored repositories are held through, and what holds them in memory for a test |
 | `sandbox/testsupport/drivertest` | What any sandbox driver is tested with: the conformance, a running sandbox of the test's own, the driver that holds sandboxes in memory, and a connection to a port that keeps how it was used (`Watched`) |
 | `sandbox/testsupport/testcontainer` | A sandbox driver over the container runtime, for a server's tests that need a runtime; no program makes a sandbox with it |
 | `sandbox/testsupport/testsandbox` | The sandbox API's client and a tunnel to a sandbox's port, for tests: the SDK has none |

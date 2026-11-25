@@ -55,16 +55,6 @@
 // once, its shells among them: one more is refused RESOURCE_EXHAUSTED
 // with the reason TUNNELS_EXHAUSTED, until one of them has ended.
 //
-// A workspace is local or remote. A local one, which every control plane
-// serves, clones its repositories in its sandbox: what is done there is
-// committed there, and leaves it by a push. A remote one holds its
-// repositories from a snapshot store, mounted in its sandbox and not
-// cloned (WorkspaceSpec.stored, task and land). A remote workspace is
-// served only by a control plane that was given what serves stored
-// repositories, which an enterprise server is: any other refuses a spec
-// that asks for one UNIMPLEMENTED, with the reason STORE_NOT_SERVED,
-// and makes nothing.
-//
 // A workspace is kept as what was asked for, its spec, and what is so,
 // its status. A call writes the spec and returns; the control plane then
 // works until the status matches it. It works from the spec it keeps: a
@@ -179,19 +169,17 @@ type WorkspaceServiceClient interface {
 	// call, whatever fails.
 	//
 	// ### Errors
-	// - INVALID_ARGUMENT: the spec asks for no repository, no entity and
-	//   no stored repository (SOURCE_MISSING); the name is not a valid
-	//   workspace name, as Workspace.name says, or none is given and
-	//   nothing asked for gives one (NAME_INVALID); a repository's address
-	//   holds a user or a password (REMOTE_CREDENTIALED); an address is
-	//   not written plainly, a host is fetched from over both http and
-	//   https, the authorized key is not one line, or what is asked of the
-	//   store is not written as StoredRepository, task and land say
-	//   (SPEC_INVALID); the lifetime is zero or negative
-	//   (LIFETIME_INVALID); an entity's reference is not a valid one, or
-	//   the catalog says of the entity what a workspace cannot hold
-	//   (ENTITY_INVALID); a reference matches several entities, which the
-	//   message names (ENTITY_AMBIGUOUS).
+	// - INVALID_ARGUMENT: the spec asks for no repository and no entity
+	//   (SOURCE_MISSING); the name is not a valid workspace name, as
+	//   Workspace.name says, or none is given and nothing asked for gives
+	//   one (NAME_INVALID); a repository's address holds a user or a
+	//   password (REMOTE_CREDENTIALED); an address is not written plainly,
+	//   a host is fetched from over both http and https, or the authorized
+	//   key is not one line (SPEC_INVALID); the lifetime is zero or
+	//   negative (LIFETIME_INVALID); an entity's reference is not a valid
+	//   one, or the catalog says of the entity what a workspace cannot
+	//   hold (ENTITY_INVALID); a reference matches several entities, which
+	//   the message names (ENTITY_AMBIGUOUS).
 	// - PERMISSION_DENIED: a workspace of the name is another's
 	//   (NOT_OWNER).
 	// - NOT_FOUND: the catalog holds no entity of a reference given, or
@@ -202,19 +190,13 @@ type WorkspaceServiceClient interface {
 	//   (IMAGE_NOT_SERVED); a repository is to be fetched, and the control
 	//   plane was configured with no version control system
 	//   (FETCH_NOT_SERVED); a push is asked for, and a repository is not
-	//   given by its address over http or https (PUSH_NOT_SERVED); a
-	//   stored repository, a task or a landing is asked for, and the
-	//   control plane was given nothing that serves stored repositories:
-	//   nothing is made (STORE_NOT_SERVED).
+	//   given by its address over http or https (PUSH_NOT_SERVED).
 	// - UNAVAILABLE: the catalog did not answer, or answered what is not a
-	//   catalog's answer; nothing is made (ENTITIES_UNAVAILABLE). Or what
-	//   serves stored repositories did not hold those asked for; nothing
-	//   is made (STORE_UNAVAILABLE).
+	//   catalog's answer; nothing is made (ENTITIES_UNAVAILABLE).
 	// - ALREADY_EXISTS: the caller's workspace of the name is asked for
 	//   with more than it has: other source, a push it was made without,
-	//   another image, another authorized key, another lifetime, another
-	//   task or another landing; the message says what differs
-	//   (WORKSPACE_DIFFERS).
+	//   another image, another authorized key or another lifetime; the
+	//   message says what differs (WORKSPACE_DIFFERS).
 	// - FAILED_PRECONDITION: the workspace of the name is ending; it is
 	//   asked for again once it is gone (WORKSPACE_ENDING).
 	CreateWorkspace(context.Context, *v1alpha1.CreateWorkspaceRequest) (*v1alpha1.CreateWorkspaceResponse, error)
@@ -263,9 +245,7 @@ type WorkspaceServiceClient interface {
 	// - PERMISSION_DENIED: the workspace is another's (NOT_OWNER).
 	// - INVALID_ARGUMENT: the spec leaves out something the workspace has
 	//   (SPEC_INCOMPLETE); it changes a field that is set once: whether it
-	//   pushes, its author, its authorized key, its image, its lifetime,
-	//   its stored repositories, its task or whether it lands, or it adds
-	//   anything to a workspace that holds stored repositories
+	//   pushes, its author, its authorized key, its image or its lifetime
 	//   (SPEC_FIXED); a repository's address holds a user or a password
 	//   (REMOTE_CREDENTIALED); an entity added is refused as
 	//   CreateWorkspace refuses one (ENTITY_INVALID, ENTITY_AMBIGUOUS). Or
@@ -283,10 +263,7 @@ type WorkspaceServiceClient interface {
 	//   resolved to, is on a host the workspace's sandbox may not reach:
 	//   which hosts it may reach is fixed when the workspace is made. The
 	//   message says which (REACH_NOT_SERVED). Or entities are added,
-	//   and the control plane resolves none (ENTITIES_NOT_SERVED). Or the
-	//   spec names a stored repository, a task or a landing, and the
-	//   control plane was given nothing that serves stored repositories
-	//   (STORE_NOT_SERVED).
+	//   and the control plane resolves none (ENTITIES_NOT_SERVED).
 	// - UNAVAILABLE: the catalog did not answer, as for CreateWorkspace
 	//   (ENTITIES_UNAVAILABLE). Or the workspace's supervisor was not reached;
 	//   no reason is given then.
@@ -323,19 +300,17 @@ type WorkspaceServiceHandler interface {
 	// call, whatever fails.
 	//
 	// ### Errors
-	// - INVALID_ARGUMENT: the spec asks for no repository, no entity and
-	//   no stored repository (SOURCE_MISSING); the name is not a valid
-	//   workspace name, as Workspace.name says, or none is given and
-	//   nothing asked for gives one (NAME_INVALID); a repository's address
-	//   holds a user or a password (REMOTE_CREDENTIALED); an address is
-	//   not written plainly, a host is fetched from over both http and
-	//   https, the authorized key is not one line, or what is asked of the
-	//   store is not written as StoredRepository, task and land say
-	//   (SPEC_INVALID); the lifetime is zero or negative
-	//   (LIFETIME_INVALID); an entity's reference is not a valid one, or
-	//   the catalog says of the entity what a workspace cannot hold
-	//   (ENTITY_INVALID); a reference matches several entities, which the
-	//   message names (ENTITY_AMBIGUOUS).
+	// - INVALID_ARGUMENT: the spec asks for no repository and no entity
+	//   (SOURCE_MISSING); the name is not a valid workspace name, as
+	//   Workspace.name says, or none is given and nothing asked for gives
+	//   one (NAME_INVALID); a repository's address holds a user or a
+	//   password (REMOTE_CREDENTIALED); an address is not written plainly,
+	//   a host is fetched from over both http and https, or the authorized
+	//   key is not one line (SPEC_INVALID); the lifetime is zero or
+	//   negative (LIFETIME_INVALID); an entity's reference is not a valid
+	//   one, or the catalog says of the entity what a workspace cannot
+	//   hold (ENTITY_INVALID); a reference matches several entities, which
+	//   the message names (ENTITY_AMBIGUOUS).
 	// - PERMISSION_DENIED: a workspace of the name is another's
 	//   (NOT_OWNER).
 	// - NOT_FOUND: the catalog holds no entity of a reference given, or
@@ -346,19 +321,13 @@ type WorkspaceServiceHandler interface {
 	//   (IMAGE_NOT_SERVED); a repository is to be fetched, and the control
 	//   plane was configured with no version control system
 	//   (FETCH_NOT_SERVED); a push is asked for, and a repository is not
-	//   given by its address over http or https (PUSH_NOT_SERVED); a
-	//   stored repository, a task or a landing is asked for, and the
-	//   control plane was given nothing that serves stored repositories:
-	//   nothing is made (STORE_NOT_SERVED).
+	//   given by its address over http or https (PUSH_NOT_SERVED).
 	// - UNAVAILABLE: the catalog did not answer, or answered what is not a
-	//   catalog's answer; nothing is made (ENTITIES_UNAVAILABLE). Or what
-	//   serves stored repositories did not hold those asked for; nothing
-	//   is made (STORE_UNAVAILABLE).
+	//   catalog's answer; nothing is made (ENTITIES_UNAVAILABLE).
 	// - ALREADY_EXISTS: the caller's workspace of the name is asked for
 	//   with more than it has: other source, a push it was made without,
-	//   another image, another authorized key, another lifetime, another
-	//   task or another landing; the message says what differs
-	//   (WORKSPACE_DIFFERS).
+	//   another image, another authorized key or another lifetime; the
+	//   message says what differs (WORKSPACE_DIFFERS).
 	// - FAILED_PRECONDITION: the workspace of the name is ending; it is
 	//   asked for again once it is gone (WORKSPACE_ENDING).
 	CreateWorkspace(context.Context, *v1alpha1.CreateWorkspaceRequest) (*v1alpha1.CreateWorkspaceResponse, error)
@@ -407,9 +376,7 @@ type WorkspaceServiceHandler interface {
 	// - PERMISSION_DENIED: the workspace is another's (NOT_OWNER).
 	// - INVALID_ARGUMENT: the spec leaves out something the workspace has
 	//   (SPEC_INCOMPLETE); it changes a field that is set once: whether it
-	//   pushes, its author, its authorized key, its image, its lifetime,
-	//   its stored repositories, its task or whether it lands, or it adds
-	//   anything to a workspace that holds stored repositories
+	//   pushes, its author, its authorized key, its image or its lifetime
 	//   (SPEC_FIXED); a repository's address holds a user or a password
 	//   (REMOTE_CREDENTIALED); an entity added is refused as
 	//   CreateWorkspace refuses one (ENTITY_INVALID, ENTITY_AMBIGUOUS). Or
@@ -427,10 +394,7 @@ type WorkspaceServiceHandler interface {
 	//   resolved to, is on a host the workspace's sandbox may not reach:
 	//   which hosts it may reach is fixed when the workspace is made. The
 	//   message says which (REACH_NOT_SERVED). Or entities are added,
-	//   and the control plane resolves none (ENTITIES_NOT_SERVED). Or the
-	//   spec names a stored repository, a task or a landing, and the
-	//   control plane was given nothing that serves stored repositories
-	//   (STORE_NOT_SERVED).
+	//   and the control plane resolves none (ENTITIES_NOT_SERVED).
 	// - UNAVAILABLE: the catalog did not answer, as for CreateWorkspace
 	//   (ENTITIES_UNAVAILABLE). Or the workspace's supervisor was not reached;
 	//   no reason is given then.

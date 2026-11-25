@@ -18,7 +18,6 @@ import (
 	"github.com/frontseat-dev/frontseat/core/ports"
 	sandboxv1 "github.com/frontseat-dev/frontseat/sandbox/api/frontseat/sandbox/v1alpha1"
 	workspacev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1"
-	"github.com/frontseat-dev/frontseat/workspace/server/workspaces/sources"
 )
 
 // Named is the label a workspace's sandbox carries the workspace's name
@@ -134,12 +133,7 @@ func (s *service) addressed(spec *workspacev1.WorkspaceSpec) error {
 // entities resolved to, alike: each is fetched by its host's rule, with
 // its owner's credential, and nothing else is reached. The catalog its
 // entities were resolved through is not: the box never asks it.
-//
-// Where it holds stored repositories, each is a volume of it: the
-// directory held for it (bound), at the repository's directory in the
-// workspace. Nothing of the store is reached from it, and it is told
-// nothing of the store.
-func (s *service) sandbox(ctx context.Context, name, owner string, spec *workspacev1.WorkspaceSpec, resolved told.Resolved, stood sources.Held) (*sandboxv1.SandboxSpec, error) {
+func (s *service) sandbox(ctx context.Context, name, owner string, spec *workspacev1.WorkspaceSpec, resolved told.Resolved) (*sandboxv1.SandboxSpec, error) {
 	image := spec.GetImage()
 	if image == "" {
 		if image = s.Box; image == "" {
@@ -179,7 +173,6 @@ func (s *service) sandbox(ctx context.Context, name, owner string, spec *workspa
 		Ports:     []int32{ports.Source, ports.Shell},
 		Labels:    map[string]string{Named: name},
 		Egress:    &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_ALLOW_LISTED},
-		Volumes:   bound(stood),
 	}
 	ruled := map[string]bool{}
 

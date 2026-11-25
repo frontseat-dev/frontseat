@@ -20,10 +20,6 @@ type Checkout interface {
 	// Same is whether two remotes are of one repository, whatever their
 	// spelling.
 	Same(one, other string) bool
-	// NameOf is the name the system gives a repository by its remote, as
-	// it names a clone of it: the last element of the remote's path. It
-	// is empty where the remote names none.
-	NameOf(remote string) string
 }
 
 // Standing is where a checkout stands.

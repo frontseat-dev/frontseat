@@ -189,13 +189,7 @@ type SourceSpec struct {
 	// Entities are the entities the control plane resolved, and where each
 	// is among the repositories. The supervisor resolves nothing itself: this
 	// is all it knows of which entity is where.
-	Entities []*LocatedEntity `protobuf:"bytes,3,rep,name=entities,proto3" json:"entities,omitempty"`
-	// Stored are the repositories the workspace holds from the control
-	// plane's snapshot store, each mounted in the sandbox at its
-	// directory before the supervisor was started: the supervisor clones
-	// none of them, is given no credential of the store, and says it
-	// holds each as it is told it here.
-	Stored        []*StoredSource `protobuf:"bytes,4,rep,name=stored,proto3" json:"stored,omitempty"`
+	Entities      []*LocatedEntity `protobuf:"bytes,3,rep,name=entities,proto3" json:"entities,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -251,88 +245,6 @@ func (x *SourceSpec) GetEntities() []*LocatedEntity {
 	return nil
 }
 
-func (x *SourceSpec) GetStored() []*StoredSource {
-	if x != nil {
-		return x.Stored
-	}
-	return nil
-}
-
-// StoredSource is a repository of the snapshot store that is mounted in
-// the sandbox, at the changeset the control plane says.
-type StoredSource struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Name is the supervisor's name for it: the one directory of the
-	// workspace it is mounted at.
-	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// Repository is the store's name for it.
-	Repository string `protobuf:"bytes,2,opt,name=repository,proto3" json:"repository,omitempty"`
-	// Changeset is the id of the changeset it is mounted at.
-	Changeset string `protobuf:"bytes,3,opt,name=changeset,proto3" json:"changeset,omitempty"`
-	// Roots are the directories taken of it; empty for all of it.
-	Roots         []string `protobuf:"bytes,4,rep,name=roots,proto3" json:"roots,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *StoredSource) Reset() {
-	*x = StoredSource{}
-	mi := &file_frontseat_source_v1alpha1_source_proto_msgTypes[2]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *StoredSource) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*StoredSource) ProtoMessage() {}
-
-func (x *StoredSource) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_source_v1alpha1_source_proto_msgTypes[2]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use StoredSource.ProtoReflect.Descriptor instead.
-func (*StoredSource) Descriptor() ([]byte, []int) {
-	return file_frontseat_source_v1alpha1_source_proto_rawDescGZIP(), []int{2}
-}
-
-func (x *StoredSource) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-func (x *StoredSource) GetRepository() string {
-	if x != nil {
-		return x.Repository
-	}
-	return ""
-}
-
-func (x *StoredSource) GetChangeset() string {
-	if x != nil {
-		return x.Changeset
-	}
-	return ""
-}
-
-func (x *StoredSource) GetRoots() []string {
-	if x != nil {
-		return x.Roots
-	}
-	return nil
-}
-
 // LocatedEntity is an entity, and where its source is.
 type LocatedEntity struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -349,7 +261,7 @@ type LocatedEntity struct {
 
 func (x *LocatedEntity) Reset() {
 	*x = LocatedEntity{}
-	mi := &file_frontseat_source_v1alpha1_source_proto_msgTypes[3]
+	mi := &file_frontseat_source_v1alpha1_source_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -361,7 +273,7 @@ func (x *LocatedEntity) String() string {
 func (*LocatedEntity) ProtoMessage() {}
 
 func (x *LocatedEntity) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_source_v1alpha1_source_proto_msgTypes[3]
+	mi := &file_frontseat_source_v1alpha1_source_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -374,7 +286,7 @@ func (x *LocatedEntity) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LocatedEntity.ProtoReflect.Descriptor instead.
 func (*LocatedEntity) Descriptor() ([]byte, []int) {
-	return file_frontseat_source_v1alpha1_source_proto_rawDescGZIP(), []int{3}
+	return file_frontseat_source_v1alpha1_source_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *LocatedEntity) GetRef() *v1alpha1.EntityRef {
@@ -417,7 +329,7 @@ type RepositorySource struct {
 
 func (x *RepositorySource) Reset() {
 	*x = RepositorySource{}
-	mi := &file_frontseat_source_v1alpha1_source_proto_msgTypes[4]
+	mi := &file_frontseat_source_v1alpha1_source_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -429,7 +341,7 @@ func (x *RepositorySource) String() string {
 func (*RepositorySource) ProtoMessage() {}
 
 func (x *RepositorySource) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_source_v1alpha1_source_proto_msgTypes[4]
+	mi := &file_frontseat_source_v1alpha1_source_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -442,7 +354,7 @@ func (x *RepositorySource) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RepositorySource.ProtoReflect.Descriptor instead.
 func (*RepositorySource) Descriptor() ([]byte, []int) {
-	return file_frontseat_source_v1alpha1_source_proto_rawDescGZIP(), []int{4}
+	return file_frontseat_source_v1alpha1_source_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *RepositorySource) GetRemote() string {
@@ -479,23 +391,19 @@ type Repository struct {
 	// Name is its name: what a label and a path name it by. Empty for a
 	// directory the supervisor was started over and did not clone.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// Remote is where it was cloned from; empty for a stored repository.
+	// Remote is where it was cloned from.
 	Remote string `protobuf:"bytes,2,opt,name=remote,proto3" json:"remote,omitempty"`
-	// Commit is the commit it stands at; for a stored repository, the
-	// changeset it was told.
+	// Commit is the commit it stands at.
 	Commit string `protobuf:"bytes,3,opt,name=commit,proto3" json:"commit,omitempty"`
 	// Roots are the directories taken of it; empty for all of it.
-	Roots []string `protobuf:"bytes,4,rep,name=roots,proto3" json:"roots,omitempty"`
-	// Stored is the snapshot store's name for it, where it is mounted and
-	// was not cloned; empty for one that was cloned.
-	Stored        string `protobuf:"bytes,5,opt,name=stored,proto3" json:"stored,omitempty"`
+	Roots         []string `protobuf:"bytes,4,rep,name=roots,proto3" json:"roots,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Repository) Reset() {
 	*x = Repository{}
-	mi := &file_frontseat_source_v1alpha1_source_proto_msgTypes[5]
+	mi := &file_frontseat_source_v1alpha1_source_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -507,7 +415,7 @@ func (x *Repository) String() string {
 func (*Repository) ProtoMessage() {}
 
 func (x *Repository) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_source_v1alpha1_source_proto_msgTypes[5]
+	mi := &file_frontseat_source_v1alpha1_source_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -520,7 +428,7 @@ func (x *Repository) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Repository.ProtoReflect.Descriptor instead.
 func (*Repository) Descriptor() ([]byte, []int) {
-	return file_frontseat_source_v1alpha1_source_proto_rawDescGZIP(), []int{5}
+	return file_frontseat_source_v1alpha1_source_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *Repository) GetName() string {
@@ -551,13 +459,6 @@ func (x *Repository) GetRoots() []string {
 	return nil
 }
 
-func (x *Repository) GetStored() string {
-	if x != nil {
-		return x.Stored
-	}
-	return ""
-}
-
 // SetSourceRequest gives a supervisor the source to hold.
 type SetSourceRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -569,7 +470,7 @@ type SetSourceRequest struct {
 
 func (x *SetSourceRequest) Reset() {
 	*x = SetSourceRequest{}
-	mi := &file_frontseat_source_v1alpha1_source_proto_msgTypes[6]
+	mi := &file_frontseat_source_v1alpha1_source_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -581,7 +482,7 @@ func (x *SetSourceRequest) String() string {
 func (*SetSourceRequest) ProtoMessage() {}
 
 func (x *SetSourceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_source_v1alpha1_source_proto_msgTypes[6]
+	mi := &file_frontseat_source_v1alpha1_source_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -594,7 +495,7 @@ func (x *SetSourceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetSourceRequest.ProtoReflect.Descriptor instead.
 func (*SetSourceRequest) Descriptor() ([]byte, []int) {
-	return file_frontseat_source_v1alpha1_source_proto_rawDescGZIP(), []int{6}
+	return file_frontseat_source_v1alpha1_source_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *SetSourceRequest) GetSpec() *SourceSpec {
@@ -615,7 +516,7 @@ type SetSourceResponse struct {
 
 func (x *SetSourceResponse) Reset() {
 	*x = SetSourceResponse{}
-	mi := &file_frontseat_source_v1alpha1_source_proto_msgTypes[7]
+	mi := &file_frontseat_source_v1alpha1_source_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -627,7 +528,7 @@ func (x *SetSourceResponse) String() string {
 func (*SetSourceResponse) ProtoMessage() {}
 
 func (x *SetSourceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_source_v1alpha1_source_proto_msgTypes[7]
+	mi := &file_frontseat_source_v1alpha1_source_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -640,7 +541,7 @@ func (x *SetSourceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetSourceResponse.ProtoReflect.Descriptor instead.
 func (*SetSourceResponse) Descriptor() ([]byte, []int) {
-	return file_frontseat_source_v1alpha1_source_proto_rawDescGZIP(), []int{7}
+	return file_frontseat_source_v1alpha1_source_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *SetSourceResponse) GetSource() *Source {
@@ -661,7 +562,7 @@ type WaitSourceRequest struct {
 
 func (x *WaitSourceRequest) Reset() {
 	*x = WaitSourceRequest{}
-	mi := &file_frontseat_source_v1alpha1_source_proto_msgTypes[8]
+	mi := &file_frontseat_source_v1alpha1_source_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -673,7 +574,7 @@ func (x *WaitSourceRequest) String() string {
 func (*WaitSourceRequest) ProtoMessage() {}
 
 func (x *WaitSourceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_source_v1alpha1_source_proto_msgTypes[8]
+	mi := &file_frontseat_source_v1alpha1_source_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -686,7 +587,7 @@ func (x *WaitSourceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WaitSourceRequest.ProtoReflect.Descriptor instead.
 func (*WaitSourceRequest) Descriptor() ([]byte, []int) {
-	return file_frontseat_source_v1alpha1_source_proto_rawDescGZIP(), []int{8}
+	return file_frontseat_source_v1alpha1_source_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *WaitSourceRequest) GetGeneration() int64 {
@@ -707,7 +608,7 @@ type WaitSourceResponse struct {
 
 func (x *WaitSourceResponse) Reset() {
 	*x = WaitSourceResponse{}
-	mi := &file_frontseat_source_v1alpha1_source_proto_msgTypes[9]
+	mi := &file_frontseat_source_v1alpha1_source_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -719,7 +620,7 @@ func (x *WaitSourceResponse) String() string {
 func (*WaitSourceResponse) ProtoMessage() {}
 
 func (x *WaitSourceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_source_v1alpha1_source_proto_msgTypes[9]
+	mi := &file_frontseat_source_v1alpha1_source_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -732,7 +633,7 @@ func (x *WaitSourceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WaitSourceResponse.ProtoReflect.Descriptor instead.
 func (*WaitSourceResponse) Descriptor() ([]byte, []int) {
-	return file_frontseat_source_v1alpha1_source_proto_rawDescGZIP(), []int{9}
+	return file_frontseat_source_v1alpha1_source_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *WaitSourceResponse) GetSource() *Source {
@@ -758,22 +659,14 @@ const file_frontseat_source_v1alpha1_source_proto_rawDesc = "" +
 	"\x11STATE_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10STATE_POPULATING\x10\x01\x12\x0f\n" +
 	"\vSTATE_READY\x10\x02\x12\x10\n" +
-	"\fSTATE_FAILED\x10\x03\"\x8a\x02\n" +
+	"\fSTATE_FAILED\x10\x03\"\xc9\x01\n" +
 	"\n" +
 	"SourceSpec\x12$\n" +
 	"\n" +
 	"generation\x18\x01 \x01(\x03B\x04\xe2A\x01\x02R\n" +
 	"generation\x12O\n" +
 	"\frepositories\x18\x02 \x03(\v2+.frontseat.source.v1alpha1.RepositorySourceR\frepositories\x12D\n" +
-	"\bentities\x18\x03 \x03(\v2(.frontseat.source.v1alpha1.LocatedEntityR\bentities\x12?\n" +
-	"\x06stored\x18\x04 \x03(\v2'.frontseat.source.v1alpha1.StoredSourceR\x06stored\"\x88\x01\n" +
-	"\fStoredSource\x12\x18\n" +
-	"\x04name\x18\x01 \x01(\tB\x04\xe2A\x01\x02R\x04name\x12$\n" +
-	"\n" +
-	"repository\x18\x02 \x01(\tB\x04\xe2A\x01\x02R\n" +
-	"repository\x12\"\n" +
-	"\tchangeset\x18\x03 \x01(\tB\x04\xe2A\x01\x02R\tchangeset\x12\x14\n" +
-	"\x05roots\x18\x04 \x03(\tR\x05roots\"\x85\x01\n" +
+	"\bentities\x18\x03 \x03(\v2(.frontseat.source.v1alpha1.LocatedEntityR\bentities\"\x85\x01\n" +
 	"\rLocatedEntity\x12:\n" +
 	"\x03ref\x18\x01 \x01(\v2\".frontseat.type.v1alpha1.EntityRefB\x04\xe2A\x01\x02R\x03ref\x12$\n" +
 	"\n" +
@@ -784,14 +677,13 @@ const file_frontseat_source_v1alpha1_source_proto_rawDesc = "" +
 	"\x06remote\x18\x01 \x01(\tB\x04\xe2A\x01\x02R\x06remote\x12\x10\n" +
 	"\x03ref\x18\x02 \x01(\tR\x03ref\x12\x14\n" +
 	"\x05roots\x18\x03 \x03(\tR\x05roots\x12\x18\n" +
-	"\x04name\x18\x04 \x01(\tB\x04\xe2A\x01\x02R\x04name\"\x9c\x01\n" +
+	"\x04name\x18\x04 \x01(\tB\x04\xe2A\x01\x02R\x04name\"~\n" +
 	"\n" +
 	"Repository\x12\x18\n" +
 	"\x04name\x18\x01 \x01(\tB\x04\xe2A\x01\x03R\x04name\x12\x1c\n" +
 	"\x06remote\x18\x02 \x01(\tB\x04\xe2A\x01\x03R\x06remote\x12\x1c\n" +
 	"\x06commit\x18\x03 \x01(\tB\x04\xe2A\x01\x03R\x06commit\x12\x1a\n" +
-	"\x05roots\x18\x04 \x03(\tB\x04\xe2A\x01\x03R\x05roots\x12\x1c\n" +
-	"\x06stored\x18\x05 \x01(\tB\x04\xe2A\x01\x03R\x06stored\"S\n" +
+	"\x05roots\x18\x04 \x03(\tB\x04\xe2A\x01\x03R\x05roots\"S\n" +
 	"\x10SetSourceRequest\x12?\n" +
 	"\x04spec\x18\x01 \x01(\v2%.frontseat.source.v1alpha1.SourceSpecB\x04\xe2A\x01\x02R\x04spec\"N\n" +
 	"\x11SetSourceResponse\x129\n" +
@@ -821,40 +713,38 @@ func file_frontseat_source_v1alpha1_source_proto_rawDescGZIP() []byte {
 }
 
 var file_frontseat_source_v1alpha1_source_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_frontseat_source_v1alpha1_source_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_frontseat_source_v1alpha1_source_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_frontseat_source_v1alpha1_source_proto_goTypes = []any{
 	(Source_State)(0),          // 0: frontseat.source.v1alpha1.Source.State
 	(*Source)(nil),             // 1: frontseat.source.v1alpha1.Source
 	(*SourceSpec)(nil),         // 2: frontseat.source.v1alpha1.SourceSpec
-	(*StoredSource)(nil),       // 3: frontseat.source.v1alpha1.StoredSource
-	(*LocatedEntity)(nil),      // 4: frontseat.source.v1alpha1.LocatedEntity
-	(*RepositorySource)(nil),   // 5: frontseat.source.v1alpha1.RepositorySource
-	(*Repository)(nil),         // 6: frontseat.source.v1alpha1.Repository
-	(*SetSourceRequest)(nil),   // 7: frontseat.source.v1alpha1.SetSourceRequest
-	(*SetSourceResponse)(nil),  // 8: frontseat.source.v1alpha1.SetSourceResponse
-	(*WaitSourceRequest)(nil),  // 9: frontseat.source.v1alpha1.WaitSourceRequest
-	(*WaitSourceResponse)(nil), // 10: frontseat.source.v1alpha1.WaitSourceResponse
-	(*v1alpha1.EntityRef)(nil), // 11: frontseat.type.v1alpha1.EntityRef
+	(*LocatedEntity)(nil),      // 3: frontseat.source.v1alpha1.LocatedEntity
+	(*RepositorySource)(nil),   // 4: frontseat.source.v1alpha1.RepositorySource
+	(*Repository)(nil),         // 5: frontseat.source.v1alpha1.Repository
+	(*SetSourceRequest)(nil),   // 6: frontseat.source.v1alpha1.SetSourceRequest
+	(*SetSourceResponse)(nil),  // 7: frontseat.source.v1alpha1.SetSourceResponse
+	(*WaitSourceRequest)(nil),  // 8: frontseat.source.v1alpha1.WaitSourceRequest
+	(*WaitSourceResponse)(nil), // 9: frontseat.source.v1alpha1.WaitSourceResponse
+	(*v1alpha1.EntityRef)(nil), // 10: frontseat.type.v1alpha1.EntityRef
 }
 var file_frontseat_source_v1alpha1_source_proto_depIdxs = []int32{
 	0,  // 0: frontseat.source.v1alpha1.Source.state:type_name -> frontseat.source.v1alpha1.Source.State
-	6,  // 1: frontseat.source.v1alpha1.Source.repositories:type_name -> frontseat.source.v1alpha1.Repository
-	5,  // 2: frontseat.source.v1alpha1.SourceSpec.repositories:type_name -> frontseat.source.v1alpha1.RepositorySource
-	4,  // 3: frontseat.source.v1alpha1.SourceSpec.entities:type_name -> frontseat.source.v1alpha1.LocatedEntity
-	3,  // 4: frontseat.source.v1alpha1.SourceSpec.stored:type_name -> frontseat.source.v1alpha1.StoredSource
-	11, // 5: frontseat.source.v1alpha1.LocatedEntity.ref:type_name -> frontseat.type.v1alpha1.EntityRef
-	2,  // 6: frontseat.source.v1alpha1.SetSourceRequest.spec:type_name -> frontseat.source.v1alpha1.SourceSpec
-	1,  // 7: frontseat.source.v1alpha1.SetSourceResponse.source:type_name -> frontseat.source.v1alpha1.Source
-	1,  // 8: frontseat.source.v1alpha1.WaitSourceResponse.source:type_name -> frontseat.source.v1alpha1.Source
-	7,  // 9: frontseat.source.v1alpha1.SourceService.SetSource:input_type -> frontseat.source.v1alpha1.SetSourceRequest
-	9,  // 10: frontseat.source.v1alpha1.SourceService.WaitSource:input_type -> frontseat.source.v1alpha1.WaitSourceRequest
-	8,  // 11: frontseat.source.v1alpha1.SourceService.SetSource:output_type -> frontseat.source.v1alpha1.SetSourceResponse
-	10, // 12: frontseat.source.v1alpha1.SourceService.WaitSource:output_type -> frontseat.source.v1alpha1.WaitSourceResponse
-	11, // [11:13] is the sub-list for method output_type
-	9,  // [9:11] is the sub-list for method input_type
-	9,  // [9:9] is the sub-list for extension type_name
-	9,  // [9:9] is the sub-list for extension extendee
-	0,  // [0:9] is the sub-list for field type_name
+	5,  // 1: frontseat.source.v1alpha1.Source.repositories:type_name -> frontseat.source.v1alpha1.Repository
+	4,  // 2: frontseat.source.v1alpha1.SourceSpec.repositories:type_name -> frontseat.source.v1alpha1.RepositorySource
+	3,  // 3: frontseat.source.v1alpha1.SourceSpec.entities:type_name -> frontseat.source.v1alpha1.LocatedEntity
+	10, // 4: frontseat.source.v1alpha1.LocatedEntity.ref:type_name -> frontseat.type.v1alpha1.EntityRef
+	2,  // 5: frontseat.source.v1alpha1.SetSourceRequest.spec:type_name -> frontseat.source.v1alpha1.SourceSpec
+	1,  // 6: frontseat.source.v1alpha1.SetSourceResponse.source:type_name -> frontseat.source.v1alpha1.Source
+	1,  // 7: frontseat.source.v1alpha1.WaitSourceResponse.source:type_name -> frontseat.source.v1alpha1.Source
+	6,  // 8: frontseat.source.v1alpha1.SourceService.SetSource:input_type -> frontseat.source.v1alpha1.SetSourceRequest
+	8,  // 9: frontseat.source.v1alpha1.SourceService.WaitSource:input_type -> frontseat.source.v1alpha1.WaitSourceRequest
+	7,  // 10: frontseat.source.v1alpha1.SourceService.SetSource:output_type -> frontseat.source.v1alpha1.SetSourceResponse
+	9,  // 11: frontseat.source.v1alpha1.SourceService.WaitSource:output_type -> frontseat.source.v1alpha1.WaitSourceResponse
+	10, // [10:12] is the sub-list for method output_type
+	8,  // [8:10] is the sub-list for method input_type
+	8,  // [8:8] is the sub-list for extension type_name
+	8,  // [8:8] is the sub-list for extension extendee
+	0,  // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_frontseat_source_v1alpha1_source_proto_init() }
@@ -868,7 +758,7 @@ func file_frontseat_source_v1alpha1_source_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_frontseat_source_v1alpha1_source_proto_rawDesc), len(file_frontseat_source_v1alpha1_source_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   10,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

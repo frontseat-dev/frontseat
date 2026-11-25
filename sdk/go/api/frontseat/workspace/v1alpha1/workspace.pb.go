@@ -55,16 +55,6 @@
 // once, its shells among them: one more is refused RESOURCE_EXHAUSTED
 // with the reason TUNNELS_EXHAUSTED, until one of them has ended.
 //
-// A workspace is local or remote. A local one, which every control plane
-// serves, clones its repositories in its sandbox: what is done there is
-// committed there, and leaves it by a push. A remote one holds its
-// repositories from a snapshot store, mounted in its sandbox and not
-// cloned (WorkspaceSpec.stored, task and land). A remote workspace is
-// served only by a control plane that was given what serves stored
-// repositories, which an enterprise server is: any other refuses a spec
-// that asks for one UNIMPLEMENTED, with the reason STORE_NOT_SERVED,
-// and makes nothing.
-//
 // A workspace is kept as what was asked for, its spec, and what is so,
 // its status. A call writes the spec and returns; the control plane then
 // works until the status matches it. It works from the spec it keeps: a
@@ -170,7 +160,7 @@ func (x WorkspaceStatus_State) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use WorkspaceStatus_State.Descriptor instead.
 func (WorkspaceStatus_State) EnumDescriptor() ([]byte, []int) {
-	return file_frontseat_workspace_v1alpha1_workspace_proto_rawDescGZIP(), []int{4, 0}
+	return file_frontseat_workspace_v1alpha1_workspace_proto_rawDescGZIP(), []int{3, 0}
 }
 
 // Workspace is a workspace.
@@ -305,34 +295,7 @@ type WorkspaceSpec struct {
 	// CreateWorkspace for a workspace that is there is refused with
 	// another lifetime, and with none returns the workspace as it was
 	// made.
-	Lifetime *durationpb.Duration `protobuf:"bytes,8,opt,name=lifetime,proto3" json:"lifetime,omitempty"`
-	// Stored are repositories it holds from the control plane's snapshot
-	// store, and does not clone: each is mounted in its sandbox, at the
-	// changeset its ref or its task stood at when the workspace was made,
-	// and its supervisor is given no credential of the store. They are
-	// set when the workspace is made, and cannot be changed. Served only
-	// where the control plane was given what serves stored repositories,
-	// which an enterprise server is: any other refuses a spec that names
-	// one UNIMPLEMENTED, with the reason STORE_NOT_SERVED.
-	Stored []*StoredRepository `protobuf:"bytes,9,rep,name=stored,proto3" json:"stored,omitempty"`
-	// Land asks that what a test that passes in it tested be landed on
-	// the task of each stored repository it changed. It is said of a
-	// workspace that holds stored repositories, when it is made, and
-	// cannot be changed; what lands, and when, is for what serves stored
-	// repositories to say. Served only where stored is, and refused as it
-	// is otherwise (STORE_NOT_SERVED).
-	Land bool `protobuf:"varint,10,opt,name=land,proto3" json:"land,omitempty"`
-	// Task is the task every stored repository it holds works on, where
-	// the repository names neither a task of its own nor where to stand
-	// (at). Empty, in a workspace that lands, it is the workspace's own
-	// name: the workspace's spec then says so. Where it is set, the
-	// repositories its entities are in are held from the store too, each
-	// by the name the workspace gives it, with the directories of its
-	// entities alone unless whole_repositories is set, and none of them
-	// is cloned. It is set when the workspace is made, and cannot be
-	// changed. Served only where stored is, and refused as it is
-	// otherwise (STORE_NOT_SERVED).
-	Task          string `protobuf:"bytes,11,opt,name=task,proto3" json:"task,omitempty"`
+	Lifetime      *durationpb.Duration `protobuf:"bytes,8,opt,name=lifetime,proto3" json:"lifetime,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -423,118 +386,6 @@ func (x *WorkspaceSpec) GetLifetime() *durationpb.Duration {
 	return nil
 }
 
-func (x *WorkspaceSpec) GetStored() []*StoredRepository {
-	if x != nil {
-		return x.Stored
-	}
-	return nil
-}
-
-func (x *WorkspaceSpec) GetLand() bool {
-	if x != nil {
-		return x.Land
-	}
-	return false
-}
-
-func (x *WorkspaceSpec) GetTask() string {
-	if x != nil {
-		return x.Task
-	}
-	return ""
-}
-
-// StoredRepository is a repository of the control plane's snapshot
-// store, for a workspace to hold: at a ref, at a changeset, or on a
-// task. It is served only where WorkspaceSpec.stored is.
-type StoredRepository struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Repository is the store's name for it.
-	Repository string `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// At is a ref of the store, or a changeset by its id; empty for the
-	// store's main. A ref is read when the workspace is made: the
-	// workspace holds the changeset the ref stood at then.
-	At string `protobuf:"bytes,2,opt,name=at,proto3" json:"at,omitempty"`
-	// Name is the workspace's name for it, and its directory there;
-	// empty for the store's name.
-	Name string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
-	// Roots are the directories to take of it; empty for all of it.
-	Roots []string `protobuf:"bytes,4,rep,name=roots,proto3" json:"roots,omitempty"`
-	// Task is the task it works on, by the task's name; empty for the
-	// workspace's (WorkspaceSpec.task), or, where at is set or the
-	// workspace has none, for no task. At is empty where it is set: the
-	// workspace holds what the task stood at when it was made, and a
-	// repository asked for with both is refused (SPEC_INVALID).
-	Task          string `protobuf:"bytes,5,opt,name=task,proto3" json:"task,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *StoredRepository) Reset() {
-	*x = StoredRepository{}
-	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[2]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *StoredRepository) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*StoredRepository) ProtoMessage() {}
-
-func (x *StoredRepository) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[2]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use StoredRepository.ProtoReflect.Descriptor instead.
-func (*StoredRepository) Descriptor() ([]byte, []int) {
-	return file_frontseat_workspace_v1alpha1_workspace_proto_rawDescGZIP(), []int{2}
-}
-
-func (x *StoredRepository) GetRepository() string {
-	if x != nil {
-		return x.Repository
-	}
-	return ""
-}
-
-func (x *StoredRepository) GetAt() string {
-	if x != nil {
-		return x.At
-	}
-	return ""
-}
-
-func (x *StoredRepository) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-func (x *StoredRepository) GetRoots() []string {
-	if x != nil {
-		return x.Roots
-	}
-	return nil
-}
-
-func (x *StoredRepository) GetTask() string {
-	if x != nil {
-		return x.Task
-	}
-	return ""
-}
-
 // Author is who commits in a workspace.
 type Author struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -548,7 +399,7 @@ type Author struct {
 
 func (x *Author) Reset() {
 	*x = Author{}
-	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[3]
+	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -560,7 +411,7 @@ func (x *Author) String() string {
 func (*Author) ProtoMessage() {}
 
 func (x *Author) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[3]
+	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -573,7 +424,7 @@ func (x *Author) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Author.ProtoReflect.Descriptor instead.
 func (*Author) Descriptor() ([]byte, []int) {
-	return file_frontseat_workspace_v1alpha1_workspace_proto_rawDescGZIP(), []int{3}
+	return file_frontseat_workspace_v1alpha1_workspace_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *Author) GetName() string {
@@ -612,7 +463,7 @@ type WorkspaceStatus struct {
 
 func (x *WorkspaceStatus) Reset() {
 	*x = WorkspaceStatus{}
-	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[4]
+	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -624,7 +475,7 @@ func (x *WorkspaceStatus) String() string {
 func (*WorkspaceStatus) ProtoMessage() {}
 
 func (x *WorkspaceStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[4]
+	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -637,7 +488,7 @@ func (x *WorkspaceStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkspaceStatus.ProtoReflect.Descriptor instead.
 func (*WorkspaceStatus) Descriptor() ([]byte, []int) {
-	return file_frontseat_workspace_v1alpha1_workspace_proto_rawDescGZIP(), []int{4}
+	return file_frontseat_workspace_v1alpha1_workspace_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *WorkspaceStatus) GetState() WorkspaceStatus_State {
@@ -672,9 +523,8 @@ func (x *WorkspaceStatus) GetEntities() []*LocatedEntity {
 type CreateWorkspaceRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Name names it; empty for the name the control plane gives what was
-	// asked for: the first entity's name, or else the first stored
-	// repository's, or else the first repository's, with its ref where
-	// one is given ("payments", "services-main").
+	// asked for: the first entity's name, or else the first repository's,
+	// with its ref where one is given ("payments", "services-main").
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Spec is what it is asked for with.
 	Spec          *WorkspaceSpec `protobuf:"bytes,2,opt,name=spec,proto3" json:"spec,omitempty"`
@@ -684,7 +534,7 @@ type CreateWorkspaceRequest struct {
 
 func (x *CreateWorkspaceRequest) Reset() {
 	*x = CreateWorkspaceRequest{}
-	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[5]
+	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -696,7 +546,7 @@ func (x *CreateWorkspaceRequest) String() string {
 func (*CreateWorkspaceRequest) ProtoMessage() {}
 
 func (x *CreateWorkspaceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[5]
+	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -709,7 +559,7 @@ func (x *CreateWorkspaceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateWorkspaceRequest.ProtoReflect.Descriptor instead.
 func (*CreateWorkspaceRequest) Descriptor() ([]byte, []int) {
-	return file_frontseat_workspace_v1alpha1_workspace_proto_rawDescGZIP(), []int{5}
+	return file_frontseat_workspace_v1alpha1_workspace_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *CreateWorkspaceRequest) GetName() string {
@@ -740,7 +590,7 @@ type CreateWorkspaceResponse struct {
 
 func (x *CreateWorkspaceResponse) Reset() {
 	*x = CreateWorkspaceResponse{}
-	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[6]
+	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -752,7 +602,7 @@ func (x *CreateWorkspaceResponse) String() string {
 func (*CreateWorkspaceResponse) ProtoMessage() {}
 
 func (x *CreateWorkspaceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[6]
+	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -765,7 +615,7 @@ func (x *CreateWorkspaceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateWorkspaceResponse.ProtoReflect.Descriptor instead.
 func (*CreateWorkspaceResponse) Descriptor() ([]byte, []int) {
-	return file_frontseat_workspace_v1alpha1_workspace_proto_rawDescGZIP(), []int{6}
+	return file_frontseat_workspace_v1alpha1_workspace_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *CreateWorkspaceResponse) GetWorkspace() *Workspace {
@@ -793,7 +643,7 @@ type DescribeWorkspaceRequest struct {
 
 func (x *DescribeWorkspaceRequest) Reset() {
 	*x = DescribeWorkspaceRequest{}
-	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[7]
+	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -805,7 +655,7 @@ func (x *DescribeWorkspaceRequest) String() string {
 func (*DescribeWorkspaceRequest) ProtoMessage() {}
 
 func (x *DescribeWorkspaceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[7]
+	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -818,7 +668,7 @@ func (x *DescribeWorkspaceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DescribeWorkspaceRequest.ProtoReflect.Descriptor instead.
 func (*DescribeWorkspaceRequest) Descriptor() ([]byte, []int) {
-	return file_frontseat_workspace_v1alpha1_workspace_proto_rawDescGZIP(), []int{7}
+	return file_frontseat_workspace_v1alpha1_workspace_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *DescribeWorkspaceRequest) GetName() string {
@@ -839,7 +689,7 @@ type DescribeWorkspaceResponse struct {
 
 func (x *DescribeWorkspaceResponse) Reset() {
 	*x = DescribeWorkspaceResponse{}
-	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[8]
+	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -851,7 +701,7 @@ func (x *DescribeWorkspaceResponse) String() string {
 func (*DescribeWorkspaceResponse) ProtoMessage() {}
 
 func (x *DescribeWorkspaceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[8]
+	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -864,7 +714,7 @@ func (x *DescribeWorkspaceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DescribeWorkspaceResponse.ProtoReflect.Descriptor instead.
 func (*DescribeWorkspaceResponse) Descriptor() ([]byte, []int) {
-	return file_frontseat_workspace_v1alpha1_workspace_proto_rawDescGZIP(), []int{8}
+	return file_frontseat_workspace_v1alpha1_workspace_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *DescribeWorkspaceResponse) GetWorkspace() *Workspace {
@@ -889,7 +739,7 @@ type ListWorkspacesRequest struct {
 
 func (x *ListWorkspacesRequest) Reset() {
 	*x = ListWorkspacesRequest{}
-	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[9]
+	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -901,7 +751,7 @@ func (x *ListWorkspacesRequest) String() string {
 func (*ListWorkspacesRequest) ProtoMessage() {}
 
 func (x *ListWorkspacesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[9]
+	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -914,7 +764,7 @@ func (x *ListWorkspacesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListWorkspacesRequest.ProtoReflect.Descriptor instead.
 func (*ListWorkspacesRequest) Descriptor() ([]byte, []int) {
-	return file_frontseat_workspace_v1alpha1_workspace_proto_rawDescGZIP(), []int{9}
+	return file_frontseat_workspace_v1alpha1_workspace_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *ListWorkspacesRequest) GetPageSize() int32 {
@@ -944,7 +794,7 @@ type ListWorkspacesResponse struct {
 
 func (x *ListWorkspacesResponse) Reset() {
 	*x = ListWorkspacesResponse{}
-	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[10]
+	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -956,7 +806,7 @@ func (x *ListWorkspacesResponse) String() string {
 func (*ListWorkspacesResponse) ProtoMessage() {}
 
 func (x *ListWorkspacesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[10]
+	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -969,7 +819,7 @@ func (x *ListWorkspacesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListWorkspacesResponse.ProtoReflect.Descriptor instead.
 func (*ListWorkspacesResponse) Descriptor() ([]byte, []int) {
-	return file_frontseat_workspace_v1alpha1_workspace_proto_rawDescGZIP(), []int{10}
+	return file_frontseat_workspace_v1alpha1_workspace_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *ListWorkspacesResponse) GetWorkspaces() []*Workspace {
@@ -997,7 +847,7 @@ type WaitWorkspaceRequest struct {
 
 func (x *WaitWorkspaceRequest) Reset() {
 	*x = WaitWorkspaceRequest{}
-	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[11]
+	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1009,7 +859,7 @@ func (x *WaitWorkspaceRequest) String() string {
 func (*WaitWorkspaceRequest) ProtoMessage() {}
 
 func (x *WaitWorkspaceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[11]
+	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1022,7 +872,7 @@ func (x *WaitWorkspaceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WaitWorkspaceRequest.ProtoReflect.Descriptor instead.
 func (*WaitWorkspaceRequest) Descriptor() ([]byte, []int) {
-	return file_frontseat_workspace_v1alpha1_workspace_proto_rawDescGZIP(), []int{11}
+	return file_frontseat_workspace_v1alpha1_workspace_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *WaitWorkspaceRequest) GetName() string {
@@ -1043,7 +893,7 @@ type WaitWorkspaceResponse struct {
 
 func (x *WaitWorkspaceResponse) Reset() {
 	*x = WaitWorkspaceResponse{}
-	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[12]
+	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1055,7 +905,7 @@ func (x *WaitWorkspaceResponse) String() string {
 func (*WaitWorkspaceResponse) ProtoMessage() {}
 
 func (x *WaitWorkspaceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[12]
+	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1068,7 +918,7 @@ func (x *WaitWorkspaceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WaitWorkspaceResponse.ProtoReflect.Descriptor instead.
 func (*WaitWorkspaceResponse) Descriptor() ([]byte, []int) {
-	return file_frontseat_workspace_v1alpha1_workspace_proto_rawDescGZIP(), []int{12}
+	return file_frontseat_workspace_v1alpha1_workspace_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *WaitWorkspaceResponse) GetWorkspace() *Workspace {
@@ -1091,7 +941,7 @@ type UpdateWorkspaceRequest struct {
 
 func (x *UpdateWorkspaceRequest) Reset() {
 	*x = UpdateWorkspaceRequest{}
-	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[13]
+	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1103,7 +953,7 @@ func (x *UpdateWorkspaceRequest) String() string {
 func (*UpdateWorkspaceRequest) ProtoMessage() {}
 
 func (x *UpdateWorkspaceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[13]
+	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1116,7 +966,7 @@ func (x *UpdateWorkspaceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateWorkspaceRequest.ProtoReflect.Descriptor instead.
 func (*UpdateWorkspaceRequest) Descriptor() ([]byte, []int) {
-	return file_frontseat_workspace_v1alpha1_workspace_proto_rawDescGZIP(), []int{13}
+	return file_frontseat_workspace_v1alpha1_workspace_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *UpdateWorkspaceRequest) GetName() string {
@@ -1144,7 +994,7 @@ type UpdateWorkspaceResponse struct {
 
 func (x *UpdateWorkspaceResponse) Reset() {
 	*x = UpdateWorkspaceResponse{}
-	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[14]
+	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1156,7 +1006,7 @@ func (x *UpdateWorkspaceResponse) String() string {
 func (*UpdateWorkspaceResponse) ProtoMessage() {}
 
 func (x *UpdateWorkspaceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[14]
+	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1169,7 +1019,7 @@ func (x *UpdateWorkspaceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateWorkspaceResponse.ProtoReflect.Descriptor instead.
 func (*UpdateWorkspaceResponse) Descriptor() ([]byte, []int) {
-	return file_frontseat_workspace_v1alpha1_workspace_proto_rawDescGZIP(), []int{14}
+	return file_frontseat_workspace_v1alpha1_workspace_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *UpdateWorkspaceResponse) GetWorkspace() *Workspace {
@@ -1190,7 +1040,7 @@ type DeleteWorkspaceRequest struct {
 
 func (x *DeleteWorkspaceRequest) Reset() {
 	*x = DeleteWorkspaceRequest{}
-	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[15]
+	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1202,7 +1052,7 @@ func (x *DeleteWorkspaceRequest) String() string {
 func (*DeleteWorkspaceRequest) ProtoMessage() {}
 
 func (x *DeleteWorkspaceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[15]
+	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1215,7 +1065,7 @@ func (x *DeleteWorkspaceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteWorkspaceRequest.ProtoReflect.Descriptor instead.
 func (*DeleteWorkspaceRequest) Descriptor() ([]byte, []int) {
-	return file_frontseat_workspace_v1alpha1_workspace_proto_rawDescGZIP(), []int{15}
+	return file_frontseat_workspace_v1alpha1_workspace_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *DeleteWorkspaceRequest) GetName() string {
@@ -1234,7 +1084,7 @@ type DeleteWorkspaceResponse struct {
 
 func (x *DeleteWorkspaceResponse) Reset() {
 	*x = DeleteWorkspaceResponse{}
-	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[16]
+	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1246,7 +1096,7 @@ func (x *DeleteWorkspaceResponse) String() string {
 func (*DeleteWorkspaceResponse) ProtoMessage() {}
 
 func (x *DeleteWorkspaceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[16]
+	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1259,7 +1109,7 @@ func (x *DeleteWorkspaceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteWorkspaceResponse.ProtoReflect.Descriptor instead.
 func (*DeleteWorkspaceResponse) Descriptor() ([]byte, []int) {
-	return file_frontseat_workspace_v1alpha1_workspace_proto_rawDescGZIP(), []int{16}
+	return file_frontseat_workspace_v1alpha1_workspace_proto_rawDescGZIP(), []int{15}
 }
 
 // Repository is one repository of a workspace.
@@ -1269,23 +1119,19 @@ type Repository struct {
 	// by.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Remote is where it was cloned from; empty for a directory the supervisor
-	// was started over and did not clone, and for a stored repository.
+	// was started over and did not clone.
 	Remote string `protobuf:"bytes,2,opt,name=remote,proto3" json:"remote,omitempty"`
-	// Commit is the commit it stands at; for a stored repository, the
-	// changeset.
+	// Commit is the commit it stands at.
 	Commit string `protobuf:"bytes,3,opt,name=commit,proto3" json:"commit,omitempty"`
 	// Roots are the directories taken of it; empty for all of it.
-	Roots []string `protobuf:"bytes,4,rep,name=roots,proto3" json:"roots,omitempty"`
-	// Stored is the snapshot store's name for it, where it is held from
-	// the store and not cloned; empty for one that was cloned.
-	Stored        string `protobuf:"bytes,5,opt,name=stored,proto3" json:"stored,omitempty"`
+	Roots         []string `protobuf:"bytes,4,rep,name=roots,proto3" json:"roots,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Repository) Reset() {
 	*x = Repository{}
-	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[17]
+	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1297,7 +1143,7 @@ func (x *Repository) String() string {
 func (*Repository) ProtoMessage() {}
 
 func (x *Repository) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[17]
+	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1310,7 +1156,7 @@ func (x *Repository) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Repository.ProtoReflect.Descriptor instead.
 func (*Repository) Descriptor() ([]byte, []int) {
-	return file_frontseat_workspace_v1alpha1_workspace_proto_rawDescGZIP(), []int{17}
+	return file_frontseat_workspace_v1alpha1_workspace_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *Repository) GetName() string {
@@ -1341,13 +1187,6 @@ func (x *Repository) GetRoots() []string {
 	return nil
 }
 
-func (x *Repository) GetStored() string {
-	if x != nil {
-		return x.Stored
-	}
-	return ""
-}
-
 // LocatedEntity is an entity, and where its source is in a workspace.
 type LocatedEntity struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1363,7 +1202,7 @@ type LocatedEntity struct {
 
 func (x *LocatedEntity) Reset() {
 	*x = LocatedEntity{}
-	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[18]
+	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1375,7 +1214,7 @@ func (x *LocatedEntity) String() string {
 func (*LocatedEntity) ProtoMessage() {}
 
 func (x *LocatedEntity) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[18]
+	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1388,7 +1227,7 @@ func (x *LocatedEntity) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LocatedEntity.ProtoReflect.Descriptor instead.
 func (*LocatedEntity) Descriptor() ([]byte, []int) {
-	return file_frontseat_workspace_v1alpha1_workspace_proto_rawDescGZIP(), []int{18}
+	return file_frontseat_workspace_v1alpha1_workspace_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *LocatedEntity) GetRef() *v1alpha1.EntityRef {
@@ -1428,7 +1267,7 @@ type RepositorySource struct {
 
 func (x *RepositorySource) Reset() {
 	*x = RepositorySource{}
-	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[19]
+	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1440,7 +1279,7 @@ func (x *RepositorySource) String() string {
 func (*RepositorySource) ProtoMessage() {}
 
 func (x *RepositorySource) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[19]
+	mi := &file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1453,7 +1292,7 @@ func (x *RepositorySource) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RepositorySource.ProtoReflect.Descriptor instead.
 func (*RepositorySource) Descriptor() ([]byte, []int) {
-	return file_frontseat_workspace_v1alpha1_workspace_proto_rawDescGZIP(), []int{19}
+	return file_frontseat_workspace_v1alpha1_workspace_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *RepositorySource) GetRemote() string {
@@ -1481,7 +1320,7 @@ const file_frontseat_workspace_v1alpha1_workspace_proto_rawDesc = "" +
 	"\x06status\x18\x03 \x01(\v2-.frontseat.workspace.v1alpha1.WorkspaceStatusB\x04\xe2A\x01\x03R\x06status\x12A\n" +
 	"\vcreate_time\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampB\x04\xe2A\x01\x03R\n" +
 	"createTime\x12\x1a\n" +
-	"\x05owner\x18\x05 \x01(\tB\x04\xe2A\x01\x03R\x05owner\"\x88\x04\n" +
+	"\x05owner\x18\x05 \x01(\tB\x04\xe2A\x01\x03R\x05owner\"\x98\x03\n" +
 	"\rWorkspaceSpec\x12R\n" +
 	"\frepositories\x18\x01 \x03(\v2..frontseat.workspace.v1alpha1.RepositorySourceR\frepositories\x12>\n" +
 	"\bentities\x18\x02 \x03(\v2\".frontseat.type.v1alpha1.EntityRefR\bentities\x12-\n" +
@@ -1490,19 +1329,7 @@ const file_frontseat_workspace_v1alpha1_workspace_proto_rawDesc = "" +
 	"\x06author\x18\x05 \x01(\v2$.frontseat.workspace.v1alpha1.AuthorR\x06author\x12%\n" +
 	"\x0eauthorized_key\x18\x06 \x01(\tR\rauthorizedKey\x12\x14\n" +
 	"\x05image\x18\a \x01(\tR\x05image\x125\n" +
-	"\blifetime\x18\b \x01(\v2\x19.google.protobuf.DurationR\blifetime\x12F\n" +
-	"\x06stored\x18\t \x03(\v2..frontseat.workspace.v1alpha1.StoredRepositoryR\x06stored\x12\x12\n" +
-	"\x04land\x18\n" +
-	" \x01(\bR\x04land\x12\x12\n" +
-	"\x04task\x18\v \x01(\tR\x04task\"\x86\x01\n" +
-	"\x10StoredRepository\x12$\n" +
-	"\n" +
-	"repository\x18\x01 \x01(\tB\x04\xe2A\x01\x02R\n" +
-	"repository\x12\x0e\n" +
-	"\x02at\x18\x02 \x01(\tR\x02at\x12\x12\n" +
-	"\x04name\x18\x03 \x01(\tR\x04name\x12\x14\n" +
-	"\x05roots\x18\x04 \x03(\tR\x05roots\x12\x12\n" +
-	"\x04task\x18\x05 \x01(\tR\x04task\"2\n" +
+	"\blifetime\x18\b \x01(\v2\x19.google.protobuf.DurationR\blifetime\"2\n" +
 	"\x06Author\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05email\x18\x02 \x01(\tR\x05email\"\xb7\x03\n" +
@@ -1549,14 +1376,13 @@ const file_frontseat_workspace_v1alpha1_workspace_proto_rawDesc = "" +
 	"\tworkspace\x18\x01 \x01(\v2'.frontseat.workspace.v1alpha1.WorkspaceR\tworkspace\"2\n" +
 	"\x16DeleteWorkspaceRequest\x12\x18\n" +
 	"\x04name\x18\x01 \x01(\tB\x04\xe2A\x01\x02R\x04name\"\x19\n" +
-	"\x17DeleteWorkspaceResponse\"\x9c\x01\n" +
+	"\x17DeleteWorkspaceResponse\"~\n" +
 	"\n" +
 	"Repository\x12\x18\n" +
 	"\x04name\x18\x01 \x01(\tB\x04\xe2A\x01\x03R\x04name\x12\x1c\n" +
 	"\x06remote\x18\x02 \x01(\tB\x04\xe2A\x01\x03R\x06remote\x12\x1c\n" +
 	"\x06commit\x18\x03 \x01(\tB\x04\xe2A\x01\x03R\x06commit\x12\x1a\n" +
-	"\x05roots\x18\x04 \x03(\tB\x04\xe2A\x01\x03R\x05roots\x12\x1c\n" +
-	"\x06stored\x18\x05 \x01(\tB\x04\xe2A\x01\x03R\x06stored\"\x8b\x01\n" +
+	"\x05roots\x18\x04 \x03(\tB\x04\xe2A\x01\x03R\x05roots\"\x8b\x01\n" +
 	"\rLocatedEntity\x12:\n" +
 	"\x03ref\x18\x01 \x01(\v2\".frontseat.type.v1alpha1.EntityRefB\x04\xe2A\x01\x03R\x03ref\x12$\n" +
 	"\n" +
@@ -1588,70 +1414,68 @@ func file_frontseat_workspace_v1alpha1_workspace_proto_rawDescGZIP() []byte {
 }
 
 var file_frontseat_workspace_v1alpha1_workspace_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
+var file_frontseat_workspace_v1alpha1_workspace_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
 var file_frontseat_workspace_v1alpha1_workspace_proto_goTypes = []any{
 	(WorkspaceStatus_State)(0),        // 0: frontseat.workspace.v1alpha1.WorkspaceStatus.State
 	(*Workspace)(nil),                 // 1: frontseat.workspace.v1alpha1.Workspace
 	(*WorkspaceSpec)(nil),             // 2: frontseat.workspace.v1alpha1.WorkspaceSpec
-	(*StoredRepository)(nil),          // 3: frontseat.workspace.v1alpha1.StoredRepository
-	(*Author)(nil),                    // 4: frontseat.workspace.v1alpha1.Author
-	(*WorkspaceStatus)(nil),           // 5: frontseat.workspace.v1alpha1.WorkspaceStatus
-	(*CreateWorkspaceRequest)(nil),    // 6: frontseat.workspace.v1alpha1.CreateWorkspaceRequest
-	(*CreateWorkspaceResponse)(nil),   // 7: frontseat.workspace.v1alpha1.CreateWorkspaceResponse
-	(*DescribeWorkspaceRequest)(nil),  // 8: frontseat.workspace.v1alpha1.DescribeWorkspaceRequest
-	(*DescribeWorkspaceResponse)(nil), // 9: frontseat.workspace.v1alpha1.DescribeWorkspaceResponse
-	(*ListWorkspacesRequest)(nil),     // 10: frontseat.workspace.v1alpha1.ListWorkspacesRequest
-	(*ListWorkspacesResponse)(nil),    // 11: frontseat.workspace.v1alpha1.ListWorkspacesResponse
-	(*WaitWorkspaceRequest)(nil),      // 12: frontseat.workspace.v1alpha1.WaitWorkspaceRequest
-	(*WaitWorkspaceResponse)(nil),     // 13: frontseat.workspace.v1alpha1.WaitWorkspaceResponse
-	(*UpdateWorkspaceRequest)(nil),    // 14: frontseat.workspace.v1alpha1.UpdateWorkspaceRequest
-	(*UpdateWorkspaceResponse)(nil),   // 15: frontseat.workspace.v1alpha1.UpdateWorkspaceResponse
-	(*DeleteWorkspaceRequest)(nil),    // 16: frontseat.workspace.v1alpha1.DeleteWorkspaceRequest
-	(*DeleteWorkspaceResponse)(nil),   // 17: frontseat.workspace.v1alpha1.DeleteWorkspaceResponse
-	(*Repository)(nil),                // 18: frontseat.workspace.v1alpha1.Repository
-	(*LocatedEntity)(nil),             // 19: frontseat.workspace.v1alpha1.LocatedEntity
-	(*RepositorySource)(nil),          // 20: frontseat.workspace.v1alpha1.RepositorySource
-	(*timestamppb.Timestamp)(nil),     // 21: google.protobuf.Timestamp
-	(*v1alpha1.EntityRef)(nil),        // 22: frontseat.type.v1alpha1.EntityRef
-	(*durationpb.Duration)(nil),       // 23: google.protobuf.Duration
+	(*Author)(nil),                    // 3: frontseat.workspace.v1alpha1.Author
+	(*WorkspaceStatus)(nil),           // 4: frontseat.workspace.v1alpha1.WorkspaceStatus
+	(*CreateWorkspaceRequest)(nil),    // 5: frontseat.workspace.v1alpha1.CreateWorkspaceRequest
+	(*CreateWorkspaceResponse)(nil),   // 6: frontseat.workspace.v1alpha1.CreateWorkspaceResponse
+	(*DescribeWorkspaceRequest)(nil),  // 7: frontseat.workspace.v1alpha1.DescribeWorkspaceRequest
+	(*DescribeWorkspaceResponse)(nil), // 8: frontseat.workspace.v1alpha1.DescribeWorkspaceResponse
+	(*ListWorkspacesRequest)(nil),     // 9: frontseat.workspace.v1alpha1.ListWorkspacesRequest
+	(*ListWorkspacesResponse)(nil),    // 10: frontseat.workspace.v1alpha1.ListWorkspacesResponse
+	(*WaitWorkspaceRequest)(nil),      // 11: frontseat.workspace.v1alpha1.WaitWorkspaceRequest
+	(*WaitWorkspaceResponse)(nil),     // 12: frontseat.workspace.v1alpha1.WaitWorkspaceResponse
+	(*UpdateWorkspaceRequest)(nil),    // 13: frontseat.workspace.v1alpha1.UpdateWorkspaceRequest
+	(*UpdateWorkspaceResponse)(nil),   // 14: frontseat.workspace.v1alpha1.UpdateWorkspaceResponse
+	(*DeleteWorkspaceRequest)(nil),    // 15: frontseat.workspace.v1alpha1.DeleteWorkspaceRequest
+	(*DeleteWorkspaceResponse)(nil),   // 16: frontseat.workspace.v1alpha1.DeleteWorkspaceResponse
+	(*Repository)(nil),                // 17: frontseat.workspace.v1alpha1.Repository
+	(*LocatedEntity)(nil),             // 18: frontseat.workspace.v1alpha1.LocatedEntity
+	(*RepositorySource)(nil),          // 19: frontseat.workspace.v1alpha1.RepositorySource
+	(*timestamppb.Timestamp)(nil),     // 20: google.protobuf.Timestamp
+	(*v1alpha1.EntityRef)(nil),        // 21: frontseat.type.v1alpha1.EntityRef
+	(*durationpb.Duration)(nil),       // 22: google.protobuf.Duration
 }
 var file_frontseat_workspace_v1alpha1_workspace_proto_depIdxs = []int32{
 	2,  // 0: frontseat.workspace.v1alpha1.Workspace.spec:type_name -> frontseat.workspace.v1alpha1.WorkspaceSpec
-	5,  // 1: frontseat.workspace.v1alpha1.Workspace.status:type_name -> frontseat.workspace.v1alpha1.WorkspaceStatus
-	21, // 2: frontseat.workspace.v1alpha1.Workspace.create_time:type_name -> google.protobuf.Timestamp
-	20, // 3: frontseat.workspace.v1alpha1.WorkspaceSpec.repositories:type_name -> frontseat.workspace.v1alpha1.RepositorySource
-	22, // 4: frontseat.workspace.v1alpha1.WorkspaceSpec.entities:type_name -> frontseat.type.v1alpha1.EntityRef
-	4,  // 5: frontseat.workspace.v1alpha1.WorkspaceSpec.author:type_name -> frontseat.workspace.v1alpha1.Author
-	23, // 6: frontseat.workspace.v1alpha1.WorkspaceSpec.lifetime:type_name -> google.protobuf.Duration
-	3,  // 7: frontseat.workspace.v1alpha1.WorkspaceSpec.stored:type_name -> frontseat.workspace.v1alpha1.StoredRepository
-	0,  // 8: frontseat.workspace.v1alpha1.WorkspaceStatus.state:type_name -> frontseat.workspace.v1alpha1.WorkspaceStatus.State
-	18, // 9: frontseat.workspace.v1alpha1.WorkspaceStatus.repositories:type_name -> frontseat.workspace.v1alpha1.Repository
-	19, // 10: frontseat.workspace.v1alpha1.WorkspaceStatus.entities:type_name -> frontseat.workspace.v1alpha1.LocatedEntity
-	2,  // 11: frontseat.workspace.v1alpha1.CreateWorkspaceRequest.spec:type_name -> frontseat.workspace.v1alpha1.WorkspaceSpec
-	1,  // 12: frontseat.workspace.v1alpha1.CreateWorkspaceResponse.workspace:type_name -> frontseat.workspace.v1alpha1.Workspace
-	1,  // 13: frontseat.workspace.v1alpha1.DescribeWorkspaceResponse.workspace:type_name -> frontseat.workspace.v1alpha1.Workspace
-	1,  // 14: frontseat.workspace.v1alpha1.ListWorkspacesResponse.workspaces:type_name -> frontseat.workspace.v1alpha1.Workspace
-	1,  // 15: frontseat.workspace.v1alpha1.WaitWorkspaceResponse.workspace:type_name -> frontseat.workspace.v1alpha1.Workspace
-	2,  // 16: frontseat.workspace.v1alpha1.UpdateWorkspaceRequest.spec:type_name -> frontseat.workspace.v1alpha1.WorkspaceSpec
-	1,  // 17: frontseat.workspace.v1alpha1.UpdateWorkspaceResponse.workspace:type_name -> frontseat.workspace.v1alpha1.Workspace
-	22, // 18: frontseat.workspace.v1alpha1.LocatedEntity.ref:type_name -> frontseat.type.v1alpha1.EntityRef
-	6,  // 19: frontseat.workspace.v1alpha1.WorkspaceService.CreateWorkspace:input_type -> frontseat.workspace.v1alpha1.CreateWorkspaceRequest
-	8,  // 20: frontseat.workspace.v1alpha1.WorkspaceService.DescribeWorkspace:input_type -> frontseat.workspace.v1alpha1.DescribeWorkspaceRequest
-	10, // 21: frontseat.workspace.v1alpha1.WorkspaceService.ListWorkspaces:input_type -> frontseat.workspace.v1alpha1.ListWorkspacesRequest
-	12, // 22: frontseat.workspace.v1alpha1.WorkspaceService.WaitWorkspace:input_type -> frontseat.workspace.v1alpha1.WaitWorkspaceRequest
-	14, // 23: frontseat.workspace.v1alpha1.WorkspaceService.UpdateWorkspace:input_type -> frontseat.workspace.v1alpha1.UpdateWorkspaceRequest
-	16, // 24: frontseat.workspace.v1alpha1.WorkspaceService.DeleteWorkspace:input_type -> frontseat.workspace.v1alpha1.DeleteWorkspaceRequest
-	7,  // 25: frontseat.workspace.v1alpha1.WorkspaceService.CreateWorkspace:output_type -> frontseat.workspace.v1alpha1.CreateWorkspaceResponse
-	9,  // 26: frontseat.workspace.v1alpha1.WorkspaceService.DescribeWorkspace:output_type -> frontseat.workspace.v1alpha1.DescribeWorkspaceResponse
-	11, // 27: frontseat.workspace.v1alpha1.WorkspaceService.ListWorkspaces:output_type -> frontseat.workspace.v1alpha1.ListWorkspacesResponse
-	13, // 28: frontseat.workspace.v1alpha1.WorkspaceService.WaitWorkspace:output_type -> frontseat.workspace.v1alpha1.WaitWorkspaceResponse
-	15, // 29: frontseat.workspace.v1alpha1.WorkspaceService.UpdateWorkspace:output_type -> frontseat.workspace.v1alpha1.UpdateWorkspaceResponse
-	17, // 30: frontseat.workspace.v1alpha1.WorkspaceService.DeleteWorkspace:output_type -> frontseat.workspace.v1alpha1.DeleteWorkspaceResponse
-	25, // [25:31] is the sub-list for method output_type
-	19, // [19:25] is the sub-list for method input_type
-	19, // [19:19] is the sub-list for extension type_name
-	19, // [19:19] is the sub-list for extension extendee
-	0,  // [0:19] is the sub-list for field type_name
+	4,  // 1: frontseat.workspace.v1alpha1.Workspace.status:type_name -> frontseat.workspace.v1alpha1.WorkspaceStatus
+	20, // 2: frontseat.workspace.v1alpha1.Workspace.create_time:type_name -> google.protobuf.Timestamp
+	19, // 3: frontseat.workspace.v1alpha1.WorkspaceSpec.repositories:type_name -> frontseat.workspace.v1alpha1.RepositorySource
+	21, // 4: frontseat.workspace.v1alpha1.WorkspaceSpec.entities:type_name -> frontseat.type.v1alpha1.EntityRef
+	3,  // 5: frontseat.workspace.v1alpha1.WorkspaceSpec.author:type_name -> frontseat.workspace.v1alpha1.Author
+	22, // 6: frontseat.workspace.v1alpha1.WorkspaceSpec.lifetime:type_name -> google.protobuf.Duration
+	0,  // 7: frontseat.workspace.v1alpha1.WorkspaceStatus.state:type_name -> frontseat.workspace.v1alpha1.WorkspaceStatus.State
+	17, // 8: frontseat.workspace.v1alpha1.WorkspaceStatus.repositories:type_name -> frontseat.workspace.v1alpha1.Repository
+	18, // 9: frontseat.workspace.v1alpha1.WorkspaceStatus.entities:type_name -> frontseat.workspace.v1alpha1.LocatedEntity
+	2,  // 10: frontseat.workspace.v1alpha1.CreateWorkspaceRequest.spec:type_name -> frontseat.workspace.v1alpha1.WorkspaceSpec
+	1,  // 11: frontseat.workspace.v1alpha1.CreateWorkspaceResponse.workspace:type_name -> frontseat.workspace.v1alpha1.Workspace
+	1,  // 12: frontseat.workspace.v1alpha1.DescribeWorkspaceResponse.workspace:type_name -> frontseat.workspace.v1alpha1.Workspace
+	1,  // 13: frontseat.workspace.v1alpha1.ListWorkspacesResponse.workspaces:type_name -> frontseat.workspace.v1alpha1.Workspace
+	1,  // 14: frontseat.workspace.v1alpha1.WaitWorkspaceResponse.workspace:type_name -> frontseat.workspace.v1alpha1.Workspace
+	2,  // 15: frontseat.workspace.v1alpha1.UpdateWorkspaceRequest.spec:type_name -> frontseat.workspace.v1alpha1.WorkspaceSpec
+	1,  // 16: frontseat.workspace.v1alpha1.UpdateWorkspaceResponse.workspace:type_name -> frontseat.workspace.v1alpha1.Workspace
+	21, // 17: frontseat.workspace.v1alpha1.LocatedEntity.ref:type_name -> frontseat.type.v1alpha1.EntityRef
+	5,  // 18: frontseat.workspace.v1alpha1.WorkspaceService.CreateWorkspace:input_type -> frontseat.workspace.v1alpha1.CreateWorkspaceRequest
+	7,  // 19: frontseat.workspace.v1alpha1.WorkspaceService.DescribeWorkspace:input_type -> frontseat.workspace.v1alpha1.DescribeWorkspaceRequest
+	9,  // 20: frontseat.workspace.v1alpha1.WorkspaceService.ListWorkspaces:input_type -> frontseat.workspace.v1alpha1.ListWorkspacesRequest
+	11, // 21: frontseat.workspace.v1alpha1.WorkspaceService.WaitWorkspace:input_type -> frontseat.workspace.v1alpha1.WaitWorkspaceRequest
+	13, // 22: frontseat.workspace.v1alpha1.WorkspaceService.UpdateWorkspace:input_type -> frontseat.workspace.v1alpha1.UpdateWorkspaceRequest
+	15, // 23: frontseat.workspace.v1alpha1.WorkspaceService.DeleteWorkspace:input_type -> frontseat.workspace.v1alpha1.DeleteWorkspaceRequest
+	6,  // 24: frontseat.workspace.v1alpha1.WorkspaceService.CreateWorkspace:output_type -> frontseat.workspace.v1alpha1.CreateWorkspaceResponse
+	8,  // 25: frontseat.workspace.v1alpha1.WorkspaceService.DescribeWorkspace:output_type -> frontseat.workspace.v1alpha1.DescribeWorkspaceResponse
+	10, // 26: frontseat.workspace.v1alpha1.WorkspaceService.ListWorkspaces:output_type -> frontseat.workspace.v1alpha1.ListWorkspacesResponse
+	12, // 27: frontseat.workspace.v1alpha1.WorkspaceService.WaitWorkspace:output_type -> frontseat.workspace.v1alpha1.WaitWorkspaceResponse
+	14, // 28: frontseat.workspace.v1alpha1.WorkspaceService.UpdateWorkspace:output_type -> frontseat.workspace.v1alpha1.UpdateWorkspaceResponse
+	16, // 29: frontseat.workspace.v1alpha1.WorkspaceService.DeleteWorkspace:output_type -> frontseat.workspace.v1alpha1.DeleteWorkspaceResponse
+	24, // [24:30] is the sub-list for method output_type
+	18, // [18:24] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_frontseat_workspace_v1alpha1_workspace_proto_init() }
@@ -1665,7 +1489,7 @@ func file_frontseat_workspace_v1alpha1_workspace_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_frontseat_workspace_v1alpha1_workspace_proto_rawDesc), len(file_frontseat_workspace_v1alpha1_workspace_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   20,
+			NumMessages:   19,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

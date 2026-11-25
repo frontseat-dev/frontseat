@@ -47,7 +47,7 @@ func brought(held *Workspace, req *sourcev1.SourceSpec) error {
 	if req.GetGeneration() <= 0 {
 		return refuse(connect.CodeInvalidArgument, told.GenerationInvalid, "a source is told at a generation, counted from one")
 	}
-	if len(req.GetRepositories()) == 0 && len(req.GetStored()) == 0 {
+	if len(req.GetRepositories()) == 0 {
 		return refuse(connect.CodeInvalidArgument, told.Missing, "name a repository to populate the workspace from")
 	}
 	var checkouts []record.Checkout
@@ -62,13 +62,7 @@ func brought(held *Workspace, req *sourcev1.SourceSpec) error {
 		}
 		located = append(located, record.Located{Ref: ref, Repository: l.GetRepository(), Root: l.GetRoot()})
 	}
-	// A stored repository is mounted in the workspace, and nothing is
-	// brought for it.
-	var stored []Stored
-	for _, r := range req.GetStored() {
-		stored = append(stored, Stored{Name: r.GetName(), Repository: r.GetRepository(), Changeset: r.GetChangeset(), Roots: r.GetRoots()})
-	}
-	if err := held.Populate(req.GetGeneration(), checkouts, located, stored); err != nil {
+	if err := held.Populate(req.GetGeneration(), checkouts, located); err != nil {
 		return refused(err)
 	}
 	return nil
@@ -103,11 +97,6 @@ func (s *holding) now() (*sourcev1.Source, <-chan struct{}) {
 	}
 	for _, r := range held.Repositories {
 		out.Repositories = append(out.Repositories, &sourcev1.Repository{Name: r.Name, Remote: r.Remote, Commit: r.Commit, Roots: r.Roots})
-	}
-	// What is mounted is held as it was told: at the changeset told, and
-	// from nowhere it was cloned.
-	for _, r := range held.Stored {
-		out.Repositories = append(out.Repositories, &sourcev1.Repository{Name: r.Name, Commit: r.Changeset, Roots: r.Roots, Stored: r.Repository})
 	}
 	return out, changed
 }

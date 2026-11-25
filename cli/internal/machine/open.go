@@ -27,14 +27,6 @@ type OpenOptions struct {
 	// Push asks for a workspace whose sandbox may push to the
 	// repository.
 	Push bool
-	// Remote asks for a remote workspace: the repository is held from
-	// the control plane's snapshot store and not cloned, and what a test
-	// that passes there tested lands on the workspace's task. Without
-	// it the workspace is local, and the repository is cloned in it.
-	Remote bool
-	// Task names the task a remote workspace works on; empty for one
-	// named for the workspace.
-	Task string
 }
 
 // CheckoutOpened is the workspace of a checkout that was opened, or as
@@ -54,12 +46,6 @@ type CheckoutOpened struct {
 // does not hold, the workspace does not either. What the workspace holds
 // is read, and not taken on its name's word: a workspace of the name
 // that holds other source is not this one, and is refused, named.
-//
-// The workspace is local unless it is asked for remote: then the
-// repository is held from the control plane's snapshot store, by the
-// name its version control system gives it, on a task, and what passes
-// its tests lands there. A local workspace that holds the repository as
-// a clone is not the remote one, nor the other way round.
 func OpenCheckout(ctx context.Context, fs *frontseat.Client, o OpenOptions, checkout vcs.Checkout) (CheckoutOpened, error) {
 	standing, err := checkout.Standing(ctx, o.Directory)
 	if err != nil {
@@ -69,30 +55,20 @@ func OpenCheckout(ctx context.Context, fs *frontseat.Client, o OpenOptions, chec
 	if err != nil {
 		return CheckoutOpened{Standing: standing}, err
 	}
-	spec := frontseat.WorkspaceSpec{
+	opened, err := fs.Open(ctx, frontseat.WorkspaceSpec{
 		Name:          o.Name,
 		Image:         o.Image,
 		Repositories:  []frontseat.Repository{{Remote: standing.Remote, Ref: standing.Branch}},
 		Author:        frontseat.Author(standing.Author),
 		Push:          o.Push,
 		AuthorizedKey: key,
-	}
-	var stored frontseat.StoredRepository
-	if o.Remote {
-		// The repository as the store names it; on the task, and so at no
-		// branch: what the checkout's branch holds is not asked for.
-		if stored, err = Stored(frontseat.Repository{Remote: standing.Remote}, checkout.NameOf); err != nil {
-			return CheckoutOpened{Standing: standing}, err
-		}
-		spec.Repositories, spec.Stored, spec.Task, spec.Land = nil, []frontseat.StoredRepository{stored}, o.Task, true
-	}
-	opened, err := fs.Open(ctx, spec)
+	})
 	out := CheckoutOpened{OpenResult: opened, Standing: standing}
 	if err != nil {
 		return out, err
 	}
 	for _, held := range opened.Status.GetStatus().GetRepositories() {
-		if (o.Remote && held.GetStored() == stored.Repository) || (!o.Remote && held.GetStored() == "" && checkout.Same(held.GetRemote(), standing.Remote)) {
+		if checkout.Same(held.GetRemote(), standing.Remote) {
 			out.Repository = held.GetName()
 			return out, nil
 		}

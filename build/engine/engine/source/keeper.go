@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -48,12 +47,6 @@ type Keeper struct {
 	// known to date a file's changes itself; the system's own answer
 	// (fileSystemOf) unless a test says otherwise.
 	fileSystem func(directory string) (string, bool)
-	// attribute is the SHA-256 a file of a mounted repository says it
-	// holds, and unchanged whether the file looks, asked afresh, as it
-	// did when it was looked at; the system's own (attributed,
-	// looksStill) unless a test says otherwise.
-	attribute func(*os.File) (string, bool)
-	unchanged func(*os.File, fs.FileInfo) bool
 
 	mu    sync.Mutex
 	files map[string]kept
@@ -71,10 +64,6 @@ type Keeper struct {
 	// told of them (Unkept).
 	dates  map[place]bool
 	untold []Unkept
-	// mounted are the repositories of the run that began last that
-	// something else mounted, by name: nothing of one is saved, and
-	// nothing saved is used of one.
-	mounted map[string]bool
 }
 
 // clock is the time.
@@ -129,11 +118,7 @@ func (k *Keeper) Take(ctx context.Context, tree Tree) (*Snapshot, error) {
 	// What the daemon before this one saved is taken up before what is
 	// no longer listed is let go, so that nothing saved outlives its
 	// file.
-	mounted := make(map[string]bool, len(tree.Mounted))
-	for repository := range tree.Mounted {
-		mounted[repository] = true
-	}
-	k.begin(root, places, mounted)
+	k.begin(root, places)
 	for _, t := range s.repositories {
 		k.only(t)
 	}

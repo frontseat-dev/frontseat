@@ -74,10 +74,7 @@ type builds struct {
 	given []string
 	// said is where the daemon says what a person who reads its log
 	// should know of it; none, it is said to telemetry alone.
-	said io.Writer
-	// layers is the directory beneath which each mounted repository of
-	// the workspace has its layer; none, no layer is read.
-	layers   string
+	said     io.Writer
 	executor exec.Executor
 	// downloads brings what a shared fetch downloads to the grid; nil
 	// where the daemon was given no asset service.
@@ -432,7 +429,7 @@ func (rs *builds) execute(ctx context.Context, r *run) {
 func (rs *builds) work(ctx context.Context, r *run) (code buildv1.ExitCode, failure error, cancelled bool) {
 	r.stage(buildv1.Build_STAGE_EVALUATING)
 	rs.answered.Begin()
-	tree, entities, err := sourceOf(rs.workspace, rs.layers)
+	tree, entities, err := sourceOf(rs.workspace)
 	if err != nil {
 		return exitInternal, err, false
 	}

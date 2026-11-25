@@ -55,10 +55,6 @@ type configuration struct {
 	// Log is where the daemon says what a person who reads its log
 	// should know of it; none, it is said to telemetry alone.
 	Log io.Writer
-	// Layers is the directory beneath which each repository something
-	// else mounted in the workspace has its layer, by its name; none,
-	// no layer is read (sourceOf).
-	Layers string
 	// Now is the time, by which runs that have only just ended are kept;
 	// the machine's own unless a test says otherwise.
 	Now func() time.Time
@@ -120,7 +116,7 @@ func newDaemon(config configuration) (*Daemon, error) {
 	if err != nil {
 		return nil, err
 	}
-	runs.given, runs.said, runs.layers = config.Given, config.Log, config.Layers
+	runs.given, runs.said = config.Given, config.Log
 	if config.Files != "" {
 		// What the daemon before this one knew of the directory's files,
 		// where it ended as a daemon ends. No run has begun yet.
