@@ -1,7 +1,9 @@
 // Package buildfile is the file a build daemon is told its settings in,
 // as it is written (build.yaml, docs/build-settings.md): its shape, read
-// strictly, of no more than a mebibyte, and written whole. What the settings mean, and whether a
-// daemon could be told them, is the build daemon's to say
+// strictly, of no more than a mebibyte, and written whole, and how the
+// grid's instances are named (Grid.CheckInstances), which whoever writes
+// it and whoever reads it hold it to alike. What else the settings mean,
+// and whether a daemon could be told them, is the build daemon's to say
 // (build/daemon/settings); whoever writes the file, a box's supervisor
 // among them, writes this shape.
 package buildfile
@@ -13,6 +15,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"unicode"
 
@@ -36,8 +39,12 @@ type File struct {
 
 // Grid is the grid a build's actions run on, and how it is asked.
 type Grid struct {
-	Address     string    `yaml:"address"`
-	Instance    string    `yaml:"instance,omitempty"`
+	Address  string `yaml:"address"`
+	Instance string `yaml:"instance,omitempty"`
+	// Reads are other instances of the grid a build looks an action's
+	// result up in, in order, after its own; it runs actions under its
+	// own alone.
+	Reads       []string  `yaml:"reads,omitempty"`
 	Assets      string    `yaml:"assets,omitempty"`
 	TLS         bool      `yaml:"tls,omitempty"`
 	Authorities string    `yaml:"authorities,omitempty"`
@@ -209,4 +216,65 @@ func Write(path string, said File) error {
 		return err
 	}
 	return records.Write(path, raw, 0o644)
+}
+
+// reserved are the words the Remote Execution API keeps for itself in a
+// resource's name, which no part of an instance's name is: Buildbarn
+// refuses an instance named by one (bb-storage's digest.NewInstanceName,
+// reservedInstanceNameKeywords, at ae61334).
+var reserved = []string{"blobs", "uploads", "actions", "actionResults", "operations", "capabilities", "compressed-blobs"}
+
+// CheckInstances says what is wrong with how the grid's instances are
+// named, as a daemon would be refused them: its own (grid.instance),
+// which may be the grid's default of no name, and each it reads
+// (grid.reads), which is named, once, and is not its own; and either
+// said of no grid (grid.address). A name is one word of what is
+// printed, its parts parted by one slash, none of them a word the
+// protocol keeps (reserved). It is the one check of them, for whoever
+// writes the file and whoever reads it: a box's supervisor is refused at
+// its start what its build daemon would refuse. What it refuses it says
+// by where it is, an entry of grid.reads by its place, and never by its
+// name.
+func (g Grid) CheckInstances() error {
+	if g.Address == "" && (g.Instance != "" || len(g.Reads) > 0) {
+		return errors.New("grid.instance and grid.reads say which instances of a grid, and grid.address names none")
+	}
+	if err := instance(g.Instance); err != nil {
+		return fmt.Errorf("grid.instance %s", err)
+	}
+	for i, read := range g.Reads {
+		entry := fmt.Sprintf("grid.reads' entry %d", i+1)
+		switch err := instance(read); {
+		case read == "":
+			return fmt.Errorf("%s names no instance: each instance read is named, the grid's default being no other instance's", entry)
+		case err != nil:
+			return fmt.Errorf("%s %s", entry, err)
+		case read == g.Instance:
+			return fmt.Errorf("%s is the daemon's own instance (grid.instance), which is looked in first", entry)
+		case slices.Contains(g.Reads[:i], read):
+			return fmt.Errorf("%s is its entry %d again: each instance is read once", entry, slices.Index(g.Reads, read)+1)
+		}
+	}
+	return nil
+}
+
+// instance is what is wrong with an instance's name, said of it, never
+// repeating it; the grid's default, of no name, is none.
+func instance(name string) error {
+	switch {
+	case name == "":
+		return nil
+	case strings.ContainsFunc(name, unicode.IsSpace):
+		return errors.New("holds a space: an instance is named in one word")
+	case strings.ContainsFunc(name, unicode.IsControl):
+		return errors.New("holds a control character: an instance is named by what is printed")
+	case strings.HasPrefix(name, "/") || strings.HasSuffix(name, "/") || strings.Contains(name, "//"):
+		return errors.New("is parted by one slash between its parts, and begins and ends with none")
+	}
+	for part := range strings.SplitSeq(name, "/") {
+		if slices.Contains(reserved, part) {
+			return errors.New("has a part that is a word the Remote Execution API keeps for itself in a resource's name")
+		}
+	}
+	return nil
 }

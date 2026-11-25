@@ -490,6 +490,74 @@ the change that fixes it.
   a connection's ancestors through /proc and refuses what it cannot
   read: what an action could do to its confiner's other threads through
   /proc is held by the kernel's ptrace rules alone.
+- **Main reuses what branches built, and runs fresh only the actions
+  that carry the version or package it, of a unit the release moves.**
+  A build looks an action up in the grid's instance it is told
+  (`grid.instance`), then in each other instance it reads, in order
+  (`grid.reads`, `docs/build-settings.md`), and runs it only where none
+  kept it, and then under its own instance alone: on tenant zero main
+  is `frontseat/p` and reads `frontseat/b`, the instance of branches
+  and workspaces, neither a prefix of the other. What another instance
+  kept is a result a worker wrote, as every result is, and is trusted
+  as one of its own instance's: the owner's accepted trust. It is used
+  only where the grid holds, under the build's own instance, every file
+  it names; what a read instance answers other than a result is taken
+  for nothing kept, since running is always right. When it dials, the
+  daemon is refused by name an instance read that the grid answers
+  InvalidArgument (`reapi.Unread`), which Buildbarn answers only for a
+  name it rejects or an instance it serves no one; PermissionDenied,
+  which Buildbarn answers too while its authorizer cannot be reached or
+  a token has run out, and every other answer, is no refusal, and each
+  action meets it as nothing kept. A mistyped instance is not caught
+  where the grid neither demultiplexes nor authorizes by instance, as
+  the local stack's, of one cache that anyone reads: it answers that it
+  kept nothing, and the build runs what it would have read, for ever;
+  nothing tells an instance empty from one mistyped. How an instance is
+  named is one check, of the settings' file
+  (`buildfile.Grid.CheckInstances`), which a box's supervisor is held to
+  when it starts as its daemon is when it reads them, instances said of
+  no grid among it; the supervisor writes both as it is told them
+  (`--instance`, `--reads`); the local stack tells it neither, being one
+  instance. A refusal of one says which entry it is, never its name. A release's build runs fresh the actions
+  of a unit it moves that carry its version (`Action.versioned`) or
+  package what it ships (the kind `Package`), and no other: the daemon
+  looks neither in its memory of earlier answers nor in any instance's
+  cache for them (`exec.Action.Fresh`). That the daemon does not look
+  is what makes them fresh: it sends `skip_cache_lookup` too, which
+  Buildbarn does not read, its scheduler looking in no cache, and it
+  refuses a grid that answers one from its cache all the same
+  (`cached_result`); Buildbarn may join one to a run of the same digest
+  under the same instance that is under way, which is a run of it all
+  the same. Fresh is no guarantee of where what ships was made: what a
+  fresh action reads is answered as any action's is, from any instance
+  read, so a package a release makes fresh may wrap a compile result a
+  branch's or a workspace's build left under `frontseat/b`. Publishing
+  never runs on the grid. Held by:
+  `TestAResultKeptUnderAnInstanceADaemonReadsIsUsedAndNothingIsRun`,
+  `TestADaemonReadsTheInstancesItsSettingsName`,
+  `TestAnInstanceReadThatFailsIsAMissAndTheDaemonsOwnIsNot`,
+  `TestAnInstanceTheDaemonCannotReadIsRefusedWhenItDials`,
+  `TestADaemonToldToReadAnInstanceItsGridDoesNotServeIsRefusedAtOnce`,
+  `TestAResultReadWhoseFilesAreNotAllHeldIsRunAgain`,
+  `TestAResultReadThatNamesAFileByNoDigestIsRunAgain`,
+  `TestAResultReadWhoseTreeIsLetGoOfWhileItIsReadIsRunAgain`,
+  `TestAFreshActionIsRunWhateverTheGridKept`,
+  `TestFreshIsNoPartOfAnActionsDigestOrKey`,
+  `TestAFreshActionTheGridAnswersFromItsCacheIsRefused`,
+  `TestAReleaseRunsItsVersionedAndPackagingActionsWhateverWasKept`,
+  `TestTheGridsInstancesAreNamedAsAnInstanceIs`,
+  `TestASupervisorIsRefusedTheInstancesItsDaemonWouldRefuse`,
+  `TestASupervisorToldItsInstanceAndWhatItReadsWritesThem` and the spec
+  `TestABuildThatReadsAnotherInstanceRunsNothingThatInstanceBuilt`.
+  Not held: a release made from a workspace runs its fresh actions in
+  that workspace's instance (`frontseat/b`), on the workers that run
+  branch code; only the release CI makes from main runs them on main's
+  workers. That main's misses run on main's workers alone is the grid's
+  configuration (frontseat-enterprise's, on tenant zero), and nothing
+  here proves it. *Target*: tenant zero's two instances and main's
+  worker pool, and the job that tells each build its instance
+  (`.github/workflows/frontseat-job.yml` still names `frontseat/p/b`);
+  the local stack is one instance, its slots shared by every instance.
 
 ## Entities
 

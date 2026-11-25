@@ -219,10 +219,12 @@ func (r *Remembering) Execute(ctx context.Context, action Action) (Result, error
 	if err != nil {
 		return Result{}, err
 	}
+	// A fresh action is answered by the executor, whatever was kept; its
+	// answer is kept as any other's is.
 	r.mu.Lock()
 	known, kept := r.answers[key]
 	r.mu.Unlock()
-	if kept && r.clock().Sub(known.at) < lasts {
+	if kept && !action.Fresh && r.clock().Sub(known.at) < lasts {
 		// Kept from an earlier execution, and of no worker's for this one.
 		again := known.result
 		again.Cached, again.Started, again.Worked, again.Duration = true, time.Time{}, 0, 0

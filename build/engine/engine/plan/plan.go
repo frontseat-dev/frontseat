@@ -74,6 +74,10 @@ type Action struct {
 	// where its component depends on services started for tests; nil
 	// where nothing does.
 	Beside *Beside
+	// Fresh says it is run whatever was kept of it (exec.Action.Fresh):
+	// a release's action, of a unit it moves, that carries its version or
+	// packages it.
+	Fresh bool
 }
 
 // Beside is a test's services, as the grid's runner is told them and

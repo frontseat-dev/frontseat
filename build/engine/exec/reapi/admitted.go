@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/bazelbuild/remote-apis-sdks/go/pkg/client"
+	"google.golang.org/grpc/status"
 
 	"github.com/frontseat-dev/frontseat/build/engine/exec/access"
 )
@@ -16,7 +17,30 @@ import (
 // the daemon was admitted.
 func NotAdmitted(err error) bool {
 	var where *ran
-	return access.NotAdmitted(err) && !errors.As(err, &where)
+	return access.NotAdmitted(err) && !errors.As(err, &where) && !Unread(err)
+}
+
+// unread is the grid's answer, when it was dialled, that it serves the
+// daemon no instance of a name it was told to read (grid.reads): said by
+// the entry of grid.reads it is, and the code the grid answered, never
+// the name nor the grid's words, which repeat it.
+type unread struct {
+	entry int
+	said  error
+}
+
+func (u *unread) Error() string {
+	return fmt.Sprintf("it serves the daemon no instance of the name its settings read at grid.reads' entry %d, answering %s: the name is none the grid serves", u.entry, status.Code(u.said))
+}
+func (u *unread) Unwrap() error { return u.said }
+
+// Unread is whether a grid, when it was dialled, answered that it does
+// not serve the daemon an instance it was told to read: the settings name
+// an instance that is not the grid's, and asking again would be answered
+// the same. The grid admitted the daemon.
+func Unread(err error) bool {
+	var is *unread
+	return errors.As(err, &is)
 }
 
 // ran is the status of the grid's answer for an action, as apart from the
@@ -30,9 +54,10 @@ func (r *ran) Unwrap() error { return r.said }
 // Settled is whether asking a grid again would be answered as it was: it
 // did not admit the daemon, could not be asked over TLS as the daemon was
 // told to, or was not asked at all for a token that could not be read. A
-// grid that is not there may yet be, and is not.
+// grid that is not there may yet be, and is not. A grid that serves the
+// daemon no instance it reads has answered too (Unread).
 func Settled(err error) bool {
-	return NotAdmitted(err) || access.Untrusted(err) || access.Unsent(err)
+	return NotAdmitted(err) || access.Untrusted(err) || access.Unsent(err) || Unread(err)
 }
 
 // said is what a call to the grid answered, as the daemon tells it: that

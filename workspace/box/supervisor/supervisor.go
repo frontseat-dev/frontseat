@@ -116,7 +116,8 @@ func Open(config Config) (*Supervisor, error) {
 // told. The file is the supervisor's own to delete: it is the one
 // program that writes it, at the sandbox's one path for it, and there is
 // one supervisor in a sandbox. A path that is no file, and one that
-// cannot be written or removed, fails the start, saying which it is.
+// cannot be written or removed, fails the start, saying which it is; so
+// do instances its build would refuse, and instances told with no grid.
 func (config Config) tell() error {
 	path := config.Settings
 	if path == "" {
@@ -124,6 +125,14 @@ func (config Config) tell() error {
 	}
 	if there, err := os.Lstat(path); err == nil && !there.Mode().IsRegular() {
 		return fmt.Errorf("what a build in the workspace is told is kept in %s, which is no file (%s): it is the supervisor's own file", path, there.Mode().Type())
+	}
+	// What a build in the workspace would be refused when it reads its
+	// settings, the supervisor is refused now, by the same check
+	// (--instance is grid.instance, --reads grid.reads, --grid
+	// grid.address): instances told with no grid among it, which would
+	// otherwise start it as told none.
+	if err := config.Build.Grid.CheckInstances(); err != nil {
+		return fmt.Errorf("what a build in the workspace is told (--instance is grid.instance, --reads grid.reads, --grid grid.address): %w", err)
 	}
 	if config.Build.Grid.Address == "" {
 		if err := os.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
@@ -211,6 +220,13 @@ func asked(args []string) (*Config, error) {
 	flags.StringVar(&config.AuthorizedKey, "authorized-key", "", "the key let into the shell, as a line of authorized_keys: a sandbox a person works in")
 	flags.StringVar(&config.Build.Grid.Address, "grid", "", "the address of the grid a build in the workspace runs its actions on, host:port: it is written where a build there reads its settings")
 	flags.StringVar(&config.Build.Grid.Assets, "assets", "", "the address of the grid's asset service, host:port")
+	flags.StringVar(&config.Build.Grid.Instance, "instance", "", "the grid's instance a build in the workspace looks its actions up in first and runs them under; none, the grid's default")
+	flags.Func("reads", "another instance of the grid a build in the workspace looks an action up in, after its own, before running it; give it once for each, in the order they are looked in", func(instance string) error {
+		// Held, with --instance, to what a build would be refused when the
+		// supervisor starts (Config.tell), by the build's own check.
+		config.Build.Grid.Reads = append(config.Build.Grid.Reads, instance)
+		return nil
+	})
 	flags.StringVar(&config.Build.Plugins, "plugins", "", "the directory of the box's plugins: every <name>.wasm in it is loaded by a build")
 	flags.Func("platform", "a property of the grid's workers, as name=value; give it once for each", func(property string) error {
 		name, value, found := strings.Cut(property, "=")

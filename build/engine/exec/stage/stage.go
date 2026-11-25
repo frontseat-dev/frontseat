@@ -339,6 +339,7 @@ func of(ctx context.Context, snapshot *source.Snapshot, action plan.Action, prov
 		Arguments:        arguments,
 		Environment:      environment,
 		Platform:         platform,
+		Fresh:            action.Fresh,
 	}, own, action.Declared.GetTools(), network, within)
 }
 

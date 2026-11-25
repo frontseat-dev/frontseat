@@ -26,8 +26,12 @@ type Rewrite = download.Rewrite
 // given no asset service downloads nothing, and says so where a fetch
 // asks.
 type Grid struct {
-	Address  string
+	Address string
+	// Instance is the grid's instance the daemon's actions are looked up
+	// in first and run under; Reads are the other instances they are
+	// looked up in, in order, before one is run (reapi.Config).
 	Instance string
+	Reads    []string
 	Assets   string
 	// Rewrites are taken in the order given: the first that matches.
 	Rewrites []Rewrite
@@ -86,7 +90,7 @@ type Config struct {
 // joins runs before releasing those owned services.
 func New(ctx context.Context, config Config) (*Daemon, error) {
 	ctx = config.Telemetry.Context(ctx)
-	grid, err := dial(ctx, config.Grid)
+	grid, err := dial(ctx, config.Grid, config.Log)
 	if err != nil {
 		return nil, err
 	}
@@ -133,8 +137,10 @@ func New(ctx context.Context, config Config) (*Daemon, error) {
 // A grid started beside the daemon may take a moment to answer. One that
 // answers that it does not admit the daemon has answered; so has one that
 // was reached and cannot be asked over TLS as the daemon was told to ask
-// it, and a daemon that cannot read its token (reapi.Settled).
-func dial(ctx context.Context, config Grid) (*reapi.Grid, error) {
+// it, and a daemon that cannot read its token (reapi.Settled). What a
+// person should know of the grid as it is asked is said in said, where
+// it is given (reapi.Config.Log).
+func dial(ctx context.Context, config Grid, said io.Writer) (*reapi.Grid, error) {
 	if config.Address == "" {
 		return nil, fmt.Errorf("no grid: the settings say none (grid.address)")
 	}
@@ -147,7 +153,7 @@ func dial(ctx context.Context, config Grid) (*reapi.Grid, error) {
 		if err := config.Check(); err != nil {
 			return false, err
 		}
-		grid, dialed = reapi.Dial(ctx, reapi.Config{Address: config.Address, Instance: config.Instance, Access: config.access()})
+		grid, dialed = reapi.Dial(ctx, reapi.Config{Address: config.Address, Instance: config.Instance, Reads: config.Reads, Access: config.access(), Log: said})
 		return dialed == nil || reapi.Settled(dialed) || time.Now().After(deadline), nil
 	})
 	if err != nil {

@@ -20,7 +20,8 @@ const sound = `version: 1
 plugins: plugins
 grid:
   address: grid.example:8980
-  instance: frontseat/p/b
+  instance: frontseat/b
+  reads: [frontseat/p, frontseat/q]
   assets: assets.example:8983
   authorities: ca.pem
   token: token
@@ -79,7 +80,7 @@ func TestABuildDaemonsSettingsAreReadFromOneFile(t *testing.T) {
 	}
 	want := settings.Settings{
 		Plugins: []string{filepath.Join(dir, "plugins", "cargo.wasm"), filepath.Join(dir, "plugins", "go.wasm")},
-		Grid: build.Grid{Address: "grid.example:8980", Instance: "frontseat/p/b", Assets: "assets.example:8983", TLS: true, Authorities: filepath.Join(dir, "ca.pem"), Token: filepath.Join(dir, "token"),
+		Grid: build.Grid{Address: "grid.example:8980", Instance: "frontseat/b", Reads: []string{"frontseat/p", "frontseat/q"}, Assets: "assets.example:8983", TLS: true, Authorities: filepath.Join(dir, "ca.pem"), Token: filepath.Join(dir, "token"),
 			Rewrites: []build.Rewrite{{From: `^https://static\.crates\.io/crates/([^/]+)/([^/]+)/download$`, To: "http://mirror:8080/cargo/$1/$2/download"}, {From: `^https://b c/(.*)$`, To: "http://other/$1"}}},
 		Platform: map[string]string{"OSFamily": "linux", "ISA": "x86-64", "container-image": "docker://frontseat.dev/workers/v1"},
 		Given:    []string{"GH_TOKEN", "NPM_TOKEN"},
@@ -153,25 +154,35 @@ func TestTheGridIsAskedOverTLSWhereTheSettingsSaySoOrNameAuthorities(t *testing.
 func TestSettingsThatAreWrongAreRefusedWhenTheyAreRead(t *testing.T) {
 	for name, change := range map[string][3]string{
 		"a key that is none":                    {"version: 1\n", "version: 1\nlisten: 0.0.0.0:7600\n", "field listen not found"},
-		"a key of the grid's that is none":      {"  instance: frontseat/p/b\n", "  instance: frontseat/p/b\n  proxy: http://proxy\n", "field proxy not found"},
+		"a key of the grid's that is none":      {"  instance: frontseat/b\n", "  instance: frontseat/b\n  proxy: http://proxy\n", "field proxy not found"},
 		"another version":                       {"version: 1\n", "version: 2\n", "version is 2"},
 		"no version":                            {"version: 1\n", "", "version is 0"},
 		"a version written as a fraction":       {"version: 1\n", "version: 1.0\n", "version is an integer"},
 		"a version written in sixteens":         {"version: 1\n", "version: 0x1\n", "version is an integer"},
 		"a second document":                     {"publish:\n", "---\npublish:\n", "hold another"},
 		"the mark that ends a document":         {"  environment: [GH_TOKEN, NPM_TOKEN]\n", "  environment: [GH_TOKEN, NPM_TOKEN]\n...\n", "ends a document"},
-		"an anchor":                             {"  instance: frontseat/p/b\n", "  instance: &named frontseat/p/b\n", "an anchor or an alias"},
+		"an anchor":                             {"  instance: frontseat/b\n", "  instance: &named frontseat/b\n", "an anchor or an alias"},
 		"an alias":                              {"  assets: assets.example:8983\n", "  assets: *named\n", "unknown anchor"},
 		"a merge key":                           {"  OSFamily: linux\n", "  <<: {OSFamily: linux}\n", "a merge key"},
-		"a tag":                                 {"  instance: frontseat/p/b\n", "  instance: !!binary ZnJvbnRzZWF0\n", "a tag is not read"},
-		"no grid":                               {"  address: grid.example:8980\n", "", "grid.address is not said"},
+		"a tag":                                 {"  instance: frontseat/b\n", "  instance: !!binary ZnJvbnRzZWF0\n", "a tag is not read"},
+		"no grid":                               {"  address: grid.example:8980\n  instance: frontseat/b\n  reads: [frontseat/p, frontseat/q]\n", "", "grid.address is not said"},
+		"instances and no grid":                 {"  address: grid.example:8980\n", "", "grid.address names none"},
 		"an address that is a truth":            {"  address: grid.example:8980\n", "  address: true\n", "grid.address is written as what is read as bool"},
 		"an address with a space":               {"  address: grid.example:8980\n", "  address: 'grid example:8980'\n", "grid.address is no address"},
 		"an address with a line":                {"  address: grid.example:8980\n", "  address: \"grid.example:8980\\nx\"\n", "grid.address holds a control character"},
 		"an address of no port":                 {"  address: grid.example:8980\n", "  address: grid.example\n", "grid.address is no address"},
 		"an address that is a socket":           {"  address: grid.example:8980\n", "  address: unix:///run/grid\n", "grid.address is no address"},
 		"an asset service of no port":           {"  assets: assets.example:8983\n", "  assets: assets.example\n", "grid.assets is no address"},
-		"an instance with a space":              {"  instance: frontseat/p/b\n", "  instance: frontseat p\n", "grid.instance holds a space"},
+		"an instance with a space":              {"  instance: frontseat/b\n", "  instance: frontseat p\n", "grid.instance holds a space"},
+		"an instance read with a space":         {"[frontseat/p, frontseat/q]", "[frontseat/p, 'frontseat q']", "grid.reads' entry 2 holds a space"},
+		"an instance read of no name":           {"[frontseat/p, frontseat/q]", "[frontseat/p, '']", "grid.reads' entry 2 names no instance"},
+		"an instance read of a word kept":       {"[frontseat/p, frontseat/q]", "[frontseat/p, frontseat/blobs]", "grid.reads' entry 2 has a part that is a word the Remote Execution API keeps"},
+		"an instance of a word kept":            {"  instance: frontseat/b\n", "  instance: frontseat/uploads\n", "grid.instance has a part that is a word the Remote Execution API keeps"},
+		"an instance of two slashes":            {"  instance: frontseat/b\n", "  instance: frontseat//b\n", "grid.instance is parted by one slash"},
+		"an instance read that is nothing":      {"[frontseat/p, frontseat/q]", "[frontseat/p, ~]", "grid.reads is written as what is read as null"},
+		"an instance read twice":                {"[frontseat/p, frontseat/q]", "[frontseat/p, frontseat/p]", "grid.reads' entry 2 is its entry 1 again"},
+		"its own instance read":                 {"[frontseat/p, frontseat/q]", "[frontseat/p, frontseat/b]", "grid.reads' entry 2 is the daemon's own instance"},
+		"instances read that are one word":      {"[frontseat/p, frontseat/q]", "frontseat/p", "into []string"},
 		"no plugins":                            {"plugins: plugins\n", "", "plugins names no directory"},
 		"a directory of plugins not there":      {"plugins: plugins\n", "plugins: elsewhere\n", "the directory of plugins"},
 		"a rewrite that is no expression":       {`from: '^https://b c/(.*)$'`, `from: '^(https://b c/(.*)$'`, "error parsing regexp"},
