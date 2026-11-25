@@ -14,7 +14,7 @@ how it ends.
 | 3, 4, 8, … | a build's own exit code, as the build API names them (`build`, `test`, `build events`): 3 a test failed, 4 no tests were found (`NO_TESTS_FOUND`), 8 interrupted |
 | 36 | the server refused who asked: no token, or a token it does not take (`UNAUTHENTICATED`, `PERMISSION_DENIED`) |
 | 37 | the server did not answer (`UNAVAILABLE`, `DEADLINE_EXCEEDED`), or stopped answering before what was followed ended |
-| 130 | interrupted (Ctrl-C, `SIGTERM`); nothing more is printed. `workspace forward` serves until it is interrupted, and so ends this way |
+| 130 | interrupted (Ctrl-C, `SIGTERM`); nothing more is printed. `workspace forward` serves until it is interrupted, and so ends this way; so do `build --watch` and `test --watch`, which build until they are |
 | 255 | `workspace ssh`: the SSH client could not get in |
 
 `frontseat run` exits with its program's own exit code, so 1, 2, 36, 37
@@ -41,6 +41,47 @@ and ends itself once it has had nothing to do for long enough.
 
 A workspace is built from inside it: nothing builds one from outside,
 and a control plane neither serves nor forwards the build API.
+
+## Building again as files change
+
+`frontseat build --watch` and `frontseat test --watch` build what they
+were pointed at, and then again each time something a build reads
+changed, until they are interrupted. They take what `build` and `test`
+take (targets, `--only`, `--profile`), inside a workspace's sandbox and
+outside one.
+
+Each round is a build of its own, printed as `build` prints one. It
+lists and reads the files itself, and runs what the change reaches: the
+rest is answered from the cache. Before every round after the first,
+one line says which files changed:
+
+```
+watching /work: it is built again each time a file of it changes, until interrupted
+...
+code/hello/main.go changed: building again
+...
+a.go, b.go, c.go and 4 more changed, 7 files: building again
+```
+
+| What | How |
+|---|---|
+| What is watched | the files of the directory as a build lists them (not what `.frontseatignore` names, nor what is in a directory whose name begins with a dot, as `.git`), the workspace's manifest, and what the build daemon is made of: its settings, the plugins they load, the authorities they name and the program |
+| What counts as a change | a file that does not look as it did: its size, when it was written, when anything of it last changed, which file of the disk it is, and its mode; a file made, removed or moved. It is what the build daemon itself goes by to read a file again. Each directory a build lists and each link it follows is looked at so too, so that a file made and removed again while a round was under way, which the round may have read, starts one more round, the line naming its directory (`app/ changed`). A file touched with nothing of it changed counts, since how it looks is all that is asked of it, and its round is answered from the cache |
+| When a round starts | once two looks, a quarter of a second apart, are the same and every file and directory was written longer ago than the moment its times are told in, which is the build daemon's own rule for a file read before it settled: a save or a checkout still under way is waited out, and the look a round is held against is one a write after it shows in |
+| A change while a round is under way | the round is followed to its end, and one round follows it: each round is held against the look taken before it was asked for, so whatever is written from then on starts the round after. A round is never cancelled for a change: what it ran is in the cache for the next, a build reads a file that changed under it as a failure that names the file, never as the file from two moments, and a round cancelled at every keystroke would say nothing while someone types |
+| A round that failed | waits for the next change, as one that passed does: a build that failed, a test that failed, and a build the daemon refused of the directory as it is |
+| The daemon replaced | each round asks the daemon there is then: where its settings, its plugins or the program changed, or it ended itself with nothing to do, the round finds or starts the one there is, as any command does. A daemon found as it was ending refuses the build by name (`DAEMON_ENDING`) and builds nothing: the round is asked again at once, of the daemon there is by then, up to three times running |
+| How it ends | interrupted, exit 130; or with the code of what could not be asked: a daemon that did not answer, or was ending three times running (37), one that has a build in hand and is not the one this command would start (1) |
+| What it does not go with | `--fix`, which writes the files a watch builds again for: refused, exit 2 |
+
+Not held: a file a plugin reads in a directory whose name begins with a
+dot is read by every round, and a change to it alone starts none; on a
+file system that does not date a file's changes itself (FAT, exFAT,
+some network mounts) a file written again at its size with its times
+set back looks as it did. A directory's look changes when a file the
+build does not list is made or removed in it (one `.frontseatignore`
+names, beside files it lists): that starts a round, answered from the
+cache.
 
 ## Which workspace is selected
 

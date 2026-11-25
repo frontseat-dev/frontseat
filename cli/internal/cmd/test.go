@@ -26,12 +26,16 @@ pointed at holds none, the build ends with NO_TESTS_FOUND and the
 command exits 4, as bazel test does. Otherwise the command follows the
 build to its end and exits with its exit code: 3 where a test failed.
 --only keeps the tests of a name or kind, as it keeps the actions of
-build.`,
+build. --watch tests again each time something a build reads changed,
+as build --watch builds again, until it is interrupted: a test whose
+inputs did not change is answered from the cache, and one that failed
+is run again when a change reaches it.`,
 	Example: `  frontseat test
   frontseat test gateway
-  frontseat test //platform/gateway:go.test`,
+  frontseat test //platform/gateway:go.test
+  frontseat test --watch gateway`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return built(cmd, func(w *frontseat.Workspace) (*frontseat.Build, error) {
+		return builds(cmd, false, func(w *frontseat.Workspace) (*frontseat.Build, error) {
 			return w.Test(cmd.Context(), frontseat.BuildRequest{Targets: args, Only: testOnly, Profile: testProfile.Profile})
 		})
 	},
@@ -42,4 +46,5 @@ func init() {
 	worksWhereItIsRun(testCmd)
 	onlyFlag(testCmd, &testOnly)
 	profileFlag(testCmd, &testProfile)
+	watchFlag(testCmd)
 }

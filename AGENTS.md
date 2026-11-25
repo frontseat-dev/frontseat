@@ -90,7 +90,35 @@ the change that fixes it.
   `RunService`); a build is of `BuildService`. `frontseat query` reads
   what the workspace is made of and why one entity depends on another,
   with the version each lock resolves a requirement to; there is no
-  query language.
+  query language. `build --watch` and `test --watch` build again each
+  time something a build reads changed, until interrupted
+  (`docs/command-line.md`): each round is an ordinary build, of the
+  daemon there is then, and the command line only says when to ask. It
+  says so by the engine's own look at the engine's own listing
+  (`source.Looks`, through `life.Look`: the directory's files, the
+  directories and links the listing went through, its manifest and
+  what the daemon is made of), never by a look or a list of its own,
+  and holds each round against a look taken before the round was asked
+  for, in which every file and directory had settled, so that whatever
+  is written from then on, a file made and removed again among it, is
+  built by the round after. Operating-system notifications are no part
+  of it. A round under way is not cancelled; one that failed waits for
+  the next change; one refused by a daemon that was ending is asked
+  again of the next. Held by: `TestAFileRewrittenAtItsSizeWithItsTimesSetBackLooksOtherwise`,
+  `TestWhatARunListsLooksOtherwiseWhenItChangesAndNothingElseDoes`,
+  `TestALookHasSettledOnceEveryFileInItHas`,
+  `TestALookHasSettledOnceEveryDirectoryInItHas`,
+  `TestARoundADaemonRefusedAsItWasEndingIsAskedOfTheNext`,
+  `TestWhatADaemonIsMadeOfLooksOtherwiseWhenItIsWrittenAgain`,
+  `TestAWatchBuildsAgainWhenAFileChangesAndNotOtherwise`,
+  `TestAChangeDuringARoundIsBuiltByOneRoundAfterIt`,
+  `TestAWatchWaitsUntilWhatIsWrittenHasSettled`,
+  `TestARoundThatFailedWaitsForTheNextChange`,
+  `TestAWatchGoesOnWithTheDaemonThereIsForEachRound` and the spec
+  `TestAWatchedTestRunsAgainWhatAWriteReachesAndNothingElse`. Not held:
+  a file a plugin reads in a directory whose name begins with a dot,
+  which a run reads and does not list; a file system that does not
+  date a file's changes itself.
 - **Tools come from mise and are pinned nowhere else.** Never name a tool
   and a version to `mise exec`; after any mise command, `git status --short
   mise.lock`.

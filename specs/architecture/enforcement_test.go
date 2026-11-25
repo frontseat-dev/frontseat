@@ -98,6 +98,13 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		{"cli/internal/cmd/root.go", "core/telemetry", true},
 		{"cli/internal/cmd/root.go", "sdk/go", true},
 		{"cli/internal/cmd/root.go", "build/daemon/build", false},
+		// A watch looks at what a build reads by the engine's own look,
+		// through the daemon's life: no command looks, or lists, of
+		// itself.
+		{"build/daemon/life/seen.go", "build/engine/engine/source", true},
+		{"cli/internal/cmd/watch.go", "build/daemon/life", true},
+		{"cli/internal/cmd/watch.go", "build/engine/engine/source", false},
+		{"cli/internal/machine/builder.go", "build/engine/engine/source", false},
 		{"cli/internal/cmd/root.go", "workspace/box/supervisor", false},
 		// A port a person writes is read by the one reader of it, the
 		// control plane's too, so that both read the same port; which

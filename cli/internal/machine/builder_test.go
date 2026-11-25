@@ -659,6 +659,17 @@ func TestABuildDaemonStartedWithOtherPublishVariablesIsReplaced(t *testing.T) {
 	}
 }
 
+// inASandbox has the test's command line be inside a workspace's
+// sandbox of its own, whose supervisor wrote no settings yet, until the
+// test ends.
+func inASandbox(t *testing.T) {
+	t.Helper()
+	sandbox := t.TempDir()
+	before := boxed
+	boxed = kept{settings: filepath.Join(sandbox, "build.yaml"), state: filepath.Join(sandbox, "build")}
+	t.Cleanup(func() { boxed = before })
+}
+
 // Inside a workspace's sandbox the build daemon of a directory is told
 // the settings the sandbox's supervisor wrote, and keeps its state
 // beneath the sandbox's own directory, named for the directory it
@@ -669,10 +680,7 @@ func TestABuildDaemonStartedWithOtherPublishVariablesIsReplaced(t *testing.T) {
 // daemon is another, kept beneath the command line's own root.
 func TestInsideASandboxABuildDaemonIsToldAndKeptWhereTheSandboxSays(t *testing.T) {
 	s, file := settled(t)
-	sandbox := t.TempDir()
-	before := boxed
-	boxed = kept{settings: filepath.Join(sandbox, "build.yaml"), state: filepath.Join(sandbox, "build")}
-	t.Cleanup(func() { boxed = before })
+	inASandbox(t)
 	here := t.TempDir()
 
 	if _, err := BuildDaemon(t.Context(), here, true); !errors.Is(err, ErrNoSettings) || s.count() != 0 {

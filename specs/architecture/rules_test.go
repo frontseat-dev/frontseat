@@ -273,7 +273,10 @@ var policies = []policy{
 	// A build daemon's life, for a directory: the build it serves, what
 	// it is told, and where a workspace's manifest is. Nothing of a box,
 	// a sandbox or a control plane, so that the command line may link it.
-	{"build/daemon/life", []string{"build/daemon/build", "build/daemon/settings", "common/record/manifest", "common/vcs/chosen", "core/httpserver", "core/telemetry"}},
+	// It says how what a build of the directory is made from looks, by
+	// the engine's own look at its own listing, for the command that
+	// builds again when that changed.
+	{"build/daemon/life", []string{"build/daemon/build", "build/daemon/settings", "build/engine/engine/source", "common/record/manifest", "common/vcs/chosen", "core/httpserver", "core/telemetry"}},
 	// The local stack's control plane: the control plane, told what the
 	// stack is by the stack's own package.
 	{"cmd/frontseat-server", []string{"workspace/server/controlplane", "workspace/server/backstage", "core/httpserver", "core/secretfile", "core/telemetry", "stack/local", "core/ports", "common/vcs/chosen"}},

@@ -33,3 +33,17 @@ func sourceOf(d *directory.Directory) (source.Tree, []record.Located, error) {
 	}
 	return tree, held.Entities, nil
 }
+
+// Source returns where the repositories of a directory are, as a build
+// of it would read them now (sourceOf): for whoever would know when a
+// build of the directory would read otherwise, and builds it again then
+// (life.Look). Alone, the directory is one repository the build was
+// given.
+func Source(root string, alone bool, system directory.System) (source.Tree, error) {
+	d, err := directory.Open(root, alone, system)
+	if err != nil {
+		return source.Tree{}, err
+	}
+	tree, _, err := sourceOf(d)
+	return tree, err
+}
