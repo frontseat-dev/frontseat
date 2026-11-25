@@ -60,6 +60,11 @@ type Asked struct {
 // names, as that environment's path finds it.
 func (r Runner) Ready(ctx context.Context, snapshot *source.Snapshot, asked Asked) (env []string, program string, err error) {
 	root, repository, command := asked.Root, asked.Repository, asked.Command
+	// Its repository is read where the workspace holds it, and asked of
+	// as an action of the grid is: at the top of its root, so that mise
+	// is asked once for both, by one action (stage). What mise names
+	// beneath that root is beneath the repository here.
+	read, laid := filepath.Join(snapshot.Root, filepath.FromSlash(repository)), filepath.Join(root, filepath.FromSlash(repository))
 	// The tools, as the grid holds them, where mise keeps its own. They
 	// are the workers' tools, built for the workers' platform: a daemon
 	// on another platform cannot run them, and says so rather than run
@@ -77,7 +82,7 @@ func (r Runner) Ready(ctx context.Context, snapshot *source.Snapshot, asked Aske
 			return nil, "", err
 		}
 		for _, tool := range named {
-			tree, installed, err := r.Tools.Installed(ctx, snapshot.Root, snapshot, repository, tool)
+			tree, installed, err := r.Tools.Installed(ctx, read, snapshot, ".", tool)
 			if err != nil {
 				return nil, "", err
 			}
@@ -99,7 +104,7 @@ func (r Runner) Ready(ctx context.Context, snapshot *source.Snapshot, asked Aske
 	// repository's mise.toml put in the environment, placed here.
 	// Nothing the repository says is asked of mise where the daemon is;
 	// where the daemon runs is what confines it.
-	checked, err := r.Tools.Environment(ctx, snapshot.Root, snapshot, repository, named, asked.Variables, tools.Layout{Root: root, Home: home, Temporary: tmp, Data: data})
+	checked, err := r.Tools.Environment(ctx, read, snapshot, ".", named, asked.Variables, tools.Layout{Root: laid, Home: home, Temporary: tmp, Data: data})
 	if err != nil {
 		return nil, "", fmt.Errorf("%s: %w", asked.What, err)
 	}

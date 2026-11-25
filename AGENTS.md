@@ -73,6 +73,30 @@ the change that fixes it.
   `TestACatalogInputFromTheRootIsReadFromTheRepositorysRoot`,
   `TestACatalogLabelFromTheRootNamesAProjectOfItsOwnRepository` and the Go
   plugin's `served_plugin_composes_manifest_inputs_and_profile_actions`.
+- **An action is one action wherever its repository is.** Its own
+  repository is at the top of its root, as in a checkout built on its
+  own, whatever a workspace names it and whichever directory holds it.
+  What an action of another repository left, which it reads whole or
+  which builds a service of its test, is beneath
+  `.frontseat/external/<name>`, by the workspace's name for that
+  repository, never its directory; the files of another repository's
+  project it is handed, an artifact provided to it and a generated
+  source bound into it are in its own project, where its tool looks for
+  them; its home is `.frontseat/home`. Two places of the workspace that
+  would be one place of its root are refused, naming both, and so is a
+  workspace in which one repository's directory is within another's. A
+  fix and a publish, which run where the daemon is, ask mise for their
+  environment as an action of their repository does on the grid. So a
+  job's checkout of a commit a workspace built is answered from what the
+  grid kept. Held by:
+  `TestACheckoutOfACommitAWorkspaceBuiltIsBuiltByTheCommandLineWithNothingExecuted`,
+  `TestAnActionOfARepositoryIsOneActionWhereverTheRepositoryIs`,
+  `TestWhatAnActionIsHandedOfAnotherRepositoryIsOneActionWhereverEitherIs`,
+  `TestTwoPlacesOfTheWorkspaceAtOnePlaceOfTheRootAreRefused`,
+  `TestARepositoryWithinAnothersIsRefused`,
+  `TestACheckAndItsFixAskMiseForTheirEnvironmentOnce`,
+  `TestAFixOfARepositoryInAWorkspaceIsGivenWhatItsCheckIs` and
+  `TestAPublishOfARepositoryInAWorkspaceIsGivenWhatItsActionsAre`.
 - **The box is built one way** (`stack/box`): by `mise run build`, by the
   stack and by the gate, and tagged by what it holds. The stack and the
   tests each run the box built from their checkout, by that tag, never

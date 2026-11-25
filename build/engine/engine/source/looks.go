@@ -96,7 +96,7 @@ func lookAt(ctx context.Context, tree Tree, beside []string, now time.Time) (*Lo
 // reached through a link, the workspace's own directory among them.
 // What it entered is said where it is given somewhere to say it (list).
 func (t Tree) list(ctx context.Context, repository string, entered map[string]looked) (*taken, error) {
-	at := t.directory(repository)
+	at := t.Directory(repository)
 	directory, err := filepath.EvalSymlinks(at)
 	if err != nil {
 		directory = at

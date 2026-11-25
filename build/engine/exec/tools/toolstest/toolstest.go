@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/json"
 	"path"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -32,6 +33,13 @@ func Asks(action exec.Action) bool {
 // Environment is what mise would answer it: each tool it holds on the
 // path, before the system's directories.
 func Environment(action exec.Action) exec.Result {
+	return environment(action, nil)
+}
+
+// environment is what mise would answer an action, with what said says
+// beside the path: a value written "./…" is beneath the root mise was
+// asked in.
+func environment(action exec.Action, said map[string]string) exec.Result {
 	var dirs []string
 	for at := range action.Held {
 		if strings.Contains(at, "/mise/installs/") {
@@ -39,8 +47,45 @@ func Environment(action exec.Action) exec.Result {
 		}
 	}
 	sort.Strings(dirs)
-	printed, _ := json.Marshal(map[string]string{"PATH": strings.Join(append(dirs, "/usr/bin", "/bin"), ":")})
+	answer := map[string]string{"PATH": strings.Join(append(dirs, "/usr/bin", "/bin"), ":")}
+	for name, value := range said {
+		if rest, beneath := strings.CutPrefix(value, "./"); beneath {
+			value = path.Join(root, rest)
+		}
+		answer[name] = value
+	}
+	printed, _ := json.Marshal(answer)
 	return exec.Result{Stdout: append([]byte(root+"\n"), printed...)}
+}
+
+// Configured is a grid that runs nothing, whose mise answers that a
+// repository's mise.toml puts Said in the environment beside the tools'
+// path: a value written "./…" is beneath the root mise was asked in, as
+// mise says a path of the repository's ({{config_root}}). It keeps each
+// action that asked mise for an environment, and answers the rest as an
+// install is answered.
+type Configured struct {
+	Said  map[string]string
+	mu    sync.Mutex
+	asked []exec.Action
+}
+
+// Execute implements exec.Executor.
+func (c *Configured) Execute(_ context.Context, action exec.Action) (exec.Result, error) {
+	if !Asks(action) {
+		return Installed(action), nil
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.asked = append(c.asked, action)
+	return environment(action, c.Said), nil
+}
+
+// Asked is each action that asked mise for an environment, in order.
+func (c *Configured) Asked() []exec.Action {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return slices.Clone(c.asked)
 }
 
 // Installed is what a grid answers an action that installs tools: each

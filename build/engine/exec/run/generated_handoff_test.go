@@ -48,8 +48,8 @@ func TestAGeneratedHandoffSelectsAndRemapsOnlyDeclaredFiles(t *testing.T) {
 			runner := Runner{Answers: &exec.Remembering{Executor: grid}}
 			claim := plan.GeneratedSource{ProjectRoot: "api", Directory: "api/gen/go", Output: "out/", Producer: producer, Patterns: []string{"**/*.pb.go"}}
 			action := plan.Action{Repository: tc.repository, ProjectRoot: tc.root, ArtifactOnly: []model.Label{producer}, Artifacts: []plan.ArtifactInput{{Source: claim, Into: tc.into, Patterns: []string{"**/*.go", "!**/*_test.pb.go"}, Generated: []pattern.Selection{{{"**/*.go"}}}}}}
-			handed := []schedule.Handed{{From: producer, Left: map[string]exec.Held{"api/out": {Directory: true, Digest: exec.Digest{Hash: "tree", Size: 1}}, "api/secret": {Digest: exec.Digest{Hash: "other", Size: 1}}}}}
-			got, err := runner.generated(t.Context(), source.Tree{Paths: map[string]string{"": ".", "apprepo": "checkout"}}, action, handed)
+			handed := []schedule.Handed{{From: producer, Left: map[string]exec.Held{"main/api/out": {Directory: true, Digest: exec.Digest{Hash: "tree", Size: 1}}, "main/api/secret": {Digest: exec.Digest{Hash: "other", Size: 1}}}}}
+			got, err := runner.generated(t.Context(), source.Tree{Paths: map[string]string{"": "main", "apprepo": "checkout"}}, action, handed)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -57,7 +57,7 @@ func TestAGeneratedHandoffSelectsAndRemapsOnlyDeclaredFiles(t *testing.T) {
 			if len(files) != 1 {
 				t.Fatalf("extra transferred output: %v", files)
 			}
-			want := "api/gen/go/pkg/a.pb.go"
+			want := "main/api/gen/go/pkg/a.pb.go"
 			if tc.repository != "" {
 				want = "checkout/app/.deps/example/module/pkg/a.pb.go"
 			}

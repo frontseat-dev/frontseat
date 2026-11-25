@@ -11,7 +11,9 @@ import (
 
 // An action that passed leaves what it says it writes. What it says it
 // may not leave is not missed where it is not there, and is handed on
-// where it is.
+// where it is. The grid is asked for each from where the action ran,
+// its repository at the top of its root; what it left is kept by where
+// it sits in the workspace.
 func TestOnlyAnOutputThatMayBeAbsentIsNotMissed(t *testing.T) {
 	tree := source.Tree{Paths: map[string]string{"lab": "lab"}}
 	declared := func(outputs ...*pluginv1.Output) plan.Action {
@@ -25,9 +27,9 @@ func TestOnlyAnOutputThatMayBeAbsentIsNotMissed(t *testing.T) {
 		left    []string
 		missing string
 	}{
-		"both are left":                      {declared(made, programs), map[string]exec.Held{"made": held, "../../.frontseat/home/go/bin": held}, []string{"lab/tool/made", ".frontseat/home/go/bin"}, ""},
+		"both are left":                      {declared(made, programs), map[string]exec.Held{"made": held, "../.frontseat/home/go/bin": held}, []string{"lab/tool/made", ".frontseat/home/go/bin"}, ""},
 		"the one that may be absent is":      {declared(made, programs), map[string]exec.Held{"made": held}, []string{"lab/tool/made"}, ""},
-		"the one that may not be absent is":  {declared(made, programs), map[string]exec.Held{"../../.frontseat/home/go/bin": held}, nil, "made/"},
+		"the one that may not be absent is":  {declared(made, programs), map[string]exec.Held{"../.frontseat/home/go/bin": held}, nil, "made/"},
 		"the one that may be absent, alone":  {declared(programs), nil, nil, ""},
 		"what must be there comes second":    {declared(programs, made), nil, nil, "made/"},
 		"what must be there, and nothing is": {declared(made), nil, nil, "made/"},

@@ -71,6 +71,18 @@ const (
 // by its digest.
 const Downloads = home + "/downloads"
 
+// External is where in an action's root what an action of another
+// repository than its own left sits, each beneath a directory of the
+// workspace's name for that repository, never of where the workspace
+// holds it: the action's own repository is at the top of its root
+// (stage), as Bazel's execroot holds the main repository at its top
+// and every other beneath external/, by its canonical name. Files of
+// another repository's project it is handed, and what is provided or
+// generated for it, are in its own project instead. It is beneath the
+// directory frontseat keeps for itself, so no directory of a
+// repository's own stands in its place.
+const External = home + "/external"
+
 // Path is where the system's programs are found, on a worker and where
 // the daemon runs what it runs itself.
 const Path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"

@@ -105,8 +105,10 @@ var policies = []policy{
 	// daemon of a box through the SDK, which carries it to a port there
 	// and reads what the daemon builds, presenting the daemon's token as
 	// the SDK presents one; where the daemon says it serves is where
-	// every program finds it. It knows nothing of the daemon itself.
-	{"sandbox/testsupport/testbuild", []string{"sdk/go", "sdk/go/bearer", "core/ports"}},
+	// every program finds it. It knows nothing of the daemon itself. What
+	// a build says of its actions it reads as the API says it: which a
+	// worker ran, and each one's digest on the grid.
+	{"sandbox/testsupport/testbuild", []string{"sdk/go", "sdk/go/api/**", "sdk/go/bearer", "core/ports"}},
 	// What the local stack is, read from its files: one reader, for the
 	// stack's control plane, the box and the test support, which links
 	// nothing of the server.
@@ -205,7 +207,7 @@ var policies = []policy{
 	{"build/engine/pluginhost/pluginhosttest", []string{"sdk/go/api/**", "build/engine/pluginapi/**", "build/engine/pattern"}},
 	{"build/engine/engine/catalog/catalogtest", []string{}},
 	{"build/engine/engine/source/sourcetest", []string{"build/engine/engine/source"}},
-	{"build/engine/exec/reapi/reapitest", []string{"build/engine/exec/reapi"}},
+	{"build/engine/exec/reapi/reapitest", []string{"build/engine/exec", "build/engine/exec/reapi"}},
 	{"build/engine/engine/plan/plantest", []string{"build/engine/engine/plan", "build/engine/model"}},
 	{"build/engine/exec/stage", []string{"core/telemetry", "build/engine/exec", "build/engine/exec/download", "build/engine/exec/tools", "build/engine/engine/plan", "build/engine/engine/source", "sdk/go/api/**", "build/engine/pluginapi/**", "common/confine", "core/image", "common/runner/testservice", "common/runner/runnerapi/**"}},
 	{"build/engine/exec/schedule", []string{"core/telemetry", "build/engine/exec", "build/engine/engine/plan", "build/engine/model"}},

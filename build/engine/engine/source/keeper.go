@@ -95,6 +95,9 @@ func (k *Keeper) Take(ctx context.Context, tree Tree) (*Snapshot, error) {
 		return nil, err
 	}
 	tree.Root = root
+	if err := tree.apart(); err != nil {
+		return nil, err
+	}
 	s := &Snapshot{Tree: tree, keeper: k, repositories: map[string]*taken{}}
 	places := make(map[string]place, len(tree.Paths))
 	for _, repository := range tree.Repositories() {
