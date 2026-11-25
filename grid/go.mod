@@ -19,14 +19,14 @@ require (
 )
 
 require (
-	github.com/ai-openshell/sdk-go v0.1.9 // indirect
+	github.com/ai-openshell/sdk-go v0.1.10 // indirect
 	github.com/coder/websocket v1.8.15 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
 	github.com/frontseat-dev/frontseat/common/record v0.0.0 // indirect
 	github.com/google/renameio/v2 v2.0.2 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	golang.org/x/net v0.60.0 // indirect
-	golang.org/x/oauth2 v0.37.0 // indirect
+	golang.org/x/oauth2 v0.38.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20261104224025-d1e00e9f33ab // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20261019180522-ce908d29299b // indirect
