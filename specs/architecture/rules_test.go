@@ -276,7 +276,10 @@ var policies = []policy{
 	{"sandbox/testsupport/drivertest", []string{"sandbox/driver", "sandbox/testsupport/drivertest", "core/poll"}},
 	// It serves the sandbox service beneath the plane to the test alone,
 	// and says how the plane's owner is known as the SDK's clients take it.
-	{"workspace/server/controlplanetest", []string{"sandbox/api/**", "workspace/server/controlplane", "core/page", "workspace/server/backstage", "sandbox", "testsupport/**", "sdk/go/api/**", "sdk/go", "common/vcs/chosen"}},
+	// A test gives it what serves stored repositories by the control
+	// plane's port, as frontseat-enterprise gives its own; which one, in
+	// memory or not, is the test's to say and none of its.
+	{"workspace/server/controlplanetest", []string{"sandbox/api/**", "workspace/server/controlplane", "core/page", "workspace/server/backstage", "sandbox", "testsupport/**", "sdk/go/api/**", "sdk/go", "common/vcs/chosen", "workspace/server/workspaces/sources"}},
 	// A box's supervisor: a thin main over what holds the sandbox's lock,
 	// fills the workspace as the control plane tells it and serves its
 	// shell, and knows no build.
@@ -313,6 +316,10 @@ var policies = []policy{
 	{"specs/cli", []string{"sdk/go", "sdk/go/api/**", "sandbox/api/**", "sdk/go/entity", "testsupport/**", "core/ports", "build/daemon/life"}},
 	{"specs/local", []string{"testsupport/**", "stack/local", "core/ports", "stack/box", "specs/internal/**"}},
 	{"specs/compare", []string{"sdk/go", "sdk/go/api/**", "sandbox/api/**", "testsupport/**"}},
+	// The sandbox specs open a remote workspace over stored repositories
+	// held in memory, which their setup gives the control plane it starts
+	// (controlplanetest.WithSources); no other spec holds any.
+	{"specs/sandbox", []string{"sdk/go", "sdk/go/api/**", "sandbox/api/**", "sdk/go/entity", "testsupport/**", "core/telemetry", "specs/internal/**", "core/ports", "workspace/server/workspaces/sourcestest"}},
 	{"specs/**", []string{"sdk/go", "sdk/go/api/**", "sandbox/api/**", "sdk/go/entity", "testsupport/**", "core/telemetry", "specs/internal/**", "core/ports"}},
 	// The gate programs: what runs the specs and every other test, and
 	// builds the box before the tests that need it; what reads a gate's

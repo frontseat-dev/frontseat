@@ -413,22 +413,40 @@ the change that fixes it.
   `TestACheckoutsRemoteWorkspaceIsAskedForByItsRepositoryInTheStore`,
   and the sandbox spec
   `TestARemoteWorkspaceIsRefusedByNameByAControlPlaneGivenNoStoreAndNothingIsMade`.
+  One sandbox spec holds what is between a control plane and a build,
+  with a plain directory standing in for the mount and another for its
+  layer, laid out where the gateway makes its sandboxes
+  (`testgateway.Laid`) and given to a control plane a test starts
+  (`controlplanetest.WithSources`): that the stack's gateway binds both
+  into the workspace's sandbox, the layer on a mount that is read
+  alone, which and not whose it is refuses a write; that the box's
+  supervisor holds the repository and records it as mounted, at its
+  changeset, from no remote; that the build daemon the command line
+  starts there is told where the layers are; that a build there
+  compiles the repository's entity, at that changeset, by an action
+  run for it; and that a release is refused there
+  (`TestADirectoryBoundAsARemoteWorkspacesRepositoryIsHeldAndBuiltInItsSandboxItsLayerReadAlone`).
+  A directory is said to a gateway under its compute driver's name,
+  which a control plane on another machine than its gateway says apart
+  from the runtime it asks about images (`Gateway.Compute`): a gateway
+  takes what is said under its own driver's name and passes over the
+  rest, saying nothing
+  (`TestAHostVolumeIsSaidUnderTheGatewaysComputeDriver`).
   Not held: nothing here serves a remote workspace but what its tests
-  hold in memory (`sourcestest`), so that a sandbox is in truth given a
-  mounted repository, by a gateway let bind one, is proven by no test
-  of this repository; a supervisor says it holds a stored repository on
-  the control plane's word and its directory being there. A sandbox is
-  given a repository's layer where what serves stored repositories says
-  one (`sources.Volume.Layer`), bound where a build looks for it and to
-  be read alone
-  (`TestAStoredRepositorysLayerIsBoundWhereABuildLooksForItToBeReadAlone`);
-  that a gateway binds it so, and that a build there takes a stamp from
-  it, is proven against no sandbox. That a file is taken at its attribute is proven on a
+  hold in memory (`sourcestest`), and nothing here mounts a repository.
+  A sandbox is given a repository's layer where what serves stored
+  repositories says one (`sources.Volume.Layer`), bound where a build
+  looks for it and to be read alone
+  (`TestAStoredRepositorysLayerIsBoundWhereABuildLooksForItToBeReadAlone`).
+  That a file is taken at its attribute is proven on a
   directory a test lays out and through what stands in for the mount's
-  answers, on the machine the tests run on; against no mount, and not
-  on Linux's own way of asking a mount afresh (`AT_STATX_FORCE_SYNC`)
-  or of saying a file system is read-only, which are compiled and
-  vetted here and run by nothing. That a mount keeps to the layout is
+  answers, on the machine the tests run on; against no mount: a plain
+  directory's change times are the kernel's, so the spec's build reads
+  and hashes every file, and takes none at a stamp. Linux's way of
+  saying a file system is read-only is run by that spec's build and
+  shows in nothing it asserts; its way of asking a mount afresh
+  (`AT_STATX_FORCE_SYNC`) is compiled and vetted here and run by
+  nothing. That a mount keeps to the layout is
   the mount's to hold, and is held by nothing here: one that showed a
   changed file at its stamp, or said an attribute that is no hash of
   what it gives, would be believed. A layout made up inside a box is

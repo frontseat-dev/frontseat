@@ -1,6 +1,7 @@
 package sandbox
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"io"
@@ -53,9 +54,19 @@ type Gateway struct {
 	// keeps what it runs where it likes.
 	ReadAll bool
 	// HostVolumes is whether a sandbox may be given a directory of the
-	// gateway's host (a host volume), bound by Runtime: the gateway must
-	// then be let bind them (enable_bind_mounts).
+	// gateway's host (a host volume), bound by the gateway's compute
+	// driver: the gateway must then be let bind them
+	// (enable_bind_mounts).
 	HostVolumes bool
+	// Compute is the name of the gateway's compute driver (docker,
+	// podman), which a host volume is said to the gateway under: the
+	// gateway takes what is said under its own driver's name and passes
+	// over the rest, saying nothing, so a volume said under another
+	// name is bound nowhere. Empty for Runtime's, which is that name
+	// where this server asks the runtime the gateway itself uses; a
+	// server on another machine, which asks a runtime of its own what an
+	// image is started with, says the gateway's.
+	Compute string
 }
 
 // answering is a driver that can say, before anything is served over
@@ -115,14 +126,22 @@ func made(d driver.Driver, options Options) (*Server, error) {
 	return s, nil
 }
 
+// computeOf is the name a host volume is said to a gateway under: its
+// compute driver's, where it is said, else its runtime's; none where no
+// sandbox is given a host volume, and none is then said at all.
+func computeOf(gateway Gateway) string {
+	if !gateway.HostVolumes {
+		return ""
+	}
+	return cmp.Or(gateway.Compute, gateway.Runtime)
+}
+
 // overGateway is the driver of an OpenShell gateway, asking the
 // container runtime the gateway makes its sandboxes with what an image
 // is started with.
 func overGateway(gateway Gateway) (*openshell.Driver, error) {
 	config := openshell.Config{Address: gateway.Address, Identity: gateway.Identity, Writable: gateway.Writable, ReadAll: gateway.ReadAll}
-	if gateway.HostVolumes {
-		config.Compute = gateway.Runtime
-	}
+	config.Compute = computeOf(gateway)
 	config.Image = func(ctx context.Context, ref string) (openshell.Started, error) {
 		if err := imageOf(ref); err != nil {
 			return openshell.Started{}, err

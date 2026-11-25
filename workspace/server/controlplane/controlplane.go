@@ -1406,6 +1406,10 @@ const Builder = "/opt/frontseat/bin/frontseat"
 // asked what an image is started with.
 type Gateway struct {
 	Address, Identity, Runtime string
+	// Compute is the name of the gateway's compute driver, which a
+	// directory given to a sandbox is said to it under; empty for
+	// Runtime's (sandbox.Gateway).
+	Compute string
 	// HostVolumes is whether a workspace's sandbox may be given a
 	// directory of the gateway's machine, which the gateway must then be
 	// let bind: what a control plane that serves stored repositories
@@ -1424,7 +1428,7 @@ type Gateway struct {
 // is a box's. The state is a directory of the control plane's own: its
 // sandboxes' records are kept there, and its workspaces' beneath it.
 func OverGateway(c Config, gateway Gateway) (*Plane, error) {
-	sandboxes, err := sandbox.New(sandbox.Options{PublicURL: c.PublicURL, State: c.State, Gateway: &sandbox.Gateway{Address: gateway.Address, Identity: gateway.Identity, Runtime: gateway.Runtime, Writable: written, HostVolumes: gateway.HostVolumes}})
+	sandboxes, err := sandbox.New(sandbox.Options{PublicURL: c.PublicURL, State: c.State, Gateway: &sandbox.Gateway{Address: gateway.Address, Identity: gateway.Identity, Runtime: gateway.Runtime, Compute: gateway.Compute, Writable: written, HostVolumes: gateway.HostVolumes}})
 	if err != nil {
 		return nil, err
 	}

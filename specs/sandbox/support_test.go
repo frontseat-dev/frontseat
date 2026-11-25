@@ -39,6 +39,7 @@ import (
 	buildv1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1/buildv1alpha1connect"
 	"github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/workspace/v1alpha1/workspacev1alpha1connect"
+	"github.com/frontseat-dev/frontseat/stack/testsupport/testgateway"
 	"github.com/frontseat-dev/frontseat/stack/testsupport/testowner"
 	"github.com/frontseat-dev/frontseat/testsupport/backstagetest"
 	"github.com/frontseat-dev/frontseat/testsupport/testfiles"
@@ -48,6 +49,7 @@ import (
 	"github.com/frontseat-dev/frontseat/testsupport/testtelemetry"
 	"github.com/frontseat-dev/frontseat/testsupport/testwire"
 	"github.com/frontseat-dev/frontseat/workspace/server/controlplanetest"
+	"github.com/frontseat-dev/frontseat/workspace/server/workspaces/sourcestest"
 	tracepb "go.opentelemetry.io/proto/otlp/trace/v1"
 )
 
@@ -439,14 +441,91 @@ func (spec *scenario) generatedSandbox() *Workspace {
 func (spec *scenario) catalogWorkspace() *Workspace {
 	spec.Helper()
 	checkout := spec.aRepository()
+	spec.aCatalogRepositoryIn(checkout)
+	return spec.inASandboxOfItsOwn(spec.cloning(checkout))
+}
+
+// catalogModule is what the Go module of a catalog repository says it
+// is (aCatalogRepositoryIn).
+const catalogModule = "module example.com/app\n\ngo 1.27\n"
+
+// aCatalogRepositoryIn makes a directory a repository that holds one Go
+// module, app, which its catalog file says is the Component app, owned
+// by the Group team.
+func (spec *scenario) aCatalogRepositoryIn(checkout string) {
+	spec.Helper()
 	testpins.Go(spec.TB, checkout)
 	testfiles.Tree(spec.TB, checkout, map[string]string{
 		"frontseat.yaml":        "plugins: {go: {}, backstage: {}}\n",
 		"app/catalog-info.yaml": sandboxCatalog,
-		"app/go.mod":            "module example.com/app\n\ngo 1.27\n",
+		"app/go.mod":            catalogModule,
 		"app/main.go":           "package main\n\nfunc main() {}\n",
 	})
-	return spec.inASandboxOfItsOwn(spec.cloning(checkout))
+}
+
+// Remote is a remote workspace in a sandbox of its own, and what was
+// laid out for it: the one stored repository it holds, code, which is
+// a catalog repository (aCatalogRepositoryIn) whose program says the
+// workspace's name, so that what compiles it was run by no one before.
+type Remote struct {
+	*Workspace
+	// Changeset is the changeset what serves stored repositories said
+	// the repository stands at.
+	Changeset string
+	// Stamp is what the repository's layer holds as its stamp, as the
+	// layout writes one (ports.Mounted).
+	Stamp string
+}
+
+// remoteRepository is the stored repository a Remote holds, by the
+// store's name and the workspace's alike, and where its sandbox has it
+// and its layer.
+const (
+	remoteRepository = "code"
+	remoteLayer      = ports.Mounted + "/" + remoteRepository
+	remoteDirectory  = "/work/" + remoteRepository
+)
+
+// aRemoteWorkspace opens a remote workspace through a control plane of
+// the spec's own, given what holds stored repositories in memory
+// (sourcestest) in place of what serves a snapshot store. Nothing is
+// mounted: the repository and its layer are plain directories, laid
+// out where the gateway makes its sandboxes (testgateway.Laid), which
+// the in-memory sources say are the mount's. The workspace is ended,
+// the control plane stopped and the directories removed, in that
+// order, when the spec ends.
+//
+// A workspace that does not come to be ready fails the spec here, with
+// what the control plane said of it.
+func (spec *scenario) aRemoteWorkspace() *Remote {
+	spec.Helper()
+	name := aName()
+	// As sourcestest says where a workspace's repository and its layer
+	// are: beneath a directory, by the workspace's name and its own.
+	local := spec.TempDir()
+	checkout := sourcestest.Mounted(filepath.Join(local, "repositories"), name, remoteRepository)
+	spec.aCatalogRepositoryIn(checkout)
+	stamp := time.Now().UTC().Format("2006-01-02T15:04:05.000000000Z") + "\n"
+	testfiles.Write(spec.TB, filepath.Join(checkout, "app", "main.go"), "package main\n\n// "+name+"\nfunc main() {}\n")
+	testfiles.Write(spec.TB, filepath.Join(sourcestest.Mounted(filepath.Join(local, "layers"), name, remoteRepository), "stamp"), stamp)
+	laid := testgateway.Laid(spec.TB, local)
+	held := sourcestest.New(laid + "/repositories")
+	held.Layers = laid + "/layers"
+	plane := controlplanetest.Start(spec.TB, controlplanetest.WithBackstage(spec.TB, companyCatalog), controlplanetest.WithSources(held))
+	known(plane)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	spec.Cleanup(func() { endedAt(plane.URL, name) })
+	got, _, err := made(ctx, making{Server: plane.URL, WorkspaceSpec: frontseat.WorkspaceSpec{
+		Name: name, Image: plane.Image, AuthorizedKey: testidentity.Authorized(),
+		Stored: []frontseat.StoredRepository{{Repository: remoteRepository}},
+	}})
+	spec.Expect(err).NotTo(HaveOccurred(), "a remote workspace whose repository is %s and whose layer is %s in the gateway's container did not come to be ready. Where this says the stored repository is not mounted at its directory, the gateway bound nothing at /work/%s: its compute driver took no mount of what the control plane sent, or bound it elsewhere. Where it says the sandbox failed, the gateway refused the binds: read `docker logs frontseat-stack` for what it said of them", held.Beneath, held.Layers, remoteRepository)
+	asked := held.Holds()
+	spec.Expect(asked).To(HaveLen(1), "the stored repositories of a workspace are held once")
+	spec.Expect(asked[0].Stored).To(HaveLen(1))
+	return &Remote{Workspace: &Workspace{spec, got}, Changeset: sourcestest.Changeset(asked[0].Stored[0]), Stamp: stamp}
 }
 
 // inASandboxOfItsOwn makes a workspace in a sandbox of its own that
@@ -965,6 +1044,14 @@ func (w *Workspace) retainedToolProject() *buildv1.Project {
 
 func (b *Build) retainedCompileResult() *buildv1.ActionResult {
 	b.Helper()
+	return b.resultOf(retainedCompile)
+}
+
+// resultOf is the result of the one action of a label in a build that
+// succeeded; of one that did not, what it and each of its actions said
+// is logged, and the spec fails.
+func (b *Build) resultOf(label string) *buildv1.ActionResult {
+	b.Helper()
 	listed, err := buildsAt(b.of).ListBuildActions(context.Background(), &buildv1.ListBuildActionsRequest{PageSize: 1000, BuildId: b.run.GetId()})
 	b.Expect(err).NotTo(HaveOccurred())
 	if b.outcome() != "SUCCESS" {
@@ -977,7 +1064,7 @@ func (b *Build) retainedCompileResult() *buildv1.ActionResult {
 	b.Expect(b.outcome()).To(Equal("SUCCESS"), b.run.GetFailure())
 	var matching []*buildv1.ActionResult
 	for _, action := range listed.GetActions() {
-		if action.GetLabel() == retainedCompile {
+		if action.GetLabel() == label {
 			matching = append(matching, action)
 		}
 	}

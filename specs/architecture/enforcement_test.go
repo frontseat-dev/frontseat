@@ -363,6 +363,18 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		{"workspace/server/workspaces/sourcestest/sourcestest.go", "workspace/server/workspaces/sources", true},
 		{"workspace/server/workspaces/sourcestest/sourcestest.go", "workspace/server/controlplane", false},
 		{"workspace/box/source/service.go", "workspace/server/workspaces/sources", false},
+		// A test's control plane is given what serves stored repositories
+		// by the port, and the sandbox specs give it the one held in
+		// memory; what starts the control plane names neither that one
+		// nor what composes a control plane, and no other spec holds
+		// stored repositories.
+		{"workspace/server/controlplanetest/controlplanetest.go", "workspace/server/workspaces/sources", true},
+		{"workspace/server/controlplanetest/controlplanetest.go", "workspace/server/workspaces/sourcestest", false},
+		{"workspace/server/controlplanetest/controlplanetest.go", "workspace/server/workspaces", false},
+		{"specs/sandbox/support_test.go", "workspace/server/workspaces/sourcestest", true},
+		{"specs/sandbox/support_test.go", "workspace/server/workspaces/sources", false},
+		{"specs/cli/support_test.go", "workspace/server/workspaces/sourcestest", false},
+		{"specs/build/self_test.go", "workspace/server/workspaces/sourcestest", false},
 		// A command reads a checkout through the port of what reads one,
 		// and names no version control system.
 		{"cli/internal/cmd/open.go", "cli/internal/vcs", true},

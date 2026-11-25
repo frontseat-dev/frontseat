@@ -31,6 +31,7 @@ import (
 	"github.com/frontseat-dev/frontseat/testsupport/backstagetest"
 	"github.com/frontseat-dev/frontseat/workspace/server/backstage"
 	"github.com/frontseat-dev/frontseat/workspace/server/controlplane"
+	"github.com/frontseat-dev/frontseat/workspace/server/workspaces/sources"
 )
 
 // Served is a control plane a test serves.
@@ -56,6 +57,22 @@ type Option func(*options)
 
 type options struct {
 	entities controlplane.Entities
+	sources  sources.Sources
+}
+
+// WithSources gives the control plane what serves stored repositories,
+// as frontseat-enterprise gives the one it composes
+// (workspaces.WithSources): its workspaces may then be remote, and its
+// gateway is asked to bind the directories that come of it into their
+// sandboxes. Without it, as frontseat-server is, it refuses a remote
+// workspace by name, STORE_NOT_SERVED, and binds nothing of the
+// gateway's machine into any sandbox.
+//
+// The directories are the gateway's machine's, the stack's one
+// container (testgateway.Laid lays one out there), and none of this
+// machine.
+func WithSources(s sources.Sources) Option {
+	return func(o *options) { o.sources = s }
 }
 
 // WithBackstage has the control plane resolve entities through a fake
@@ -168,8 +185,8 @@ func serving(t testing.TB, state string, extra map[string]string, given []Option
 	plane, err := controlplane.OverGateway(controlplane.Config{
 		PublicURL: srv.URL, State: state, Box: image, Callers: callers, Environment: extra,
 		Grid:     controlplane.Grid{Hosts: grid.Hosts(), Arguments: grid.Arguments()},
-		Fetching: chosen.System(), Entities: with.entities,
-	}, controlplane.Gateway{Address: testgateway.Address, Identity: identity, Runtime: "docker"})
+		Fetching: chosen.System(), Entities: with.entities, Sources: with.sources,
+	}, controlplane.Gateway{Address: testgateway.Address, Identity: identity, Runtime: "docker", Compute: testgateway.Compute, HostVolumes: with.sources != nil})
 	if err != nil {
 		srv.Close()
 		t.Fatal(err)

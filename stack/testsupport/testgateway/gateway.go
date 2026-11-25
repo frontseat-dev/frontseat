@@ -4,6 +4,7 @@ package testgateway
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"os"
 	"os/exec"
@@ -15,11 +16,20 @@ import (
 	"github.com/frontseat-dev/frontseat/core/ports"
 	"github.com/frontseat-dev/frontseat/stack/local"
 	"github.com/frontseat-dev/frontseat/testsupport/testrequired"
+	"github.com/frontseat-dev/frontseat/testsupport/testrun"
 )
 
 // Address is where the local stack's gateway answers, on this machine's
 // loopback.
 var Address = "https://" + Listens
+
+// Compute is the name of the compute driver the local stack's gateway
+// makes its sandboxes with, in its one container: what a directory given
+// to a sandbox is said to it under
+// (stack/image/rootfs/etc/openshell/gateway.template.toml). A test's
+// control plane is on this machine and asks this machine's runtime what
+// an image is started with, which is another.
+const Compute = "podman"
 
 // Listens is the host and port of Address.
 var Listens = net.JoinHostPort("127.0.0.1", strconv.Itoa(ports.OpenShell))
@@ -98,4 +108,51 @@ func identity(t testing.TB, needed bool, directory string) string {
 // it is, and returns what it printed, its error output beside.
 func Runtime(ctx context.Context, arguments ...string) ([]byte, error) {
 	return local.Podman(ctx, held, arguments...).CombinedOutput()
+}
+
+// Laid copies a directory of this machine, with all it holds, to the
+// machine the gateway makes its sandboxes on, and returns where it is
+// there: a directory of the test's own in the stack's one container,
+// which a sandbox may be bound (a host volume). Every sandbox is made
+// by that container's Podman, so what a sandbox is bound is a directory
+// of that container, and none of this machine.
+//
+// Everything laid out is open to every user, to read and to write, as
+// the grid's pool opens what it binds into a runner sandbox: Podman
+// there is rootless, and gives a sandbox's user an id of its own
+// choosing on the gateway's machine, which no test knows. What holds a
+// sandbox back from a directory so bound is then how it is bound (read
+// alone or not), and never whose it is.
+//
+// The directory is gone when the test ends. It is the test's own to
+// delete: its name carries a token drawn here (testrun.ID), and it is
+// made here, by a mkdir that fails where anything has the name already.
+func Laid(t testing.TB, from string) string {
+	t.Helper()
+	testrequired.Stack(t)
+	own := "/tmp/" + testrun.ID(t, "frontseat-test-laid")
+	inside := func(arguments ...string) error {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		if out, err := exec.CommandContext(ctx, "docker", arguments...).CombinedOutput(); err != nil {
+			return fmt.Errorf("docker %s, of %s in the gateway's container %s: %w: %s", arguments[0], own, held, err, out)
+		}
+		return nil
+	}
+	if err := inside("exec", held, "mkdir", "-m", "0755", "--", own); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := inside("exec", held, "rm", "-rf", "--", own); err != nil {
+			t.Error(err)
+		}
+	})
+	// What the directory holds, and not the directory: it is there.
+	if err := inside("cp", from+string(filepath.Separator)+".", held+":"+own); err != nil {
+		t.Fatal(err)
+	}
+	if err := inside("exec", held, "chmod", "-R", "a+rwX", "--", own); err != nil {
+		t.Fatal(err)
+	}
+	return own
 }

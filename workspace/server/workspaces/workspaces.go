@@ -36,6 +36,12 @@ type Gateway struct {
 	// makes its sandboxes with (docker, podman), which is asked what an
 	// image is started with.
 	Runtime string
+	// Compute is the name of the gateway's compute driver (docker,
+	// podman), which a directory given to a sandbox is said to the
+	// gateway under; empty for Runtime's. A control plane on another
+	// machine than its gateway says the gateway's: a directory said
+	// under another name is bound nowhere, and the gateway says nothing.
+	Compute string
 }
 
 // Grid is the grid every workspace of a control plane is built on.
@@ -161,5 +167,5 @@ func composed(public string, gateway Gateway, config Config, given []Option) (co
 	if config.Backstage != nil {
 		told.Entities = config.Backstage.catalog
 	}
-	return told, controlplane.Gateway{Address: gateway.Address, Identity: gateway.Identity, Runtime: gateway.Runtime, HostVolumes: o.sources != nil}
+	return told, controlplane.Gateway{Address: gateway.Address, Identity: gateway.Identity, Runtime: gateway.Runtime, Compute: gateway.Compute, HostVolumes: o.sources != nil}
 }
