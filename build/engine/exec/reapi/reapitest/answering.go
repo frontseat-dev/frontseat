@@ -35,6 +35,9 @@ type Answering struct {
 	// Version, where set, the latest TLS it speaks.
 	ClientAuth tls.ClientAuthType
 	Version    uint16
+	// ExecutesNothing, where set, has it answer that it runs no action
+	// (no execution capabilities enabled).
+	ExecutesNothing bool
 	// Also, where set, registers what else it serves: an asset service.
 	Also  func(*grpc.Server)
 	Asked atomic.Int32
@@ -51,7 +54,7 @@ func (a *Answering) GetCapabilities(ctx context.Context, _ *repb.GetCapabilities
 		}
 		return nil, status.Error(a.Code, words)
 	}
-	return &repb.ServerCapabilities{ExecutionCapabilities: &repb.ExecutionCapabilities{ExecEnabled: true, DigestFunction: repb.DigestFunction_SHA256}, CacheCapabilities: &repb.CacheCapabilities{DigestFunctions: []repb.DigestFunction_Value{repb.DigestFunction_SHA256}}}, nil
+	return &repb.ServerCapabilities{ExecutionCapabilities: &repb.ExecutionCapabilities{ExecEnabled: !a.ExecutesNothing, DigestFunction: repb.DigestFunction_SHA256}, CacheCapabilities: &repb.CacheCapabilities{DigestFunctions: []repb.DigestFunction_Value{repb.DigestFunction_SHA256}}}, nil
 }
 
 // asked notes a call of any service and admits it or not.

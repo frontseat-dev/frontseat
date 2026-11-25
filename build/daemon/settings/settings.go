@@ -20,7 +20,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"unicode"
 
 	"github.com/frontseat-dev/frontseat/build/daemon/build"
 	"github.com/frontseat-dev/frontseat/common/record/buildfile"
@@ -82,6 +81,11 @@ func told(f buildfile.File, dir string) (Settings, error) {
 	if f.Plugins == "" {
 		return Settings{}, errors.New("plugins names no directory: a daemon with no plugin builds nothing")
 	}
+	// Instances said of no grid are refused as a supervisor is refused
+	// them, by the one check, before the grid is found unsaid.
+	if err := f.Grid.CheckInstances(); err != nil {
+		return Settings{}, err
+	}
 	if f.Grid.Address == "" {
 		return Settings{}, errors.New("grid.address is not said: a build's actions run on a grid")
 	}
@@ -90,9 +94,6 @@ func told(f buildfile.File, dir string) (Settings, error) {
 	}
 	if f.Grid.Assets != "" && !reached(f.Grid.Assets) {
 		return Settings{}, errors.New("grid.assets is no address: it is a host and a port, host:port")
-	}
-	if strings.ContainsFunc(f.Grid.Instance, unicode.IsSpace) {
-		return Settings{}, errors.New("grid.instance holds a space: an instance is named in one word")
 	}
 	plugins, err := Modules(from(f.Plugins))
 	if err != nil {
@@ -113,7 +114,7 @@ func told(f buildfile.File, dir string) (Settings, error) {
 			return Settings{}, fmt.Errorf("publish.environment names %s twice", name)
 		}
 	}
-	grid := build.Grid{Address: f.Grid.Address, Instance: f.Grid.Instance, Assets: f.Grid.Assets, Rewrites: rewrites,
+	grid := build.Grid{Address: f.Grid.Address, Instance: f.Grid.Instance, Reads: f.Grid.Reads, Assets: f.Grid.Assets, Rewrites: rewrites,
 		TLS: f.Grid.TLS || f.Grid.Authorities != "", Authorities: from(f.Grid.Authorities), Token: from(f.Grid.Token)}
 	if err := grid.Check(); err != nil {
 		return Settings{}, err

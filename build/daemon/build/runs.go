@@ -294,23 +294,38 @@ type versions struct {
 // release's and the release moves that entity; and what every build
 // that is no release gives, anywhere else. The actions as evaluated are
 // left as they were: an evaluation is kept, and is of no release.
+//
+// In a release's run, an action of an entity the release moves that is
+// given its version, or that packages what it ships (the kind Package),
+// is fresh (plan.Action.Fresh): what the release ships is made by a
+// worker for it, and never taken from what another build left, under
+// any instance of the grid. That is the actions the plugin contract
+// marks so, and no more: what they read is answered as any action's is.
 func versioned(actions []plan.Action, entities []record.Located, of *versions) []plan.Action {
 	out := actions
 	for i, action := range actions {
-		if !action.Declared.GetVersioned() {
+		versioned, packages := action.Declared.GetVersioned(), action.Declared.GetPackage() != nil
+		if !versioned && !packages {
 			continue
 		}
-		version := pluginhost.Development
+		version, moves := pluginhost.Development, false
 		if owner, owned := graph.Owner(entities, action.Label.Path); owned && of != nil {
-			if planned, moves := of.units[owner.Ref.String()]; moves {
+			var planned pluginhost.Version
+			if planned, moves = of.units[owner.Ref.String()]; moves {
 				version = planned
 				version.Commit = of.commits[action.Repository]
 			}
 		}
+		if !versioned && !moves {
+			continue
+		}
 		if &out[0] == &actions[0] {
 			out = slices.Clone(actions)
 		}
-		out[i].Declared = pluginhost.FillVersion(action.Declared, version)
+		if versioned {
+			out[i].Declared = pluginhost.FillVersion(action.Declared, version)
+		}
+		out[i].Fresh = moves
 	}
 	return out
 }

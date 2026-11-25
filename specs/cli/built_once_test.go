@@ -143,64 +143,80 @@ func TestACheckoutOfACommitAWorkspaceBuiltIsBuiltByTheCommandLineWithNothingExec
 	}
 }
 
-// What is so today, for the owner to decide on: two builds of one
-// commit that name two instances of one grid share no result. A job on
-// a protected branch asks the instance frontseat/p and every other
-// build frontseat/p/b (.github/workflows/frontseat-job.yml), so what a
-// branch's builds and its workspaces built, the job on main builds
-// again: a worker runs each action a second time, under the very digest
-// it ran it under before. The grid keeps an action's result by the
-// instance and the digest together; what the action read and left it
-// keeps by digest alone, and its workers take the actions of every
-// instance.
+// What a branch's builds and its workspaces built, a build on main that
+// reads their instance does not build again. Two builds of one commit
+// name two instances of one grid, as a job on a protected branch asks
+// frontseat/p and every other build frontseat/b: the second, told to
+// read the first's instance after its own (grid.reads), has no worker
+// run anything. The grid keeps an action's result by the instance and
+// the digest together, and what the action read and left by digest
+// alone, and its workers take the actions of every instance: the daemon
+// asks each instance it reads in turn, and takes what one kept.
 //
-// The control is a third build, of another checkout of the commit, that
-// names the first instance again: no worker runs anything for it.
-//
-// A change that has two instances share results turns this spec red,
-// and it is then written the other way round.
-func TestTwoBuildsOfOneCommitUnderTwoInstanceNamesShareNoResultToday(t *testing.T) {
-	grid, assets := testgrid.Address(t), testgrid.Assets(t)
+// The control is a third build, of another checkout of the commit,
+// under the second instance and told to read nothing else: a worker
+// runs each action again, under the very digest it ran it under before,
+// since that instance kept nothing of its own.
+func TestABuildThatReadsAnotherInstanceRunsNothingThatInstanceBuilt(t *testing.T) {
+	// Skipped before anything is built, where no grid is up.
+	testgrid.Address(t)
 	root, command := builtCommand(t)
 
-	source := helloModule(t)
-	testfiles.Write(t, filepath.Join(source, "hello", "main.go"), fmt.Sprintf("package main\n\nfunc main() { println(%q) }\n", fmt.Sprintf("word-%d", time.Now().UnixNano())))
-	testforge.Committed(t, source)
-	// built is what the one build of a checkout of the commit says of
-	// its actions, on a machine told an instance.
-	built := func(instance string) testbuild.Results {
+	source := aNewCommit(t)
+	built := func(instance string, reads ...string) testbuild.Results {
 		t.Helper()
-		checkout := filepath.Join(t.TempDir(), "checkout")
-		ran(t, root, time.Minute, "git", "clone", "--quiet", source, checkout)
-		machine := aMachine(t, command)
-		machine.toldItsGrid(root, grid, assets, instance)
-		machine.does(checkout, "build")
-		builds := machine.builds()
-		if len(builds) != 1 {
-			t.Fatalf("the build daemon told the instance %s holds %d builds, want its one", instance, len(builds))
-		}
-		return builds[0]
+		return builtUnder(t, root, command, source, instance, reads...)
 	}
-	all := []string{"//hello:go.compile", "//hello:go.format", "//hello:go.lint"}
+	all := helloActions
 
-	branch := built("frontseat/p/b")
+	branch := built("frontseat/b")
 	if got := strings.Join(branch.Executed(), " "); got != strings.Join(all, " ") {
-		t.Fatalf("under frontseat/p/b a worker ran %q, want %q: the commit is one no run had built", got, all)
+		t.Fatalf("under frontseat/b a worker ran %q, want %q: the commit is one no run had built", got, all)
 	}
 
-	// What is so today: the other instance is answered nothing.
-	protected := built("frontseat/p")
-	if got := strings.Join(protected.Executed(), " "); got != strings.Join(all, " ") {
-		t.Errorf("under frontseat/p, after frontseat/p/b built the commit, a worker ran %q, want %q: today two instances share no result; if they have come to, this spec is to say so", got, all)
+	protected := built("frontseat/p", "frontseat/b")
+	if again := protected.Rebuilt(branch, nil); len(again) != 0 {
+		t.Errorf("under frontseat/p, told to read frontseat/b after frontseat/b built the commit, a worker ran what frontseat/b built:\n%s", strings.Join(again, "\n"))
 	}
 	for _, label := range all {
 		if was, is := branch[label].GetActionDigest().GetHash(), protected[label].GetActionDigest().GetHash(); was == "" || was != is {
-			t.Errorf("%s is %.12s under frontseat/p/b and %.12s under frontseat/p, want one action under both: the instance is no part of an action's digest", label, was, is)
+			t.Errorf("%s is %.12s under frontseat/b and %.12s under frontseat/p, want one action under both: the instance is no part of an action's digest", label, was, is)
 		}
 	}
 
-	// The control: the first instance, asked again from another checkout.
-	if again := built("frontseat/p/b").Rebuilt(branch, nil); len(again) != 0 {
-		t.Errorf("a second build of the commit under frontseat/p/b had a worker run what the first built:\n%s", strings.Join(again, "\n"))
+	// The control: the second instance, told to read nothing else.
+	if got := strings.Join(built("frontseat/p").Executed(), " "); got != strings.Join(all, " ") {
+		t.Errorf("under frontseat/p, told to read nothing else, a worker ran %q, want %q: what frontseat/b kept is no answer to an instance that does not read it", got, all)
 	}
+}
+
+// helloActions are the actions a build of helloModule runs.
+var helloActions = []string{"//hello:go.compile", "//hello:go.format", "//hello:go.lint"}
+
+// aNewCommit is a repository of helloModule at a commit of its own, of
+// a word no build has built.
+func aNewCommit(t *testing.T) string {
+	t.Helper()
+	source := helloModule(t)
+	testfiles.Write(t, filepath.Join(source, "hello", "main.go"), fmt.Sprintf("package main\n\nfunc main() { println(%q) }\n", fmt.Sprintf("word-%d", time.Now().UnixNano())))
+	testforge.Committed(t, source)
+	return source
+}
+
+// builtUnder is what the one build of a checkout of a repository's
+// commit says of its actions, on a machine of its own told the local
+// stack's grid, an instance, and the other instances it reads.
+func builtUnder(t *testing.T, root, command, source, instance string, reads ...string) testbuild.Results {
+	t.Helper()
+	grid, assets := testgrid.Address(t), testgrid.Assets(t)
+	checkout := filepath.Join(t.TempDir(), "checkout")
+	ran(t, root, time.Minute, "git", "clone", "--quiet", source, checkout)
+	machine := aMachine(t, command)
+	machine.toldItsGrid(root, grid, assets, instance, reads...)
+	machine.does(checkout, "build")
+	builds := machine.builds()
+	if len(builds) != 1 {
+		t.Fatalf("the build daemon told the instance %s holds %d builds, want its one", instance, len(builds))
+	}
+	return builds[0]
 }

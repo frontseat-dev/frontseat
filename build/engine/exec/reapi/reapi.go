@@ -12,11 +12,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bazelbuild/remote-apis-sdks/go/pkg/balancer"
@@ -27,6 +30,8 @@ import (
 	"github.com/bazelbuild/remote-apis-sdks/go/pkg/uploadinfo"
 	repb "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/log"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -43,20 +48,42 @@ import (
 type Config struct {
 	// Address is the grid's address, host:port.
 	Address string
-	// Instance is the instance name asked of.
+	// Instance is the instance name asked of: the one an action is
+	// looked up in first, and the one it is run under.
 	Instance string
+	// Reads are other instances of the grid an action's result is looked
+	// up in, in this order, after Instance and before the action is run;
+	// none is run under. What one of them kept is used as any result is
+	// (Execute), where the grid holds every file it names. Each is asked
+	// once when the grid is dialled, and one the grid does not serve the
+	// daemon is refused then (Unread).
+	Reads []string
 	// Access is how a grid that asks who a daemon is, is asked. Empty,
 	// the grid is asked in the clear.
 	Access access.Config
+	// Log is where the daemon says what a person who reads its log
+	// should know of the grid, a line each: an instance of Reads the
+	// grid answers other than with what it kept or that it kept nothing,
+	// once of each. None, it is said to telemetry alone.
+	Log io.Writer
 }
 
 // Grid is a grid a daemon runs its actions on.
 type Grid struct {
 	client *client.Client
-	files  filemetadata.Cache
+	// reads are the other instances an action is looked up in, in order,
+	// after the client's own.
+	reads []string
+	files filemetadata.Cache
 	// access is how the grid is asked: its token's file is named where
 	// the grid stops admitting the daemon.
 	access access.Config
+	// log is where what a person should know of the grid is said
+	// (Config.Log); told, under mu, the entries of reads said so, by
+	// their place.
+	log  io.Writer
+	mu   sync.Mutex
+	told []bool
 }
 
 var _ exec.Executor = (*Grid)(nil)
@@ -94,13 +121,46 @@ func Dial(ctx context.Context, config Config) (*Grid, error) {
 	}
 	if !capabilities.GetExecutionCapabilities().GetExecEnabled() {
 		c.Close()
-		return nil, fmt.Errorf("reapi: the grid at %s executes nothing for instance %q", config.Address, config.Instance)
+		return nil, fmt.Errorf("reapi: the grid at %s executes nothing for the daemon's own instance (grid.instance)", config.Address)
+	}
+	if err := readable(ctx, c, config.Reads); err != nil {
+		c.Close()
+		return nil, fmt.Errorf("reapi: the grid at %s: %w", config.Address, err)
 	}
 	// A file is read every time it is sent. A daemon outlives a build,
 	// and a digest remembered by a file's path would be sent for the file
 	// after it changed: the build would be of source that is no longer
 	// there.
-	return &Grid{client: c, files: filemetadata.NewNoopCache(), access: config.Access}, nil
+	return &Grid{client: c, reads: slices.Clone(config.Reads), files: filemetadata.NewNoopCache(), access: config.Access, log: config.Log, told: make([]bool, len(config.Reads))}, nil
+}
+
+// nothing is the digest of bytes that are no Action message, and so of
+// no action any instance kept: what an instance answers for it says
+// whether it is served, and nothing of what it kept.
+var nothing = digest.NewFromBlob([]byte("frontseat: no action is these bytes")).ToProto()
+
+// readable asks the grid's cache, once, of each instance a daemon reads,
+// and refuses one it answers it does not serve, as Buildbarn answers an
+// instance's name it rejects or one it serves no one, and that alone
+// (InvalidArgument: its action cache's "Invalid instance name", a
+// demultiplexer's "Unknown instance name", bb-storage at ae61334):
+// asked again, it would answer the same. Every other answer passes: that
+// it kept nothing is the answer of an instance served, and a failure,
+// PermissionDenied among it, may pass, Buildbarn answering it for an
+// authorizer it cannot reach or a token run out as well as for an
+// instance it does not let the daemon read (bb-storage's remoteAuthorizer):
+// each action meets it as nothing kept. A grid that keeps every
+// instance's results in one cache and lets anyone read it, as the local
+// stack's, serves every name, and answers one mistyped as one that kept
+// nothing: nothing here tells the two apart.
+func readable(ctx context.Context, c *client.Client, reads []string) error {
+	for i, instance := range reads {
+		_, err := once(ctx, c, instance, nothing)
+		if status.Code(err) == codes.InvalidArgument {
+			return &unread{entry: i + 1, said: err}
+		}
+	}
+	return nil
 }
 
 // Close lets the grid go.
@@ -247,22 +307,26 @@ func (g *Grid) Execute(ctx context.Context, action exec.Action) (result exec.Res
 	}
 
 	// The grid's cache is asked first: a scheduler runs what it is sent,
-	// and it is the client that knows an answer is already kept.
-	done, err := g.client.GetActionResult(ctx, &repb.GetActionResultRequest{
-		InstanceName: g.client.InstanceName,
-		ActionDigest: actionEntry.Digest.ToProto(),
-	})
-	cached := err == nil
-	switch {
-	case status.Code(err) == codes.NotFound:
+	// and it is the client that knows an answer is already kept. A fresh
+	// action is asked of no cache: that is what makes it fresh, the
+	// daemon not looking. The grid is sent skip_cache_lookup too, which
+	// Buildbarn's scheduler does not read, since it looks in no cache;
+	// it may join the action to a run of the same digest under the same
+	// instance that is under way, which is a run of it all the same.
+	var done *repb.ActionResult
+	if !action.Fresh {
+		if done, err = g.kept(ctx, actionEntry.Digest); err != nil {
+			return exec.Result{}, fmt.Errorf("reapi: %s: %w", action.Label, err)
+		}
+	}
+	cached := done != nil
+	if done == nil {
 		running, ran := telemetry.Start(ctx, "grid.run")
-		done, cached, err = g.run(running, action.Label, actionEntry.Digest)
+		done, cached, err = g.run(running, action.Label, actionEntry.Digest, action.Fresh)
 		telemetry.End(ran, err)
 		if err != nil {
 			return exec.Result{}, err
 		}
-	case err != nil:
-		return exec.Result{}, fmt.Errorf("reapi: %s: asking the cache: %w", action.Label, err)
 	}
 	span.SetAttributes(attribute.Bool("cached", cached))
 	result = exec.Result{
@@ -289,12 +353,191 @@ func (g *Grid) Execute(ctx context.Context, action exec.Action) (result exec.Res
 	return result, nil
 }
 
-// run has the grid execute an action and returns its answer, and whether
-// the grid answered from what it kept after all.
-func (g *Grid) run(ctx context.Context, label string, action digest.Digest) (*repb.ActionResult, bool, error) {
-	operation, err := g.client.ExecuteAndWait(ctx, &repb.ExecuteRequest{
+// kept is what the grid's cache kept of an action: under the daemon's
+// own instance, and else under each instance it reads, in the order it
+// was given them; nil where none kept it.
+//
+// What another instance kept is used as what the daemon's own kept is,
+// and its files are read under the daemon's own instance, the grid
+// keeping files by their digest alone (Buildbarn's storage does). It is
+// a result a worker of the grid wrote, as every result is, since no
+// client may write the grid's cache: whoever reads an instance trusts
+// the workers that run its actions as its own, which is the trust the
+// owner accepted in having main's builds read what branches and
+// workspaces built.
+//
+// An instance read is a shortcut, and running the action is always
+// right: what one answers other than a result is taken for nothing kept,
+// and so is a result that names a file the grid does not hold under the
+// daemon's own instance (held). The daemon's own instance failing fails
+// the action, as it did before any other was read.
+func (g *Grid) kept(ctx context.Context, action digest.Digest) (*repb.ActionResult, error) {
+	done, err := g.client.GetActionResult(ctx, &repb.GetActionResultRequest{
 		InstanceName: g.client.InstanceName,
 		ActionDigest: action.ToProto(),
+	})
+	switch {
+	case err == nil:
+		return done, nil
+	case status.Code(err) != codes.NotFound:
+		return nil, fmt.Errorf("asking the cache: %w", err)
+	}
+	for i, instance := range g.reads {
+		done, err := once(ctx, g.client, instance, action.ToProto())
+		if err != nil {
+			g.missed(ctx, i+1, err)
+			continue
+		}
+		whole, err := g.held(ctx, done)
+		if err != nil {
+			return nil, fmt.Errorf("asking the grid for what grid.reads' entry %d kept of it: %w", i+1, err)
+		}
+		if whole {
+			return done, nil
+		}
+	}
+	return nil, nil
+}
+
+// missed tells what an instance read answered, by its entry of
+// grid.reads, where it answered other than that it kept nothing: to the
+// action's span each time, and in the daemon's log and to telemetry once
+// of each entry for as long as the daemon runs, since every action meets
+// it and a person would find each of their actions run, not why. Said
+// by the entry and the code alone: the instance's name and the grid's
+// words, which repeat it, are not. An action cancelled is no answer.
+func (g *Grid) missed(ctx context.Context, entry int, err error) {
+	code := status.Code(err)
+	if code == codes.NotFound || ctx.Err() != nil {
+		return
+	}
+	trace.SpanFromContext(ctx).AddEvent("grid.reads unanswered", trace.WithAttributes(attribute.Int("entry", entry), attribute.String("code", code.String())))
+	g.mu.Lock()
+	first := !g.told[entry-1]
+	g.told[entry-1] = true
+	g.mu.Unlock()
+	if !first {
+		return
+	}
+	said := fmt.Sprintf("the grid answered %s when asked what grid.reads' entry %d kept: every action is looked up there as one it kept nothing of, and run where nothing else kept it; said once, while the daemon runs", code, entry)
+	telemetry.Message(ctx, log.SeverityWarn, said)
+	if g.log != nil {
+		fmt.Fprintln(g.log, "frontseat:", said)
+	}
+}
+
+// once asks the grid's cache of an instance the daemon reads what it
+// kept of an action, once: what it answers other than a result is
+// nothing kept, and asking it again, as the client asks its own instance
+// again, would hold up each action for a shortcut.
+func once(ctx context.Context, c *client.Client, instance string, action *repb.Digest) (done *repb.ActionResult, err error) {
+	err = c.CallWithTimeout(ctx, "GetActionResult", func(ctx context.Context) error {
+		done, err = repb.NewActionCacheClient(c.Connection()).GetActionResult(ctx, &repb.GetActionResultRequest{InstanceName: instance, ActionDigest: action}, c.RPCOpts()...)
+		return err
+	})
+	return done, err
+}
+
+// held is whether the grid holds, under the daemon's own instance, every
+// file a result names: what the action printed where it was not answered
+// in the result itself, each file it left, the tree of each directory it
+// left and every file in that tree. The directories of a tree are not
+// asked for: the daemon stores each from the tree (outputs). A file of
+// no bytes is held by every grid; a result that names a file or a tree
+// by no digest, or by one that is none, is none to use, and so is one
+// whose tree the grid lets go of before it is read. Only the grid
+// failing to answer otherwise is an error.
+func (g *Grid) held(ctx context.Context, done *repb.ActionResult) (bool, error) {
+	var named []*repb.Digest
+	// What was printed is named by no digest where nothing was printed.
+	if printed := done.GetStdoutDigest(); len(done.GetStdoutRaw()) == 0 && printed != nil {
+		named = append(named, printed)
+	}
+	if printed := done.GetStderrDigest(); len(done.GetStderrRaw()) == 0 && printed != nil {
+		named = append(named, printed)
+	}
+	for _, file := range done.GetOutputFiles() {
+		named = append(named, file.GetDigest())
+	}
+	var trees []digest.Digest
+	for _, directory := range done.GetOutputDirectories() {
+		tree, sound := digestOf(directory.GetTreeDigest())
+		if !sound {
+			return false, nil
+		}
+		named = append(named, directory.GetTreeDigest())
+		trees = append(trees, tree)
+	}
+	if whole, err := g.holds(ctx, named); err != nil || !whole {
+		return false, err
+	}
+	named = named[:0]
+	for _, at := range trees {
+		tree := &repb.Tree{}
+		if _, err := g.client.ReadProto(ctx, at, tree); err != nil {
+			// Held when it was asked of, and let go of since: the grid
+			// holds it no longer, and the action is run.
+			if status.Code(err) == codes.NotFound {
+				return false, nil
+			}
+			return false, err
+		}
+		for _, directory := range append([]*repb.Directory{tree.GetRoot()}, tree.GetChildren()...) {
+			for _, file := range directory.GetFiles() {
+				named = append(named, file.GetDigest())
+			}
+		}
+	}
+	return g.holds(ctx, named)
+}
+
+// holds is whether the grid holds every file of these digests under the
+// daemon's own instance. The empty blob's digest is held by every grid;
+// no digest, and one that is none (of no bytes and another hash among
+// it), is held by none.
+func (g *Grid) holds(ctx context.Context, named []*repb.Digest) (bool, error) {
+	var asked []digest.Digest
+	for _, each := range named {
+		file, sound := digestOf(each)
+		switch {
+		case !sound:
+			return false, nil
+		case file == digest.Empty:
+			continue
+		}
+		asked = append(asked, file)
+	}
+	if len(asked) == 0 {
+		return true, nil
+	}
+	missing, err := g.client.MissingBlobs(ctx, asked)
+	return len(missing) == 0, err
+}
+
+// digestOf is the digest a result names, and whether it is one: given, a
+// hash of the grid's digest function, and of no bytes only where its
+// hash is the empty blob's.
+func digestOf(given *repb.Digest) (digest.Digest, bool) {
+	if given == nil {
+		return digest.Digest{}, false
+	}
+	file, err := digest.NewFromProto(given)
+	if err != nil || (file.Size == 0 && file != digest.Empty) {
+		return digest.Digest{}, false
+	}
+	return file, true
+}
+
+// run has the grid execute an action and returns its answer, and whether
+// the grid answered from what it kept after all. One that is fresh is
+// sent skip_cache_lookup, and a grid that answers it from its cache all
+// the same (cached_result) is refused: what a release ships is made for
+// it.
+func (g *Grid) run(ctx context.Context, label string, action digest.Digest, fresh bool) (*repb.ActionResult, bool, error) {
+	operation, err := g.client.ExecuteAndWait(ctx, &repb.ExecuteRequest{
+		InstanceName:    g.client.InstanceName,
+		ActionDigest:    action.ToProto(),
+		SkipCacheLookup: fresh,
 	})
 	if err != nil {
 		return nil, false, fmt.Errorf("reapi: %s: %w", label, err)
@@ -313,6 +556,9 @@ func (g *Grid) run(ctx context.Context, label string, action digest.Digest) (*re
 		// The call was answered: this is what the grid says became of the
 		// action where it ran, a worker's own refusal among it.
 		return nil, false, fmt.Errorf("reapi: %s: where it ran: %w", label, &ran{said.Err()})
+	}
+	if fresh && response.GetCachedResult() {
+		return nil, false, fmt.Errorf("reapi: %s: the grid answered it from its cache (cached_result), and it is fresh, told to answer from none (skip_cache_lookup): what a release ships is made for it, never taken from what was kept", label)
 	}
 	return response.GetResult(), response.GetCachedResult(), nil
 }

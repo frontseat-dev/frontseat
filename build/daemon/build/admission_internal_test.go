@@ -19,7 +19,7 @@ import (
 func TestAGridThatDoesNotAdmitTheDaemonIsNotAskedAgain(t *testing.T) {
 	refusing := &reapitest.Answering{Code: codes.Unauthenticated}
 	began := time.Now()
-	_, err := dial(t.Context(), Grid{Address: refusing.Serve(t)})
+	_, err := dial(t.Context(), Grid{Address: refusing.Serve(t)}, nil)
 	if !reapi.NotAdmitted(err) || time.Since(began) > 10*time.Second {
 		t.Errorf("after %s: %v", time.Since(began), err)
 	}
@@ -29,7 +29,7 @@ func TestAGridThatDoesNotAdmitTheDaemonIsNotAskedAgain(t *testing.T) {
 	failing := &reapitest.Answering{Code: codes.Unavailable}
 	ctx, stop := context.WithTimeout(t.Context(), 4*time.Second)
 	defer stop()
-	if _, err := dial(ctx, Grid{Address: failing.Serve(t)}); err == nil || reapi.NotAdmitted(err) {
+	if _, err := dial(ctx, Grid{Address: failing.Serve(t)}, nil); err == nil || reapi.NotAdmitted(err) {
 		t.Errorf("a grid that is not up: %v", err)
 	}
 	if again := failing.Asked.Load(); again <= asked {
@@ -44,7 +44,7 @@ func TestAGridThatCannotBeAskedAsToldIsNotWaitedFor(t *testing.T) {
 	ctx, stop := context.WithTimeout(t.Context(), 8*time.Second)
 	defer stop()
 	began := time.Now()
-	_, err := dial(ctx, Grid{Address: clear.Serve(t), TLS: true})
+	_, err := dial(ctx, Grid{Address: clear.Serve(t), TLS: true}, nil)
 	if err == nil || time.Since(began) > 5*time.Second || !strings.Contains(err.Error(), "could not be asked over TLS") {
 		t.Errorf("after %s: %v", time.Since(began), err)
 	}
@@ -59,7 +59,7 @@ func TestAGridThatCannotBeAskedAsToldIsNotWaitedFor(t *testing.T) {
 	waiting, stopWaiting := context.WithTimeout(t.Context(), 3*time.Second)
 	defer stopWaiting()
 	began = time.Now()
-	if _, err := dial(waiting, Grid{Address: gone}); err == nil || time.Since(began) < 2*time.Second {
+	if _, err := dial(waiting, Grid{Address: gone}, nil); err == nil || time.Since(began) < 2*time.Second {
 		t.Errorf("a grid that is not there, after %s: %v", time.Since(began), err)
 	}
 }

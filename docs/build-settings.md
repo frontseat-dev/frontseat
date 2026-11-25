@@ -19,7 +19,11 @@ version: 1
 plugins: /opt/frontseat/plugins
 grid:
   address: grid.example:8980
-  instance: frontseat/p/b
+  # The grid's instance an action is looked up in first and run under.
+  instance: frontseat/p
+  # Other instances an action is looked up in, in this order, before
+  # it is run: what one of them kept is used, and nothing is run.
+  reads: [frontseat/b]
   # The grid's asset service, which fetches what a build downloads.
   assets: assets.example:8983
   # A PEM file of the authorities the grid is known by; with it the
@@ -57,10 +61,56 @@ plainly: an anchor, an alias, a merge key (`<<`) and a tag are refused,
 `version` is the integer `1`, `grid.tls` is `true` or `false`, and every
 other value is a text on one line, so one that would be read as a number,
 a truth or nothing is written in quotes. `grid.address` and `grid.assets`
-are each a host and a port. In the directory of plugins a `<name>.wasm`
+are each a host and a port. `grid.instance` and each instance
+`grid.reads` lists are named in one word, of what is printed, their
+parts parted by one slash, none of them a word the Remote Execution API
+keeps (`blobs`, `uploads`, `actions`, `actionResults`, `operations`,
+`capabilities`, `compressed-blobs`); `grid.reads` names each instance
+once, by a name, and never the daemon's own `grid.instance`; neither is
+said without `grid.address`. A refusal says which entry of `grid.reads`
+it is, and never the name. A box's supervisor is refused at its start
+what its daemon would refuse here.
+In the directory of plugins a `<name>.wasm`
 is a file: a link or a directory of that name is refused. A path is from
 the file's own directory. The file holds no secret: a token is the path
 of its file.
+
+An action is looked up in the grid's cache under `grid.instance`, then
+under each instance `grid.reads` names, in order, and is run only where
+none of them kept it, and then always under `grid.instance`. A daemon
+that reads another instance takes what was run there as what was run
+under its own: what it reads it trusts as it trusts the workers of its
+own instance, since only a worker writes the grid's cache. An instance
+read is a shortcut, since running an action is always right: what one
+answers other than a result is taken for nothing kept, and so is a
+result that names a file the grid does not hold under `grid.instance`
+(where an instance's files are kept apart from another's, every result
+read from it is so: the instances a daemon reads are of value where
+they keep files by their digest alone, as Buildbarn's storage does).
+When the daemon starts it asks the grid once of each instance it reads,
+and is refused one the grid answers InvalidArgument, as Buildbarn
+answers a name it rejects or an instance it serves no one. Every other
+answer is no refusal: PermissionDenied among it, since Buildbarn answers
+it too while its authorizer cannot be reached or a token has run out;
+each action then meets that instance as one that kept nothing.
+
+A mistyped instance in `grid.reads` is not caught where the grid neither
+serves instances apart nor lets each be read apart, as the local stack's
+grid, of one cache that anyone may read: it answers that the instance
+kept nothing, and the build runs, for ever, what it would have read.
+Nothing tells an instance that kept nothing yet from one mistyped:
+check the name against the grid's configuration.
+
+A release's build runs fresh the actions of a unit it moves that carry
+its version or package it: the daemon looks for them neither in what it
+remembers nor in the grid's cache, under any instance. Fresh is no
+guarantee of where what ships was made: what those actions read is
+answered as any action's is, so a package made fresh may wrap a compile
+result read from an instance in `grid.reads`. It tells the grid
+so too (`skip_cache_lookup`), and refuses one that answers from its
+cache all the same; Buildbarn, which looks in no cache when it runs an
+action, may join one to a run of the same action under the same
+instance that is under way, which is a run of it all the same.
 
 The file says which plugins run and which grid a token is sent to, so it
 is yours alone to write: a command refuses one that its group or others

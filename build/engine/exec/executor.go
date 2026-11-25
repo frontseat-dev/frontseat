@@ -126,6 +126,18 @@ type Action struct {
 	Outputs []string
 	// Platform is what the action needs of the worker that runs it.
 	Platform map[string]string
+	// Fresh says the action is run, and answered from nothing that was
+	// kept: the daemon looks neither in what it remembers (Remembering)
+	// nor in the grid's cache, under any instance. That the daemon does
+	// not look is what makes it fresh; the grid is told so too, and a
+	// grid that answers from its cache all the same is refused, but it
+	// may join the action to a run of the same digest under the same
+	// instance that is under way, which is a run of it all the same. It
+	// is no part of what the action is: its key is the same, fresh or
+	// not, and what it leaves is kept as any action's is. A release's
+	// build has the actions of a unit it moves that carry its version or
+	// package it run so.
+	Fresh bool
 }
 
 // Files says what the files where the daemon runs held at one moment.

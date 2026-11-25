@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -91,14 +92,18 @@ func (m *machine) does(directory string, args ...string) string {
 // toldItsGrid tells the machine its grid, as a job or a person tells one
 // (build.yaml, docs/build-settings.md): the plugins this checkout built
 // into dist/, the local stack's grid and asset service, its workers'
-// platform, and the instance asked of, where one is named. The build
+// platform, the instance asked of, where one is named, and the other
+// instances it reads, in order (grid.reads). The build
 // daemons the command line then starts there are stopped when the test
 // ends.
-func (m *machine) toldItsGrid(root, grid, assets, instance string) {
+func (m *machine) toldItsGrid(root, grid, assets, instance string, reads ...string) {
 	m.t.Helper()
 	settings := fmt.Sprintf("version: 1\nplugins: %s\ngrid:\n  address: %s\n  assets: %s\n", filepath.Join(root, "dist", "plugins"), grid, assets)
 	if instance != "" {
 		settings += fmt.Sprintf("  instance: %s\n", instance)
+	}
+	if len(reads) > 0 {
+		settings += fmt.Sprintf("  reads: [%s]\n", strings.Join(reads, ", "))
 	}
 	settings += "platform:\n"
 	for name, value := range testgrid.Platform() {
