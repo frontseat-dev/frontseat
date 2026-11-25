@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/frontseat-dev/frontseat/build/daemon/life/lifetest"
 )
 
 // kept starts a daemon's life over a state directory of the test's,
@@ -20,13 +22,20 @@ import (
 // ended with.
 func kept(t *testing.T, state string, handler http.Handler, busy func() bool, idle time.Duration) (Info, <-chan error) {
 	t.Helper()
+	return keptAs(t, state, Life{Handler: handler, Busy: busy, Idle: idle})
+}
+
+// keptAs is kept, of a life as the test says it.
+func keptAs(t *testing.T, state string, l Life) (Info, <-chan error) {
+	t.Helper()
+	l.State, l.Said = state, Info{Version: "v1", Settings: "s1", Directory: "/work"}
 	ctx, stop := context.WithCancel(context.Background())
 	// ended is given what the daemon ended with, and over closed then,
 	// so that the test and its cleanup may each wait.
 	ended, over := make(chan error, 1), make(chan struct{})
 	go func() {
 		defer close(over)
-		ended <- Keep(ctx, Life{State: state, Said: Info{Version: "v1", Settings: "s1", Directory: "/work"}, Handler: handler, Busy: busy, Idle: idle})
+		ended <- Keep(ctx, l)
 	}()
 	t.Cleanup(func() {
 		stop()
@@ -53,23 +62,11 @@ func kept(t *testing.T, state string, handler http.Handler, busy func() bool, id
 // answering is a handler that says it was reached.
 var answering = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = io.WriteString(w, "reached") })
 
-// reached asks a daemon at its address with a token, and returns the
-// status it answered with.
+// reached asks a daemon at its address with a token, or with none
+// where it is empty, and returns the status it answered with.
 func reached(t *testing.T, info Info, token string) int {
 	t.Helper()
-	request, err := http.NewRequest(http.MethodGet, "http://"+info.Address+"/", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if token != "" {
-		request.Header.Set("Authorization", "Bearer "+token)
-	}
-	answer, err := http.DefaultClient.Do(request)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_ = answer.Body.Close()
-	return answer.StatusCode
+	return lifetest.Asked(t, info.Address, http.MethodGet, "/", token)
 }
 
 // never is a daemon that always has something in hand.
@@ -194,23 +191,6 @@ func TestADirectoryWithNoManifestIsACheckoutAndOneWithItAWorkspace(t *testing.T)
 	}
 }
 
-// asked asks a daemon one of its own calls, with a token, and returns
-// the status it answered with.
-func asked(t *testing.T, info Info, method, path, token string) int {
-	t.Helper()
-	request, err := http.NewRequest(method, "http://"+info.Address+path, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	request.Header.Set("Authorization", "Bearer "+token)
-	answer, err := http.DefaultClient.Do(request)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_ = answer.Body.Close()
-	return answer.StatusCode
-}
-
 // A daemon asked to stop, with its token, ends itself where it has
 // nothing in hand: the command that finds a daemon of another version,
 // other settings or another directory asks it so, and starts its own.
@@ -227,18 +207,18 @@ func TestABuildDaemonAskedToStopEndsItselfUnlessItHasSomethingInHand(t *testing.
 			<-let
 		}
 	}), busy.Load, time.Hour)
-	if status := asked(t, info, http.MethodPost, StopPath, "not its token"); status != http.StatusUnauthorized {
+	if status := lifetest.Asked(t, info.Address, http.MethodPost, StopPath, "not its token"); status != http.StatusUnauthorized {
 		t.Fatalf("asked to stop without its token it answered %d", status)
 	}
 	busy.Store(true)
-	if status := asked(t, info, http.MethodPost, StopPath, info.Token); status != http.StatusConflict {
+	if status := lifetest.Asked(t, info.Address, http.MethodPost, StopPath, info.Token); status != http.StatusConflict {
 		t.Fatalf("asked to stop with a build in hand it answered %d; want %d", status, http.StatusConflict)
 	}
 	busy.Store(false)
 	answered := make(chan int, 1)
-	go func() { answered <- asked(t, info, http.MethodGet, "/held", info.Token) }()
+	go func() { answered <- lifetest.Asked(t, info.Address, http.MethodGet, "/held", info.Token) }()
 	<-held
-	if status := asked(t, info, http.MethodPost, StopPath, info.Token); status != http.StatusConflict {
+	if status := lifetest.Asked(t, info.Address, http.MethodPost, StopPath, info.Token); status != http.StatusConflict {
 		t.Fatalf("asked to stop with a call under way it answered %d; want %d", status, http.StatusConflict)
 	}
 	close(let)
@@ -246,7 +226,7 @@ func TestABuildDaemonAskedToStopEndsItselfUnlessItHasSomethingInHand(t *testing.
 	if status := reached(t, info, info.Token); status != http.StatusOK {
 		t.Fatalf("after it refused to stop it answered %d; want it still serving", status)
 	}
-	if status := asked(t, info, http.MethodPost, StopPath, info.Token); status != http.StatusNoContent {
+	if status := lifetest.Asked(t, info.Address, http.MethodPost, StopPath, info.Token); status != http.StatusNoContent {
 		t.Fatalf("the control: asked to stop with nothing in hand it answered %d", status)
 	}
 	select {
@@ -269,10 +249,10 @@ func TestABuildDaemonAskedToStopEndsItselfUnlessItHasSomethingInHand(t *testing.
 // control is a call of what it serves, which is answered otherwise.
 func TestABuildDaemonGivesItsOwnAnswerToItsOwnCall(t *testing.T) {
 	info, _ := kept(t, filepath.Join(t.TempDir(), "state"), answering, never, time.Hour)
-	if status := asked(t, info, http.MethodGet, HelloPath, info.Token); status != http.StatusNoContent {
+	if status := lifetest.Asked(t, info.Address, http.MethodGet, HelloPath, info.Token); status != http.StatusNoContent {
 		t.Errorf("asked its own call with its token it answered %d; want %d", status, http.StatusNoContent)
 	}
-	if status := asked(t, info, http.MethodGet, HelloPath, "not its token"); status != http.StatusUnauthorized {
+	if status := lifetest.Asked(t, info.Address, http.MethodGet, HelloPath, "not its token"); status != http.StatusUnauthorized {
 		t.Errorf("asked its own call without its token it answered %d", status)
 	}
 	if status := reached(t, info, info.Token); status != http.StatusOK {
@@ -471,5 +451,59 @@ func TestWhatADaemonServesIsNoPartOfTheTraceItWasStartedIn(t *testing.T) {
 	}
 	if within := trace.SpanContextFromContext(apart(started)); within.IsValid() {
 		t.Errorf("what the daemon serves is part of the trace %s it was started in", within.TraceID())
+	}
+}
+
+// A call that yields, a wait for what a build read to change, does not
+// keep a daemon from being stopped by the command that would start
+// another: asked to stop while it is under way, the daemon answers 204,
+// the call is ended with the daemon, and the daemon ends. It keeps the
+// daemon from ending itself for having nothing to do all the same. The
+// control is TestABuildDaemonAskedToStopEndsItselfUnlessItHasSomethingInHand:
+// a call that does not yield, under way, keeps the daemon.
+func TestACallThatYieldsGivesWayToAStop(t *testing.T) {
+	const idle = 100 * time.Millisecond
+	waiting, waited := make(chan struct{}, 1), make(chan error, 1)
+	info, ended := keptAs(t, filepath.Join(t.TempDir(), "state"), Life{
+		Handler: http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+			waiting <- struct{}{}
+			<-r.Context().Done()
+			waited <- r.Context().Err()
+		}),
+		Busy:   func() bool { return false },
+		Yields: func(r *http.Request) bool { return r.URL.Path == "/waiting" },
+		Idle:   idle,
+	})
+	go func() {
+		request, err := http.NewRequest(http.MethodGet, "http://"+info.Address+"/waiting", nil)
+		if err != nil {
+			return
+		}
+		request.Header.Set("Authorization", "Bearer "+info.Token)
+		if answer, err := http.DefaultClient.Do(request); err == nil {
+			_ = answer.Body.Close()
+		}
+	}()
+	<-waiting
+	select {
+	case err := <-ended:
+		t.Fatalf("a daemon with a call that yields under way ended itself (%v)", err)
+	case <-time.After(5 * idle):
+	}
+	if status := lifetest.Asked(t, info.Address, http.MethodPost, StopPath, info.Token); status != http.StatusNoContent {
+		t.Fatalf("asked to stop with a call that yields under way it answered %d; want %d", status, http.StatusNoContent)
+	}
+	select {
+	case err := <-waited:
+		if err == nil {
+			t.Error("the call that yielded was not ended with the daemon")
+		}
+	case <-time.After(30 * time.Second):
+		t.Fatal("the call that yielded went on after the daemon was stopped")
+	}
+	select {
+	case <-ended:
+	case <-time.After(30 * time.Second):
+		t.Fatal("asked to stop, the daemon never ended")
 	}
 }

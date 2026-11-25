@@ -97,6 +97,12 @@ type builds struct {
 	files      *source.Keeper
 	answers    *evaluate.Answers
 	evaluation *evaluate.Session
+	// made is what the daemon is made of, its settings, what they load
+	// and its program, as it looked before the daemon read it: what a
+	// wait for what a build read to change looks at beside it. every is
+	// how often that wait looks (lookEvery).
+	made  *source.Looks
+	every time.Duration
 
 	mu    sync.Mutex
 	byID  map[string]*run
@@ -169,7 +175,7 @@ func newBuilds(held *directory.Directory, plugins []*pluginhost.Plugin, executor
 		keptHistory.Release()
 		return nil, err
 	}
-	rs := &builds{workspace: held, plugins: plugins, executor: executor, downloads: downloads, answered: &exec.Remembering{Executor: executor}, platform: platform, telemetry: signals, history: keptHistory, files: &source.Keeper{}, answers: &evaluate.Answers{}, byID: map[string]*run{}, tools: tools, now: now}
+	rs := &builds{workspace: held, plugins: plugins, executor: executor, downloads: downloads, answered: &exec.Remembering{Executor: executor}, platform: platform, telemetry: signals, history: keptHistory, files: &source.Keeper{}, answers: &evaluate.Answers{}, byID: map[string]*run{}, tools: tools, now: now, every: lookEvery}
 	before, err := keptHistory.All()
 	if err != nil {
 		keptHistory.Release()
@@ -262,6 +268,15 @@ func (rs *builds) prune() {
 		kept = append(kept, r)
 	}
 	rs.order = kept
+	// Of the runs that have ended, the newest keep what they read.
+	ended = 0
+	for i := len(rs.order) - 1; i >= 0; i-- {
+		if r := rs.order[i]; r.ended() {
+			if ended++; ended > readKept {
+				r.forget()
+			}
+		}
+	}
 }
 
 // errNoProfile is a number that is no profile: proto3 enums are open,
@@ -363,6 +378,7 @@ func (rs *builds) create(parent context.Context, profile typev1.Profile, targets
 			Cost:       &buildv1.Cost{},
 		},
 		results: map[string]*buildv1.ActionResult{},
+		read:    &read{},
 	}
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
@@ -444,7 +460,20 @@ func (rs *builds) execute(ctx context.Context, r *run) {
 func (rs *builds) work(ctx context.Context, r *run) (code buildv1.ExitCode, failure error, cancelled bool) {
 	r.stage(buildv1.Build_STAGE_EVALUATING)
 	rs.answered.Begin()
-	tree, entities, err := sourceOf(rs.workspace)
+	// What the run reads is looked at before it is read, for whoever
+	// waits for it to change: a write after shows. It is read through
+	// the look, which holds it to the very bytes the run read of it,
+	// before anyone is given it.
+	recorded := rs.workspace.Manifest()
+	manifest, err := source.Beside(ctx, rs.clock(), recorded)
+	if err != nil {
+		return exitInternal, err, true
+	}
+	tree, entities, err := sourceOf(rs.workspace, func(file string, read func(io.Reader) error) error {
+		_, err := manifest.Read(file, read)
+		return err
+	})
+	r.reading(func(of *read) { of.manifest = manifest })
 	if err != nil {
 		return exitInternal, err, false
 	}
@@ -464,8 +493,13 @@ func (rs *builds) work(ctx context.Context, r *run) (code buildv1.ExitCode, fail
 		}
 	}
 	if err != nil {
+		// What could be listed, for whoever waits for it to change: not
+		// what failed the run, while it still would.
+		unread := source.Unread(ctx, tree, err)
+		r.reading(func(of *read) { of.unread = unread })
 		return exitInternal, err, ctx.Err() != nil
 	}
+	r.reading(func(of *read) { of.snapshot = snapshot })
 	// What a repository or an entity says of how it is built, what its
 	// actions need and what the run was pointed at are their authors' to
 	// get right: a mistake in any fails the build before anything runs,
@@ -610,6 +644,10 @@ type run struct {
 	// be kept there; a run that lost something does not end well.
 	record runRecord
 	lost   error
+	// read is what the run read, as far as it got, for whoever waits for
+	// it to change; nil where the daemon no longer keeps it, or never
+	// did, the run being one a daemon before it made.
+	read *read
 }
 
 // owned tells the run which entities own what it builds.

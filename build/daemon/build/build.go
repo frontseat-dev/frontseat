@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/frontseat-dev/frontseat/build/daemon/directory"
+	"github.com/frontseat-dev/frontseat/build/engine/engine/source"
 	"github.com/frontseat-dev/frontseat/build/engine/exec/access"
 	"github.com/frontseat-dev/frontseat/build/engine/exec/download"
 	"github.com/frontseat-dev/frontseat/build/engine/exec/reapi"
@@ -55,6 +56,13 @@ type Grid struct {
 // holds no authority or no token. It never repeats what a token file held.
 func (g Grid) Check() error { return g.access().Check() }
 
+// Authorities is what a file of the authorities the grid is known by
+// holds, read from what is open of it, file, for whoever reads it once
+// and knows the grid by it (Known): no more than such a file may hold.
+func Authorities(r io.Reader, file string) ([]byte, error) {
+	return access.Authorities(r, file)
+}
+
 // access is how the grid and its asset service are asked.
 func (g Grid) access() access.Config {
 	return access.Config{TLS: g.TLS, Authorities: g.Authorities, Known: g.Known, Token: g.Token}
@@ -84,6 +92,14 @@ type Config struct {
 	// should know of it, a line each; none, it is said to telemetry
 	// alone.
 	Log io.Writer
+	// Made is what the daemon is made of, its settings, the plugins and
+	// authorities they name, the directory of plugins as it was listed
+	// and its program, each as it looked as the daemon opened it, held
+	// to the very bytes it read (source.Beside, source.Looks.Read,
+	// source.Looks.Lists): a wait for what a build read to change looks
+	// at it too, and returns where it was written since, for the
+	// command that waits to start the daemon of it as it is.
+	Made *source.Looks
 }
 
 // New opens the grid and plugin runtime, then serves the build API. Close
@@ -124,7 +140,7 @@ func New(ctx context.Context, config Config) (*Daemon, error) {
 	}
 	daemon, err := newDaemon(configuration{
 		Workspace: config.Workspace, Mounted: config.Mounted, System: config.System, Builds: config.Builds, Files: config.Files, Program: config.Program,
-		Plugins: loaded, Executor: grid, Downloads: downloads, Platform: config.Platform, Telemetry: config.Telemetry, Given: config.Given, Log: config.Log,
+		Plugins: loaded, Executor: grid, Downloads: downloads, Platform: config.Platform, Telemetry: config.Telemetry, Given: config.Given, Log: config.Log, Made: config.Made,
 	})
 	if err != nil {
 		release()

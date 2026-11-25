@@ -14,14 +14,16 @@ import (
 // getting on.
 //
 // The entities the directory knows are returned beside it, of the same
-// reading: a build is of one state of its directory.
-func sourceOf(d *directory.Directory) (source.Tree, []record.Located, error) {
+// reading: a build is of one state of its directory. Where through is
+// given, the manifest is read through it (directory.Directory.HoldsAsRead);
+// nil, it is read as it is.
+func sourceOf(d *directory.Directory, through directory.Through) (source.Tree, []record.Located, error) {
 	tree := source.Tree{Root: d.Root(), Paths: map[string]string{}}
 	if d.Alone() {
 		tree.Paths[""] = "."
 		return tree, nil, nil
 	}
-	held, err := d.Holds()
+	held, err := d.HoldsAsRead(through)
 	if err != nil {
 		return source.Tree{}, nil, err
 	}
@@ -32,18 +34,4 @@ func sourceOf(d *directory.Directory) (source.Tree, []record.Located, error) {
 		tree.Paths[r.Name] = r.Name
 	}
 	return tree, held.Entities, nil
-}
-
-// Source returns where the repositories of a directory are, as a build
-// of it would read them now (sourceOf): for whoever would know when a
-// build of the directory would read otherwise, and builds it again then
-// (life.Look). Alone, the directory is one repository the build was
-// given.
-func Source(root string, alone bool, system directory.System) (source.Tree, error) {
-	d, err := directory.Open(root, alone, system)
-	if err != nil {
-		return source.Tree{}, err
-	}
-	tree, _, err := sourceOf(d)
-	return tree, err
 }

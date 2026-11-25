@@ -102,13 +102,27 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		{"cli/internal/cmd/root.go", "core/telemetry", true},
 		{"cli/internal/cmd/root.go", "sdk/go", true},
 		{"cli/internal/cmd/root.go", "build/daemon/build", false},
-		// A watch looks at what a build reads by the engine's own look,
-		// through the daemon's life: no command looks, or lists, of
-		// itself.
-		{"build/daemon/life/seen.go", "build/engine/engine/source", true},
-		{"cli/internal/cmd/watch.go", "build/daemon/life", true},
+		// A watch asks the build daemon to wait for what a build read
+		// to change, which the daemon looks at by the engine's own look
+		// (source.Looks), and at what it is made of, through its life:
+		// no command looks, or lists, of itself. Its tests wait as a
+		// daemon does, through the engine's test support.
+		{"build/daemon/life/serve.go", "build/engine/engine/source", true},
 		{"cli/internal/cmd/watch.go", "build/engine/engine/source", false},
 		{"cli/internal/machine/builder.go", "build/engine/engine/source", false},
+		{"cli/internal/cmd/watch_test.go", "build/engine/engine/source/sourcetest", true},
+		{"cli/internal/machine/builder_test.go", "build/engine/engine/source/sourcetest", false},
+		{"cli/internal/cmd/watch.go", "build/engine/engine/source/sourcetest", false},
+		{"build/daemon/build/yields_test.go", "build/daemon/life", true},
+		{"build/daemon/build/changed_test.go", "build/daemon/life", false},
+		{"build/daemon/build/changed.go", "build/daemon/life", false},
+		{"build/daemon/life/life_test.go", "build/daemon/life/lifetest", true},
+		{"build/daemon/build/yields_test.go", "build/daemon/life/lifetest", true},
+		{"build/daemon/build/changed_test.go", "build/daemon/life/lifetest", false},
+		{"build/daemon/life/serve.go", "build/daemon/life/lifetest", false},
+		{"build/daemon/life/lifetest/lifetest.go", "sdk/go/bearer", true},
+		{"build/daemon/life/lifetest/lifetest.go", "build/daemon/life", false},
+		{"cli/internal/cmd/watch_test.go", "build/engine/engine/source", false},
 		{"cli/internal/cmd/root.go", "workspace/box/supervisor", false},
 		// A port a person writes is read by the one reader of it, the
 		// control plane's too, so that both read the same port; which

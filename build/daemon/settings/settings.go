@@ -12,6 +12,7 @@ package settings
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -27,8 +28,10 @@ import (
 
 // Settings are what a build daemon is told.
 type Settings struct {
-	// Plugins are the plugins' wasm modules, by path.
-	Plugins []string
+	// Plugins are the plugins' wasm modules, by path: every
+	// <name>.wasm of PluginDirectory, as it was listed (Modules).
+	Plugins         []string
+	PluginDirectory string
 	// Grid is the grid its actions run on, and how it is asked.
 	Grid build.Grid
 	// Platform is what the grid's workers are: the properties every
@@ -44,25 +47,30 @@ type Settings struct {
 // is not written as the file is (buildfile.Parse), where its plugins are
 // not there, and where its grid could not be asked as it says.
 func Read(path string) (Settings, error) {
-	raw, err := Bytes(path)
+	raw, err := buildfile.Bytes(path)
 	if err != nil {
 		return Settings{}, err
 	}
-	return Parse(raw, path)
+	return Parse(raw, path, nil)
 }
 
-// Bytes is what a settings file holds, for whoever reads it once and
-// both parses and identifies what it read (Parse).
-func Bytes(path string) ([]byte, error) { return buildfile.Bytes(path) }
+// From is what a settings file holds, read from what is open of it, for
+// whoever reads it once and both parses and identifies what it read
+// (Parse); path is the file.
+func From(file io.Reader, path string) ([]byte, error) { return buildfile.From(file, path) }
 
 // Parse reads a daemon's settings from what its file holds, as Read
-// does; path is the file, which what it names is beside.
-func Parse(raw []byte, path string) (Settings, error) {
+// does; path is the file, which what it names is beside. known, where
+// it is given, reads the authorities the settings name, once, by their
+// path: the grid is checked against, and known by, the very bytes it
+// read (Grid.Known), and their file is read by nothing else. nil, the
+// check reads the file itself.
+func Parse(raw []byte, path string, known func(file string) ([]byte, error)) (Settings, error) {
 	said, err := buildfile.Parse(raw, path)
 	if err != nil {
 		return Settings{}, err
 	}
-	told, err := told(said, filepath.Dir(path))
+	told, err := told(said, filepath.Dir(path), known)
 	if err != nil {
 		return Settings{}, fmt.Errorf("the build's settings (%s): %w", path, err)
 	}
@@ -70,8 +78,8 @@ func Parse(raw []byte, path string) (Settings, error) {
 }
 
 // told is what the file says, held to what a daemon can be told, with
-// every path from a directory.
-func told(f buildfile.File, dir string) (Settings, error) {
+// every path from a directory, the authorities read by known (Parse).
+func told(f buildfile.File, dir string, known func(file string) ([]byte, error)) (Settings, error) {
 	from := func(path string) string {
 		if path == "" || filepath.IsAbs(path) {
 			return path
@@ -95,7 +103,8 @@ func told(f buildfile.File, dir string) (Settings, error) {
 	if f.Grid.Assets != "" && !reached(f.Grid.Assets) {
 		return Settings{}, errors.New("grid.assets is no address: it is a host and a port, host:port")
 	}
-	plugins, err := Modules(from(f.Plugins))
+	directory := from(f.Plugins)
+	plugins, err := Modules(directory)
 	if err != nil {
 		return Settings{}, err
 	}
@@ -116,10 +125,15 @@ func told(f buildfile.File, dir string) (Settings, error) {
 	}
 	grid := build.Grid{Address: f.Grid.Address, Instance: f.Grid.Instance, Reads: f.Grid.Reads, Assets: f.Grid.Assets, Rewrites: rewrites,
 		TLS: f.Grid.TLS || f.Grid.Authorities != "", Authorities: from(f.Grid.Authorities), Token: from(f.Grid.Token)}
+	if known != nil && grid.Authorities != "" {
+		if grid.Known, err = known(grid.Authorities); err != nil {
+			return Settings{}, fmt.Errorf("the grid's authorities: %w", err)
+		}
+	}
 	if err := grid.Check(); err != nil {
 		return Settings{}, err
 	}
-	return Settings{Plugins: plugins, Grid: grid, Platform: Platform(f.Platform), Given: f.Publish.Environment}, nil
+	return Settings{Plugins: plugins, PluginDirectory: directory, Grid: grid, Platform: Platform(f.Platform), Given: f.Publish.Environment}, nil
 }
 
 // variable is a variable's name.
@@ -144,6 +158,10 @@ func reached(address string) bool {
 	return true
 }
 
+// Module is how the name of a plugin's module ends: a directory of
+// plugins is every name in it that ends so (Modules).
+const Module = ".wasm"
+
 // Modules is every <name>.wasm of a directory of plugins, by name. A
 // directory that holds none is refused: a daemon with none of the
 // plugins it was pointed at would refuse every repository later, and say
@@ -157,7 +175,7 @@ func Modules(directory string) ([]string, error) {
 	}
 	var found []string
 	for _, entry := range entries {
-		if !strings.HasSuffix(entry.Name(), ".wasm") {
+		if !strings.HasSuffix(entry.Name(), Module) {
 			continue
 		}
 		if !entry.Type().IsRegular() {

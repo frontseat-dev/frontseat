@@ -77,6 +77,12 @@ func Bytes(path string) ([]byte, error) {
 		return nil, fmt.Errorf("the build's settings: %w", err)
 	}
 	defer file.Close()
+	return From(file, path)
+}
+
+// From returns what a settings file holds, read from what is open of
+// it, as Bytes reads it; path is the file, for what is said of it.
+func From(file io.Reader, path string) ([]byte, error) {
 	raw, err := io.ReadAll(io.LimitReader(file, Limit+1))
 	if err != nil {
 		return nil, fmt.Errorf("the build's settings: %w", err)

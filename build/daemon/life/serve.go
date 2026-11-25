@@ -16,6 +16,7 @@ import (
 
 	"github.com/frontseat-dev/frontseat/build/daemon/build"
 	"github.com/frontseat-dev/frontseat/build/daemon/settings"
+	"github.com/frontseat-dev/frontseat/build/engine/engine/source"
 	"github.com/frontseat-dev/frontseat/common/record/manifest"
 	"github.com/frontseat-dev/frontseat/common/vcs/chosen"
 	"github.com/frontseat-dev/frontseat/core/telemetry"
@@ -66,7 +67,18 @@ func Serve(ctx context.Context, o Options) error {
 	if o.State == "" {
 		return errors.New("the build daemon was given no directory to keep its state in")
 	}
-	read, err := Read(o.Settings)
+	o, err := absolute(o)
+	if err != nil {
+		return err
+	}
+	// What the daemon is made of is looked at as it is read: a write
+	// after shows to whoever waits for what a build read to change, and
+	// the command that waits starts the daemon of it as it is then.
+	program, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	made, read, err := madeAndRead(ctx, time.Now(), o.Settings, program, nil)
 	if err != nil {
 		return err
 	}
@@ -76,10 +88,7 @@ func Serve(ctx context.Context, o Options) error {
 	if o.Version != "" && o.Version != read.Made.Program {
 		return errors.New("this program is not the one the command that started it read: its file was replaced in between, and the next command starts the daemon of the one there now")
 	}
-	directory, err := filepath.Abs(o.Directory)
-	if err != nil {
-		return err
-	}
+	directory := o.Directory
 	// What it starts begins in the directory it builds.
 	if err := os.Chdir(directory); err != nil {
 		return fmt.Errorf("the directory to build: %w", err)
@@ -107,7 +116,7 @@ func Serve(ctx context.Context, o Options) error {
 		return err
 	}
 	ctx = apart(signals.Context(ctx))
-	made, err := build.New(ctx, build.Config{Workspace: directory, System: chosen.System(), Plugins: read.Modules, Grid: read.Settings.Grid, Platform: read.Settings.Platform, Telemetry: signals, Builds: filepath.Join(o.State, Builds), Files: filepath.Join(o.State, Files), Program: read.Made.Program, Given: read.Settings.Given, Mounted: alone, Log: os.Stderr})
+	daemon, err := build.New(ctx, build.Config{Workspace: directory, System: chosen.System(), Plugins: read.Modules, Grid: read.Settings.Grid, Platform: read.Settings.Platform, Telemetry: signals, Builds: filepath.Join(o.State, Builds), Files: filepath.Join(o.State, Files), Program: read.Made.Program, Given: read.Settings.Given, Mounted: alone, Log: os.Stderr, Made: made})
 	if err != nil {
 		return err
 	}
@@ -118,7 +127,7 @@ func Serve(ctx context.Context, o Options) error {
 	// The build is closed by the daemon's life, once it serves no more
 	// and before the directory is let go of: its runs joined, and what it
 	// keeps in the directory released.
-	return held.Keep(ctx, Life{State: o.State, Said: Info{Version: read.Made.Program, Settings: read.Made.Settings, Directory: directory, Environment: Environment(read.Settings.Given)}, Handler: made.Handler, Busy: made.Busy, Idle: idle, Ended: made.Close})
+	return held.Keep(ctx, Life{State: o.State, Said: Info{Version: read.Made.Program, Settings: read.Made.Settings, Directory: directory, Environment: Environment(read.Settings.Given)}, Handler: daemon.Handler, Busy: daemon.Busy, Yields: daemon.Yields, Idle: idle, Ended: daemon.Close})
 }
 
 // apart is a context that is part of no trace. A daemon is started by a
@@ -160,67 +169,176 @@ type Loaded struct {
 // what a daemon is. Everything is identified by its content, read
 // whole, and by nothing a file system says of it: a file written again
 // in place, at the same size and time, is another. The settings are read
-// once, and the bytes parsed are the bytes digested, as a plugin's
-// module loaded is the one digested. What cannot be read is an error
-// that names its path, never left out. The grid is known by the
-// authorities' bytes digested here, and their file is not read again.
+// once, and the bytes parsed are the bytes digested; the directory of
+// plugins is listed once, and each plugin's module loaded is the one
+// digested. What cannot be read is an error that names its path, never
+// left out. The authorities are read once, as the settings are parsed:
+// the grid is checked against, known by and identified by those very
+// bytes, and their file is not read again.
 func Read(path string) (Loaded, error) {
-	raw, err := settings.Bytes(path)
+	program, err := os.Executable()
 	if err != nil {
 		return Loaded{}, err
 	}
-	read, err := settings.Parse(raw, path)
+	return readOf(path, program, nil, nil)
+}
+
+// readOf is Read, of this program's own file at a path (Made.Program),
+// each file read through made (source.Looks.Read), which holds it as it
+// was read, and the directory of plugins held as it was listed
+// (source.Looks.Lists); a nil made holds nothing. meanwhile, where it
+// is given, is called once the settings are read and before what they
+// name is: a test's way in between.
+//
+// Each part is a file of its own, by the path it is read by: a path
+// that is two parts (the grid's authorities named as the settings, the
+// settings among the plugins, this program's own file one of them) is
+// refused, by which parts it is, before the second is read. Read twice,
+// the file would be held to both readings, and one written between them
+// would hold what one used and not the other, answering every wait for
+// as long as the daemon lived (source.Looks.Await).
+func readOf(path, program string, made *source.Looks, meanwhile func()) (Loaded, error) {
+	parts := map[string]string{}
+	part := func(file, role string) error {
+		if was, named := parts[file]; named {
+			return fmt.Errorf("%s and %s are one file: each part of a daemon is a file of its own", was, role)
+		}
+		parts[file] = role
+		return nil
+	}
+	if err := part(path, "the build's settings"); err != nil {
+		return Loaded{}, err
+	}
+	var raw []byte
+	opened := false
+	told, err := made.Read(path, func(file io.Reader) (err error) {
+		opened = true
+		raw, err = settings.From(file, path)
+		return err
+	})
+	if err != nil {
+		if !opened {
+			err = fmt.Errorf("the build's settings: %w", err)
+		}
+		return Loaded{}, err
+	}
+	if meanwhile != nil {
+		meanwhile()
+	}
+	// The authorities are read as the settings are parsed, once: the
+	// bytes the grid is checked against are those it is known by and
+	// the daemon is identified by.
+	authorities := ""
+	read, err := settings.Parse(raw, path, func(file string) ([]byte, error) {
+		if err := part(file, "the grid's authorities"); err != nil {
+			return nil, err
+		}
+		var known []byte
+		hash, err := made.Read(file, func(r io.Reader) (err error) {
+			known, err = build.Authorities(r, file)
+			return err
+		})
+		authorities = hash
+		return known, err
+	})
 	if err != nil {
 		return Loaded{}, err
 	}
+	made.Lists(read.PluginDirectory, settings.Module)
+	// Each part by the SHA-256 of what was read of it, which reading it
+	// says: nothing is hashed twice.
 	digest := sha256.New()
-	part := func(name string, content []byte) {
-		fmt.Fprintf(digest, "%d:%s:%d:", len(name), name, len(content))
-		digest.Write(content)
+	said := func(name, hash string) {
+		fmt.Fprintf(digest, "%d:%s:%s\n", len(name), name, hash)
 	}
-	part("settings", raw)
+	said("settings", told)
 	loaded := Loaded{Settings: read}
 	for _, plugin := range read.Plugins {
-		module, err := os.ReadFile(plugin)
+		if err := part(plugin, "a plugin"); err != nil {
+			return Loaded{}, err
+		}
+		module, hash, err := whole(made, plugin)
 		if err != nil {
 			return Loaded{}, fmt.Errorf("a plugin the build's settings load: %w", err)
 		}
-		part("plugin "+filepath.Base(plugin), module)
+		said("plugin "+filepath.Base(plugin), hash)
 		loaded.Modules = append(loaded.Modules, module)
 	}
 	if read.Grid.Authorities != "" {
-		known, err := os.ReadFile(read.Grid.Authorities)
-		if err != nil {
-			return Loaded{}, fmt.Errorf("the authorities the build's settings name: %w", err)
-		}
-		part("authorities", known)
-		loaded.Settings.Grid.Known = known
+		said("authorities", authorities)
 	}
-	program, err := Program()
-	if err != nil {
+	// This program's own file is read only to say what it is: its
+	// digest is the hash of what was read, all of it, so that a file
+	// written as it was read is said by the bytes read (source.Looks.Read).
+	if err := part(program, "this program's own file"); err != nil {
 		return Loaded{}, err
 	}
-	loaded.Made = Made{Program: program, Settings: hex.EncodeToString(digest.Sum(nil))}
+	itself, err := made.Read(program, func(r io.Reader) error {
+		_, err := io.Copy(io.Discard, r)
+		return err
+	})
+	if err != nil {
+		return Loaded{}, fmt.Errorf("this program's own file: %w", err)
+	}
+	loaded.Made = Made{Program: itself, Settings: hex.EncodeToString(digest.Sum(nil))}
 	return loaded, nil
 }
 
-// Program is what this program is: the digest of its own file's
-// content.
-func Program() (string, error) {
-	path, err := os.Executable()
+// whole is what a file holds, read whole through made (readOf), and
+// the SHA-256 of it, in hex.
+func whole(made *source.Looks, file string) ([]byte, string, error) {
+	var content []byte
+	hash, err := made.Read(file, func(r io.Reader) (err error) {
+		content, err = io.ReadAll(r)
+		return err
+	})
+	return content, hash, err
+}
+
+// madeAndRead reads what a daemon of a file of settings is made of
+// (Read) as it looks at it, at a time, the clock's now, for whoever
+// waits for what a build read to change, and holds the look to the very
+// bytes read (source.Looks.Read): each part is looked at as it is
+// opened, before it is read, so a write after shows, and nothing is
+// waited for; one that had not settled is read again once it has, and
+// answered only where it does not hold what the daemon read, as is a
+// part written within the moment its times are told in, at its size,
+// and a part that looks otherwise: one written again with what it held
+// is no change (source.Looks.Await).
+// What it is made of is said by one reading: the settings read once,
+// the directory of plugins listed once and held as it was listed
+// (source.Looks.Lists), each part read once; so nothing the daemon used
+// goes unheld. Of this program's own file (program), that is what the
+// daemon read of it, which says what program it is (Made.Program).
+// Not held: what runs is what the system loaded when the daemon
+// started, before the look, and that is not read; the file replaced
+// between and put back before the look leaves the daemon running a
+// program none of this saw. meanwhile is readOf's. It returns when the
+// context ends, with its error.
+func madeAndRead(ctx context.Context, at time.Time, told, program string, meanwhile func()) (*source.Looks, Loaded, error) {
+	made, err := source.Beside(ctx, at)
 	if err != nil {
-		return "", err
+		return nil, Loaded{}, err
 	}
-	file, err := os.Open(path)
+	loaded, err := readOf(told, program, made, meanwhile)
 	if err != nil {
-		return "", fmt.Errorf("this program's own file: %w", err)
+		return nil, Loaded{}, err
 	}
-	defer file.Close()
-	digest := sha256.New()
-	if _, err := io.Copy(digest, file); err != nil {
-		return "", fmt.Errorf("this program's own file, %s: %w", path, err)
+	return made, loaded, nil
+}
+
+// absolute is what a daemon is started with, each path made whole from
+// where it was started: it then runs in the directory it builds, and
+// whatever it holds by a path is held wherever it runs.
+func absolute(o Options) (Options, error) {
+	for _, path := range []*string{&o.Directory, &o.State, &o.Settings} {
+		whole, err := filepath.Abs(*path)
+		if err != nil {
+			return Options{}, err
+		}
+		*path = whole
 	}
-	return hex.EncodeToString(digest.Sum(nil)), nil
+	return o, nil
 }
 
 // Environment is what the variables a publish may be given are where

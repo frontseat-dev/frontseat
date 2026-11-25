@@ -105,6 +105,21 @@ func (b *Build) Wait(ctx context.Context) (*buildv1.Build, error) {
 	return said.GetBuild(), err
 }
 
+// WaitSourceChanged returns, once the build has ended, when anything it
+// listed or read looks otherwise than the build held it to, and has
+// settled: what changed. It waits for as long as ctx lets it; a daemon
+// that ends meanwhile ends the call, and one that no longer keeps what
+// the build read refuses it (ReasonBuildSourceNotKept). What `frontseat
+// build --watch` builds again for.
+func (b *Build) WaitSourceChanged(ctx context.Context) (*buildv1.SourceChanged, error) {
+	api, err := b.w.builds(ctx)
+	if err != nil {
+		return nil, err
+	}
+	said, err := api.WaitSourceChanged(ctx, &buildv1.WaitSourceChangedRequest{BuildId: b.id})
+	return said.GetSourceChanged(), err
+}
+
 // Cancel stops the build, and returns at once, with the build as it is
 // then; Wait returns once it has ended.
 func (b *Build) Cancel(ctx context.Context) (*buildv1.Build, error) {

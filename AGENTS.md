@@ -117,32 +117,115 @@ the change that fixes it.
   query language. `build --watch` and `test --watch` build again each
   time something a build reads changed, until interrupted
   (`docs/command-line.md`): each round is an ordinary build, of the
-  daemon there is then, and the command line only says when to ask. It
-  says so by the engine's own look at the engine's own listing
-  (`source.Looks`, through `life.Look`: the directory's files, the
-  directories and links the listing went through, its manifest and
-  what the daemon is made of), never by a look or a list of its own,
-  and holds each round against a look taken before the round was asked
-  for, in which every file and directory had settled, so that whatever
-  is written from then on, a file made and removed again among it, is
-  built by the round after. Operating-system notifications are no part
-  of it. A round under way is not cancelled; one that failed waits for
+  daemon there is then, and the command line looks at no file. After a
+  round it asks the daemon that built it to wait until anything that
+  build listed or read looks otherwise than the build held it to
+  (`BuildService.WaitSourceChanged`), which the daemon answers from
+  the run's own record (`Snapshot.Looks`): every file of its listing,
+  the links the listing followed, every file it asked for by name that
+  no listing takes, there or not, read or not (a plugin's
+  `.cargo/config.toml`), and one it could not look at, or that was no
+  file, as that, so that whatever it becomes is answered; each
+  repository's ignore file, listed or not; with the workspace's
+  manifest and what the daemon is made of, each looked at as it was
+  opened to be read, by the engine's one look, and read through it
+  (`source.Looks.Read`), and nothing waited for; what the daemon is
+  made of said by one reading, its directory of plugins held by its
+  listing, every `<name>.wasm` in it (`source.Looks.Lists`); a file
+  whose content the run read before it had settled, and one beside
+  that had not settled when it was looked at, held to the very bytes
+  its reader used, is read again once it has, as
+  a run opens it, and one said to have changed at a time still to
+  come, which never settles, whenever the rest has, holding nothing
+  else up, a link and the file it leads to each by its own look. A
+  file beside a build is held by one rule: it is answered exactly when
+  what it holds now differs from bytes that were used (`Looks.unlike`).
+  `Read` keeps the SHA-256 of exactly the bytes its reader consumed,
+  whatever happened to the file meanwhile, and refuses, by the file's
+  name, a reader that returns before the end; each file keeps the set
+  of hashes every reading used, by every look it was read through, in
+  any order (`usedOf`). A wait reads it again where it looks otherwise,
+  had not settled when read, was read holding otherwise (two hashes,
+  always answered) or is ahead of the clock, looking before and after
+  (a reading during which it changed is used by no one and done again
+  later); holding the one hash, it is taken as it looks now, by the
+  look every wait is given a copy of too and every record that used
+  that hash alone, under its lock, each read again by one wait alone
+  (`Looks.keep`); one ahead stays doubted. One beside that could not
+  be opened is held to how it looks; one whose reader failed used no
+  bytes that are known, and is answered once read again, which a round
+  after, reading it settled, ends.
+  A directory is not looked at: its files are listed. A run that
+  could not list a repository is held to what could be listed when it
+  failed (`source.Unread`). The daemon looks again by that
+  look and answers once what looks otherwise has settled
+  (`source.Looks.Await`); operating-system notifications are no part of
+  it. A round under way is not cancelled; one that failed waits for
   the next change; one refused by a daemon that was ending is asked
-  again of the next. Held by: `TestAFileRewrittenAtItsSizeWithItsTimesSetBackLooksOtherwise`,
+  again of the next; a wait the daemon cannot answer is a round, and
+  two running end the command. Held by: `TestAFileRewrittenAtItsSizeWithItsTimesSetBackLooksOtherwise`,
   `TestWhatARunListsLooksOtherwiseWhenItChangesAndNothingElseDoes`,
   `TestALookHasSettledOnceEveryFileInItHas`,
-  `TestALookHasSettledOnceEveryDirectoryInItHas`,
+  `TestWhatARunReadByNameBeneathADotDirectoryIsWaitedOn`,
+  `TestAFileARunCouldNotReadByNameIsWaitedOn`,
+  `TestAWaitIsAnsweredByWhatARunListsAndNotByItsDirectories`,
+  `TestARunThatCouldNotListOneRepositoryWaitsUntilSomethingChanges`,
+  `TestABuildThatCouldNotListARepositoryIsWaitedOnPatiently`,
+  `TestAPartOfTheDaemonWrittenAsItStartedIsReadAgainAndNotAnsweredByEveryWait`,
+  `TestAFileBesideIsLookedAtOnceAndReadAgainWhereItHadNotSettled`,
+  `TestAFileThatCannotSettleIsReadAgainAndKeepsNothingElseFromBeingAnswered`,
+  `TestWhatARunCouldNotLookAtOrWasNoFileIsAnsweredOnceItChanges`,
+  `TestAnIgnoreFileThatIgnoresItselfIsWaitedOn`,
+  `TestAFileARunMadeBeneathADotDirectoryIsWaitedOnAsItWroteIt`,
+  `TestAWaitAnswersOnlyOnceTheBuildHasEnded`,
+  `TestAWaitForWhatABuildReadToChangeGivesWayToAStopAndABuildInHandDoesNot`,
+  `TestAFileReadBeforeItSettledIsReadAgainOnceItHas`,
+  `TestAWaitAnswersOnceWhatIsWrittenHasSettled`,
+  `TestAWaitNamesAFileTheBuildReadByNameBeneathADotDirectory`,
+  `TestAWaitNamesWhatTheBuildListedAndWhatItIsMadeOf`,
+  `TestAWaitOfABuildWhoseReadIsNotKeptIsRefusedByName`,
+  `TestACallThatYieldsGivesWayToAStop`,
   `TestARoundADaemonRefusedAsItWasEndingIsAskedOfTheNext`,
-  `TestWhatADaemonIsMadeOfLooksOtherwiseWhenItIsWrittenAgain`,
+  `TestEachPartOfADaemonIsHeldAsTheDaemonReadIt`,
+  `TestTheDirectoryOfPluginsIsHeldAsTheDaemonListedIt`,
+  `TestAPluginThatAppearsAsTheDaemonReadsItsSettingsIsHeldAsItWasRead`,
+  `TestADaemonToldItsSettingsFromWhereItWasStartedHoldsThemWhereverItRuns`,
+  `TestALinkLedElsewhereIsAnsweredOnceItHasSettled`,
   `TestAWatchBuildsAgainWhenAFileChangesAndNotOtherwise`,
+  `TestAWatchBuildsAgainWhenOnlyAFileReadByNameBeneathADotDirectoryChanges`,
   `TestAChangeDuringARoundIsBuiltByOneRoundAfterIt`,
-  `TestAWatchWaitsUntilWhatIsWrittenHasSettled`,
   `TestARoundThatFailedWaitsForTheNextChange`,
-  `TestAWatchGoesOnWithTheDaemonThereIsForEachRound` and the spec
-  `TestAWatchedTestRunsAgainWhatAWriteReachesAndNothingElse`. Not held:
-  a file a plugin reads in a directory whose name begins with a dot,
-  which a run reads and does not list; a file system that does not
-  date a file's changes itself.
+  `TestAWatchGoesOnWithTheDaemonThereIsForEachRound`,
+  `TestAWaitTheDaemonCouldNotAnswerIsBuiltAgainOfTheDaemonThereIsThen`,
+  `TestALinkAheadOfTheClockHoldsUpNothingElse`,
+  `TestAFileBesideIsHeldToTheBytesItsReaderUsed`,
+  `TestAFileBesideThatCouldNotBeReadIsAnsweredOnlyOnceItChanges`,
+  `TestAPartOfADaemonWrittenAgainWithWhatItHeldIsAnsweredByNoWait`,
+  `TestAPartReadBeforeItSettledIsReadAgainByTheFirstWaitAlone`,
+  `TestAFileBesideWrittenAsItWasReadIsAnswered`,
+  `TestWaitsAtOnceTellTheLooksTheyShareUnderTheirLocks`,
+  `TestTwoLooksThatReadOneFileOtherwiseHoldNoHashOfItTogether`,
+  `TestAWaitTellsWhatItLearnsOnlyToTheLooksThatReadTheSame`,
+  `TestAPartWrittenAgainWithWhatItHeldAheadOfTheClockStaysDoubted`,
+  `TestAPartOfADaemonWrittenAgainWithWhatItHeldMakesTheSameDaemonAndIsNotAnswered`,
+  `TestAPartOfTheDaemonWrittenAgainWithWhatItHeldIsAnsweredByNoWait`,
+  `TestAFileBesideWrittenAgainWithWhatItHeldAsItWasReadIsAnsweredByNoWait`,
+  `TestTwoLooksThatReadOneFileOtherwiseAreAnsweredInEitherOrder`,
+  `TestOneLookThatReadOneFileOtherwiseIsAnswered`,
+  `TestAReaderOfAFileBesideThatStopsBeforeItsEndIsRefused`,
+  `TestAFileBesideWhoseReaderFailedIsAnsweredOnceAndNotAgain`,
+  `TestAFileBesideThatChangedAsAWaitReadItAgainIsReadAgainLater`,
+  `TestAnIgnoreFileMadeWhereThereWasNoneIsWaitedOn`,
+  `TestAnIgnoreFileReadAsTheRunBeganBeforeItSettledIsReadAgain`,
+  `TestARepositoryThatCannotBeOpenedIsAnsweredByWhatTheRunAskedForByName`
+  and the specs `TestAWatchedTestRunsAgainWhatAWriteReachesAndNothingElse`
+  and `TestAWatchedTestRunsAgainWhenOnlyCargosConfigurationChanges`.
+  Not held: a file system that does not date a file's changes itself;
+  that the daemon's program runs the code of the file it read to say
+  what program it is: the system loaded it when the daemon started,
+  before the look. A cost: a file a build read whose disk says it
+  changed at a time still to come is read again whole about twice a
+  second while a wait lasts.
 - **Tools come from mise and are pinned nowhere else.** Never name a tool
   and a version to `mise exec`; after any mise command, `git status --short
   mise.lock`.

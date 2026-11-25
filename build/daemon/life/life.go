@@ -132,6 +132,11 @@ type Life struct {
 	// Busy says whether it has anything in hand that no call is waiting
 	// on: a build, a run, a release.
 	Busy func() bool
+	// Yields says of a call under way whether it gives way to a command
+	// that would end the daemon to start another (StopPath): one that
+	// only waits, for what a build read to change. It keeps the daemon
+	// from ending itself all the same. Nil, none does.
+	Yields func(*http.Request) bool
 	// Idle is how long it has nothing to do before it ends itself.
 	Idle time.Duration
 	// Ended is what ends the rest of the daemon once it serves no more,
@@ -150,7 +155,10 @@ const HelloPath = "/frontseat.daemon/hello"
 // version, other settings or another directory. One with nothing in
 // hand answers 204 and ends; one with a build, a run or a release in
 // hand, or a call under way, answers 409 and stays: what it has in hand
-// is someone's, and is not ended for another command.
+// is someone's, and is not ended for another command. A call that yields
+// (Life.Yields), a wait for what a build read to change, is no call in
+// hand: it is ended with the daemon, and whoever waited asks the daemon
+// there is then.
 const StopPath = "/frontseat.daemon/stop"
 
 // Taken is a state directory a daemon took for itself: no other serves
@@ -240,7 +248,7 @@ func (t *Taken) Keep(ctx context.Context, l Life) error {
 	}
 	serving, stop := context.WithCancel(ctx)
 	defer stop()
-	calls := &admitted{handler: l.Handler, token: []byte(said.Token), busy: l.Busy, last: time.Now(), end: stop}
+	calls := &admitted{handler: l.Handler, token: []byte(said.Token), busy: l.Busy, yields: l.Yields, last: time.Now(), end: stop}
 	watched := make(chan struct{})
 	go func() {
 		defer close(watched)
@@ -306,12 +314,16 @@ type admitted struct {
 	token   []byte
 	// busy says whether the daemon has anything in hand no call waits on.
 	busy func() bool
+	// yields says of a call whether it gives way to a stop (Life.Yields);
+	// nil, none does.
+	yields func(*http.Request) bool
 
 	mu sync.Mutex
-	// under is how many calls are under way, and last when the last of
-	// them ended, or the daemon began.
-	under int
-	last  time.Time
+	// under is how many calls are under way, and yielding how many of
+	// them give way to a stop; last when the last of them ended, or the
+	// daemon began.
+	under, yielding int
+	last            time.Time
 	// end ends the daemon.
 	end func()
 }
@@ -329,7 +341,7 @@ func (a *admitted) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.URL.Path == StopPath {
 		a.mu.Lock()
-		inHand := a.under > 0 || a.busy()
+		inHand := a.under > a.yielding || a.busy()
 		a.mu.Unlock()
 		if inHand {
 			http.Error(w, "the build daemon has something in hand, and is not stopped for another command", http.StatusConflict)
@@ -345,12 +357,18 @@ func (a *admitted) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		a.end()
 		return
 	}
+	yields := 0
+	if a.yields != nil && a.yields(r) {
+		yields = 1
+	}
 	a.mu.Lock()
 	a.under++
+	a.yielding += yields
 	a.mu.Unlock()
 	defer func() {
 		a.mu.Lock()
 		a.under--
+		a.yielding -= yields
 		a.last = time.Now()
 		a.mu.Unlock()
 	}()

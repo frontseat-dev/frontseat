@@ -14,7 +14,9 @@ package testbudget
 
 import (
 	"fmt"
+	"maps"
 	"os"
+	"slices"
 	"testing"
 	"time"
 )
@@ -35,6 +37,13 @@ type Budget struct {
 	Time time.Duration
 	// Allocs is the most allocations it may make.
 	Allocs int64
+	// Most is the most each of what the benchmark reports of one
+	// operation may be, by the unit it reports it in (b.ReportMetric):
+	// what it keeps of the heap, in bytes, among them. Like allocations
+	// it is held wherever the test runs, and so only what does not
+	// depend on the machine is given here; what the benchmark reports
+	// and is not given is not held.
+	Most map[string]float64
 }
 
 // Hold runs a benchmark and fails the test where one operation costs
@@ -57,6 +66,26 @@ func Hold(t *testing.T, budget Budget, benchmark func(b *testing.B)) {
 	for _, over := range exceeded(budget, took, result.AllocsPerOp(), os.Getenv(Variable) == Timed) {
 		t.Error(over)
 	}
+	for _, over := range beyond(budget.Most, result.Extra) {
+		t.Error(over)
+	}
+}
+
+// beyond says how what a benchmark reported of one operation goes
+// beyond the most it may be, of each unit given; one given that the
+// benchmark did not report is beyond it, as a budget held of nothing.
+func beyond(most, reported map[string]float64) []string {
+	var over []string
+	for _, unit := range slices.Sorted(maps.Keys(most)) {
+		got, ok := reported[unit]
+		switch {
+		case !ok:
+			over = append(over, fmt.Sprintf("the benchmark reported no %s, and its budget holds it", unit))
+		case got > most[unit]:
+			over = append(over, fmt.Sprintf("an operation reported %v %s, and its budget is %v", got, unit, most[unit]))
+		}
+	}
+	return over
 }
 
 // exceeded says how an operation that took so long and made so many

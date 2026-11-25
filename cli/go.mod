@@ -6,6 +6,7 @@ require (
 	connectrpc.com/connect/v2 v2.0.2
 	github.com/coder/websocket v1.8.15
 	github.com/frontseat-dev/frontseat/build/daemon v0.0.0
+	github.com/frontseat-dev/frontseat/build/engine v0.0.0
 	github.com/frontseat-dev/frontseat/common/git v0.0.0
 	github.com/frontseat-dev/frontseat/common/record v0.0.0
 	github.com/frontseat-dev/frontseat/core v0.0.0
@@ -36,7 +37,6 @@ require (
 	github.com/chainguard-dev/git-urls v1.0.2 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
-	github.com/frontseat-dev/frontseat/build/engine v0.0.0 // indirect
 	github.com/frontseat-dev/frontseat/common/confine v0.0.0 // indirect
 	github.com/frontseat-dev/frontseat/common/runner v0.0.0 // indirect
 	github.com/frontseat-dev/frontseat/common/vcs v0.0.0 // indirect

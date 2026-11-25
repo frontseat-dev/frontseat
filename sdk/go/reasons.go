@@ -8,6 +8,10 @@ const (
 	ReasonActionNotFound = "ACTION_NOT_FOUND"
 	// ReasonBuildNotFound: no build has the id.
 	ReasonBuildNotFound = "BUILD_NOT_FOUND"
+	// ReasonBuildSourceNotKept: the build daemon no longer keeps what a
+	// build read, or never did: a build made now reads the files as
+	// they are.
+	ReasonBuildSourceNotKept = "BUILD_SOURCE_NOT_KEPT"
 	// ReasonConflictingOwnership: two entities own one directory.
 	ReasonConflictingOwnership = "CONFLICTING_OWNERSHIP"
 	// ReasonCredentialHostInvalid: a credential's host is not one.

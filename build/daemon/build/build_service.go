@@ -28,7 +28,7 @@ type buildService struct {
 var _ buildv1alpha1connect.BuildServiceHandler = (*buildService)(nil)
 
 func (s *buildService) CreateBuild(ctx context.Context, req *buildv1.CreateBuildRequest) (*buildv1.CreateBuildResponse, error) {
-	if _, _, err := sourceOf(s.runs.workspace); err != nil {
+	if _, _, err := sourceOf(s.runs.workspace, nil); err != nil {
 		return nil, refuse(connect.CodeFailedPrecondition, "WORKSPACE_NOT_READY", err.Error())
 	}
 	profile, err := profileOf(req.GetProfile())

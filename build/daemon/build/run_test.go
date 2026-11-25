@@ -36,11 +36,16 @@ var module, catalog []byte
 // strategy is the release plugin, which a daemon that releases has.
 var strategy, forge []byte
 
+// cargo is the Cargo plugin, which reads a file by name beneath a
+// directory whose name begins with a dot (.cargo/config.toml).
+var cargo []byte
+
 func TestMain(m *testing.M) {
 	module = testmodule.PluginOrExit("go")
 	catalog = testmodule.PluginOrExit("backstage")
 	strategy = testmodule.PluginOrExit("release")
 	forge = testmodule.PluginOrExit("github")
+	cargo = testmodule.PluginOrExit("cargo")
 	os.Exit(m.Run())
 }
 
@@ -50,14 +55,21 @@ func TestMain(m *testing.M) {
 // for each daemon, as they were, they cost about 3.6 s a test under the
 // race detector (`go test -race -run '^TestARunThatDoesNotExistIsNotFound$'
 // ./build/`, 2026-11-12), nearly all of what the package took.
-var loaded = sync.OnceValues(func() ([]*pluginhost.Plugin, error) {
+var loaded = sync.OnceValues(func() ([]*pluginhost.Plugin, error) { return load(module, catalog, strategy, forge) })
+
+// cargoLoaded is the Cargo plugin, compiled once, for the tests that
+// build a workspace of Cargo's.
+var cargoLoaded = sync.OnceValues(func() ([]*pluginhost.Plugin, error) { return load(cargo) })
+
+// load compiles plugins' modules.
+func load(modules ...[]byte) ([]*pluginhost.Plugin, error) {
 	ctx := context.Background()
 	host, err := pluginhost.New(ctx)
 	if err != nil {
 		return nil, err
 	}
 	var plugins []*pluginhost.Plugin
-	for _, each := range [][]byte{module, catalog, strategy, forge} {
+	for _, each := range modules {
 		plugin, err := host.Load(ctx, each)
 		if err != nil {
 			return nil, err
@@ -65,7 +77,7 @@ var loaded = sync.OnceValues(func() ([]*pluginhost.Plugin, error) {
 		plugins = append(plugins, plugin)
 	}
 	return plugins, nil
-})
+}
 
 // daemon serves the build API over a workspace that holds one Go module,
 // mounted, and returns a client of its runs.
@@ -117,7 +129,14 @@ func serveFirst(t testing.TB, config configuration, plugins int) clients {
 	if err != nil {
 		t.Fatal(err)
 	}
-	config.Plugins, config.Platform = all[:plugins], testgrid.Platform()
+	return serveWith(t, config, all[:plugins])
+}
+
+// serveWith serves the build API as a configuration says, with plugins
+// and the test grid's platform.
+func serveWith(t testing.TB, config configuration, plugins []*pluginhost.Plugin) clients {
+	t.Helper()
+	config.Plugins, config.Platform = plugins, testgrid.Platform()
 	if config.Builds == "" {
 		config.Builds = t.TempDir()
 	}
@@ -144,8 +163,10 @@ func write(t testing.TB, root, name, content string) {
 type scripted struct {
 	// fails are words; an action whose label holds one exits 1.
 	fails []string
-	// gate, if set, is waited on before every action.
-	gate chan struct{}
+	// gate, if set, is waited on before every action, and reached, if
+	// set, is told so as each action comes to it, where it is listening.
+	gate    chan struct{}
+	reached chan struct{}
 	// hang makes every action run until it is cancelled.
 	hang bool
 }
@@ -180,6 +201,10 @@ func (s scripted) Execute(ctx context.Context, action exec.Action) (exec.Result,
 		return exec.Result{Outputs: left(action)}, nil
 	}
 	if s.gate != nil {
+		select {
+		case s.reached <- struct{}{}:
+		default:
+		}
 		select {
 		case <-s.gate:
 		case <-ctx.Done():
