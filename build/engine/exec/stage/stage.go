@@ -56,7 +56,17 @@ func of(ctx context.Context, snapshot *source.Snapshot, action plan.Action, prov
 	if err := plan.CheckHanded(action); err != nil {
 		return exec.Action{}, err
 	}
-	repository := snapshot.Paths[action.Repository]
+	// Its own repository is at the top of its root (own), wherever the
+	// workspace holds it (folder) and whatever it names it: an action of a
+	// repository is one action, by one key, whether the repository is
+	// built as a checkout of its own, alone in a workspace or beside
+	// others. What an action of another repository left sits beneath
+	// tools.External, and its home where it is (placed); files of
+	// another repository's project it is handed sit in its own project.
+	folder := snapshot.Paths[action.Repository]
+	if left, err = placed(snapshot.Tree, action.Repository, left); err != nil {
+		return exec.Action{}, fmt.Errorf("%s: %w", action.Label, err)
+	}
 	// A shared action reads no source: it is what it was declared, with
 	// its files and its tools, whichever project declared it.
 	var files []string
@@ -89,14 +99,14 @@ func of(ctx context.Context, snapshot *source.Snapshot, action plan.Action, prov
 		if !committed[file] && !action.AcceptsSnapshot(action.Repository, file) {
 			continue
 		}
-		inputs = append(inputs, path.Join(repository, file))
+		inputs = append(inputs, path.Join(own, file))
 	}
 	// What its tool reads above it, for the whole workspace, where it is.
 	for _, file := range action.WorkspaceFiles {
-		if _, _, _, err := snapshot.File(filepath.Join(snapshot.Root, filepath.FromSlash(repository), filepath.FromSlash(file))); err != nil {
-			return exec.Action{}, fmt.Errorf("%s names %s as a file of its workspace, which the repository does not hold", action.Label, path.Join(repository, file))
+		if _, _, _, err := snapshot.File(filepath.Join(snapshot.Root, filepath.FromSlash(folder), filepath.FromSlash(file))); err != nil {
+			return exec.Action{}, fmt.Errorf("%s names %s as a file of its workspace, which the repository does not hold", action.Label, path.Join(folder, file))
 		}
-		inputs = append(inputs, path.Join(repository, file))
+		inputs = append(inputs, path.Join(own, file))
 	}
 	// What it is handed of other projects, in the directory its tool
 	// looks in.
@@ -121,7 +131,7 @@ func of(ctx context.Context, snapshot *source.Snapshot, action plan.Action, prov
 			}
 			within = append(within, filepath.ToSlash(rel))
 		}
-		copies[path.Join(repository, action.ProjectRoot, handed.Into)] = exec.Copy{
+		copies[path.Join(own, action.ProjectRoot, handed.Into)] = exec.Copy{
 			From:  filepath.Join(snapshot.Root, filepath.FromSlash(from), filepath.FromSlash(handed.Root)),
 			Files: within,
 		}
@@ -132,13 +142,13 @@ func of(ctx context.Context, snapshot *source.Snapshot, action plan.Action, prov
 		// never in place of a workspace file the action reads: nothing
 		// the run read is shadowed.
 		if above(action.ProjectRoot, file.Path) && slices.Contains(action.WorkspaceFiles, path.Clean(file.Path)) {
-			return exec.Action{}, fmt.Errorf("%s writes %s for its workspace, which is a workspace file it reads", action.Label, path.Join(repository, file.Path))
+			return exec.Action{}, fmt.Errorf("%s writes %s for its workspace, which is a workspace file it reads", action.Label, path.Join(folder, file.Path))
 		}
-		written[path.Join(repository, file.Path)] = exec.Written{Content: file.Content, Executable: file.Executable}
+		written[path.Join(own, file.Path)] = exec.Written{Content: file.Content, Executable: file.Executable}
 	}
 	// A shared action's files are its own, in its directory or its home.
 	for _, file := range action.Declared.GetSharedFetch().GetFiles() {
-		at, _, err := Sits(repository, action.ProjectRoot, "", file.GetPath())
+		at, _, err := Sits(own, action.ProjectRoot, "", file.GetPath())
 		if err != nil {
 			return exec.Action{}, err
 		}
@@ -176,12 +186,12 @@ func of(ctx context.Context, snapshot *source.Snapshot, action plan.Action, prov
 			}
 			at := path.Join(tools.Downloads, digest.Hash)
 			held[at] = exec.Held{Digest: digest}
-			archive, err := filepath.Rel(filepath.FromSlash("/"+path.Join(repository, action.ProjectRoot)), filepath.FromSlash("/"+at))
+			archive, err := filepath.Rel(filepath.FromSlash("/"+path.Join(own, action.ProjectRoot)), filepath.FromSlash("/"+at))
 			if err != nil {
 				return exec.Action{}, err
 			}
 			for _, part := range each.GetParts() {
-				_, as, err := Sits(repository, action.ProjectRoot, "", part.GetPath())
+				_, as, err := Sits(own, action.ProjectRoot, "", part.GetPath())
 				if err != nil {
 					return exec.Action{}, err
 				}
@@ -194,7 +204,7 @@ func of(ctx context.Context, snapshot *source.Snapshot, action plan.Action, prov
 			if len(each.GetParts()) > 0 {
 				continue
 			}
-			_, into, err := Sits(repository, action.ProjectRoot, "", each.GetInto())
+			_, into, err := Sits(own, action.ProjectRoot, "", each.GetInto())
 			if err != nil {
 				return exec.Action{}, err
 			}
@@ -215,7 +225,7 @@ func of(ctx context.Context, snapshot *source.Snapshot, action plan.Action, prov
 	}
 	outputs := make([]string, 0, len(action.Outputs()))
 	for _, output := range action.Outputs() {
-		_, asked, err := Sits(repository, action.ProjectRoot, action.Declared.GetCommand().GetDirectory(), output)
+		_, asked, err := Sits(own, action.ProjectRoot, action.Declared.GetCommand().GetDirectory(), output)
 		if err != nil {
 			return exec.Action{}, err
 		}
@@ -228,8 +238,10 @@ func of(ctx context.Context, snapshot *source.Snapshot, action plan.Action, prov
 	// What is handed of other projects is placed apart (Handed.Into):
 	// generated source goes among it by design (generated), and nothing
 	// handed sits at the very place of one.
+	// It is said by where it is in the workspace, which a person reads,
+	// not by where it sits in the action's root.
 	if at, is := shadowed(inputs, copies, left); is {
-		return exec.Action{}, plan.Shadows(action, at)
+		return exec.Action{}, plan.Shadows(action, path.Join(folder, at))
 	}
 	platform := provisioner.Platform
 	within := maps.Clone(action.Environment)
@@ -303,16 +315,18 @@ func of(ctx context.Context, snapshot *source.Snapshot, action plan.Action, prov
 		if within == nil {
 			within = map[string]string{}
 		}
-		from := path.Join(repository, action.ProjectRoot, action.Declared.GetCommand().GetDirectory())
-		up, err := filepath.Rel(filepath.FromSlash("/"+from), filepath.FromSlash("/"+repository))
+		from := path.Join(own, action.ProjectRoot, action.Declared.GetCommand().GetDirectory())
+		up, err := filepath.Rel(filepath.FromSlash("/"+from), filepath.FromSlash("/"+own))
 		if err != nil {
 			return exec.Action{}, err
 		}
 		within[SourceVariable] = filepath.ToSlash(up)
 	}
 	return provisioner.Use(ctx, exec.Action{
-		Label:   action.Label.String(),
-		Root:    snapshot.Root,
+		Label: action.Label.String(),
+		// Its files are read from its repository's directory, and each
+		// sits at its path there in the root.
+		Root:    snapshot.Directory(action.Repository),
 		Inputs:  inputs,
 		Files:   snapshot,
 		Held:    held,
@@ -321,11 +335,83 @@ func of(ctx context.Context, snapshot *source.Snapshot, action plan.Action, prov
 		Outputs: outputs,
 		// In its project's directory, or beneath it where its command
 		// says so, which the plugin host held to the project.
-		WorkingDirectory: path.Join(repository, action.ProjectRoot, action.Declared.GetCommand().GetDirectory()),
+		WorkingDirectory: path.Join(own, action.ProjectRoot, action.Declared.GetCommand().GetDirectory()),
 		Arguments:        arguments,
 		Environment:      environment,
 		Platform:         platform,
-	}, repository, action.Declared.GetTools(), network, within)
+	}, own, action.Declared.GetTools(), network, within)
+}
+
+// own is where an action's own repository is in its root: at the top.
+const own = "."
+
+// placed returns what an action of a repository is handed, each thing
+// by where it sits in the action's root, of what is kept by where it
+// sits in the workspace (Left): what is in the action's own repository's
+// directory, at the top; what is in another repository's, beneath
+// tools.External, in a directory of the workspace's name for that
+// repository, never of where the workspace holds it; and anything else,
+// its home, where it is. Where nothing moves, as for every action of a
+// checkout built on its own, what was handed is returned as it is. Two
+// places of the workspace that would sit at one place in the root are
+// refused, naming both: neither is dropped for the other.
+func placed(tree source.Tree, repository string, left map[string]exec.Held) (map[string]exec.Held, error) {
+	if len(left) == 0 || (len(tree.Paths) == 1 && tree.Paths[repository] == own) {
+		return left, nil
+	}
+	out := make(map[string]exec.Held, len(left))
+	for at, held := range left {
+		in := place(tree, repository, at)
+		if _, there := out[in]; there {
+			return nil, collided(tree, repository, left, at, in)
+		}
+		out[in] = held
+	}
+	return out, nil
+}
+
+// collided says which two places of the workspace an action of a
+// repository would be handed at one place of its root (placed), the
+// first of them first.
+func collided(tree source.Tree, repository string, left map[string]exec.Held, at, in string) error {
+	first, second := at, at
+	for other := range left {
+		if other != at && place(tree, repository, other) == in {
+			first, second = min(other, at), max(other, at)
+		}
+	}
+	return fmt.Errorf("it is handed %s and %s of the workspace, which would both be at %s in its root", first, second, in)
+}
+
+// place returns where a place of the workspace sits in the root of an
+// action of a repository (placed): in the one repository's directory
+// that holds it. No repository's directory is within another's: a
+// snapshot of such a workspace is refused (source.Keeper.Take), so a
+// place is never in two.
+func place(tree source.Tree, repository, at string) string {
+	// Its home is no repository's, even where one is at the top of the
+	// workspace.
+	if at == tools.Home || strings.HasPrefix(at, tools.Home+"/") {
+		return at
+	}
+	for name, folder := range tree.Paths {
+		var within string
+		switch {
+		case folder == own || folder == "":
+			within = at
+		case at == folder:
+			within = own
+		case strings.HasPrefix(at, folder) && at[len(folder)] == '/':
+			within = at[len(folder)+1:]
+		default:
+			continue
+		}
+		if name == repository {
+			return within
+		}
+		return path.Join(tools.External, name, within)
+	}
+	return at
 }
 
 // taken says whether something of the action's own already stands where
@@ -449,8 +535,9 @@ func above(project, file string) bool {
 }
 
 // Left returns what an action that passed left, of what the grid says it
-// left: each thing by where it sits in the workspace, which is where an
-// action that needs it finds it. It also returns the first output the
+// left: each thing by where it sits in the workspace, which an action
+// that needs it is handed it by (placed puts it where that action finds
+// it, in its own root). It also returns the first output the
 // action says it writes and did not leave, as the action wrote it; an
 // action that passed leaves what it says it writes, or whatever needs it
 // would run without it. An output it says it may not leave is not
@@ -458,10 +545,13 @@ func above(project, file string) bool {
 func Left(tree source.Tree, action plan.Action, outputs map[string]exec.Held) (left map[string]exec.Held, missing string, err error) {
 	left = map[string]exec.Held{}
 	for _, output := range action.Declared.GetOutputs() {
-		at, asked, err := Sits(tree.Paths[action.Repository], action.ProjectRoot, action.Declared.GetCommand().GetDirectory(), output.GetPath())
+		// Asked of the grid from where it ran, its repository at the top
+		// of its root; kept by where it sits in the workspace.
+		_, asked, err := Sits(own, action.ProjectRoot, action.Declared.GetCommand().GetDirectory(), output.GetPath())
 		if err != nil {
 			return nil, "", err
 		}
+		at := Place(tree.Paths[action.Repository], action.ProjectRoot, output.GetPath())
 		held, there := outputs[asked]
 		switch {
 		case there:
@@ -474,8 +564,9 @@ func Left(tree source.Tree, action plan.Action, outputs map[string]exec.Held) (l
 }
 
 // Sits returns where an output of an action sits in the action's root,
-// given the action's repository as the workspace names it, its
-// project's directory and the directory beneath that its command runs
+// given where its repository is there (own, the top, for every action
+// of the grid; its directory in the workspace for whoever keeps it by
+// where it is there), its project's directory and the directory beneath that its command runs
 // in, empty for the project's own; and how it is asked of the grid:
 // relative to where the command runs. An output is in the action's
 // project, or, written "~/…", in its home. It is where an action that

@@ -2,12 +2,11 @@ package stage
 
 import (
 	"encoding/json"
-	"github.com/frontseat-dev/frontseat/build/engine/engine/source"
-	"github.com/frontseat-dev/frontseat/testsupport/testfiles"
 	"strings"
 	"testing"
 
 	"github.com/frontseat-dev/frontseat/build/engine/engine/plan"
+	"github.com/frontseat-dev/frontseat/build/engine/engine/source"
 	"github.com/frontseat-dev/frontseat/build/engine/engine/source/sourcetest"
 	pluginv1 "github.com/frontseat-dev/frontseat/build/engine/pluginapi/frontseat/plugin/v1alpha1"
 	"github.com/frontseat-dev/frontseat/common/confine"
@@ -51,19 +50,23 @@ func TestATestIsToldWhereItsRepositoryIs(t *testing.T) {
 }
 
 // In a workspace of several repositories, a test is told where its own
-// repository is in its root, which is not the root's top: the control is
-// one of the workspace's first repository, told the top.
+// repository is in its root: at the top, as every action's own
+// repository is, whichever directory of the workspace holds it, so
+// from its project's directory and from nothing of the workspace's.
+// Each project is at a depth of its own in its repository, and is told
+// that depth, not the depth of the directory the workspace holds it in.
 func TestATestOfAnotherRepositoryIsToldWhereThatRepositoryIs(t *testing.T) {
-	root := t.TempDir()
-	testfiles.Tree(t, root, map[string]string{"go.mod": "module m\n", "repos/other/lib/lib.go": "package lib\n"})
-	snapshot, err := new(source.Keeper).Take(t.Context(), source.Tree{Root: root, Paths: map[string]string{"": ".", "other": "repos/other"}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	for repository, want := range map[string]string{"other": "..", "": ".."} {
-		action := plan.Action{Repository: repository, ProjectRoot: "lib", Declared: &pluginv1.Action{Kind: &pluginv1.Action_Test{Test: &pluginv1.Test{}}, Command: &pluginv1.Command{Arguments: []string{"true"}}}}
-		if told, _ := toldOf(t, snapshot, action); told != want {
-			t.Errorf("a test of lib in the repository %q is told %q, want %q", repository, told, want)
+	snapshot := sourcetest.Workspace(t, map[string]string{"app": "app", "other": "repos/other"}, map[string]string{
+		"app/go.mod": "module app\n", "repos/other/lib/lib.go": "package lib\n", "repos/other/lib/inner/inner.go": "package inner\n",
+	})
+	for _, c := range []struct{ repository, project, want string }{
+		{"other", "lib", ".."},
+		{"other", "lib/inner", "../.."},
+		{"app", ".", "."},
+	} {
+		action := plan.Action{Repository: c.repository, ProjectRoot: c.project, Declared: &pluginv1.Action{Kind: &pluginv1.Action_Test{Test: &pluginv1.Test{}}, Command: &pluginv1.Command{Arguments: []string{"true"}}}}
+		if told, _ := toldOf(t, snapshot, action); told != c.want {
+			t.Errorf("a test of %s in the repository %s is told %q, want %q", c.project, c.repository, told, c.want)
 		}
 	}
 }

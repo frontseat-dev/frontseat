@@ -213,6 +213,18 @@ spec:
         RETRIES: "3"
 ```
 
+A test, as every action, runs with its repository at the top of its
+root, as in a checkout of its own, whichever directory a workspace
+holds the repository in: `FRONTSEAT_TEST_SRCDIR` is that top, from the
+directory the test runs in. An action is so the same action whether a
+workspace or a checkout of the same commit builds it, and is answered
+from what the grid kept. What an action of another repository of the
+workspace left, which it reads whole or which builds a service of its
+test, is beneath `.frontseat/external/<name>`, by the workspace's name
+for that repository. The files of another repository's project it is
+handed, and an artifact or a generated source given to it, are in its
+own project, where its tool looks for them.
+
 ### `generated`
 
 A generator writes into a directory outside its own project only where

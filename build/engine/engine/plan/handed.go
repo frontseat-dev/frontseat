@@ -37,7 +37,7 @@ func CheckHanded(action Action) error {
 
 // Shadows is the mistake of an action that is handed something at a
 // place where a file of the repository it reads is, or is within: two
-// sources of one path. The place is as the action's root names it.
+// sources of one path. The place is as the workspace names it.
 func Shadows(action Action, at string) error {
 	return &model.Mistake{Message: fmt.Sprintf("%s is handed %s, which is also a file of the repository it reads", action.Label, at)}
 }

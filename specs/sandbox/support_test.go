@@ -733,7 +733,7 @@ func (w *Workspace) build(how ...asking) *Build {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	request := askedFor(how)
-	started, err := w.here().Build(ctx, frontseat.BuildRequest{Targets: request.GetTargets(), Only: request.GetOnly(), Profile: request.GetProfile(), Fix: request.GetFix()})
+	started, err := w.here().Build(ctx, frontseat.BuildRequest{Targets: request.GetTargets(), Only: request.GetOnly(), Profile: request.GetProfile(), Fix: request.GetFix(), Tests: request.GetTests()})
 	w.scenario.Expect(err).NotTo(HaveOccurred())
 	ended, err := started.Wait(ctx)
 	w.scenario.Expect(err).NotTo(HaveOccurred())
@@ -912,6 +912,16 @@ func (spec *scenario) retainedPlane() string {
 		"OTEL_LOGS_EXPORTER":          "none",
 		"OTEL_BSP_SCHEDULE_DELAY":     "10",
 	}, controlplanetest.WithBackstage(spec.TB, companyCatalog))
+	known(plane)
+	return plane.URL
+}
+
+// anotherPlane starts a control plane beside the specs' own, with a
+// state and an owner of its own, over the same gateway and grid, and
+// returns its address: another person's.
+func (spec *scenario) anotherPlane() string {
+	spec.Helper()
+	plane := controlplanetest.Start(spec.TB, controlplanetest.WithBackstage(spec.TB, companyCatalog))
 	known(plane)
 	return plane.URL
 }

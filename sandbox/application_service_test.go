@@ -246,7 +246,10 @@ func buildApplication(t *testing.T) (string, string) {
 	// every proof run. Its artifact may still be reused by several instances.
 	identity := unique()
 	wrote(t, root, "app/stamp.go", "package main\nimport \"os\"\nfunc init() { os.Setenv(\"APPLICATION_BUILD\", \""+identity+"\") }\n")
-	return buildArtifact(t, root, "//app:go.compile", "../../.frontseat/home/go/bin/common", "actor"), identity
+	// The grid is asked for the output from the action's project, app,
+	// with the action's own repository at the top of its root: the home
+	// it installs into is beside the repository's projects, one level up.
+	return buildArtifact(t, root, "//app:go.compile", "../.frontseat/home/go/bin/common", "actor"), identity
 }
 
 // fixtureRoot is a new directory for a fixture repository, named "fixture":

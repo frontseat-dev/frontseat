@@ -1,8 +1,11 @@
 package source
 
 import (
+	"fmt"
+	"path"
 	"path/filepath"
 	"sort"
+	"strings"
 )
 
 // Tree is where the repositories of a workspace are: what a sandbox
@@ -25,6 +28,33 @@ func (t Tree) Repositories() []string {
 	return names
 }
 
-func (t Tree) directory(repository string) string {
+// Directory is where a repository's directory is, where the daemon runs:
+// what an action of the repository reads its files from, its own
+// repository being at the top of its root wherever the workspace holds
+// it.
+func (t Tree) Directory(repository string) string {
 	return filepath.Join(t.Root, filepath.FromSlash(t.Paths[repository]))
+}
+
+// apart refuses, by name, a tree in which one repository's directory is
+// the directory of another or within it. An action's own repository is
+// at the top of its root and another's beneath a directory of its name
+// (stage), each place of the workspace being in the directory of one
+// repository or of none: where one held another, an output of the outer
+// within the inner would be handed where its producer did not write it.
+// The daemon holds each repository in a directory of its own, by its
+// name, or one alone at the top; nesting is refused, not handled.
+func (t Tree) apart() error {
+	for outer, at := range t.Paths {
+		at = path.Clean(at)
+		for inner, in := range t.Paths {
+			if inner == outer {
+				continue
+			}
+			if in = path.Clean(in); at == "." || in == at || strings.HasPrefix(in, at+"/") {
+				return fmt.Errorf("the workspace holds the repository %q in %s, which is within %s, where it holds the repository %q: a repository's directory is within no other's", inner, in, at, outer)
+			}
+		}
+	}
+	return nil
 }

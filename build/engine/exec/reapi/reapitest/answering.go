@@ -9,6 +9,8 @@ import (
 	"testing"
 
 	repb "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
+	"github.com/frontseat-dev/frontseat/build/engine/exec"
+	"github.com/frontseat-dev/frontseat/build/engine/exec/reapi"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -111,4 +113,21 @@ func (a *Answering) Serve(t testing.TB) string {
 	go func() { defer close(done); _ = server.Serve(listener) }()
 	t.Cleanup(func() { server.Stop(); <-done })
 	return listener.Addr().String()
+}
+
+// Key is the key the grid knows an action by, said without asking the
+// grid anything: a grid of the test's own answers only what a client
+// asks it as it connects.
+func Key(t testing.TB, action exec.Action) string {
+	t.Helper()
+	grid, err := reapi.Dial(t.Context(), reapi.Config{Address: (&Answering{}).Serve(t)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { grid.Close() })
+	key, err := grid.Key(t.Context(), action)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return key
 }

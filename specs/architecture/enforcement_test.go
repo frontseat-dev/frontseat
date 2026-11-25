@@ -80,6 +80,10 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		// of the daemon's own; no program links what a test reaches it by.
 		{"sandbox/testsupport/testbuild/testbuild.go", "sdk/go", true},
 		{"sandbox/testsupport/testbuild/testbuild.go", "core/ports", true},
+		// What a build says of its actions is read as the API says it,
+		// and never from the engine that ran them.
+		{"sandbox/testsupport/testbuild/results.go", "sdk/go/api/frontseat/build/v1alpha1", true},
+		{"sandbox/testsupport/testbuild/results.go", "build/engine/exec", false},
 		{"sandbox/testsupport/testbuild/testbuild.go", "build/daemon/life", false},
 		{"cli/internal/machine/builder.go", "sandbox/testsupport/testbuild", false},
 		{"workspace/server/controlplane/controlplane.go", "sandbox/testsupport/testbuild", false},
@@ -478,6 +482,10 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		{"build/engine/exec/tools/tools.go", "build/engine/exec/tools/toolstest", false},
 		{"build/daemon/build/runs.go", "build/engine/exec/tools/toolstest", false},
 		{"workspace/box/source/service_test.go", "build/engine/exec/tools/toolstest", false},
+		// The test grid says an action's key, of the action as the build
+		// stages it, and knows nothing of what stages it.
+		{"build/engine/exec/reapi/reapitest/answering.go", "build/engine/exec", true},
+		{"build/engine/exec/reapi/reapitest/answering.go", "build/engine/exec/stage", false},
 		{"build/engine/exec/schedule/schedule_test.go", "build/engine/engine/plan/plantest", true},
 		{"build/engine/engine/plan/needs_test.go", "build/engine/engine/plan/plantest", true},
 		{"build/engine/exec/schedule/schedule.go", "build/engine/engine/plan/plantest", false},
