@@ -6,7 +6,7 @@ require github.com/frontseat-dev/frontseat/grid v0.0.0
 
 require (
 	connectrpc.com/connect/v2 v2.0.2 // indirect
-	github.com/ai-openshell/sdk-go v0.1.9 // indirect
+	github.com/ai-openshell/sdk-go v0.1.10 // indirect
 	github.com/buildbarn/bb-remote-execution v0.0.0-20261008101024-582d07ff2acc // indirect
 	github.com/coder/websocket v1.8.15 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
@@ -19,7 +19,7 @@ require (
 	github.com/google/renameio/v2 v2.0.2 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	golang.org/x/net v0.60.0 // indirect
-	golang.org/x/oauth2 v0.37.0 // indirect
+	golang.org/x/oauth2 v0.38.0 // indirect
 	golang.org/x/sync v0.25.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
