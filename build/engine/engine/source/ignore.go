@@ -1,6 +1,8 @@
 package source
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -45,30 +47,32 @@ type line struct {
 
 // readIgnores reads a repository's ignore file through the repository's
 // root, so that one that is a link to a file outside is refused, as
-// every path that leaves the repository is.
-func readIgnores(root *os.Root) (ignores, error) {
-	file, err := root.Open(IgnoreFile)
+// every path that leaves the repository is, and says what it held and
+// how it looked when it was opened, for whoever waits for what a run
+// read to change (Snapshot.Looks); nothing where there is none. It is
+// opened as every file a run reads is (opened): a pipe is no file, and
+// is not waited on.
+func readIgnores(root *os.Root) (ignores, *kept, error) {
+	file, info, err := opened(root, IgnoreFile)
 	if errors.Is(err, fs.ErrNotExist) {
-		return ignores{}, nil
+		return ignores{}, nil, nil
 	}
 	if err != nil {
-		return ignores{}, fmt.Errorf("%s: %w", IgnoreFile, err)
+		return ignores{}, nil, fmt.Errorf("%s: %w", IgnoreFile, err)
 	}
 	defer file.Close()
-	info, err := file.Stat()
-	if err != nil {
-		return ignores{}, fmt.Errorf("%s: %w", IgnoreFile, err)
-	}
 	if !info.Mode().IsRegular() {
-		return ignores{}, fmt.Errorf("%s is not a file", IgnoreFile)
+		return ignores{}, nil, fmt.Errorf("%s is not a file", IgnoreFile)
 	}
 	content, err := io.ReadAll(io.LimitReader(file, ignoreLimit+1))
 	if err != nil {
-		return ignores{}, fmt.Errorf("%s: %w", IgnoreFile, err)
+		return ignores{}, nil, fmt.Errorf("%s: %w", IgnoreFile, err)
 	}
 	if len(content) > ignoreLimit {
-		return ignores{}, fmt.Errorf("%s holds more than %d bytes", IgnoreFile, ignoreLimit)
+		return ignores{}, nil, fmt.Errorf("%s holds more than %d bytes", IgnoreFile, ignoreLimit)
 	}
+	sum := sha256.Sum256(content)
+	read := &kept{looked: look(info), held: held{hash: hex.EncodeToString(sum[:]), size: int64(len(content)), executable: info.Mode()&0o100 != 0}}
 	// A blank line and a comment say nothing, as in git; every other
 	// line is a pattern, relative to the repository's root.
 	var lines []line
@@ -83,7 +87,7 @@ func readIgnores(root *os.Root) (ignores, error) {
 			byName:  !strings.Contains(strings.TrimSuffix(named, "/"), "/"),
 		})
 	}
-	return ignores{lines: lines}, nil
+	return ignores{lines: lines}, read, nil
 }
 
 // ignored reports whether the ignore file names a path of the
@@ -128,7 +132,7 @@ func Seen(directory string, paths []string) ([]string, error) {
 		return nil, err
 	}
 	defer root.Close()
-	ignore, err := readIgnores(root)
+	ignore, _, err := readIgnores(root)
 	if err != nil {
 		return nil, err
 	}

@@ -9,7 +9,8 @@
 // ended, and it keeps them when it is started again: a build that was
 // under way when its daemon stopped has ended in error. A build the
 // daemon no longer keeps is not listed, and a call that names it is
-// refused NOT_FOUND (BUILD_NOT_FOUND).
+// refused NOT_FOUND (BUILD_NOT_FOUND). What a build read, for
+// WaitSourceChanged, is kept of fewer, and of none a daemon before it made.
 //
 // What the build API's services refuse by name carries ErrorInfo of the
 // domain build.frontseat.dev, with the reason each call names.
@@ -59,6 +60,9 @@ const (
 	// BuildServiceStreamBuildLogsProcedure is the procedure name of the BuildService's StreamBuildLogs
 	// RPC.
 	BuildServiceStreamBuildLogsProcedure = "/frontseat.build.v1alpha1.BuildService/StreamBuildLogs"
+	// BuildServiceWaitSourceChangedProcedure is the procedure name of the BuildService's
+	// WaitSourceChanged RPC.
+	BuildServiceWaitSourceChangedProcedure = "/frontseat.build.v1alpha1.BuildService/WaitSourceChanged"
 )
 
 var (
@@ -122,6 +126,14 @@ var (
 			StreamType:       connect.StreamTypeServer,
 			Schema:           v1alpha1.File_frontseat_build_v1alpha1_build_proto.Services().ByName("BuildService").Methods().ByName("StreamBuildLogs"),
 			Procedure:        BuildServiceStreamBuildLogsProcedure,
+			IdempotencyLevel: connect.IdempotencyNoSideEffects,
+		}
+	})
+	buildServiceWaitSourceChangedSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType:       connect.StreamTypeUnary,
+			Schema:           v1alpha1.File_frontseat_build_v1alpha1_build_proto.Services().ByName("BuildService").Methods().ByName("WaitSourceChanged"),
+			Procedure:        BuildServiceWaitSourceChangedProcedure,
 			IdempotencyLevel: connect.IdempotencyNoSideEffects,
 		}
 	})
@@ -220,6 +232,55 @@ type BuildServiceClient interface {
 	// - INTERNAL: what the action printed could not be read to its end.
 	//   No reason is given.
 	StreamBuildLogs(context.Context, *v1alpha1.StreamBuildLogsRequest) (BuildServiceStreamBuildLogsClientStream, error)
+	// WaitSourceChanged returns once anything a build listed or read looks
+	// otherwise than the build held it to, and has settled, and says what:
+	// what `frontseat build --watch` builds again for. It waits for the
+	// build to end first. What is looked at is every file the build's
+	// listing took (a file made in a directory it listed, or removed, is
+	// named; one the repository ignores is not), each link the listing
+	// followed, every file the build read by name that no listing takes
+	// (one beneath a directory whose name begins with a dot, a plugin's
+	// .cargo/config.toml), whether it was there or not and whether or not
+	// the build could read it (one it could not look at, or that was no
+	// file, has changed once it is anything else), each repository's
+	// .frontseatignore, listed or not, the workspace's manifest and the
+	// files the daemon is made of (its settings, the plugins and
+	// authorities they name, and its own program). A build that could not
+	// list its repositories is held to what could be listed of them when
+	// it failed, less the repository that failed it. A file looks
+	// otherwise where its size, its times, when anything of it last
+	// changed, which file of the disk it is or its mode are not what they
+	// were; nothing of it is read, but a file whose content the build read
+	// before it had settled (a write the same moment would look the same):
+	// once it has settled it is read again, and has changed where it holds
+	// otherwise than the build read, or is no longer a file. The files of
+	// the daemon, and the manifest, are looked at before they are read,
+	// and read then where they had not settled, likewise. A file said to
+	// have changed at a time still to come never settles: it keeps nothing
+	// else from being answered, and is read again whenever the rest has
+	// settled.
+	//
+	// Settled is two looks running that are the same, every file in them
+	// written or changed longer ago than the moment their times are told
+	// in: a save or a checkout still writing is waited out. The daemon
+	// looks four times a second, and never for more than a tenth of the
+	// time. The call waits for as long as its caller does; a daemon that
+	// ends while it waits ends the call, which fails, and whoever waited
+	// asks the daemon there is then. Waiting keeps a daemon from ending
+	// itself for having nothing to do, and does not keep another command
+	// from replacing it.
+	//
+	// The daemon keeps what a build read for every build that has not
+	// ended, and for the four newest that have; a daemon started again
+	// keeps it of none.
+	//
+	// ### Errors
+	// - NOT_FOUND: no build has that id (BUILD_NOT_FOUND).
+	// - FAILED_PRECONDITION: the daemon no longer keeps what the build
+	//   read, or never did, the build being one a daemon before it made
+	//   (BUILD_SOURCE_NOT_KEPT): a build made now reads the files as they
+	//   are.
+	WaitSourceChanged(context.Context, *v1alpha1.WaitSourceChangedRequest) (*v1alpha1.WaitSourceChangedResponse, error)
 }
 
 // NewBuildServiceClient constructs a client for the frontseat.build.v1alpha1.BuildService service.
@@ -363,6 +424,55 @@ type BuildServiceHandler interface {
 	// - INTERNAL: what the action printed could not be read to its end.
 	//   No reason is given.
 	StreamBuildLogs(context.Context, *v1alpha1.StreamBuildLogsRequest, BuildServiceStreamBuildLogsServerStream) error
+	// WaitSourceChanged returns once anything a build listed or read looks
+	// otherwise than the build held it to, and has settled, and says what:
+	// what `frontseat build --watch` builds again for. It waits for the
+	// build to end first. What is looked at is every file the build's
+	// listing took (a file made in a directory it listed, or removed, is
+	// named; one the repository ignores is not), each link the listing
+	// followed, every file the build read by name that no listing takes
+	// (one beneath a directory whose name begins with a dot, a plugin's
+	// .cargo/config.toml), whether it was there or not and whether or not
+	// the build could read it (one it could not look at, or that was no
+	// file, has changed once it is anything else), each repository's
+	// .frontseatignore, listed or not, the workspace's manifest and the
+	// files the daemon is made of (its settings, the plugins and
+	// authorities they name, and its own program). A build that could not
+	// list its repositories is held to what could be listed of them when
+	// it failed, less the repository that failed it. A file looks
+	// otherwise where its size, its times, when anything of it last
+	// changed, which file of the disk it is or its mode are not what they
+	// were; nothing of it is read, but a file whose content the build read
+	// before it had settled (a write the same moment would look the same):
+	// once it has settled it is read again, and has changed where it holds
+	// otherwise than the build read, or is no longer a file. The files of
+	// the daemon, and the manifest, are looked at before they are read,
+	// and read then where they had not settled, likewise. A file said to
+	// have changed at a time still to come never settles: it keeps nothing
+	// else from being answered, and is read again whenever the rest has
+	// settled.
+	//
+	// Settled is two looks running that are the same, every file in them
+	// written or changed longer ago than the moment their times are told
+	// in: a save or a checkout still writing is waited out. The daemon
+	// looks four times a second, and never for more than a tenth of the
+	// time. The call waits for as long as its caller does; a daemon that
+	// ends while it waits ends the call, which fails, and whoever waited
+	// asks the daemon there is then. Waiting keeps a daemon from ending
+	// itself for having nothing to do, and does not keep another command
+	// from replacing it.
+	//
+	// The daemon keeps what a build read for every build that has not
+	// ended, and for the four newest that have; a daemon started again
+	// keeps it of none.
+	//
+	// ### Errors
+	// - NOT_FOUND: no build has that id (BUILD_NOT_FOUND).
+	// - FAILED_PRECONDITION: the daemon no longer keeps what the build
+	//   read, or never did, the build being one a daemon before it made
+	//   (BUILD_SOURCE_NOT_KEPT): a build made now reads the files as they
+	//   are.
+	WaitSourceChanged(context.Context, *v1alpha1.WaitSourceChangedRequest) (*v1alpha1.WaitSourceChangedResponse, error)
 }
 
 // RegisterBuildServiceHandler registers svc as the frontseat.build.v1alpha1.BuildService
@@ -378,6 +488,7 @@ func RegisterBuildServiceHandler(server *connect.Server, svc BuildServiceHandler
 		connect.Method{Spec: buildServiceStreamBuildEventsSpec(), Handler: adapter.streamBuildEvents},
 		connect.Method{Spec: buildServiceListBuildActionsSpec(), Handler: adapter.listBuildActions},
 		connect.Method{Spec: buildServiceStreamBuildLogsSpec(), Handler: adapter.streamBuildLogs},
+		connect.Method{Spec: buildServiceWaitSourceChangedSpec(), Handler: adapter.waitSourceChanged},
 	)
 }
 
@@ -448,6 +559,10 @@ func (UnimplementedBuildServiceHandler) StreamBuildLogs(context.Context, *v1alph
 	return connect.NewError(connect.CodeUnimplemented, "frontseat.build.v1alpha1.BuildService.StreamBuildLogs is not implemented")
 }
 
+func (UnimplementedBuildServiceHandler) WaitSourceChanged(context.Context, *v1alpha1.WaitSourceChangedRequest) (*v1alpha1.WaitSourceChangedResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "frontseat.build.v1alpha1.BuildService.WaitSourceChanged is not implemented")
+}
+
 type buildServiceClient struct {
 	client *connect.Client
 }
@@ -514,6 +629,14 @@ func (c *buildServiceClient) StreamBuildLogs(ctx context.Context, req *v1alpha1.
 		return BuildServiceStreamBuildLogsClientStream{}, err
 	}
 	return BuildServiceStreamBuildLogsClientStream{stream: stream}, nil
+}
+
+func (c *buildServiceClient) WaitSourceChanged(ctx context.Context, req *v1alpha1.WaitSourceChangedRequest) (*v1alpha1.WaitSourceChangedResponse, error) {
+	var res v1alpha1.WaitSourceChangedResponse
+	if err := c.client.CallUnary(ctx, buildServiceWaitSourceChangedSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
 }
 
 type buildServiceHandler struct{ svc BuildServiceHandler }
@@ -604,4 +727,16 @@ func (h buildServiceHandler) streamBuildLogs(ctx context.Context, _ connect.Spec
 		return err
 	}
 	return h.svc.StreamBuildLogs(ctx, &req, BuildServiceStreamBuildLogsServerStream{stream: stream})
+}
+
+func (h buildServiceHandler) waitSourceChanged(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1alpha1.WaitSourceChangedRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.WaitSourceChanged(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
 }

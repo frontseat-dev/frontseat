@@ -207,6 +207,9 @@ var policies = []policy{
 	{"build/engine/pluginhost/pluginhosttest", []string{"sdk/go/api/**", "build/engine/pluginapi/**", "build/engine/pattern"}},
 	{"build/engine/engine/catalog/catalogtest", []string{}},
 	{"build/engine/engine/source/sourcetest", []string{"build/engine/engine/source"}},
+	// A daemon's life asked, for a test, as the command line asks it: with
+	// the daemon's token, presented to the daemon alone (bearer).
+	{"build/daemon/life/lifetest", []string{"sdk/go/bearer"}},
 	{"build/engine/exec/reapi/reapitest", []string{"build/engine/exec", "build/engine/exec/reapi"}},
 	{"build/engine/engine/plan/plantest", []string{"build/engine/engine/plan", "build/engine/model"}},
 	{"build/engine/exec/stage", []string{"core/telemetry", "build/engine/exec", "build/engine/exec/download", "build/engine/exec/tools", "build/engine/engine/plan", "build/engine/engine/source", "sdk/go/api/**", "build/engine/pluginapi/**", "common/confine", "core/image", "common/runner/testservice", "common/runner/runnerapi/**"}},
@@ -275,9 +278,9 @@ var policies = []policy{
 	// A build daemon's life, for a directory: the build it serves, what
 	// it is told, and where a workspace's manifest is. Nothing of a box,
 	// a sandbox or a control plane, so that the command line may link it.
-	// It says how what a build of the directory is made from looks, by
-	// the engine's own look at its own listing, for the command that
-	// builds again when that changed.
+	// It looks at what the daemon is made of before it reads it, by the
+	// engine's own look, for whoever waits for what a build read to
+	// change.
 	{"build/daemon/life", []string{"build/daemon/build", "build/daemon/settings", "build/engine/engine/source", "common/record/manifest", "common/vcs/chosen", "core/httpserver", "core/telemetry"}},
 	// The local stack's control plane: the control plane, told what the
 	// stack is by the stack's own package.
@@ -313,7 +316,7 @@ var policies = []policy{
 	{"specs/internal/**", []string{"specs/internal/**"}},
 }
 
-var forTests = []string{"testsupport", "stack/testsupport", "sandbox/testsupport", "workspace/server/controlplanetest", "specs", "workspace/server/toldtest", "build/engine/pluginhost/conformance", "build/engine/exec/tools/toolstest", "build/engine/engine/source/sourcetest", "build/engine/exec/reapi/reapitest", "build/engine/engine/plan/plantest", "build/engine/pluginhost/pluginhosttest", "build/engine/engine/catalog/catalogtest"}
+var forTests = []string{"testsupport", "stack/testsupport", "sandbox/testsupport", "workspace/server/controlplanetest", "specs", "workspace/server/toldtest", "build/engine/pluginhost/conformance", "build/engine/exec/tools/toolstest", "build/engine/engine/source/sourcetest", "build/daemon/life/lifetest", "build/engine/exec/reapi/reapitest", "build/engine/engine/plan/plantest", "build/engine/pluginhost/pluginhosttest", "build/engine/engine/catalog/catalogtest"}
 
 func beneath(path, root string) bool { return path == root || strings.HasPrefix(path, root+"/") }
 
@@ -436,6 +439,24 @@ func permits(file, imported string) bool {
 	// A test is given a repository of the files it names, as a run sees
 	// it, as sourcetest gives it, and the test grid as reapitest dials it.
 	if test && ofTheBuild(dir) && (path == "build/engine/engine/source/sourcetest" || path == "build/engine/exec/reapi/reapitest") {
+		return true
+	}
+	// The test of a build daemon's life over the build daemon itself
+	// composes them as the daemon's program does (life.Serve), in a
+	// package of its own, the life importing the build: no part of the
+	// build imports the life.
+	if test && dir == "build/daemon/build" && strings.HasSuffix(file, "/yields_test.go") && path == "build/daemon/life" {
+		return true
+	}
+	// A daemon's life is asked by its tests, and by that one, as the
+	// command line asks it, as lifetest asks it.
+	if test && (dir == "build/daemon/life" || dir == "build/daemon/build" && strings.HasSuffix(file, "/yields_test.go")) && path == "build/daemon/life/lifetest" {
+		return true
+	}
+	// A watch's tests are given daemons that wait for what a build read
+	// to change as a build daemon waits, by the engine's own look, as
+	// sourcetest gives it: the command line itself looks at no file.
+	if test && dir == "cli/internal/cmd" && path == "build/engine/engine/source/sourcetest" {
 		return true
 	}
 	// A test of the plan, and of what schedules it, is given the actions

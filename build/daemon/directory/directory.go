@@ -17,6 +17,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"io/fs"
+	"os"
 	"path/filepath"
 
 	"github.com/frontseat-dev/frontseat/common/record"
@@ -56,15 +59,40 @@ func (d *Directory) Root() string { return d.root }
 // given, which holds no other.
 func (d *Directory) Alone() bool { return d.alone }
 
+// Manifest is where the directory's manifest is, whether or not it is
+// there: whoever would know when a build of the directory reads
+// otherwise looks at it before a build reads it.
+func (d *Directory) Manifest() string {
+	return filepath.Join(d.root, filepath.FromSlash(manifest.File))
+}
+
 // read returns the manifest as it is now; none where the directory has
 // none, or is one repository alone. It is read each time: whatever runs
 // in the directory can write it, so nothing of how the file looks says
-// that it is the one read before.
-func (d *Directory) read() (manifest.Manifest, error) {
+// that it is the one read before. Where through is given, the file is
+// read through it, whole (Through); nil, it is read as it is.
+func (d *Directory) read(through Through) (manifest.Manifest, error) {
 	if d.alone {
 		return manifest.Manifest{}, nil
 	}
-	read, _, err := manifest.Read(d.root, d.system.Revision)
+	var raw []byte
+	whole := func(file io.Reader) (err error) {
+		raw, err = io.ReadAll(file)
+		return err
+	}
+	var err error
+	if through != nil {
+		err = through(d.Manifest(), whole)
+	} else {
+		raw, err = os.ReadFile(d.Manifest())
+	}
+	if errors.Is(err, fs.ErrNotExist) {
+		return manifest.Manifest{}, nil
+	}
+	if err != nil {
+		return manifest.Manifest{}, unread{err}
+	}
+	read, err := manifest.Parse(raw, d.system.Revision)
 	if err != nil {
 		return manifest.Manifest{}, unread{err}
 	}
@@ -100,8 +128,18 @@ type Held struct {
 // alone, which has no name. A manifest that cannot be read is an error,
 // and never a directory that holds nothing; the error repeats nothing
 // the manifest said.
-func (d *Directory) Holds() (Held, error) {
-	read, err := d.read()
+func (d *Directory) Holds() (Held, error) { return d.HoldsAsRead(nil) }
+
+// Through is a way to read a file whole, by its path, through read,
+// which is given what it holds: whoever would know when a build of the
+// directory reads otherwise reads the manifest through what holds it to
+// the very bytes the build used (source.Looks.Read).
+type Through func(file string, read func(io.Reader) error) error
+
+// HoldsAsRead is Holds, the manifest read through through, whatever it
+// says; nil, it is read as it is.
+func (d *Directory) HoldsAsRead(through Through) (Held, error) {
+	read, err := d.read(through)
 	if err != nil {
 		return Held{}, err
 	}
@@ -130,7 +168,7 @@ func (d *Directory) repository(name string) (directory, remote string, err error
 		}
 		return d.root, "", nil
 	}
-	held, err := d.read()
+	held, err := d.read(nil)
 	if err != nil {
 		return "", "", err
 	}

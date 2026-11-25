@@ -32,29 +32,39 @@ func Read(dir string, revision func(name string) error) (Manifest, bool, error) 
 	if err != nil {
 		return Manifest{}, false, err
 	}
+	m, err := Parse(raw, revision)
+	if err != nil {
+		return Manifest{}, false, err
+	}
+	return m, true, nil
+}
+
+// Parse reads a manifest from its file's bytes, as Read does: for
+// whoever must know the very bytes it was read from.
+func Parse(raw []byte, revision func(name string) error) (Manifest, error) {
 	// Read strictly: a key this reader does not know was written by
 	// something else, and the file is not read in part.
 	var m Manifest
 	strict := yaml.NewDecoder(bytes.NewReader(raw))
 	strict.KnownFields(true)
 	if err := strict.Decode(&m); errors.Is(err, io.EOF) {
-		return Manifest{}, false, errors.New("it is empty")
+		return Manifest{}, errors.New("it is empty")
 	} else if err != nil {
-		return Manifest{}, false, err
+		return Manifest{}, err
 	}
 	// One document is written: a second is what another writer meant
 	// something by, which this reader would pass over.
 	var more yaml.Node
 	if err := strict.Decode(&more); !errors.Is(err, io.EOF) {
-		return Manifest{}, false, errors.New("it holds more than one document, and one is written")
+		return Manifest{}, errors.New("it holds more than one document, and one is written")
 	}
 	if m.Version != version {
-		return Manifest{}, false, fmt.Errorf("it says version %d, and version %d is the one read", m.Version, version)
+		return Manifest{}, fmt.Errorf("it says version %d, and version %d is the one read", m.Version, version)
 	}
 	if err := m.Within(revision); err != nil {
-		return Manifest{}, false, err
+		return Manifest{}, err
 	}
-	return m, true, nil
+	return m, nil
 }
 
 // Settle removes what a write that was never finished left beside the

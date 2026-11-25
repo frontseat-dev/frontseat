@@ -9,7 +9,8 @@
 // ended, and it keeps them when it is started again: a build that was
 // under way when its daemon stopped has ended in error. A build the
 // daemon no longer keeps is not listed, and a call that names it is
-// refused NOT_FOUND (BUILD_NOT_FOUND).
+// refused NOT_FOUND (BUILD_NOT_FOUND). What a build read, for
+// WaitSourceChanged, is kept of fewer, and of none a daemon before it made.
 //
 // What the build API's services refuse by name carries ErrorInfo of the
 // domain build.frontseat.dev, with the reason each call names.
@@ -136,6 +137,58 @@ service BuildService {
   // - INTERNAL: what the action printed could not be read to its end.
   //   No reason is given.
   rpc StreamBuildLogs(StreamBuildLogsRequest) returns (stream StreamBuildLogsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // WaitSourceChanged returns once anything a build listed or read looks
+  // otherwise than the build held it to, and has settled, and says what:
+  // what `frontseat build --watch` builds again for. It waits for the
+  // build to end first. What is looked at is every file the build's
+  // listing took (a file made in a directory it listed, or removed, is
+  // named; one the repository ignores is not), each link the listing
+  // followed, every file the build read by name that no listing takes
+  // (one beneath a directory whose name begins with a dot, a plugin's
+  // .cargo/config.toml), whether it was there or not and whether or not
+  // the build could read it (one it could not look at, or that was no
+  // file, has changed once it is anything else), each repository's
+  // .frontseatignore, listed or not, the workspace's manifest and the
+  // files the daemon is made of (its settings, the plugins and
+  // authorities they name, and its own program). A build that could not
+  // list its repositories is held to what could be listed of them when
+  // it failed, less the repository that failed it. A file looks
+  // otherwise where its size, its times, when anything of it last
+  // changed, which file of the disk it is or its mode are not what they
+  // were; nothing of it is read, but a file whose content the build read
+  // before it had settled (a write the same moment would look the same):
+  // once it has settled it is read again, and has changed where it holds
+  // otherwise than the build read, or is no longer a file. The files of
+  // the daemon, and the manifest, are looked at before they are read,
+  // and read then where they had not settled, likewise. A file said to
+  // have changed at a time still to come never settles: it keeps nothing
+  // else from being answered, and is read again whenever the rest has
+  // settled.
+  //
+  // Settled is two looks running that are the same, every file in them
+  // written or changed longer ago than the moment their times are told
+  // in: a save or a checkout still writing is waited out. The daemon
+  // looks four times a second, and never for more than a tenth of the
+  // time. The call waits for as long as its caller does; a daemon that
+  // ends while it waits ends the call, which fails, and whoever waited
+  // asks the daemon there is then. Waiting keeps a daemon from ending
+  // itself for having nothing to do, and does not keep another command
+  // from replacing it.
+  //
+  // The daemon keeps what a build read for every build that has not
+  // ended, and for the four newest that have; a daemon started again
+  // keeps it of none.
+  //
+  // ### Errors
+  // - NOT_FOUND: no build has that id (BUILD_NOT_FOUND).
+  // - FAILED_PRECONDITION: the daemon no longer keeps what the build
+  //   read, or never did, the build being one a daemon before it made
+  //   (BUILD_SOURCE_NOT_KEPT): a build made now reads the files as they
+  //   are.
+  rpc WaitSourceChanged(WaitSourceChangedRequest) returns (WaitSourceChangedResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
 }
@@ -450,6 +503,34 @@ message StreamBuildLogsRequest {
 message StreamBuildLogsResponse {
   // Lines are the next lines, in order.
   repeated frontseat.type.v1alpha1.LogLine lines = 1;
+}
+
+// SourceChanged is what of what a build listed and read looks otherwise
+// than the build held it to (WaitSourceChanged).
+message SourceChanged {
+  // `build_id` is the build's id.
+  string build_id = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // Paths are what looks otherwise, sorted: a file of the workspace by
+  // its path from the workspace's directory, with slashes, one that is
+  // there now and was not, or was and is not, among them; a file the
+  // daemon is made of by its path where the daemon runs. A file moved is
+  // two, the name it had and the one it has. Where no file looks
+  // otherwise, the directories and links that do, a directory with a
+  // slash after it: what a file made and removed again left. Never
+  // empty.
+  repeated string paths = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+// WaitSourceChangedRequest names the build whose source is waited on.
+message WaitSourceChangedRequest {
+  // `build_id` is the build's id.
+  string build_id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+// WaitSourceChangedResponse says what changed.
+message WaitSourceChangedResponse {
+  // `source_changed` is what changed.
+  SourceChanged source_changed = 1;
 }
 
 // BuildEvent is one thing that happened in a build. A client that shows

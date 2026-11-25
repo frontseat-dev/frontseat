@@ -380,7 +380,12 @@ func held(file string, most int) ([]byte, error) {
 	if !is.Mode().IsRegular() {
 		return nil, fmt.Errorf("%s is not a file", file)
 	}
-	all, err := io.ReadAll(io.LimitReader(opened, int64(most)+1))
+	return bounded(opened, file, most)
+}
+
+// bounded is what is read of a file, where it holds no more than most.
+func bounded(r io.Reader, file string, most int) ([]byte, error) {
+	all, err := io.ReadAll(io.LimitReader(r, int64(most)+1))
 	if err != nil {
 		return nil, err
 	}
@@ -388,6 +393,14 @@ func held(file string, most int) ([]byte, error) {
 		return nil, fmt.Errorf("%s holds more than %d bytes", file, most)
 	}
 	return all, nil
+}
+
+// Authorities is what a file of the authorities the grid is known by
+// holds, read from what is open of it, file, by whoever reads it once
+// and both knows the grid by it and identifies it (Known): no more than
+// a file of authorities may hold.
+func Authorities(r io.Reader, file string) ([]byte, error) {
+	return bounded(r, file, authorities)
 }
 
 // read returns the token a file holds: what is left of it without the

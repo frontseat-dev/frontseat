@@ -29,3 +29,32 @@ func Tree(t testing.TB, root string, files map[string]string) {
 		Write(t, filepath.Join(root, filepath.FromSlash(name)), content)
 	}
 }
+
+// Again are the ways a file is written again with what it holds: in
+// place, as a touch or a copy over it does, and by a file of the same
+// bytes moved over it, as an editor or an install does. Either leaves
+// it holding what it held, and looking otherwise.
+var Again = map[string]func(t testing.TB, path string){
+	"in place": func(t testing.TB, path string) {
+		t.Helper()
+		Write(t, path, held(t, path))
+	},
+	"moved over it": func(t testing.TB, path string) {
+		t.Helper()
+		moved := path + ".new"
+		Write(t, moved, held(t, path))
+		if err := os.Rename(moved, path); err != nil {
+			t.Fatal(err)
+		}
+	},
+}
+
+// held is what a file holds.
+func held(t testing.TB, path string) string {
+	t.Helper()
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(content)
+}

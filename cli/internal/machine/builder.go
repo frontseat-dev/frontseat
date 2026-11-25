@@ -195,20 +195,6 @@ func BuildDaemon(ctx context.Context, directory string, inside bool) (Builder, e
 	}
 }
 
-// Look looks at what a build of a directory is made from, as it is now
-// (life.Look): the directory's files as a build lists them, and what
-// the daemon BuildDaemon would give for it is made of, by the settings
-// that daemon is told by, inside a workspace's sandbox or outside one.
-// A command that builds again when something changed holds one look
-// against another.
-func Look(ctx context.Context, directory string, inside bool) (*life.Seen, error) {
-	where, err := keeps(inside)
-	if err != nil {
-		return nil, err
-	}
-	return life.Look(ctx, directory, where.settings)
-}
-
 // ended is whether a daemon this command started has ended.
 func ended(child *begun) bool {
 	select {

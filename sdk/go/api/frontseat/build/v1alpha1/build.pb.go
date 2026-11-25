@@ -9,7 +9,8 @@
 // ended, and it keeps them when it is started again: a build that was
 // under way when its daemon stopped has ended in error. A build the
 // daemon no longer keeps is not listed, and a call that names it is
-// refused NOT_FOUND (BUILD_NOT_FOUND).
+// refused NOT_FOUND (BUILD_NOT_FOUND). What a build read, for
+// WaitSourceChanged, is kept of fewer, and of none a daemon before it made.
 //
 // What the build API's services refuse by name carries ErrorInfo of the
 // domain build.frontseat.dev, with the reason each call names.
@@ -1765,6 +1766,161 @@ func (x *StreamBuildLogsResponse) GetLines() []*v1alpha1.LogLine {
 	return nil
 }
 
+// SourceChanged is what of what a build listed and read looks otherwise
+// than the build held it to (WaitSourceChanged).
+type SourceChanged struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// `build_id` is the build's id.
+	BuildId string `protobuf:"bytes,1,opt,name=build_id,json=buildId,proto3" json:"build_id,omitempty"`
+	// Paths are what looks otherwise, sorted: a file of the workspace by
+	// its path from the workspace's directory, with slashes, one that is
+	// there now and was not, or was and is not, among them; a file the
+	// daemon is made of by its path where the daemon runs. A file moved is
+	// two, the name it had and the one it has. Where no file looks
+	// otherwise, the directories and links that do, a directory with a
+	// slash after it: what a file made and removed again left. Never
+	// empty.
+	Paths         []string `protobuf:"bytes,2,rep,name=paths,proto3" json:"paths,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SourceChanged) Reset() {
+	*x = SourceChanged{}
+	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SourceChanged) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SourceChanged) ProtoMessage() {}
+
+func (x *SourceChanged) ProtoReflect() protoreflect.Message {
+	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SourceChanged.ProtoReflect.Descriptor instead.
+func (*SourceChanged) Descriptor() ([]byte, []int) {
+	return file_frontseat_build_v1alpha1_build_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *SourceChanged) GetBuildId() string {
+	if x != nil {
+		return x.BuildId
+	}
+	return ""
+}
+
+func (x *SourceChanged) GetPaths() []string {
+	if x != nil {
+		return x.Paths
+	}
+	return nil
+}
+
+// WaitSourceChangedRequest names the build whose source is waited on.
+type WaitSourceChangedRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// `build_id` is the build's id.
+	BuildId       string `protobuf:"bytes,1,opt,name=build_id,json=buildId,proto3" json:"build_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WaitSourceChangedRequest) Reset() {
+	*x = WaitSourceChangedRequest{}
+	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WaitSourceChangedRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WaitSourceChangedRequest) ProtoMessage() {}
+
+func (x *WaitSourceChangedRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WaitSourceChangedRequest.ProtoReflect.Descriptor instead.
+func (*WaitSourceChangedRequest) Descriptor() ([]byte, []int) {
+	return file_frontseat_build_v1alpha1_build_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *WaitSourceChangedRequest) GetBuildId() string {
+	if x != nil {
+		return x.BuildId
+	}
+	return ""
+}
+
+// WaitSourceChangedResponse says what changed.
+type WaitSourceChangedResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// `source_changed` is what changed.
+	SourceChanged *SourceChanged `protobuf:"bytes,1,opt,name=source_changed,json=sourceChanged,proto3" json:"source_changed,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WaitSourceChangedResponse) Reset() {
+	*x = WaitSourceChangedResponse{}
+	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WaitSourceChangedResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WaitSourceChangedResponse) ProtoMessage() {}
+
+func (x *WaitSourceChangedResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WaitSourceChangedResponse.ProtoReflect.Descriptor instead.
+func (*WaitSourceChangedResponse) Descriptor() ([]byte, []int) {
+	return file_frontseat_build_v1alpha1_build_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *WaitSourceChangedResponse) GetSourceChanged() *SourceChanged {
+	if x != nil {
+		return x.SourceChanged
+	}
+	return nil
+}
+
 // BuildEvent is one thing that happened in a build. A client that shows
 // a build's progress needs these events and nothing else.
 type BuildEvent struct {
@@ -1791,7 +1947,7 @@ type BuildEvent struct {
 
 func (x *BuildEvent) Reset() {
 	*x = BuildEvent{}
-	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[21]
+	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1803,7 +1959,7 @@ func (x *BuildEvent) String() string {
 func (*BuildEvent) ProtoMessage() {}
 
 func (x *BuildEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[21]
+	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1816,7 +1972,7 @@ func (x *BuildEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BuildEvent.ProtoReflect.Descriptor instead.
 func (*BuildEvent) Descriptor() ([]byte, []int) {
-	return file_frontseat_build_v1alpha1_build_proto_rawDescGZIP(), []int{21}
+	return file_frontseat_build_v1alpha1_build_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *BuildEvent) GetSequence() int64 {
@@ -1967,7 +2123,7 @@ type BuildEvent_StageChanged struct {
 
 func (x *BuildEvent_StageChanged) Reset() {
 	*x = BuildEvent_StageChanged{}
-	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[22]
+	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1979,7 +2135,7 @@ func (x *BuildEvent_StageChanged) String() string {
 func (*BuildEvent_StageChanged) ProtoMessage() {}
 
 func (x *BuildEvent_StageChanged) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[22]
+	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1992,7 +2148,7 @@ func (x *BuildEvent_StageChanged) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BuildEvent_StageChanged.ProtoReflect.Descriptor instead.
 func (*BuildEvent_StageChanged) Descriptor() ([]byte, []int) {
-	return file_frontseat_build_v1alpha1_build_proto_rawDescGZIP(), []int{21, 0}
+	return file_frontseat_build_v1alpha1_build_proto_rawDescGZIP(), []int{24, 0}
 }
 
 func (x *BuildEvent_StageChanged) GetStage() Build_Stage {
@@ -2016,7 +2172,7 @@ type BuildEvent_Planned struct {
 
 func (x *BuildEvent_Planned) Reset() {
 	*x = BuildEvent_Planned{}
-	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[23]
+	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2028,7 +2184,7 @@ func (x *BuildEvent_Planned) String() string {
 func (*BuildEvent_Planned) ProtoMessage() {}
 
 func (x *BuildEvent_Planned) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[23]
+	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2041,7 +2197,7 @@ func (x *BuildEvent_Planned) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BuildEvent_Planned.ProtoReflect.Descriptor instead.
 func (*BuildEvent_Planned) Descriptor() ([]byte, []int) {
-	return file_frontseat_build_v1alpha1_build_proto_rawDescGZIP(), []int{21, 1}
+	return file_frontseat_build_v1alpha1_build_proto_rawDescGZIP(), []int{24, 1}
 }
 
 func (x *BuildEvent_Planned) GetActions() []*BuildEvent_PlannedAction {
@@ -2075,7 +2231,7 @@ type BuildEvent_PlannedAction struct {
 
 func (x *BuildEvent_PlannedAction) Reset() {
 	*x = BuildEvent_PlannedAction{}
-	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[24]
+	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2087,7 +2243,7 @@ func (x *BuildEvent_PlannedAction) String() string {
 func (*BuildEvent_PlannedAction) ProtoMessage() {}
 
 func (x *BuildEvent_PlannedAction) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[24]
+	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2100,7 +2256,7 @@ func (x *BuildEvent_PlannedAction) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BuildEvent_PlannedAction.ProtoReflect.Descriptor instead.
 func (*BuildEvent_PlannedAction) Descriptor() ([]byte, []int) {
-	return file_frontseat_build_v1alpha1_build_proto_rawDescGZIP(), []int{21, 2}
+	return file_frontseat_build_v1alpha1_build_proto_rawDescGZIP(), []int{24, 2}
 }
 
 func (x *BuildEvent_PlannedAction) GetLabel() string {
@@ -2143,7 +2299,7 @@ type BuildEvent_ActionStarted struct {
 
 func (x *BuildEvent_ActionStarted) Reset() {
 	*x = BuildEvent_ActionStarted{}
-	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[25]
+	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2155,7 +2311,7 @@ func (x *BuildEvent_ActionStarted) String() string {
 func (*BuildEvent_ActionStarted) ProtoMessage() {}
 
 func (x *BuildEvent_ActionStarted) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[25]
+	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2168,7 +2324,7 @@ func (x *BuildEvent_ActionStarted) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BuildEvent_ActionStarted.ProtoReflect.Descriptor instead.
 func (*BuildEvent_ActionStarted) Descriptor() ([]byte, []int) {
-	return file_frontseat_build_v1alpha1_build_proto_rawDescGZIP(), []int{21, 3}
+	return file_frontseat_build_v1alpha1_build_proto_rawDescGZIP(), []int{24, 3}
 }
 
 func (x *BuildEvent_ActionStarted) GetLabel() string {
@@ -2189,7 +2345,7 @@ type BuildEvent_ActionFinished struct {
 
 func (x *BuildEvent_ActionFinished) Reset() {
 	*x = BuildEvent_ActionFinished{}
-	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[26]
+	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2201,7 +2357,7 @@ func (x *BuildEvent_ActionFinished) String() string {
 func (*BuildEvent_ActionFinished) ProtoMessage() {}
 
 func (x *BuildEvent_ActionFinished) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[26]
+	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2214,7 +2370,7 @@ func (x *BuildEvent_ActionFinished) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BuildEvent_ActionFinished.ProtoReflect.Descriptor instead.
 func (*BuildEvent_ActionFinished) Descriptor() ([]byte, []int) {
-	return file_frontseat_build_v1alpha1_build_proto_rawDescGZIP(), []int{21, 4}
+	return file_frontseat_build_v1alpha1_build_proto_rawDescGZIP(), []int{24, 4}
 }
 
 func (x *BuildEvent_ActionFinished) GetResult() *ActionResult {
@@ -2237,7 +2393,7 @@ type BuildEvent_Patched struct {
 
 func (x *BuildEvent_Patched) Reset() {
 	*x = BuildEvent_Patched{}
-	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[27]
+	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2249,7 +2405,7 @@ func (x *BuildEvent_Patched) String() string {
 func (*BuildEvent_Patched) ProtoMessage() {}
 
 func (x *BuildEvent_Patched) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[27]
+	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2262,7 +2418,7 @@ func (x *BuildEvent_Patched) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BuildEvent_Patched.ProtoReflect.Descriptor instead.
 func (*BuildEvent_Patched) Descriptor() ([]byte, []int) {
-	return file_frontseat_build_v1alpha1_build_proto_rawDescGZIP(), []int{21, 5}
+	return file_frontseat_build_v1alpha1_build_proto_rawDescGZIP(), []int{24, 5}
 }
 
 func (x *BuildEvent_Patched) GetRepository() string {
@@ -2298,7 +2454,7 @@ type BuildEvent_StartedOver struct {
 
 func (x *BuildEvent_StartedOver) Reset() {
 	*x = BuildEvent_StartedOver{}
-	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[28]
+	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2310,7 +2466,7 @@ func (x *BuildEvent_StartedOver) String() string {
 func (*BuildEvent_StartedOver) ProtoMessage() {}
 
 func (x *BuildEvent_StartedOver) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[28]
+	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2323,7 +2479,7 @@ func (x *BuildEvent_StartedOver) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BuildEvent_StartedOver.ProtoReflect.Descriptor instead.
 func (*BuildEvent_StartedOver) Descriptor() ([]byte, []int) {
-	return file_frontseat_build_v1alpha1_build_proto_rawDescGZIP(), []int{21, 6}
+	return file_frontseat_build_v1alpha1_build_proto_rawDescGZIP(), []int{24, 6}
 }
 
 func (x *BuildEvent_StartedOver) GetLabel() string {
@@ -2351,7 +2507,7 @@ type BuildEvent_Finished struct {
 
 func (x *BuildEvent_Finished) Reset() {
 	*x = BuildEvent_Finished{}
-	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[29]
+	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2363,7 +2519,7 @@ func (x *BuildEvent_Finished) String() string {
 func (*BuildEvent_Finished) ProtoMessage() {}
 
 func (x *BuildEvent_Finished) ProtoReflect() protoreflect.Message {
-	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[29]
+	mi := &file_frontseat_build_v1alpha1_build_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2376,7 +2532,7 @@ func (x *BuildEvent_Finished) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BuildEvent_Finished.ProtoReflect.Descriptor instead.
 func (*BuildEvent_Finished) Descriptor() ([]byte, []int) {
-	return file_frontseat_build_v1alpha1_build_proto_rawDescGZIP(), []int{21, 7}
+	return file_frontseat_build_v1alpha1_build_proto_rawDescGZIP(), []int{24, 7}
 }
 
 func (x *BuildEvent_Finished) GetBuild() *Build {
@@ -2512,7 +2668,14 @@ const file_frontseat_build_v1alpha1_build_proto_rawDesc = "" +
 	"\bbuild_id\x18\x01 \x01(\tB\x04\xe2A\x01\x02R\abuildId\x12\x1a\n" +
 	"\x05label\x18\x02 \x01(\tB\x04\xe2A\x01\x02R\x05label\"Q\n" +
 	"\x17StreamBuildLogsResponse\x126\n" +
-	"\x05lines\x18\x01 \x03(\v2 .frontseat.type.v1alpha1.LogLineR\x05lines\"\xbe\v\n" +
+	"\x05lines\x18\x01 \x03(\v2 .frontseat.type.v1alpha1.LogLineR\x05lines\"L\n" +
+	"\rSourceChanged\x12\x1f\n" +
+	"\bbuild_id\x18\x01 \x01(\tB\x04\xe2A\x01\x03R\abuildId\x12\x1a\n" +
+	"\x05paths\x18\x02 \x03(\tB\x04\xe2A\x01\x03R\x05paths\";\n" +
+	"\x18WaitSourceChangedRequest\x12\x1f\n" +
+	"\bbuild_id\x18\x01 \x01(\tB\x04\xe2A\x01\x02R\abuildId\"k\n" +
+	"\x19WaitSourceChangedResponse\x12N\n" +
+	"\x0esource_changed\x18\x01 \x01(\v2'.frontseat.build.v1alpha1.SourceChangedR\rsourceChanged\"\xbe\v\n" +
 	"\n" +
 	"BuildEvent\x12 \n" +
 	"\bsequence\x18\x01 \x01(\x03B\x04\xe2A\x01\x03R\bsequence\x124\n" +
@@ -2556,7 +2719,7 @@ const file_frontseat_build_v1alpha1_build_proto_rawDesc = "" +
 	"\x16EXIT_CODE_TESTS_FAILED\x10\x03\x12\x1c\n" +
 	"\x18EXIT_CODE_NO_TESTS_FOUND\x10\x04\x12\x19\n" +
 	"\x15EXIT_CODE_INTERRUPTED\x10\x05\x12\x1c\n" +
-	"\x18EXIT_CODE_INTERNAL_ERROR\x10\x062\xc0\a\n" +
+	"\x18EXIT_CODE_INTERNAL_ERROR\x10\x062\xc4\b\n" +
 	"\fBuildService\x12j\n" +
 	"\vCreateBuild\x12,.frontseat.build.v1alpha1.CreateBuildRequest\x1a-.frontseat.build.v1alpha1.CreateBuildResponse\x12u\n" +
 	"\rDescribeBuild\x12..frontseat.build.v1alpha1.DescribeBuildRequest\x1a/.frontseat.build.v1alpha1.DescribeBuildResponse\"\x03\x90\x02\x01\x12l\n" +
@@ -2566,7 +2729,8 @@ const file_frontseat_build_v1alpha1_build_proto_rawDesc = "" +
 	"\tWaitBuild\x12*.frontseat.build.v1alpha1.WaitBuildRequest\x1a+.frontseat.build.v1alpha1.WaitBuildResponse\"\x03\x90\x02\x01\x12\x83\x01\n" +
 	"\x11StreamBuildEvents\x122.frontseat.build.v1alpha1.StreamBuildEventsRequest\x1a3.frontseat.build.v1alpha1.StreamBuildEventsResponse\"\x03\x90\x02\x010\x01\x12~\n" +
 	"\x10ListBuildActions\x121.frontseat.build.v1alpha1.ListBuildActionsRequest\x1a2.frontseat.build.v1alpha1.ListBuildActionsResponse\"\x03\x90\x02\x01\x12}\n" +
-	"\x0fStreamBuildLogs\x120.frontseat.build.v1alpha1.StreamBuildLogsRequest\x1a1.frontseat.build.v1alpha1.StreamBuildLogsResponse\"\x03\x90\x02\x010\x01B\x82\x02\n" +
+	"\x0fStreamBuildLogs\x120.frontseat.build.v1alpha1.StreamBuildLogsRequest\x1a1.frontseat.build.v1alpha1.StreamBuildLogsResponse\"\x03\x90\x02\x010\x01\x12\x81\x01\n" +
+	"\x11WaitSourceChanged\x122.frontseat.build.v1alpha1.WaitSourceChangedRequest\x1a3.frontseat.build.v1alpha1.WaitSourceChangedResponse\"\x03\x90\x02\x01B\x82\x02\n" +
 	"\x1ccom.frontseat.build.v1alpha1B\n" +
 	"BuildProtoP\x01ZTgithub.com/frontseat-dev/frontseat/sdk/go/api/frontseat/build/v1alpha1;buildv1alpha1\xa2\x02\x03FBX\xaa\x02\x18Frontseat.Build.V1alpha1\xca\x02\x18Frontseat\\Build\\V1alpha1\xe2\x02$Frontseat\\Build\\V1alpha1\\GPBMetadata\xea\x02\x1aFrontseat::Build::V1alpha1b\x06proto3"
 
@@ -2583,7 +2747,7 @@ func file_frontseat_build_v1alpha1_build_proto_rawDescGZIP() []byte {
 }
 
 var file_frontseat_build_v1alpha1_build_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_frontseat_build_v1alpha1_build_proto_msgTypes = make([]protoimpl.MessageInfo, 30)
+var file_frontseat_build_v1alpha1_build_proto_msgTypes = make([]protoimpl.MessageInfo, 33)
 var file_frontseat_build_v1alpha1_build_proto_goTypes = []any{
 	(ExitCode)(0),                     // 0: frontseat.build.v1alpha1.ExitCode
 	(Build_State)(0),                  // 1: frontseat.build.v1alpha1.Build.State
@@ -2610,95 +2774,101 @@ var file_frontseat_build_v1alpha1_build_proto_goTypes = []any{
 	(*ListBuildActionsResponse)(nil),  // 22: frontseat.build.v1alpha1.ListBuildActionsResponse
 	(*StreamBuildLogsRequest)(nil),    // 23: frontseat.build.v1alpha1.StreamBuildLogsRequest
 	(*StreamBuildLogsResponse)(nil),   // 24: frontseat.build.v1alpha1.StreamBuildLogsResponse
-	(*BuildEvent)(nil),                // 25: frontseat.build.v1alpha1.BuildEvent
-	(*BuildEvent_StageChanged)(nil),   // 26: frontseat.build.v1alpha1.BuildEvent.StageChanged
-	(*BuildEvent_Planned)(nil),        // 27: frontseat.build.v1alpha1.BuildEvent.Planned
-	(*BuildEvent_PlannedAction)(nil),  // 28: frontseat.build.v1alpha1.BuildEvent.PlannedAction
-	(*BuildEvent_ActionStarted)(nil),  // 29: frontseat.build.v1alpha1.BuildEvent.ActionStarted
-	(*BuildEvent_ActionFinished)(nil), // 30: frontseat.build.v1alpha1.BuildEvent.ActionFinished
-	(*BuildEvent_Patched)(nil),        // 31: frontseat.build.v1alpha1.BuildEvent.Patched
-	(*BuildEvent_StartedOver)(nil),    // 32: frontseat.build.v1alpha1.BuildEvent.StartedOver
-	(*BuildEvent_Finished)(nil),       // 33: frontseat.build.v1alpha1.BuildEvent.Finished
-	(*v1alpha1.Diagnostic)(nil),       // 34: frontseat.type.v1alpha1.Diagnostic
-	(*timestamppb.Timestamp)(nil),     // 35: google.protobuf.Timestamp
-	(v1alpha1.Profile)(0),             // 36: frontseat.type.v1alpha1.Profile
-	(*durationpb.Duration)(nil),       // 37: google.protobuf.Duration
-	(*v1alpha1.EntityRef)(nil),        // 38: frontseat.type.v1alpha1.EntityRef
-	(Outcome)(0),                      // 39: frontseat.build.v1alpha1.Outcome
-	(Provenance)(0),                   // 40: frontseat.build.v1alpha1.Provenance
-	(*Digest)(nil),                    // 41: frontseat.build.v1alpha1.Digest
-	(*v1alpha1.SourceLocation)(nil),   // 42: frontseat.type.v1alpha1.SourceLocation
-	(*v1alpha1.LogLine)(nil),          // 43: frontseat.type.v1alpha1.LogLine
+	(*SourceChanged)(nil),             // 25: frontseat.build.v1alpha1.SourceChanged
+	(*WaitSourceChangedRequest)(nil),  // 26: frontseat.build.v1alpha1.WaitSourceChangedRequest
+	(*WaitSourceChangedResponse)(nil), // 27: frontseat.build.v1alpha1.WaitSourceChangedResponse
+	(*BuildEvent)(nil),                // 28: frontseat.build.v1alpha1.BuildEvent
+	(*BuildEvent_StageChanged)(nil),   // 29: frontseat.build.v1alpha1.BuildEvent.StageChanged
+	(*BuildEvent_Planned)(nil),        // 30: frontseat.build.v1alpha1.BuildEvent.Planned
+	(*BuildEvent_PlannedAction)(nil),  // 31: frontseat.build.v1alpha1.BuildEvent.PlannedAction
+	(*BuildEvent_ActionStarted)(nil),  // 32: frontseat.build.v1alpha1.BuildEvent.ActionStarted
+	(*BuildEvent_ActionFinished)(nil), // 33: frontseat.build.v1alpha1.BuildEvent.ActionFinished
+	(*BuildEvent_Patched)(nil),        // 34: frontseat.build.v1alpha1.BuildEvent.Patched
+	(*BuildEvent_StartedOver)(nil),    // 35: frontseat.build.v1alpha1.BuildEvent.StartedOver
+	(*BuildEvent_Finished)(nil),       // 36: frontseat.build.v1alpha1.BuildEvent.Finished
+	(*v1alpha1.Diagnostic)(nil),       // 37: frontseat.type.v1alpha1.Diagnostic
+	(*timestamppb.Timestamp)(nil),     // 38: google.protobuf.Timestamp
+	(v1alpha1.Profile)(0),             // 39: frontseat.type.v1alpha1.Profile
+	(*durationpb.Duration)(nil),       // 40: google.protobuf.Duration
+	(*v1alpha1.EntityRef)(nil),        // 41: frontseat.type.v1alpha1.EntityRef
+	(Outcome)(0),                      // 42: frontseat.build.v1alpha1.Outcome
+	(Provenance)(0),                   // 43: frontseat.build.v1alpha1.Provenance
+	(*Digest)(nil),                    // 44: frontseat.build.v1alpha1.Digest
+	(*v1alpha1.SourceLocation)(nil),   // 45: frontseat.type.v1alpha1.SourceLocation
+	(*v1alpha1.LogLine)(nil),          // 46: frontseat.type.v1alpha1.LogLine
 }
 var file_frontseat_build_v1alpha1_build_proto_depIdxs = []int32{
 	1,  // 0: frontseat.build.v1alpha1.Build.state:type_name -> frontseat.build.v1alpha1.Build.State
 	2,  // 1: frontseat.build.v1alpha1.Build.stage:type_name -> frontseat.build.v1alpha1.Build.Stage
 	0,  // 2: frontseat.build.v1alpha1.Build.exit_code:type_name -> frontseat.build.v1alpha1.ExitCode
-	34, // 3: frontseat.build.v1alpha1.Build.diagnostics:type_name -> frontseat.type.v1alpha1.Diagnostic
-	35, // 4: frontseat.build.v1alpha1.Build.create_time:type_name -> google.protobuf.Timestamp
-	35, // 5: frontseat.build.v1alpha1.Build.end_time:type_name -> google.protobuf.Timestamp
+	37, // 3: frontseat.build.v1alpha1.Build.diagnostics:type_name -> frontseat.type.v1alpha1.Diagnostic
+	38, // 4: frontseat.build.v1alpha1.Build.create_time:type_name -> google.protobuf.Timestamp
+	38, // 5: frontseat.build.v1alpha1.Build.end_time:type_name -> google.protobuf.Timestamp
 	5,  // 6: frontseat.build.v1alpha1.Build.counts:type_name -> frontseat.build.v1alpha1.Counts
 	6,  // 7: frontseat.build.v1alpha1.Build.cost:type_name -> frontseat.build.v1alpha1.Cost
-	36, // 8: frontseat.build.v1alpha1.Build.profile:type_name -> frontseat.type.v1alpha1.Profile
-	37, // 9: frontseat.build.v1alpha1.Cost.worker_time:type_name -> google.protobuf.Duration
-	37, // 10: frontseat.build.v1alpha1.Cost.wall_time:type_name -> google.protobuf.Duration
-	38, // 11: frontseat.build.v1alpha1.ActionResult.entity:type_name -> frontseat.type.v1alpha1.EntityRef
-	39, // 12: frontseat.build.v1alpha1.ActionResult.outcome:type_name -> frontseat.build.v1alpha1.Outcome
-	40, // 13: frontseat.build.v1alpha1.ActionResult.provenance:type_name -> frontseat.build.v1alpha1.Provenance
-	41, // 14: frontseat.build.v1alpha1.ActionResult.action_digest:type_name -> frontseat.build.v1alpha1.Digest
-	35, // 15: frontseat.build.v1alpha1.ActionResult.start_time:type_name -> google.protobuf.Timestamp
-	37, // 16: frontseat.build.v1alpha1.ActionResult.duration:type_name -> google.protobuf.Duration
-	37, // 17: frontseat.build.v1alpha1.ActionResult.worker_time:type_name -> google.protobuf.Duration
-	41, // 18: frontseat.build.v1alpha1.ActionResult.stdout:type_name -> frontseat.build.v1alpha1.Digest
-	41, // 19: frontseat.build.v1alpha1.ActionResult.stderr:type_name -> frontseat.build.v1alpha1.Digest
-	34, // 20: frontseat.build.v1alpha1.ActionResult.diagnostics:type_name -> frontseat.type.v1alpha1.Diagnostic
+	39, // 8: frontseat.build.v1alpha1.Build.profile:type_name -> frontseat.type.v1alpha1.Profile
+	40, // 9: frontseat.build.v1alpha1.Cost.worker_time:type_name -> google.protobuf.Duration
+	40, // 10: frontseat.build.v1alpha1.Cost.wall_time:type_name -> google.protobuf.Duration
+	41, // 11: frontseat.build.v1alpha1.ActionResult.entity:type_name -> frontseat.type.v1alpha1.EntityRef
+	42, // 12: frontseat.build.v1alpha1.ActionResult.outcome:type_name -> frontseat.build.v1alpha1.Outcome
+	43, // 13: frontseat.build.v1alpha1.ActionResult.provenance:type_name -> frontseat.build.v1alpha1.Provenance
+	44, // 14: frontseat.build.v1alpha1.ActionResult.action_digest:type_name -> frontseat.build.v1alpha1.Digest
+	38, // 15: frontseat.build.v1alpha1.ActionResult.start_time:type_name -> google.protobuf.Timestamp
+	40, // 16: frontseat.build.v1alpha1.ActionResult.duration:type_name -> google.protobuf.Duration
+	40, // 17: frontseat.build.v1alpha1.ActionResult.worker_time:type_name -> google.protobuf.Duration
+	44, // 18: frontseat.build.v1alpha1.ActionResult.stdout:type_name -> frontseat.build.v1alpha1.Digest
+	44, // 19: frontseat.build.v1alpha1.ActionResult.stderr:type_name -> frontseat.build.v1alpha1.Digest
+	37, // 20: frontseat.build.v1alpha1.ActionResult.diagnostics:type_name -> frontseat.type.v1alpha1.Diagnostic
 	8,  // 21: frontseat.build.v1alpha1.ActionResult.rewrites:type_name -> frontseat.build.v1alpha1.Rewrite
-	42, // 22: frontseat.build.v1alpha1.Rewrite.location:type_name -> frontseat.type.v1alpha1.SourceLocation
+	45, // 22: frontseat.build.v1alpha1.Rewrite.location:type_name -> frontseat.type.v1alpha1.SourceLocation
 	3,  // 23: frontseat.build.v1alpha1.Rewrite.kind:type_name -> frontseat.build.v1alpha1.Rewrite.Kind
-	41, // 24: frontseat.build.v1alpha1.Rewrite.content:type_name -> frontseat.build.v1alpha1.Digest
-	36, // 25: frontseat.build.v1alpha1.CreateBuildRequest.profile:type_name -> frontseat.type.v1alpha1.Profile
+	44, // 24: frontseat.build.v1alpha1.Rewrite.content:type_name -> frontseat.build.v1alpha1.Digest
+	39, // 25: frontseat.build.v1alpha1.CreateBuildRequest.profile:type_name -> frontseat.type.v1alpha1.Profile
 	4,  // 26: frontseat.build.v1alpha1.CreateBuildResponse.build:type_name -> frontseat.build.v1alpha1.Build
 	4,  // 27: frontseat.build.v1alpha1.DescribeBuildResponse.build:type_name -> frontseat.build.v1alpha1.Build
 	4,  // 28: frontseat.build.v1alpha1.ListBuildsResponse.builds:type_name -> frontseat.build.v1alpha1.Build
 	4,  // 29: frontseat.build.v1alpha1.CancelBuildResponse.build:type_name -> frontseat.build.v1alpha1.Build
 	4,  // 30: frontseat.build.v1alpha1.WaitBuildResponse.build:type_name -> frontseat.build.v1alpha1.Build
-	25, // 31: frontseat.build.v1alpha1.StreamBuildEventsResponse.events:type_name -> frontseat.build.v1alpha1.BuildEvent
+	28, // 31: frontseat.build.v1alpha1.StreamBuildEventsResponse.events:type_name -> frontseat.build.v1alpha1.BuildEvent
 	7,  // 32: frontseat.build.v1alpha1.ListBuildActionsResponse.actions:type_name -> frontseat.build.v1alpha1.ActionResult
-	43, // 33: frontseat.build.v1alpha1.StreamBuildLogsResponse.lines:type_name -> frontseat.type.v1alpha1.LogLine
-	35, // 34: frontseat.build.v1alpha1.BuildEvent.time:type_name -> google.protobuf.Timestamp
-	26, // 35: frontseat.build.v1alpha1.BuildEvent.stage_changed:type_name -> frontseat.build.v1alpha1.BuildEvent.StageChanged
-	27, // 36: frontseat.build.v1alpha1.BuildEvent.planned:type_name -> frontseat.build.v1alpha1.BuildEvent.Planned
-	29, // 37: frontseat.build.v1alpha1.BuildEvent.action_started:type_name -> frontseat.build.v1alpha1.BuildEvent.ActionStarted
-	30, // 38: frontseat.build.v1alpha1.BuildEvent.action_finished:type_name -> frontseat.build.v1alpha1.BuildEvent.ActionFinished
-	31, // 39: frontseat.build.v1alpha1.BuildEvent.patched:type_name -> frontseat.build.v1alpha1.BuildEvent.Patched
-	33, // 40: frontseat.build.v1alpha1.BuildEvent.finished:type_name -> frontseat.build.v1alpha1.BuildEvent.Finished
-	32, // 41: frontseat.build.v1alpha1.BuildEvent.started_over:type_name -> frontseat.build.v1alpha1.BuildEvent.StartedOver
-	2,  // 42: frontseat.build.v1alpha1.BuildEvent.StageChanged.stage:type_name -> frontseat.build.v1alpha1.Build.Stage
-	28, // 43: frontseat.build.v1alpha1.BuildEvent.Planned.actions:type_name -> frontseat.build.v1alpha1.BuildEvent.PlannedAction
-	38, // 44: frontseat.build.v1alpha1.BuildEvent.PlannedAction.entity:type_name -> frontseat.type.v1alpha1.EntityRef
-	7,  // 45: frontseat.build.v1alpha1.BuildEvent.ActionFinished.result:type_name -> frontseat.build.v1alpha1.ActionResult
-	4,  // 46: frontseat.build.v1alpha1.BuildEvent.Finished.build:type_name -> frontseat.build.v1alpha1.Build
-	9,  // 47: frontseat.build.v1alpha1.BuildService.CreateBuild:input_type -> frontseat.build.v1alpha1.CreateBuildRequest
-	11, // 48: frontseat.build.v1alpha1.BuildService.DescribeBuild:input_type -> frontseat.build.v1alpha1.DescribeBuildRequest
-	13, // 49: frontseat.build.v1alpha1.BuildService.ListBuilds:input_type -> frontseat.build.v1alpha1.ListBuildsRequest
-	15, // 50: frontseat.build.v1alpha1.BuildService.CancelBuild:input_type -> frontseat.build.v1alpha1.CancelBuildRequest
-	17, // 51: frontseat.build.v1alpha1.BuildService.WaitBuild:input_type -> frontseat.build.v1alpha1.WaitBuildRequest
-	19, // 52: frontseat.build.v1alpha1.BuildService.StreamBuildEvents:input_type -> frontseat.build.v1alpha1.StreamBuildEventsRequest
-	21, // 53: frontseat.build.v1alpha1.BuildService.ListBuildActions:input_type -> frontseat.build.v1alpha1.ListBuildActionsRequest
-	23, // 54: frontseat.build.v1alpha1.BuildService.StreamBuildLogs:input_type -> frontseat.build.v1alpha1.StreamBuildLogsRequest
-	10, // 55: frontseat.build.v1alpha1.BuildService.CreateBuild:output_type -> frontseat.build.v1alpha1.CreateBuildResponse
-	12, // 56: frontseat.build.v1alpha1.BuildService.DescribeBuild:output_type -> frontseat.build.v1alpha1.DescribeBuildResponse
-	14, // 57: frontseat.build.v1alpha1.BuildService.ListBuilds:output_type -> frontseat.build.v1alpha1.ListBuildsResponse
-	16, // 58: frontseat.build.v1alpha1.BuildService.CancelBuild:output_type -> frontseat.build.v1alpha1.CancelBuildResponse
-	18, // 59: frontseat.build.v1alpha1.BuildService.WaitBuild:output_type -> frontseat.build.v1alpha1.WaitBuildResponse
-	20, // 60: frontseat.build.v1alpha1.BuildService.StreamBuildEvents:output_type -> frontseat.build.v1alpha1.StreamBuildEventsResponse
-	22, // 61: frontseat.build.v1alpha1.BuildService.ListBuildActions:output_type -> frontseat.build.v1alpha1.ListBuildActionsResponse
-	24, // 62: frontseat.build.v1alpha1.BuildService.StreamBuildLogs:output_type -> frontseat.build.v1alpha1.StreamBuildLogsResponse
-	55, // [55:63] is the sub-list for method output_type
-	47, // [47:55] is the sub-list for method input_type
-	47, // [47:47] is the sub-list for extension type_name
-	47, // [47:47] is the sub-list for extension extendee
-	0,  // [0:47] is the sub-list for field type_name
+	46, // 33: frontseat.build.v1alpha1.StreamBuildLogsResponse.lines:type_name -> frontseat.type.v1alpha1.LogLine
+	25, // 34: frontseat.build.v1alpha1.WaitSourceChangedResponse.source_changed:type_name -> frontseat.build.v1alpha1.SourceChanged
+	38, // 35: frontseat.build.v1alpha1.BuildEvent.time:type_name -> google.protobuf.Timestamp
+	29, // 36: frontseat.build.v1alpha1.BuildEvent.stage_changed:type_name -> frontseat.build.v1alpha1.BuildEvent.StageChanged
+	30, // 37: frontseat.build.v1alpha1.BuildEvent.planned:type_name -> frontseat.build.v1alpha1.BuildEvent.Planned
+	32, // 38: frontseat.build.v1alpha1.BuildEvent.action_started:type_name -> frontseat.build.v1alpha1.BuildEvent.ActionStarted
+	33, // 39: frontseat.build.v1alpha1.BuildEvent.action_finished:type_name -> frontseat.build.v1alpha1.BuildEvent.ActionFinished
+	34, // 40: frontseat.build.v1alpha1.BuildEvent.patched:type_name -> frontseat.build.v1alpha1.BuildEvent.Patched
+	36, // 41: frontseat.build.v1alpha1.BuildEvent.finished:type_name -> frontseat.build.v1alpha1.BuildEvent.Finished
+	35, // 42: frontseat.build.v1alpha1.BuildEvent.started_over:type_name -> frontseat.build.v1alpha1.BuildEvent.StartedOver
+	2,  // 43: frontseat.build.v1alpha1.BuildEvent.StageChanged.stage:type_name -> frontseat.build.v1alpha1.Build.Stage
+	31, // 44: frontseat.build.v1alpha1.BuildEvent.Planned.actions:type_name -> frontseat.build.v1alpha1.BuildEvent.PlannedAction
+	41, // 45: frontseat.build.v1alpha1.BuildEvent.PlannedAction.entity:type_name -> frontseat.type.v1alpha1.EntityRef
+	7,  // 46: frontseat.build.v1alpha1.BuildEvent.ActionFinished.result:type_name -> frontseat.build.v1alpha1.ActionResult
+	4,  // 47: frontseat.build.v1alpha1.BuildEvent.Finished.build:type_name -> frontseat.build.v1alpha1.Build
+	9,  // 48: frontseat.build.v1alpha1.BuildService.CreateBuild:input_type -> frontseat.build.v1alpha1.CreateBuildRequest
+	11, // 49: frontseat.build.v1alpha1.BuildService.DescribeBuild:input_type -> frontseat.build.v1alpha1.DescribeBuildRequest
+	13, // 50: frontseat.build.v1alpha1.BuildService.ListBuilds:input_type -> frontseat.build.v1alpha1.ListBuildsRequest
+	15, // 51: frontseat.build.v1alpha1.BuildService.CancelBuild:input_type -> frontseat.build.v1alpha1.CancelBuildRequest
+	17, // 52: frontseat.build.v1alpha1.BuildService.WaitBuild:input_type -> frontseat.build.v1alpha1.WaitBuildRequest
+	19, // 53: frontseat.build.v1alpha1.BuildService.StreamBuildEvents:input_type -> frontseat.build.v1alpha1.StreamBuildEventsRequest
+	21, // 54: frontseat.build.v1alpha1.BuildService.ListBuildActions:input_type -> frontseat.build.v1alpha1.ListBuildActionsRequest
+	23, // 55: frontseat.build.v1alpha1.BuildService.StreamBuildLogs:input_type -> frontseat.build.v1alpha1.StreamBuildLogsRequest
+	26, // 56: frontseat.build.v1alpha1.BuildService.WaitSourceChanged:input_type -> frontseat.build.v1alpha1.WaitSourceChangedRequest
+	10, // 57: frontseat.build.v1alpha1.BuildService.CreateBuild:output_type -> frontseat.build.v1alpha1.CreateBuildResponse
+	12, // 58: frontseat.build.v1alpha1.BuildService.DescribeBuild:output_type -> frontseat.build.v1alpha1.DescribeBuildResponse
+	14, // 59: frontseat.build.v1alpha1.BuildService.ListBuilds:output_type -> frontseat.build.v1alpha1.ListBuildsResponse
+	16, // 60: frontseat.build.v1alpha1.BuildService.CancelBuild:output_type -> frontseat.build.v1alpha1.CancelBuildResponse
+	18, // 61: frontseat.build.v1alpha1.BuildService.WaitBuild:output_type -> frontseat.build.v1alpha1.WaitBuildResponse
+	20, // 62: frontseat.build.v1alpha1.BuildService.StreamBuildEvents:output_type -> frontseat.build.v1alpha1.StreamBuildEventsResponse
+	22, // 63: frontseat.build.v1alpha1.BuildService.ListBuildActions:output_type -> frontseat.build.v1alpha1.ListBuildActionsResponse
+	24, // 64: frontseat.build.v1alpha1.BuildService.StreamBuildLogs:output_type -> frontseat.build.v1alpha1.StreamBuildLogsResponse
+	27, // 65: frontseat.build.v1alpha1.BuildService.WaitSourceChanged:output_type -> frontseat.build.v1alpha1.WaitSourceChangedResponse
+	57, // [57:66] is the sub-list for method output_type
+	48, // [48:57] is the sub-list for method input_type
+	48, // [48:48] is the sub-list for extension type_name
+	48, // [48:48] is the sub-list for extension extendee
+	0,  // [0:48] is the sub-list for field type_name
 }
 
 func init() { file_frontseat_build_v1alpha1_build_proto_init() }
@@ -2707,7 +2877,7 @@ func file_frontseat_build_v1alpha1_build_proto_init() {
 		return
 	}
 	file_frontseat_build_v1alpha1_types_proto_init()
-	file_frontseat_build_v1alpha1_build_proto_msgTypes[21].OneofWrappers = []any{
+	file_frontseat_build_v1alpha1_build_proto_msgTypes[24].OneofWrappers = []any{
 		(*BuildEvent_StageChanged_)(nil),
 		(*BuildEvent_Planned_)(nil),
 		(*BuildEvent_ActionStarted_)(nil),
@@ -2722,7 +2892,7 @@ func file_frontseat_build_v1alpha1_build_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_frontseat_build_v1alpha1_build_proto_rawDesc), len(file_frontseat_build_v1alpha1_build_proto_rawDesc)),
 			NumEnums:      4,
-			NumMessages:   30,
+			NumMessages:   33,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

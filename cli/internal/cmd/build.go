@@ -56,16 +56,22 @@ with its kind, component:list.`,
 // built starts a build of the workspace a command asks, follows it to
 // its end, and ends the command as the build ended.
 func built(cmd *cobra.Command, start func(*frontseat.Workspace) (*frontseat.Build, error)) error {
+	_, err := made(cmd, start)
+	return err
+}
+
+// made is built, which returns the build it made, if it made one.
+func made(cmd *cobra.Command, start func(*frontseat.Workspace) (*frontseat.Build, error)) (*frontseat.Build, error) {
 	w, err := building()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	build, err := start(w)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	exitCode, err = follow(cmd, build, 0)
-	return err
+	return build, err
 }
 
 // building or testing, a command builds once, or with --watch again

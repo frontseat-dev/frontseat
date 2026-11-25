@@ -42,6 +42,9 @@ type Snapshot struct {
 	Tree
 
 	keeper *Keeper
+	// at is when the run began to list the files, in nanoseconds: each
+	// was looked at after it.
+	at int64
 	// hashed counts the files read for what they held: those nothing was
 	// known of, and those known of but read again, not having settled.
 	hashed atomic.Int64
@@ -65,11 +68,19 @@ type taken struct {
 	// listed is how each file listed looked when the run began, or when
 	// the run last wrote it.
 	listed map[string]looked
+	// links is how each link the listing followed looked itself when it
+	// was listed; nil where nothing waits for the run's files to change.
+	links map[string]looked
 	// held is what the run knows each file it has asked about held.
 	held map[string]kept
 	// absent are the files that are not listed, that the run asked for
 	// and that were not there: to the run they stay so.
 	absent map[string]bool
+	// unread are the files that are not listed, that the run asked for
+	// and could not read, each with how it looked when it was asked for
+	// (named): what it was, where it was no file, and unlooked where it
+	// could not be looked at.
+	unread map[string]looked
 	// ignores is what the repository's ignore file names.
 	ignores ignores
 }
@@ -109,13 +120,16 @@ func (c *Changed) Error() string {
 // to where that is a file under the directory, and nothing where it is
 // not.
 //
-// Where it is given somewhere to say so (entered), it says how each
-// directory it lists the files of looked, the repository's own by ".",
-// and how each link it followed looked itself: what a file made and
-// removed again, or a link led elsewhere and back, leaves behind. A run
-// asks for neither.
-func list(ctx context.Context, at, directory string, entered map[string]looked) (*taken, error) {
-	t := &taken{at: at, directory: directory, listed: map[string]looked{}, held: map[string]kept{}, absent: map[string]bool{}}
+// Watched, it says how each link it followed looked itself
+// (taken.links): a link led elsewhere and back leaves its file looking
+// as it did, and itself otherwise. A directory is not looked at: what a
+// run lists of it is its files, and a file made or removed in it is
+// named by the listing.
+func list(ctx context.Context, at, directory string, watched bool) (*taken, error) {
+	t := &taken{at: at, directory: directory, listed: map[string]looked{}, held: map[string]kept{}, absent: map[string]bool{}, unread: map[string]looked{}}
+	if watched {
+		t.links = map[string]looked{}
+	}
 	root, err := os.OpenRoot(directory)
 	if errors.Is(err, fs.ErrNotExist) {
 		return t, nil
@@ -124,8 +138,17 @@ func list(ctx context.Context, at, directory string, entered map[string]looked) 
 		return nil, err
 	}
 	defer root.Close()
-	if t.ignores, err = readIgnores(root); err != nil {
+	// The ignore file is what the run lists by: read by its name, as a
+	// file the run reads by name is, whether the listing takes it or
+	// not (one may ignore itself), and so waited on.
+	var ignoreFile *kept
+	if t.ignores, ignoreFile, err = readIgnores(root); err != nil {
 		return nil, err
+	}
+	if ignoreFile != nil {
+		t.held[IgnoreFile] = *ignoreFile
+	} else {
+		t.absent[IgnoreFile] = true
 	}
 	err = filepath.WalkDir(directory, func(at string, entry fs.DirEntry, err error) error {
 		if err != nil {
@@ -142,11 +165,6 @@ func list(ctx context.Context, at, directory string, entered map[string]looked) 
 			if at != directory && (strings.HasPrefix(entry.Name(), ".") || t.ignores.ignored(name, true)) {
 				return filepath.SkipDir
 			}
-			if entered != nil {
-				if err := itself(entered, name, entry); err != nil {
-					return err
-				}
-			}
 			return ctx.Err()
 		}
 		if t.ignores.ignored(name, false) {
@@ -157,10 +175,8 @@ func list(ctx context.Context, at, directory string, entered map[string]looked) 
 		case entry.Type()&fs.ModeSymlink != 0:
 			// Through the root, so that a link out of the repository leads
 			// nowhere.
-			if entered != nil {
-				if err := itself(entered, name, entry); err != nil {
-					return err
-				}
+			if err := itself(t.links, name, entry); err != nil {
+				return err
 			}
 			if info, err = root.Stat(rel); err != nil {
 				return nil
@@ -186,9 +202,13 @@ func list(ctx context.Context, at, directory string, entered map[string]looked) 
 	return t, err
 }
 
-// itself says how a directory or a link looked itself, by its name;
-// one that is gone since it was listed says nothing.
-func itself(entered map[string]looked, name string, entry fs.DirEntry) error {
+// itself says how a link looked itself, by its name; one that is gone
+// since it was listed says nothing, and where nothing is watched (links
+// is nil), nothing is looked at.
+func itself(links map[string]looked, name string, entry fs.DirEntry) error {
+	if links == nil {
+		return nil
+	}
 	info, err := entry.Info()
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil
@@ -196,7 +216,7 @@ func itself(entered map[string]looked, name string, entry fs.DirEntry) error {
 	if err != nil {
 		return err
 	}
-	entered[name] = look(info)
+	links[name] = look(info)
 	return nil
 }
 
@@ -551,11 +571,14 @@ func (s *Snapshot) write(t *taken, repository, key, file string, content []byte,
 	}
 	sum := sha256.Sum256(content)
 	written := kept{looked: look(now), held: held{hash: hex.EncodeToString(sum[:]), size: int64(len(content)), executable: now.Mode()&0o100 != 0}}
-	if _, listed := t.listed[key]; listed || !existed {
+	// Made where no listing takes it, beneath a directory whose name
+	// begins with a dot, it is the run's as a file read by name is: by
+	// what it holds and how it looked once written, and never listed.
+	if _, listed := t.listed[key]; listed || !existed && !hidden(key) {
 		t.listed[key] = written.looked
 	}
 	if !existed {
-		if i, there := slices.BinarySearch(t.names, key); !there {
+		if i, there := slices.BinarySearch(t.names, key); !there && !hidden(key) {
 			// Clipped, the names are copied, never written over.
 			t.names = slices.Insert(slices.Clip(t.names), i, key)
 		}
@@ -798,23 +821,27 @@ func (s *Snapshot) once(t *taken, repository, name, key string, when knew, read 
 		return s.gone(t, repository, key, when)
 	}
 	if err != nil {
+		s.unreadable(t, key, when, unlooked)
 		return held{}, false, err
 	}
 	defer root.Close()
-	// Not waited on: what is opened may be a pipe by now, which nothing
-	// writes to.
-	file, err := root.OpenFile(filepath.FromSlash(name), os.O_RDONLY|syscall.O_NONBLOCK, 0)
+	file, info, err := opened(root, name)
 	if errors.Is(err, fs.ErrNotExist) {
 		return s.gone(t, repository, key, when)
 	}
 	if err != nil {
+		// Looked at all the same, as a wait looks at it (named): a file
+		// that may not be read, made readable, looks otherwise, and so
+		// does one on a way that may not be looked along, made one that
+		// may, and one gone since.
+		as, there := named(root.Stat(filepath.FromSlash(key)))
+		if !there {
+			as = unlooked
+		}
+		s.unreadable(t, key, when, as)
 		return held{}, false, fmt.Errorf("reading %s of the repository: %w", name, err)
 	}
 	defer file.Close()
-	info, err := file.Stat()
-	if err != nil {
-		return held{}, false, err
-	}
 	now := look(info)
 	// Whether the file has settled is asked before any of it is read: a
 	// write from here on then shows in how it looks, which is looked at
@@ -826,6 +853,7 @@ func (s *Snapshot) once(t *taken, repository, name, key string, when knew, read 
 			return held{}, false, &Changed{Repository: repository, Path: key}
 		}
 	case !info.Mode().IsRegular():
+		s.unreadable(t, key, when, noFile(info))
 		return held{}, false, fmt.Errorf("reading %s of the repository: it is not a file", name)
 	case !hidden(key):
 		// It would have been listed had it been there: it came after the
@@ -848,24 +876,28 @@ func (s *Snapshot) once(t *taken, repository, name, key string, when knew, read 
 	}
 	// A file read only to hash it, though what it held is known, is read
 	// again: it had not settled when it was known.
-	hashing := read == nil
-	if read == nil {
-		read = func(file *os.File) (string, int64, error) {
-			sum := sha256.New()
-			size, err := io.Copy(sum, file)
-			return hex.EncodeToString(sum.Sum(nil)), size, err
-		}
-	}
-	if !asked || hashing {
+	if !asked || read == nil {
 		s.hashed.Add(1)
 	}
-	sum, size, err := read(file)
+	var (
+		sum  string
+		size int64
+	)
+	if read == nil {
+		sum, size, err = digest(context.Background(), file)
+	} else {
+		sum, size, err = read(file)
+	}
 	if err != nil {
+		s.unreadable(t, key, when, now)
 		return held{}, false, fmt.Errorf("reading %s of the repository: %w", name, err)
 	}
 	// What was read is of the file as it looked when it was opened only
 	// if it looks the same now that it has been read.
 	if after, err := file.Stat(); err != nil || look(after) != now {
+		// Recorded as it looked when it was opened, which it does not
+		// now: a wait for what the run read answers at once.
+		s.unreadable(t, key, when, now)
 		return held{}, false, &Changed{Repository: repository, Path: key}
 	}
 	found := kept{looked: now, settled: settled, held: held{hash: sum, size: size, executable: info.Mode()&0o100 != 0}}
@@ -879,6 +911,49 @@ func (s *Snapshot) once(t *taken, repository, name, key string, when knew, read 
 	}
 	s.keeper.keep(at, found)
 	return found.held, true, nil
+}
+
+// opened opens a file to read it, through the root of its repository,
+// and says how it looks: the one way a file is opened to be read, by a
+// run and by whoever waits for what a run read to change. It is not
+// waited on: what is opened may be a pipe by now, which nothing writes
+// to. What it opens may be no file; whoever reads it asks.
+func opened(root *os.Root, name string) (*os.File, fs.FileInfo, error) {
+	return stated(root.OpenFile(filepath.FromSlash(name), os.O_RDONLY|syscall.O_NONBLOCK, 0))
+}
+
+// openedAt is opened, of a file beside a tree, by its path.
+func openedAt(path string) (*os.File, fs.FileInfo, error) {
+	return stated(os.OpenFile(path, os.O_RDONLY|syscall.O_NONBLOCK, 0))
+}
+
+// stated says how a file opened looks.
+func stated(file *os.File, err error) (*os.File, fs.FileInfo, error) {
+	if err != nil {
+		return nil, nil, err
+	}
+	info, err := file.Stat()
+	if err != nil {
+		_ = file.Close()
+		return nil, nil, err
+	}
+	return file, info, nil
+}
+
+// unreadable records that the run asked for a file it does not list and
+// could not read, with how the file looked then (named): what it was,
+// where it was no file, and unlooked where it could not be looked at,
+// each unlike a file and unlike none, so that whoever waits for what the
+// run read to change is answered once it is otherwise. What the run knows of
+// the file otherwise, having listed it or read it, is what it is held
+// to.
+func (s *Snapshot) unreadable(t *taken, key string, when knew, as looked) {
+	if when.listed || when.asked {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	t.unread[key] = as
 }
 
 // gone is what is said of a file that is not there: that it has changed,
@@ -903,4 +978,26 @@ func hidden(name string) bool {
 		}
 	}
 	return false
+}
+
+// digest reads a file to its end, and says the hash and the size of
+// what it read: what a file held, to a run. It stops where the context
+// ends, between one part of the file and the next.
+func digest(ctx context.Context, file *os.File) (string, int64, error) {
+	sum := sha256.New()
+	size, err := io.Copy(sum, until{ctx: ctx, from: file})
+	return hex.EncodeToString(sum.Sum(nil)), size, err
+}
+
+// until reads from a reader until a context ends.
+type until struct {
+	ctx  context.Context
+	from io.Reader
+}
+
+func (u until) Read(p []byte) (int, error) {
+	if err := u.ctx.Err(); err != nil {
+		return 0, err
+	}
+	return u.from.Read(p)
 }

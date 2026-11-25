@@ -58,6 +58,9 @@ type configuration struct {
 	// Now is the time, by which runs that have only just ended are kept;
 	// the machine's own unless a test says otherwise.
 	Now func() time.Time
+	// Made is what the daemon is made of, as it looked before the daemon
+	// read it (Config.Made); nil, nothing.
+	Made *source.Looks
 }
 
 // Daemon is the build API, served over a directory and what a daemon was
@@ -116,7 +119,7 @@ func newDaemon(config configuration) (*Daemon, error) {
 	if err != nil {
 		return nil, err
 	}
-	runs.given, runs.said = config.Given, config.Log
+	runs.given, runs.said, runs.made = config.Given, config.Log, config.Made
 	if config.Files != "" {
 		// What the daemon before this one knew of the directory's files,
 		// where it ended as a daemon ends. No run has begun yet.

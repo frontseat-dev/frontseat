@@ -2,6 +2,7 @@ package source
 
 import (
 	"context"
+	"errors"
 	"io/fs"
 	"path/filepath"
 	"strings"
@@ -86,8 +87,22 @@ func settles(as looked) time.Duration {
 func newest(as looked) int64 { return max(as.written, as.changed) }
 
 // Take lists the files of each repository as they are now: the source
-// of a run that begins now.
+// of a run that begins now. How each link it follows looked is kept
+// with it, for whoever waits for what the run read to change
+// (Snapshot.Looks).
 func (k *Keeper) Take(ctx context.Context, tree Tree) (*Snapshot, error) {
+	return k.take(ctx, tree, true)
+}
+
+// TakeUnwatched is Take for whoever reads the files and never waits for
+// them to change, a graph request: how the links looked is not kept,
+// nor looked at.
+func (k *Keeper) TakeUnwatched(ctx context.Context, tree Tree) (*Snapshot, error) {
+	return k.take(ctx, tree, false)
+}
+
+// take is Take, keeping how the links looked where it is watched.
+func (k *Keeper) take(ctx context.Context, tree Tree, watched bool) (*Snapshot, error) {
 	// The workspace is named in full: a file is known by where it is,
 	// whatever directory the daemon is in.
 	root, err := filepath.Abs(tree.Root)
@@ -98,12 +113,18 @@ func (k *Keeper) Take(ctx context.Context, tree Tree) (*Snapshot, error) {
 	if err := tree.apart(); err != nil {
 		return nil, err
 	}
-	s := &Snapshot{Tree: tree, keeper: k, repositories: map[string]*taken{}}
+	s := &Snapshot{Tree: tree, keeper: k, at: k.clock().UnixNano(), repositories: map[string]*taken{}}
 	places := make(map[string]place, len(tree.Paths))
 	for _, repository := range tree.Repositories() {
-		t, err := tree.list(ctx, repository, nil)
+		t, err := tree.list(ctx, repository, watched)
 		if err != nil {
 			return nil, err
+		}
+		// The ignore file was read as the run began: it had settled
+		// where it had by then.
+		if read, there := t.held[IgnoreFile]; there {
+			read.settled = settledBy(read.looked, s.at)
+			t.held[IgnoreFile] = read
 		}
 		s.repositories[repository] = t
 		if at, known := placed(t.directory); known {
@@ -147,11 +168,17 @@ func (k *Keeper) settled(as looked) bool { return settledBy(as, k.clock().UnixNa
 // settledBy reports whether a file that looks so had settled by a time,
 // in nanoseconds.
 func settledBy(as looked, at int64) bool {
-	last := newest(as)
+	return at-lastBy(as, at) >= int64(settles(as))
+}
+
+// lastBy is when a file that looks so was last written or changed, as
+// it is gone by at a time, in nanoseconds: one said to be written at a
+// time still to come by when it last changed (settled).
+func lastBy(as looked, at int64) int64 {
 	if as.written > at && as.changed <= at {
-		last = as.changed
+		return as.changed
 	}
-	return at-last >= int64(settles(as))
+	return newest(as)
 }
 
 // keep records what a file held, and how it looked; or lets go of what
@@ -210,4 +237,31 @@ type looked struct {
 func look(info fs.FileInfo) looked {
 	file, changed := identity(info)
 	return looked{size: info.Size(), written: info.ModTime().UnixNano(), changed: changed, file: file, mode: info.Mode()}
+}
+
+// unlooked is how a file looks that could not be looked at: unlike any
+// file, and unlike one that is not there, so that whatever it becomes
+// looks otherwise.
+var unlooked = looked{size: -1}
+
+// noFile is how what is no file looks, a directory or a pipe: by what
+// it is and nothing else of it, unlike any file, unlike one that is not
+// there and unlike what could not be looked at.
+func noFile(info fs.FileInfo) looked { return looked{size: -1, mode: info.Mode().Type()} }
+
+// named is how a file asked for by its name looks, as the file system
+// answers a look at it: how it looks, where it is a file; what it is,
+// where it is no file; that it could not be looked at, where it could
+// not; and whether it is there at all. The one answer for a run and for
+// whoever waits for what the run read to change.
+func named(info fs.FileInfo, err error) (as looked, there bool) {
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		return looked{}, false
+	case err != nil:
+		return unlooked, true
+	case !info.Mode().IsRegular():
+		return noFile(info), true
+	}
+	return look(info), true
 }

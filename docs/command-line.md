@@ -52,8 +52,12 @@ outside one.
 
 Each round is a build of its own, printed as `build` prints one. It
 lists and reads the files itself, and runs what the change reaches: the
-rest is answered from the cache. Before every round after the first,
-one line says which files changed:
+rest is answered from the cache. After a round, the command asks the
+build daemon that built it to wait until anything that build listed or
+read looks otherwise than the build held it to
+(`BuildService.WaitSourceChanged`); the command looks at no file
+itself. Before every round after the first, one line says which files
+changed:
 
 ```
 watching /work: it is built again each time a file of it changes, until interrupted
@@ -65,23 +69,47 @@ a.go, b.go, c.go and 4 more changed, 7 files: building again
 
 | What | How |
 |---|---|
-| What is watched | the files of the directory as a build lists them (not what `.frontseatignore` names, nor what is in a directory whose name begins with a dot, as `.git`), the workspace's manifest, and what the build daemon is made of: its settings, the plugins they load, the authorities they name and the program |
-| What counts as a change | a file that does not look as it did: its size, when it was written, when anything of it last changed, which file of the disk it is, and its mode; a file made, removed or moved. It is what the build daemon itself goes by to read a file again. Each directory a build lists and each link it follows is looked at so too, so that a file made and removed again while a round was under way, which the round may have read, starts one more round, the line naming its directory (`app/ changed`). A file touched with nothing of it changed counts, since how it looks is all that is asked of it, and its round is answered from the cache |
-| When a round starts | once two looks, a quarter of a second apart, are the same and every file and directory was written longer ago than the moment its times are told in, which is the build daemon's own rule for a file read before it settled: a save or a checkout still under way is waited out, and the look a round is held against is one a write after it shows in |
-| A change while a round is under way | the round is followed to its end, and one round follows it: each round is held against the look taken before it was asked for, so whatever is written from then on starts the round after. A round is never cancelled for a change: what it ran is in the cache for the next, a build reads a file that changed under it as a failure that names the file, never as the file from two moments, and a round cancelled at every keystroke would say nothing while someone types |
-| A round that failed | waits for the next change, as one that passed does: a build that failed, a test that failed, and a build the daemon refused of the directory as it is |
-| The daemon replaced | each round asks the daemon there is then: where its settings, its plugins or the program changed, or it ended itself with nothing to do, the round finds or starts the one there is, as any command does. A daemon found as it was ending refuses the build by name (`DAEMON_ENDING`) and builds nothing: the round is asked again at once, of the daemon there is by then, up to three times running |
-| How it ends | interrupted, exit 130; or with the code of what could not be asked: a daemon that did not answer, or was ending three times running (37), one that has a build in hand and is not the one this command would start (1) |
+| What is watched | what the round's build listed and read: the files of the directory as a build lists them (not what `.frontseatignore` names, nor what is in a directory whose name begins with a dot, as `.git`), the links the listing followed, every file the build read by name that no listing takes (a plugin's `.cargo/config.toml`), there or not, read or not, each repository's `.frontseatignore`, listed or not, the workspace's manifest, and what the build daemon is made of: its settings, the plugins they load and the directory they are in, where a plugin added or removed counts, the authorities they name and the program. A file in a directory whose name begins with a dot that no build read (`.git/index`, `.idea/workspace.xml`) starts no round |
+| What counts as a change | a file that does not look as the build held it: its size, when it was written, when anything of it last changed, which file of the disk it is, and its mode; a file made, removed or moved. It is what the build daemon itself goes by to read a file again. Each link a build follows is looked at so too. A directory is not: a file made in one the build listed, or removed, counts by its name, and one `.frontseatignore` names does not, nor does a file made and removed again after the build listed its directory, which the build never read, nor a file the build itself rewrote (`--fix`). A file the build asked for by name and could not read (one it may not read, or one saved as it was read) counts once it looks otherwise than it did then; one it could not look at (a link out of the repository, a directory on the way that may not be looked in) or that was no file (a directory, a pipe) counts once it is anything else, not there among it. A file of the directory touched with nothing of it changed counts, since how it looks is all that is asked of it, and its round is answered from the cache; what the daemon is made of and the manifest do not (below). A file the build read within the moment its times are told in after it was written is read again once that moment has passed, and counts where it holds otherwise than the build read it |
+| When a round starts | once two looks, a quarter of a second apart, are the same and every file and link was written longer ago than the moment its times are told in, which is the build daemon's own rule for a file read before it settled: a save or a checkout still under way is waited out. A file said to have changed at a time still to come (a mount whose clock is ahead) never settles by waiting: it keeps nothing else from starting a round, and where the build read it, it is read again each time the rest has settled |
+| A change while a round is under way | the round is followed to its end, and one round follows it: each round's build holds every file to how it looked when the build began, or when it read it, so whatever is written from then on starts the round after. A round is never cancelled for a change: what it ran is in the cache for the next, a build reads a file that changed under it as a failure that names the file, never as the file from two moments, and a round cancelled at every keystroke would say nothing while someone types |
+| A round that failed | waits for the next change, as one that passed does: a build that failed and a test that failed. A build that could not list a repository (a directory of it that may not be read) waits for a file of the others to change, or for that repository to be listed again. A build the daemon refused of the directory as it is (a workspace being filled) built nothing to wait on: it is said, and asked for again a second later, until it is built |
+| The daemon replaced | each round asks the daemon there is then: where its settings, its plugins or the program were written, the wait answers naming them, and the round finds or starts the one there is, as any command does. Waiting keeps the daemon from ending itself for having nothing to do, and does not keep another command from replacing it: the wait then fails, and the round after asks the daemon there is then, with nothing written. A daemon found as it was ending refuses the build by name (`DAEMON_ENDING`) and builds nothing: the round is asked again at once, of the daemon there is by then, up to three times running. A daemon keeps what a build read for the four newest builds that ended, and no daemon started again keeps it: a wait it cannot answer (`BUILD_SOURCE_NOT_KEPT`) is a round, with nothing written |
+| What waiting costs | the daemon looks again at what the build listed and read four times a second, and never for more than a tenth of the time: of this repository, 8 ms a look on an Apple M4 Max, about 3% of one core (`BenchmarkAnIdleWait`). It keeps what a build listed and read for each build under way and the four newest that ended, and each wait under way a copy to hold it against: of this repository's 1,273 files, 480 KB a build and 185 KB a wait (`BenchmarkWhatAWaitKeeps`) |
+| How it ends | interrupted, exit 130, at once, whether a round is under way or the daemon is waiting; or with the code of what could not be asked: a daemon that did not answer, or was ending three times running (37), one that has a build in hand and is not the one this command would start (1); a wait that could not be answered twice running ends it with the code of why |
 | What it does not go with | `--fix`, which writes the files a watch builds again for: refused, exit 2 |
 
-Not held: a file a plugin reads in a directory whose name begins with a
-dot is read by every round, and a change to it alone starts none; on a
-file system that does not date a file's changes itself (FAT, exFAT,
-some network mounts) a file written again at its size with its times
-set back looks as it did. A directory's look changes when a file the
-build does not list is made or removed in it (one `.frontseatignore`
-names, beside files it lists): that starts a round, answered from the
-cache.
+What the daemon is made of, and the workspace's manifest, are held by
+one rule: such a file counts exactly when what it holds now differs
+from bytes the daemon or a build used of it. Each is looked at as it
+is opened to be read, and nothing is waited for; what is kept of it is
+the SHA-256 of exactly the bytes read, whatever was done to the file
+as it was read. It is read again where it looks otherwise, where it
+was written within the moment before it was read (once that moment has
+passed), where two readings used different bytes of it (which always
+counts), and, on a disk whose clock is ahead, whenever the rest has
+settled. Written again with what was read (touched, its mode changed,
+copied over, a file of the same bytes moved over it, a plugin installed
+again), during the read or after, it is read again once, by the wait
+that finds it, and starts no round; removed, made unreadable, no
+longer a file or holding otherwise, it does. One that could not be
+opened counts once it looks otherwise. One whose reading failed used
+no bytes that are known: it counts once it looks otherwise, or once
+it has settled where it was read before it had, and the round after
+reads it again, so it starts one round, not one after another. What the daemon is made
+of is what it read when it started, once each: the directory of
+plugins as it listed it, so a plugin added after it started counts.
+
+What it costs: a file a build read whose disk says it changed at a
+time still to come (a disk whose clock is ahead) is read again whole
+about twice a second while a wait lasts; the daemon's own program is
+tens of megabytes.
+
+Not held: on a file system that does not date a file's changes itself
+(FAT, exFAT, some network mounts) a file written again at its size with
+its times set back looks as it did; and the daemon's program is held
+as the daemon read its file, while what runs is what the system loaded
+when it started.
 
 ## Which workspace is selected
 

@@ -44,11 +44,11 @@ type graphSourceError struct {
 }
 
 func (s *graphService) source(ctx context.Context) (evaluate.Source, []record.Located, error) {
-	tree, entities, err := sourceOf(s.runs.workspace)
+	tree, entities, err := sourceOf(s.runs.workspace, nil)
 	if err != nil {
 		return nil, nil, &graphSourceError{err, codes.FailedPrecondition}
 	}
-	held, err := s.runs.files.Take(ctx, tree)
+	held, err := s.runs.files.TakeUnwatched(ctx, tree)
 	if err != nil {
 		return nil, nil, &graphSourceError{err, codes.Internal}
 	}

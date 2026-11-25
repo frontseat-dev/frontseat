@@ -58,3 +58,15 @@ func (t Tree) apart() error {
 	}
 	return nil
 }
+
+// where returns a repository's directory as the workspace names it, and
+// the same with any link on the way to it followed: where its files are
+// read.
+func (t Tree) where(repository string) (at, directory string) {
+	at = t.Directory(repository)
+	directory, err := filepath.EvalSymlinks(at)
+	if err != nil {
+		directory = at
+	}
+	return at, directory
+}

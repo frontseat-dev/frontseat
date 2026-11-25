@@ -71,7 +71,8 @@ func read(t *testing.T, dir, content string) (settings.Settings, error) {
 // A build daemon is told its plugins, its grid, its workers' platform
 // and what a publish may be given in one file, read when it starts. A
 // path in it is from the file's own directory, and the plugins are every
-// <name>.wasm of the directory it names, by name.
+// <name>.wasm of the directory it names, by name, with the directory
+// they were listed from.
 func TestABuildDaemonsSettingsAreReadFromOneFile(t *testing.T) {
 	dir := laid(t)
 	got, err := read(t, dir, sound)
@@ -79,7 +80,7 @@ func TestABuildDaemonsSettingsAreReadFromOneFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := settings.Settings{
-		Plugins: []string{filepath.Join(dir, "plugins", "cargo.wasm"), filepath.Join(dir, "plugins", "go.wasm")},
+		Plugins: []string{filepath.Join(dir, "plugins", "cargo.wasm"), filepath.Join(dir, "plugins", "go.wasm")}, PluginDirectory: filepath.Join(dir, "plugins"),
 		Grid: build.Grid{Address: "grid.example:8980", Instance: "frontseat/b", Reads: []string{"frontseat/p", "frontseat/q"}, Assets: "assets.example:8983", TLS: true, Authorities: filepath.Join(dir, "ca.pem"), Token: filepath.Join(dir, "token"),
 			Rewrites: []build.Rewrite{{From: `^https://static\.crates\.io/crates/([^/]+)/([^/]+)/download$`, To: "http://mirror:8080/cargo/$1/$2/download"}, {From: `^https://b c/(.*)$`, To: "http://other/$1"}}},
 		Platform: map[string]string{"OSFamily": "linux", "ISA": "x86-64", "container-image": "docker://frontseat.dev/workers/v1"},
@@ -334,5 +335,36 @@ func TestWhatIsWrittenAsTheFilesShapeIsReadAsSettings(t *testing.T) {
 	}
 	if got, err := settings.Read(file); err == nil {
 		t.Errorf("the control: settings of no grid were read: %+v", got)
+	}
+}
+
+// The authorities the settings name are read once, by whoever reads the
+// settings and identifies the daemon by what it read: the grid is
+// checked against the very bytes it is then known by, and the file is
+// not read again to check it. Here the file holds no certificate and
+// what was read of it is the authorities, which are taken; and the file
+// holds the authorities and what was read of it holds none, which is
+// refused. Control: given no reading of them, the file is read, and its
+// holding none is refused.
+func TestTheGridIsCheckedAgainstTheAuthoritiesAsTheyWereRead(t *testing.T) {
+	dir := laid(t)
+	known, err := os.ReadFile(filepath.Join(dir, "ca.pem"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(dir, "build.yaml")
+	raw := []byte(strings.Replace(sound, "  authorities: ca.pem\n", "  authorities: plugins/README\n", 1))
+	readAs := func(content []byte) func(string) ([]byte, error) {
+		return func(string) ([]byte, error) { return content, nil }
+	}
+	got, err := settings.Parse(raw, file, readAs(known))
+	if err != nil || string(got.Grid.Known) != string(known) {
+		t.Errorf("the file holding none, read as the authorities: known by %d bytes (%v); want the bytes read, checked", len(got.Grid.Known), err)
+	}
+	if _, err := settings.Parse([]byte(sound), file, readAs([]byte("no certificate\n"))); err == nil || !strings.Contains(err.Error(), "holds no certificate") {
+		t.Errorf("the file holding the authorities, read as none: %v; want the bytes read refused", err)
+	}
+	if _, err := settings.Parse(raw, file, nil); err == nil || !strings.Contains(err.Error(), "holds no certificate") {
+		t.Errorf("the control, given no reading of them: %v; want the file read and refused", err)
 	}
 }
