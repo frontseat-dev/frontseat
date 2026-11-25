@@ -12,6 +12,7 @@ import (
 	sandboxv1 "github.com/frontseat-dev/frontseat/sandbox/api/frontseat/sandbox/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sandbox/api/frontseat/sandbox/v1alpha1/sandboxv1alpha1connect"
 	"github.com/frontseat-dev/frontseat/sandbox/driver"
+	"github.com/frontseat-dev/frontseat/sandbox/testsupport/testsandbox"
 	"github.com/frontseat-dev/frontseat/sdk/go"
 )
 
@@ -105,7 +106,7 @@ func madeReaching(t *testing.T, client sandboxv1alpha1connect.SandboxServiceClie
 	if err != nil {
 		t.Fatal(err)
 	}
-	return made.GetSandbox()
+	return testsandbox.Settled(t, client, made.GetSandbox().GetId())
 }
 
 // Under a driver that lets nothing be reached unnamed, a sandbox that

@@ -18,6 +18,7 @@ import (
 	"github.com/frontseat-dev/frontseat/sandbox/api/frontseat/sandbox/v1alpha1/sandboxv1alpha1connect"
 	"github.com/frontseat-dev/frontseat/sandbox/driver"
 	"github.com/frontseat-dev/frontseat/sandbox/testsupport/drivertest"
+	"github.com/frontseat-dev/frontseat/sandbox/testsupport/testsandbox"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
@@ -37,8 +38,8 @@ func serveOver(t *testing.T, d driver.Driver) (sandboxv1alpha1connect.SandboxSer
 }
 
 // serving serves the sandbox API that made returns for the address it is
-// served at, until the test ends, and returns a client of it and the
-// server.
+// served at, until the test ends, when it is closed, and returns a
+// client of it and the server.
 func serving(t *testing.T, made func(address string) (*sandbox.Server, error)) (sandboxv1alpha1connect.SandboxServiceClient, *httptest.Server) {
 	t.Helper()
 	srv := httptest.NewUnstartedServer(nil)
@@ -48,6 +49,15 @@ func serving(t *testing.T, made func(address string) (*sandbox.Server, error)) (
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The service is closed before what made registered to clean up
+	// after it (its state, a TempDir), and after the server is: its
+	// makings stop, and are waited for, before their records go.
+	t.Cleanup(func() {
+		srv.Close()
+		if err := served.Close(); err != nil {
+			t.Error(err)
+		}
+	})
 	srv.Config.Handler = served.Handler()
 	client := sandboxv1alpha1connect.NewSandboxServiceClient(connect.NewClient(connecthttp.NewTransport(srv.Client(), srv.URL)))
 	return client, srv
@@ -59,7 +69,7 @@ func create(t *testing.T, client sandboxv1alpha1connect.SandboxServiceClient, sp
 	if err != nil {
 		t.Fatal(err)
 	}
-	return created.GetSandbox()
+	return testsandbox.Settled(t, client, created.GetSandbox().GetId())
 }
 
 func TestASandboxIsMadeAndRuns(t *testing.T) {

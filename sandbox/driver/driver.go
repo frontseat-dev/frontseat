@@ -266,6 +266,16 @@ type Execer interface {
 	Exec(ctx context.Context, id, container string, args []string, limit int) (exit int, output []byte, truncated bool, err error)
 }
 
+// Checker is a driver that says, before anything of a sandbox is made,
+// whether what it is asked for is one it takes: the checks Apply makes
+// before it makes anything, whose refusals are ErrInvalid where what was
+// asked is not well formed. A sandbox it refuses is refused to whoever
+// asked for it, and never made; one it takes may still fail to be made,
+// as where its image cannot be pulled. Apply checks the same again.
+type Checker interface {
+	Check(ctx context.Context, record Sandbox) error
+}
+
 // VolumeKind is what becomes of a volume.
 type VolumeKind int
 

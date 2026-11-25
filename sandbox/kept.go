@@ -27,6 +27,15 @@ type stored struct {
 	Spec json.RawMessage `json:"spec"`
 	// Created is when it was made.
 	Created time.Time `json:"created"`
+	// Making is whether its driver had not yet made it, nor failed to:
+	// a server that stopped meanwhile left its making to the next, which
+	// makes it again.
+	Making bool `json:"making,omitempty"`
+	// Ending is whether a Delete stopped its making: it is not made
+	// again, and is gone once a Delete has ended it.
+	Ending bool `json:"ending,omitempty"`
+	// Failure is why its driver could not make it, where it could not.
+	Failure string `json:"failure,omitempty"`
 }
 
 // open returns the records kept in a directory, making it where it is
@@ -45,7 +54,7 @@ func (k kept) keep(id string, r *record) error {
 	if err != nil {
 		return err
 	}
-	if err := k.dir.Keep(id, stored{Request: r.request, Spec: spec, Created: r.created}); err != nil {
+	if err := k.dir.Keep(id, stored{Request: r.request, Spec: spec, Created: r.created, Making: r.making, Ending: r.ending, Failure: r.failure}); err != nil {
 		return fmt.Errorf("keeping the record of the sandbox %s: %w", id, err)
 	}
 	return nil
@@ -78,7 +87,7 @@ func (k kept) all() (map[string]*record, error) {
 		if err != nil {
 			return nil, unread(k.dir.File(id), id, err)
 		}
-		out[id] = &record{spec: spec, request: held.Request, created: held.Created, turn: newTurn()}
+		out[id] = &record{spec: spec, request: held.Request, created: held.Created, making: held.Making, ending: held.Ending, failure: held.Failure, turn: newTurn(), done: make(chan struct{})}
 	}
 	return out, nil
 }

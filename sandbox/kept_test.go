@@ -12,6 +12,7 @@ import (
 
 	sandboxv1 "github.com/frontseat-dev/frontseat/sandbox/api/frontseat/sandbox/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sandbox/testsupport/drivertest"
+	"github.com/frontseat-dev/frontseat/sandbox/testsupport/testsandbox"
 )
 
 // A server that stops leaves its sandboxes running, and the one that
@@ -30,7 +31,7 @@ func TestASandboxIsStillTheServicesWhenTheServerStartsAgain(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	was := made.GetSandbox()
+	was := testsandbox.Settled(t, first, made.GetSandbox().GetId())
 
 	second := started(t, provider, state)
 
@@ -76,6 +77,7 @@ func TestARecordOfASandboxThatIsGoneIsDroppedWhenTheServerStarts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	testsandbox.Settled(t, first, made.GetSandbox().GetId())
 	if err := provider.Delete(ctx, made.GetSandbox().GetId()); err != nil {
 		t.Fatal(err)
 	}

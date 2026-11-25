@@ -76,7 +76,14 @@ const runnerSandbox = testservice.RunnerDescription
 const label = "dev.frontseat.runner-sandbox"
 
 type runner struct {
-	sandboxes               sandboxv1alpha1connect.SandboxServiceClient
+	sandboxes sandboxv1alpha1connect.SandboxServiceClient
+	// made waits until the sandbox service has made a sandbox, or failed
+	// to (sandbox.Server.Made): for as long as the action waits, an
+	// image's pull among it, which its own bounds hold.
+	made func(ctx context.Context, id string) error
+	// starts is how long a sandbox is waited for to run once it is made;
+	// zero for two minutes.
+	starts                  time.Duration
 	worker, host, image, bb string
 	// own is the directory, beneath the worker's, that only the worker
 	// may enter: the runner's socket and each sandbox's own are there.
@@ -166,7 +173,10 @@ func Serve(ctx context.Context, config Config) error {
 	if err != nil {
 		return err
 	}
-	r.creations.next = sandboxes.Handler()
+	// Closed last, once nothing is served over it: the makings under way
+	// stop, and are waited for.
+	defer sandboxes.Close()
+	r.creations.next, r.made = sandboxes.Handler(), sandboxes.Made
 	api := filepath.Join(state, "sandbox.sock")
 	os.Remove(api)
 	apiListener, err := net.Listen("unix", api)
@@ -339,8 +349,18 @@ func (r *runner) proxied(written string) (string, error) {
 	return proxy + "/" + pinned.Path + "@" + pinned.Digest, nil
 }
 
+// running waits for a sandbox the runner asked for to run: for as long
+// as the action waits while it is made, as an image's pull is bounded by
+// its own bounds, and once it is made for two minutes (starts) more.
 func (r *runner) running(ctx context.Context, id string) error {
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	if err := r.made(ctx, id); err != nil {
+		return err
+	}
+	starts := r.starts
+	if starts == 0 {
+		starts = 2 * time.Minute
+	}
+	ctx, cancel := context.WithTimeout(ctx, starts)
 	defer cancel()
 	waited, err := r.sandboxes.WaitSandbox(ctx, &sandboxv1.WaitSandboxRequest{SandboxId: id})
 	if err != nil {

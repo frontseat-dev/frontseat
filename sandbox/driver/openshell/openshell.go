@@ -79,7 +79,7 @@ type Started struct {
 // Driver makes sandboxes with an OpenShell gateway.
 type Driver struct {
 	config  Config
-	gateway *client.Client
+	gateway client.ClientInterface
 }
 
 // New returns a driver that asks the gateway at an address.
@@ -198,6 +198,7 @@ func (d *Driver) Apply(ctx context.Context, record driver.Sandbox) (driver.Sandb
 	}
 	name := named(record.ID)
 	held, err := d.find(ctx, record.ID)
+	created := false
 	switch {
 	case errors.Is(err, driver.ErrNotFound):
 		var started *Started
@@ -233,12 +234,24 @@ func (d *Driver) Apply(ctx context.Context, record driver.Sandbox) (driver.Sandb
 			template.DriverConfig = bound
 		}
 		spec := &client.SandboxSpec{Environment: environment, Template: template, Policy: policy, Command: command, Providers: fetching.providers}
-		if _, err := d.gateway.Sandboxes().Create(ctx, d.config.Workspace, name, spec, client.WithLabels(labels)); err != nil {
-			if client.IsAlreadyExists(err) {
-				return driver.Sandbox{}, fmt.Errorf("openshell: the gateway holds a sandbox named %s that is not %s", name, record.ID)
+		_, err = d.gateway.Sandboxes().Create(ctx, d.config.Workspace, name, spec, client.WithLabels(labels))
+		if client.IsAlreadyExists(err) {
+			// One of its name came to be held since it was looked for: a
+			// server before this one asked for it under the same id, and
+			// the gateway made it meanwhile. One that carries this id is
+			// the one made, as it was asked for; another is not it.
+			if _, again := d.find(ctx, record.ID); again != nil {
+				if errors.Is(again, driver.ErrNotFound) {
+					return driver.Sandbox{}, fmt.Errorf("openshell: the gateway holds a sandbox named %s that is not %s", name, record.ID)
+				}
+				return driver.Sandbox{}, again
 			}
+			err = nil
+		}
+		if err != nil {
 			return driver.Sandbox{}, fmt.Errorf("openshell: making %s: %w", record.ID, err)
 		}
+		created = true
 	case err != nil:
 		return driver.Sandbox{}, err
 	case held.Status.Phase == client.SandboxDeleting:
@@ -261,11 +274,35 @@ func (d *Driver) Apply(ctx context.Context, record driver.Sandbox) (driver.Sandb
 		}
 	}
 	now, err := d.Observe(ctx, record.ID)
+	if err != nil && created && ctx.Err() == nil {
+		// The gateway made it: that it could not be asked after a moment
+		// later is no failure of its making. Where it is now is the next
+		// look's to say.
+		return driver.Sandbox{ID: record.ID, State: driver.Starting}, nil
+	}
 	if err == nil && now.State == driver.Ending {
 		return driver.Sandbox{}, fmt.Errorf("openshell: %s: %w", record.ID, driver.ErrEnding)
 	}
 	return now, err
 }
+
+// Check says, before anything of a sandbox is made, whether the gateway
+// is to be asked for it as it is: its rules, each credential among them
+// kept for the host its rule names (ruled), what it may write and the
+// volumes bound in. Apply checks the same again before it makes it.
+func (d *Driver) Check(ctx context.Context, record driver.Sandbox) error {
+	fetching, err := d.ruled(ctx, record)
+	if err != nil {
+		return err
+	}
+	if _, err := d.policy(record, fetching); err != nil {
+		return err
+	}
+	_, err = mounts(d.config.Compute, record.Volumes)
+	return err
+}
+
+var _ driver.Checker = (*Driver)(nil)
 
 // ending is why something asked of a sandbox failed: driver.ErrEnding
 // where the gateway came to delete it meanwhile, and the failure itself
@@ -345,7 +382,7 @@ func (d *Driver) policy(record driver.Sandbox, ruled fetched) (*client.SandboxPo
 		// What writes nothing but what is bound in writes no directory of
 		// its image: one asked for is refused, never dropped.
 		if len(record.Writable) > 0 {
-			return nil, errors.New("openshell: a sandbox writes a directory of its image, and this gateway's sandboxes write what is bound in alone")
+			return nil, &driver.Unsupported{Driver: d.Name(), Capability: "a directory of its image written, where its sandboxes write what is bound in alone"}
 		}
 		// The devices a program writes to without leaving anything, and
 		// nothing else: what is bound in follows.

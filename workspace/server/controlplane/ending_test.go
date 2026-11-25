@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -69,15 +70,36 @@ func overReal(t *testing.T) (workspacev1alpha1connect.WorkspaceServiceClient, *d
 // process that serves the control plane holds it.
 func overRealServed(t *testing.T) (workspacev1alpha1connect.WorkspaceServiceClient, *drivertest.Memory, string, sandboxv1alpha1connect.SandboxServiceClient) {
 	t.Helper()
+	client, held, address, sandboxes, _ := overRealRestartable(t)
+	return client, held, address, sandboxes
+}
+
+// overRealRestartable is overRealServed, and returns too what stops the
+// sandbox service beneath the control plane and starts another over its
+// state and its driver, as a server's end, or a crash, and its start
+// again do.
+func overRealRestartable(t *testing.T) (workspacev1alpha1connect.WorkspaceServiceClient, *drivertest.Memory, string, sandboxv1alpha1connect.SandboxServiceClient, func()) {
+	t.Helper()
 	held := drivertest.RuledMemory()
-	under := httptest.NewUnstartedServer(nil)
-	under.Start()
+	var current atomic.Pointer[sandbox.Server]
+	under := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { current.Load().Handler().ServeHTTP(w, r) }))
 	t.Cleanup(under.Close)
-	served, err := sandbox.New(sandbox.Options{Driver: held, PublicURL: under.URL, State: t.TempDir()})
-	if err != nil {
-		t.Fatal(err)
+	state := t.TempDir()
+	start := func() {
+		served, err := sandbox.New(sandbox.Options{Driver: held, PublicURL: under.URL, State: state})
+		if err != nil {
+			t.Fatal(err)
+		}
+		current.Store(served)
 	}
-	under.Config.Handler = served.Handler()
+	start()
+	t.Cleanup(func() { _ = current.Load().Close() })
+	restart := func() {
+		if err := current.Load().Close(); err != nil {
+			t.Fatal(err)
+		}
+		start()
+	}
 	sandboxes := sandboxv1alpha1connect.NewSandboxServiceClient(connect.NewClient(connecthttp.NewTransport(under.Client(), under.URL)))
 	client, address, _ := serve(t, func(address string) Config {
 		return Config{
@@ -85,7 +107,54 @@ func overRealServed(t *testing.T) (workspacev1alpha1connect.WorkspaceServiceClie
 			Fetching: system{}, Every: 10 * time.Millisecond, Answers: time.Minute, Callers: knowing(t),
 		}
 	})
-	return client, held, address, sandboxes
+	return client, held, address, sandboxes, restart
+}
+
+// makingsWait waits until so many makings wait on a driver.
+func makingsWait(t *testing.T, held *drivertest.Memory, n int) {
+	t.Helper()
+	for until := time.Now().Add(5 * time.Second); held.Waiting() != n; time.Sleep(time.Millisecond) {
+		if time.Now().After(until) {
+			t.Fatalf("%d makings wait on the driver, want %d", held.Waiting(), n)
+		}
+	}
+}
+
+// A workspace whose sandbox was being made when the sandbox service
+// stopped, as by its end or a crash while an image was pulled, has not
+// failed: the service started again over its state makes the sandbox,
+// and the workspace lives in it, the one sandbox made for it. Before,
+// the service forgot it and the workspace failed for good, its sandbox
+// said to be gone.
+func TestAWorkspaceWhoseSandboxsServiceStoppedWhileItWasMadeHasNotFailed(t *testing.T) {
+	client, held, _, sandboxes, restart := overRealRestartable(t)
+	let := held.Hold()
+	defer let(nil)
+	if _, err := client.CreateWorkspace(context.Background(), &workspacev1.CreateWorkspaceRequest{Name: "x", Spec: of("https://forge.example/acme/code.git")}); err != nil {
+		t.Fatal(err)
+	}
+	makingsWait(t, held, 1)
+	restart()
+	makingsWait(t, held, 1)
+	let(nil)
+	id := inSandbox(t, client, sandboxes, "x")
+	if waited, err := sandboxes.WaitSandbox(context.Background(), &sandboxv1.WaitSandboxRequest{SandboxId: id}); err != nil || waited.GetSandbox().GetState() != sandboxv1.Sandbox_STATE_RUNNING {
+		t.Fatalf("its sandbox is %v (%v), want it made and running", waited.GetSandbox().GetState(), err)
+	}
+	// Passes enough to find it, each as it is found.
+	for until := time.Now().Add(500 * time.Millisecond); time.Now().Before(until); time.Sleep(10 * time.Millisecond) {
+		now, err := client.DescribeWorkspace(context.Background(), &workspacev1.DescribeWorkspaceRequest{Name: "x"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if status := now.GetWorkspace().GetStatus(); status.GetState() == workspacev1.WorkspaceStatus_STATE_FAILED {
+			t.Fatalf("the workspace failed: %s", status.GetFailure())
+		}
+	}
+	listed, err := sandboxes.ListSandboxes(context.Background(), &sandboxv1.ListSandboxesRequest{Labels: map[string]string{Named: "x"}})
+	if err != nil || len(listed.GetSandboxes()) != 1 || listed.GetSandboxes()[0].GetId() != id {
+		t.Errorf("listed %v (%v), want the one sandbox %s", listed.GetSandboxes(), err, id)
+	}
 }
 
 // madeX asks for the workspace x and waits for it to be in a sandbox,
@@ -221,10 +290,12 @@ func TestASandboxAnotherLabelledForAWorkspaceIsNotEndedWithIt(t *testing.T) {
 		t.Fatal(err)
 	}
 	theirs := other.GetSandbox().GetId()
-	if _, err := client.DeleteWorkspace(ctx, &workspacev1.DeleteWorkspaceRequest{Name: "x"}); err != nil {
-		t.Fatal(err)
+	// It is made before the workspace ends, so that what is not ended is
+	// there to be seen.
+	if waited, err := sandboxes.WaitSandbox(ctx, &sandboxv1.WaitSandboxRequest{SandboxId: theirs}); err != nil || waited.GetSandbox().GetState() != sandboxv1.Sandbox_STATE_RUNNING {
+		t.Fatalf("the sandbox another asked for is %v (%v), want it running", waited.GetSandbox().GetState(), err)
 	}
-	gone(t, client, "x")
+	deleted(t, client, "x")
 	if held.Holds(own) {
 		t.Errorf("the workspace is gone and its own sandbox %s is still held", own)
 	}

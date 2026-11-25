@@ -68,6 +68,8 @@ type managing struct {
 	// asked is told, by its name, each call that begins to stall, where
 	// it is made.
 	asked chan string
+	// outlast is its sandbox service's (sandboxes.outlast).
+	outlast func(ctx context.Context, call string) error
 }
 
 // was is how often it was told, and what it was last told to hold, as a
@@ -141,6 +143,9 @@ func (m *managing) SetSource(ctx context.Context, req *sourcev1.SetSourceRequest
 	if err := m.stalled(ctx, "SetSource"); err != nil {
 		return nil, err
 	}
+	if err := m.outlast(ctx, "SetSource"); err != nil {
+		return nil, err
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.refuses != nil {
@@ -173,6 +178,12 @@ type sandboxes struct {
 	variable string
 	// refuses is why a sandbox is not made, while it is said.
 	refuses string
+	// outlasts is, by the name of a call, how many of those asked from
+	// now on are answered no sooner than whoever asked stops waiting, as
+	// a sandbox service's is whose driver pulls an image first: what
+	// CreateSandbox makes it makes all the same. SetSource is its
+	// supervisors'.
+	outlasts map[string]int
 
 	mu          sync.Mutex
 	made        map[string]*sandboxv1.CreateSandboxRequest // by sandbox
@@ -202,10 +213,51 @@ type sandboxes struct {
 const ledOn = http.StatusUpgradeRequired
 
 func over(t *testing.T) *sandboxes {
-	return &sandboxes{t: t, starts: sandboxv1.Sandbox_STATE_RUNNING, kept: map[string]string{}, inUse: map[string]bool{}, made: map[string]*sandboxv1.CreateSandboxRequest{}, named: map[string]string{}, state: map[string]sandboxv1.Sandbox_State{}, supervisors: map[string]*managing{}, servers: map[string]*httptest.Server{}}
+	return &sandboxes{t: t, starts: sandboxv1.Sandbox_STATE_RUNNING, outlasts: map[string]int{}, kept: map[string]string{}, inUse: map[string]bool{}, made: map[string]*sandboxv1.CreateSandboxRequest{}, named: map[string]string{}, state: map[string]sandboxv1.Sandbox_State{}, supervisors: map[string]*managing{}, servers: map[string]*httptest.Server{}}
 }
 
-func (s *sandboxes) CreateSandbox(_ context.Context, asked *sandboxv1.CreateSandboxRequest) (*sandboxv1.CreateSandboxResponse, error) {
+func (s *sandboxes) CreateSandbox(ctx context.Context, asked *sandboxv1.CreateSandboxRequest) (*sandboxv1.CreateSandboxResponse, error) {
+	answered, err := s.create(asked)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.outlast(ctx, "CreateSandbox"); err != nil {
+		return nil, err
+	}
+	return answered, nil
+}
+
+// outlast keeps a call waiting until its caller stops waiting, where the
+// test has it outlast so many more (outlasts), and says why it answered
+// nothing then; nil where it answers. A call whose caller would wait for
+// ever, as CreateWorkspace's own check of what it is asked for, is not
+// outlasted: only a pass's, which runs out.
+func (s *sandboxes) outlast(ctx context.Context, call string) error {
+	if _, ends := ctx.Deadline(); !ends {
+		return nil
+	}
+	s.mu.Lock()
+	outlasts := s.outlasts[call] > 0
+	if outlasts {
+		s.outlasts[call]--
+	}
+	s.mu.Unlock()
+	if !outlasts {
+		return nil
+	}
+	<-ctx.Done()
+	return connect.NewError(connect.CodeDeadlineExceeded, fmt.Sprintf("the test's %s ran out: %v", call, ctx.Err()))
+}
+
+// outlasting is how many more calls of a name are to outlast their
+// callers.
+func (s *sandboxes) outlasting(call string) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.outlasts[call]
+}
+
+func (s *sandboxes) create(asked *sandboxv1.CreateSandboxRequest) (*sandboxv1.CreateSandboxResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.refuses != "" {
@@ -216,7 +268,7 @@ func (s *sandboxes) CreateSandbox(_ context.Context, asked *sandboxv1.CreateSand
 		id = fmt.Sprintf("sbx_%d", len(s.order)+1)
 		s.made[id], s.named[asked.GetRequestId()], s.state[id] = asked, id, s.starts
 		s.order = append(s.order, id)
-		supervisor := &managing{fails: s.fails, silent: s.silent, refuses: s.refusing}
+		supervisor := &managing{fails: s.fails, silent: s.silent, refuses: s.refusing, outlast: s.outlast}
 		api := connect.NewServer()
 		sourcev1alpha1connect.RegisterSourceServiceHandler(api, supervisor)
 		mux := http.NewServeMux()
@@ -277,7 +329,10 @@ func (s *sandboxes) ResumeSandbox(_ context.Context, asked *sandboxv1.ResumeSand
 	return &sandboxv1.ResumeSandboxResponse{}, nil
 }
 
-func (s *sandboxes) DescribeCredential(_ context.Context, asked *sandboxv1.DescribeCredentialRequest) (*sandboxv1.DescribeCredentialResponse, error) {
+func (s *sandboxes) DescribeCredential(ctx context.Context, asked *sandboxv1.DescribeCredentialRequest) (*sandboxv1.DescribeCredentialResponse, error) {
+	if err := s.outlast(ctx, "DescribeCredential"); err != nil {
+		return nil, err
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	host, ok := s.kept[asked.GetName()]
@@ -521,6 +576,16 @@ func waited(t *testing.T, client workspacev1alpha1connect.WorkspaceServiceClient
 		t.Fatalf("waiting for %s: %v", name, err)
 	}
 	return seen.GetWorkspace()
+}
+
+// deleted asks for a workspace's end, and waits for it to be there no
+// more.
+func deleted(t *testing.T, client workspacev1alpha1connect.WorkspaceServiceClient, name string) {
+	t.Helper()
+	if _, err := client.DeleteWorkspace(context.Background(), &workspacev1.DeleteWorkspaceRequest{Name: name}); err != nil {
+		t.Fatal(err)
+	}
+	gone(t, client, name)
 }
 
 // gone waits for a workspace to be there no more.
@@ -1155,6 +1220,141 @@ func TestAWorkspaceWhoseSandboxCouldNotBeMadeIsMadeWhenAskedForAgain(t *testing.
 	}
 }
 
+// A call a pass over a workspace ran out before has failed nothing of
+// the workspace's: it is as it was, and the next pass asks again. Its
+// sandbox's making answered for no sooner than the pass ran out is found
+// again by the same request, and one sandbox is made; a credential not
+// described in time is described again; its supervisor not told in time
+// is told again. Each workspace comes to be ready. The control is
+// TestAWorkspaceWhoseSandboxCouldNotBeMadeIsMadeWhenAskedForAgain: a
+// sandbox refused, not outlasted, fails the workspace.
+func TestACallAPassRanOutBeforeFailsNothing(t *testing.T) {
+	for _, call := range []string{"CreateSandbox", "DescribeCredential", "SetSource"} {
+		s := over(t)
+		s.outlasts[call] = 1
+		client, _, _ := served(t, s, t.TempDir(), func(c *Config) { c.Pass = 300 * time.Millisecond })
+		ctx := context.Background()
+		if _, err := client.CreateWorkspace(ctx, &workspacev1.CreateWorkspaceRequest{Name: "slow", Spec: of("https://forge.example/acme/code.git")}); err != nil {
+			t.Fatal(err)
+		}
+		if status := settled(t, client, "slow"); status.GetState() != workspacev1.WorkspaceStatus_STATE_READY {
+			t.Errorf("%s outlasting a pass: the workspace is %v, want it ready", call, status)
+		}
+		if s.outlasting(call) != 0 || len(s.asked()) != 1 {
+			t.Errorf("%s outlasting a pass: it was outlasted: %v; made %v, want one sandbox", call, s.outlasting(call) == 0, s.asked())
+		}
+	}
+}
+
+// A call that outlasts every pass is waited for no longer than what it
+// is for is waited for: a sandbox asked for and never answered for, as
+// long as a sandbox that does not come to run (Starts); a supervisor
+// told and never answering, as long as one is waited for to take what it
+// is told (Tells). The workspace has failed then, saying why. The
+// control is TestACallAPassRanOutBeforeFailsNothing, whose calls are
+// answered at last.
+func TestACallThatOutlastsEveryPassIsWaitedForInTime(t *testing.T) {
+	for call, why := range map[string]string{"CreateSandbox": "its sandbox did not come to run: it was not answered for: ", "SetSource": "its supervisor could not be had to bring what was asked for: it was not answered for: "} {
+		s := over(t)
+		s.outlasts[call] = 1 << 30
+		client, _, _ := served(t, s, t.TempDir(), func(c *Config) {
+			c.Pass, c.Starts, c.Tells = 100*time.Millisecond, time.Second, time.Second
+		})
+		if _, err := client.CreateWorkspace(context.Background(), &workspacev1.CreateWorkspaceRequest{Name: "stuck", Spec: of("https://forge.example/acme/code.git")}); err != nil {
+			t.Fatal(err)
+		}
+		began := time.Now()
+		status := settled(t, client, "stuck")
+		if status.GetState() != workspacev1.WorkspaceStatus_STATE_FAILED || !strings.HasPrefix(status.GetFailure(), why) {
+			t.Errorf("%s outlasting every pass: the workspace is %v, want it failed: %s", call, status, why)
+		}
+		// It says what the call answered last; SetSource's, across the
+		// wire, is the caller's own deadline or the supervisor's words.
+		if said := strings.TrimPrefix(status.GetFailure(), why); call == "CreateSandbox" && !strings.Contains(said, "the test's CreateSandbox ran out") || !strings.Contains(said, "deadline") {
+			t.Errorf("%s outlasting every pass: it failed saying %q, want what the call answered last", call, said)
+		}
+		if waited := time.Since(began); waited < time.Second {
+			t.Errorf("%s outlasting every pass: it failed after %s, before it was waited for a second", call, waited)
+		}
+	}
+}
+
+// A workspace whose supervisor holds another generation than the one
+// kept, and is told it but does not answer before a pass runs out, is
+// bringing what was asked for, and never ready by what it held before:
+// waiting for it does not end there, and it lists none of the
+// repositories last seen, which only its supervisor can say it holds.
+// The control is the same workspace ready, before and once its
+// supervisor answers, which lists them, at the generation kept.
+func TestAWorkspaceWhoseSupervisorIsNotYetToldIsNotReadyByWhatItHeldBefore(t *testing.T) {
+	s := over(t)
+	client, _, _ := served(t, s, t.TempDir(), func(c *Config) { c.Pass, c.Tells = 100*time.Millisecond, time.Hour })
+	ctx := context.Background()
+	if _, err := client.CreateWorkspace(ctx, &workspacev1.CreateWorkspaceRequest{Name: "told", Spec: of("https://forge.example/acme/code.git")}); err != nil {
+		t.Fatal(err)
+	}
+	if ready := waited(t, client, "told"); ready.GetStatus().GetState() != workspacev1.WorkspaceStatus_STATE_READY || !holds(ready.GetStatus(), "0123abcd") {
+		t.Fatalf("it is %v, want it ready, holding the commit its supervisor said", ready.GetStatus())
+	}
+	s.mu.Lock()
+	s.outlasts["SetSource"] = 1 << 30
+	s.mu.Unlock()
+	supervisor := s.supervisor(s.of("told"))
+	supervisor.restarted()
+	for deadline := time.Now().Add(10 * time.Second); s.outlasting("SetSource") > (1<<30)-2; time.Sleep(10 * time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatal("its supervisor was not told again")
+		}
+	}
+	if got, err := client.DescribeWorkspace(ctx, &workspacev1.DescribeWorkspaceRequest{Name: "told"}); err != nil || got.GetWorkspace().GetStatus().GetState() != workspacev1.WorkspaceStatus_STATE_POPULATING || len(got.GetWorkspace().GetStatus().GetRepositories()) != 0 {
+		t.Errorf("told and not answering, it is %v (%v), want it bringing what was asked for, holding nothing its supervisor has not said", got.GetWorkspace().GetStatus(), err)
+	}
+	waiting, cancel := context.WithTimeout(ctx, 300*time.Millisecond)
+	defer cancel()
+	if ended, err := client.WaitWorkspace(waiting, &workspacev1.WaitWorkspaceRequest{Name: "told"}); connect.CodeOf(err) != connect.CodeDeadlineExceeded {
+		t.Errorf("waiting for it ended on %v (%v), want it waited for still", ended.GetWorkspace().GetStatus(), err)
+	}
+	s.mu.Lock()
+	s.outlasts["SetSource"] = 0
+	s.mu.Unlock()
+	if status := settled(t, client, "told"); status.GetState() != workspacev1.WorkspaceStatus_STATE_READY || !holds(status, "0123abcd") {
+		t.Errorf("once its supervisor answers it is %v, want it ready, holding the commit its supervisor said", status)
+	}
+	if told, _ := supervisor.was(); told != 2 {
+		t.Errorf("its supervisor was told %d times, want twice", told)
+	}
+}
+
+// holds is whether a workspace's status lists a repository at a commit.
+func holds(status *workspacev1.WorkspaceStatus, commit string) bool {
+	for _, r := range status.GetRepositories() {
+		if r.GetCommit() == commit {
+			return true
+		}
+	}
+	return false
+}
+
+// settled waits, for ten seconds at most, until a workspace is ready or
+// has failed, and returns its status then; it fails the test where it
+// came to neither.
+func settled(t *testing.T, client workspacev1alpha1connect.WorkspaceServiceClient, name string) *workspacev1.WorkspaceStatus {
+	t.Helper()
+	for deadline := time.Now().Add(10 * time.Second); ; time.Sleep(10 * time.Millisecond) {
+		got, err := client.DescribeWorkspace(context.Background(), &workspacev1.DescribeWorkspaceRequest{Name: name})
+		if err != nil {
+			t.Fatal(err)
+		}
+		status := got.GetWorkspace().GetStatus()
+		if state := status.GetState(); state == workspacev1.WorkspaceStatus_STATE_READY || state == workspacev1.WorkspaceStatus_STATE_FAILED {
+			return status
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("the workspace %s is %v, neither ready nor failed", name, status)
+		}
+	}
+}
+
 // What a version control system says of a fetch is held before it
 // becomes a sandbox's rule: requests beneath the repository alone,
 // programs each by its whole path, and variables that begin as the
@@ -1359,6 +1559,44 @@ func TestAWorkspaceWhoseSandboxNeverRunsHasFailed(t *testing.T) {
 	}
 	if never := waited(t, client, "stuck"); never.GetStatus().GetState() != workspacev1.WorkspaceStatus_STATE_FAILED || !strings.Contains(never.GetStatus().GetFailure(), "did not come to run") {
 		t.Errorf("one whose sandbox never runs is %v, want failed, saying so", never.GetStatus())
+	}
+}
+
+// A workspace that failed for want of its sandbox running, asked for
+// again, is waited for anew, as long as one asked for the first time:
+// it is starting until then, and has failed again after. The control is
+// the workspace before it is asked for again, failed on every pass.
+func TestAWorkspaceThatFailedWaitingIsWaitedForAnewWhenAskedForAgain(t *testing.T) {
+	s := over(t)
+	s.starts = sandboxv1.Sandbox_STATE_STARTING
+	const starts = time.Second
+	client, _, _ := served(t, s, t.TempDir(), func(c *Config) { c.Starts = starts })
+	ctx := context.Background()
+	asked := &workspacev1.CreateWorkspaceRequest{Name: "stuck", Spec: of("https://forge.example/acme/code.git")}
+	if _, err := client.CreateWorkspace(ctx, asked); err != nil {
+		t.Fatal(err)
+	}
+	if never := waited(t, client, "stuck"); never.GetStatus().GetState() != workspacev1.WorkspaceStatus_STATE_FAILED {
+		t.Fatalf("one whose sandbox never runs is %v, want failed", never.GetStatus())
+	}
+	// The control: left alone, it has failed still.
+	time.Sleep(50 * time.Millisecond)
+	if got, err := client.DescribeWorkspace(ctx, &workspacev1.DescribeWorkspaceRequest{Name: "stuck"}); err != nil || got.GetWorkspace().GetStatus().GetState() != workspacev1.WorkspaceStatus_STATE_FAILED {
+		t.Fatalf("left alone it is %v (%v), want it failed", got.GetWorkspace().GetStatus(), err)
+	}
+	again := time.Now()
+	if _, err := client.CreateWorkspace(ctx, asked); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(starts / 5)
+	if got, err := client.DescribeWorkspace(ctx, &workspacev1.DescribeWorkspaceRequest{Name: "stuck"}); err != nil || got.GetWorkspace().GetStatus().GetState() != workspacev1.WorkspaceStatus_STATE_STARTING {
+		t.Errorf("asked for again, it is %v (%v), want it starting: it is waited for anew", got.GetWorkspace().GetStatus(), err)
+	}
+	if status := settled(t, client, "stuck"); status.GetState() != workspacev1.WorkspaceStatus_STATE_FAILED || !strings.Contains(status.GetFailure(), "did not come to run") {
+		t.Errorf("asked for again and never running, it is %v, want it failed, saying so", status)
+	}
+	if waited := time.Since(again); waited < starts {
+		t.Errorf("asked for again, it failed after %s, before it was waited for %s", waited, starts)
 	}
 }
 

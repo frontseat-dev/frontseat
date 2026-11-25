@@ -21,6 +21,12 @@ type Memory struct {
 	lingers bool
 	// ruled is whether it takes a sandbox that is held to rules.
 	ruled bool
+	// held, while it is open, is what an Apply that would make a
+	// sandbox waits for (Hold); refusal is what it fails with then, nil
+	// for none; waiting is how many wait.
+	held    chan struct{}
+	refusal error
+	waiting int
 }
 
 type memorySandbox struct {
@@ -48,6 +54,55 @@ func (d *Memory) Linger() (gone func()) {
 			}
 		}
 	}
+}
+
+// Hold has every Apply that would make a sandbox wait from now on, as a
+// provider's does that pulls an image first, until the function
+// returned is called or the Apply's caller stops waiting: called with
+// nil, what waits makes its sandbox; with an error, it makes none and
+// fails with that.
+func (d *Memory) Hold() (let func(refusal error)) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	held := make(chan struct{})
+	d.held, d.refusal = held, nil
+	return func(refusal error) {
+		d.mu.Lock()
+		defer d.mu.Unlock()
+		if d.held == held {
+			d.held, d.refusal = nil, refusal
+			close(held)
+		}
+	}
+}
+
+// Waiting is how many Applies wait to make a sandbox (Hold).
+func (d *Memory) Waiting() int {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.waiting
+}
+
+// wait waits, where the driver is held, until it is let make a sandbox,
+// and says why not where it is not. The caller holds the lock, which is
+// let go of while it waits.
+func (d *Memory) wait(ctx context.Context) error {
+	if d.held == nil {
+		return nil
+	}
+	held := d.held
+	d.waiting++
+	d.mu.Unlock()
+	select {
+	case <-held:
+	case <-ctx.Done():
+	}
+	d.mu.Lock()
+	d.waiting--
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	return d.refusal
 }
 
 // Holds is whether the driver still holds a sandbox, one that is ending
@@ -86,13 +141,20 @@ func (d *Memory) Capabilities() driver.Capabilities {
 }
 
 // Apply implements driver.Driver.
-func (d *Memory) Apply(_ context.Context, record driver.Sandbox) (driver.Sandbox, error) {
+func (d *Memory) Apply(ctx context.Context, record driver.Sandbox) (driver.Sandbox, error) {
 	if err := driver.Admit(d, record); err != nil {
 		return driver.Sandbox{}, err
 	}
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	held, ok := d.sandboxes[record.ID]
+	if !ok {
+		if err := d.wait(ctx); err != nil {
+			return driver.Sandbox{}, fmt.Errorf("memory: making %s: %w", record.ID, err)
+		}
+		// What was made while it waited is the one there is.
+		held, ok = d.sandboxes[record.ID]
+	}
 	if ok && held.ending {
 		return driver.Sandbox{}, fmt.Errorf("memory: %s: %w", record.ID, driver.ErrEnding)
 	}

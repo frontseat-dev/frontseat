@@ -24,9 +24,9 @@
 // refused CANCELED or DEADLINE_EXCEEDED with the reason
 // SANDBOX_BUSY. What a driver cannot enforce is refused UNIMPLEMENTED
 // with the reason CAPABILITY_NOT_SERVED, the message naming it; what a
-// driver finds not well formed, INVALID_ARGUMENT with SPEC_INVALID; and
-// a sandbox the driver is ending, FAILED_PRECONDITION with
-// SANDBOX_ENDING.
+// driver finds not well formed, INVALID_ARGUMENT with SPEC_INVALID,
+// before anything of a sandbox is made (CreateSandbox); and a sandbox
+// that is ending, FAILED_PRECONDITION with SANDBOX_ENDING.
 //
 // Beside its calls the service carries bytes to a TCP port of a
 // sandbox, as a WebSocket, at /sandboxes/{id}/tunnels/{port}. A refusal
@@ -385,9 +385,10 @@ type SandboxSpec struct {
 	// `before_containers` is a command run in its first container before
 	// any further container starts, as when the first has something to
 	// set up that the others need. It is given only with further
-	// containers. Where the command fails, CreateSandbox fails, INTERNAL
-	// with no reason, and no sandbox is made. A driver that cannot run it
-	// refuses the sandbox, and makes nothing.
+	// containers. Where the command fails, the sandbox has failed
+	// (STATE_FAILED), saying why, and is deleted with whatever the driver
+	// left of it. A driver that cannot run it refuses the sandbox, and
+	// makes nothing.
 	BeforeContainers *StartupGate `protobuf:"bytes,12,opt,name=before_containers,json=beforeContainers,proto3" json:"before_containers,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache

@@ -15,6 +15,7 @@ import (
 	"github.com/frontseat-dev/frontseat/sandbox"
 	sandboxv1 "github.com/frontseat-dev/frontseat/sandbox/api/frontseat/sandbox/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sandbox/api/frontseat/sandbox/v1alpha1/sandboxv1alpha1connect"
+	"github.com/frontseat-dev/frontseat/sandbox/driver"
 	"github.com/frontseat-dev/frontseat/sandbox/testsupport/testcontainer"
 	"github.com/frontseat-dev/frontseat/stack/testsupport/testbox"
 	"github.com/frontseat-dev/frontseat/testsupport/testrequired"
@@ -49,12 +50,20 @@ func (c *interruptedSandboxes) DeleteSandbox(ctx context.Context, req *sandboxv1
 func runtimeSandboxes(t *testing.T, wrap ...func(http.Handler) http.Handler) (*runner, sandboxv1alpha1connect.SandboxServiceClient) {
 	testrequired.Stack(t)
 	t.Helper()
-	served, err := sandbox.New(sandbox.Options{Driver: testcontainer.Driver{}, PublicURL: "http://runner-test", State: t.TempDir()})
+	return sandboxesOver(t, testcontainer.Driver{}, wrap...)
+}
+
+// sandboxesOver is a runner whose sandboxes a sandbox service over a
+// driver makes, asked as Serve has it asked, and a client of the service.
+func sandboxesOver(t *testing.T, d driver.Driver, wrap ...func(http.Handler) http.Handler) (*runner, sandboxv1alpha1connect.SandboxServiceClient) {
+	t.Helper()
+	served, err := sandbox.New(sandbox.Options{Driver: d, PublicURL: "http://runner-test", State: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { _ = served.Close() })
 	handler := served.Handler()
-	r := &runner{}
+	r := &runner{made: served.Made}
 	for _, wrapper := range wrap {
 		handler = wrapper(handler)
 	}

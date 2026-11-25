@@ -283,6 +283,10 @@ func TestFeaturePoliciesHaveAllowedAndForbiddenControls(t *testing.T) {
 		{"sandbox/driver/openshell/openshell_test.go", "core/image", true},
 		{"grid/runner/runner.go", "sandbox/testsupport/testcontainer", false},
 		{"grid/runner/attempt_test.go", "sandbox/testsupport/testcontainer", true},
+		// The runner's test makes its sandboxes over a driver held in
+		// memory, whose making the test holds; the runner never does.
+		{"grid/runner/running_test.go", "sandbox/testsupport/drivertest", true},
+		{"grid/runner/runner.go", "sandbox/testsupport/drivertest", false},
 		{"grid/runner/pool.go", "sandbox/driver/openshell", true},
 		{"grid/runner/pool.go", "workspace/server/controlplane", false},
 		{"sandbox/testsupport/testcontainer/container.go", "sandbox/driver", true},

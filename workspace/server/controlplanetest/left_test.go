@@ -19,7 +19,9 @@ import (
 // recorded in another state, which the gateway holds running still, and
 // which is then ended the same way.
 func TestWhatAStoppedServerLeftInTheGatewayIsEnded(t *testing.T) {
-	image := testbox.Image(t)
+	// A sandbox that runs until it is ended, and needs nothing of the
+	// box: the box image's supervisor, told nothing, exits at once.
+	image := testbox.Plain(t)
 	identity := testgateway.Required(t)
 	left := func() (string, string) {
 		t.Helper()
@@ -28,11 +30,18 @@ func TestWhatAStoppedServerLeftInTheGatewayIsEnded(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		// Closing it ends no sandbox: it lets go of its gateway.
+		defer server.Close()
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 		defer cancel()
-		made, err := server.CreateSandbox(ctx, &sandboxv1.CreateSandboxRequest{Spec: &sandboxv1.SandboxSpec{Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_BLOCK}, Image: image}})
+		made, err := server.CreateSandbox(ctx, &sandboxv1.CreateSandboxRequest{Spec: &sandboxv1.SandboxSpec{Egress: &sandboxv1.Egress{Mode: sandboxv1.Egress_MODE_BLOCK}, Image: image, Arguments: []string{"sleep", "infinity"}}})
 		if err != nil {
 			t.Fatal(err)
+		}
+		// It is made, and not still being made, when its server is let go
+		// of.
+		if waited, err := server.WaitSandbox(ctx, &sandboxv1.WaitSandboxRequest{SandboxId: made.GetSandbox().GetId()}); err != nil || waited.GetSandbox().GetState() != sandboxv1.Sandbox_STATE_RUNNING {
+			t.Fatalf("the sandbox left is %v %q (%v), want it running", waited.GetSandbox().GetState(), waited.GetSandbox().GetFailure(), err)
 		}
 		// The server is let go of here, its sandbox not ended.
 		return state, made.GetSandbox().GetId()
@@ -44,6 +53,7 @@ func TestWhatAStoppedServerLeftInTheGatewayIsEnded(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		defer again.Close()
 		now, err := again.DescribeSandbox(context.Background(), &sandboxv1.DescribeSandboxRequest{SandboxId: id})
 		if connect.CodeOf(err) == connect.CodeNotFound {
 			return sandboxv1.Sandbox_STATE_UNSPECIFIED

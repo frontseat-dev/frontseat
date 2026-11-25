@@ -165,10 +165,7 @@ func TestNoSandboxCallIsServedOnTheEndpoint(t *testing.T) {
 	if _, err := sandboxes.DescribeSandbox(ctx, &sandboxv1.DescribeSandboxRequest{SandboxId: id}); err != nil || !held.Holds(id) {
 		t.Fatalf("the workspace's sandbox %s after the calls: %v", id, err)
 	}
-	if _, err := client.DeleteWorkspace(ctx, &workspacev1.DeleteWorkspaceRequest{Name: "x"}); err != nil {
-		t.Fatal(err)
-	}
-	gone(t, client, "x")
+	deleted(t, client, "x")
 	if held.Holds(id) {
 		t.Errorf("the workspace is gone and its sandbox %s is still held", id)
 	}

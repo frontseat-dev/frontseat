@@ -36,23 +36,23 @@ func mounts(compute string, volumes []driver.Volume) (map[string]any, error) {
 		return nil, nil
 	}
 	if !binding[compute] {
-		return nil, fmt.Errorf("openshell: a gateway of the compute driver %q binds no directory of its host", compute)
+		return nil, &driver.Unsupported{Driver: "openshell", Capability: fmt.Sprintf("a directory of its host bound in, over the compute driver %q, which binds none", compute)}
 	}
 	// As a protobuf Struct holds it, which is what the gateway is sent:
 	// a list of any.
 	var bound []any
 	for _, v := range volumes {
 		if v.Kind != driver.Host {
-			return nil, errors.New("openshell: a volume is not of the host, the one kind the gateway binds")
+			return nil, &driver.Unsupported{Driver: "openshell", Capability: "a volume of another kind than the host's, the one kind the gateway binds"}
 		}
 		for _, path := range []string{v.Source, v.Path} {
 			if !filepath.IsAbs(path) || filepath.Clean(path) != path {
-				return nil, errors.New("openshell: a volume names what is no plain absolute path")
+				return nil, fmt.Errorf("openshell: a volume names what is no plain absolute path: %w", driver.ErrInvalid)
 			}
 		}
 		source, err := beneath(v.Source, v.Subpath)
 		if err != nil {
-			return nil, fmt.Errorf("openshell: a volume's subpath: %w", err)
+			return nil, fmt.Errorf("openshell: a volume's subpath: %w: %w", err, driver.ErrInvalid)
 		}
 		bound = append(bound, map[string]any{"type": "bind", "source": source, "target": v.Path, "read_only": v.ReadOnly})
 	}

@@ -24,9 +24,9 @@
 // refused CANCELED or DEADLINE_EXCEEDED with the reason
 // SANDBOX_BUSY. What a driver cannot enforce is refused UNIMPLEMENTED
 // with the reason CAPABILITY_NOT_SERVED, the message naming it; what a
-// driver finds not well formed, INVALID_ARGUMENT with SPEC_INVALID; and
-// a sandbox the driver is ending, FAILED_PRECONDITION with
-// SANDBOX_ENDING.
+// driver finds not well formed, INVALID_ARGUMENT with SPEC_INVALID,
+// before anything of a sandbox is made (CreateSandbox); and a sandbox
+// that is ending, FAILED_PRECONDITION with SANDBOX_ENDING.
 //
 // Beside its calls the service carries bytes to a TCP port of a
 // sandbox, as a WebSocket, at /sandboxes/{id}/tunnels/{port}. A refusal
@@ -45,25 +45,46 @@ import "google/protobuf/timestamp.proto";
 
 // SandboxService is sandboxes: their lifecycle.
 service SandboxService {
-  // CreateSandbox makes a sandbox from a spec and returns at once; it is
-  // running when WaitSandbox ends with STATE_RUNNING. Sent again with the
-  // same request_id, it returns the sandbox the first call made, while
-  // that sandbox is there (CreateSandboxRequest.request_id).
+  // CreateSandbox checks a spec, records a sandbox of it and returns at
+  // once, the sandbox STATE_STARTING, while its driver makes it apart
+  // from the call: an image's pull among it, however long that takes and
+  // whether or not the caller still waits. What the driver finds not
+  // well formed is found before anything is made, and refused here: a
+  // rule's host, program or request, a volume's path, and a credential a
+  // rule attaches that is not kept, under the id it names, for the host
+  // it names; and so is what it cannot give, as a directory of the image
+  // written or of its host bound in where its runtime gives neither. It
+  // is running when WaitSandbox ends with STATE_RUNNING. Where the
+  // driver could not make it, as where its image could not be pulled,
+  // its container could not be started or the command of
+  // SandboxSpec.before_containers failed, it is STATE_FAILED, and
+  // Sandbox.failure says why, to this server and to one made again over
+  // its state; it is listed, with whatever the driver left of it, until
+  // it is deleted. A server that stops while a sandbox is made, by its
+  // end or a crash, leaves it STATE_STARTING, and one made again over
+  // its state makes it, under the same id. Deleted while it is being
+  // made, its making is stopped and it is STATE_ENDING, never failed:
+  // where the DeleteSandbox gave up before it was gone, it is ending, or
+  // gone, and a DeleteSandbox sent again removes it. Sent again with the
+  // same request_id, it returns the sandbox the first call made, being
+  // made or not, while that sandbox is there
+  // (CreateSandboxRequest.request_id).
   //
   // ### Errors
-  // - INVALID_ARGUMENT: the spec names no image, says no egress mode, or
-  //   holds something this server does not know (SPEC_INVALID); the
-  //   request_id is longer than 128 bytes (REQUEST_ID_INVALID).
-  // - UNIMPLEMENTED: the spec asks for what the driver cannot enforce;
-  //   the message names it (CAPABILITY_NOT_SERVED).
+  // - INVALID_ARGUMENT: the spec names no image, says no egress mode,
+  //   holds something this server does not know, or holds what the
+  //   driver finds not well formed (SPEC_INVALID); the request_id is
+  //   longer than 128 bytes (REQUEST_ID_INVALID).
+  // - UNIMPLEMENTED: the spec asks for what the driver cannot enforce
+  //   or give; the message names it (CAPABILITY_NOT_SERVED).
   // - FAILED_PRECONDITION: the sandbox the same request_id made is
   //   ending; the request is sent again once it is gone (SANDBOX_ENDING).
-  // - NOT_FOUND: the sandbox was made and was gone before it could be
-  //   described (SANDBOX_NOT_FOUND).
-  // - INTERNAL: the command of SandboxSpec.before_containers failed, and
-  //   no sandbox is made; or the driver could not make the sandbox, and
-  //   what it left of one, if anything, is listed, to be deleted. No
+  // - NOT_FOUND: the sandbox the same request_id made was gone before it
+  //   could be described (SANDBOX_NOT_FOUND).
+  // - UNAVAILABLE: the service is closing, and makes nothing more. No
   //   reason is given.
+  // - INTERNAL: the driver could not check the spec, or the sandbox
+  //   could not be recorded; nothing is made. No reason is given.
   rpc CreateSandbox(CreateSandboxRequest) returns (CreateSandboxResponse);
 
   // DescribeSandbox returns one sandbox, as it is now.
@@ -86,7 +107,9 @@ service SandboxService {
   }
 
   // DeleteSandbox ends a sandbox and removes it. What was only in it is
-  // lost. Only a sandbox this service made is its to delete.
+  // lost. Only a sandbox this service made is its to delete. One being
+  // made is made no further, and is ending from here, though this call
+  // gives up before it is gone (SANDBOX_BUSY): sent again, it removes it.
   //
   // ### Errors
   // - NOT_FOUND: no sandbox has that id (SANDBOX_NOT_FOUND).
@@ -100,6 +123,9 @@ service SandboxService {
   // ### Errors
   // - NOT_FOUND: no sandbox has that id (SANDBOX_NOT_FOUND).
   // - UNIMPLEMENTED: the driver cannot pause (CAPABILITY_NOT_SERVED).
+  // - FAILED_PRECONDITION: the driver could not make the sandbox; it is
+  //   deleted, and asked for anew (SANDBOX_FAILED). It is ending, as one
+  //   deleted while it was made is (SANDBOX_ENDING).
   rpc PauseSandbox(PauseSandboxRequest) returns (PauseSandboxResponse) {
     option idempotency_level = IDEMPOTENT;
   }
@@ -108,6 +134,9 @@ service SandboxService {
   //
   // ### Errors
   // - NOT_FOUND: no sandbox has that id (SANDBOX_NOT_FOUND).
+  // - FAILED_PRECONDITION: the driver could not make the sandbox; it is
+  //   deleted, and asked for anew (SANDBOX_FAILED). It is ending, as one
+  //   deleted while it was made is (SANDBOX_ENDING).
   rpc ResumeSandbox(ResumeSandboxRequest) returns (ResumeSandboxResponse) {
     option idempotency_level = IDEMPOTENT;
   }
@@ -275,9 +304,10 @@ message SandboxSpec {
   // `before_containers` is a command run in its first container before
   // any further container starts, as when the first has something to
   // set up that the others need. It is given only with further
-  // containers. Where the command fails, CreateSandbox fails, INTERNAL
-  // with no reason, and no sandbox is made. A driver that cannot run it
-  // refuses the sandbox, and makes nothing.
+  // containers. Where the command fails, the sandbox has failed
+  // (STATE_FAILED), saying why, and is deleted with whatever the driver
+  // left of it. A driver that cannot run it refuses the sandbox, and
+  // makes nothing.
   StartupGate before_containers = 12;
 }
 
