@@ -1,6 +1,7 @@
 package openshell
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -44,17 +45,28 @@ func TestAVolumeTheGatewayCannotBindIsRefusedByName(t *testing.T) {
 	for name, c := range map[string]struct {
 		compute string
 		volume  driver.Volume
+		// unsupported is whether it is a capability the gateway does not
+		// serve, where it is not what is not well formed.
+		unsupported bool
 	}{
-		"a compute driver that binds nothing": {"kubernetes", plain},
-		"no compute driver named":             {"", plain},
-		"an ephemeral volume":                 {"podman", driver.Volume{Name: "v", Kind: driver.Ephemeral, Path: "/b"}},
-		"a subpath":                           {"podman", driver.Volume{Name: "v", Kind: driver.Host, Source: "/a", Path: "/b", Subpath: "c"}},
-		"a relative source":                   {"podman", driver.Volume{Name: "v", Kind: driver.Host, Source: "a", Path: "/b"}},
-		"a source that climbs":                {"podman", driver.Volume{Name: "v", Kind: driver.Host, Source: "/a/../etc", Path: "/b"}},
-		"a target spelled two ways":           {"podman", driver.Volume{Name: "v", Kind: driver.Host, Source: "/a", Path: "/b/"}},
+		"a compute driver that binds nothing": {"kubernetes", plain, true},
+		"no compute driver named":             {"", plain, true},
+		"an ephemeral volume":                 {"podman", driver.Volume{Name: "v", Kind: driver.Ephemeral, Path: "/b"}, true},
+		"a subpath":                           {"podman", driver.Volume{Name: "v", Kind: driver.Host, Source: "/a", Path: "/b", Subpath: "c"}, false},
+		"a relative source":                   {"podman", driver.Volume{Name: "v", Kind: driver.Host, Source: "a", Path: "/b"}, false},
+		"a source that climbs":                {"podman", driver.Volume{Name: "v", Kind: driver.Host, Source: "/a/../etc", Path: "/b"}, false},
+		"a target spelled two ways":           {"podman", driver.Volume{Name: "v", Kind: driver.Host, Source: "/a", Path: "/b/"}, false},
 	} {
-		if _, err := mounts(c.compute, []driver.Volume{c.volume}); err == nil || !strings.Contains(err.Error(), "openshell:") {
-			t.Errorf("%s: bound, want refused (%v)", name, err)
+		// Refused by name, as the one kind it is: a capability the
+		// gateway does not serve, or what is not well formed.
+		var unsupported *driver.Unsupported
+		_, err := mounts(c.compute, []driver.Volume{c.volume})
+		if err == nil || !strings.Contains(err.Error(), "openshell") {
+			t.Errorf("%s: bound, want refused by name (%v)", name, err)
+		} else if c.unsupported && (!errors.As(err, &unsupported) || errors.Is(err, driver.ErrInvalid)) {
+			t.Errorf("%s: %v, want it refused as a capability not served, and nothing else", name, err)
+		} else if !c.unsupported && (!errors.Is(err, driver.ErrInvalid) || errors.As(err, &unsupported)) {
+			t.Errorf("%s: %v, want it refused as not well formed, and nothing else", name, err)
 		}
 	}
 	// The control: the same volume, plain, on a binding driver, is bound.

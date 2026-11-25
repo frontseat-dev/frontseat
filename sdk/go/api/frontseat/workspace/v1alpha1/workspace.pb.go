@@ -97,7 +97,9 @@ const (
 	// STATE_STARTING: its sandbox was asked for and its supervisor does not
 	// answer yet.
 	WorkspaceStatus_STATE_STARTING WorkspaceStatus_State = 1
-	// STATE_POPULATING: its supervisor is cloning what was asked for.
+	// STATE_POPULATING: its supervisor is cloning what was asked for, or
+	// is told it and has not yet said it holds it: a workspace is never
+	// ready by what it held before.
 	WorkspaceStatus_STATE_POPULATING WorkspaceStatus_State = 2
 	// STATE_READY: it holds what was asked for, and can be worked in.
 	WorkspaceStatus_STATE_READY WorkspaceStatus_State = 3

@@ -72,9 +72,13 @@ type Service interface {
 	Tunnel(w http.ResponseWriter, r *http.Request, id string, port int)
 }
 
-// recover takes up the sandboxes a server before this one made. One
-// that is gone is forgotten; one that is there is the service's again,
-// with the request that made it.
+// recover takes up the sandboxes a server before this one made, each
+// with the request that made it. One whose making that server had not
+// ended is made again, as it was asked for: its driver makes what it
+// does not hold, and changes nothing of what it does. One its driver
+// could not make is failed still, saying why, whatever the driver left
+// of it. Any other that is gone is forgotten; one that is there is the
+// service's again.
 func (s *Server) recover(ctx context.Context) error {
 	recorded, err := s.kept.all()
 	if err != nil {
@@ -83,11 +87,14 @@ func (s *Server) recover(ctx context.Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for id, r := range recorded {
-		if _, err := s.driver.Observe(ctx, id); errors.Is(err, driver.ErrNotFound) {
-			if err := s.kept.drop(id); err != nil {
-				return err
+		remade := r.making && !r.ending
+		if !remade && r.failure == "" {
+			if _, err := s.driver.Observe(ctx, id); errors.Is(err, driver.ErrNotFound) {
+				if err := s.kept.drop(id); err != nil {
+					return err
+				}
+				continue
 			}
-			continue
 		}
 		// One the provider could not answer for is still recorded, so it
 		// is still the service's.
@@ -100,8 +107,25 @@ func (s *Server) recover(ctx context.Context) error {
 			close(made.done)
 			s.asked[r.request] = made
 		}
+		if !remade {
+			close(r.done)
+			continue
+		}
+		s.goMake(id, r)
 	}
 	return nil
+}
+
+// goMake has the driver make a recorded sandbox apart from whoever asked
+// for it, on a context of its own beneath the server's: the making holds
+// the sandbox's turn from here until it has ended. The caller holds the
+// lock, and the record is the service's.
+func (s *Server) goMake(id string, r *record) {
+	r.turn <- struct{}{}
+	making, stop := context.WithCancel(s.making)
+	r.stop = stop
+	s.makings.Add(1)
+	go s.build(making, id, r, r.wanted)
 }
 
 // asks turns a spec into what the driver is asked for, for a sandbox of
@@ -116,10 +140,19 @@ func (s *Server) asks(spec *sandboxv1.SandboxSpec, id string) (driver.Sandbox, e
 	return wanted, nil
 }
 
-// Close lets go of what its driver holds open, where the driver holds
-// anything: a gateway's connection. A service is closed by whoever made
-// it once it is done with it.
+// Close stops every making under way and waits for it to stop, and
+// then lets go of what its driver holds open, where the driver holds
+// anything: a gateway's connection. A sandbox whose making was stopped
+// is still recorded as being made, and a server made again over the
+// same state makes it again (recover): a making stopped by a server's
+// end is no failure. A service is closed by whoever made it once it is
+// done with it; nothing is made after.
 func (s *Server) Close() error {
+	s.mu.Lock()
+	s.closed = true
+	s.mu.Unlock()
+	s.stopMaking()
+	s.makings.Wait()
 	if closer, ok := s.driver.(io.Closer); ok {
 		return closer.Close()
 	}
@@ -136,7 +169,16 @@ type Server struct {
 	// kept is where the records outlive the server.
 	kept kept
 
-	mu      sync.Mutex
+	// making is what every sandbox is made under, apart from whoever
+	// asked for it: stopMaking ends it, when the server closes. makings
+	// are the makings under way, which Close waits for.
+	making     context.Context
+	stopMaking context.CancelFunc
+	makings    sync.WaitGroup
+
+	mu sync.Mutex
+	// closed is whether the server is closing: nothing is made after.
+	closed  bool
 	records map[string]*record
 	// asked is the sandbox each request made or is making, by the
 	// request's id, so that a request sent again makes nothing more. A
@@ -162,8 +204,24 @@ type record struct {
 	created time.Time
 	// request is the id of the request that made it, where it had one.
 	request string
-	// turn is held while the sandbox is being changed.
+	// turn is held while the sandbox is being changed: by its making
+	// first, until the driver has made it or failed to.
 	turn turn
+	// stop stops its making while it is under way on this server, and
+	// is nil once that making has ended.
+	stop context.CancelFunc
+	// done is closed once the making on this server has ended, or at
+	// once where there was none (Made).
+	done chan struct{}
+	// making is whether its driver has not yet made it, nor failed to:
+	// kept, so that a server that stops meanwhile leaves the making to
+	// the next (recover).
+	making bool
+	// ending is whether a Delete stopped its making: it is made no
+	// further, and is said to be ending until a Delete has ended it.
+	ending bool
+	// failure is why the driver could not make it, where it could not.
+	failure string
 }
 
 // turn is a sandbox's: what changes it holds it, one change at a time,
@@ -268,36 +326,96 @@ func (s *Server) CreateSandbox(ctx context.Context, req *sandboxv1.CreateSandbox
 }
 
 // make makes a sandbox for a request, of a spec that is the service's
-// own (CreateSandbox clones it). It is recorded before it is made:
-// a server that stops between the two finds the record when it starts,
-// and the sandbox, if there is one, is still the service's.
+// own (CreateSandbox clones it), and returns at once, the sandbox
+// starting. What the driver cannot enforce, and what it finds not well
+// formed where it can say so before making anything (driver.Checker), is
+// refused here, on the asker's context, and nothing is made. The
+// sandbox is recorded as being made before it is: a server that stops
+// between the two, or while it is made, makes it again when it starts
+// (recover). The making itself is the driver's, apart from whoever
+// asked, who may stop waiting for it: it holds the sandbox's turn until
+// it ends, and a sandbox the driver could not make is failed, saying
+// why, and stays the service's, to be deleted with whatever the driver
+// left of it.
 func (s *Server) make(ctx context.Context, spec *sandboxv1.SandboxSpec, request string) (*sandboxv1.Sandbox, error) {
 	id := newID()
 	wanted, err := s.asks(spec, id)
 	if err != nil {
 		return nil, refuse(connect.CodeInvalidArgument, "SPEC_INVALID", err.Error())
 	}
-	r := &record{spec: spec, wanted: wanted, created: time.Now(), request: request, turn: newTurn()}
+	if err := driver.Admit(s.driver, wanted); err != nil {
+		return nil, refused(err)
+	}
+	if checker, ok := s.driver.(driver.Checker); ok {
+		if err := checker.Check(ctx, wanted); err != nil {
+			return nil, refused(err)
+		}
+	}
+	r := &record{spec: spec, wanted: wanted, created: time.Now(), request: request, turn: newTurn(), done: make(chan struct{}), making: true}
 	if err := s.kept.keep(id, r); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err.Error())
 	}
-	_, failed := s.driver.Apply(ctx, wanted)
-	if failed != nil {
-		// Where nothing was made the record goes. Where the provider did
-		// not make it whole, or did not say, there may be a sandbox to
-		// lose: it stays the service's, to list and to end.
-		if _, gone := s.driver.Observe(ctx, id); errors.Is(gone, driver.ErrNotFound) {
-			_ = s.kept.drop(id)
-			return nil, refused(failed)
-		}
-	}
 	s.mu.Lock()
-	s.records[id] = r
-	s.mu.Unlock()
-	if failed != nil {
-		return nil, refused(failed)
+	defer s.mu.Unlock()
+	if s.closed {
+		_ = s.kept.drop(id)
+		return nil, connect.NewError(connect.CodeUnavailable, "the sandbox service is closing, and makes nothing more")
 	}
-	return s.observe(ctx, id)
+	s.records[id] = r
+	s.goMake(id, r)
+	return s.shown(id, r, driver.Sandbox{State: driver.Starting}), nil
+}
+
+// build has the driver make a sandbox, and keeps how that ended: made,
+// or failed and why. A making the service stopped, by a Delete or by
+// closing, is no failure: one a Delete stopped is ending, and one a
+// server's end stopped is made again by the next. It holds the
+// sandbox's turn, which it gives back once that is kept.
+func (s *Server) build(ctx context.Context, id string, r *record, wanted driver.Sandbox) {
+	defer s.makings.Done()
+	defer r.turn.give()
+	_, failed := s.driver.Apply(ctx, wanted)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	defer close(r.done)
+	// Whether the service stopped it is read under the lock, as a
+	// Delete says it is ending and stops it under the lock: read before,
+	// a Delete between the two would have a sandbox it stopped failed.
+	stopped := ctx.Err() != nil
+	r.stop()
+	r.stop = nil
+	if stopped {
+		return
+	}
+	if failed != nil {
+		r.failure = "the driver could not make it: " + failed.Error()
+	}
+	r.making = false
+	if err := s.kept.keep(id, r); err != nil {
+		// Kept as being made still, it is made again by the next server,
+		// whose driver makes what it does not hold and changes nothing of
+		// what it does.
+		log.Printf("sandbox: %v", err)
+	}
+}
+
+// Made waits until the driver has made a sandbox this service made, or
+// failed to, or its making was stopped, for as long as the caller waits,
+// an image's pull among it: what is waited for once it is made, as that
+// it comes to run, is the caller's to bound apart.
+func (s *Server) Made(ctx context.Context, id string) error {
+	s.mu.Lock()
+	r, ok := s.records[id]
+	s.mu.Unlock()
+	if !ok {
+		return refuse(connect.CodeNotFound, "SANDBOX_NOT_FOUND", "no sandbox has the id asked for")
+	}
+	select {
+	case <-r.done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // userOf is the user a sandbox's first process runs as, as a driver
@@ -562,13 +680,29 @@ func refused(err error) error {
 	return connect.NewError(connect.CodeInternal, err.Error())
 }
 
-// observe returns a sandbox as it is now.
+// observe returns a sandbox as it is now: starting while it is being
+// made, failed where the driver could not make it, whatever the driver
+// holds of it, and ending where a Delete stopped its making, until it is
+// gone.
 func (s *Server) observe(ctx context.Context, id string) (*sandboxv1.Sandbox, error) {
 	s.mu.Lock()
 	r, ok := s.records[id]
+	var making, stopping, ending bool
+	var failure string
+	if ok {
+		making, stopping, ending, failure = r.making, r.stop != nil, r.ending, r.failure
+	}
 	s.mu.Unlock()
 	if !ok {
 		return nil, refuse(connect.CodeNotFound, "SANDBOX_NOT_FOUND", "no sandbox has the id asked for")
+	}
+	switch {
+	case failure != "":
+		return s.shown(id, r, driver.Sandbox{State: driver.Failed, Message: failure}), nil
+	case ending && stopping:
+		return s.shown(id, r, driver.Sandbox{State: driver.Ending}), nil
+	case making && !ending:
+		return s.shown(id, r, driver.Sandbox{State: driver.Starting}), nil
 	}
 	now, err := s.driver.Observe(ctx, id)
 	if errors.Is(err, driver.ErrNotFound) {
@@ -577,6 +711,14 @@ func (s *Server) observe(ctx context.Context, id string) (*sandboxv1.Sandbox, er
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err.Error())
 	}
+	if ending {
+		now.State = driver.Ending
+	}
+	return s.shown(id, r, now), nil
+}
+
+// shown is a sandbox of a record as the API says it, where it is now.
+func (s *Server) shown(id string, r *record, now driver.Sandbox) *sandboxv1.Sandbox {
 	out := &sandboxv1.Sandbox{
 		Id:         id,
 		Spec:       proto.Clone(r.spec).(*sandboxv1.SandboxSpec),
@@ -601,7 +743,7 @@ func (s *Server) observe(ctx context.Context, id string) (*sandboxv1.Sandbox, er
 			Uri:  fmt.Sprintf("%s/sandboxes/%s/ports/%d", s.publicURL, id, port),
 		})
 	}
-	return out, nil
+	return out
 }
 
 func (s *Server) DescribeSandbox(ctx context.Context, req *sandboxv1.DescribeSandboxRequest) (*sandboxv1.DescribeSandboxResponse, error) {
@@ -650,6 +792,23 @@ func (s *Server) ListSandboxes(ctx context.Context, req *sandboxv1.ListSandboxes
 }
 
 func (s *Server) DeleteSandbox(ctx context.Context, req *sandboxv1.DeleteSandboxRequest) (*sandboxv1.DeleteSandboxResponse, error) {
+	// One being made is made no further: it is ending from here, kept so
+	// before its making is stopped, and its making gives its turn back
+	// once the driver has. That is no failure of its making, though this
+	// Delete gives up before the turn is had: one sent again ends it.
+	s.mu.Lock()
+	if r, there := s.records[req.GetSandboxId()]; there && r.stop != nil {
+		if !r.ending {
+			r.ending = true
+			if err := s.kept.keep(req.GetSandboxId(), r); err != nil {
+				r.ending = false
+				s.mu.Unlock()
+				return nil, connect.NewError(connect.CodeInternal, err.Error())
+			}
+		}
+		r.stop()
+	}
+	s.mu.Unlock()
 	// Only what this service made is its to delete: what makes sandboxes
 	// may hold other things by other names.
 	r, err := s.turnOf(ctx, req.GetSandboxId())
@@ -680,9 +839,21 @@ func (s *Server) pause(ctx context.Context, id string, paused bool) (*sandboxv1.
 	}
 	defer r.turn.give()
 	s.mu.Lock()
-	r.wanted.Paused = paused
+	failure, ending := r.failure, r.ending
+	if failure == "" && !ending {
+		r.wanted.Paused = paused
+	}
 	wanted := r.wanted
 	s.mu.Unlock()
+	// One a Delete stopped the making of is ended, and nothing else.
+	if ending {
+		return nil, refuse(connect.CodeFailedPrecondition, "SANDBOX_ENDING", fmt.Sprintf("the sandbox %q is ending", id))
+	}
+	// One the driver could not make is not made now by being paused or
+	// resumed: it is deleted, and asked for anew.
+	if failure != "" {
+		return nil, refuse(connect.CodeFailedPrecondition, "SANDBOX_FAILED", fmt.Sprintf("the sandbox %q could not be made: it is deleted and asked for anew", id))
+	}
 	if _, err := s.driver.Apply(ctx, wanted); err != nil {
 		return nil, refused(err)
 	}
@@ -753,14 +924,11 @@ func (s *Server) ExecSandbox(ctx context.Context, req *sandboxv1.ExecSandboxRequ
 	if container != "" && !slices.ContainsFunc(r.wanted.Containers, func(c driver.SandboxContainer) bool { return c.Name == container }) {
 		return nil, refuse(connect.CodeNotFound, "CONTAINER_NOT_FOUND", fmt.Sprintf("the sandbox %q has no container of the name asked for", req.GetSandboxId()))
 	}
-	now, err := s.driver.Observe(ctx, req.GetSandboxId())
-	if errors.Is(err, driver.ErrNotFound) {
-		return nil, refuse(connect.CodeNotFound, "SANDBOX_NOT_FOUND", fmt.Sprintf("the sandbox %q is gone", req.GetSandboxId()))
-	}
+	now, err := s.observe(ctx, req.GetSandboxId())
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err.Error())
+		return nil, err
 	}
-	if now.State != driver.Running {
+	if now.GetState() != sandboxv1.Sandbox_STATE_RUNNING {
 		return nil, refuse(connect.CodeFailedPrecondition, "SANDBOX_NOT_RUNNING", fmt.Sprintf("the sandbox %q is not running", req.GetSandboxId()))
 	}
 	timeout := time.Minute

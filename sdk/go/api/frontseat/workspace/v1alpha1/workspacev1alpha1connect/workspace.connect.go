@@ -165,8 +165,9 @@ type WorkspaceServiceClient interface {
 	// Where the caller already owns a workspace of the name, and the spec
 	// asks for what that workspace has or less, in any order, the call
 	// returns that workspace, however often it is made: a paused one is
-	// resumed, and a failed one is tried again. Nothing is ended by this
-	// call, whatever fails.
+	// resumed, and a failed one is tried again, waited for as long as one
+	// asked for the first time. Nothing is ended by this call, whatever
+	// fails.
 	//
 	// ### Errors
 	// - INVALID_ARGUMENT: the spec asks for no repository and no entity
@@ -296,8 +297,9 @@ type WorkspaceServiceHandler interface {
 	// Where the caller already owns a workspace of the name, and the spec
 	// asks for what that workspace has or less, in any order, the call
 	// returns that workspace, however often it is made: a paused one is
-	// resumed, and a failed one is tried again. Nothing is ended by this
-	// call, whatever fails.
+	// resumed, and a failed one is tried again, waited for as long as one
+	// asked for the first time. Nothing is ended by this call, whatever
+	// fails.
 	//
 	// ### Errors
 	// - INVALID_ARGUMENT: the spec asks for no repository and no entity

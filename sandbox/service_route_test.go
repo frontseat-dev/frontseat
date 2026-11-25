@@ -131,8 +131,16 @@ func TestASandboxWhoseCreationReplyWasLostIsCleanedUp(t *testing.T) {
 	if err == nil {
 		t.Fatal("the transport did not lose the creation reply")
 	}
-	if len(p.owned()) != 1 {
+	owned := p.owned()
+	if len(owned) != 1 {
 		t.Fatal("the failed call did not create a real sandbox; the control proves nothing")
+	}
+	// CreateSandbox answers before the sandbox is made: it is waited for,
+	// so that what cleanup ends is a sandbox the runtime holds.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	if waited, err := p.client.WaitSandbox(ctx, &sandboxv1.WaitSandboxRequest{SandboxId: owned[0].GetId()}); err != nil || waited.GetSandbox().GetState() != sandboxv1.Sandbox_STATE_RUNNING {
+		t.Fatalf("the sandbox whose creation reply was lost is %v %q (%v), want it running", waited.GetSandbox().GetState(), waited.GetSandbox().GetFailure(), err)
 	}
 	if err := p.cleanup(); err != nil {
 		t.Fatal(err)
@@ -185,6 +193,13 @@ func newServiceRoutes(t *testing.T) *serviceRoutes {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Closed once the sandboxes are cleaned up, and before its state is
+	// removed: its makings stop, and are waited for.
+	t.Cleanup(func() {
+		if err := served.Close(); err != nil {
+			t.Error(err)
+		}
+	})
 	handler := served.Handler()
 	p := &serviceRoutes{t: t, bin: bin, root: root, owner: unique()}
 	srv.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

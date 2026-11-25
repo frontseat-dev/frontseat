@@ -8,9 +8,12 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"testing"
+	"time"
 
 	"github.com/coder/websocket"
 
+	sandboxv1 "github.com/frontseat-dev/frontseat/sandbox/api/frontseat/sandbox/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sandbox/api/frontseat/sandbox/v1alpha1/sandboxv1alpha1connect"
 	"github.com/frontseat-dev/frontseat/testsupport/testwire"
 )
@@ -34,4 +37,25 @@ func Tunnel(ctx context.Context, endpoint, sandbox string, port int) (net.Conn, 
 	}
 	socket.SetReadLimit(1 << 20)
 	return websocket.NetConn(ctx, socket, websocket.MessageBinary), nil
+}
+
+// Waiter waits for a sandbox: a client of the sandbox service, or the
+// service itself, held in the test's own process.
+type Waiter interface {
+	WaitSandbox(context.Context, *sandboxv1.WaitSandboxRequest) (*sandboxv1.WaitSandboxResponse, error)
+}
+
+// Settled waits for a sandbox, for as long as a test waits, until it is
+// no longer starting, and returns it then: CreateSandbox answers before
+// its sandbox runs, and a test that uses one it asked for waits for it
+// first.
+func Settled(t testing.TB, service Waiter, id string) *sandboxv1.Sandbox {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	waited, err := service.WaitSandbox(ctx, &sandboxv1.WaitSandboxRequest{SandboxId: id})
+	if err != nil {
+		t.Fatalf("waiting for the sandbox %s: %v", id, err)
+	}
+	return waited.GetSandbox()
 }

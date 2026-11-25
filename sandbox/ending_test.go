@@ -8,6 +8,7 @@ import (
 	sandboxv1 "github.com/frontseat-dev/frontseat/sandbox/api/frontseat/sandbox/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sandbox/api/frontseat/sandbox/v1alpha1/sandboxv1alpha1connect"
 	"github.com/frontseat-dev/frontseat/sandbox/testsupport/drivertest"
+	"github.com/frontseat-dev/frontseat/sandbox/testsupport/testsandbox"
 )
 
 // madeOverMemory serves the sandbox API over a driver that holds its
@@ -21,7 +22,7 @@ func madeOverMemory(t *testing.T, asked *sandboxv1.CreateSandboxRequest) (*drive
 	if err != nil {
 		t.Fatal(err)
 	}
-	return held, client, made.GetSandbox()
+	return held, client, testsandbox.Settled(t, client, made.GetSandbox().GetId())
 }
 
 // lingering asks for the end of a sandbox whose ending the driver then
@@ -104,7 +105,7 @@ func TestASandboxThatEndedByItselfIsForgottenAndItsRequestMakesAnother(t *testin
 		t.Fatalf("listed %v, %v once the driver let go, want nothing", listed.GetSandboxes(), err)
 	}
 	second, err := client.CreateSandbox(ctx, asked)
-	if err != nil || second.GetSandbox().GetId() == first.GetId() || second.GetSandbox().GetState() != sandboxv1.Sandbox_STATE_RUNNING {
+	if err != nil || second.GetSandbox().GetId() == first.GetId() || testsandbox.Settled(t, client, second.GetSandbox().GetId()).GetState() != sandboxv1.Sandbox_STATE_RUNNING {
 		t.Fatalf("the request sent again once its sandbox is gone: %v, %v, want another, running", second.GetSandbox(), err)
 	}
 	if !held.Holds(second.GetSandbox().GetId()) || held.Holds(first.GetId()) {

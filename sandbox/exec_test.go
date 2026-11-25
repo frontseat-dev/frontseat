@@ -10,6 +10,7 @@ import (
 	sandboxv1 "github.com/frontseat-dev/frontseat/sandbox/api/frontseat/sandbox/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sandbox/driver"
 	"github.com/frontseat-dev/frontseat/sandbox/testsupport/drivertest"
+	"github.com/frontseat-dev/frontseat/sandbox/testsupport/testsandbox"
 	"github.com/frontseat-dev/frontseat/sdk/go"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
@@ -32,7 +33,7 @@ func runningOver(t *testing.T, d driver.Driver) (*Server, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return s, made.GetSandbox().GetId()
+	return s, testsandbox.Settled(t, s, made.GetSandbox().GetId()).GetId()
 }
 
 // A command is said to have run past its timeout where it ran past the

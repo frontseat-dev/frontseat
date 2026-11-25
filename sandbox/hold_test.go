@@ -14,6 +14,7 @@ import (
 	sandboxv1 "github.com/frontseat-dev/frontseat/sandbox/api/frontseat/sandbox/v1alpha1"
 	"github.com/frontseat-dev/frontseat/sandbox/driver"
 	"github.com/frontseat-dev/frontseat/sandbox/testsupport/drivertest"
+	"github.com/frontseat-dev/frontseat/sandbox/testsupport/testsandbox"
 )
 
 // meeting is a driver that makes nothing until two have asked it to: two
@@ -46,6 +47,7 @@ func started(t *testing.T, d driver.Driver, state string) *Server {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { _ = s.Close() })
 	return s
 }
 
@@ -79,6 +81,8 @@ func TestOneRequestSentTwiceAtOnceMakesOneSandbox(t *testing.T) {
 	}
 	together.Wait()
 	close(made)
+	first, second := <-made, <-made
+	testsandbox.Settled(t, s, first)
 
 	there, err := held.List(ctx, nil)
 	if err != nil {
@@ -87,7 +91,6 @@ func TestOneRequestSentTwiceAtOnceMakesOneSandbox(t *testing.T) {
 	if len(there) != 1 {
 		t.Errorf("one request made %d sandboxes", len(there))
 	}
-	first, second := <-made, <-made
 	if first == "" || first != second {
 		t.Errorf("the two were answered with %q and %q, want the one sandbox", first, second)
 	}

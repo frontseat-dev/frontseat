@@ -292,7 +292,7 @@ var policies = []policy{
 	// The runner keeps the grid's pool of runner sandboxes with the
 	// OpenShell driver itself: their bound directories and private policy
 	// are the driver's to say, and no client's of the sandbox API.
-	{"grid/runner", []string{"sandbox/api/**", "core/page", "sandbox", "sandbox/driver", "sandbox/driver/openshell", "core/httpserver", "core/image", "sdk/go/api/**", "sdk/go/entity", "common/runner/testservice", "common/confine", "sdk/go", "common/runner/runnerapi/**", "core/poll"}},
+	{"grid/runner", []string{"sandbox/api/**", "core/page", "sandbox", "sandbox/driver", "sandbox/driver/openshell", "sandbox/testsupport/drivertest", "core/httpserver", "core/image", "sdk/go/api/**", "sdk/go/entity", "common/runner/testservice", "common/confine", "sdk/go", "common/runner/runnerapi/**", "core/poll"}},
 	// The box's one build, asked by the spec that holds a box to what it
 	// was built with; no other spec builds one. That spec asks the
 	// stack's Podman as the stack does (local.Podman).

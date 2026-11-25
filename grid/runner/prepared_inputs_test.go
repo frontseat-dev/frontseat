@@ -125,6 +125,13 @@ func TestPreparedHomeFileBindsWorkInTheRealRuntime(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Closed once its sandbox is deleted and before its state is
+	// removed: its makings stop, and are waited for.
+	t.Cleanup(func() {
+		if err := served.Close(); err != nil {
+			t.Error(err)
+		}
+	})
 	server := httptest.NewServer(served.Handler())
 	t.Cleanup(server.Close)
 	client := sandboxv1alpha1connect.NewSandboxServiceClient(connect.NewClient(connecthttp.NewTransport(server.Client(), server.URL)))
@@ -140,6 +147,11 @@ func TestPreparedHomeFileBindsWorkInTheRealRuntime(t *testing.T) {
 			t.Errorf("cleanup: %v", err)
 		}
 	})
+	// CreateSandbox answers before the sandbox runs: it is waited for, as
+	// any caller that runs a command in it waits.
+	if waited, err := client.WaitSandbox(ctx, &sandboxv1.WaitSandboxRequest{SandboxId: made.Sandbox.Id}); err != nil || waited.GetSandbox().GetState() != sandboxv1.Sandbox_STATE_RUNNING {
+		t.Fatalf("the sandbox is %v %q (%v), want it running", waited.GetSandbox().GetState(), waited.GetSandbox().GetFailure(), err)
+	}
 	for _, c := range []struct {
 		args   []string
 		code   int

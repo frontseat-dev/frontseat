@@ -109,7 +109,10 @@ func made(d driver.Driver, options Options) (*Server, error) {
 		return nil, err
 	}
 	s := &Server{driver: d, publicURL: options.PublicURL, kept: files, records: map[string]*record{}, asked: map[string]*asking{}}
+	s.making, s.stopMaking = context.WithCancel(context.Background())
 	if err := s.recover(context.Background()); err != nil {
+		s.stopMaking()
+		s.makings.Wait()
 		return nil, err
 	}
 	return s, nil

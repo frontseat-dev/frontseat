@@ -113,6 +113,16 @@ type Config struct {
 	// workspace has failed; zero for five minutes, an image's pull among
 	// it.
 	Starts time.Duration
+	// Pass is the longest one pass over a workspace takes; zero for a
+	// minute. A call a pass ran out before is asked again on the next,
+	// and fails nothing of the workspace's while it is waited for: one
+	// that makes its sandbox for as long as a sandbox is waited for to
+	// run (Starts), and one that tells its supervisor for Tells.
+	Pass time.Duration
+	// Tells is how long a supervisor is waited for to take what it is
+	// told, over every pass that tells it, before the workspace has
+	// failed; zero for two minutes.
+	Tells time.Duration
 }
 
 // Entities resolves entities, as a person typed them, for whoever owns
@@ -150,6 +160,12 @@ func Serve(c Config) (*Plane, error) {
 	}
 	if c.Starts == 0 {
 		c.Starts = 5 * time.Minute
+	}
+	if c.Pass == 0 {
+		c.Pass = time.Minute
+	}
+	if c.Tells == 0 {
+		c.Tells = 2 * time.Minute
 	}
 	if c.Callers == nil {
 		return nil, errors.New("a control plane answers callers it knows, and was told of no way to know one")
@@ -335,9 +351,12 @@ type held struct {
 	// running is since when its sandbox runs with no answer from its
 	// supervisor; zero while it answers or does not run.
 	running time.Time
-	// starting is since when its sandbox was found not yet running; zero
-	// once it runs.
+	// starting is since when its sandbox was found not yet running, or
+	// asked for and not answered before a pass ran out; zero once it runs.
 	starting time.Time
+	// telling is since when its supervisor was told and did not answer
+	// before a pass ran out; zero once it answers.
+	telling time.Time
 	// settled is when it was last found as asked, to be looked at less
 	// often.
 	settled time.Time
@@ -496,6 +515,12 @@ func (s *service) CreateWorkspace(ctx context.Context, req *workspacev1.CreateWo
 		found := s.pass(ctx, there)
 		there.pass.Lock()
 		there.again, there.resume = true, true
+		// One that failed for want of what it waited for is waited for
+		// anew, as long as one asked for the first time; one still
+		// waited for is not waited for longer for being asked again.
+		if there.seen.Load().GetStatus().GetState() == workspacev1.WorkspaceStatus_STATE_FAILED {
+			there.starting, there.telling, there.running = time.Time{}, time.Time{}, time.Time{}
+		}
 		there.pass.Unlock()
 		s.wake()
 		return &workspacev1.CreateWorkspaceResponse{Workspace: found}, nil
@@ -884,10 +909,11 @@ func (s *service) carried(port func(*http.Request) (int, bool)) http.HandlerFunc
 }
 
 // passing is the context of a pass over a workspace, called with its
-// pass held: a minute, or, for a pass that does not end it, until it is
-// asked to end, though that was asked just before the pass began.
-func (h *held) passing(ctx context.Context) (context.Context, context.CancelFunc) {
-	return h.stoppable(ctx, time.Minute)
+// pass held: for so long (Config.Pass), or, for a pass that does not end
+// it, until it is asked to end, though that was asked just before the
+// pass began.
+func (h *held) passing(ctx context.Context, within time.Duration) (context.Context, context.CancelFunc) {
+	return h.stoppable(ctx, within)
 }
 
 // stoppable is the context of work on a workspace, called with its pass
@@ -975,7 +1001,7 @@ func (s *service) work(ctx context.Context) {
 			go func() {
 				defer s.working.Done()
 				defer h.pass.Unlock()
-				passing, cancel := h.passing(ctx)
+				passing, cancel := h.passing(ctx, s.Pass)
 				defer cancel()
 				s.reconcile(passing, h)
 			}()
@@ -993,7 +1019,7 @@ func (s *service) work(ctx context.Context) {
 // where another is working on it, as that one last found it.
 func (s *service) pass(ctx context.Context, h *held) *workspacev1.Workspace {
 	if h.pass.TryLock() {
-		passing, cancel := h.passing(context.WithoutCancel(ctx))
+		passing, cancel := h.passing(context.WithoutCancel(ctx), s.Pass)
 		s.reconcile(passing, h)
 		cancel()
 		h.pass.Unlock()
@@ -1045,6 +1071,40 @@ func (s *service) step(ctx context.Context, h *held) *workspacev1.WorkspaceStatu
 	failed := func(why string) *workspacev1.WorkspaceStatus {
 		return &workspacev1.WorkspaceStatus{State: workspacev1.WorkspaceStatus_STATE_FAILED, Failure: why}
 	}
+	// A call the pass ran out before, or was stopped before, is not
+	// answered: nothing of the workspace's failed, and it is asked again
+	// on the next pass, for as long as what it is for is waited for. What
+	// a pass may take is the pass's, never the workspace's. One answered
+	// as having run out of time is one of those, though the pass's own
+	// clock has not yet said so: a server told the deadline reads it on
+	// its own clock, and may run out a moment before.
+	cut := func(err error) bool {
+		return ctx.Err() != nil || errors.Is(err, context.DeadlineExceeded) || connect.CodeOf(err) == connect.CodeDeadlineExceeded
+	}
+	starting := func() *workspacev1.WorkspaceStatus {
+		return &workspacev1.WorkspaceStatus{State: workspacev1.WorkspaceStatus_STATE_STARTING}
+	}
+	// A sandbox asked for and not answered for before a pass ran out is
+	// waited for as long as one that does not come to run, and has
+	// failed then, saying what the call last answered.
+	unanswered := func(err error) *workspacev1.WorkspaceStatus {
+		if h.starting.IsZero() {
+			h.starting = time.Now()
+		}
+		if time.Since(h.starting) > s.Starts {
+			h.again = false
+			return failed("its sandbox did not come to run: it was not answered for: " + err.Error())
+		}
+		return starting()
+	}
+	// What is not known is not said to have failed: it is as it was last
+	// found.
+	unknown := func() *workspacev1.WorkspaceStatus {
+		if seen := h.seen.Load().GetStatus(); seen != nil {
+			return proto.Clone(seen).(*workspacev1.WorkspaceStatus)
+		}
+		return starting()
+	}
 	// A lifetime that has run out ends it, as if it were asked to end.
 	if !h.ending && h.expired() {
 		h.ending = true
@@ -1094,6 +1154,9 @@ func (s *service) step(ctx context.Context, h *held) *workspacev1.WorkspaceStatu
 	// was stopped half-way is found again.
 	if h.sandbox == "" {
 		in, err := s.sandbox(ctx, called, h.owner, h.made, h.resolved)
+		if err != nil && cut(err) {
+			return unanswered(err)
+		}
 		if err != nil {
 			h.failed, h.again = err.Error(), false
 			return failed(h.failed)
@@ -1110,6 +1173,10 @@ func (s *service) step(ctx context.Context, h *held) *workspacev1.WorkspaceStatu
 		}
 		in.Labels[Made] = request
 		created, err := s.Sandboxes.CreateSandbox(ctx, &sandboxv1.CreateSandboxRequest{Spec: in, RequestId: "workspace-" + called + "-" + request})
+		if err != nil && cut(err) {
+			// Asked again, the same request finds what this one made.
+			return unanswered(err)
+		}
 		if err != nil {
 			h.failed, h.again = "its sandbox could not be made: "+err.Error(), false
 			return failed(h.failed)
@@ -1127,11 +1194,7 @@ func (s *service) step(ctx context.Context, h *held) *workspacev1.WorkspaceStatu
 		return failed("its sandbox is gone: it is ended, and asked for anew")
 	}
 	if err != nil {
-		// What is not known is not said to have failed.
-		if seen := h.seen.Load().GetStatus(); seen != nil {
-			return proto.Clone(seen).(*workspacev1.WorkspaceStatus)
-		}
-		return &workspacev1.WorkspaceStatus{State: workspacev1.WorkspaceStatus_STATE_STARTING}
+		return unknown()
 	}
 	switch now.GetSandbox().GetState() {
 	case sandboxv1.Sandbox_STATE_PAUSED:
@@ -1195,22 +1258,44 @@ func (s *service) step(ctx context.Context, h *held) *workspacev1.WorkspaceStatu
 	// the workspace was asked for anew.
 	telling := held.GetGeneration() != h.generation || (h.again && held.GetState() == sourcev1.Source_STATE_FAILED)
 	if telling && !busy {
-		telling, cancel := context.WithTimeout(ctx, 2*time.Minute)
+		telling, cancel := context.WithTimeout(ctx, s.Tells)
 		answered, err := supervisor.SetSource(telling, &sourcev1.SetSourceRequest{Spec: told.Spec(h.workspace.GetSpec(), h.generation, h.resolved, s.nameOf)})
 		cancel()
 		// One that is bringing what it was told before is told again
 		// once that is done: it says so by its reason, never its words.
 		if reason, domain := frontseat.Reason(err); domain == refusal.Source && reason == told.Populating {
+			h.telling = time.Time{}
 			return &workspacev1.WorkspaceStatus{State: workspacev1.WorkspaceStatus_STATE_POPULATING}
 		}
-		h.again = false
+		// One a pass ran out before is told again on the next, for as long
+		// as a supervisor is waited for to take what it is told. Until it
+		// says it holds the generation kept, it is bringing what was asked
+		// for: never ready by what it held before, which a caller waiting
+		// would take for what it asked. Nor does it hold the repositories
+		// last seen: those are as its supervisor says, and one started
+		// again has said nothing yet.
+		if err != nil && cut(err) {
+			if h.telling.IsZero() {
+				h.telling = time.Now()
+			}
+			if time.Since(h.telling) <= s.Tells {
+				return &workspacev1.WorkspaceStatus{State: workspacev1.WorkspaceStatus_STATE_POPULATING}
+			}
+			h.again, h.telling = false, time.Time{}
+			h.failed = "its supervisor could not be had to bring what was asked for: it was not answered for: " + err.Error()
+			return failed(h.failed)
+		}
+		h.again, h.telling = false, time.Time{}
 		if err != nil {
 			h.failed = "its supervisor could not be had to bring what was asked for: " + err.Error()
 			return failed(h.failed)
 		}
 		held = answered.GetSource()
-	} else if !busy {
-		h.again = false
+	} else {
+		h.telling = time.Time{}
+		if !busy {
+			h.again = false
+		}
 	}
 	return told.Status(held)
 }
@@ -1345,7 +1430,19 @@ func OverGateway(c Config, gateway Gateway) (*Plane, error) {
 		return nil, err
 	}
 	c.Sandboxes, c.Builder, c.State = sandboxes, Builder, filepath.Join(c.State, "workspaces")
-	return Serve(c)
+	plane, err := Serve(c)
+	if err != nil {
+		_ = sandboxes.Close()
+		return nil, err
+	}
+	// The sandbox service made here is closed here, once nothing works on
+	// a workspace: the makings under way stop, and are waited for.
+	stop := plane.stop
+	plane.stop = func() {
+		stop()
+		_ = sandboxes.Close()
+	}
+	return plane, nil
 }
 
 // written is what runs in a workspace's sandbox may write of a box
