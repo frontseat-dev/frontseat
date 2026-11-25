@@ -30,15 +30,24 @@ var buildCmd = &cobra.Command{
 
 The command follows the build to its end and exits with its exit code.
 
+With --watch it then builds again each time something a build reads
+changed: a file of the directory, as a build lists it, or the build's
+settings and plugins. Each build is a build of its own, and runs what
+the change affects: the rest is answered from the cache. A build that
+failed waits for the next change as one that passed does. The command
+ends when it is interrupted, exiting 130, or where the build daemon
+cannot be asked.
+
 The builds of the workspace are read and stopped with the commands
 beneath: build list, describe, events, actions, logs and cancel. An
 entity named list, describe, events, actions, logs or cancel is written
 with its kind, component:list.`,
 	Example: `  frontseat build
   frontseat build gateway --only lint
+  frontseat build --watch gateway
   frontseat build --fix //cli:go.format`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return built(cmd, func(w *frontseat.Workspace) (*frontseat.Build, error) {
+		return builds(cmd, buildFix, func(w *frontseat.Workspace) (*frontseat.Build, error) {
 			return w.Build(cmd.Context(), frontseat.BuildRequest{Targets: args, Only: buildOnly, Profile: buildProfile.Profile, Fix: buildFix})
 		})
 	},
@@ -59,12 +68,31 @@ func built(cmd *cobra.Command, start func(*frontseat.Workspace) (*frontseat.Buil
 	return err
 }
 
+// building or testing, a command builds once, or with --watch again
+// each time something changed (watched).
+func builds(cmd *cobra.Command, fix bool, start func(*frontseat.Workspace) (*frontseat.Build, error)) error {
+	if !watching {
+		return built(cmd, start)
+	}
+	if fix {
+		return errors.New("--watch and --fix do not go together: a build that fixes writes the files a watch builds again for, while they are being written")
+	}
+	return watched(cmd, start)
+}
+
 func init() {
 	rootCmd.AddCommand(buildCmd)
 	worksWhereItIsRun(buildCmd)
 	onlyFlag(buildCmd, &buildOnly)
 	profileFlag(buildCmd, &buildProfile)
 	buildCmd.Flags().BoolVar(&buildFix, "fix", false, "write what is out of step as it should be, where a build would fail and say so")
+	watchFlag(buildCmd)
+}
+
+// watchFlag gives a command that builds the flag that has it build
+// again each time something changed.
+func watchFlag(cmd *cobra.Command) {
+	cmd.Flags().BoolVar(&watching, "watch", false, "build again each time a file changes, until interrupted")
 }
 
 // onlyFlag gives a command that builds the flag that keeps the actions

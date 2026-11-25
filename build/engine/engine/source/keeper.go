@@ -2,7 +2,6 @@ package source
 
 import (
 	"context"
-	"fmt"
 	"io/fs"
 	"path/filepath"
 	"strings"
@@ -99,16 +98,9 @@ func (k *Keeper) Take(ctx context.Context, tree Tree) (*Snapshot, error) {
 	s := &Snapshot{Tree: tree, keeper: k, repositories: map[string]*taken{}}
 	places := make(map[string]place, len(tree.Paths))
 	for _, repository := range tree.Repositories() {
-		// A repository may be reached through a link, the workspace's own
-		// directory among them: its files are where the link leads.
-		at := tree.directory(repository)
-		directory, err := filepath.EvalSymlinks(at)
+		t, err := tree.list(ctx, repository, nil)
 		if err != nil {
-			directory = at
-		}
-		t, err := list(ctx, at, directory)
-		if err != nil {
-			return nil, fmt.Errorf("listing the repository %s: %w", repository, err)
+			return nil, err
 		}
 		s.repositories[repository] = t
 		if at, known := placed(t.directory); known {

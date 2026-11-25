@@ -108,7 +108,13 @@ func (c *Changed) Error() string {
 // list lists the files under a directory. A link is the file it leads
 // to where that is a file under the directory, and nothing where it is
 // not.
-func list(ctx context.Context, at, directory string) (*taken, error) {
+//
+// Where it is given somewhere to say so (entered), it says how each
+// directory it lists the files of looked, the repository's own by ".",
+// and how each link it followed looked itself: what a file made and
+// removed again, or a link led elsewhere and back, leaves behind. A run
+// asks for neither.
+func list(ctx context.Context, at, directory string, entered map[string]looked) (*taken, error) {
 	t := &taken{at: at, directory: directory, listed: map[string]looked{}, held: map[string]kept{}, absent: map[string]bool{}}
 	root, err := os.OpenRoot(directory)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -125,9 +131,6 @@ func list(ctx context.Context, at, directory string) (*taken, error) {
 		if err != nil {
 			return err
 		}
-		if at == directory {
-			return ctx.Err()
-		}
 		rel, err := filepath.Rel(directory, at)
 		if err != nil {
 			return err
@@ -136,8 +139,13 @@ func list(ctx context.Context, at, directory string) (*taken, error) {
 		if entry.IsDir() {
 			// Not entered: what is beneath is never looked at, as git
 			// never looks beneath a directory it ignores.
-			if strings.HasPrefix(entry.Name(), ".") || t.ignores.ignored(name, true) {
+			if at != directory && (strings.HasPrefix(entry.Name(), ".") || t.ignores.ignored(name, true)) {
 				return filepath.SkipDir
+			}
+			if entered != nil {
+				if err := itself(entered, name, entry); err != nil {
+					return err
+				}
 			}
 			return ctx.Err()
 		}
@@ -149,6 +157,11 @@ func list(ctx context.Context, at, directory string) (*taken, error) {
 		case entry.Type()&fs.ModeSymlink != 0:
 			// Through the root, so that a link out of the repository leads
 			// nowhere.
+			if entered != nil {
+				if err := itself(entered, name, entry); err != nil {
+					return err
+				}
+			}
 			if info, err = root.Stat(rel); err != nil {
 				return nil
 			}
@@ -171,6 +184,20 @@ func list(ctx context.Context, at, directory string) (*taken, error) {
 	})
 	sort.Strings(t.names)
 	return t, err
+}
+
+// itself says how a directory or a link looked itself, by its name;
+// one that is gone since it was listed says nothing.
+func itself(entered map[string]looked, name string, entry fs.DirEntry) error {
+	info, err := entry.Info()
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	entered[name] = look(info)
+	return nil
 }
 
 // Hashed returns how many files the run has read to know what they held:
