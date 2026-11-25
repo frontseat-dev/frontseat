@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/frontseat-dev/frontseat/common/record"
 	"github.com/frontseat-dev/frontseat/common/record/manifest"
 	"github.com/frontseat-dev/frontseat/testsupport/testfiles"
 )
@@ -71,57 +70,6 @@ func TestAManifestThatNamesWhatAWorkspaceCannotHoldIsNotRead(t *testing.T) {
 				t.Error("it was read")
 			}
 		})
-	}
-}
-
-// A repository something else mounted in the workspace is recorded as
-// mounted, at the changeset it stands at, from no remote: it is read
-// back as it was written, beside a clone, and its changeset is held to
-// no revision of a version control system, which is asked nothing of
-// it. One that is said to be cloned too, or to stand at what is no
-// changeset written plainly, is not read. The control is the clone,
-// whose commit is held to a revision: the same changeset there is
-// refused.
-func TestAMountedRepositoryIsRecordedAtItsChangesetAndFromNoRemote(t *testing.T) {
-	mounted := "  - name: stored\n    commit: changeset-9\n    roots: [greet]\n    mounted: true\nknown:"
-	read := func(written string) (manifest.Manifest, error) {
-		dir := t.TempDir()
-		testfiles.Tree(t, dir, map[string]string{manifest.File: written})
-		got, _, err := manifest.Read(dir, revision)
-		return got, err
-	}
-	got, err := read(strings.Replace(sound, "known:", mounted, 1))
-	if err != nil || len(got.Repositories) != 2 {
-		t.Fatalf("read %+v (%v), want the clone and the mounted repository", got, err)
-	}
-	if stored := got.Repositories[1]; !stored.Mounted || stored.Name != "stored" || stored.Commit != "changeset-9" || stored.Remote != "" || len(stored.Roots) != 1 {
-		t.Errorf("the mounted repository is read as %+v, want it mounted, at its changeset, from no remote", stored)
-	}
-	dir := t.TempDir()
-	if err := manifest.Write(dir, got); err != nil {
-		t.Fatal(err)
-	}
-	if again, found, err := manifest.Read(dir, revision); err != nil || !found || len(again.Repositories) != 2 || !again.Repositories[1].Mounted || again.Repositories[0].Mounted || again.Repositories[1].Commit != "changeset-9" {
-		t.Errorf("written and read again it is %+v (found %v, %v), want what was read", again, found, err)
-	}
-	for name, change := range map[string][2]string{
-		"mounted and cloned from a remote":   {"mounted: true", "mounted: true\n    remote: file:///nowhere"},
-		"mounted and asked for at a ref":     {"mounted: true", "mounted: true\n    ref: main"},
-		"at no changeset":                    {"commit: changeset-9", `commit: ""`},
-		"at a changeset that is an option":   {"commit: changeset-9", "commit: --output=/tmp/written"},
-		"at a changeset with a space in it":  {"commit: changeset-9", `commit: "changeset 9"`},
-		"at a changeset of more than a line": {"commit: changeset-9", `commit: "changeset\n9"`},
-		"at a changeset of great length":     {"commit: changeset-9", "commit: " + strings.Repeat("9", 257)},
-		"a clone at a changeset":             {"    mounted: true\n", ""},
-		"mounted out of the workspace":       {"name: stored", "name: ../stored"},
-		"a mounted directory out of it":      {"roots: [greet]", "roots: [../services]"},
-	} {
-		if !strings.Contains(mounted, change[0]) {
-			t.Fatalf("the manifest holds no %q to change", change[0])
-		}
-		if _, err := read(strings.Replace(sound, "known:", strings.Replace(mounted, change[0], change[1], 1), 1)); !errors.Is(err, record.ErrUnfit) {
-			t.Errorf("%s: read, or refused as %v; want it refused as what a workspace cannot hold", name, err)
-		}
 	}
 }
 

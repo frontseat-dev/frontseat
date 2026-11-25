@@ -17,10 +17,6 @@ import (
 var (
 	// opened is this checkout's workspace as the flags say it.
 	opened machine.OpenOptions
-	// checkout is the version control system a checkout of this machine
-	// is read with, and a repository named by its remote. A test stands
-	// in for it.
-	checkout = machine.Checkout
 	// openShell and openNoShell say whether a workspace opened or made
 	// is gone on into, in a shell; without either, it is at a terminal.
 	openShell, openNoShell bool
@@ -42,16 +38,6 @@ is, as it was left, or a new one, named by its repository and branch or
 by --name. A workspace of repositories or entities is made with
 workspace create.
 
-A workspace is local or remote. Local is the default: its repositories
-are cloned in its sandbox, and what is done there is committed there
-and leaves it by a push. With --remote it is remote: the repository is
-held from the control plane's snapshot store, by its name, and mounted
-in the sandbox, not cloned; it works on a task, the one --task names or
-one named for the workspace, and not on the checkout's branch, and what
-passes its tests lands on the task. Remote workspaces are served by
-Frontseat Enterprise: any other control plane refuses one by name
-(STORE_NOT_SERVED), and makes nothing.
-
 It is the control plane's every command asks (frontseat --help).
 
 At a terminal it goes on into a shell there, by this machine's SSH
@@ -68,16 +54,12 @@ workspace made with --push may do: to its own repositories and no other,
 as far as the credential the control plane keeps lets it.`,
 	Example: `  frontseat workspace open
   frontseat workspace open --no-shell
-  frontseat workspace open services-main
-  frontseat workspace open --remote --task fix-greeting`,
+  frontseat workspace open services-main`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
 		if len(args) == 1 {
 			return openByName(cmd, args[0])
-		}
-		if err := remotely(cmd, opened.Remote); err != nil {
-			return err
 		}
 		fs, err := server()
 		if err != nil {
@@ -91,22 +73,17 @@ as far as the credential the control plane keeps lets it.`,
 			}
 			open.Directory = directory
 		}
-		got, err := machine.OpenCheckout(ctx, fs, open, checkout())
+		got, err := machine.OpenCheckout(ctx, fs, open, machine.Checkout())
 		if err := kept(fs, got.OpenResult, err); err != nil {
 			return err
 		}
 		standing := got.Standing
-		if open.Remote {
-			said("%s  held from the store, on the task %s", got.Repository, got.Status.GetSpec().GetTask())
-			said("  it holds what its task holds, and nothing of this checkout: not its branch, %s, nor what is not pushed or committed here", standing.Branch)
-		} else {
-			said("%s  %s", standing.Remote, standing.Branch)
-			if standing.Converted {
-				said("  this checkout writes its remote otherwise: the same host and path are cloned as above, and no user it names is sent on")
-			}
-			if missing := notHeld(standing.Unpushed, standing.Uncommitted); missing != "" {
-				said("  %s: the workspace does not hold them", missing)
-			}
+		said("%s  %s", standing.Remote, standing.Branch)
+		if standing.Converted {
+			said("  this checkout writes its remote otherwise: the same host and path are cloned as above, and no user it names is sent on")
+		}
+		if missing := notHeld(standing.Unpushed, standing.Uncommitted); missing != "" {
+			said("  %s: the workspace does not hold them", missing)
 		}
 		said("%s  %s", got.Workspace.Name(), got.Outcome)
 		if got.Status.GetSpec().GetPush() {
@@ -143,7 +120,7 @@ func openByName(cmd *cobra.Command, name string) error {
 	}
 	// What a workspace is was said when it was made, and is not asked
 	// again of one that is there; a directory names a checkout.
-	for _, flag := range []string{"name", "push", "image", "directory", "remote", "task"} {
+	for _, flag := range []string{"name", "push", "image", "directory"} {
 		if cmd.Flags().Changed(flag) {
 			return fmt.Errorf("--%s is said of the workspace of a checkout, and %s is one there is: open it by its name alone", flag, name)
 		}
@@ -243,7 +220,6 @@ func init() {
 	openCmd.Flags().BoolVar(&opened.Push, "push", false, "make this checkout's workspace one that may push to its repository, with whatever credential the control plane keeps for its host; said when a workspace is made, and refused of one made without it")
 	openCmd.Flags().StringVar(&opened.Image, "image", "", "the box image a new workspace's sandbox runs; without it, the control plane's own")
 	openCmd.Flags().StringVar(&opened.Directory, "directory", "", "a directory of the checkout; without it, the one this is run in")
-	remoteFlags(openCmd, &opened.Remote, &opened.Task)
 	shellFlags(openCmd)
 }
 

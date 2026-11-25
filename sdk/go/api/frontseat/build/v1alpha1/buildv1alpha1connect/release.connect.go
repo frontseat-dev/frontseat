@@ -139,10 +139,7 @@ type ReleaseServiceClient interface {
 	//   already. The message names what (SOURCE_MISTAKEN, or the catalog's
 	//   own reason, as GraphService.ListEntities gives it).
 	// - UNIMPLEMENTED: what is released is part of a domain within a
-	//   domain, whose release is not served; or the workspace holds a
-	//   repository that is mounted and not cloned, which has no commits
-	//   to plan from and none to tag: such a workspace releases nothing,
-	//   and the message names the repository (RELEASE_NOT_SERVED).
+	//   domain, whose release is not served (RELEASE_NOT_SERVED).
 	// - UNAVAILABLE: the daemon is ending (DAEMON_ENDING).
 	PlanRelease(context.Context, *v1alpha1.PlanReleaseRequest) (*v1alpha1.PlanReleaseResponse, error)
 	// CreateRelease carries out a plan: it builds the plan's units for
@@ -233,10 +230,7 @@ type ReleaseServiceHandler interface {
 	//   already. The message names what (SOURCE_MISTAKEN, or the catalog's
 	//   own reason, as GraphService.ListEntities gives it).
 	// - UNIMPLEMENTED: what is released is part of a domain within a
-	//   domain, whose release is not served; or the workspace holds a
-	//   repository that is mounted and not cloned, which has no commits
-	//   to plan from and none to tag: such a workspace releases nothing,
-	//   and the message names the repository (RELEASE_NOT_SERVED).
+	//   domain, whose release is not served (RELEASE_NOT_SERVED).
 	// - UNAVAILABLE: the daemon is ending (DAEMON_ENDING).
 	PlanRelease(context.Context, *v1alpha1.PlanReleaseRequest) (*v1alpha1.PlanReleaseResponse, error)
 	// CreateRelease carries out a plan: it builds the plan's units for

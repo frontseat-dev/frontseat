@@ -84,7 +84,7 @@ func Status(held *sourcev1.Source) *workspacev1.WorkspaceStatus {
 		out.State = workspacev1.WorkspaceStatus_STATE_FAILED
 	}
 	for _, r := range held.GetRepositories() {
-		out.Repositories = append(out.Repositories, &workspacev1.Repository{Name: r.GetName(), Remote: r.GetRemote(), Commit: r.GetCommit(), Roots: r.GetRoots(), Stored: r.GetStored()})
+		out.Repositories = append(out.Repositories, &workspacev1.Repository{Name: r.GetName(), Remote: r.GetRemote(), Commit: r.GetCommit(), Roots: r.GetRoots()})
 	}
 	return out
 }

@@ -17,24 +17,16 @@ import (
 )
 
 // plane is a control plane that keeps what it is asked. Where it holds
-// a remote, or a stored repository, it makes a workspace of it, ready;
-// otherwise it refuses, as refuses says where that is set.
+// a remote it makes a workspace of it, ready; otherwise it refuses.
 type plane struct {
 	workspacev1alpha1connect.UnimplementedWorkspaceServiceHandler
 	asked chan *workspacev1.CreateWorkspaceRequest
 	holds string
-	// stored is the store's name for the repository it holds from the
-	// store, where it holds one so.
-	stored  string
-	refuses error
 }
 
 func (p *plane) CreateWorkspace(_ context.Context, asked *workspacev1.CreateWorkspaceRequest) (*workspacev1.CreateWorkspaceResponse, error) {
 	p.asked <- asked
-	if p.refuses != nil {
-		return nil, p.refuses
-	}
-	if p.holds == "" && p.stored == "" {
+	if p.holds == "" {
 		return nil, connect.NewError(connect.CodeInternal, "the test makes no workspace")
 	}
 	return &workspacev1.CreateWorkspaceResponse{Workspace: &workspacev1.Workspace{Name: "code-main"}, Created: true}, nil
@@ -42,7 +34,7 @@ func (p *plane) CreateWorkspace(_ context.Context, asked *workspacev1.CreateWork
 
 func (p *plane) WaitWorkspace(_ context.Context, _ *workspacev1.WaitWorkspaceRequest) (*workspacev1.WaitWorkspaceResponse, error) {
 	return &workspacev1.WaitWorkspaceResponse{Workspace: &workspacev1.Workspace{Name: "code-main", Status: &workspacev1.WorkspaceStatus{
-		State: workspacev1.WorkspaceStatus_STATE_READY, Repositories: []*workspacev1.Repository{{Name: "code", Remote: p.holds, Stored: p.stored}},
+		State: workspacev1.WorkspaceStatus_STATE_READY, Repositories: []*workspacev1.Repository{{Name: "code", Remote: p.holds}},
 	}}}, nil
 }
 
@@ -73,9 +65,6 @@ type standing struct {
 }
 
 func (s standing) Standing(context.Context, string) (vcs.Standing, error) { return s.at, nil }
-func (s standing) NameOf(remote string) string {
-	return strings.TrimSuffix(remote[strings.LastIndex(remote, "/")+1:], ".git")
-}
 func (s standing) Same(one, other string) bool {
 	if s.compared != nil {
 		*s.compared = append(*s.compared, [2]string{one, other})

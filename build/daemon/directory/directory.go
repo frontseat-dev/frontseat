@@ -5,11 +5,6 @@
 // build was given a checkout. It reads, and brings nothing: a build needs
 // a directory, and not whoever filled it.
 //
-// A repository something else mounted in the directory is held as any
-// is, by its record: where a commit is asked, it says the changeset it
-// stands at. It has no history, and its version control system is asked
-// nothing of it (ErrMounted).
-//
 // The manifest is read as it is now, each time it is asked of. It says
 // where what it records is not whole, being filled or left by a fill
 // that failed, and a directory then holds nothing to build: a repository
@@ -126,8 +121,6 @@ func (d *Directory) Holds() (Held, error) {
 // repository returns the directory one of its repositories is in, and
 // where it was brought from as the manifest records it. A repository is
 // named as the directory holds it, and no other directory is asked of.
-// It is what every question to the version control system goes
-// through, and one that is mounted is refused here (ErrMounted).
 func (d *Directory) repository(name string) (directory, remote string, err error) {
 	// A checkout the build was given is one repository, of no name, in
 	// the directory itself.
@@ -142,42 +135,11 @@ func (d *Directory) repository(name string) (directory, remote string, err error
 		return "", "", err
 	}
 	for _, each := range held.Repositories {
-		switch {
-		case each.Name != name:
-		case each.Mounted:
-			// Its directory is no checkout: a version control system
-			// asked of it would read whatever is above it, or what the
-			// workspace wrote there.
-			return "", "", fmt.Errorf("%s: %w", name, ErrMounted)
-		default:
+		if each.Name == name {
 			return filepath.Join(d.root, each.Name), each.Remote, nil
 		}
 	}
 	return "", "", fmt.Errorf("the workspace holds no repository %q", name)
-}
-
-// ErrMounted is a repository something else mounted in the directory,
-// asked what only a clone says: where it stands in its history, its
-// tags, what changed since a revision, what is uncommitted or ignored,
-// a tag to make or push, where it was brought from. A mounted
-// repository has no history a version control system reads, and none is
-// asked of it; where it stands is the changeset its record says (Holds).
-var ErrMounted = errors.New("the repository is mounted, and not cloned: it has no history, no tags and no remote")
-
-// Mounted names a repository the directory holds that something else
-// mounted there, the first as its manifest records them; none where it
-// holds none, or is one repository alone.
-func (d *Directory) Mounted() (string, error) {
-	held, err := d.read()
-	if err != nil {
-		return "", err
-	}
-	for _, each := range held.Repositories {
-		if each.Mounted {
-			return each.Name, nil
-		}
-	}
-	return "", nil
 }
 
 // Standing says where one of the directory's repositories stands.

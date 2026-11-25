@@ -9,9 +9,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
-	"slices"
 	"sync"
 	"time"
 
@@ -56,21 +53,13 @@ type Workspace struct {
 
 	mu sync.Mutex
 	// closed says the workspace was closed: no pass starts after it.
-	closed bool
-	// manifest is what it holds of what it cloned: the repositories it
-	// was told are mounted are written beside them (whole), and are not
-	// here.
+	closed   bool
 	manifest manifest.Manifest
 	state    State
 	message  string
 	// generation is the generation of the source it was last told to
 	// hold; zero for one told none since it was opened.
 	generation int64
-	// stored are the stored repositories it was last told are mounted
-	// in it, which it clones none of. It records each in the manifest,
-	// as mounted, for a build to read, and holds none by that record: a
-	// supervisor started again is told them again.
-	stored []Stored
 	// changed is closed, and replaced, each time the state changes.
 	changed chan struct{}
 }
@@ -117,11 +106,6 @@ func Open(root string, mounted bool, system vcs.System) (*Workspace, error) {
 	// until it is told a source again.
 	unfinished := recorded.State != ""
 	recorded.State = ""
-	// What is recorded as mounted was written for a build to read, of
-	// what the supervisor before this one was told: this one holds none
-	// of it until the control plane tells it again, and clones nothing
-	// by that name meanwhile, which is refused when it is told.
-	recorded.Repositories = slices.DeleteFunc(recorded.Repositories, func(r record.Repository) bool { return r.Mounted })
 	switch {
 	case found && unfinished:
 		w.manifest, w.state, w.message = recorded, Failed, errClosed.Error()
@@ -170,49 +154,6 @@ type Holding struct {
 	Generation int64
 	// Repositories are what it holds.
 	Repositories []record.Repository
-	// Stored are the stored repositories it was told are mounted in it.
-	Stored []Stored
-}
-
-// Stored is a repository of the control plane's snapshot store that is
-// mounted in the workspace, at its directory, before the supervisor is
-// told of it: the supervisor clones nothing for it, reaches no store,
-// and says it holds it as it was told.
-type Stored struct {
-	// Name is the workspace's name for it, and its directory there.
-	Name string
-	// Repository is the store's name for it.
-	Repository string
-	// Changeset is the changeset it is mounted at.
-	Changeset string
-	// Roots are the directories taken of it; empty for all of it.
-	Roots []string
-}
-
-// mountedAt holds a stored repository to the workspace it is mounted
-// in: its name is one directory of it, which is there, since nothing is
-// brought to it, and it is told at a changeset of a repository.
-func (s Stored) mountedAt(root string) error {
-	if err := record.Directory(s.Name); err != nil {
-		return err
-	}
-	if s.Repository == "" || s.Changeset == "" {
-		return fmt.Errorf("%w: the stored repository %s is told with no name of the store's, or at no changeset", record.ErrUnfit, s.Name)
-	}
-	// It is recorded at its changeset, and what is recorded is read
-	// back by a build: one that could not be is not held.
-	if err := record.Changeset(s.Name, s.Changeset); err != nil {
-		return err
-	}
-	for _, taken := range s.Roots {
-		if err := record.Beneath(s.Name, "the directory", taken); err != nil {
-			return err
-		}
-	}
-	if info, err := os.Stat(filepath.Join(root, s.Name)); err != nil || !info.IsDir() {
-		return fmt.Errorf("%w: the stored repository %s is not mounted at its directory in the workspace, and a supervisor brings none", record.ErrUnfit, s.Name)
-	}
-	return nil
 }
 
 // Now returns the workspace as it stands, and a channel that is closed
@@ -220,7 +161,7 @@ func (s Stored) mountedAt(root string) error {
 func (w *Workspace) Now() (Holding, <-chan struct{}) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	return Holding{State: w.state, Message: w.message, Generation: w.generation, Repositories: w.manifest.Repositories, Stored: w.stored}, w.changed
+	return Holding{State: w.state, Message: w.message, Generation: w.generation, Repositories: w.manifest.Repositories}, w.changed
 }
 
 // Entities returns the entities the workspace knows, each with where it
@@ -253,15 +194,7 @@ func (w *Workspace) set(state State, message string) {
 // failure that says so. A source told once the workspace is closed is
 // held at its generation and failed, so that whoever reads it back reads
 // that generation refused because the supervisor stopped.
-//
-// The stored repositories are those mounted in the workspace, which it
-// is told and brings none of: each is held to its directory there, and
-// to a name nothing it clones has, and they are what it says it holds
-// of the store from then on. Each is recorded in the manifest as
-// mounted, at the changeset told, beside what was cloned, so that a
-// build, which reads the manifest and asks no one, holds it as a
-// repository of the workspace; told again, the same is recorded.
-func (w *Workspace) Populate(generation int64, checkouts []record.Checkout, located []record.Located, stored []Stored) error {
+func (w *Workspace) Populate(generation int64, checkouts []record.Checkout, located []record.Located) error {
 	if w.mounted {
 		return errMounted
 	}
@@ -277,11 +210,6 @@ func (w *Workspace) Populate(generation int64, checkouts []record.Checkout, loca
 			return err
 		}
 	}
-	for _, s := range stored {
-		if err := s.mountedAt(w.root); err != nil {
-			return err
-		}
-	}
 	w.mu.Lock()
 	if w.state == Populating {
 		w.mu.Unlock()
@@ -294,11 +222,7 @@ func (w *Workspace) Populate(generation int64, checkouts []record.Checkout, loca
 			return err
 		}
 	}
-	if name := cloned(stored, held, checkouts); name != "" {
-		w.mu.Unlock()
-		return fmt.Errorf("%w: %s is a stored repository, mounted in the workspace, and is asked for or held as a clone too: a name is one directory of the workspace", record.ErrUnfit, name)
-	}
-	w.generation, w.stored = generation, stored
+	w.generation = generation
 	if w.closed {
 		w.set(Failed, errClosed.Error())
 		w.mu.Unlock()
@@ -321,10 +245,10 @@ func (w *Workspace) Populate(generation int64, checkouts []record.Checkout, loca
 		w.set(Failed, err.Error())
 		w.mu.Unlock()
 		failed.State = manifest.Failed
-		_ = w.said(failed, stored)
+		_ = manifest.Write(w.root, failed)
 	}
 	filling.State = manifest.Filling
-	if err := w.said(filling, stored); err != nil {
+	if err := manifest.Write(w.root, filling); err != nil {
 		fail(err)
 		w.passes.Done()
 		return nil
@@ -370,7 +294,7 @@ func (w *Workspace) Populate(generation int64, checkouts []record.Checkout, loca
 				recorded := w.manifest
 				w.mu.Unlock()
 				recorded.State = manifest.Failed
-				if kept := w.record(recorded, stored); kept != nil {
+				if kept := w.record(recorded); kept != nil {
 					err = errors.Join(err, kept)
 				}
 				fail(err)
@@ -390,7 +314,7 @@ func (w *Workspace) Populate(generation int64, checkouts []record.Checkout, loca
 		}
 		recorded := w.manifest
 		w.mu.Unlock()
-		if err := w.record(recorded, stored); err != nil {
+		if err := w.record(recorded); err != nil {
 			fail(err)
 			return
 		}
@@ -401,37 +325,13 @@ func (w *Workspace) Populate(generation int64, checkouts []record.Checkout, loca
 	return nil
 }
 
-// said writes the manifest of a workspace that is not whole, being
-// filled or failed, with the stored repositories told to be mounted
-// beside what was cloned, as record writes one that is.
-func (w *Workspace) said(m manifest.Manifest, stored []Stored) error {
-	m.Repositories = whole(m.Repositories, stored)
-	return manifest.Write(w.root, m)
-}
-
-// record keeps the manifest, of what was cloned and of the stored
-// repositories told to be mounted, and clears what said the
-// repositories it records were being cloned: once recorded, they are
-// finished.
-func (w *Workspace) record(m manifest.Manifest, stored []Stored) error {
-	m.Repositories = whole(m.Repositories, stored)
+// record keeps the manifest, and clears what said the repositories it
+// records were being cloned: once recorded, they are finished.
+func (w *Workspace) record(m manifest.Manifest) error {
 	if err := manifest.Write(w.root, m); err != nil {
 		return err
 	}
 	return populate.Settle(w.root, m.Repositories)
-}
-
-// whole is what a manifest records of a workspace's repositories: what
-// was cloned, and after it each stored repository told to be mounted,
-// as mounted, at its changeset, with the directories taken of it. The
-// store's name for it is not recorded: a build asks no store.
-func whole(clones []record.Repository, stored []Stored) []record.Repository {
-	out := make([]record.Repository, 0, len(clones)+len(stored))
-	out = append(out, clones...)
-	for _, s := range stored {
-		out = append(out, record.Repository{Name: s.Name, Commit: s.Changeset, Roots: s.Roots, Mounted: true})
-	}
-	return out
 }
 
 // errPopulating is a source told while another is being brought: it is
@@ -461,25 +361,6 @@ func another(held []record.Repository, c record.Checkout) error {
 		}
 	}
 	return nil
-}
-
-// cloned names a stored repository that the workspace holds as a clone,
-// or is asked to clone, or is told twice; "" where there is none.
-func cloned(stored []Stored, held []record.Repository, checkouts []record.Checkout) string {
-	taken := map[string]bool{}
-	for _, r := range held {
-		taken[r.Name] = true
-	}
-	for _, c := range checkouts {
-		taken[c.Name] = true
-	}
-	for _, s := range stored {
-		if taken[s.Name] {
-			return s.Name
-		}
-		taken[s.Name] = true
-	}
-	return ""
 }
 
 // at names a branch or tag as it is spoken of.

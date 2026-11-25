@@ -172,9 +172,6 @@ func (rs *releases) create(ctx context.Context, request *buildv1.CreateReleaseRe
 	if err != nil {
 		return nil, err
 	}
-	if err := rs.cloned(); err != nil {
-		return nil, err
-	}
 	workspace := rs.graph.runs.workspace
 	planned, err := release.Prepare(ctx, releasing(evaluated), strategies(rs.graph.runs.plugins), workspace, &buildv1.PlanReleaseRequest{Entities: request.GetEntities()})
 	if err != nil {
@@ -261,23 +258,6 @@ func (rs *releases) create(ctx context.Context, request *buildv1.CreateReleaseRe
 		rs.carryOut(m, planned, built)
 	}()
 	return m, nil
-}
-
-// cloned holds the workspace to one a release can be planned from: a
-// plan is of every repository of the workspace, each at a commit, and
-// tags and pushes in them, and a repository something else mounted has
-// no commit, no tag and no remote. A workspace that holds one releases
-// nothing, and is refused by name before anything of a history is
-// asked, built or tagged.
-func (rs *releases) cloned() error {
-	mounted, err := rs.graph.runs.workspace.Mounted()
-	if err != nil {
-		return graphFailure(&graphSourceError{err, codes.FailedPrecondition})
-	}
-	if mounted != "" {
-		return &refusedRelease{codes.Unimplemented, "RELEASE_NOT_SERVED", fmt.Sprintf("the workspace holds the repository %s mounted, and not cloned: a release is planned from every repository's commits and tags them, and a mounted repository has neither; release from a workspace of clones, or from a checkout", mounted)}
-	}
-	return nil
 }
 
 // versionsOf is what a plan tells the build made for it: each member of

@@ -67,7 +67,6 @@ import (
 	"github.com/frontseat-dev/frontseat/workspace/server/backstage"
 	"github.com/frontseat-dev/frontseat/workspace/server/controlplane/identity"
 	"github.com/frontseat-dev/frontseat/workspace/server/controlplane/internal/ownertoken"
-	"github.com/frontseat-dev/frontseat/workspace/server/workspaces/sources"
 )
 
 // Config is what a control plane is served with.
@@ -104,14 +103,6 @@ type Config struct {
 	// its operator gives it. With none, a workspace asked for by entity
 	// is refused UNIMPLEMENTED, ENTITIES_NOT_SERVED. No request names it.
 	Entities Entities
-	// Sources is what serves the stored repositories of a remote
-	// workspace, which holds its repositories from a snapshot store and
-	// clones none: what frontseat-enterprise gives the control plane it
-	// composes. With none, a workspace asked for with a stored
-	// repository, a task or a landing is refused UNIMPLEMENTED,
-	// STORE_NOT_SERVED, and every workspace is local. No request names
-	// it.
-	Sources sources.Sources
 	// Every is how often a workspace that is not yet as asked is worked
 	// on; zero for a quarter of a second.
 	Every time.Duration
@@ -319,10 +310,6 @@ type held struct {
 	// asked for: its supervisor is told from it, and it is never resolved
 	// again.
 	resolved told.Resolved
-	// stood is what is held for it of the store, where it is remote:
-	// where each stored repository stands, and the directory its sandbox
-	// is given for each, as what serves them said when it was made.
-	stood sources.Held
 	// sandbox is the sandbox it lives in, once one was asked for.
 	sandbox string
 	// owner is who asked for it first: whose it is, and whose
@@ -372,19 +359,13 @@ func (h *held) show(w *workspacev1.Workspace) {
 }
 
 // derived is the name given to what was asked for where none is given:
-// the first entity's name, or else the first stored repository's, or
-// else the first repository's, with its ref where one is given. It is ""
-// where that is no name.
+// the first entity's name, or else the first repository's, with its ref
+// where one is given. It is "" where that is no name.
 func derived(spec *workspacev1.WorkspaceSpec) string {
 	var from string
 	switch {
 	case len(spec.GetEntities()) > 0:
 		from = spec.GetEntities()[0].GetName()
-	case len(spec.GetStored()) > 0:
-		first := spec.GetStored()[0]
-		if from = first.GetName(); from == "" {
-			from = first.GetRepository()
-		}
 	case len(spec.GetRepositories()) > 0:
 		first := spec.GetRepositories()[0]
 		at := first.GetRemote()
@@ -417,7 +398,7 @@ func derived(spec *workspacev1.WorkspaceSpec) string {
 // source is what a spec asks a workspace to hold, apart from what it may
 // do and who asks.
 func source(spec *workspacev1.WorkspaceSpec) *workspacev1.WorkspaceSpec {
-	return &workspacev1.WorkspaceSpec{Repositories: spec.GetRepositories(), Entities: spec.GetEntities(), WholeRepositories: spec.GetWholeRepositories(), Stored: spec.GetStored()}
+	return &workspacev1.WorkspaceSpec{Repositories: spec.GetRepositories(), Entities: spec.GetEntities(), WholeRepositories: spec.GetWholeRepositories()}
 }
 
 // digest is a short name for a message, the same for the same message.
@@ -429,18 +410,14 @@ func digest(m proto.Message) string {
 
 // more says what a workspace asked for again asks beyond what the one
 // there has; "" where it asks the same or less. What is said once, an
-// image, a key let into its shell, a lifetime, a task, a landing, is the
-// same where it is asked for again, or not said.
+// image, a key let into its shell, a lifetime, is the same where it is
+// asked for again, or not said.
 func more(there, asked *workspacev1.WorkspaceSpec) string {
 	switch {
 	case lacks(source(asked), source(there)) != "":
 		return "it holds other source than is asked for"
 	case asked.GetLifetime() != nil && !proto.Equal(asked.GetLifetime(), there.GetLifetime()):
 		return "it lasts otherwise than is asked for, which is said when it is made"
-	case asked.GetTask() != "" && asked.GetTask() != there.GetTask():
-		return "it works on another task than is asked for, or on none, which is said when it is made"
-	case !there.GetLand() && asked.GetLand():
-		return "it was made without landing, which is said when it is made"
 	case !there.GetPush() && asked.GetPush():
 		return "it was made without push, and what a workspace may reach is said when it is made"
 	case asked.GetImage() != "" && asked.GetImage() != there.GetImage():
@@ -464,12 +441,8 @@ func answered(err error) error {
 
 func (s *service) CreateWorkspace(ctx context.Context, req *workspacev1.CreateWorkspaceRequest) (*workspacev1.CreateWorkspaceResponse, error) {
 	spec := req.GetSpec()
-	// What is not served is said first, by name, and nothing is made.
-	if err := s.storeServed(spec); err != nil {
-		return nil, err
-	}
-	if len(spec.GetRepositories()) == 0 && len(spec.GetEntities()) == 0 && len(spec.GetStored()) == 0 {
-		return nil, refusedFor(connect.CodeInvalidArgument, "SOURCE_MISSING", "a workspace is asked for with a repository, an entity or a stored repository, and this one with none")
+	if len(spec.GetRepositories()) == 0 && len(spec.GetEntities()) == 0 {
+		return nil, refusedFor(connect.CodeInvalidArgument, "SOURCE_MISSING", "a workspace is asked for with a repository or an entity, and this one with neither")
 	}
 	if err := s.addressed(spec); err != nil {
 		return nil, answered(err)
@@ -530,10 +503,6 @@ func (s *service) CreateWorkspace(ctx context.Context, req *workspacev1.CreateWo
 
 	// What cannot be given is said now, and nothing is kept of it.
 	kept := proto.Clone(spec).(*workspacev1.WorkspaceSpec)
-	// A workspace that lands, told no task, lands on one of its own name.
-	if kept.GetLand() && kept.GetTask() == "" {
-		kept.Task = called
-	}
 	owner, err := caller(ctx)
 	if err != nil {
 		return nil, err
@@ -542,32 +511,16 @@ func (s *service) CreateWorkspace(ctx context.Context, req *workspacev1.CreateWo
 	if err != nil {
 		return nil, err
 	}
-	// What it holds of the store is cloned no more.
-	asked, resolved, err := s.storedOf(kept, resolved)
-	if err != nil {
-		return nil, answered(err)
-	}
 	if err := s.heldOnce(kept, resolved); err != nil {
 		return nil, err
 	}
-	in, err := s.sandbox(ctx, called, owner, kept, resolved, sources.Held{})
+	in, err := s.sandbox(ctx, called, owner, kept, resolved)
 	if err != nil {
 		return nil, answered(err)
 	}
 	kept.Image = in.GetImage()
 	made := &held{workspace: &workspacev1.Workspace{Name: called, Spec: kept, CreateTime: timestamppb.Now()}, made: kept, resolved: resolved, owner: owner, generation: 1}
-	// Its stored repositories are held last, once nothing else of what is
-	// asked can be refused, and once: what came of it is kept with the
-	// workspace, and let go of where the workspace cannot be kept.
-	if len(asked) > 0 {
-		if made.stood, err = s.hold(ctx, sources.Workspace{Name: called, Owner: owner, Stored: asked, Land: kept.GetLand()}); err != nil {
-			return nil, err
-		}
-	}
 	if err := s.keep(made); err != nil {
-		if holds(made.stood) {
-			_ = s.release(ctx, called, owner)
-		}
 		return nil, connect.NewError(connect.CodeInternal, err.Error())
 	}
 	first := s.view(made, &workspacev1.WorkspaceStatus{State: workspacev1.WorkspaceStatus_STATE_STARTING})
@@ -703,9 +656,6 @@ func (s *service) UpdateWorkspace(ctx context.Context, req *workspacev1.UpdateWo
 		return nil, err
 	}
 	wanted := req.GetSpec()
-	if err := s.storeServed(wanted); err != nil {
-		return nil, err
-	}
 	if err := s.addressed(wanted); err != nil {
 		return nil, answered(err)
 	}
@@ -719,19 +669,14 @@ func (s *service) UpdateWorkspace(ctx context.Context, req *workspacev1.UpdateWo
 		return nil, refusedFor(connect.CodeInvalidArgument, "SPEC_INCOMPLETE", "the spec leaves out "+left+", which the workspace has: one is given whole, with what is added")
 	}
 	once := func(spec *workspacev1.WorkspaceSpec) *workspacev1.WorkspaceSpec {
-		return &workspacev1.WorkspaceSpec{Push: spec.GetPush(), Author: spec.GetAuthor(), Image: spec.GetImage(), Lifetime: spec.GetLifetime(), AuthorizedKey: spec.GetAuthorizedKey(), Stored: spec.GetStored(), Task: spec.GetTask(), Land: spec.GetLand()}
+		return &workspacev1.WorkspaceSpec{Push: spec.GetPush(), Author: spec.GetAuthor(), Image: spec.GetImage(), Lifetime: spec.GetLifetime(), AuthorizedKey: spec.GetAuthorizedKey()}
 	}
 	asked := once(wanted)
 	if asked.GetImage() == "" {
 		asked.Image = has.GetImage()
 	}
 	if !proto.Equal(once(has), asked) {
-		return nil, refusedFor(connect.CodeInvalidArgument, "SPEC_FIXED", "the spec changes what is said once of a workspace: whether it pushes, who commits, whose key gets in, its image, its lifetime, its stored repositories, its task, whether it lands")
-	}
-	if holds(h.stood) {
-		if added := fixed(has, wanted); added != "" {
-			return nil, refusedFor(connect.CodeInvalidArgument, "SPEC_FIXED", added)
-		}
+		return nil, refusedFor(connect.CodeInvalidArgument, "SPEC_FIXED", "the spec changes what is said once of a workspace: whether it pushes, who commits, whose key gets in, its image, its lifetime")
 	}
 	// What is added is told its supervisor now, and kept only where the
 	// supervisor took it: what it would refuse is refused here, and is never
@@ -760,7 +705,7 @@ func (s *service) UpdateWorkspace(ctx context.Context, req *workspacev1.UpdateWo
 	kept.Repositories, kept.Entities, kept.WholeRepositories = wanted.GetRepositories(), wanted.GetEntities(), wanted.GetWholeRepositories()
 	// An ending asked for meanwhile stops it, as it stops a pass.
 	telling, cancel := h.stoppable(ctx, 2*time.Minute)
-	answered, err := s.supervisor(h.sandbox).SetSource(telling, &sourcev1.SetSourceRequest{Spec: s.said(kept, h.generation+1, resolved, h.stood)})
+	answered, err := s.supervisor(h.sandbox).SetSource(telling, &sourcev1.SetSourceRequest{Spec: told.Spec(kept, h.generation+1, resolved, s.nameOf)})
 	stopped := errors.Is(telling.Err(), context.Canceled) && ctx.Err() == nil
 	cancel()
 	if stopped {
@@ -812,13 +757,6 @@ func lacks(has, wanted *workspacev1.WorkspaceSpec) string {
 	}
 	if has.GetWholeRepositories() && !wanted.GetWholeRepositories() {
 		return "its repositories whole"
-	}
-	for _, repository := range has.GetStored() {
-		// A stored repository is kept where it is named again, as it was
-		// asked for.
-		if !slices.ContainsFunc(wanted.GetStored(), func(each *workspacev1.StoredRepository) bool { return proto.Equal(each, repository) }) {
-			return "a stored repository"
-		}
 	}
 	return ""
 }
@@ -1126,26 +1064,11 @@ func (s *service) step(ctx context.Context, h *held) *workspacev1.WorkspaceStatu
 		if err != nil {
 			return &workspacev1.WorkspaceStatus{State: workspacev1.WorkspaceStatus_STATE_ENDING, Failure: err.Error()}
 		}
-		ends := false
 		for _, each := range listed {
 			if each.GetId() != h.sandbox && !slices.Contains(h.requests, each.GetSpec().GetLabels()[Made]) {
 				continue
 			}
 			if _, err := s.Sandboxes.DeleteSandbox(ctx, &sandboxv1.DeleteSandboxRequest{SandboxId: each.GetId()}); err != nil && connect.CodeOf(err) != connect.CodeNotFound {
-				return &workspacev1.WorkspaceStatus{State: workspacev1.WorkspaceStatus_STATE_ENDING, Failure: err.Error()}
-			}
-			ends = true
-		}
-		// What is held for it of the store is bound in its sandbox, and is
-		// let go of once no sandbox of its own is there any more: one that
-		// was asked to end just now is looked for again, the next time.
-		// What is held is the workspace's own to let go of: it was held
-		// for it, by its name and owner, when it was made (stood).
-		if holds(h.stood) {
-			if ends {
-				return &workspacev1.WorkspaceStatus{State: workspacev1.WorkspaceStatus_STATE_ENDING}
-			}
-			if err := s.release(ctx, called, h.owner); err != nil {
 				return &workspacev1.WorkspaceStatus{State: workspacev1.WorkspaceStatus_STATE_ENDING, Failure: err.Error()}
 			}
 		}
@@ -1170,7 +1093,7 @@ func (s *service) step(ctx context.Context, h *held) *workspacev1.WorkspaceStatu
 	// another asking is never taken for this one's, and one whose making
 	// was stopped half-way is found again.
 	if h.sandbox == "" {
-		in, err := s.sandbox(ctx, called, h.owner, h.made, h.resolved, h.stood)
+		in, err := s.sandbox(ctx, called, h.owner, h.made, h.resolved)
 		if err != nil {
 			h.failed, h.again = err.Error(), false
 			return failed(h.failed)
@@ -1273,7 +1196,7 @@ func (s *service) step(ctx context.Context, h *held) *workspacev1.WorkspaceStatu
 	telling := held.GetGeneration() != h.generation || (h.again && held.GetState() == sourcev1.Source_STATE_FAILED)
 	if telling && !busy {
 		telling, cancel := context.WithTimeout(ctx, 2*time.Minute)
-		answered, err := supervisor.SetSource(telling, &sourcev1.SetSourceRequest{Spec: s.said(h.workspace.GetSpec(), h.generation, h.resolved, h.stood)})
+		answered, err := supervisor.SetSource(telling, &sourcev1.SetSourceRequest{Spec: told.Spec(h.workspace.GetSpec(), h.generation, h.resolved, s.nameOf)})
 		cancel()
 		// One that is bringing what it was told before is told again
 		// once that is done: it says so by its reason, never its words.
@@ -1310,8 +1233,6 @@ type stored struct {
 	Generation int64 `json:"generation,omitempty"`
 	// Resolved is what its entities resolved to.
 	Resolved told.Resolved `json:"resolved,omitzero"`
-	// Stood is what is held for it of the store, where it is remote.
-	Stood sources.Held `json:"stood,omitzero"`
 }
 
 // keep writes a workspace's record: whole, or the one before.
@@ -1324,7 +1245,7 @@ func (s *service) keep(h *held) error {
 	if err != nil {
 		return err
 	}
-	if err := s.records.Keep(h.workspace.GetName(), stored{Workspace: workspace, Made: made, Sandbox: h.sandbox, Requests: h.requests, Owner: h.owner, Ending: h.ending, Generation: h.generation, Resolved: h.resolved, Stood: h.stood}); err != nil {
+	if err := s.records.Keep(h.workspace.GetName(), stored{Workspace: workspace, Made: made, Sandbox: h.sandbox, Requests: h.requests, Owner: h.owner, Ending: h.ending, Generation: h.generation, Resolved: h.resolved}); err != nil {
 		return fmt.Errorf("keeping the record of the workspace %s: %w", h.workspace.GetName(), err)
 	}
 	return nil
@@ -1365,7 +1286,7 @@ func (s *service) recover() error {
 		if kept.Owner == "" || kept.Generation < 1 {
 			return unread(errors.New("it names no owner, or no generation its supervisor was told"))
 		}
-		h.sandbox, h.requests, h.owner, h.ending, h.generation, h.resolved, h.stood = kept.Sandbox, kept.Requests, kept.Owner, kept.Ending, kept.Generation, kept.Resolved, kept.Stood
+		h.sandbox, h.requests, h.owner, h.ending, h.generation, h.resolved = kept.Sandbox, kept.Requests, kept.Owner, kept.Ending, kept.Generation, kept.Resolved
 		state := workspacev1.WorkspaceStatus_STATE_STARTING
 		if h.ending {
 			state = workspacev1.WorkspaceStatus_STATE_ENDING
@@ -1406,11 +1327,6 @@ const Builder = "/opt/frontseat/bin/frontseat"
 // asked what an image is started with.
 type Gateway struct {
 	Address, Identity, Runtime string
-	// HostVolumes is whether a workspace's sandbox may be given a
-	// directory of the gateway's machine, which the gateway must then be
-	// let bind: what a control plane that serves stored repositories
-	// gives its remote workspaces, and no other gives any.
-	HostVolumes bool
 }
 
 // OverGateway serves a control plane whose workspaces live in sandboxes
@@ -1424,7 +1340,7 @@ type Gateway struct {
 // is a box's. The state is a directory of the control plane's own: its
 // sandboxes' records are kept there, and its workspaces' beneath it.
 func OverGateway(c Config, gateway Gateway) (*Plane, error) {
-	sandboxes, err := sandbox.New(sandbox.Options{PublicURL: c.PublicURL, State: c.State, Gateway: &sandbox.Gateway{Address: gateway.Address, Identity: gateway.Identity, Runtime: gateway.Runtime, Writable: written, HostVolumes: gateway.HostVolumes}})
+	sandboxes, err := sandbox.New(sandbox.Options{PublicURL: c.PublicURL, State: c.State, Gateway: &sandbox.Gateway{Address: gateway.Address, Identity: gateway.Identity, Runtime: gateway.Runtime, Writable: written}})
 	if err != nil {
 		return nil, err
 	}

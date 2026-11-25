@@ -68,11 +68,8 @@ var policies = []policy{
 	// The commands are flags and printing over the SDK's one client, which
 	// they hand the command's telemetry to instrument what they ask. What
 	// a person writes that the control plane reads too (a port) is read
-	// by the reader both have (core/plain). A checkout of this machine is
-	// read through the port of what reads one (cli/internal/vcs), which a
-	// test stands in for; what implements it is the machine's to choose,
-	// and no command names it.
-	{"cli/internal/cmd", []string{"sdk/go/api/**", "sdk/go/entity", "sdk/go/enum", "sdk/go", "cli/internal/machine", "cli/internal/vcs", "cli/internal/ui/**", "core/telemetry", "core/plain", "build/daemon/life"}},
+	// by the reader both have (core/plain).
+	{"cli/internal/cmd", []string{"sdk/go/api/**", "sdk/go/entity", "sdk/go/enum", "sdk/go", "cli/internal/machine", "cli/internal/ui/**", "core/telemetry", "core/plain", "build/daemon/life"}},
 	{"core/telemetry", []string{}},
 	// Git as frontseat runs it, hardened, and how it writes a remote: one
 	// implementation for the client's adapter and a workspace's.
@@ -253,19 +250,7 @@ var policies = []policy{
 	// (core/ports), and is told nothing of the stack.
 	// It resolves entities through the Backstage its operator gives it
 	// (workspace/server/backstage), held over a fake one in its tests.
-	{"workspace/server/controlplane/**", []string{"sdk/go/api/**", "sandbox/api/**", "sdk/go/entity", "workspace/server/controlplane/**", "sandbox", "workspace/server/backstage", "core/secretfile", "common/record", "common/vcs", "common/told", "common/told/sourceapi/**", "sandbox/testsupport/drivertest", "testsupport/backstagetest", "core/plain", "core/ports", "sdk/go", "core/page", "core/refusal", "common/record/records", "core/poll", "workspace/server/workspaces/sources", "workspace/server/workspaces/sourcestest"}},
-	// A control plane that can be composed: what frontseat-server serves
-	// and frontseat-enterprise composes around, said in plain types over
-	// the control plane, which no one outside names. It chooses the
-	// version control system its workspaces are fetched with, as the
-	// program that composed the control plane did before it.
-	{"workspace/server/workspaces", []string{"workspace/server/controlplane", "workspace/server/backstage", "workspace/server/workspaces/sources", "workspace/server/workspaces/sourcestest", "common/vcs/chosen"}},
-	// The port a control plane holds a remote workspace's stored
-	// repositories through: plain types, and nothing of this repository,
-	// so that what implements it outside links nothing else of it. What
-	// holds them in memory, for a test, is beside it.
-	{"workspace/server/workspaces/sources", []string{}},
-	{"workspace/server/workspaces/sourcestest", []string{"workspace/server/workspaces/sources"}},
+	{"workspace/server/controlplane/**", []string{"sdk/go/api/**", "sandbox/api/**", "sdk/go/entity", "workspace/server/controlplane/**", "sandbox", "workspace/server/backstage", "core/secretfile", "common/record", "common/vcs", "common/told", "common/told/sourceapi/**", "sandbox/testsupport/drivertest", "testsupport/backstagetest", "core/plain", "core/ports", "sdk/go", "core/page", "core/refusal", "common/record/records", "core/poll"}},
 	// A test starts a build over a directory with what fills it beside,
 	// and a control plane as frontseat-server does, each with the test
 	// support beside it.
@@ -289,11 +274,9 @@ var policies = []policy{
 	// it is told, and where a workspace's manifest is. Nothing of a box,
 	// a sandbox or a control plane, so that the command line may link it.
 	{"build/daemon/life", []string{"build/daemon/build", "build/daemon/settings", "common/record/manifest", "common/vcs/chosen", "core/httpserver", "core/telemetry"}},
-	// The local stack's control plane: a thin main over the control plane
-	// that can be composed (workspace/server/workspaces), told what the
-	// stack is by the stack's own package, and given nothing that serves
-	// stored repositories.
-	{"cmd/frontseat-server", []string{"workspace/server/workspaces", "core/httpserver", "core/secretfile", "core/telemetry", "stack/local", "core/ports"}},
+	// The local stack's control plane: the control plane, told what the
+	// stack is by the stack's own package.
+	{"cmd/frontseat-server", []string{"workspace/server/controlplane", "workspace/server/backstage", "core/httpserver", "core/secretfile", "core/telemetry", "stack/local", "core/ports", "common/vcs/chosen"}},
 	// What brings the local stack up and down from a checkout, and builds
 	// the box and the stack's image: the stack's own packages alone.
 	{"cmd/frontseat-stack", []string{"stack", "stack/box", "stack/local"}},
@@ -325,7 +308,7 @@ var policies = []policy{
 	{"specs/internal/**", []string{"specs/internal/**"}},
 }
 
-var forTests = []string{"testsupport", "stack/testsupport", "sandbox/testsupport", "workspace/server/controlplanetest", "specs", "workspace/server/toldtest", "workspace/server/workspaces/sourcestest", "build/engine/pluginhost/conformance", "build/engine/exec/tools/toolstest", "build/engine/engine/source/sourcetest", "build/engine/exec/reapi/reapitest", "build/engine/engine/plan/plantest", "build/engine/pluginhost/pluginhosttest", "build/engine/engine/catalog/catalogtest"}
+var forTests = []string{"testsupport", "stack/testsupport", "sandbox/testsupport", "workspace/server/controlplanetest", "specs", "workspace/server/toldtest", "build/engine/pluginhost/conformance", "build/engine/exec/tools/toolstest", "build/engine/engine/source/sourcetest", "build/engine/exec/reapi/reapitest", "build/engine/engine/plan/plantest", "build/engine/pluginhost/pluginhosttest", "build/engine/engine/catalog/catalogtest"}
 
 func beneath(path, root string) bool { return path == root || strings.HasPrefix(path, root+"/") }
 
@@ -1236,7 +1219,6 @@ func TestWhatIsNoClientsIsFound(t *testing.T) {
 		module + "/grid/runner":                         true,
 		module + "/sandbox":                             true,
 		module + "/workspace/server/controlplane":       true,
-		module + "/workspace/server/workspaces":         true,
 		module + "/workspace/box/source":                true,
 		module + "/core/secretfile":                     true,
 		module + "/testsupport/testfiles":               true,
@@ -1450,7 +1432,7 @@ func TestMissingValidationModuleIsRefused(t *testing.T) {
 // A public constructor must not force callers to name its private runtime.
 func TestPublicFeatureSignaturesHideImplementationTypes(t *testing.T) {
 	root := repositoryRoot(t)
-	for _, entry := range []string{"sandbox", "sandbox/driver", "sandbox/driver/openshell", "workspace/server/workspaces", "workspace/server/workspaces/sources"} {
+	for _, entry := range []string{"sandbox", "sandbox/driver", "sandbox/driver/openshell"} {
 		paths, err := filepath.Glob(filepath.Join(root, entry, "*.go"))
 		if err != nil {
 			t.Fatal(err)

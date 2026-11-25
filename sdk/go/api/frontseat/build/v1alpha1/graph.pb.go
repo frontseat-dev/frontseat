@@ -55,10 +55,8 @@ type Entity struct {
 	// settings its members inherit. Unset for any other.
 	Release *EntityRelease `protobuf:"bytes,7,opt,name=release,proto3" json:"release,omitempty"`
 	// Commit is the commit its repository stands at, as the workspace
-	// records it of what was brought; for a repository that is mounted in
-	// the workspace and not cloned, the changeset it stands at; empty
-	// where the build daemon was given one repository as it is, and none
-	// was brought.
+	// records it of what was brought; empty where the build daemon was
+	// given one repository as it is, and none was brought.
 	Commit        string `protobuf:"bytes,8,opt,name=commit,proto3" json:"commit,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

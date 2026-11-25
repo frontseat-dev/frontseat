@@ -95,8 +95,6 @@ func Failed(ctx context.Context, err error) (int, string) {
 		return ExitUnanswered, said + "\n" + unanswered()
 	case reason == frontseat.ReasonWorkspaceNotFound:
 		return ExitRefused, withReason(said, reason) + "\n`frontseat workspace list` lists the workspaces there are"
-	case reason == frontseat.ReasonStoreNotServed:
-		return ExitRefused, said + "\n" + unserving() + " does not serve it [" + reason + "]\nremote workspaces are served by Frontseat Enterprise; without --remote the workspace is local, and its repositories are cloned in it"
 	case code == connect.CodeUnimplemented && strings.HasSuffix(reason, "_NOT_SERVED"):
 		return ExitRefused, said + "\n" + unserving() + " does not serve it [" + reason + "]"
 	}

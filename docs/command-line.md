@@ -42,40 +42,6 @@ and ends itself once it has had nothing to do for long enough.
 A workspace is built from inside it: nothing builds one from outside,
 and a control plane neither serves nor forwards the build API.
 
-## Local and remote workspaces
-
-A workspace is local or remote, and is made one or the other
-(`workspace open`, `workspace create`).
-
-| | Local (the default) | Remote (`--remote`) |
-|---|---|---|
-| Its repositories | cloned in its sandbox, from their remotes | held from the control plane's snapshot store, by their names, and mounted in its sandbox; nothing is cloned |
-| Where work goes | committed in the workspace, and pushed from it where it was made with `--push` | landed on its task, where a test of it passes |
-| What it works on | a branch: the checkout's, or the one `--repository URL#REF` names | a task: the one `--task` names, or one named for the workspace. A checkout's branch and a `#REF` are not asked for |
-| Served by | every control plane | Frontseat Enterprise |
-
-A control plane that serves no remote workspace refuses one by name
-(`STORE_NOT_SERVED`, exit 1) and makes nothing; the same command
-without `--remote` makes a local workspace there. `--task` is said with
-`--remote`, and `--push` without it: either the other way is a command
-line written wrongly (exit 2), and no control plane is asked.
-
-`workspace open --remote` asks for the repository this checkout is of,
-as its version control system names it by its remote (the last element
-of the remote's path). `workspace create --remote` asks for each
-`--repository` so, and for each `--entity` as it is named: the control
-plane holds the repositories its entities are in from the store too.
-
-A build in a remote workspace reads a mounted repository as it reads a
-clone, beside any the workspace cloned: its manifest
-(`.frontseat/workspace.yaml`) records it as mounted, at the changeset
-it stands at, which is what is said wherever a repository's commit is
-(`frontseat query`). A mounted repository has no history: a workspace
-that holds one releases nothing, and `frontseat release` there is
-refused by name (`RELEASE_NOT_SERVED`), before anything is built or
-tagged. What a build goes by of a mounted repository's files is in
-[the build settings](build-settings.md#a-mounted-repository).
-
 ## Which workspace is selected
 
 Opening a workspace (`workspace open`, `workspace create`) selects it

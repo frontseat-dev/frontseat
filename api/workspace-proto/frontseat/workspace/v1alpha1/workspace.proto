@@ -55,16 +55,6 @@
 // once, its shells among them: one more is refused RESOURCE_EXHAUSTED
 // with the reason TUNNELS_EXHAUSTED, until one of them has ended.
 //
-// A workspace is local or remote. A local one, which every control plane
-// serves, clones its repositories in its sandbox: what is done there is
-// committed there, and leaves it by a push. A remote one holds its
-// repositories from a snapshot store, mounted in its sandbox and not
-// cloned (WorkspaceSpec.stored, task and land). A remote workspace is
-// served only by a control plane that was given what serves stored
-// repositories, which an enterprise server is: any other refuses a spec
-// that asks for one UNIMPLEMENTED, with the reason STORE_NOT_SERVED,
-// and makes nothing.
-//
 // A workspace is kept as what was asked for, its spec, and what is so,
 // its status. A call writes the spec and returns; the control plane then
 // works until the status matches it. It works from the spec it keeps: a
@@ -92,19 +82,17 @@ service WorkspaceService {
   // call, whatever fails.
   //
   // ### Errors
-  // - INVALID_ARGUMENT: the spec asks for no repository, no entity and
-  //   no stored repository (SOURCE_MISSING); the name is not a valid
-  //   workspace name, as Workspace.name says, or none is given and
-  //   nothing asked for gives one (NAME_INVALID); a repository's address
-  //   holds a user or a password (REMOTE_CREDENTIALED); an address is
-  //   not written plainly, a host is fetched from over both http and
-  //   https, the authorized key is not one line, or what is asked of the
-  //   store is not written as StoredRepository, task and land say
-  //   (SPEC_INVALID); the lifetime is zero or negative
-  //   (LIFETIME_INVALID); an entity's reference is not a valid one, or
-  //   the catalog says of the entity what a workspace cannot hold
-  //   (ENTITY_INVALID); a reference matches several entities, which the
-  //   message names (ENTITY_AMBIGUOUS).
+  // - INVALID_ARGUMENT: the spec asks for no repository and no entity
+  //   (SOURCE_MISSING); the name is not a valid workspace name, as
+  //   Workspace.name says, or none is given and nothing asked for gives
+  //   one (NAME_INVALID); a repository's address holds a user or a
+  //   password (REMOTE_CREDENTIALED); an address is not written plainly,
+  //   a host is fetched from over both http and https, or the authorized
+  //   key is not one line (SPEC_INVALID); the lifetime is zero or
+  //   negative (LIFETIME_INVALID); an entity's reference is not a valid
+  //   one, or the catalog says of the entity what a workspace cannot
+  //   hold (ENTITY_INVALID); a reference matches several entities, which
+  //   the message names (ENTITY_AMBIGUOUS).
   // - PERMISSION_DENIED: a workspace of the name is another's
   //   (NOT_OWNER).
   // - NOT_FOUND: the catalog holds no entity of a reference given, or
@@ -115,19 +103,13 @@ service WorkspaceService {
   //   (IMAGE_NOT_SERVED); a repository is to be fetched, and the control
   //   plane was configured with no version control system
   //   (FETCH_NOT_SERVED); a push is asked for, and a repository is not
-  //   given by its address over http or https (PUSH_NOT_SERVED); a
-  //   stored repository, a task or a landing is asked for, and the
-  //   control plane was given nothing that serves stored repositories:
-  //   nothing is made (STORE_NOT_SERVED).
+  //   given by its address over http or https (PUSH_NOT_SERVED).
   // - UNAVAILABLE: the catalog did not answer, or answered what is not a
-  //   catalog's answer; nothing is made (ENTITIES_UNAVAILABLE). Or what
-  //   serves stored repositories did not hold those asked for; nothing
-  //   is made (STORE_UNAVAILABLE).
+  //   catalog's answer; nothing is made (ENTITIES_UNAVAILABLE).
   // - ALREADY_EXISTS: the caller's workspace of the name is asked for
   //   with more than it has: other source, a push it was made without,
-  //   another image, another authorized key, another lifetime, another
-  //   task or another landing; the message says what differs
-  //   (WORKSPACE_DIFFERS).
+  //   another image, another authorized key or another lifetime; the
+  //   message says what differs (WORKSPACE_DIFFERS).
   // - FAILED_PRECONDITION: the workspace of the name is ending; it is
   //   asked for again once it is gone (WORKSPACE_ENDING).
   rpc CreateWorkspace(CreateWorkspaceRequest) returns (CreateWorkspaceResponse);
@@ -186,9 +168,7 @@ service WorkspaceService {
   // - PERMISSION_DENIED: the workspace is another's (NOT_OWNER).
   // - INVALID_ARGUMENT: the spec leaves out something the workspace has
   //   (SPEC_INCOMPLETE); it changes a field that is set once: whether it
-  //   pushes, its author, its authorized key, its image, its lifetime,
-  //   its stored repositories, its task or whether it lands, or it adds
-  //   anything to a workspace that holds stored repositories
+  //   pushes, its author, its authorized key, its image or its lifetime
   //   (SPEC_FIXED); a repository's address holds a user or a password
   //   (REMOTE_CREDENTIALED); an entity added is refused as
   //   CreateWorkspace refuses one (ENTITY_INVALID, ENTITY_AMBIGUOUS). Or
@@ -206,10 +186,7 @@ service WorkspaceService {
   //   resolved to, is on a host the workspace's sandbox may not reach:
   //   which hosts it may reach is fixed when the workspace is made. The
   //   message says which (REACH_NOT_SERVED). Or entities are added,
-  //   and the control plane resolves none (ENTITIES_NOT_SERVED). Or the
-  //   spec names a stored repository, a task or a landing, and the
-  //   control plane was given nothing that serves stored repositories
-  //   (STORE_NOT_SERVED).
+  //   and the control plane resolves none (ENTITIES_NOT_SERVED).
   // - UNAVAILABLE: the catalog did not answer, as for CreateWorkspace
   //   (ENTITIES_UNAVAILABLE). Or the workspace's supervisor was not reached;
   //   no reason is given then.
@@ -292,56 +269,6 @@ message WorkspaceSpec {
   // another lifetime, and with none returns the workspace as it was
   // made.
   google.protobuf.Duration lifetime = 8;
-  // Stored are repositories it holds from the control plane's snapshot
-  // store, and does not clone: each is mounted in its sandbox, at the
-  // changeset its ref or its task stood at when the workspace was made,
-  // and its supervisor is given no credential of the store. They are
-  // set when the workspace is made, and cannot be changed. Served only
-  // where the control plane was given what serves stored repositories,
-  // which an enterprise server is: any other refuses a spec that names
-  // one UNIMPLEMENTED, with the reason STORE_NOT_SERVED.
-  repeated StoredRepository stored = 9;
-  // Land asks that what a test that passes in it tested be landed on
-  // the task of each stored repository it changed. It is said of a
-  // workspace that holds stored repositories, when it is made, and
-  // cannot be changed; what lands, and when, is for what serves stored
-  // repositories to say. Served only where stored is, and refused as it
-  // is otherwise (STORE_NOT_SERVED).
-  bool land = 10;
-  // Task is the task every stored repository it holds works on, where
-  // the repository names neither a task of its own nor where to stand
-  // (at). Empty, in a workspace that lands, it is the workspace's own
-  // name: the workspace's spec then says so. Where it is set, the
-  // repositories its entities are in are held from the store too, each
-  // by the name the workspace gives it, with the directories of its
-  // entities alone unless whole_repositories is set, and none of them
-  // is cloned. It is set when the workspace is made, and cannot be
-  // changed. Served only where stored is, and refused as it is
-  // otherwise (STORE_NOT_SERVED).
-  string task = 11;
-}
-
-// StoredRepository is a repository of the control plane's snapshot
-// store, for a workspace to hold: at a ref, at a changeset, or on a
-// task. It is served only where WorkspaceSpec.stored is.
-message StoredRepository {
-  // Repository is the store's name for it.
-  string repository = 1 [(google.api.field_behavior) = REQUIRED];
-  // At is a ref of the store, or a changeset by its id; empty for the
-  // store's main. A ref is read when the workspace is made: the
-  // workspace holds the changeset the ref stood at then.
-  string at = 2;
-  // Name is the workspace's name for it, and its directory there;
-  // empty for the store's name.
-  string name = 3;
-  // Roots are the directories to take of it; empty for all of it.
-  repeated string roots = 4;
-  // Task is the task it works on, by the task's name; empty for the
-  // workspace's (WorkspaceSpec.task), or, where at is set or the
-  // workspace has none, for no task. At is empty where it is set: the
-  // workspace holds what the task stood at when it was made, and a
-  // repository asked for with both is refused (SPEC_INVALID).
-  string task = 5;
 }
 
 // Author is who commits in a workspace.
@@ -396,9 +323,8 @@ message WorkspaceStatus {
 // CreateWorkspaceRequest asks for a workspace.
 message CreateWorkspaceRequest {
   // Name names it; empty for the name the control plane gives what was
-  // asked for: the first entity's name, or else the first stored
-  // repository's, or else the first repository's, with its ref where
-  // one is given ("payments", "services-main").
+  // asked for: the first entity's name, or else the first repository's,
+  // with its ref where one is given ("payments", "services-main").
   string name = 1;
   // Spec is what it is asked for with.
   WorkspaceSpec spec = 2 [(google.api.field_behavior) = REQUIRED];
@@ -484,16 +410,12 @@ message Repository {
   // by.
   string name = 1 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Remote is where it was cloned from; empty for a directory the supervisor
-  // was started over and did not clone, and for a stored repository.
+  // was started over and did not clone.
   string remote = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // Commit is the commit it stands at; for a stored repository, the
-  // changeset.
+  // Commit is the commit it stands at.
   string commit = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
   // Roots are the directories taken of it; empty for all of it.
   repeated string roots = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
-  // Stored is the snapshot store's name for it, where it is held from
-  // the store and not cloned; empty for one that was cloned.
-  string stored = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
 }
 
 // LocatedEntity is an entity, and where its source is in a workspace.

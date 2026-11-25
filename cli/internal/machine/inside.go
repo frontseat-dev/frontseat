@@ -50,19 +50,15 @@ func supervised(lock string) bool {
 
 // kept is where the build daemons of where the command line runs are
 // told and keep what they keep: the file of their settings, and the
-// directory beneath which each has a state directory of its own; and
-// the directory beneath which each repository something else mounted
-// there has its layer, where there is one.
+// directory beneath which each has a state directory of its own.
 type kept struct {
 	settings, state string
-	layers          string
 }
 
 // boxed is where they are inside a workspace's sandbox: the settings the
-// sandbox's supervisor wrote, a directory of the sandbox's own that
-// its user writes, and where the layers of its mounted repositories
-// are, which only a sandbox has. A test stands in for it.
-var boxed = kept{settings: ports.Settings, state: ports.Builds, layers: ports.Mounted}
+// sandbox's supervisor wrote, and a directory of the sandbox's own that
+// its user writes. A test stands in for it.
+var boxed = kept{settings: ports.Settings, state: ports.Builds}
 
 // keeps is where the build daemons are told and keep what they keep,
 // inside a workspace's sandbox or outside one: there what the sandbox

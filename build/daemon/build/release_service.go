@@ -36,9 +36,6 @@ func (s *releaseService) PlanRelease(ctx context.Context, request *buildv1.PlanR
 	if err != nil {
 		return nil, err
 	}
-	if err := s.releases.cloned(); err != nil {
-		return nil, releaseFailure(err)
-	}
 	plan, err := release.Plan(ctx, releasing(evaluated), strategies(s.graph.runs.plugins), s.graph.runs.workspace, request)
 	if err != nil {
 		return nil, releaseFailure(err)
