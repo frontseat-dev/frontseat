@@ -637,10 +637,14 @@ the change that fixes it.
   branch code; only the release CI makes from main runs them on main's
   workers. That main's misses run on main's workers alone is the grid's
   configuration (frontseat-enterprise's, on tenant zero), and nothing
-  here proves it. *Target*: tenant zero's two instances and main's
-  worker pool, and the job that tells each build its instance
-  (`.github/workflows/frontseat-job.yml` still names `frontseat/p/b`);
-  the local stack is one instance, its slots shared by every instance.
+  here proves it. The CI job tells a protected ref's build
+  `frontseat/p` reading `frontseat/b`, and any other's `frontseat/b`
+  reading `frontseat/p` (`.github/workflows/frontseat-job.yml`).
+  *Target*: main's worker pool registered at `frontseat/p` alone, its
+  grid socket held to it, and the action cache main reads written by
+  no worker that ran branch code (frontseat-enterprise's second and
+  third steps); the local stack is one instance, its slots shared by
+  every instance.
 
 ## Entities
 
