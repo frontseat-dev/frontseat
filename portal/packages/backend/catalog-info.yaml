@@ -1,0 +1,12 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: portal-backend
+  namespace: frontseat
+  description: "The portal's backend: Backstage's backend, serving the app and the plugins it loads dynamically"
+spec:
+  type: service
+  lifecycle: experimental
+  owner: jbadeau
+  system: portal
+  dependsOn: [component:portal-app]

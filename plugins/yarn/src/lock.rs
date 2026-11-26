@@ -95,6 +95,9 @@ impl Entry {
             // locked by its own entry, with a patch of Yarn's own or a file
             // of `.yarn/patches`, which the install reads.
             Some(("patch", patched)) if patches_an_npm_version(patched) => Ok(()),
+            // A directory of the workspace, which Yarn links and fetches
+            // nothing for.
+            Some(("link", linked)) if links_within(linked) => Ok(()),
             // An npm package by its bare version, from the registry every
             // action names: no parameter (`::__archiveUrl=` would have Yarn
             // fetch it from anywhere). One Yarn fetches on some platforms
@@ -176,6 +179,56 @@ fn patches_an_npm_version(patched: &str) -> bool {
             !file.is_empty() && !file.split('/').any(|part| part == ".." || part.is_empty())
         });
     source.is_some_and(|(name, version)| named(name) && version_of(version)) && (builtin || file)
+}
+
+/// Whether what follows `link:` is a directory within the install's root:
+/// a relative path, taken from the workspace the locator Yarn adds after
+/// `::` names (`locator=backend%40workspace%3Apackages%2Fbackend`), or the
+/// root's where it names none, that reaches neither above the root nor
+/// anywhere by an absolute path; and no other parameter.
+fn links_within(linked: &str) -> bool {
+    let (path, parameters) = linked.split_once("::").unwrap_or((linked, ""));
+    let mut from = Vec::new();
+    for parameter in parameters
+        .split('&')
+        .filter(|parameter| !parameter.is_empty())
+    {
+        let Some(locator) = parameter.strip_prefix("locator=") else {
+            return false;
+        };
+        let locator = locator
+            .replace("%40", "@")
+            .replace("%3A", ":")
+            .replace("%2F", "/");
+        if locator.contains('%') {
+            return false;
+        }
+        let Some(directory) = locator
+            .get(1..)
+            .and_then(|rest| rest.split_once("@workspace:"))
+            .map(|(_, directory)| directory)
+        else {
+            return false;
+        };
+        if directory != "." {
+            from.extend(directory.split('/').map(String::from));
+        }
+    }
+    if path.is_empty() || path.starts_with('/') || path.contains('\\') {
+        return false;
+    }
+    for part in path.split('/') {
+        match part {
+            "" | "." => {}
+            ".." => {
+                if from.pop().is_none() {
+                    return false;
+                }
+            }
+            part => from.push(part.into()),
+        }
+    }
+    !from.is_empty()
 }
 
 fn refused(path: &str, line: i32, message: &str) -> Error {
@@ -273,6 +326,38 @@ __metadata:
     /// The lock Yarn 4.13.0 itself wrote for a workspace of two packages,
     /// one depending on the other and each on another version of one
     /// npm package, is read.
+    /// A link to a directory within the install's root, as Backstage's
+    /// template links its app to its backend, is read; one that reaches
+    /// above the root, by an absolute path, from a locator that names no
+    /// workspace, or with another parameter, is refused at its line.
+    #[test]
+    fn a_link_within_the_workspace_is_read_and_one_beyond_it_refused() {
+        let with = |resolution: &str| {
+            LOCK.replace(
+                "resolution: \"@scope/is-number@npm:7.0.0\"",
+                &format!("resolution: \"{resolution}\""),
+            )
+        };
+        for resolution in [
+            "app@link:../app::locator=backend%40workspace%3Apackages%2Fbackend",
+            "@scope/is-number@link:shared",
+        ] {
+            check("yarn.lock", &with(resolution))
+                .unwrap_or_else(|refused| panic!("{resolution}: {refused:?}"));
+        }
+        for resolution in [
+            "app@link:../../../outside::locator=backend%40workspace%3Apackages%2Fbackend",
+            "app@link:/etc::locator=backend%40workspace%3Apackages%2Fbackend",
+            "app@link:..",
+            "app@link:../app::locator=backend%40npm%3A1.0.0",
+            "app@link:../app::locator=backend%40workspace%3Apackages%2Fbackend&__archiveUrl=https%3A%2F%2Fexample.com",
+            "app@link:",
+        ] {
+            let refused = check("yarn.lock", &with(resolution)).expect_err(resolution);
+            assert_eq!(refused.line, 26, "{resolution}");
+        }
+    }
+
     #[test]
     fn the_lock_yarn_writes_is_read() {
         check("yarn.lock", include_str!("../testdata/workspace/yarn.lock"))

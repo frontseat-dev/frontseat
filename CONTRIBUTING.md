@@ -165,6 +165,19 @@ and built to Wasm, and each catalog file's `dependsOn` held to what the
 source says. Where a catalog file is out of step, `frontseat build --fix --only
 depends-on` writes it in the workspace; commit and push it from there.
 
+The portal (`portal/`) is a Backstage repository, each of its packages a
+Component of its own (`portal-app`, `portal-backend`): Frontseat installs
+it with Yarn (`plugins/yarn`) and compiles, lints and tests it with the
+Backstage CLI (`plugins/backstage`), one `tsc` over it and each package by
+its role, so the build above builds it too. Its Backstage release is
+1.55.0, every `@backstage/` package it uses pinned to that release in its
+root's `resolutions`, as `backstage-cli versions:bump --release 1.55.0`
+pins them; raise them together. Its backend ships what its build packed,
+`dist/bundle.tar.gz` and `dist/skeleton.tar.gz`, the same for every
+platform; an image installs it from them, as Backstage's own recipe does,
+and nothing builds that image yet. Run it by hand with `yarn install`, then
+`yarn start`, in `portal/`, with the Node and Yarn `mise.toml` pins.
+
 What Frontseat does not build of itself yet still runs through mise: the
 gates (`mise run check`, and `mise run test`, which runs the specs that
 need the local stack), the generation of the contracts' Go and Rust

@@ -10,6 +10,9 @@ gh = "2.105.0"
 go = "1.27.3"
 protoc-gen-connect-go = "2.0.2"
 protoc-gen-go = "1.36.12"
+# The portal (portal/) is a Backstage repository: Node runs its build, as
+# its packages' engines allow (22 or 24), and Yarn installs it (plugins/yarn).
+node = "24.22.3"
 # Bazel is the baseline frontseat is held to (mise run perf): this
 # machine builds a workspace with it on the local grid, beside frontseat.
 bazel = "9.3.2"
@@ -24,6 +27,16 @@ bazel = "9.3.2"
 [tool_alias]
 protoc-gen-connect-go = "github:connectrpc/connect-go"
 protoc-gen-go = "aqua:protocolbuffers/protobuf-go/protoc-gen-go"
+
+# Yarn is pinned as its own npm package's archive, held to its checksum,
+# its launcher made runnable, since an npm archive keeps no file's mode;
+# mise's npm backend records no checksum, which the grid requires.
+[tools."http:yarn"]
+version = "4.13.0"
+url = "https://registry.npmjs.org/@yarnpkg/cli-dist/-/cli-dist-{{ version }}.tgz"
+strip_components = 1
+bin_path = "bin"
+postinstall = 'chmod +x "$MISE_TOOL_INSTALL_PATH/bin/yarn"'
 
 # Plugins and their SDK are written in Rust, and built to wasm. Rust is
 # pinned as what provides it, "http:rust", so that it has a directory of

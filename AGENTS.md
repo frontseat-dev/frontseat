@@ -649,8 +649,8 @@ the change that fixes it.
   and its release unit, saying `grouping: synced`: every component of
   its Systems releases at one version and one tag,
   `frontseat@<version>` (`tag: "{unit}@{version}"`). Its Systems are its functions (`build`,
-  `plugins`, `workspaces`, `grid`, `clients`), written in the root
-  `catalog-info.yaml`. A System and the Domain are entities, never
+  `plugins`, `workspaces`, `grid`, `portal`, `clients`), written in the
+  root `catalog-info.yaml`. A System and the Domain are entities, never
   directories: what is part of one says so (`spec.system`, `spec.domain`),
   in this repository or another. `specs` is part of no System; `api`,
   the public contracts, is part of `clients`.
@@ -668,9 +668,10 @@ the change that fixes it.
   directory is only where it says `subcomponentOf`. A directory at the
   top is one Component (`api`, `cli`, `core`, `grid`, `sandbox`,
   `specs`, `stack`, `testsupport`) or a directory of Components:
-  `plugins/`, `sdk/`, `common/`, `build/`, `workspace/` and `cmd/`,
+  `plugins/`, `sdk/`, `common/`, `build/`, `workspace/`, `cmd/`,
   where every program is, each a Component of its own named as the
-  program; `docs/` holds the TechDocs site and is no Component.
+  program, and `portal/`, a Yarn workspace whose every package is a
+  Component of its own (`portal-<package>`), its root none; `docs/` holds the TechDocs site and is no Component.
 - `dependsOn` is inferred and never written by hand, except the Resources a
   component's tests need. Each API has its own catalog file beside its
   proto module (`api/<name>-proto/catalog-info.yaml`), as each plugin has
