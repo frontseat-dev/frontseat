@@ -9,7 +9,6 @@
     "start": "backstage-cli repo start",
     "build:backend": "yarn workspace backend build",
     "build:all": "backstage-cli repo build --all",
-    "build-image": "yarn workspace backend build-image",
     "tsc": "tsc",
     "tsc:full": "tsc --skipLibCheck false --incremental false",
     "clean": "backstage-cli repo clean",
@@ -26,7 +25,7 @@
     "cli": {
       "new": {
         "globals": {
-          "license": "UNLICENSED"
+          "license": "Apache-2.0"
         }
       }
     }

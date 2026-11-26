@@ -670,8 +670,9 @@ the change that fixes it.
   `specs`, `stack`, `testsupport`) or a directory of Components:
   `plugins/`, `sdk/`, `common/`, `build/`, `workspace/`, `cmd/`,
   where every program is, each a Component of its own named as the
-  program, and `portal/`, a Yarn workspace whose every package is a
-  Component of its own (`portal-<package>`), its root none; `docs/` holds the TechDocs site and is no Component.
+  program, and `portal/`, a Yarn workspace that is the Component `portal-repository`, each
+  of its packages a Component of its own (`portal-<package>`) that is
+  its subcomponent; `docs/` holds the TechDocs site and is no Component.
 - `dependsOn` is inferred and never written by hand, except the Resources a
   component's tests need. Each API has its own catalog file beside its
   proto module (`api/<name>-proto/catalog-info.yaml`), as each plugin has
