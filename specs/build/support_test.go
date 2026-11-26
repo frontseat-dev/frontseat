@@ -1602,6 +1602,22 @@ func (spec *scenario) fixtureWorkspace(plugin, configuration string) *Workspace 
 	return &Workspace{scenario: spec, directory: directory, at: buildtest.MountedWith(spec.TB, directory, buildtest.Options{Plugins: [][]byte{module}, Rewrites: spec.rewrites})}
 }
 
+// helmWorkspace is a checkout pinned as this repository is, which lists
+// the Helm plugin and holds the chart web: a ConfigMap of one value.
+func (spec *scenario) helmWorkspace() *Workspace {
+	spec.Helper()
+	directory := spec.TB.TempDir()
+	testpins.Own(spec.TB, directory)
+	module, err := testmodule.Plugin("helm")
+	spec.Expect(err).NotTo(HaveOccurred())
+	spec.Expect(os.WriteFile(filepath.Join(directory, "frontseat.yaml"), []byte("plugins:\n  helm: {}\n"), 0o644)).To(Succeed())
+	w := &Workspace{scenario: spec, directory: directory, at: buildtest.MountedWith(spec.TB, directory, buildtest.Options{Plugins: [][]byte{module}, Rewrites: spec.rewrites})}
+	w.write("web/Chart.yaml", "apiVersion: v2\nname: web\nversion: 0.1.0\nicon: https://example.com/web.png\n")
+	w.write("web/values.yaml", "greeting: hello\n")
+	w.write("web/templates/a.yaml", "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: {{ .Release.Name }}\ndata:\n  greeting: {{ .Values.greeting | quote }}\n")
+	return w
+}
+
 // releasable is the company's source, as releasing needs it. services
 // and platform list the catalog's plugin and the release plugin, and every
 // component has a catalog file of its own. services also holds the system

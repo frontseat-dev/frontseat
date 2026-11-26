@@ -3,7 +3,7 @@
 #   cargo build --release --target wasm32-wasip1 -p frontseat-plugin-go
 [workspace]
 resolver = "2"
-members = ["sdk/plugin", "sdk/plugin/generate", "sdk/plugin-test", "plugins/go", "plugins/backstage", "plugins/buf", "plugins/cargo", "plugins/release", "plugins/github", "plugins/release/conventional-commits", "plugins/apko", "plugins/container", "plugins/postgres", "plugins/npm", "plugins/jest"]
+members = ["sdk/plugin", "sdk/plugin/generate", "sdk/plugin-test", "plugins/go", "plugins/backstage", "plugins/buf", "plugins/helm", "plugins/cargo", "plugins/release", "plugins/github", "plugins/release/conventional-commits", "plugins/apko", "plugins/container", "plugins/postgres", "plugins/npm", "plugins/jest"]
 
 [workspace.package]
 edition = "2021"
