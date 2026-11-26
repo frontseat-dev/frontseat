@@ -1,7 +1,7 @@
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
-  name: portal-repository
+  name: portal
   namespace: frontseat
   description: "The portal: a Backstage repository, its Yarn install and its one compilation, of which the app and the backend are each a Component"
 spec:
