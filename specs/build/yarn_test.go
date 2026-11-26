@@ -1,43 +1,10 @@
 package build_test
 
 import (
-	"io/fs"
-	"os"
-	"path/filepath"
 	"testing"
-
-	"github.com/frontseat-dev/frontseat/specs/buildtest"
-	"github.com/frontseat-dev/frontseat/testsupport/testpins"
 
 	. "github.com/onsi/gomega"
 )
-
-// yarnWorkspace is a workspace pinned with Node and Yarn, listing the
-// plugins named, that holds what testdata/<fixture> holds, beneath
-// directory (the workspace's root where it is empty).
-func (spec *scenario) yarnWorkspace(plugins, fixture, directory string) *Workspace {
-	spec.Helper()
-	root := spec.TB.TempDir()
-	testpins.Node(spec.TB, root)
-	testpins.Yarn(spec.TB, root)
-	w := &Workspace{scenario: spec, directory: root, at: buildtest.Mounted(spec.TB, root)}
-	w.write("frontseat.yaml", "plugins: {"+plugins+"}\n")
-	from := filepath.Join("testdata", fixture)
-	err := filepath.WalkDir(from, func(path string, entry fs.DirEntry, err error) error {
-		if err != nil || entry.IsDir() {
-			return err
-		}
-		content, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		relative, err := filepath.Rel(from, path)
-		w.write(filepath.ToSlash(filepath.Join(directory, relative)), string(content))
-		return err
-	})
-	spec.Expect(err).NotTo(HaveOccurred())
-	return w
-}
 
 // Yarn / A workspace is installed offline from what its fetch kept, as
 // one project.

@@ -35,16 +35,13 @@ mod tests {
 
     fn workspace() -> Files {
         Files::new()
-            .with("portal/package.json", ROOT)
-            .with("portal/yarn.lock", crate::lock::tests::LOCK)
-            .with("portal/.yarnrc.yml", RC)
-            .with("portal/packages/app/package.json", APP)
+            .with("js/package.json", ROOT)
+            .with("js/yarn.lock", crate::lock::tests::LOCK)
+            .with("js/.yarnrc.yml", RC)
+            .with("js/packages/app/package.json", APP)
+            .with("js/packages/backend/package.json", r#"{"name":"backend"}"#)
             .with(
-                "portal/packages/backend/package.json",
-                r#"{"name":"backend"}"#,
-            )
-            .with(
-                "portal/packages/app/testdata/fixture/package.json",
+                "js/packages/app/testdata/fixture/package.json",
                 r#"{"name":"fixture"}"#,
             )
     }
@@ -62,7 +59,7 @@ mod tests {
             .analyze(
                 &host,
                 &context,
-                &["portal", "portal/packages/app", "portal/packages/backend"],
+                &["js", "js/packages/app", "js/packages/backend"],
             )
             .projects()
             .into_iter()
@@ -75,7 +72,7 @@ mod tests {
                 project.name.as_str(),
                 project.kind.as_str()
             ),
-            ("portal", "portal", "yarn-install")
+            ("js", "portal", "yarn-install")
         );
         let install = project
             .actions
@@ -158,68 +155,68 @@ mod tests {
         let plugin = TestPlugin::new(crate::served());
         let context = plugin.context(Profile::Development).tool("yarn", "4.13.0");
         let analyze = |files: Files, context: &frontseat_plugin_test::TestContext| {
-            plugin.analyze(&TestHost::new(files), context, &["portal"])
+            plugin.analyze(&TestHost::new(files), context, &["js"])
         };
         analyze(workspace(), &context).answered();
         let named = |what: &str| ROOT.replace(r#""private":true"#, what);
         for (files, reason, at) in [
             (
-                workspace().without("portal/.yarnrc.yml"),
+                workspace().without("js/.yarnrc.yml"),
                 "linker-not-served",
-                "portal/.yarnrc.yml",
+                "js/.yarnrc.yml",
             ),
             (
-                workspace().with("portal/.yarnrc.yml", "nodeLinker: pnp\n"),
+                workspace().with("js/.yarnrc.yml", "nodeLinker: pnp\n"),
                 "linker-not-served",
-                "portal/.yarnrc.yml",
+                "js/.yarnrc.yml",
             ),
             (
                 workspace().with(
-                    "portal/.yarnrc.yml",
+                    "js/.yarnrc.yml",
                     format!("{RC}plugins:\n  - path: .yarn/plugins/x.cjs\n"),
                 ),
                 "yarn-plugins-not-served",
-                "portal/.yarnrc.yml",
+                "js/.yarnrc.yml",
             ),
             (
                 workspace().with(
-                    "portal/.yarnrc.yml",
+                    "js/.yarnrc.yml",
                     format!("{RC}npmRegistryServer: https://npm.example.com\n"),
                 ),
                 "registry-not-served",
-                "portal/.yarnrc.yml",
+                "js/.yarnrc.yml",
             ),
             (
                 workspace().with(
-                    "portal/package.json",
+                    "js/package.json",
                     named(r#""scripts":{"postinstall":"node x.js"}"#),
                 ),
                 "install-hooks-not-served",
-                "portal/package.json",
+                "js/package.json",
             ),
             (
                 workspace().with(
-                    "portal/packages/app/package.json",
+                    "js/packages/app/package.json",
                     r#"{"name":"app","scripts":{"preinstall":"x"}}"#,
                 ),
                 "install-hooks-not-served",
-                "portal/packages/app/package.json",
+                "js/packages/app/package.json",
             ),
             (
                 workspace().with(
-                    "portal/package.json",
+                    "js/package.json",
                     named(r#""packageManager":"yarn@4.12.0""#),
                 ),
                 "invalid-package-manager",
-                "portal/package.json",
+                "js/package.json",
             ),
             (
                 workspace().with(
-                    "portal/package.json",
+                    "js/package.json",
                     named(r#""packageManager":"pnpm@11.0.0""#),
                 ),
                 "invalid-package-manager",
-                "portal/package.json",
+                "js/package.json",
             ),
         ] {
             let refused = analyze(files, &context).refused(reason);
@@ -233,7 +230,7 @@ mod tests {
             "networkSettings: {}",
         ] {
             let refused = analyze(
-                workspace().with("portal/.yarnrc.yml", format!("{RC}{setting}\n")),
+                workspace().with("js/.yarnrc.yml", format!("{RC}{setting}\n")),
                 &context,
             )
             .refused("fetch-settings-not-served");
@@ -253,7 +250,7 @@ mod tests {
         // registry named as Yarn names it.
         analyze(
             workspace().with(
-                "portal/package.json",
+                "js/package.json",
                 named(r#""packageManager":"yarn@4.13.0+sha512.abc""#),
             ),
             &context,
@@ -261,7 +258,7 @@ mod tests {
         .answered();
         analyze(
             workspace().with(
-                "portal/.yarnrc.yml",
+                "js/.yarnrc.yml",
                 format!("{RC}npmRegistryServer: \"https://registry.yarnpkg.com\"\n"),
             ),
             &context,
@@ -287,7 +284,7 @@ mod tests {
             analyze(web, "web").refused("invalid-lock").path,
             "web/package.json"
         );
-        let answered = analyze(workspace(), "portal/packages/app").answered();
+        let answered = analyze(workspace(), "js/packages/app").answered();
         assert!(answered
             .analyses
             .iter()

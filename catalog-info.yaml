@@ -65,6 +65,16 @@ spec:
 apiVersion: backstage.io/v1alpha1
 kind: System
 metadata:
+  name: portal
+  namespace: frontseat
+  description: "Where people look at what Frontseat builds: the Backstage portal, its app and its backend"
+spec:
+  owner: jbadeau
+  domain: frontseat
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
   name: clients
   namespace: frontseat
   description: "What calls Frontseat: the command line and the Go SDK"
@@ -103,6 +113,8 @@ spec:
     - ./plugins/jest/catalog-info.yaml
     - ./plugins/npm/catalog-info.yaml
     - ./plugins/yarn/catalog-info.yaml
+    - ./portal/packages/app/catalog-info.yaml
+    - ./portal/packages/backend/catalog-info.yaml
     - ./plugins/postgres/catalog-info.yaml
     - ./plugins/github/catalog-info.yaml
     - ./plugins/release/catalog-info.yaml

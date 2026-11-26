@@ -18,6 +18,9 @@ plugins:
     wasm: true
   buf: {}
   backstage: {}
+  # The portal (portal/) is a Yarn workspace, which the Backstage plugin
+  # builds with the Backstage CLI.
+  yarn: {}
   release: {}
   # A release of this repository is published on GitHub, a GitHub
   # release for each unit it tags, by GitHub's own command line.
