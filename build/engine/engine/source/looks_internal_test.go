@@ -1222,8 +1222,8 @@ func TestAFileBesideThatChangedAsAWaitReadItAgainIsReadAgainLater(t *testing.T) 
 // written meanwhile. Control: nothing written as it is read, it holds
 // what was used.
 func TestAFileBesideWrittenAsAWaitReadItAgainIsReadAgainLater(t *testing.T) {
-	// Two parts of a reading (digest's io.Copy reads 32 KiB at a time).
-	held := strings.Repeat("A", 40<<10)
+	// Two parts of a reading (digest reads a part at a time).
+	held := strings.Repeat("A", part+part/4)
 	for name, written := range map[string]bool{
 		"written as it is read again":            true,
 		"the control, nothing written meanwhile": false,
@@ -1231,6 +1231,11 @@ func TestAFileBesideWrittenAsAWaitReadItAgainIsReadAgainLater(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			file := filepath.Join(t.TempDir(), "build.yaml")
 			testfiles.Write(t, file, held)
+			// Settled as the disk tells it, not only as the look is told:
+			// written in the tick of the disk's clock it was written in,
+			// on a system whose files are dated by a coarse clock, it
+			// would look as it did.
+			passed(t, file)
 			l := settledBeside(t, file)
 			now := l.With()
 			ctx := &asked{Context: t.Context(), each: func(times int) {
@@ -1242,6 +1247,9 @@ func TestAFileBesideWrittenAsAWaitReadItAgainIsReadAgainLater(t *testing.T) {
 				switch times {
 				case 2:
 					rewrite(t, file, strings.Repeat("B", len(held)))
+					if info, err := os.Stat(file); err != nil || look(info) == now.files[file] {
+						t.Fatalf("%s written as it is read looks as it did (%v): the test shows nothing", file, err)
+					}
 				case 3:
 					rewrite(t, file, held)
 				}
@@ -1274,6 +1282,30 @@ func (a *asked) Err() error {
 	a.times++
 	a.each(a.times)
 	return a.Context.Err()
+}
+
+// passed waits until the disk's clock has passed when a file was last
+// written or changed: until a file written beside it now is dated
+// later, so that whatever writes the file next dates it otherwise.
+func passed(t *testing.T, file string) {
+	t.Helper()
+	info, err := os.Stat(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	probe := file + ".clock"
+	defer os.Remove(probe)
+	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); time.Sleep(time.Millisecond) {
+		testfiles.Write(t, probe, "")
+		now, err := os.Stat(probe)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if newest(look(now)) > newest(look(info)) {
+			return
+		}
+	}
+	t.Fatalf("the disk's clock did not pass when %s was written", file)
 }
 
 // rewrite writes a file again in place, so that whoever has it open
