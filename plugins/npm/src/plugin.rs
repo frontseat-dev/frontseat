@@ -1,5 +1,4 @@
 use frontseat_plugin::prelude::*;
-use frontseat_plugin::repository::join;
 
 pub(crate) struct NpmPlugin;
 
@@ -12,24 +11,12 @@ impl Plugin for NpmPlugin {
         let Some(package) = crate::manifest::read(repo, root)? else {
             return Ok(Analysis::default());
         };
-        Ok(Analysis {
-            projects: vec![Project {
-                root: root.into(),
-                provides: vec![Provision {
-                    coordinate: Some(package.installation()),
-                    artifacts: vec![OutputRef {
-                        action: crate::actions::INSTALL.into(),
-                        output: crate::actions::INSTALLED.into(),
-                    }],
-                    ..Default::default()
-                }],
-                name: package.name,
-                kind: "npm-package".into(),
-                manifest: join(root, "package.json"),
-                actions: crate::actions::of(),
-                ..Default::default()
-            }],
-            ..Default::default()
-        })
+        Ok(frontseat_plugin::javascript::installs(
+            root,
+            &package,
+            "npm-package",
+            (crate::actions::INSTALL, &[crate::actions::INSTALLED.into()]),
+            crate::actions::of(),
+        ))
     }
 }

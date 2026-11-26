@@ -29,6 +29,7 @@ func pluginFixtures(t *testing.T) map[string]conformance.Fixture {
 		"postgres":  postgresFixture(t),
 		"npm":       npmFixture(),
 		"jest":      jestFixture(),
+		"yarn":      yarnFixture(),
 		"release":   releaseFixture(),
 		"github":    githubFixture(),
 		"go": {
@@ -184,7 +185,7 @@ func fixtureSource(t testing.TB, plugin, name string) files {
 }
 func TestConformanceInventoryRejectsMissingPluginsAndMethods(t *testing.T) {
 	fixtures := pluginFixtures(t)
-	if err := conformance.ValidateFixtures([]string{"go", "backstage", "buf", "cargo", "release", "apko", "container", "postgres", "npm", "jest", "github"}, fixtures); err != nil {
+	if err := conformance.ValidateFixtures([]string{"go", "backstage", "buf", "cargo", "release", "apko", "container", "postgres", "npm", "yarn", "jest", "github"}, fixtures); err != nil {
 		t.Fatal(err)
 	}
 	for _, names := range [][]string{{"go", "unregistered"}, {"unregistered"}, nil} {

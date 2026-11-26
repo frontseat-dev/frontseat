@@ -1,0 +1,6 @@
+[tools."http:yarn"]
+version = "4.13.0"
+url = "https://registry.npmjs.org/@yarnpkg/cli-dist/-/cli-dist-{{ version }}.tgz"
+strip_components = 1
+bin_path = "bin"
+postinstall = 'chmod +x "$MISE_TOOL_INSTALL_PATH/bin/yarn"'

@@ -102,6 +102,7 @@ spec:
     - ./plugins/go/catalog-info.yaml
     - ./plugins/jest/catalog-info.yaml
     - ./plugins/npm/catalog-info.yaml
+    - ./plugins/yarn/catalog-info.yaml
     - ./plugins/postgres/catalog-info.yaml
     - ./plugins/github/catalog-info.yaml
     - ./plugins/release/catalog-info.yaml

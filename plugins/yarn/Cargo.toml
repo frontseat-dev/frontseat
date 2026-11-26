@@ -1,0 +1,17 @@
+[package]
+name = "frontseat-plugin-yarn"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+description = "The yarn plugin: fetches and installs a Yarn workspace's lock."
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+frontseat-plugin = { path = "../../sdk/plugin" }
+serde = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+frontseat-plugin-test = { path = "../../sdk/plugin-test" }

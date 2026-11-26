@@ -89,7 +89,7 @@ func start(t testing.TB, workspace string, mounted bool, rewrites map[string]str
 	}
 	ctx = signals.Context(ctx)
 	once.Do(func() {
-		for _, name := range []string{"go", "backstage", "release", "container", "postgres", "npm", "jest"} {
+		for _, name := range []string{"go", "backstage", "release", "container", "postgres", "npm", "yarn", "jest"} {
 			var module []byte
 			module, buildErr = testmodule.Plugin(name)
 			if buildErr != nil {

@@ -34,11 +34,220 @@ pub struct Package {
     /// What it depends on to be built and tested.
     #[serde(default)]
     pub dev_dependencies: BTreeMap<String, String>,
-    /// Whether it is the root of npm workspaces, which no plugin builds
-    /// yet: only whether it says any is read.
-    pub workspaces: Option<IgnoredAny>,
+    /// The workspaces it is the root of: the globs of its members'
+    /// directories, as npm and Yarn both write them.
+    pub workspaces: Option<Workspaces>,
     /// The package manager it names (`packageManager`), if it names one.
     pub package_manager: Option<String>,
+}
+
+/// The members of a package's workspaces, as `package.json` writes
+/// them: a list of globs, or the same list as `packages` beside what
+/// Yarn 1 alone reads (`nohoist`), which is not read.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(untagged)]
+pub enum Workspaces {
+    /// `"workspaces": ["packages/*"]`.
+    Globs(Vec<String>),
+    /// `"workspaces": {"packages": ["packages/*"]}`.
+    Packages {
+        /// The globs.
+        packages: Vec<String>,
+        /// What Yarn 1 alone reads.
+        #[serde(default)]
+        nohoist: Option<IgnoredAny>,
+    },
+}
+
+impl Workspaces {
+    /// The globs of the members' directories, as written.
+    pub fn globs(&self) -> &[String] {
+        match self {
+            Workspaces::Globs(globs)
+            | Workspaces::Packages {
+                packages: globs, ..
+            } => globs,
+        }
+    }
+
+    /// The patterns that select each member's `package.json` beneath the
+    /// workspace's root: each glob, a negation kept as one, with `./`
+    /// left off as the package managers leave it.
+    pub fn manifests(&self) -> Vec<String> {
+        self.globs()
+            .iter()
+            .map(|glob| {
+                let (not, glob) = glob
+                    .strip_prefix('!')
+                    .map_or(("", glob.as_str()), |glob| ("!", glob));
+                let glob = glob
+                    .strip_prefix("./")
+                    .unwrap_or(glob)
+                    .trim_end_matches('/');
+                format!("{not}{glob}/package.json")
+            })
+            .collect()
+    }
+}
+
+/// What a plugin that installs a package's dependencies finds at `root`:
+/// one project, of the plugin's `kind`, named for the package and
+/// providing its installation as what the action `install` leaves at
+/// each of `installed`.
+pub fn installs(
+    root: &str,
+    package: &Package,
+    kind: &str,
+    (install, installed): (&str, &[String]),
+    actions: Vec<crate::Action>,
+) -> crate::Analysis {
+    let project = crate::Project {
+        root: root.into(),
+        provides: vec![crate::Provision {
+            coordinate: Some(package.installation()),
+            artifacts: installed
+                .iter()
+                .map(|output| crate::OutputRef {
+                    action: install.into(),
+                    output: output.clone(),
+                })
+                .collect(),
+            ..Default::default()
+        }],
+        name: package.name.clone(),
+        kind: kind.into(),
+        manifest: crate::repository::join(root, "package.json"),
+        actions,
+        ..Default::default()
+    };
+    crate::Analysis {
+        projects: vec![project],
+        ..Default::default()
+    }
+}
+
+/// The lockfile of a Yarn install, beside the root's `package.json`.
+pub const YARN_LOCK: &str = "yarn.lock";
+/// The lockfile of a pnpm install, beside the root's `package.json`.
+pub const PNPM_LOCK: &str = "pnpm-lock.yaml";
+
+/// A package manager that installs a workspace from its root, by one
+/// lockfile there, as each plugin that installs is told apart from
+/// npm's, which installs each package by its own `package-lock.json`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Manager {
+    /// Yarn: `yarn.lock`, its workspaces in the root's `package.json`.
+    Yarn,
+    /// pnpm: `pnpm-lock.yaml`, its workspaces in `pnpm-workspace.yaml`.
+    Pnpm,
+}
+
+impl Manager {
+    /// Its lockfile's name.
+    pub fn lock(self) -> &'static str {
+        match self {
+            Manager::Yarn => YARN_LOCK,
+            Manager::Pnpm => PNPM_LOCK,
+        }
+    }
+
+    /// Its name, as a plugin that installs with it is listed.
+    pub fn name(self) -> &'static str {
+        match self {
+            Manager::Yarn => "yarn",
+            Manager::Pnpm => "pnpm",
+        }
+    }
+}
+
+/// The install of a workspace that serves a package: its manager, and
+/// its root's directory.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Install {
+    /// What installs it.
+    pub manager: Manager,
+    /// The workspace's root, where its lockfile is.
+    pub root: String,
+}
+
+/// The install that serves the package at `root`, if one does: `root`'s
+/// own where its directory holds a Yarn or pnpm lockfile, or that of the
+/// nearest directory above it that holds one. Beneath a Yarn lockfile,
+/// only a package the root's `workspaces` list is the install's: Yarn
+/// takes the nearest lockfile above a package for its project's, so one
+/// it does not list is served by none, and npm's where it has a lock of
+/// npm's. Beneath a pnpm lockfile every package is taken for pnpm's,
+/// without reading `pnpm-workspace.yaml`: reading YAML costs every call of
+/// a plugin that links its reader, npm's among them, about 340
+/// allocations (`TestBudgetOfNpmAnalysis`), and a repository installs
+/// with one manager. A repository installs with one of npm, Yarn and pnpm, and lists
+/// its one plugin; each refuses a package another installs, by name.
+pub fn install_of(repo: &crate::Repository, root: &str) -> Result<Option<Install>, Error> {
+    use crate::repository::join;
+    // A lockfile that is not there costs nothing to read; one that is,
+    // is the install's, which serves the package then.
+    let locked = |directory: &str| -> Result<Option<Manager>, Error> {
+        for manager in [Manager::Yarn, Manager::Pnpm] {
+            if repo.read(&join(directory, manager.lock()))?.is_some() {
+                return Ok(Some(manager));
+            }
+        }
+        Ok(None)
+    };
+    if let Some(manager) = locked(root)? {
+        return Ok(Some(Install {
+            manager,
+            root: root.into(),
+        }));
+    }
+    /// Only what says a root's workspaces is read of it: a root of no
+    /// name is a root all the same, and its manifest is not this
+    /// package's.
+    #[derive(Deserialize)]
+    struct Root {
+        workspaces: Option<Workspaces>,
+    }
+    let manifest = join(root, "package.json");
+    let mut above = root;
+    while !above.is_empty() {
+        above = above.rsplit_once('/').map_or("", |(parent, _)| parent);
+        let Some(manager) = locked(above)? else {
+            continue;
+        };
+        let install = Install {
+            manager,
+            root: above.into(),
+        };
+        if manager == Manager::Pnpm {
+            return Ok(Some(install));
+        }
+        let Some(workspaces) = repo
+            .json::<Root>(&join(above, "package.json"))?
+            .and_then(|document| document.value.workspaces)
+        else {
+            return Ok(None);
+        };
+        let patterns = workspaces.manifests();
+        let patterns: Vec<&str> = patterns.iter().map(String::as_str).collect();
+        let member = !patterns.is_empty() && repo.glob(above, &patterns)?.contains(&manifest);
+        return Ok(member.then_some(install));
+    }
+    Ok(None)
+}
+
+/// A package another plugin's manager installs, refused by the plugin
+/// `listed` asked about it: by that manager's name (`yarn-not-served`),
+/// at its lockfile, saying which plugin to list in its place.
+pub fn installed_by_another(install: &Install, listed: &str) -> Error {
+    let manager = install.manager.name();
+    Error::not_served(manager, format!("this package is installed with {manager}"))
+        .at(crate::repository::join(
+            &install.root,
+            install.manager.lock(),
+        ))
+        .help(format!(
+            "List the {manager} plugin in frontseat.yaml in place of {listed}."
+        ))
 }
 
 /// Reads a package's name, refusing one that is empty or white space
