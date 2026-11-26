@@ -9,7 +9,7 @@ const FETCH: &str = frontseat_plugin::kinds::FETCH;
 pub(super) const INSTALL: &str = "install";
 pub(super) const INSTALLED: &str = "node_modules/";
 /// Yarn's cache, in the install's own directory rather than the user's.
-pub(super) const CACHE: &str = ".yarn/cache/";
+const CACHE: &str = ".yarn/cache/";
 
 /// Yarn, as every action runs it: the Yarn mise.toml pins, never a
 /// release `.yarnrc.yml` vendors (`yarnPath`); its cache beside the
