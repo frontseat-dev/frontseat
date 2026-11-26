@@ -83,8 +83,11 @@ how Yarn fetches or who it says it is: a proxy, a certificate, a credential,
 script of a workspace (`install-hooks-not-served`); a workspace with
 workspaces of its own (`nested-workspaces-not-served`); and a lock entry
 resolved otherwise than from the npm registry by a version, the workspace,
-or a patch of an npm package by a version with Yarn's own patch or a file
-beneath `.yarn/patches`: git, a tarball, a file, a link, a command, or an
+a link to a directory within the install's root (as Backstage's template
+links its app to its backend: `link:../app`, from the workspace the
+locator Yarn adds names), or a patch of an npm package by a version with
+Yarn's own patch or a file beneath `.yarn/patches`: git, a tarball, a file,
+a link beyond the root, a command, or an
 npm package with any parameter, `__archiveUrl` among them, which has Yarn
 fetch it from the address it names (`resolution-not-served`). An npm
 package locked with no checksum, and an entry with no resolution, are

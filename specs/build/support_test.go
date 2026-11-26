@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path"
@@ -368,6 +369,33 @@ func (spec *scenario) jestWorkspace() *Workspace {
 	w := &Workspace{scenario: spec, directory: directory, at: buildtest.Mounted(spec.TB, directory)}
 	w.write("frontseat.yaml", "plugins: {npm: {}, jest: {}, backstage: {}}\n")
 	spec.addJestSuite(w)
+	return w
+}
+
+// yarnWorkspace is a workspace pinned with Node and Yarn, listing the
+// plugins named, that holds what testdata/<fixture> holds, beneath
+// directory (the workspace's root where it is empty).
+func (spec *scenario) yarnWorkspace(plugins, fixture, directory string) *Workspace {
+	spec.Helper()
+	root := spec.TB.TempDir()
+	testpins.Node(spec.TB, root)
+	testpins.Yarn(spec.TB, root)
+	w := &Workspace{scenario: spec, directory: root, at: buildtest.Mounted(spec.TB, root)}
+	w.write("frontseat.yaml", "plugins: {"+plugins+"}\n")
+	from := filepath.Join("testdata", fixture)
+	err := filepath.WalkDir(from, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil || entry.IsDir() {
+			return err
+		}
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		relative, err := filepath.Rel(from, path)
+		w.write(filepath.ToSlash(filepath.Join(directory, relative)), string(content))
+		return err
+	})
+	spec.Expect(err).NotTo(HaveOccurred())
 	return w
 }
 

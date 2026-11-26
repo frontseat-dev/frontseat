@@ -145,6 +145,10 @@ var namedElsewhere = map[string][]string{
 	"plugins/go/src/programs.rs":    {"cmd/"},
 	"plugins/go/src/actions.rs":     {"cmd/vet", "build/testkit", "sandbox/testkit"},
 	"sdk/plugin/src/diagnostics.rs": {"cmd/vet"},
+	// The fixture Backstage repository of the Backstage plugin's tests.
+	"plugins/backstage/src/packages.rs": {"plugins/hello", "plugins/hello-react", "plugins/hello-backend", "plugins/hello-backend/package.json", "plugins/hello/package.json", "plugins/hello-react/src/Greeting.tsx"},
+	// A program of a package the portal installs, as its lock names it.
+	"portal/yarn.lock": {"build/bin/proto-loader-gen-types.js"},
 	// GitHub's command line, as mise's lock names where it comes from.
 	"mise.lock": {"cli/cli"},
 }
