@@ -749,19 +749,7 @@ func TestEveryWayToTheContainerRuntimeIsSeen(t *testing.T) {
 // the one place they are written.
 func workspaceModules(t *testing.T, root string) []string {
 	t.Helper()
-	var work struct {
-		Use     []struct{ DiskPath string }
-		Replace []struct {
-			Old struct{ Path string }
-			New struct{ Path string }
-		}
-	}
-	goJSON(t, root, &work, "work", "edit", "-json")
-	var used []string
-	for _, use := range work.Use {
-		used = append(used, filepath.ToSlash(filepath.Clean(use.DiskPath)))
-	}
-	slices.Sort(used)
+	work, used := readGoWork(t, root)
 	// What go.work replaces is each module it uses, by its own path, and
 	// nothing else: the two lists of it are held to each other.
 	var replaced []string
@@ -777,6 +765,32 @@ func workspaceModules(t *testing.T, root string) []string {
 		t.Errorf("go.work replaces %v and uses %v: each module it uses is replaced by its directory, and nothing else", replaced, used)
 	}
 	return used
+}
+
+// goWork is a go.work as the go command reads it.
+type goWork struct {
+	Use     []struct{ DiskPath string }
+	Replace []struct {
+		Old struct{ Path string }
+		New struct{ Path string }
+	}
+}
+
+// readGoWork reads the go.work at root, and the directories of the
+// modules it uses, sorted. It names the go.work it reads, so that one
+// the environment names is not read in its place.
+func readGoWork(t *testing.T, root string) (goWork, []string) {
+	t.Helper()
+	var work goWork
+	if err := json.Unmarshal(goOutput(t, root, []string{"GOWORK=" + filepath.Join(root, "go.work")}, "work", "edit", "-json"), &work); err != nil {
+		t.Fatal(err)
+	}
+	var used []string
+	for _, use := range work.Use {
+		used = append(used, filepath.ToSlash(filepath.Clean(use.DiskPath)))
+	}
+	slices.Sort(used)
+	return work, used
 }
 
 // Go itself parses manifests. Every go.mod of the repository is a module
@@ -822,15 +836,32 @@ func TestEveryGoModuleIsInTheWorkspaceAndValidation(t *testing.T) {
 }
 func goJSON(t *testing.T, dir string, out any, args ...string) {
 	t.Helper()
-	cmd := exec.Command("go", args...)
-	cmd.Dir = dir
-	raw, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("go %v: %v: %s", args, err, raw)
-	}
-	if err = json.Unmarshal(raw, out); err != nil {
+	if err := json.Unmarshal(goOutput(t, dir, nil, args...), out); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// goOutput is what the go command prints in dir, given env beside this
+// process's, failing the test with what it complained of where it fails.
+func goOutput(t *testing.T, dir string, env []string, args ...string) []byte {
+	t.Helper()
+	raw, complained, err := goRun(dir, env, args...)
+	if err != nil {
+		t.Fatalf("go %v: %v: %s", args, err, complained)
+	}
+	return raw
+}
+
+// goRun runs the go command in dir, given env beside this process's, and
+// says what it printed and what it complained of.
+func goRun(dir string, env []string, args ...string) (printed, complained []byte, err error) {
+	cmd := exec.Command("go", args...)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), env...)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	printed, err = cmd.Output()
+	return printed, stderr.Bytes(), err
 }
 
 // cargoPackage is one package of the Cargo workspace, as cargo says it.
