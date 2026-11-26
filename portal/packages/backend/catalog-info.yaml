@@ -9,5 +9,5 @@ spec:
   lifecycle: experimental
   owner: jbadeau
   system: portal
-  subcomponentOf: component:portal-repository
+  subcomponentOf: component:portal
   dependsOn: [component:portal-app]

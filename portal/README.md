@@ -3,7 +3,7 @@
 Frontseat's open-source portal: a [Backstage](https://backstage.io)
 repository of an app (`packages/app`, the Component `portal-app`) and a
 backend (`packages/backend`, `portal-backend`), each a subcomponent of the
-portal (`portal-repository`). Frontseat builds it: the yarn plugin installs it, and the
+portal (`component:portal`). Frontseat builds it: the yarn plugin installs it, and the
 Backstage plugin compiles, lints and tests it with the Backstage CLI.
 
 What a backend serves as dynamic plugins, the app loads as it starts
