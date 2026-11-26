@@ -11,7 +11,7 @@ impl Plugin for YarnPlugin {
         let Some(install) = crate::manifest::read(repo, root)? else {
             return Ok(Analysis::default());
         };
-        Ok(frontseat_plugin::javascript::installs(
+        let mut analysis = frontseat_plugin::javascript::installs(
             root,
             &install.package,
             "yarn-install",
@@ -20,7 +20,23 @@ impl Plugin for YarnPlugin {
                 &crate::actions::installed(&install),
             ),
             crate::actions::of(&install),
-        ))
+        );
+        // What the fetch kept, which a production install of part of the
+        // workspace (a Backstage backend's app) installs from offline.
+        if let Some(project) = analysis.projects.first_mut() {
+            project.provides.push(Provision {
+                coordinate: Some(Coordinate {
+                    ecosystem: "yarn-cache".into(),
+                    name: project.name.clone(),
+                }),
+                artifacts: vec![OutputRef {
+                    action: frontseat_plugin::kinds::FETCH.into(),
+                    output: crate::actions::CACHE.into(),
+                }],
+                ..Default::default()
+            });
+        }
+        Ok(analysis)
     }
 }
 
@@ -64,10 +80,8 @@ mod tests {
                 &context,
                 &["portal", "portal/packages/app", "portal/packages/backend"],
             )
-            .answered()
-            .analyses
+            .projects()
             .into_iter()
-            .flat_map(|analysis| analysis.projects)
             .collect();
         assert_eq!(projects.len(), 1, "{projects:?}");
         let project = &projects[0];

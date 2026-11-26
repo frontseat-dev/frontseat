@@ -241,10 +241,8 @@ mod tests {
         let projects = |root: &str| -> Vec<String> {
             plugin
                 .analyze(&TestHost::new(files.clone()), &context, &[root])
-                .answered()
-                .analyses
+                .projects()
                 .into_iter()
-                .flat_map(|analysis| analysis.projects)
                 .map(|project| project.root)
                 .collect()
         };
