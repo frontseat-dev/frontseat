@@ -165,8 +165,9 @@ and built to Wasm, and each catalog file's `dependsOn` held to what the
 source says. Where a catalog file is out of step, `frontseat build --fix --only
 depends-on` writes it in the workspace; commit and push it from there.
 
-The portal (`portal/`) is a Backstage repository, each of its packages a
-Component of its own (`portal-app`, `portal-backend`): Frontseat installs
+The portal (`portal/`, the Component `portal-repository`) is a Backstage repository,
+each of its packages a Component of its own (`portal-app`,
+`portal-backend`), a subcomponent of it: Frontseat installs
 it with Yarn (`plugins/yarn`) and compiles, lints and tests it with the
 Backstage CLI (`plugins/backstage`), one `tsc` over it and each package by
 its role, so the build above builds it too. Its Backstage release is
