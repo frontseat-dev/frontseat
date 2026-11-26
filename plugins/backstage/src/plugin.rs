@@ -93,6 +93,21 @@ impl Plugin for BackstagePlugin {
         Ok(edits)
     }
 
+    // What a package's lint found, read from what ESLint printed.
+    fn report(
+        &self,
+        _repo: &Repository,
+        root: &str,
+        action: &str,
+        printed: &Printed,
+    ) -> Result<Vec<Diagnostic>, Error> {
+        Ok(if action == frontseat_plugin::kinds::LINT {
+            crate::packages::linted(root, printed)
+        } else {
+            Vec::new()
+        })
+    }
+
     fn analyze(&self, repo: &Repository, root: &str) -> Result<Analysis, Error> {
         let projects = crate::packages::projects(repo, root)?;
         let manifest = join(root, "catalog-info.yaml");

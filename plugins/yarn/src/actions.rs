@@ -59,7 +59,9 @@ const LAUNCH: &str = "const {spawnSync} = require(\"node:child_process\"); \
 const {dirname} = require(\"node:path\"); \
 const run = spawnSync(\"yarn\", process.argv.slice(1), {stdio: \"inherit\", \
 env: {...process.env, npm_config_nodedir: dirname(dirname(process.execPath))}}); \
-process.exit(run.status ?? 1);";
+if (run.error) { console.error(`yarn could not be started: ${run.error.message}`); process.exit(127); } \
+if (run.signal) { process.kill(process.pid, run.signal); } \
+process.exit(run.status);";
 
 pub(super) fn of(install: &Install) -> Vec<Action> {
     // What Yarn reads to install: the manifests, the lock, its settings
