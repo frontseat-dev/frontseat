@@ -989,6 +989,25 @@ the change that fixes it.
   `TestEveryGoModuleIsInTheWorkspaceAndValidation`,
   `TestLocalModuleRequirementsAreAcyclic`, and the catalog's check for a
   cycle.
+- Every module requires each module it requires at the version the
+  workspace selects (`go mod graph`), even where its own graph alone
+  would select a lower one, so that what it selects built alone is what
+  its go.mod says: Frontseat builds a module from what its own go.sum
+  locks, offline, where `go.work` would quietly take the newer version.
+  Its go.sum locks the go.mod and the archive of each, direct or
+  `// indirect` (since Go 1.17 both are modules whose packages its build
+  imports), alike wherever two go.sums lock one; no module excludes or
+  retracts, which would make the workspace's graph and its own disagree.
+  specs/go.sum locks the go.mod of every module `go mod graph` reads
+  over the whole workspace, since the self-build runs this check as a
+  test of `specs`, given what its go.sum locks and nothing fetched: the
+  test asks the go command, over a module cache of the go.mod files
+  specs/go.sum locks alone and with nothing fetched, and never foretells
+  what it reads. How to raise one is in `CONTRIBUTING.md`. Held by:
+  `TestEveryModuleRequiresWhatTheWorkspaceSelects`,
+  `TestEachGoSumLocksWhatItsGoModRequires`,
+  `TestSpecsGoSumLocksTheGoModOfEveryModuleInTheGraph` and
+  `TestNoModuleExcludesOrRetracts`.
 - `api/` holds the contracts and nothing else: the protos, Buf's workspace
   and templates, the API entities' catalog files, and prose. No code, no
   generated code, no Go module, no Cargo package. Held by:

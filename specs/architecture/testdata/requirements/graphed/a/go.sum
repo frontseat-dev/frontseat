@@ -1,0 +1,5 @@
+example.com/mid v1.0.0/go.mod h1:B3GQoHJ5k0bUEH27wTonbR+NGJZ0iivOC5lZ42hXdsM=
+example.com/new v1.0.0/go.mod h1:2Z8X7Ar2Zga3K8atIiOF0obYOG9a4RqcPCsmiUF5iYA=
+example.com/old v1.0.0/go.mod h1:j0eHIosIP48nWysJh7eWVamUPYTnMonHomubX2eyjFU=
+example.com/other v1.0.0/go.mod h1:GexhWTCBO9I0VW5NyI0CL8LSguBUixOKJEWUWJPCkr4=
+example.com/r v1.0.0/go.mod h1:sClZIezr5MsprsUEsJHdLnR38naNsZctBbgcZfRgdH4=

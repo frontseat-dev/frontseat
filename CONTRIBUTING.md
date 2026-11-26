@@ -200,6 +200,49 @@ started it; its one volume (`frontseat-stack`) remains.
 5. Update user documentation. A hot build path needs measured time/allocation budgets. Do not make
    performance claims without the command and results that support them.
 
+### Upgrade a Go dependency
+
+Every module requires a dependency at the version the workspace selects,
+and its go.sum locks it: Frontseat builds each module from what its own
+go.sum locks, offline, where `go.work` would quietly take the newer
+version. `go get`, `go mod tidy` and `go work sync` fail in a module that
+requires a sibling, whose `v0.0.0` only `go.work` resolves, so a version
+is raised by hand in every module whose go.mod requires it:
+
+```sh
+go mod download -json golang.org/x/oauth2@v0.38.0              # prints its Sum and GoModSum
+go mod edit -require=golang.org/x/oauth2@v0.38.0 cli/go.mod    # and each other go.mod that requires it
+```
+
+and each of those go.sums is given both `golang.org/x/oauth2 v0.38.0/go.mod
+<GoModSum>` and `golang.org/x/oauth2 v0.38.0 <Sum>`, whether its go.mod
+requires it directly or `// indirect`: since Go 1.17 an indirect
+requirement is a module whose packages the build imports too. What the
+new version requires may have to be raised in turn. The architecture
+test names each module that requires another version than the workspace
+selects, each go.mod or archive line a go.sum lacks of what its own
+go.mod requires, any `exclude` or `retract`, and each go.mod line
+specs/go.sum lacks of what `go mod graph` reads over the workspace
+(specs/go.sum locks the whole workspace's graph, since the test reads it
+with nothing else fetched; a dependency added to one module alone needs
+its go.mod lines there too). That last is measured, not foretold: the
+test runs `go mod graph` with `GOPROXY=off` over a module cache that
+holds only the go.mod files specs/go.sum locks, copied from your module
+cache, with none of your own go settings (`GOENV=off`, no `GOPRIVATE`),
+and names each one the go command could not read. Where the go command
+needs one specs/go.sum locks and your module cache lacks it, it says to
+run `go mod download` in specs:
+
+```sh
+go run ./specs/cmd/gate test -no-stack -only specs/architecture -- -run 'TestEveryModuleRequiresWhatTheWorkspaceSelects|TestEachGoSumLocksWhatItsGoModRequires|TestSpecsGoSumLocksTheGoModOfEveryModuleInTheGraph|TestNoModuleExcludesOrRetracts'
+```
+
+It does not check what a module's own graph reads beyond its go.mod:
+the go.mod line of a version a dependency requires in turn, newly
+reached by the upgrade, which that module's go.sum must lock too. That a
+go.sum locks everything its module's build reads is proven only by the
+self-build against the stack (`TestRunsThisRepositorysOwnTestsOnTheGrid`).
+
 ## Validate the settled change
 
 Batch known fixes before running the gates:

@@ -1,0 +1,10 @@
+go 1.22
+
+use (
+	./a
+	./b
+)
+
+// The dependency resolves from beside the fixture, so that the go
+// command reads its graph with nothing fetched.
+replace example.com/dep v1.1.0 => ./dep/v1.1.0
