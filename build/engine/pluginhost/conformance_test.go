@@ -21,17 +21,18 @@ import (
 func pluginFixtures(t *testing.T) map[string]conformance.Fixture {
 	goReport, goFindings := expectedGoReport()
 	return map[string]conformance.Fixture{
-		"apko":      apkoFixture(t),
-		"backstage": backstageFixture(t),
-		"buf":       bufFixture(t),
-		"helm":      helmFixture(t),
-		"cargo":     cargoFixture(t),
-		"container": containerFixture(t),
-		"postgres":  postgresFixture(t),
-		"npm":       npmFixture(),
-		"jest":      jestFixture(),
-		"release":   releaseFixture(),
-		"github":    githubFixture(),
+		"apko":       apkoFixture(t),
+		"backstage":  backstageFixture(t),
+		"buf":        bufFixture(t),
+		"helm":       helmFixture(t),
+		"cargo":      cargoFixture(t),
+		"container":  containerFixture(t),
+		"crossplane": crossplaneFixture(t),
+		"postgres":   postgresFixture(t),
+		"npm":        npmFixture(),
+		"jest":       jestFixture(),
+		"release":    releaseFixture(),
+		"github":     githubFixture(),
 		"go": {
 			ABI: 25, Description: &pluginv1.DescribeResponse{Name: "go", Interests: []string{"**/go.mod", "**/go.sum", "**/*.go", "!**/testdata/**"}, Options: []*pluginv1.OptionDeclaration{{Name: "test-timeout", Kind: pluginv1.OptionDeclaration_KIND_STRING, Default: &typev1.OptionValue{Value: &typev1.OptionValue_StringValue{StringValue: "10m"}}, EntitySettable: true}, {Name: "test-shards", Kind: pluginv1.OptionDeclaration_KIND_INT, Default: &typev1.OptionValue{Value: &typev1.OptionValue_IntValue{IntValue: 1}}, EntitySettable: true}, {Name: "tags", Kind: pluginv1.OptionDeclaration_KIND_STRING_LIST, Default: &typev1.OptionValue{Value: &typev1.OptionValue_StringListValue{StringListValue: &typev1.OptionValue_StringList{}}}, EntitySettable: true}, {Name: "version", Kind: pluginv1.OptionDeclaration_KIND_STRING_LIST, Default: &typev1.OptionValue{Value: &typev1.OptionValue_StringListValue{StringListValue: &typev1.OptionValue_StringList{}}}, EntitySettable: true}}},
 			Name: "go", Source: fixtureSource(t, "go", "valid"),
@@ -185,7 +186,7 @@ func fixtureSource(t testing.TB, plugin, name string) files {
 }
 func TestConformanceInventoryRejectsMissingPluginsAndMethods(t *testing.T) {
 	fixtures := pluginFixtures(t)
-	if err := conformance.ValidateFixtures([]string{"go", "backstage", "buf", "cargo", "release", "apko", "container", "postgres", "npm", "jest", "github", "helm"}, fixtures); err != nil {
+	if err := conformance.ValidateFixtures([]string{"go", "backstage", "buf", "cargo", "release", "apko", "container", "crossplane", "postgres", "npm", "jest", "github", "helm"}, fixtures); err != nil {
 		t.Fatal(err)
 	}
 	for _, names := range [][]string{{"go", "unregistered"}, {"unregistered"}, nil} {

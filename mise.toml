@@ -4,6 +4,10 @@
 # apko builds images from a config and its lock (plugins/apko).
 apko = "1.4.18"
 buf = "1.75.0"
+# crossplane is the Crossplane project's command line: what builds a
+# Configuration into a package and validates its examples
+# (plugins/crossplane).
+crossplane = "2.5.0"
 # gh is GitHub's own command line: what publishes a release there
 # (plugins/github), run by a release where the daemon is.
 gh = "2.105.0"

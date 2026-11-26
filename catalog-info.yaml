@@ -99,6 +99,7 @@ spec:
     - ./plugins/buf/catalog-info.yaml
     - ./plugins/cargo/catalog-info.yaml
     - ./plugins/container/catalog-info.yaml
+    - ./plugins/crossplane/catalog-info.yaml
     - ./plugins/go/catalog-info.yaml
     - ./plugins/helm/catalog-info.yaml
     - ./plugins/jest/catalog-info.yaml

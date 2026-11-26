@@ -1,0 +1,7 @@
+apiVersion: example.org/v1
+kind: Network
+metadata:
+  name: eu
+  namespace: default
+spec:
+  region: eu
