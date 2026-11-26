@@ -132,6 +132,33 @@ fn sources(name: &str) -> Coordinate {
 fn built(name: &str) -> Coordinate {
     coordinate("backstage-built", name)
 }
+fn cache(name: &str) -> Coordinate {
+    coordinate("yarn-cache", name)
+}
+
+/// What makes a backend's app (`app.js`).
+const APP: &str = include_str!("app.js");
+/// Where a backend's apps are written, one file for each platform.
+const APPS: &str = "dist-app/";
+
+/// A platform as Node names it (`process.platform`, `process.arch`), from
+/// one as an entity says it (`linux/amd64`), or none for one Node runs on
+/// no build of.
+fn node_platform(platform: &str) -> Option<(&'static str, &'static str)> {
+    let (os, arch) = platform.split_once('/')?;
+    let os = match os {
+        "linux" => "linux",
+        "darwin" => "darwin",
+        "windows" => "win32",
+        _ => return None,
+    };
+    let cpu = match arch {
+        "amd64" => "x64",
+        "arm64" => "arm64",
+        _ => return None,
+    };
+    Some((os, cpu))
+}
 
 /// The line of a manifest's text that names `name` as a key of its
 /// dependencies, from 1: where a requirement is said; the first line
@@ -230,13 +257,11 @@ pub(super) fn projects(repo: &Repository, root: &str) -> Result<Vec<Project>, Er
         ));
     };
     let repository = repository_of(repo, &install.root, workspace)?;
-    Ok(vec![package_project(
-        root,
-        &repository,
-        &package,
-        &role,
-        &text,
-    )])
+    let mut project = package_project(root, &repository, &package, &role, &text);
+    if role == "backend" && repo.profile()? == Profile::Production {
+        apps(repo, &repository, &mut project)?;
+    }
+    Ok(vec![project])
 }
 
 /// The repository whose root is `root`, read with each of its workspaces.
@@ -544,6 +569,56 @@ fn package_project(
     }
 }
 
+/// A backend's apps: for each platform its entity ships for, the app
+/// Backstage's own image recipe makes, written to one file by `app.js`. It
+/// is what a release builds, and no development build pays for it.
+fn apps(repo: &Repository, repository: &Repo, project: &mut Project) -> Result<(), Error> {
+    let up = beneath(&repository.root, &project.root).map_or(0, |below| below.split('/').count());
+    let root = if up == 0 {
+        ".".to_string()
+    } else {
+        std::iter::repeat_n("..", up).collect::<Vec<_>>().join("/")
+    };
+    let named: String = project.name.trim_start_matches('@').replace('/', "-");
+    let mut cached = false;
+    for platform in repo.platforms() {
+        let Some((os, cpu)) = node_platform(platform) else {
+            return Err(Error::not_served(
+                "platform",
+                "a backend's app is made for linux, darwin or windows, on amd64 or arm64",
+            )
+            .at(&project.manifest)
+            .help("Ship the backend's Component for those platforms alone (spec.frontseat.platforms)."));
+        };
+        let (system, arch) = platform.split_once('/').unwrap_or_default();
+        let file = format!("{APPS}{named}-{system}-{arch}.tar.gz");
+        let package = Action::new(
+            format!(
+                "{}/{named}-{system}-{arch}",
+                frontseat_plugin::kinds::PACKAGE
+            ),
+            Command::new(["node", "-e", APP, root.as_str(), os, cpu, file.as_str()]),
+        )
+        .tool("node")
+        .tool("yarn")
+        .inputs([
+            Input::output(frontseat_plugin::kinds::COMPILE),
+            Input::dependency(installation(&repository.name), "{root}"),
+            Input::dependency(cache(&repository.name), "{root}"),
+        ])
+        .output(Output::required(file))
+        .package();
+        project.actions.push(package);
+        cached = true;
+    }
+    if cached {
+        project
+            .requires
+            .push(requirement(cache(&repository.name), &project.manifest, 1));
+    }
+    Ok(())
+}
+
 /// What a package's lint found, each finding as ESLint's `unix` format
 /// prints it, `file:line:column: message [Severity/rule]`, its file named
 /// whole; a file not beneath the package's directory is no finding of it.
@@ -581,10 +656,8 @@ mod tests {
         let context = plugin.context(Profile::Development);
         plugin
             .analyze(&TestHost::new(files), &context, roots)
-            .answered()
-            .analyses
+            .projects()
             .into_iter()
-            .flat_map(|analysis| analysis.projects)
             .collect()
     }
 
@@ -623,6 +696,7 @@ mod tests {
                     other => panic!("{other:?}"),
                 },
                 Some(Kind::InputSet(set)) => format!("set {set}"),
+                Some(Kind::Output(output)) => format!("output {output}"),
                 other => panic!("{other:?}"),
             })
             .collect()
@@ -976,5 +1050,96 @@ mod tests {
                 "backstage/lint"
             )]
         );
+    }
+
+    /// A production build of a backend makes its app for each platform its
+    /// entity ships for, one file each, from what its build left, the
+    /// install and the cache the install was fetched into; a development
+    /// build, and a package of another role, make none; a platform Node
+    /// runs no build of is refused by name.
+    #[test]
+    fn a_production_build_of_a_backend_makes_its_app_for_each_platform() {
+        let plugin = TestPlugin::new(crate::served());
+        let analyze = |context: &frontseat_plugin_test::TestContext, root: &str| {
+            plugin
+                .analyze(&TestHost::new(repository()), context, &[root])
+                .projects()
+                .into_iter()
+                .next()
+                .unwrap()
+        };
+        let production = plugin
+            .context(Profile::Production)
+            .platform("linux/amd64")
+            .platform("linux/arm64");
+        let backend = analyze(&production, "packages/backend");
+        let packages: Vec<(&str, Vec<String>, &str)> = backend
+            .actions
+            .iter()
+            .filter(|action| action.is_package())
+            .map(|action| {
+                let arguments = action.command.as_ref().unwrap().arguments.clone();
+                (
+                    action.name.as_str(),
+                    [&arguments[..2], &arguments[3..]].concat(),
+                    action.outputs[0].path.as_str(),
+                )
+            })
+            .collect();
+        let command = |cpu: &str, file: &str| -> Vec<String> {
+            ["node", "-e", "../..", "linux", cpu, file]
+                .map(String::from)
+                .to_vec()
+        };
+        assert_eq!(
+            packages,
+            [
+                (
+                    "package/backend-linux-amd64",
+                    command("x64", "dist-app/backend-linux-amd64.tar.gz"),
+                    "dist-app/backend-linux-amd64.tar.gz"
+                ),
+                (
+                    "package/backend-linux-arm64",
+                    command("arm64", "dist-app/backend-linux-arm64.tar.gz"),
+                    "dist-app/backend-linux-arm64.tar.gz"
+                ),
+            ]
+        );
+        let package = backend
+            .actions
+            .iter()
+            .find(|action| action.is_package())
+            .unwrap();
+        assert_eq!(package.command.as_ref().unwrap().arguments[2], super::APP);
+        assert_eq!(package.tools, ["node", "yarn"]);
+        assert_eq!(
+            handed(&backend, "package/backend-linux-amd64"),
+            [
+                "output compile",
+                "javascript-install:root",
+                "yarn-cache:root"
+            ]
+        );
+        assert!(required(&backend).contains(&("yarn-cache:root".to_string(), 1)));
+        let development = plugin.context(Profile::Development).platform("linux/amd64");
+        assert!(!analyze(&development, "packages/backend")
+            .actions
+            .iter()
+            .any(|action| action.is_package()));
+        assert!(!analyze(&production, "plugins/hello-backend")
+            .actions
+            .iter()
+            .any(|action| action.is_package()));
+        let freebsd = plugin
+            .context(Profile::Production)
+            .platform("freebsd/amd64");
+        plugin
+            .analyze(
+                &TestHost::new(repository()),
+                &freebsd,
+                &["packages/backend"],
+            )
+            .refused("platform-not-served");
     }
 }

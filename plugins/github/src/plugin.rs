@@ -83,10 +83,8 @@ mod tests {
         let context = plugin.context(Profile::Production).tool("gh", "2.105.0");
         plugin
             .analyze(&TestHost::new(files), &context, roots)
-            .answered()
-            .analyses
+            .projects()
             .into_iter()
-            .flat_map(|analysis| analysis.projects)
             .collect()
     }
 
