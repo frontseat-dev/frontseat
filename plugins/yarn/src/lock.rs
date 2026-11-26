@@ -211,10 +211,17 @@ fn links_within(linked: &str) -> bool {
             return false;
         };
         if directory != "." {
+            if !plain(directory) {
+                return false;
+            }
             from.extend(directory.split('/').map(String::from));
         }
     }
-    if path.is_empty() || path.starts_with('/') || path.contains('\\') {
+    // Yarn links what follows a `#` in a link's range, and decodes what it
+    // links: a path is read only as Yarn writes one within the workspace,
+    // plainly, and with nothing it would read otherwise.
+    if path.is_empty() || path.contains(['#', '%']) || path.starts_with('/') || path.contains('\\')
+    {
         return false;
     }
     for part in path.split('/') {
@@ -229,6 +236,17 @@ fn links_within(linked: &str) -> bool {
         }
     }
     !from.is_empty()
+}
+
+/// Whether a workspace's directory, as a locator names it, is one beneath
+/// the root, written as Yarn writes one: relative, and with no part that
+/// is empty or leads elsewhere.
+fn plain(directory: &str) -> bool {
+    !directory.starts_with('/')
+        && !directory.contains(['#', '%', '\\'])
+        && directory
+            .split('/')
+            .all(|part| !part.is_empty() && part != "." && part != "..")
 }
 
 fn refused(path: &str, line: i32, message: &str) -> Error {
@@ -323,13 +341,12 @@ __metadata:
         }
     }
 
-    /// The lock Yarn 4.13.0 itself wrote for a workspace of two packages,
-    /// one depending on the other and each on another version of one
-    /// npm package, is read.
     /// A link to a directory within the install's root, as Backstage's
     /// template links its app to its backend, is read; one that reaches
     /// above the root, by an absolute path, from a locator that names no
-    /// workspace, or with another parameter, is refused at its line.
+    /// workspace beneath it, with another parameter, or with what Yarn
+    /// reads otherwise than as it is written (a `#`, which Yarn links
+    /// what follows, or what it decodes), is refused at its line.
     #[test]
     fn a_link_within_the_workspace_is_read_and_one_beyond_it_refused() {
         let with = |resolution: &str| {
@@ -352,12 +369,23 @@ __metadata:
             "app@link:../app::locator=backend%40npm%3A1.0.0",
             "app@link:../app::locator=backend%40workspace%3Apackages%2Fbackend&__archiveUrl=https%3A%2F%2Fexample.com",
             "app@link:",
+            // What Yarn links follows a `#`, and it decodes what it links.
+            "x@link:a/b/c#../../../outside::locator=backend%40workspace%3Apackages%2Fbackend",
+            "x@link:%2e%2e%2f%2e%2e%2f%2e%2e%2fetc::locator=backend%40workspace%3Apackages%2Fbackend",
+            "x@link:..%2F..%2F..%2Fetc::locator=backend%40workspace%3Apackages%2Fbackend",
+            "x@link:%2Fetc",
+            // A locator naming a workspace that is no directory beneath it.
+            "x@link:app::locator=backend%40workspace%3A%2Fetc",
+            "x@link:app::locator=backend%40workspace%3A..%2F..%2Fz",
         ] {
             let refused = check("yarn.lock", &with(resolution)).expect_err(resolution);
             assert_eq!(refused.line, 26, "{resolution}");
         }
     }
 
+    /// The lock Yarn 4.13.0 itself wrote for a workspace of two packages,
+    /// one depending on the other and each on another version of one
+    /// npm package, is read.
     #[test]
     fn the_lock_yarn_writes_is_read() {
         check("yarn.lock", include_str!("../testdata/workspace/yarn.lock"))

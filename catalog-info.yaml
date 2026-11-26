@@ -113,6 +113,7 @@ spec:
     - ./plugins/jest/catalog-info.yaml
     - ./plugins/npm/catalog-info.yaml
     - ./plugins/yarn/catalog-info.yaml
+    - ./portal/catalog-info.yaml
     - ./portal/packages/app/catalog-info.yaml
     - ./portal/packages/backend/catalog-info.yaml
     - ./plugins/postgres/catalog-info.yaml

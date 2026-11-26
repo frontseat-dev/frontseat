@@ -1,0 +1,9 @@
+Frontseat's portal
+Copyright The Frontseat Authors
+
+The portal began as the app template of Backstage's create-app 0.9.2
+(Backstage 1.55.0, packages/create-app/templates/default-app), under the
+Apache License 2.0:
+
+Backstage
+Copyright 2020 The Backstage Authors
