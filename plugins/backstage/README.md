@@ -71,25 +71,18 @@ where it was installed:
 | a backend's `compile` | those sources, and what each one's build left (`backstage-built:`), which it packs |
 | `test` | the sources of every workspace package it links, which its imports reach |
 
-A production build of a `backend` makes its app too, for each platform its
-Component ships for (`spec.frontseat.platforms`), as Backstage's own image
-recipe makes one: `package/<name>-<os>-<arch>` unpacks what the build packed
-(`dist/bundle.tar.gz`), runs `yarn workspaces focus --all --production` in
-it with no network, from the cache the install was fetched into
-(`yarn-cache:`, which the yarn plugin provides), and writes the result to
-`dist-app/<name>-<os>-<arch>.tar.gz`, an artifact of the release: the
-workspace's packages as their builds left them and their production
-`node_modules`, run by `node packages/<backend> --config app-config.yaml`.
-A native module is built from its source, against the pinned Node's
-headers, and of node-gyp's build tree only the `.node` it linked is kept,
-since the rest names where it was built: two apps made in two places are
-the same bytes. A native module is built for the machine the action runs
-on alone, so the app for another platform runs no script, and fails naming
-each package that would have built, which only a worker of that platform
-makes, or which `dependenciesMeta.<package>.built: false` leaves unbuilt.
-A platform other than linux, darwin or windows on amd64 or arm64 is refused
-`platform-not-served`. The program is `src/app.js`, run with the install's
-own `tar`.
+A `backend`'s build is what it ships, as a package of the release: the
+workspace it packed, `dist/bundle.tar.gz`, and the same workspace's
+manifests alone, `dist/skeleton.tar.gz`, each with the root's `package.json`
+and `yarn.lock`, and no `node_modules`, so the same bytes for every
+platform. Its image installs from them as Backstage's own recipe does:
+unpack the skeleton, `yarn workspaces focus --all --production`, unpack the
+bundle over it, and start it with `node packages/<backend> --config
+<the deployment's app-config.yaml>`. That install runs where the image is
+built, on a machine of the image's platform, so the native modules it
+builds are that platform's; a build on the grid is of the worker's
+platform alone, and no action can ask for another's. Two backends of one
+repository leave artifacts of one name, which a release refuses.
 
 A package links a workspace by its name, as Yarn links one by any range
 its version meets, and each link is required at the line of its
@@ -117,8 +110,7 @@ CLI writes the time it ran and `git describe` into its bundle
 library's build is handed the whole repository's declarations, so a change
 to any package's source builds every library again, though nothing it
 bundles changed; Jest sizes its workers by the machine's processors, not
-the action's; and no spec makes a backend's app on the grid, nor runs one
-there.
+the action's; and nothing yet builds a backend's image.
 
 ## Options
 
