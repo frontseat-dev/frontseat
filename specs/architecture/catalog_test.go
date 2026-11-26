@@ -91,56 +91,60 @@ spec: {dependsOn: ["resource:a"]}
 	}
 }
 
-// TestEveryEntityOfThisRepositoryHasANameOfItsOwn holds N1: a name is
-// unique in the repository, whatever the kind, so that a name a person
-// types finds one entity and says which (a plugin is <x>-plugin, an API
-// <x>-api where the name would be another's).
-func TestEveryEntityOfThisRepositoryHasANameOfItsOwn(t *testing.T) {
+// TestEveryEntityOfThisRepositoryHasARefOfItsOwn holds N1: an entity is
+// one by its ref, its kind, namespace and name, as Backstage compares
+// them, without regard to case; so a Component and a System may share a
+// name, and two entities of one kind and namespace may not.
+func TestEveryEntityOfThisRepositoryHasARefOfItsOwn(t *testing.T) {
 	documents := catalogDocuments(t, repositoryRoot(t))
-	twice, err := namedTwice(documents...)
+	twice, err := heldTwice(documents...)
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, each := range twice {
-		t.Errorf("two entities of this repository have one name: %s", each)
+		t.Errorf("two entities of this repository have one ref: %s", each)
 	}
 }
 
-// TestAnEntityNamedAsAnotherIsFound is the check's control: a name two
-// kinds or two namespaces hold is found, and names of their own pass.
-func TestAnEntityNamedAsAnotherIsFound(t *testing.T) {
-	held := "kind: Component\nmetadata: {name: workspace}\n---\nkind: API\nmetadata: {name: workspace-api}\n"
-	if twice, err := namedTwice([]byte(held)); err != nil || len(twice) != 0 {
-		t.Errorf("names of their own were refused: %v %v", twice, err)
-	}
+// TestAnEntityRefHeldTwiceIsFound is the check's control: one ref written
+// twice is found, however its kind and name are cased; one name of two
+// kinds, or of two namespaces, is two refs, and passes.
+func TestAnEntityRefHeldTwiceIsFound(t *testing.T) {
 	for name, catalog := range map[string]string{
-		"two kinds":      "kind: Component\nmetadata: {name: workspace}\n---\nkind: API\nmetadata: {name: workspace}\n",
+		"two kinds":      "kind: Component\nmetadata: {name: portal}\n---\nkind: System\nmetadata: {name: portal}\n",
 		"two namespaces": "kind: Component\nmetadata: {name: x, namespace: a}\n---\nkind: Component\nmetadata: {name: x, namespace: b}\n",
 	} {
-		if twice, err := namedTwice([]byte(catalog)); err != nil || len(twice) != 1 {
+		if twice, err := heldTwice([]byte(catalog)); err != nil || len(twice) != 0 {
+			t.Errorf("%s: two refs were taken for one: %v %v", name, twice, err)
+		}
+	}
+	for name, catalog := range map[string]string{
+		"one ref twice": "kind: Component\nmetadata: {name: x, namespace: a}\n---\nkind: Component\nmetadata: {name: x, namespace: a}\n",
+		"cased apart":   "kind: Component\nmetadata: {name: Portal}\n---\nkind: component\nmetadata: {name: portal}\n",
+	} {
+		if twice, err := heldTwice([]byte(catalog)); err != nil || len(twice) != 1 {
 			t.Errorf("%s: found %v %v", name, twice, err)
 		}
 	}
 }
 
-// namedTwice says of each name more than one entity of the files has
-// which entities have it.
-func namedTwice(files ...[]byte) ([]string, error) {
-	by := map[string][]string{}
+// heldTwice says each ref more than one entity of the files has.
+func heldTwice(files ...[]byte) ([]string, error) {
+	count := map[string]int{}
 	for _, content := range files {
 		entities, err := entitiesIn(content)
 		if err != nil {
 			return nil, err
 		}
 		for _, described := range entities {
-			name := strings.ToLower(described.Metadata.Name)
-			by[name] = append(by[name], entity.New(strings.ToLower(described.Kind), described.Metadata.Namespace, name).String())
+			ref := entity.New(strings.ToLower(described.Kind), strings.ToLower(described.Metadata.Namespace), strings.ToLower(described.Metadata.Name)).String()
+			count[ref]++
 		}
 	}
 	var out []string
-	for _, name := range slices.Sorted(maps.Keys(by)) {
-		if len(by[name]) > 1 {
-			out = append(out, name+" ("+strings.Join(by[name], ", ")+")")
+	for _, ref := range slices.Sorted(maps.Keys(count)) {
+		if count[ref] > 1 {
+			out = append(out, ref)
 		}
 	}
 	return out, nil

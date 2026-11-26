@@ -656,13 +656,14 @@ the change that fixes it.
   the public contracts, is part of `clients`.
 - Every entity is in the Backstage namespace `frontseat`
   (`metadata.namespace`), and a reference in a catalog file is written
-  bare, read in that namespace. A name is unique in the repository and,
-  where two would clash, says its kind: a plugin is `<x>-plugin`, an API
-  `<x>-api`, an SDK `go-sdk` or `plugin-sdk`; its directory is the last
-  element of its natural name (`plugins/go` is `go-plugin`, `sdk/go`
-  `go-sdk`, `api/build-proto` `build-api`). Held by: the self-build's
-  catalog spec (`specs/build/self_test.go`) and
-  `TestEveryEntityOfThisRepositoryHasANameOfItsOwn`.
+  bare, read in that namespace. An entity is one by its ref, the triple of
+  its kind, namespace and name, which is unique in the repository: a
+  Component and a System may share a name (`component:portal`,
+  `system:portal`). A plugin is named `<x>-plugin`, an API `<x>-api`, an
+  SDK `go-sdk` or `plugin-sdk`; its directory is the last element of its
+  natural name (`plugins/go` is `go-plugin`, `sdk/go` `go-sdk`,
+  `api/build-proto` `build-api`). Held by:
+  `TestEveryEntityOfThisRepositoryHasARefOfItsOwn`.
 - A Component owns the projects beneath its directory; nothing else owns
   projects. One directory per Component; a Component inside another's
   directory is only where it says `subcomponentOf`. A directory at the
@@ -670,7 +671,7 @@ the change that fixes it.
   `specs`, `stack`, `testsupport`) or a directory of Components:
   `plugins/`, `sdk/`, `common/`, `build/`, `workspace/`, `cmd/`,
   where every program is, each a Component of its own named as the
-  program, and `portal/`, a Yarn workspace that is the Component `portal-repository`, each
+  program, and `portal/`, a Yarn workspace that is the Component `portal`, each
   of its packages a Component of its own (`portal-<package>`) that is
   its subcomponent; `docs/` holds the TechDocs site and is no Component.
 - `dependsOn` is inferred and never written by hand, except the Resources a
