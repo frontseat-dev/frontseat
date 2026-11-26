@@ -980,14 +980,19 @@ func hidden(name string) bool {
 	return false
 }
 
-// digest reads a file to its end, and says the hash and the size of
-// what it read: what a file held, to a run. It stops where the context
-// ends, between one part of the file and the next.
+// digest reads a file to its end, a part at a time, and says the hash
+// and the size of what it read: what a file held, to a run. It stops
+// where the context ends, between one part of the file and the next.
 func digest(ctx context.Context, file *os.File) (string, int64, error) {
 	sum := sha256.New()
-	size, err := io.Copy(sum, until{ctx: ctx, from: file})
+	// Neither the hash nor until copies by itself, so the parts are
+	// these, whatever io.Copy would choose and whatever the system.
+	size, err := io.CopyBuffer(sum, until{ctx: ctx, from: file}, make([]byte, part))
 	return hex.EncodeToString(sum.Sum(nil)), size, err
 }
+
+// part is how much of a file digest reads at a time.
+const part = 32 << 10
 
 // until reads from a reader until a context ends.
 type until struct {
