@@ -26,6 +26,11 @@ func backstageFixture(t *testing.T) conformance.Fixture {
 			{Ref: &typev1.EntityRef{Kind: "location", Namespace: "edge", Name: "app"}, Manifest: "app/catalog-info.yaml"},
 		},
 		Reads: []conformance.Observation{{Import: "read", Argument: "app/catalog-info.yaml", Found: true}},
+		// A package's lint prints each finding as ESLint's unix format
+		// does, its file named whole; one beyond the package is none of it.
+		Report: &pluginv1.ReportRequest{Context: context, Root: "app", Action: "lint", ExitCode: 1,
+			Stdout: []byte("/w/root/app/src/index.ts:3:7: 'unused' is assigned a value but never used. [Error/@typescript-eslint/no-unused-vars]\n/w/root/lib/src/a.ts:1:1: elsewhere [Error/x]\n\n2 problems\n")},
+		Findings: []*typev1.Diagnostic{{RuleId: "backstage/lint", Message: "'unused' is assigned a value but never used. [Error/@typescript-eslint/no-unused-vars]", SourceLocation: &typev1.SourceLocation{Path: "app/src/index.ts", Line: 3}, Help: "Fix what ESLint reports, by the rule it names, as `backstage-cli package lint` runs it."}},
 		// The source says the gateway depends on billing: the file's first
 		// document gets spec.dependsOn, written bare as billing is of the
 		// gateway's own namespace, and no dependencyOf, which it does not
