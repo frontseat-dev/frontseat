@@ -14,3 +14,4 @@ static.crates.io:443
 static.rust-lang.org:443
 packages.wolfi.dev:443
 mise-versions.jdx.dev:443
+cli.crossplane.io:443

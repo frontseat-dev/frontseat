@@ -117,6 +117,11 @@ None: nothing a catalog file says reaches the plugin.
 - `crossplane-project.yaml` (`crossplane project build`), which reaches a
   registry for every dependency and a container runtime for most schema
   languages, is not read.
-- The `crossplane` the repository pins is fetched from cli.crossplane.io,
-  which publishes no checksum: the lock holds the one mise computed when it
-  locked it.
+- The `crossplane` a repository pins is fetched from cli.crossplane.io (the
+  aqua registry's address of it, answered there with no redirect), which
+  publishes no checksum: the lock holds the one mise computed when it locked
+  it. A worker installs it on a slot that reaches the network only where the
+  grid lets that slot reach cli.crossplane.io: the local stack lists it among
+  the hosts its egress slots reach (`stack/image/rootfs/etc/frontseat/egress-hosts`).
+- This repository holds no Configuration and pins no `crossplane`: its
+  fixtures are pinned it by the test support (`testpins.Crossplane`).

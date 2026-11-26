@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/frontseat-dev/frontseat/testsupport/testpins"
 	. "github.com/onsi/gomega"
 )
 
@@ -100,7 +101,7 @@ func TestWhatValidateFindsInAnExampleIsSaidAtTheExample(t *testing.T) {
 }
 
 // crossplaneWorkspace is the Crossplane plugin's fixture workspace, pinned
-// as this repository is: app is a Configuration of one definition, one
+// as this repository is, and to crossplane: app is a Configuration of one definition, one
 // Composition and one example. It is also a component with an action of
 // its own, which reads the package and prints its sha256, so that a spec
 // sees what the build left through the API; its catalog file beside the
@@ -108,6 +109,9 @@ func TestWhatValidateFindsInAnExampleIsSaidAtTheExample(t *testing.T) {
 func (spec *scenario) crossplaneWorkspace() *Workspace {
 	spec.Helper()
 	workspace := spec.fixtureWorkspace("crossplane", "plugins:\n  crossplane: {}\n  backstage: {}\n")
+	// This repository pins no crossplane: the fixture is pinned it as a
+	// test's alone is.
+	testpins.Crossplane(spec.TB, workspace.directory)
 	return workspace.write("app/catalog-info.yaml", "apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata:\n  name: app\nspec:\n  type: library\n  lifecycle: production\n  owner: team\n  frontseat:\n    actions:\n      digest:\n        command: [sha256sum, network.xpkg]\n        inputs: [\":crossplane.package\"]\n")
 }
 

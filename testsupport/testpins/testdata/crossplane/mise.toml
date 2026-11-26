@@ -1,0 +1,5 @@
+# A pin for tests alone: the Crossplane project's command line, which the
+# Crossplane plugin's fixtures build with (plugins/crossplane). This
+# repository holds no Configuration of its own, and pins none.
+[tools.crossplane]
+version = "2.5.0"
