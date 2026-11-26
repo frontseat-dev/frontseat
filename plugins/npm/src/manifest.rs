@@ -36,6 +36,14 @@ fn not_served(what: &str, path: &str, message: &str) -> Error {
 }
 
 pub(super) fn read(repo: &Repository, root: &str) -> Result<Option<Package>, Error> {
+    // A package a Yarn or pnpm install serves, its root or one of its
+    // workspaces, is that plugin's to install. A repository installs with
+    // one of npm, Yarn and pnpm, and lists the one plugin.
+    if let Some(install) = frontseat_plugin::javascript::install_of(repo, root)? {
+        return Err(frontseat_plugin::javascript::installed_by_another(
+            &install, "npm",
+        ));
+    }
     let path = join(root, "package.json");
     let Some(package) = repo
         .json::<Package>(&path)
@@ -78,8 +86,6 @@ pub(super) fn read(repo: &Repository, root: &str) -> Result<Option<Package>, Err
     // not replaced with the layout this plugin builds.
     for (file, what) in [
         ("npm-shrinkwrap.json", "shrinkwrap"),
-        ("yarn.lock", "yarn"),
-        ("pnpm-lock.yaml", "pnpm"),
         (".npmrc", "npmrc"),
         ("binding.gyp", "native-addons"),
     ] {
@@ -186,11 +192,6 @@ mod tests {
                 "app/npm-shrinkwrap.json",
             ),
             (
-                package.clone().with("app/yarn.lock", ""),
-                "yarn-not-served",
-                "app/yarn.lock",
-            ),
-            (
                 package
                     .clone()
                     .with("app/pnpm-lock.yaml", "lockfileVersion: 9.0"),
@@ -218,5 +219,73 @@ mod tests {
         analyze(package.clone().without("app/package-lock.json")).refused("invalid-manifest");
         let unnamed = PACKAGE.replace(r#""name":"web""#, r#""name":" ""#);
         analyze(package.with("app/package.json", unnamed)).refused("invalid-json");
+    }
+
+    /// A package a Yarn install serves, its root or one of its
+    /// workspaces, is refused by name, saying to list the yarn plugin; the
+    /// control is a package beneath a yarn.lock that none of its
+    /// workspaces names, which is npm's.
+    #[test]
+    fn a_package_yarn_installs_is_refused_by_name() {
+        let plugin = TestPlugin::new(crate::served());
+        let context = plugin.context(Profile::Development);
+        let files = Files::new()
+            .with(
+                "package.json",
+                r#"{"name":"root","workspaces":["packages/*"]}"#,
+            )
+            .with("yarn.lock", "__metadata:\n  version: 8\n")
+            .with("packages/app/package.json", PACKAGE)
+            .with("tools/web/package.json", PACKAGE)
+            .with("tools/web/package-lock.json", LOCK);
+        let projects = |root: &str| -> Vec<String> {
+            plugin
+                .analyze(&TestHost::new(files.clone()), &context, &[root])
+                .answered()
+                .analyses
+                .into_iter()
+                .flat_map(|analysis| analysis.projects)
+                .map(|project| project.root)
+                .collect()
+        };
+        for root in ["", "packages/app"] {
+            let refused = plugin
+                .analyze(&TestHost::new(files.clone()), &context, &[root])
+                .refused("yarn-not-served");
+            assert_eq!(refused.path, "yarn.lock", "{root}");
+            assert!(refused.help.contains("yarn plugin"), "{refused:?}");
+        }
+        assert_eq!(projects("tools/web"), ["tools/web"]);
+        // Every package beneath a pnpm lockfile is pnpm's; the control is
+        // one beside it, which is npm's.
+        let pnpm = Files::new()
+            .with("js/package.json", r#"{"name":"root"}"#)
+            .with("js/pnpm-lock.yaml", "lockfileVersion: '9.0'\n")
+            .with("js/packages/app/package.json", PACKAGE)
+            .with("tools/web/package.json", PACKAGE)
+            .with("tools/web/package-lock.json", LOCK);
+        for root in ["js", "js/packages/app"] {
+            let refused = plugin
+                .analyze(&TestHost::new(pnpm.clone()), &context, &[root])
+                .refused("pnpm-not-served");
+            assert_eq!(refused.path, "js/pnpm-lock.yaml", "{root}");
+            assert!(refused.help.contains("pnpm plugin"), "{refused:?}");
+        }
+        plugin
+            .analyze(&TestHost::new(pnpm), &context, &["tools/web"])
+            .answered();
+        // Yarn takes a root of no name; its manifest is not npm's to read
+        // as a package's.
+        let nameless = files.with("package.json", r#"{"workspaces":["packages/*"]}"#);
+        let answered = plugin
+            .analyze(&TestHost::new(nameless), &context, &["tools/web"])
+            .answered();
+        let roots: Vec<String> = answered
+            .analyses
+            .into_iter()
+            .flat_map(|analysis| analysis.projects)
+            .map(|project| project.root)
+            .collect();
+        assert_eq!(roots, ["tools/web"]);
     }
 }

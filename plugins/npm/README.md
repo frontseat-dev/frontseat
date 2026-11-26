@@ -37,8 +37,9 @@ The first adapter accepts npm v3 locks of SHA-512-locked archives from
 refused `UNIMPLEMENTED`, each by its own reason: npm workspaces
 (`workspaces-not-served`), a `packageManager` selection
 (`package-manager-not-served`), root install hooks
-(`install-hooks-not-served`), a shrinkwrap (`shrinkwrap-not-served`), a Yarn
-or pnpm lock (`yarn-not-served`, `pnpm-not-served`), `.npmrc`
+(`install-hooks-not-served`), a shrinkwrap (`shrinkwrap-not-served`), a
+package Yarn or pnpm installs (`yarn-not-served`, `pnpm-not-served`),
+`.npmrc`
 (`npmrc-not-served`) and an implicit root `binding.gyp` build
 (`native-addons-not-served`). A lock that is missing or not v3, and
 local/git/linked or bundled dependencies, other checksum algorithms or SRI
@@ -48,8 +49,16 @@ to the framework adapter.
 Dependency hooks that require network access fail offline. Hooks that need
 undeclared tools or outputs outside `node_modules/` are not supported.
 
-pnpm and Yarn adapters, private registries, workspace linking and generated
-application builds remain unimplemented. See `plugins/jest/README.md` for tests.
+A repository installs with one of npm, Yarn and pnpm, and lists the one
+plugin. A package a Yarn or pnpm install serves, one whose directory holds
+its lockfile (`yarn.lock`, `pnpm-lock.yaml`) or, beneath the nearest such
+lockfile above it, a workspace the root's `package.json` lists (Yarn) or
+any package (pnpm, whose `pnpm-workspace.yaml` is not read: YAML costs
+every call), is refused by that manager's name
+(`yarn-not-served`, `pnpm-not-served`, at its lockfile), saying which
+plugin to list in place of npm (`plugins/yarn`; no pnpm plugin is built yet).
+A pnpm adapter, private registries, npm workspaces and generated application
+builds remain unimplemented. See `plugins/jest/README.md` for tests.
 
 ## Options
 

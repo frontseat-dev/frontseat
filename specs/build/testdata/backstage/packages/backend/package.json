@@ -1,0 +1,22 @@
+{
+  "name": "backend",
+  "version": "0.0.0",
+  "private": true,
+  "main": "dist/index.cjs.js",
+  "types": "src/index.ts",
+  "backstage": {
+    "role": "backend"
+  },
+  "dependencies": {
+    "@backstage/backend-defaults": "^0.17.8",
+    "@hello/backend": "workspace:^",
+    "better-sqlite3": "^12.11.1"
+  },
+  "devDependencies": {
+    "@backstage/cli": "^0.36.5",
+    "@types/better-sqlite3": "^7.6.13"
+  },
+  "files": [
+    "dist"
+  ]
+}

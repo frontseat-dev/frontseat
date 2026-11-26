@@ -50,6 +50,7 @@ spec:
         - //plugins/go:cargo.package/wasm32-wasip1
         - //plugins/jest:cargo.package/wasm32-wasip1
         - //plugins/npm:cargo.package/wasm32-wasip1
+        - //plugins/yarn:cargo.package/wasm32-wasip1
         - //plugins/postgres:cargo.package/wasm32-wasip1
         - //plugins/release:cargo.package/wasm32-wasip1
         - //sdk/plugin:cargo.compile/wasm32-wasip1-examples
