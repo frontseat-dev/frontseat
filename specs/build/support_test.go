@@ -1602,12 +1602,12 @@ func (spec *scenario) fixtureWorkspace(plugin, configuration string) *Workspace 
 	return &Workspace{scenario: spec, directory: directory, at: buildtest.MountedWith(spec.TB, directory, buildtest.Options{Plugins: [][]byte{module}, Rewrites: spec.rewrites})}
 }
 
-// helmWorkspace is a checkout pinned as this repository is, which lists
+// helmWorkspace is a checkout that pins Helm (testpins.Helm), which lists
 // the Helm plugin and holds the chart web: a ConfigMap of one value.
 func (spec *scenario) helmWorkspace() *Workspace {
 	spec.Helper()
 	directory := spec.TB.TempDir()
-	testpins.Own(spec.TB, directory)
+	testpins.Helm(spec.TB, directory)
 	module, err := testmodule.Plugin("helm")
 	spec.Expect(err).NotTo(HaveOccurred())
 	spec.Expect(os.WriteFile(filepath.Join(directory, "frontseat.yaml"), []byte("plugins:\n  helm: {}\n"), 0o644)).To(Succeed())

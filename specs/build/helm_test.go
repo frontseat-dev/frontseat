@@ -83,6 +83,9 @@ func TestAChartThatDependsOnAChartFetchedFromOutsideIsRefusedByName(t *testing.T
 	spec.Expect(served.printed(label)).To(ContainSubstring("from-common"))
 	spec.Expect(served.printed(label)).NotTo(ContainSubstring("stale"))
 
+	// The stale copy goes, or the chart fetched from outside would be one
+	// the checkout holds in charts/ already, and served.
+	workspace.remove("web/charts/common/Chart.yaml").remove("web/charts/common/templates/_greeting.tpl")
 	workspace.write("web/Chart.yaml", depending("oci://registry.example.com/charts"))
 	failure := workspace.projectFailure()
 	spec.Expect(failure.GetCode()).To(Equal(int32(codes.Unimplemented)))

@@ -96,6 +96,13 @@ func Node(t testing.TB, dir string) {
 	add(t, dir, "node", "[tools.node")
 }
 
+// Helm adds the pinned Helm release, alone or beside another
+// ecosystem's pins, for the Helm plugin's specs: this repository holds
+// no chart, and pins no Helm of its own.
+func Helm(t testing.TB, dir string) {
+	add(t, dir, "helm", "[tools.helm")
+}
+
 // otherPins are the pins of the other ecosystems' tools, held by this
 // package: they are built into it, and are not looked for.
 //
