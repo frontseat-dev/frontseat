@@ -388,6 +388,19 @@ pub struct Answer<T> {
     host_failed: bool,
 }
 
+impl Answer<AnalyzeResponse> {
+    /// The projects the plugin found, at each root it was asked of in
+    /// turn; panics as [`Answer::answered`] does where it refused.
+    #[track_caller]
+    pub fn projects(self) -> Vec<frontseat_plugin::Project> {
+        self.answered()
+            .analyses
+            .into_iter()
+            .flat_map(|analysis| analysis.projects)
+            .collect()
+    }
+}
+
 impl<T> Answer<T> {
     /// The response; panics with the refusal's reason, message and help
     /// if it was refused.
