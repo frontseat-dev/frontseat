@@ -11,7 +11,11 @@ impl Plugin for BackstagePlugin {
     fn describe(&self) -> Description {
         Description {
             name: "backstage".into(),
-            interests: vec!["**/catalog-info.yaml".into()],
+            interests: vec![
+                "**/catalog-info.yaml".into(),
+                "**/package.json".into(),
+                "!**/node_modules/**".into(),
+            ],
             ..Default::default()
         }
     }
@@ -90,6 +94,7 @@ impl Plugin for BackstagePlugin {
     }
 
     fn analyze(&self, repo: &Repository, root: &str) -> Result<Analysis, Error> {
+        let projects = crate::packages::projects(repo, root)?;
         let manifest = join(root, "catalog-info.yaml");
         let documents = repo
             .yaml_stream::<Document>(&manifest)
@@ -101,6 +106,7 @@ impl Plugin for BackstagePlugin {
         }
         Ok(Analysis {
             entities,
+            projects,
             ..Default::default()
         })
     }

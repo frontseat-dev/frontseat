@@ -64,7 +64,7 @@ reads it is listed:
 | `container` | A service written `as: container`. |
 | `postgres` | A service written `as: postgres`. |
 | `release` | Releases: a repository that does not list it releases nothing, and says so. Its strategies are the defaults of `versioning` and `branching`. |
-| `go`, `cargo`, `npm`, `jest`, `buf`, `apko`, `github` | The projects and actions of their ecosystems, as each plugin's README says. |
+| `go`, `cargo`, `npm`, `yarn`, `jest`, `buf`, `apko`, `github` | The projects and actions of their ecosystems, as each plugin's README says. |
 
 ### Plugin options
 
@@ -80,7 +80,7 @@ list of text. A list replaces the whole list it overrides.
 | `cargo` | `wasm` | switch | `false` | Builds each `cdylib` library and example to a `wasm32-wasip1` module too. |
 
 The plugins `apko`, `backstage`, `buf`, `container`, `github`, `jest`,
-`npm`, `postgres` and `release` take no option. Each plugin's README
+`npm`, `postgres`, `release` and `yarn` take no option. Each plugin's README
 says what it builds.
 
 ## `catalog-info.yaml`

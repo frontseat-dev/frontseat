@@ -96,6 +96,12 @@ func Node(t testing.TB, dir string) {
 	add(t, dir, "node", "[tools.node")
 }
 
+// Yarn adds the pinned Yarn: its own npm package, held to its checksum
+// and made runnable, beside Node, which runs it.
+func Yarn(t testing.TB, dir string) {
+	add(t, dir, "yarn", `[tools."http:yarn"`)
+}
+
 // otherPins are the pins of the other ecosystems' tools, held by this
 // package: they are built into it, and are not looked for.
 //

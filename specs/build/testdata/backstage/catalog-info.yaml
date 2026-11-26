@@ -1,0 +1,13 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: backstage-hello
+  description: A Backstage repository the Backstage CLI builds, lints and tests
+spec:
+  type: library
+  lifecycle: experimental
+  owner: team
+  frontseat:
+    test:
+      # A test of plugins/hello reads the contract it greets by.
+      inputs: [/shared/greeting.txt]
