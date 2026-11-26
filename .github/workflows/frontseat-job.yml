@@ -15,12 +15,18 @@ jobs:
     timeout-minutes: 120
     env:
       # The tenant's grid as a runner reaches it, and the instance of its
-      # trust tier: a protected ref's job executes in frontseat/p, any
-      # other's in frontseat/p/b. The grid tiers the job by its token alike.
+      # trust tier: a protected ref's job executes in frontseat/p, on
+      # workers that run no branch's code, any other's in frontseat/b, on
+      # the branches' own (frontseat-enterprise's buildbarn chart, a pool
+      # for each tier). Neither instance names the other's, so neither
+      # tier's actions fall to the other's workers. Each reads what the
+      # other kept (grid.reads): main takes what branches built, and a
+      # branch what main built. The grid tiers the job by its token alike.
       GRID: storage-frontend.frontseat.svc.cluster.local:50051
       GRID_ASSETS: remote-asset.frontseat.svc.cluster.local:50055
       GRID_CA: /etc/fleet-ca/ca.crt
-      GRID_INSTANCE: ${{ github.ref_protected && 'frontseat/p' || 'frontseat/p/b' }}
+      GRID_INSTANCE: ${{ github.ref_protected && 'frontseat/p' || 'frontseat/b' }}
+      GRID_READS: ${{ github.ref_protected && 'frontseat/b' || 'frontseat/p' }}
       # The name of the workers that take frontseat's actions, which they
       # advertise as their container-image (frontseat-enterprise, the
       # Buildbarn chart's worker.frontseat.containerImage): compared as
@@ -101,6 +107,7 @@ jobs:
           grid:
             address: $GRID
             instance: $GRID_INSTANCE
+            reads: [$GRID_READS]
             assets: $GRID_ASSETS
             authorities: $GRID_CA
             token: $GRID_TOKEN
