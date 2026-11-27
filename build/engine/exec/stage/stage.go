@@ -111,6 +111,9 @@ func of(ctx context.Context, snapshot *source.Snapshot, action plan.Action, prov
 	// What it is handed of other projects, in the directory its tool
 	// looks in.
 	copies := map[string]exec.Copy{}
+	// What the action is given of its own repository, once it is handed
+	// some where it is: each file once.
+	var given map[string]bool
 	for _, handed := range action.Handed {
 		if len(handed.Patterns) == 0 {
 			continue
@@ -120,6 +123,26 @@ func of(ctx context.Context, snapshot *source.Snapshot, action plan.Action, prov
 			return exec.Action{}, err
 		}
 		from := snapshot.Paths[handed.Repository]
+		// Handed of its own repository at its provider's own directory
+		// ({root}), they are that repository's files where they are: the
+		// action is given them as its own, beside its sources, and nothing
+		// is copied over them.
+		where := path.Join(action.ProjectRoot, handed.Into)
+		if handed.Repository == action.Repository && where == path.Clean(path.Join(".", handed.Root)) {
+			if given == nil {
+				given = make(map[string]bool, len(inputs))
+				for _, input := range inputs {
+					given[input] = true
+				}
+			}
+			for _, file := range files {
+				if at := path.Join(own, file); action.AcceptsSnapshot(handed.Repository, file) && !given[at] {
+					given[at] = true
+					inputs = append(inputs, at)
+				}
+			}
+			continue
+		}
 		within := make([]string, 0, len(files))
 		for _, file := range files {
 			if !action.AcceptsSnapshot(handed.Repository, file) {
@@ -131,7 +154,15 @@ func of(ctx context.Context, snapshot *source.Snapshot, action plan.Action, prov
 			}
 			within = append(within, filepath.ToSlash(rel))
 		}
-		copies[path.Join(own, action.ProjectRoot, handed.Into)] = exec.Copy{
+		// Dependencies of one directory may share a place (CheckHanded):
+		// what each selects of it is placed there together, each file once.
+		at := path.Join(own, action.ProjectRoot, handed.Into)
+		if placed, is := copies[at]; is {
+			within = append(placed.Files, within...)
+			slices.Sort(within)
+			within = slices.Compact(within)
+		}
+		copies[at] = exec.Copy{
 			From:  filepath.Join(snapshot.Root, filepath.FromSlash(from), filepath.FromSlash(handed.Root)),
 			Files: within,
 		}

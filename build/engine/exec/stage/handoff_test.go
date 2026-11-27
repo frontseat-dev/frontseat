@@ -3,6 +3,8 @@ package stage
 import (
 	"context"
 	"github.com/frontseat-dev/frontseat/build/engine/pattern"
+	"path"
+	"slices"
 	"strings"
 	"testing"
 
@@ -60,8 +62,81 @@ func TestHandedSourcesCannotOverwriteAtOneDestination(t *testing.T) {
 			if err != nil || len(staged.Copies) != 2 {
 				t.Fatalf("separate-placement control: %v %+v", err, staged.Copies)
 			}
-		} else if err == nil || !strings.Contains(err.Error(), "more than one dependency") {
+		} else if err == nil || !strings.Contains(err.Error(), "more than one directory") {
 			t.Errorf("lost a declared dependency at %q: copies=%+v, err=%v", destination, staged.Copies, err)
+		}
+	}
+}
+
+// What one directory provides as several dependencies at one place is
+// staged together: every file each selects is there, once. A package of
+// a JavaScript workspace is handed its configuration and a sibling's
+// sources so, each its workspace root's. The control is each alone,
+// which stages its own files and not the other's.
+func TestDependenciesOfOneDirectoryAtOnePlaceAreStagedTogether(t *testing.T) {
+	snapshot := sourcetest.Taken(t, map[string]string{"portal/package.json": "{}", "portal/packages/plugin/index.ts": "x", "portal/packages/app/index.ts": "y"})
+	configuration := plan.Handed{Root: "portal", Patterns: []string{"package.json"}, Into: ".deps/portal"}
+	sibling := plan.Handed{Root: "portal", Patterns: []string{"packages/plugin/**"}, Into: ".deps/portal"}
+	staged := func(handed ...plan.Handed) []string {
+		action := plan.Action{
+			ProjectRoot: "portal/packages/app",
+			Declared:    &pluginv1.Action{Command: &pluginv1.Command{Arguments: []string{"true"}}, Kind: &pluginv1.Action_Build{Build: &pluginv1.Build{}}},
+			Handed:      handed,
+		}
+		got, err := Of(t.Context(), snapshot, action, installed(), nil, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(got.Copies) != 1 {
+			t.Fatalf("staged %d copies, want one place: %+v", len(got.Copies), got.Copies)
+		}
+		for _, copied := range got.Copies {
+			return slices.Sorted(slices.Values(copied.Files))
+		}
+		return nil
+	}
+	if got, want := staged(sibling, configuration), []string{"package.json", "packages/plugin/index.ts"}; !slices.Equal(got, want) {
+		t.Errorf("together, staged %q; want %q", got, want)
+	}
+	if got, want := staged(configuration), []string{"package.json"}; !slices.Equal(got, want) {
+		t.Errorf("the configuration alone staged %q; want %q", got, want)
+	}
+}
+
+// What an action is handed of its own repository at its provider's own
+// directory ({root}) is that repository's files where they are: it is
+// given them as its own inputs, beside its own sources, at the
+// repository's root and beneath it alike, and nothing is copied over
+// them. The control: what is handed elsewhere is a copy, as before.
+func TestWhatIsHandedOfItsOwnRepositoryWhereItIsIsReadAsItsOwnInputs(t *testing.T) {
+	for _, workspace := range []string{"", "portal"} {
+		within := func(file string) string { return path.Join(workspace, file) }
+		snapshot := sourcetest.Taken(t, map[string]string{within("package.json"): "{}", within("packages/plugin/index.ts"): "x", within("packages/app/index.ts"): "y"})
+		action := plan.Action{
+			ProjectRoot: within("packages/app"),
+			Sources:     []pattern.Group{{Directory: within("packages/app"), Patterns: []string{"**"}}},
+			Declared:    &pluginv1.Action{Command: &pluginv1.Command{Arguments: []string{"true"}}, Kind: &pluginv1.Action_Build{Build: &pluginv1.Build{}}},
+			Handed: []plan.Handed{
+				{Root: workspace, Patterns: []string{"package.json"}, Into: "../.."},
+				{Root: workspace, Patterns: []string{"packages/plugin/**"}, Into: "../.."},
+			},
+		}
+		staged, err := Of(t.Context(), snapshot, action, installed(), nil, nil)
+		if err != nil {
+			t.Fatalf("%q: %v", workspace, err)
+		}
+		if len(staged.Copies) != 0 {
+			t.Errorf("%q: copied %+v over the repository's own files", workspace, staged.Copies)
+		}
+		want := []string{within("package.json"), within("packages/app/index.ts"), within("packages/plugin/index.ts")}
+		if got := slices.Sorted(slices.Values(staged.Inputs)); !slices.Equal(got, want) {
+			t.Errorf("%q: given %q, want %q", workspace, got, want)
+		}
+		// The control: handed elsewhere, it is a copy.
+		action.Handed = []plan.Handed{{Root: workspace, Patterns: []string{"package.json"}, Into: ".deps"}}
+		staged, err = Of(t.Context(), snapshot, action, installed(), nil, nil)
+		if err != nil || len(staged.Copies) != 1 {
+			t.Errorf("%q: handed elsewhere, copies %+v, %v; want one", workspace, staged.Copies, err)
 		}
 	}
 }
