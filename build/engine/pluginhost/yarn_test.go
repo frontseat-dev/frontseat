@@ -46,6 +46,8 @@ func yarnFixture() conformance.Fixture {
 			"YARN_CHECKSUM_BEHAVIOR": "throw", "YARN_ENABLE_STRICT_SSL": "true",
 		}
 		if arguments[len(arguments)-1] != "--immutable-cache" {
+			// The fetch retries nothing: Yarn 4.13's got crashes retrying.
+			environment["YARN_HTTP_RETRY"] = "0"
 			return &pluginv1.Command{Arguments: append([]string{"yarn"}, arguments...), Environment: environment}
 		}
 		// Offline, Yarn is started by the pinned Node, which tells

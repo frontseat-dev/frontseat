@@ -17,6 +17,33 @@ pub(super) struct Install {
     pub(super) manifests: Vec<String>,
     /// Whether it says how Yarn is configured, in its `.yarnrc.yml`.
     pub(super) configured: bool,
+    /// Whether the pinned Yarn retries a request safely: the got that
+    /// Yarn bundled before 4.18.1 may retry one already settled, and crash
+    /// ("The `onCancel` handler was attached after the promise settled",
+    /// Yarn's #7249).
+    pub(super) retries: bool,
+}
+
+/// Whether a Yarn of a version retries a request safely (4.18.1 and
+/// later): a pre-release comes before its release, and a version that is
+/// not one is taken for one that does not.
+fn retries_safely(version: &str) -> bool {
+    let (core, pre) = match version.split_once(['-', '+']) {
+        Some((core, rest)) => (
+            core,
+            version[core.len()..].starts_with('-') && !rest.is_empty(),
+        ),
+        None => (version, false),
+    };
+    let parts: Vec<u64> = match core.split('.').map(str::parse).collect() {
+        Ok(parts) => parts,
+        Err(_) => return false,
+    };
+    let [major, minor, patch] = parts[..] else {
+        return false;
+    };
+    let release = (major, minor, patch);
+    release > (4, 18, 1) || (release == (4, 18, 1) && !pre)
 }
 
 /// The settings of `.yarnrc.yml` this plugin holds to what it builds;
@@ -217,6 +244,7 @@ pub(super) fn read(repo: &Repository, root: &str) -> Result<Option<Install>, Err
         workspaces,
         manifests,
         configured,
+        retries: retries_safely(yarn),
     }))
 }
 
