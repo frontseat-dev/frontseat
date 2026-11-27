@@ -13,7 +13,7 @@ launcher made runnable, since an npm archive keeps no file's mode:
 node = "22.23.1"
 
 [tools."http:yarn"]
-version = "4.13.0"
+version = "4.19.0"
 url = "https://registry.npmjs.org/@yarnpkg/cli-dist/-/cli-dist-{{ version }}.tgz"
 strip_components = 1
 bin_path = "bin"
@@ -58,7 +58,12 @@ its checked archive holds (`npm_config_build_from_source`), with the
 worker's C toolchain, against the headers of the Node `mise.toml` pins,
 which Yarn is started by so that node-gyp is told that Node's directory
 (`npm_config_nodedir`), since a tool's directory is nothing an action can
-name. A native module that is an optional dependency and fails to build is
+name. What Yarn builds is what the repository lets it: a lock Yarn 4.14
+or later wrote (its version 9 and later) runs no dependency's install
+script unless the root's `package.json` allows that package
+(`"dependenciesMeta": {"better-sqlite3": {"built": true}}`), so a native
+module the repository needs is named there, and no other script runs. A
+native module that is an optional dependency and fails to build is
 left out, as Yarn leaves it. The install reads the manifests, the lock, `.yarnrc.yml` and
 `.yarn/patches/`, runs with no network, refuses a lock that no longer
 matches the manifests (`--immutable`) and a cache that would change
