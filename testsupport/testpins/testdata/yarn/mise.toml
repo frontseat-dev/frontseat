@@ -1,5 +1,5 @@
 [tools."http:yarn"]
-version = "4.13.0"
+version = "4.19.0"
 url = "https://registry.npmjs.org/@yarnpkg/cli-dist/-/cli-dist-{{ version }}.tgz"
 strip_components = 1
 bin_path = "bin"

@@ -146,6 +146,46 @@ mod tests {
         );
     }
 
+    /// A Yarn whose got crashes retrying a request already settled (before
+    /// 4.18.1) is told to retry none as it fetches; the control: one that
+    /// retries safely keeps its retries.
+    #[test]
+    fn a_yarn_that_crashes_retrying_fetches_with_no_retry() {
+        let plugin = TestPlugin::new(crate::served());
+        for (yarn, retries) in [
+            ("4.13.0", Some("0")),
+            ("4.18.1-rc.1", Some("0")),
+            ("4.19.0-rc.1", None),
+            ("4.18.0", Some("0")),
+            ("4.18.1", None),
+            ("4.19.0", None),
+            ("5.0.0", None),
+        ] {
+            let context = plugin.context(Profile::Development).tool("yarn", yarn);
+            let projects: Vec<Project> = plugin
+                .analyze(&TestHost::new(workspace()), &context, &["js"])
+                .projects()
+                .into_iter()
+                .collect();
+            let fetch = projects[0]
+                .actions
+                .iter()
+                .find(|action| action.name == "fetch")
+                .expect("a fetch");
+            assert_eq!(
+                fetch
+                    .command
+                    .as_ref()
+                    .unwrap()
+                    .environment
+                    .get("YARN_HTTP_RETRY")
+                    .map(String::as_str),
+                retries,
+                "{yarn}"
+            );
+        }
+    }
+
     /// What Yarn reads and the plugin does not build yet is refused as not
     /// served, each by its own reason; what is wrong, as invalid; the
     /// control is the workspace, which is built, and its refusals' help is
