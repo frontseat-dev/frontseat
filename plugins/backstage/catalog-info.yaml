@@ -13,4 +13,4 @@ spec:
   # consumes api:plugin-api would be given it for its tests, and more
   # than one plugin with a service would be refused.
   providesApis: [api:plugin-api]
-  dependsOn: [component:plugin-sdk]
+  dependsOn: [component:plugin-sdk, component:plugin-test]

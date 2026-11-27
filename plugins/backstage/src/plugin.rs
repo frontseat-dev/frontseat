@@ -93,6 +93,32 @@ impl Plugin for BackstagePlugin {
         Ok(edits)
     }
 
+    // What a package and the repository's compilation are handed is
+    // placed at the install's root ({root}), where the Backstage CLI and
+    // tsc read it as Yarn installed it: nothing is written for them.
+    // An action it does not declare is refused, as one is by a plugin
+    // that arranges nothing.
+    fn arrange(
+        &self,
+        _repo: &Repository,
+        _root: &str,
+        actions: &[String],
+        _handed: &[Handoff],
+    ) -> Result<Vec<File>, Error> {
+        if actions
+            .iter()
+            .any(|action| !crate::packages::ARRANGED.contains(&action.as_str()))
+        {
+            return Err(Error::new(
+                Code::InvalidArgument,
+                "unsupported-arrangement",
+                "the Backstage plugin arranges only the actions it declares",
+            )
+            .help("Arrange compile, lint, test or compile/types, which the Backstage plugin declares."));
+        }
+        Ok(Vec::new())
+    }
+
     // What a package's lint found, read from what ESLint printed.
     fn report(
         &self,
@@ -111,10 +137,16 @@ impl Plugin for BackstagePlugin {
     fn analyze(&self, repo: &Repository, root: &str) -> Result<Analysis, Error> {
         let projects = crate::packages::projects(repo, root)?;
         let manifest = join(root, "catalog-info.yaml");
-        let documents = repo
-            .yaml_stream::<Document>(&manifest)
-            .map(|read| read.map(|document| document.value))?
-            .unwrap_or_default();
+        // A root a package's manifest made has no catalog file beside it
+        // where none matched, and none is read: a file not there would be
+        // asked of the host again on every warm request.
+        let documents = if repo.matched(&manifest) {
+            repo.yaml_stream::<Document>(&manifest)
+                .map(|read| read.map(|document| document.value))?
+                .unwrap_or_default()
+        } else {
+            Vec::new()
+        };
         let mut entities = Vec::with_capacity(documents.len());
         for document in documents {
             entities.push(document.entity(&manifest, root)?);

@@ -35,6 +35,14 @@ const BUILT: &str = "dist/";
 const BUNDLES: [&str; 2] = ["dist/bundle.tar.gz", "dist/skeleton.tar.gz"];
 /// The action that compiles the repository.
 const COMPILE_TYPES: &str = "compile/types";
+/// The actions this plugin declares, each of which is handed what it
+/// reads where its tool reads it, and so arranged with nothing written.
+pub(super) const ARRANGED: [&str; 4] = [
+    frontseat_plugin::kinds::COMPILE,
+    frontseat_plugin::kinds::LINT,
+    frontseat_plugin::kinds::TEST,
+    COMPILE_TYPES,
+];
 /// The roles the pinned CLI knows (`@backstage/cli-node` 0.3.4,
 /// `dist/roles/PackageRoles.cjs.js`).
 const ROLES: [&str; 12] = [
@@ -184,6 +192,12 @@ fn read(repo: &Repository, path: &str) -> Result<Option<(Manifest, String)>, Err
 /// `package.json`, or one that is neither.
 pub(super) fn projects(repo: &Repository, root: &str) -> Result<Vec<Project>, Error> {
     let manifest = join(root, "package.json");
+    // Most roots are a catalog file's: where no manifest matched, none is
+    // read, and the host is not asked again on every warm request for a
+    // file that is not there.
+    if !repo.matched(&manifest) {
+        return Ok(Vec::new());
+    }
     let Some((package, text)) = read(repo, &manifest)? else {
         return Ok(Vec::new());
     };
@@ -449,12 +463,21 @@ fn package_project(
         .chain([CLI])
         .collect::<Vec<_>>()
         .join("/");
+    // SWC (1.16 and later) places its native addon in a cache, in the
+    // action's home or else its TMPDIR, and refuses one with an ancestor
+    // it cannot tell is root's or the user's own: a worker's /tmp is the
+    // host's root's, which a rootless sandbox shows as a mapped nobody, so
+    // no cache passes, and SWC does not load. SWC's own opt-out skips that
+    // ancestor check alone; its paths, its cache entries' own ownership and
+    // an executable mount are still checked. Both places are the action's
+    // own, made anew for it, in a sandbox that runs one action at a time.
     let command = |arguments: &[&str]| {
         Command::new(
             ["node", cli.as_str(), "package"]
                 .into_iter()
                 .chain(arguments.iter().copied()),
         )
+        .env("SWC_NATIVE_BINDING_CACHE_SKIP_SECURITY_CHECK", "1")
     };
     let linked = repository.linked(package);
     let placed = |coordinate: Coordinate| Input::dependency(coordinate, "{root}");
@@ -586,7 +609,7 @@ pub(super) fn linted(root: &str, printed: &Printed) -> Vec<Diagnostic> {
 mod tests {
     use frontseat_plugin::prelude::*;
     use frontseat_plugin::wire::input::Kind;
-    use frontseat_plugin_test::{Files, TestHost, TestPlugin};
+    use frontseat_plugin_test::{Files, Read, TestHost, TestPlugin};
 
     /// A repository as `backstage-cli new` lays one out: the manifests of
     /// the archive's `backstage-hello`, whose lock Yarn 4 wrote.
@@ -657,6 +680,110 @@ mod tests {
                 )
             })
             .collect()
+    }
+
+    /// A root its catalog file made one, with no manifest beside it, is
+    /// analyzed with no manifest read: the host said what matched there,
+    /// and a file not read is not asked of the host again on every warm
+    /// request. The control: a root where the manifest matched is read,
+    /// and is a package's project.
+    #[test]
+    fn a_manifest_that_did_not_match_is_not_read() {
+        let plugin = TestPlugin::new(crate::served());
+        let context = plugin.context(Profile::Development);
+        let files = repository().with(
+            "catalog/catalog-info.yaml",
+            "apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata: {name: catalog}\nspec: {type: service, lifecycle: production, owner: team}\n",
+        );
+        let host = TestHost::new(files);
+        let found = plugin.analyze(&host, &context, &["catalog"]).projects();
+        assert!(found.is_empty(), "{found:?}");
+        assert!(
+            !read_of(&host, "catalog/package.json"),
+            "{:?}",
+            host.reads()
+        );
+        let host = TestHost::new(repository());
+        let found = plugin
+            .analyze(&host, &context, &["plugins/hello"])
+            .projects();
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert!(read_of(&host, "plugins/hello/package.json"));
+    }
+
+    /// A root a package's manifest made, with no catalog file beside it,
+    /// is analysed with no catalog file read; the control: a root whose
+    /// catalog file matched is read, and its entity found.
+    #[test]
+    fn a_catalog_file_that_did_not_match_is_not_read() {
+        let plugin = TestPlugin::new(crate::served());
+        let context = plugin.context(Profile::Development);
+        let host = TestHost::new(repository());
+        let analysis = plugin
+            .analyze(&host, &context, &["plugins/hello"])
+            .answered();
+        assert!(analysis.analyses.iter().all(|a| a.entities.is_empty()));
+        assert!(
+            !read_of(&host, "plugins/hello/catalog-info.yaml"),
+            "{:?}",
+            host.reads()
+        );
+        let files = repository().with(
+            "catalog/catalog-info.yaml",
+            "apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata: {name: catalog}\nspec: {type: service, lifecycle: production, owner: team}\n",
+        );
+        let host = TestHost::new(files);
+        let analysis = plugin.analyze(&host, &context, &["catalog"]).answered();
+        assert_eq!(analysis.analyses[0].entities.len(), 1);
+        assert!(read_of(&host, "catalog/catalog-info.yaml"));
+    }
+
+    fn read_of(host: &TestHost, path: &str) -> bool {
+        host.reads()
+            .iter()
+            .any(|read| matches!(read, Read::File { path: p, .. } if p == path))
+    }
+
+    /// What a package is handed is placed where the CLI reads it, at the
+    /// install's root ({root}), so nothing is written for it: arranging
+    /// what was handed answers no file, for a package's actions and the
+    /// repository's compilation alike.
+    #[test]
+    fn what_is_handed_is_read_where_it_is_placed_and_nothing_is_written() {
+        let plugin = TestPlugin::new(crate::served());
+        let context = plugin.context(Profile::Development);
+        let host = TestHost::new(repository());
+        let handed = |name: &str, into: &str| Handoff {
+            coordinate: Some(Coordinate {
+                ecosystem: "javascript-install".into(),
+                name: name.into(),
+            }),
+            into: into.into(),
+        };
+        for (root, actions, into) in [
+            (
+                "plugins/hello",
+                ["compile", "lint", "test"].as_slice(),
+                "../..",
+            ),
+            ("", ["compile/types"].as_slice(), "."),
+        ] {
+            let files = plugin
+                .arrange(
+                    &host,
+                    &context,
+                    root,
+                    actions,
+                    &[handed("backstage-hello", into)],
+                )
+                .answered()
+                .files;
+            assert!(files.is_empty(), "{root}: wrote {files:?}");
+        }
+        // The control: an action it does not declare is refused.
+        plugin
+            .arrange(&host, &context, "plugins/hello", &["invented"], &[])
+            .refused("unsupported-arrangement");
     }
 
     /// The repository is one project at its root, whose one compilation
@@ -775,6 +902,21 @@ mod tests {
                 .map(String::as_str),
             Some("true")
         );
+        // Each of the CLI's commands loads SWC where its addon may be
+        // placed in a sandbox's own directories.
+        for name in ["compile", "lint", "test"] {
+            assert_eq!(
+                action(&found[1], name)
+                    .command
+                    .as_ref()
+                    .unwrap()
+                    .environment
+                    .get("SWC_NATIVE_BINDING_CACHE_SKIP_SECURITY_CHECK")
+                    .map(String::as_str),
+                Some("1"),
+                "{name}"
+            );
+        }
         assert!(test.as_test().is_some() && action(&found[1], "lint").as_check().is_some());
         let provided = &found[1].provides[0];
         assert_eq!(
