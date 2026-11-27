@@ -35,7 +35,7 @@ type Container struct {
 
 // published are the ports of the container published on this machine's
 // loopback, each where core/ports says.
-var published = []int{ports.ControlPlane, ports.Grid, ports.Assets, ports.OpenShell}
+var published = []int{ports.ControlPlane, ports.Grid, ports.Assets, ports.OpenShell, ports.Portal}
 
 // Arguments are what `docker run` is told to start the container, the
 // seccomp profile written at profile first (Profile). It is given what

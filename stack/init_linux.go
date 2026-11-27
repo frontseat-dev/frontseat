@@ -52,6 +52,7 @@ func ContainerInit() Init {
 		Runtime:   "/run/user/1000",
 		Frontseat: Owner{UID: 1000, GID: 1000},
 		BB:        Owner{UID: 1001, GID: 1001},
+		Portal:    Owner{UID: 1003, GID: 1003},
 		Gateway:   GatewayConfig{Template: "/etc/openshell/gateway.template.toml", Config: "/etc/openshell/gateway.toml", Hosts: "/etc/hosts"},
 		Resolver:  Resolver{Config: "/etc/resolv.conf", Forward: "/etc/unbound/forward.conf", Listen: ports.ResolverAddress},
 		sys:       kernel{},

@@ -55,6 +55,10 @@ const (
 	Assets = 8983
 	// OpenShell is where the stack's OpenShell gateway answers.
 	OpenShell = 8090
+	// Portal is where the stack's portal (portal/, a Backstage
+	// repository) serves its app and its backend: the port Backstage's
+	// backend serves on where it is told none.
+	Portal = 7007
 	// Scheduler is where, on the loopback of the stack's container and
 	// not this machine's, the grid's scheduler says its state: which
 	// workers it has.

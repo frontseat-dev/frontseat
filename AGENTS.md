@@ -488,7 +488,10 @@ the change that fixes it.
 - **The local stack is one container** of `stack/image`, for anyone who
   runs Frontseat locally and for contributors alike: the grid, the
   OpenShell gateway and the control plane, each a process s6-overlay
-  supervises, and every sandbox in rootless Podman inside it. It is
+  supervises, and every sandbox in rootless Podman inside it, and the
+  portal (`portal/`), which its image builds from the checkout as
+  Backstage builds a backend's image and serves as a user of its own,
+  where `core/ports` says (`Portal`), its state on the stack's volume. It is
   started with what nesting needs and nothing of this machine mounted
   (`stack/container.go`); `frontseat-stack init` delegates its
   cgroups, lays out its one volume, and tells the gateway where a
@@ -499,10 +502,33 @@ the change that fixes it.
   writes nothing of its own into a sandbox's hosts file. Held by:
   `TestTheStackBootsAsOneContainer`,
   `TestTheContainerIsGivenWhatNestingNeedsAndNothingOfThisMachine`,
-  `TestInitSaysWhereASandboxsNamesOfThisMachineLead` and
-  `TestTheStackMakesAWorkspaceWithNothingStartedByHand`. Not held: on a
+  `TestInitSaysWhereASandboxsNamesOfThisMachineLead`,
+  `TestTheStackMakesAWorkspaceWithNothingStartedByHand`,
+  `TestTheStackServesThePortal` and
+  `TestTheStacksImageIsGivenThePortalAsItsRepositoryHoldsIt`. Not held: on a
   Linux machine's own Docker, the grid is published on the loopback, which
   the address the runtime gives that machine does not reach.
+  The portal asks no one who they are: it signs in whoever reaches it
+  as a guest (`dangerouslyAllowOutsideDevelopment`), for a token one
+  request mints. So what a guest may do is read: the portal's permission
+  policy allows a permission that says it reads and refuses every other
+  (`portal/packages/backend/src/readOnlyPolicy.ts`), which refuses
+  creating, refreshing and deleting entities and locations, analysing a
+  location (which fetches what it names) and a plugin's proxy; the
+  catalog is read-only besides (`catalog.readonly`), TechDocs builds
+  nothing for whoever asks (`builder: external`), and the backend serves
+  no scaffolder, proxy or MCP actions (`TestTheStackServesThePortal`).
+  What a plugin does without asking the permission framework is not
+  refused by it: a guest still writes their own settings, and whatever
+  a plugin added later serves without a permission. Whatever reaches
+  7007 is such a guest: any program of this machine, since it is
+  published on the loopback, and whatever runs in the container's own
+  network, since it listens on every address of the container. Whether a
+  sandbox's processes reach it through OpenShell's proxy, and whether a
+  web page reaches it by naming the loopback anew (DNS rebinding), were
+  not tried. Its build reaches the network for Yarn's packages, as the
+  image's other downloads do, held by Yarn's lock and not by a checksum
+  the image names.
 - **OpenShell is the only sandbox**, here and in enterprise Kubernetes:
   every workspace, every runner sandbox of the grid and every CI runner is
   an OpenShell sandbox, so that the runtime beneath any of them is changed

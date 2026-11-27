@@ -69,6 +69,7 @@ func initIn(t *testing.T, has string) (Init, *asked) {
 		Runtime:   filepath.Join(root, "run", "user", "1000"),
 		Frontseat: Owner{1000, 1000},
 		BB:        Owner{1001, 1001},
+		Portal:    Owner{1003, 1003},
 		sys:       sys,
 	}, sys
 }
@@ -140,6 +141,10 @@ func TestInitLaysOutTheStateForWhoKeepsEachPart(t *testing.T) {
 		"containers":                   &i.Frontseat,
 		"openshell":                    &i.Frontseat,
 		"controlplane":                 &i.Frontseat,
+		"portal":                       &i.Portal,
+		"portal/database":              &i.Portal,
+		"portal/dynamic-plugins-root":  &i.Portal,
+		"portal/techdocs":              &i.Portal,
 		"worker":                       nil,
 		"bb":                           nil,
 	} {

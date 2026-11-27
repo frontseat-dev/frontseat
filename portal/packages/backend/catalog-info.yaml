@@ -10,4 +10,4 @@ spec:
   owner: jbadeau
   system: portal
   subcomponentOf: component:portal
-  dependsOn: [component:portal-app]
+  dependsOn: [component:portal, component:portal-app]

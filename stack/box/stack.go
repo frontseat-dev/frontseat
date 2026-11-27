@@ -2,14 +2,17 @@ package box
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/frontseat-dev/frontseat/stack/local"
+	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 )
 
 // StackRepository is the name every image of the local stack is tagged in.
@@ -77,6 +80,12 @@ func (s Stack) Run(ctx context.Context) (string, error) {
 	}); err != nil {
 		return "", err
 	}
+	// The portal, which the image builds its backend of, beside the
+	// image's files, as its repository holds it and not as a build or an
+	// install left it here.
+	if err := layPortal(filepath.Join(s.Root, "portal"), filepath.Join(laid, "portal")); err != nil {
+		return "", err
+	}
 	say("docker build %s on %s", StackRepository, s.Box)
 	return image{
 		repository: StackRepository,
@@ -98,4 +107,70 @@ func (s Stack) Run(ctx context.Context) (string, error) {
 // architecture as the builder and the grid name it.
 func (s Stack) arguments(goarch string) []string {
 	return []string{"BOX=" + s.Box, "TARGETARCH=" + goarch, "ISA=" + local.ISA(goarch)}
+}
+
+// layPortal copies the portal at from to to, each file at its mode, but
+// what the portal's own .gitignore names, as git reads it: what a build
+// or an install left there, and what a person keeps beside it, a secret
+// among it. A link is no part of the portal: it is refused.
+func layPortal(from, to string) error {
+	ignored, err := gitignored(filepath.Join(from, ".gitignore"))
+	if err != nil {
+		return err
+	}
+	return filepath.WalkDir(from, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(from, path)
+		if err != nil {
+			return err
+		}
+		if rel != "." && ignored.Match(strings.Split(filepath.ToSlash(rel), "/"), entry.IsDir()) {
+			if entry.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		at := filepath.Join(to, rel)
+		switch {
+		case entry.IsDir():
+			return os.MkdirAll(at, 0o755)
+		case !info.Mode().IsRegular():
+			return fmt.Errorf("the portal holds %s, which is no file or directory", filepath.Join("portal", rel))
+		}
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		if err := os.WriteFile(at, content, info.Mode().Perm()); err != nil {
+			return err
+		}
+		// What the umask took is given back: a file runs in the image
+		// where it runs in the repository.
+		return os.Chmod(at, info.Mode().Perm())
+	})
+}
+
+// gitignored reads a .gitignore, each line a pattern as git reads it;
+// none there, nothing is ignored.
+func gitignored(file string) (gitignore.Matcher, error) {
+	content, err := os.ReadFile(file)
+	if errors.Is(err, fs.ErrNotExist) {
+		return gitignore.NewMatcher(nil), nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var patterns []gitignore.Pattern
+	for _, line := range strings.Split(string(content), "\n") {
+		if line = strings.TrimRight(line, "\r"); strings.TrimSpace(line) != "" && !strings.HasPrefix(line, "#") {
+			patterns = append(patterns, gitignore.ParsePattern(line, nil))
+		}
+	}
+	return gitignore.NewMatcher(patterns), nil
 }
