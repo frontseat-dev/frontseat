@@ -420,6 +420,12 @@ pub struct AnalyzeRequest {
     /// repository's root.
     #[prost(string, repeated, tag = "2")]
     pub roots: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Matched are the files, relative to the repository, that the
+    /// plugin's interests select directly in the roots asked about: what
+    /// made each directory a root. A plugin learns from them whether a file
+    /// it looks for is at a root without reading it.
+    #[prost(string, repeated, tag = "3")]
+    pub matched: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// AnalyzeResponse is what a plugin found, root by root.
 #[derive(Clone, PartialEq, ::prost::Message)]

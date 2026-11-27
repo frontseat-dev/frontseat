@@ -21,7 +21,7 @@ or host imports of its own.
 
 | Export | Signature | What it does |
 |---|---|---|
-| `frontseat_abi` | `() -> i32` | The ABI the module speaks, and the one place it is said: `Describe` neither asks nor answers it. The host loads no module outside the range it supports, before it asks anything. This document is ABI 25. |
+| `frontseat_abi` | `() -> i32` | The ABI the module speaks, and the one place it is said: `Describe` neither asks nor answers it. The host loads no module outside the range it supports, before it asks anything. This document is ABI 26. |
 | `frontseat_alloc` | `(size: i32) -> i32` | Returns the address of `size` bytes the host may write to. |
 | `frontseat_free` | `(ptr: i32, size: i32)` | Gives back what `frontseat_alloc` returned. |
 | `frontseat_call` | `(ptr: i32, size: i32) -> i64` | Takes a serialized `Call`, returns a serialized `Reply`. |
@@ -85,7 +85,11 @@ and patterns when deciding whether a previously computed answer still holds.
    `METHOD_NOT_SERVED`, which the host reads alike.
 
 The methods are `Describe`, `Analyze`, `Arrange`, `Report`, `Reconcile`,
-`Service`, `Branch` and `Version`. `Report` is
+`Service`, `Branch` and `Version`. `Analyze` is told, beside its roots,
+the files the plugin's interests selected directly in them (`matched`):
+a plugin learns from them whether a file it looks for is at a root
+without reading it, and a file read by name, there or not, is asked of
+the host again whenever the analysis is to be kept. `Report` is
 asked of a check once it has ended, with its exit code and what it
 printed, each cut to its first MiB; a plugin that does not serve it
 (`UNIMPLEMENTED`, `REPORT_NOT_SERVED`) has checks with no findings but

@@ -619,12 +619,32 @@ impl<P: Plugin> TestPlugin<P> {
         context: &TestContext,
         roots: &[&str],
     ) -> Answer<AnalyzeResponse> {
+        // The files the plugin's interests select directly in the roots
+        // asked about, as the host tells them: none asked of the host.
+        let interests = self.describe().interests;
+        let patterns: Vec<&str> = interests.iter().map(String::as_str).collect();
+        let asked: Vec<&str> = if roots.is_empty() {
+            vec![""]
+        } else {
+            roots.to_vec()
+        };
+        let matched = host
+            .files
+            .0
+            .keys()
+            .filter(|file| {
+                let directory = file.rsplit_once('/').map_or("", |(parent, _)| parent);
+                asked.contains(&directory) && glob::within("", file, &patterns)
+            })
+            .cloned()
+            .collect();
         self.ask(
             host,
             "Analyze",
             wire::AnalyzeRequest {
                 context: Some(context.0.clone()),
                 roots: roots.iter().map(|root| root.to_string()).collect(),
+                matched,
             },
         )
     }

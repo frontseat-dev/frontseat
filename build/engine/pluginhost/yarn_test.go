@@ -62,7 +62,7 @@ func yarnFixture() conformance.Fixture {
 	malformed["app/yarn.lock"] = strings.Replace(yarnLock, "  checksum: 10c0/", "  shasum: 10c0/", 1)
 	return arrangingNothing(context, conformance.Fixture{
 		Name: "yarn",
-		ABI:  25, Description: &pluginv1.DescribeResponse{Name: "yarn", Interests: []string{"**/package.json", "!**/node_modules/**", "!**/testdata/**"}},
+		ABI:  26, Description: &pluginv1.DescribeResponse{Name: "yarn", Interests: []string{"**/package.json", "!**/node_modules/**", "!**/testdata/**"}},
 		Source: yarnSource(),
 		Absent: files{"package.json": `{"name":"root","workspaces":["app"]}`, "yarn.lock": yarnLock, "app/package.json": `{"name":"web"}`}, Malformed: malformed, ErrorCode: "INVALID_LOCK",
 		Analyze: &pluginv1.AnalyzeRequest{Context: context, Roots: []string{"app"}},

@@ -438,7 +438,11 @@ func kept(ctx context.Context, src Source, plugins []*pluginhost.Plugin, answers
 		// source says: the graph and the rewrite agree, or neither is used.
 		again := new(pluginv1.AnalyzeResponse)
 		overlay := repositoryView{source: overlaid{Source: src, repository: held.descriptor.Repository, path: held.descriptor.Manifest, content: fixed}, repository: held.descriptor.Repository}
-		if _, err := answers.ask(ctx, plugin, overlay, "Analyze", &pluginv1.AnalyzeRequest{Context: held.descriptor.Context, Roots: []string{held.descriptor.Root}}, again); err != nil {
+		files, err := overlay.Glob(ctx, "", plugin.Description.GetInterests())
+		if err != nil {
+			return nil, err
+		}
+		if _, err := answers.ask(ctx, plugin, overlay, "Analyze", &pluginv1.AnalyzeRequest{Context: held.descriptor.Context, Roots: []string{held.descriptor.Root}, Matched: pluginhost.ByDirectory(files)[held.descriptor.Root]}, again); err != nil {
 			return nil, mistaken(held.descriptor.Repository, err)
 		}
 		for _, resolved := range held.resolved {
@@ -813,6 +817,7 @@ func analyze(ctx context.Context, view repositoryView, plugin *pluginhost.Plugin
 	// asked about several at once, and what it found is taken in the
 	// order the directories come in, whichever answer came first.
 	roots := directories(files)
+	matched := pluginhost.ByDirectory(files)
 	requests := make([]*pluginv1.AnalyzeRequest, len(roots))
 	for i, root := range roots {
 		options, err := configured.Options(name, declared, directory(root))
@@ -823,7 +828,7 @@ func analyze(ctx context.Context, view repositoryView, plugin *pluginhost.Plugin
 		for _, option := range options {
 			held[option.Name] = option.Value
 		}
-		requests[i] = &pluginv1.AnalyzeRequest{Context: &pluginv1.Context{Profile: profile, Options: held, Tools: pinned, Platforms: configured.Platforms(directory(root))}, Roots: []string{root}}
+		requests[i] = &pluginv1.AnalyzeRequest{Context: &pluginv1.Context{Profile: profile, Options: held, Tools: pinned, Platforms: configured.Platforms(directory(root))}, Roots: []string{root}, Matched: matched[root]}
 	}
 	answered := make([]*pluginv1.AnalyzeResponse, len(roots))
 	given := make([]bool, len(roots))

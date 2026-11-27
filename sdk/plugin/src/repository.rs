@@ -31,6 +31,7 @@ pub trait Host {
 pub struct Repository<'a> {
     host: &'a dyn Host,
     context: wire::Context,
+    matched: std::collections::BTreeSet<String>,
 }
 
 impl<'a> Repository<'a> {
@@ -149,7 +150,23 @@ impl<'a> Repository<'a> {
         Repository {
             host,
             context: context.unwrap_or_default(),
+            matched: std::collections::BTreeSet::new(),
         }
+    }
+
+    /// The view of an analysis, told the files the plugin's interests
+    /// selected in the roots it is asked about.
+    pub(crate) fn matching(mut self, matched: Vec<String>) -> Self {
+        self.matched = matched.into_iter().collect();
+        self
+    }
+
+    /// Whether a file, relative to the repository, is one the plugin's
+    /// interests select directly in a root it is asked to analyze: what
+    /// made the root one, known without reading it. Outside an analysis,
+    /// none is.
+    pub fn matched(&self, path: &str) -> bool {
+        self.matched.contains(path)
     }
 
     /// Returns a file, relative to the repository, if it is there.

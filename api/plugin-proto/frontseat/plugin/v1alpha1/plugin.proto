@@ -206,6 +206,11 @@ message AnalyzeRequest {
   // each one where a file matches the plugin's interests. Empty is the
   // repository's root.
   repeated string roots = 2;
+  // Matched are the files, relative to the repository, that the
+  // plugin's interests select directly in the roots asked about: what
+  // made each directory a root. A plugin learns from them whether a file
+  // it looks for is at a root without reading it.
+  repeated string matched = 3;
 }
 
 // AnalyzeResponse is what a plugin found, root by root.

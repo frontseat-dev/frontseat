@@ -112,7 +112,7 @@ fn analyze(
     request: &[u8],
 ) -> Result<Vec<u8>, Error> {
     let req = wire::AnalyzeRequest::decode(request).map_err(invalid_request)?;
-    let repo = Repository::new(host, req.context);
+    let repo = Repository::new(host, req.context).matching(req.matched);
     repo.validate_context(&described.options)?;
     let roots = if req.roots.is_empty() {
         vec![String::new()]
