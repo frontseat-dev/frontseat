@@ -24,6 +24,7 @@ func pluginFixtures(t *testing.T) map[string]conformance.Fixture {
 		"apko":      apkoFixture(t),
 		"backstage": backstageFixture(t),
 		"buf":       bufFixture(t),
+		"helm":      helmFixture(t),
 		"cargo":     cargoFixture(t),
 		"container": containerFixture(t),
 		"postgres":  postgresFixture(t),
@@ -184,7 +185,7 @@ func fixtureSource(t testing.TB, plugin, name string) files {
 }
 func TestConformanceInventoryRejectsMissingPluginsAndMethods(t *testing.T) {
 	fixtures := pluginFixtures(t)
-	if err := conformance.ValidateFixtures([]string{"go", "backstage", "buf", "cargo", "release", "apko", "container", "postgres", "npm", "jest", "github"}, fixtures); err != nil {
+	if err := conformance.ValidateFixtures([]string{"go", "backstage", "buf", "cargo", "release", "apko", "container", "postgres", "npm", "jest", "github", "helm"}, fixtures); err != nil {
 		t.Fatal(err)
 	}
 	for _, names := range [][]string{{"go", "unregistered"}, {"unregistered"}, nil} {

@@ -275,6 +275,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "frontseat-plugin-helm"
+version = "0.0.0"
+dependencies = [
+ "frontseat-plugin",
+ "frontseat-plugin-test",
+ "serde",
+ "serde-saphyr",
+]
+
+[[package]]
 name = "frontseat-plugin-jest"
 version = "0.0.0"
 dependencies = [

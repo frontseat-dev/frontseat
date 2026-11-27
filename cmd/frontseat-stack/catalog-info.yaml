@@ -46,6 +46,7 @@ spec:
         - //plugins/container:cargo.package/wasm32-wasip1
         - //plugins/github:cargo.package/wasm32-wasip1
         - //plugins/go:cargo.package/wasm32-wasip1
+        - //plugins/helm:cargo.package/wasm32-wasip1
         - //plugins/jest:cargo.package/wasm32-wasip1
         - //plugins/npm:cargo.package/wasm32-wasip1
         - //plugins/postgres:cargo.package/wasm32-wasip1

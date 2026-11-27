@@ -9,7 +9,7 @@ spec:
   lifecycle: experimental
   owner: jbadeau
   system: workspaces
-  dependsOn: [component:api, component:apko-plugin, component:backstage-plugin, component:buf-plugin, component:cargo-plugin, component:container-plugin, component:github-plugin, component:go-plugin, component:go-sdk, component:jest-plugin, component:npm-plugin, component:plugin-sdk, component:postgres-plugin, component:release-plugin, component:testsupport]
+  dependsOn: [component:api, component:apko-plugin, component:backstage-plugin, component:buf-plugin, component:cargo-plugin, component:container-plugin, component:github-plugin, component:go-plugin, component:go-sdk, component:helm-plugin, component:jest-plugin, component:npm-plugin, component:plugin-sdk, component:postgres-plugin, component:release-plugin, component:testsupport]
   frontseat:
     # The plugin host's tests, and those that load a plugin, run each
     # plugin's wasm module, from where its crate's wasm action left it
@@ -43,6 +43,7 @@ spec:
         - //plugins/container:cargo.package/wasm32-wasip1
         - //plugins/github:cargo.package/wasm32-wasip1
         - //plugins/go:cargo.package/wasm32-wasip1
+        - //plugins/helm:cargo.package/wasm32-wasip1
         - //plugins/jest:cargo.package/wasm32-wasip1
         - //plugins/npm:cargo.package/wasm32-wasip1
         - //plugins/postgres:cargo.package/wasm32-wasip1

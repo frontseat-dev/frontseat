@@ -7,6 +7,7 @@ sum.golang.org:443
 storage.googleapis.com:443
 dl.google.com:443
 registry.npmjs.org:443
+get.helm.sh:443
 nodejs.org:443
 index.crates.io:443
 static.crates.io:443
