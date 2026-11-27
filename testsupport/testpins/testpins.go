@@ -96,6 +96,14 @@ func Node(t testing.TB, dir string) {
 	add(t, dir, "node", "[tools.node")
 }
 
+// Crossplane adds the Crossplane project's command line, which builds a
+// Configuration into a package and validates its examples
+// (plugins/crossplane). This repository holds no Configuration, so it
+// pins none: only a fixture that builds one does.
+func Crossplane(t testing.TB, dir string) {
+	add(t, dir, "crossplane", "[tools.crossplane")
+}
+
 // Helm adds the pinned Helm release, alone or beside another
 // ecosystem's pins, for the Helm plugin's specs: this repository holds
 // no chart, and pins no Helm of its own.

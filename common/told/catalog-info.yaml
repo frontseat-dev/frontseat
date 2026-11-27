@@ -46,6 +46,7 @@ spec:
         - //plugins/buf:cargo.package/wasm32-wasip1
         - //plugins/cargo:cargo.package/wasm32-wasip1
         - //plugins/container:cargo.package/wasm32-wasip1
+        - //plugins/crossplane:cargo.package/wasm32-wasip1
         - //plugins/github:cargo.package/wasm32-wasip1
         - //plugins/go:cargo.package/wasm32-wasip1
         - //plugins/helm:cargo.package/wasm32-wasip1

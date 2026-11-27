@@ -251,6 +251,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "frontseat-plugin-crossplane"
+version = "0.0.0"
+dependencies = [
+ "frontseat-plugin",
+ "frontseat-plugin-test",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "frontseat-plugin-generate"
 version = "0.0.0"
 dependencies = [

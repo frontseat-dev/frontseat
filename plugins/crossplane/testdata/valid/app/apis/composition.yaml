@@ -1,0 +1,13 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: networks.example.org
+spec:
+  compositeTypeRef:
+    apiVersion: example.org/v1
+    kind: Network
+  mode: Pipeline
+  pipeline:
+    - step: ready
+      functionRef:
+        name: function-auto-ready

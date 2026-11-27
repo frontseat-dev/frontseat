@@ -218,6 +218,6 @@ use standard Go tests with Gomega assertions. Independent build cases run
 concurrently with bounded admission; the acceptance harness itself still runs
 on the host while its builds execute on the grid.
 
-Every other plugin (apko, Backstage, Buf, Cargo, container, GitHub, Jest,
-npm, postgres, release) is held to the same real-wasm conformance harness; each
+Every other plugin (apko, Backstage, Buf, Cargo, container, Crossplane,
+GitHub, Jest, npm, postgres, release) is held to the same real-wasm conformance harness; each
 README says what it serves.

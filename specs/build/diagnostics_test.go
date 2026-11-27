@@ -2,6 +2,7 @@ package build_test
 
 import (
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
+	statuspb "google.golang.org/genproto/googleapis/rpc/status"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -40,15 +41,7 @@ func TestAPluginFailureRetainsStructuredDetailsThroughTheGraphAPI(t *testing.T) 
 	source := spec.changedSource()
 	source.Write(spec.TB, "platform", "gateway/go.mod", "go 1.27.3\n")
 	workspace := source.workspaceOf("gateway")
-	failure := workspace.projectFailure()
-	spec.Expect(failure.GetCode()).To(Equal(int32(codes.FailedPrecondition)))
-	spec.Expect(failure.GetDetails()).To(HaveLen(2))
-	reason := new(errdetails.ErrorInfo)
-	spec.Expect(failure.GetDetails()[0].UnmarshalTo(reason)).To(Succeed())
-	spec.Expect(reason.GetReason()).To(Equal("INVALID_MANIFEST"))
-	spec.Expect(reason.GetDomain()).To(Equal("go.plugins.frontseat.dev"))
-	finding := new(typev1.Diagnostic)
-	spec.Expect(failure.GetDetails()[1].UnmarshalTo(finding)).To(Succeed())
+	failure, finding := workspace.projectRefused("INVALID_MANIFEST", "go.plugins.frontseat.dev")
 	spec.Expect(proto.Equal(finding, &typev1.Diagnostic{
 		RuleId: "go/invalid-manifest", Message: "the go.mod names no module",
 		SourceLocation: &typev1.SourceLocation{Repository: "platform", Path: "gateway/go.mod"},
@@ -63,4 +56,21 @@ func TestAPluginFailureRetainsStructuredDetailsThroughTheGraphAPI(t *testing.T) 
 	spec.Expect(proto.Equal(build.run.GetDiagnostics()[0], finding)).To(BeTrue(), "run and graph must retain the same diagnostic: %v", build.run.GetDiagnostics())
 	workspace.write("platform/gateway/go.mod", "module company.example/gateway\n\ngo 1.27.3")
 	spec.Expect(workspace.option("platform/gateway", "tags").value).To(BeEmpty())
+}
+
+// projectRefused is the failure of the graph's projects, which a plugin
+// refused before anything was built, held to be a source's precondition
+// refused for a reason of a domain, and what it found there.
+func (w *Workspace) projectRefused(reason, domain string) (*statuspb.Status, *typev1.Diagnostic) {
+	w.scenario.Helper()
+	failure := w.projectFailure()
+	w.scenario.Expect(failure.GetCode()).To(Equal(int32(codes.FailedPrecondition)))
+	w.scenario.Expect(failure.GetDetails()).To(HaveLen(2))
+	info := new(errdetails.ErrorInfo)
+	w.scenario.Expect(failure.GetDetails()[0].UnmarshalTo(info)).To(Succeed())
+	w.scenario.Expect(info.GetReason()).To(Equal(reason))
+	w.scenario.Expect(info.GetDomain()).To(Equal(domain))
+	finding := new(typev1.Diagnostic)
+	w.scenario.Expect(failure.GetDetails()[1].UnmarshalTo(finding)).To(Succeed())
+	return failure, finding
 }

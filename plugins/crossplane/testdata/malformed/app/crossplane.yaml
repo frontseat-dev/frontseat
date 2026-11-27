@@ -1,0 +1,5 @@
+apiVersion: meta.pkg.crossplane.io/v1
+kind: Configuration
+spec:
+  crossplane:
+    version: ">=v2.0.0"
