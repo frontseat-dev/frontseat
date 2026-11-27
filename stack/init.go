@@ -28,10 +28,11 @@ type Init struct {
 	// Runtime is frontseat's runtime directory (/run/user/<uid>), which
 	// its Podman keeps its socket in.
 	Runtime string
-	// Frontseat and BB are the users the stack's processes run as: the
-	// one that owns Podman, the gateway and the control plane, and the
-	// one Buildbarn's servers run as.
-	Frontseat, BB Owner
+	// Frontseat, BB and Portal are the users the stack's processes run
+	// as: the one that owns Podman, the gateway and the control plane,
+	// the one Buildbarn's servers run as, and the one the portal's
+	// backend runs as.
+	Frontseat, BB, Portal Owner
 	// Gateway is the OpenShell gateway's configuration: the one the
 	// image holds, and the one the gateway reads, written from it.
 	Gateway GatewayConfig
@@ -149,8 +150,8 @@ func (i Init) delegate() error {
 
 // layout is each directory of the state, by its path beneath it, and who
 // owns it. Buildbarn's servers own their storage; frontseat owns what
-// its Podman, the gateway and the control plane keep; the worker, which
-// runs as root, owns the rest.
+// its Podman, the gateway and the control plane keep; the portal's user
+// what its backend keeps; the worker, which runs as root, owns the rest.
 func (i Init) layout() []struct {
 	path  string
 	owner *Owner
@@ -173,6 +174,11 @@ func (i Init) layout() []struct {
 		{"containers", &i.Frontseat, 0o700},
 		{"openshell", &i.Frontseat, 0o700},
 		{"controlplane", &i.Frontseat, 0o700},
+		// The portal's database, and the plugins it loads as it starts,
+		// which must be there for its backend to start at all.
+		{"portal/database", &i.Portal, 0o700},
+		{"portal/dynamic-plugins-root", &i.Portal, 0o700},
+		{"portal/techdocs", &i.Portal, 0o700},
 	}
 }
 

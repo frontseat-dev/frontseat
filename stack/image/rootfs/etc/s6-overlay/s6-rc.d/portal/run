@@ -1,0 +1,13 @@
+#!/command/execlineb -P
+# The portal (portal/): its backend, which serves the app too, as its
+# own user, on what the image's build left in /opt/frontseat/portal, read
+# with the stack's configuration after the portal's own. What it keeps
+# is on the stack's volume, which frontseat-stack init lays out for it.
+export HOME /var/lib/frontseat/portal
+export NODE_ENV production
+# The plugins it loads as it starts are on the stack's volume, outside its
+# directory, and find the modules it was installed with there.
+export NODE_PATH /opt/frontseat/portal/node_modules
+cd /opt/frontseat/portal
+s6-setuidgid portal
+node packages/backend --config app-config.yaml --config /etc/frontseat/portal/app-config.yaml

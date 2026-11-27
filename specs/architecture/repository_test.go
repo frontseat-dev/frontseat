@@ -146,9 +146,12 @@ var namedElsewhere = map[string][]string{
 	"plugins/go/src/actions.rs":     {"cmd/vet", "build/testkit", "sandbox/testkit"},
 	"sdk/plugin/src/diagnostics.rs": {"cmd/vet"},
 	// The fixture Backstage repository of the Backstage plugin's tests.
-	"plugins/backstage/src/packages.rs": {"plugins/hello", "plugins/hello-react", "plugins/hello-backend", "plugins/hello-backend/package.json", "plugins/hello/package.json", "plugins/hello-react/src/Greeting.tsx"},
+	"plugins/backstage/src/packages.rs": {"plugins/hello", "plugins/hello-react", "plugins/hello-backend", "plugins/hello-backend/package.json", "plugins/hello/package.json", "plugins/hello-react/src/Greeting.tsx", "plugins/hello/catalog-info.yaml"},
 	// A program of a package the portal installs, as its lock names it.
 	"portal/yarn.lock": {"build/bin/proto-loader-gen-types.js"},
+	// The portal's state on the local stack's volume, which init lays
+	// out beneath /var/lib/frontseat, and no directory of the portal.
+	"stack/init.go": {"portal/"},
 	// GitHub's command line, as mise's lock names where it comes from.
 	"mise.lock": {"cli/cli"},
 }
@@ -706,6 +709,58 @@ func TestWhatIsSaidTwiceAgrees(t *testing.T) {
 	images := regexp.MustCompile(`spotify/techdocs@sha256:[0-9a-f]{64}`).FindAllString(string(content), -1)
 	if len(slices.Compact(slices.Sorted(slices.Values(images)))) > 1 {
 		t.Errorf("mise.toml runs TechDocs as %d images: %v", len(slices.Compact(slices.Sorted(slices.Values(images)))), images)
+	}
+	lock, err := os.ReadFile(filepath.Join(root, "mise.lock"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dockerfile, err := os.ReadFile(filepath.Join(root, "stack", "image", "Dockerfile"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, missing := range downloadedOtherwise(string(lock), string(dockerfile)) {
+		t.Errorf("stack/image/Dockerfile does not download %s as mise.lock records it", missing)
+	}
+}
+
+// lockedInTheImage are the tools the stack's image downloads that mise
+// pins too, each for the Linux platforms an image is built for: the
+// Node and the Yarn its portal is built with.
+var lockedInTheImage = []struct{ tool, platform string }{
+	{"node", "linux-arm64"}, {"node", "linux-x64"}, {`"http:yarn"`, "linux-arm64"}, {`"http:yarn"`, "linux-x64"},
+}
+
+// downloadedOtherwise returns each tool and platform of lockedInTheImage that a
+// Dockerfile does not download by the URL and checksum a mise.lock
+// records for it (ADD --checksum=<checksum> <url>), or that the lock
+// records none of.
+func downloadedOtherwise(lock, dockerfile string) []string {
+	var out []string
+	for _, each := range lockedInTheImage {
+		table := regexp.MustCompile(`(?m)^\[tools\.` + regexp.QuoteMeta(each.tool) + `\."platforms\.` + regexp.QuoteMeta(each.platform) + `"\]\nchecksum = "(sha256:[0-9a-f]{64})"\nurl = "([^"]+)"\n`).FindStringSubmatch(lock)
+		if table == nil || !strings.Contains(dockerfile, "ADD --checksum="+table[1]+" "+table[2]+" ") {
+			out = append(out, each.tool+" for "+each.platform)
+		}
+	}
+	return out
+}
+
+// The control: a Dockerfile that downloads another Node than the lock
+// records is found, and one that downloads it as recorded is not.
+func TestADownloadTheImageSaysOtherwiseThanTheLockIsFound(t *testing.T) {
+	lock := "[tools.node.\"platforms.linux-arm64\"]\nchecksum = \"sha256:" + strings.Repeat("a", 64) + "\"\nurl = \"https://n/a.tgz\"\n\n" +
+		"[tools.node.\"platforms.linux-x64\"]\nchecksum = \"sha256:" + strings.Repeat("b", 64) + "\"\nurl = \"https://n/b.tgz\"\n\n" +
+		"[tools.\"http:yarn\".\"platforms.linux-arm64\"]\nchecksum = \"sha256:" + strings.Repeat("c", 64) + "\"\nurl = \"https://y/c.tgz\"\n\n" +
+		"[tools.\"http:yarn\".\"platforms.linux-x64\"]\nchecksum = \"sha256:" + strings.Repeat("c", 64) + "\"\nurl = \"https://y/c.tgz\"\n"
+	agrees := "ADD --checksum=sha256:" + strings.Repeat("a", 64) + " https://n/a.tgz /node.tar.gz\n" +
+		"ADD --checksum=sha256:" + strings.Repeat("b", 64) + " https://n/b.tgz /node.tar.gz\n" +
+		"ADD --checksum=sha256:" + strings.Repeat("c", 64) + " https://y/c.tgz /tmp/yarn.tgz\n"
+	if got := downloadedOtherwise(lock, agrees); len(got) != 0 {
+		t.Errorf("a Dockerfile that agrees with the lock is found to download %v otherwise", got)
+	}
+	other := strings.Replace(agrees, strings.Repeat("b", 64), strings.Repeat("d", 64), 1)
+	if got := downloadedOtherwise(lock, other); !slices.Equal(got, []string{"node for linux-x64"}) {
+		t.Errorf("a Dockerfile that downloads another Node for linux-x64 is found to differ in %v", got)
 	}
 }
 
