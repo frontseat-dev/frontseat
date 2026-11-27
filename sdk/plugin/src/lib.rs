@@ -72,7 +72,7 @@ pub use wire::{
 pub use wire::{Build, Check, Fetch, Package, Program, Publish, SharedFetch, Test};
 
 /// The plugin ABI this SDK speaks.
-pub const ABI: u32 = 25;
+pub const ABI: u32 = 26;
 
 mod actions;
 mod contract;

@@ -2,6 +2,7 @@ package pluginhost_test
 
 import (
 	pluginv1 "github.com/frontseat-dev/frontseat/build/engine/pluginapi/frontseat/plugin/v1alpha1"
+	"github.com/frontseat-dev/frontseat/build/engine/pluginhost"
 	"github.com/frontseat-dev/frontseat/build/engine/pluginhost/conformance"
 	typev1 "github.com/frontseat-dev/frontseat/sdk/go/api/frontseat/type/v1alpha1"
 	"github.com/frontseat-dev/frontseat/testsupport/testbudget"
@@ -12,7 +13,7 @@ import (
 func backstageFixture(t *testing.T) conformance.Fixture {
 	context := &pluginv1.Context{Profile: typev1.Profile_PROFILE_DEVELOPMENT}
 	return arrangingNothing(context, conformance.Fixture{
-		Name: "backstage", ABI: 25, Description: &pluginv1.DescribeResponse{Name: "backstage", Interests: []string{"**/catalog-info.yaml", "**/package.json", "!**/node_modules/**", "!**/testdata/**"}},
+		Name: "backstage", ABI: 26, Description: &pluginv1.DescribeResponse{Name: "backstage", Interests: []string{"**/catalog-info.yaml", "**/package.json", "!**/node_modules/**", "!**/testdata/**"}},
 		Source: fixtureSource(t, "backstage", "valid"), Absent: files{}, Malformed: fixtureSource(t, "backstage", "malformed"), ErrorCode: "INVALID_CATALOG",
 		Analyze: &pluginv1.AnalyzeRequest{Context: context, Roots: []string{"app"}},
 		Entities: []*pluginv1.Entity{
@@ -48,6 +49,11 @@ func BenchmarkCatalogAnalyze(b *testing.B) {
 	plugin := conformance.Plugin(b, "backstage")
 	source := fixtureSource(b, "backstage", "valid")
 	request := &pluginv1.AnalyzeRequest{Context: &pluginv1.Context{Profile: typev1.Profile_PROFILE_DEVELOPMENT}, Roots: []string{"app"}}
+	// What matched is told as a host tells it, listed once, outside what
+	// is measured.
+	if err := pluginhost.Matched(b.Context(), source, plugin.Description.GetInterests(), request); err != nil {
+		b.Fatal(err)
+	}
 	benchmarkAnalysis(b, plugin, "backstage", source, request)
 }
 

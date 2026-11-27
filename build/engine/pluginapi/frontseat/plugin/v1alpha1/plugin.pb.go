@@ -527,7 +527,12 @@ type AnalyzeRequest struct {
 	// Roots are the directories to analyze, relative to the repository:
 	// each one where a file matches the plugin's interests. Empty is the
 	// repository's root.
-	Roots         []string `protobuf:"bytes,2,rep,name=roots,proto3" json:"roots,omitempty"`
+	Roots []string `protobuf:"bytes,2,rep,name=roots,proto3" json:"roots,omitempty"`
+	// Matched are the files, relative to the repository, that the
+	// plugin's interests select directly in the roots asked about: what
+	// made each directory a root. A plugin learns from them whether a file
+	// it looks for is at a root without reading it.
+	Matched       []string `protobuf:"bytes,3,rep,name=matched,proto3" json:"matched,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -572,6 +577,13 @@ func (x *AnalyzeRequest) GetContext() *Context {
 func (x *AnalyzeRequest) GetRoots() []string {
 	if x != nil {
 		return x.Roots
+	}
+	return nil
+}
+
+func (x *AnalyzeRequest) GetMatched() []string {
+	if x != nil {
+		return x.Matched
 	}
 	return nil
 }
@@ -3514,10 +3526,11 @@ const file_frontseat_plugin_v1alpha1_plugin_proto_rawDesc = "" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12:\n" +
 	"\awritten\x18\x02 \x01(\v2 .frontseat.type.v1alpha1.ServiceR\awritten\"M\n" +
 	"\x0fServiceResponse\x12:\n" +
-	"\aservice\x18\x01 \x01(\v2 .frontseat.type.v1alpha1.ServiceR\aservice\"d\n" +
+	"\aservice\x18\x01 \x01(\v2 .frontseat.type.v1alpha1.ServiceR\aservice\"~\n" +
 	"\x0eAnalyzeRequest\x12<\n" +
 	"\acontext\x18\x01 \x01(\v2\".frontseat.plugin.v1alpha1.ContextR\acontext\x12\x14\n" +
-	"\x05roots\x18\x02 \x03(\tR\x05roots\"R\n" +
+	"\x05roots\x18\x02 \x03(\tR\x05roots\x12\x18\n" +
+	"\amatched\x18\x03 \x03(\tR\amatched\"R\n" +
 	"\x0fAnalyzeResponse\x12?\n" +
 	"\banalyses\x18\x01 \x03(\v2#.frontseat.plugin.v1alpha1.AnalysisR\banalyses\"\x9d\x01\n" +
 	"\bAnalysis\x12\x12\n" +

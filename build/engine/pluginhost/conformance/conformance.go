@@ -107,16 +107,29 @@ func Run(t *testing.T, f Fixture) {
 		return
 	}
 	describes(t, plugin, f, f.Source)
+	// The fixture's request, told what matched of src as a host tells
+	// it: of what a failing source fails beside, what it holds.
+	asked := func(ctx context.Context, src pluginhost.Source) *pluginv1.AnalyzeRequest {
+		t.Helper()
+		if failing, ok := src.(failingSource); ok {
+			src = failing.Source
+		}
+		r := proto.Clone(f.Analyze).(*pluginv1.AnalyzeRequest)
+		if err := pluginhost.Matched(ctx, src, plugin.Description.GetInterests(), r); err != nil {
+			t.Fatal(err)
+		}
+		return r
+	}
 	analyze := func(ctx context.Context, src pluginhost.Source) (*pluginv1.AnalyzeResponse, error) {
 		answer := new(pluginv1.AnalyzeResponse)
-		_, err := plugin.Call(ctx, src, "Analyze", f.Analyze, answer)
+		_, err := plugin.Call(ctx, src, "Analyze", asked(context.WithoutCancel(ctx), src), answer)
 		if err == nil {
 			err = pluginhost.CheckAnalysis(f.Name, f.Analyze.GetRoots(), answer)
 		}
 		return answer, err
 	}
 	observed := new(pluginv1.AnalyzeResponse)
-	reads, err := plugin.Call(t.Context(), f.Source, "Analyze", f.Analyze, observed)
+	reads, err := plugin.Call(t.Context(), f.Source, "Analyze", asked(t.Context(), f.Source), observed)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -269,7 +282,7 @@ func Run(t *testing.T, f Fixture) {
 					var context *pluginv1.Context
 					switch method {
 					case "Analyze":
-						r := proto.Clone(f.Analyze).(*pluginv1.AnalyzeRequest)
+						r := asked(t.Context(), f.Source)
 						context, request, response = r.Context, r, new(pluginv1.AnalyzeResponse)
 					case "Report":
 						r := proto.Clone(f.Report).(*pluginv1.ReportRequest)
@@ -358,7 +371,7 @@ func Run(t *testing.T, f Fixture) {
 			for _, profile := range []typev1.Profile{typev1.Profile_PROFILE_DEVELOPMENT, typev1.Profile(0), typev1.Profile(-1), typev1.Profile(999), typev1.Profile_PROFILE_PRODUCTION} {
 				var request, response proto.Message
 				if method == "Analyze" {
-					r := proto.Clone(f.Analyze).(*pluginv1.AnalyzeRequest)
+					r := asked(t.Context(), f.Source)
 					r.Context.Profile = profile
 					request, response = r, new(pluginv1.AnalyzeResponse)
 				} else {

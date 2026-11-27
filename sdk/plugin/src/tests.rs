@@ -98,6 +98,7 @@ fn asked(plugin: &Counted, context: wire::Context) -> wire::reply::Result {
         request: wire::AnalyzeRequest {
             context: Some(context),
             roots: vec!["app".into()],
+            ..Default::default()
         }
         .encode_to_vec(),
     };
