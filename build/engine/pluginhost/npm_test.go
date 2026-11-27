@@ -25,7 +25,7 @@ func npmFixture() conformance.Fixture {
 	context := npmContext()
 	return arrangingNothing(context, conformance.Fixture{
 		Name: "npm",
-		ABI:  25, Description: &pluginv1.DescribeResponse{Name: "npm", Interests: []string{"**/package.json", "!**/node_modules/**", "!**/testdata/**"}},
+		ABI:  26, Description: &pluginv1.DescribeResponse{Name: "npm", Interests: []string{"**/package.json", "!**/node_modules/**", "!**/testdata/**"}},
 		Source: files{"app/package.json": npmPackage, "app/package-lock.json": npmLock},
 		Absent: files{}, Malformed: files{"app/package.json": `{"name":"web"}`}, ErrorCode: "INVALID_MANIFEST",
 		Analyze: &pluginv1.AnalyzeRequest{Context: context, Roots: []string{"app"}},

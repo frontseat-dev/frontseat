@@ -31,6 +31,7 @@ fn dispatch_refuses_unknown_missing_and_mistyped_options_before_plugin_code() {
             wire::AnalyzeRequest {
                 context: Some(context),
                 roots: vec!["valid".into()],
+                ..Default::default()
             },
         )
     };
@@ -204,6 +205,7 @@ fn dispatch_preserves_roots_handover_and_diagnostics() {
             wire::AnalyzeRequest {
                 context: Some(example_context()),
                 roots: roots.clone(),
+                ..Default::default()
             },
         )
         .unwrap();
@@ -227,6 +229,7 @@ fn dispatch_preserves_roots_handover_and_diagnostics() {
         wire::AnalyzeRequest {
             context: Some(example_context()),
             roots: vec!["bad".into()],
+            ..Default::default()
         },
     )
     .unwrap_err();
@@ -371,6 +374,7 @@ fn failed_source_reads_never_become_absence_or_empty_documents() {
             request: wire::AnalyzeRequest {
                 context: Some(example_context()),
                 roots: vec!["valid".into()],
+                ..Default::default()
             }
             .encode_to_vec(),
         },
@@ -418,6 +422,7 @@ fn a_plugin_that_implements_no_analysis_reads_nothing_and_finds_nothing() {
                     ..Default::default()
                 }),
                 roots: vec!["pkg[1]".into()],
+                ..Default::default()
             }
             .encode_to_vec(),
         },

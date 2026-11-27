@@ -30,7 +30,7 @@ func releaseFixture() conformance.Fixture {
 	}
 	return conformance.Fixture{
 		Name: "release",
-		ABI:  25, Description: &pluginv1.DescribeResponse{Name: "release", Release: &pluginv1.ReleaseRoles{
+		ABI:  26, Description: &pluginv1.DescribeResponse{Name: "release", Release: &pluginv1.ReleaseRoles{
 			Branchings: []string{"release-flow"}, Versionings: []string{"conventional-commits"},
 		}},
 		Branches: []conformance.BranchCase{
