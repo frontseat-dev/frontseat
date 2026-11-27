@@ -1,7 +1,9 @@
 package build_test
 
 import (
+	"fmt"
 	"testing"
+	"time"
 
 	. "github.com/onsi/gomega"
 )
@@ -59,7 +61,9 @@ func TestTheBackstageCLIBuildsLintsAndTestsEachPackageAsItsRoleSays(t *testing.T
 	}
 	// A change to the library builds it and what links it again, and the
 	// backend's test that opens the database it built is run again.
-	workspace.write("plugins/hello/src/index.ts", workspace.file("plugins/hello/src/index.ts")+"\nexport const again = true;\n")
+	// The change is this run's own, so that no grid that ran this spec
+	// before holds what it builds.
+	workspace.write("plugins/hello/src/index.ts", workspace.file("plugins/hello/src/index.ts")+fmt.Sprintf("\nexport const again = %d;\n", time.Now().UnixNano()))
 	changed := workspace.build(of(labels...))
 	spec.Expect(changed.outcome()).To(Equal("SUCCESS"), changed.diagnostics())
 	spec.Expect(changed.cameFrom("//plugins/hello:backstage.compile")).To(Equal("executed"))

@@ -107,7 +107,7 @@ func TestIsTheDomainItsCatalogFilesDeclareWhoseComponentsOwnEveryProject(t *test
 	workspace := spec.ownCheckout()
 	entities := workspace.catalogEntities()
 	spec.Expect(entities).To(HaveKey("domain:frontseat/frontseat"))
-	systems := []string{"system:frontseat/build", "system:frontseat/plugins", "system:frontseat/workspaces", "system:frontseat/grid", "system:frontseat/clients"}
+	systems := []string{"system:frontseat/build", "system:frontseat/plugins", "system:frontseat/workspaces", "system:frontseat/grid", "system:frontseat/clients", "system:frontseat/portal"}
 	for _, system := range systems {
 		spec.Expect(entities).To(HaveKey(system))
 		spec.Expect(relatedBy(entities[system], "partOf")).To(ConsistOf("domain:frontseat/frontseat"), system)
