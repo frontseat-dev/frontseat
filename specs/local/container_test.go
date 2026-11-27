@@ -48,7 +48,7 @@ func TestTheStackBootsAsOneContainer(t *testing.T) {
 	}
 	// Each service has stayed up a while: one that s6 restarts over and
 	// over is up for a moment at a time, never for long.
-	for _, service := range []string{"dns", "podman", "gateway", "controlplane", "storage", "scheduler", "frontend", "assets", "worker"} {
+	for _, service := range []string{"dns", "podman", "gateway", "controlplane", "storage", "scheduler", "frontend", "assets", "worker", "portal"} {
 		out, err := exec.CommandContext(ctx, "docker", "exec", own, "/command/s6-svstat", "-o", "up,updownfor", "/run/service/"+service).Output()
 		fields := strings.Fields(string(out))
 		if err != nil || len(fields) != 2 || fields[0] != "true" {
@@ -147,6 +147,13 @@ func asked(ctx context.Context, own, plain, token, call, request string) (status
 		arguments = append(arguments, "-H", "Authorization: Bearer "+token)
 	}
 	out, _ := exec.CommandContext(ctx, "docker", append(arguments, "http://127.0.0.1:"+strconv.Itoa(ports.ControlPlane)+"/"+call)...).Output()
+	return curled(out)
+}
+
+// curled reads what curl printed, told to write the status on a line of
+// its own after the answer (-w "\n%{http_code}"): the status, and the
+// answer before it.
+func curled(out []byte) (status string, answer []byte) {
 	at := strings.LastIndexByte(string(out), '\n')
 	if at < 0 {
 		return strings.TrimSpace(string(out)), nil

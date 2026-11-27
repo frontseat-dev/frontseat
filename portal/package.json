@@ -184,5 +184,10 @@
       "prettier --write"
     ]
   },
-  "packageManager": "yarn@4.13.0"
+  "dependenciesMeta": {
+    "better-sqlite3": {
+      "built": true
+    }
+  },
+  "packageManager": "yarn@4.19.0"
 }

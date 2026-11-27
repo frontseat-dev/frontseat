@@ -175,8 +175,15 @@ its role, so the build above builds it too. Its Backstage release is
 root's `resolutions`, as `backstage-cli versions:bump --release 1.55.0`
 pins them; raise them together. Its backend ships what its build packed,
 `dist/bundle.tar.gz` and `dist/skeleton.tar.gz`, the same for every
-platform; an image installs it from them, as Backstage's own recipe does,
-and nothing builds that image yet. Run it by hand with `yarn install`, then
+platform; an image installs it from them, as Backstage's own recipe does.
+The local stack's image is one: it builds the portal from this checkout's
+`portal/` as Backstage's recipe builds a backend's image, and the stack
+serves it, the app with its backend, at http://127.0.0.1:7007, to
+whoever reaches it as a guest: its permission policy allows only what
+reads, its catalog is read-only, and it serves no scaffolder, proxy or
+MCP actions. Its
+database and the plugins it loads are on the stack's volume
+(`/var/lib/frontseat/portal`). Run it by hand with `yarn install`, then
 `yarn start`, in `portal/`, with the Node and Yarn `mise.toml` pins.
 
 What Frontseat does not build of itself yet still runs through mise: the

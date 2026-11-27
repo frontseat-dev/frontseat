@@ -32,6 +32,10 @@ var said = []struct {
 	{"image/rootfs/etc/s6-overlay/s6-rc.d/controlplane/run", "--grid host.openshell.internal:%d\n", ports.Grid},
 	{"image/rootfs/etc/s6-overlay/s6-rc.d/pool/run", "--gateway https://127.0.0.1:%d ", ports.OpenShell},
 	{"image/rootfs/etc/s6-overlay/s6-rc.d/services/run", "--gateway https://127.0.0.1:%d ", ports.OpenShell},
+	{"image/rootfs/etc/frontseat/portal/app-config.yaml", "  listen:\n    host: 0.0.0.0\n    port: %d\n", ports.Portal},
+	{"image/rootfs/etc/frontseat/portal/app-config.yaml", "app:\n  baseUrl: http://127.0.0.1:%d\n", ports.Portal},
+	{"image/rootfs/etc/frontseat/portal/app-config.yaml", "backend:\n  baseUrl: http://127.0.0.1:%d\n", ports.Portal},
+	{"image/rootfs/etc/frontseat/portal/app-config.yaml", "    origin: http://127.0.0.1:%d\n", ports.Portal},
 	{"box.Dockerfile", `"--source", "0.0.0.0:%d"`, ports.Source},
 	{"box.Dockerfile", `"--shell", "0.0.0.0:%d"`, ports.Shell},
 }

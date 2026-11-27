@@ -1,0 +1,56 @@
+# The portal as the local stack runs it, read after the portal's own
+# app-config.yaml (s6-rc.d/portal/run): served by its backend, the app
+# with it, on the port core/ports says (Portal), which the stack's
+# container publishes on this machine's loopback alone; its database a
+# file on the stack's volume, and the plugins it loads as it starts in a
+# directory there, each laid out by frontseat-stack init for the user it
+# runs as. The backend runs in the portal's own directory
+# (/opt/frontseat/portal), where a file location is read from.
+app:
+  baseUrl: http://127.0.0.1:7007
+
+backend:
+  baseUrl: http://127.0.0.1:7007
+  # Every address of the container: a port the runtime publishes is
+  # carried to the container's own address, not to its loopback.
+  listen:
+    host: 0.0.0.0
+    port: 7007
+  cors:
+    origin: http://127.0.0.1:7007
+  database:
+    client: better-sqlite3
+    connection:
+      directory: /var/lib/frontseat/portal/database
+
+auth:
+  providers:
+    # One person, on this machine's loopback alone.
+    guest:
+      dangerouslyAllowOutsideDevelopment: true
+
+catalog:
+  # Whoever reaches the portal registers nothing: the catalog is what its
+  # configured locations say.
+  readonly: true
+  locations:
+    - type: file
+      target: ./examples/entities.yaml
+    - type: file
+      target: ./examples/org.yaml
+      rules:
+        - allow: [User, Group]
+
+dynamicPlugins:
+  rootDirectory: /var/lib/frontseat/portal/dynamic-plugins-root
+
+# What TechDocs publishes, which is kept beside its own package where it
+# is told nowhere: in the image, which the portal's user cannot write.
+techdocs:
+  # Built elsewhere and published here: the portal runs no generator for
+  # whoever asks for a page.
+  builder: external
+  publisher:
+    type: local
+    local:
+      publishDirectory: /var/lib/frontseat/portal/techdocs

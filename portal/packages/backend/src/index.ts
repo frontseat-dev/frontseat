@@ -11,19 +11,17 @@ import { dynamicPluginsFeatureLoader } from '@backstage/backend-dynamic-feature-
 
 const backend = createBackend();
 
+// Whoever reaches the portal is a guest, who may do what its plugins
+// let anyone do: so it serves what is read, and no plugin that runs a
+// task (the scaffolder), reaches another host for a caller (the proxy)
+// or hands an agent the actions of the others (MCP actions), which a
+// portal adds where it signs people in.
+
 // The plugins in dynamicPlugins.rootDirectory, loaded as the backend starts,
 // and their frontend parts served to the app.
 backend.add(dynamicPluginsFeatureLoader);
 
 backend.add(import('@backstage/plugin-app-backend'));
-backend.add(import('@backstage/plugin-proxy-backend'));
-
-// scaffolder plugin
-backend.add(import('@backstage/plugin-scaffolder-backend'));
-backend.add(import('@backstage/plugin-scaffolder-backend-module-github'));
-backend.add(
-  import('@backstage/plugin-scaffolder-backend-module-notifications'),
-);
 
 // techdocs plugin
 backend.add(import('@backstage/plugin-techdocs-backend'));
@@ -45,10 +43,8 @@ backend.add(import('@backstage/plugin-catalog-backend-module-logs'));
 
 // permission plugin
 backend.add(import('@backstage/plugin-permission-backend'));
-// See https://backstage.io/docs/permissions/getting-started for how to create your own permission policy
-backend.add(
-  import('@backstage/plugin-permission-backend-module-allow-all-policy'),
-);
+// What a guest may do is read (./readOnlyPolicy).
+backend.add(import('./readOnlyPolicy'));
 
 // search plugin
 backend.add(import('@backstage/plugin-search-backend'));
@@ -70,8 +66,5 @@ backend.add(import('@backstage/plugin-user-settings-backend'));
 // notifications and signals plugins
 backend.add(import('@backstage/plugin-notifications-backend'));
 backend.add(import('@backstage/plugin-signals-backend'));
-
-// mcp actions plugin
-backend.add(import('@backstage/plugin-mcp-actions-backend'));
 
 backend.start();
