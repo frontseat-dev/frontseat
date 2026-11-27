@@ -73,7 +73,7 @@ func TestTwoDependenciesCannotSilentlyOverwriteOneAnotherAtTheSameDestination(t 
 	workspace.write("lib/go.mod", "module example.com/library\n\ngo 1.27\n")
 	workspace.write("lib/library.go", "package library\n")
 	workspace.write("app/cohabiting.toml", "provides = \"example.com/secondary\"\nrequires = \"example.com/application\"\ndependency_directory = \".frontseat/shared\"\n")
-	spec.Expect(workspace.projectFailure().GetMessage()).To(ContainSubstring("more than one dependency at .frontseat/shared"))
+	spec.Expect(workspace.projectFailure().GetMessage()).To(ContainSubstring("dependencies of more than one directory at .frontseat/shared"))
 	workspace.write("app/cohabiting.toml", "provides = \"example.com/secondary\"\nrequires = \"example.com/application\"\n")
 	spec.Expect(workspace.projects()).To(HaveLen(3))
 	build := workspace.build(of("//app:cohabiting.compare"))
