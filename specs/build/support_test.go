@@ -392,8 +392,16 @@ func (spec *scenario) yarnWorkspace(plugins, fixture, directory string) *Workspa
 			return err
 		}
 		relative, err := filepath.Rel(from, path)
-		w.write(filepath.ToSlash(filepath.Join(directory, relative)), string(content))
-		return err
+		if err != nil {
+			return err
+		}
+		// Each byte for byte: a lock is held to what its tool writes, and
+		// a line added at its end is a change Yarn refuses (write adds one).
+		at := filepath.Join(w.directory, directory, relative)
+		if err := os.MkdirAll(filepath.Dir(at), 0o755); err != nil {
+			return err
+		}
+		return os.WriteFile(at, content, 0o644)
 	})
 	spec.Expect(err).NotTo(HaveOccurred())
 	return w
