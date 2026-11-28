@@ -1,9 +1,7 @@
 package build_test
 
 import (
-	"fmt"
 	"testing"
-	"time"
 
 	. "github.com/onsi/gomega"
 )
@@ -59,13 +57,14 @@ func TestTheBackstageCLIBuildsLintsAndTestsEachPackageAsItsRoleSays(t *testing.T
 	for _, label := range tests {
 		spec.Expect(tested.outcomeOf(label)).To(Equal("passed"), "%s\n%s", label, tested.printed(label))
 	}
-	// A change to the library builds it and what links it again, and the
-	// backend's test that opens the database it built is run again.
-	// The change is this run's own, so that no grid that ran this spec
-	// before holds what it builds.
-	workspace.write("plugins/hello/src/index.ts", workspace.file("plugins/hello/src/index.ts")+fmt.Sprintf("\nexport const again = %d;\n", time.Now().UnixNano()))
+	// A change to the library makes its build and the backend's that
+	// packs it other actions than they were, which the grid builds (or
+	// built, for a run of this spec before): neither is the build of the
+	// library before it changed.
+	library, backend := "//plugins/hello:backstage.compile", "//packages/backend:backstage.compile"
+	workspace.write("plugins/hello/src/index.ts", workspace.file("plugins/hello/src/index.ts")+"\nexport const again = true;\n")
 	changed := workspace.build(of(labels...))
 	spec.Expect(changed.outcome()).To(Equal("SUCCESS"), changed.diagnostics())
-	spec.Expect(changed.cameFrom("//plugins/hello:backstage.compile")).To(Equal("executed"))
-	spec.Expect(changed.cameFrom("//packages/backend:backstage.compile")).To(Equal("executed"))
+	spec.Expect(changed.action(library)).NotTo(Equal(built.action(library)))
+	spec.Expect(changed.action(backend)).NotTo(Equal(built.action(backend)))
 }
