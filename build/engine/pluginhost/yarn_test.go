@@ -22,7 +22,7 @@ const yarnLock = "__metadata:\n  version: 8\n  cacheKey: 10c0\n\n" +
 const yarnLaunch = "const {spawnSync} = require(\"node:child_process\"); const {dirname} = require(\"node:path\"); const run = spawnSync(\"yarn\", process.argv.slice(1), {stdio: \"inherit\", env: {...process.env, npm_config_nodedir: dirname(dirname(process.execPath))}}); if (run.error) { console.error(`yarn could not be started: ${run.error.message}`); process.exit(127); } if (run.signal) { process.kill(process.pid, run.signal); } process.exit(run.status);"
 
 func yarnContext() *pluginv1.Context {
-	return &pluginv1.Context{Profile: typev1.Profile_PROFILE_DEVELOPMENT, Tools: map[string]string{"yarn": "4.13.0"}}
+	return &pluginv1.Context{Profile: typev1.Profile_PROFILE_DEVELOPMENT, Tools: map[string]string{"yarn": "4.19.0"}}
 }
 
 func yarnSource() files {
@@ -46,8 +46,6 @@ func yarnFixture() conformance.Fixture {
 			"YARN_CHECKSUM_BEHAVIOR": "throw", "YARN_ENABLE_STRICT_SSL": "true",
 		}
 		if arguments[len(arguments)-1] != "--immutable-cache" {
-			// The fetch retries nothing: Yarn 4.13's got crashes retrying.
-			environment["YARN_HTTP_RETRY"] = "0"
 			return &pluginv1.Command{Arguments: append([]string{"yarn"}, arguments...), Environment: environment}
 		}
 		// Offline, Yarn is started by the pinned Node, which tells

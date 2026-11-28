@@ -17,16 +17,13 @@ pub(super) struct Install {
     pub(super) manifests: Vec<String>,
     /// Whether it says how Yarn is configured, in its `.yarnrc.yml`.
     pub(super) configured: bool,
-    /// Whether the pinned Yarn retries a request safely: the got that
-    /// Yarn bundled before 4.18.1 may retry one already settled, and crash
-    /// ("The `onCancel` handler was attached after the promise settled",
-    /// Yarn's #7249).
-    pub(super) retries: bool,
 }
 
 /// Whether a Yarn of a version retries a request safely (4.18.1 and
-/// later): a pre-release comes before its release, and a version that is
-/// not one is taken for one that does not.
+/// later): the got that Yarn bundled before may retry a request already
+/// settled, and crash ("The `onCancel` handler was attached after the
+/// promise settled", Yarn's #7249). A pre-release comes before its
+/// release, and a version that is not one is taken for one that does not.
 fn retries_safely(version: &str) -> bool {
     let (core, pre) = match version.split_once(['-', '+']) {
         Some((core, rest)) => (
@@ -129,6 +126,14 @@ pub(super) fn read(repo: &Repository, root: &str) -> Result<Option<Install>, Err
             &path,
             "the repository pins Yarn 1, which installs nothing offline as Yarn 2 and later do",
             "Pin Yarn 4 in mise.toml and run `yarn install` to write its lock.",
+        ));
+    }
+    if !retries_safely(yarn) {
+        return Err(Error::invalid(
+            "unsupported-yarn",
+            &path,
+            format!("the repository pins Yarn {yarn}, whose fetch can crash retrying a request that has already settled"),
+            "Pin Yarn 4.18.1 or later in mise.toml.",
         ));
     }
     if let Some(manager) = &package.package_manager {
@@ -244,7 +249,6 @@ pub(super) fn read(repo: &Repository, root: &str) -> Result<Option<Install>, Err
         workspaces,
         manifests,
         configured,
-        retries: retries_safely(yarn),
     }))
 }
 

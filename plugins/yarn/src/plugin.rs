@@ -53,7 +53,7 @@ mod tests {
     #[test]
     fn a_workspace_is_installed_at_its_root_and_its_members_are_no_projects() {
         let plugin = TestPlugin::new(crate::served());
-        let context = plugin.context(Profile::Development).tool("yarn", "4.13.0");
+        let context = plugin.context(Profile::Development).tool("yarn", "4.19.0");
         let host = TestHost::new(workspace());
         let projects: Vec<Project> = plugin
             .analyze(
@@ -146,43 +146,29 @@ mod tests {
         );
     }
 
-    /// A Yarn whose got crashes retrying a request already settled (before
-    /// 4.18.1) is told to retry none as it fetches; the control: one that
-    /// retries safely keeps its retries.
+    /// A Yarn whose fetch can crash retrying a request that has already
+    /// settled (before 4.18.1, a pre-release of it among them) is refused
+    /// by name; the control: one that retries safely is installed, and its
+    /// fetch keeps Yarn's own retries.
     #[test]
-    fn a_yarn_that_crashes_retrying_fetches_with_no_retry() {
+    fn a_yarn_whose_fetch_crashes_retrying_is_refused_by_name() {
         let plugin = TestPlugin::new(crate::served());
-        for (yarn, retries) in [
-            ("4.13.0", Some("0")),
-            ("4.18.1-rc.1", Some("0")),
-            ("4.19.0-rc.1", None),
-            ("4.18.0", Some("0")),
-            ("4.18.1", None),
-            ("4.19.0", None),
-            ("5.0.0", None),
-        ] {
+        let analyzed = |yarn: &str| {
             let context = plugin.context(Profile::Development).tool("yarn", yarn);
-            let projects: Vec<Project> = plugin
-                .analyze(&TestHost::new(workspace()), &context, &["js"])
-                .projects()
-                .into_iter()
-                .collect();
+            plugin.analyze(&TestHost::new(workspace()), &context, &["js"])
+        };
+        for yarn in ["4.13.0", "4.18.0", "4.18.1-rc.1"] {
+            analyzed(yarn).refused("unsupported-yarn");
+        }
+        for yarn in ["4.18.1", "4.19.0", "5.0.0"] {
+            let projects: Vec<Project> = analyzed(yarn).projects().into_iter().collect();
             let fetch = projects[0]
                 .actions
                 .iter()
                 .find(|action| action.name == "fetch")
                 .expect("a fetch");
-            assert_eq!(
-                fetch
-                    .command
-                    .as_ref()
-                    .unwrap()
-                    .environment
-                    .get("YARN_HTTP_RETRY")
-                    .map(String::as_str),
-                retries,
-                "{yarn}"
-            );
+            let environment = &fetch.command.as_ref().unwrap().environment;
+            assert!(!environment.contains_key("YARN_HTTP_RETRY"), "{yarn}");
         }
     }
 
@@ -193,7 +179,7 @@ mod tests {
     #[test]
     fn what_yarn_reads_and_is_not_built_yet_is_refused_by_name() {
         let plugin = TestPlugin::new(crate::served());
-        let context = plugin.context(Profile::Development).tool("yarn", "4.13.0");
+        let context = plugin.context(Profile::Development).tool("yarn", "4.19.0");
         let analyze = |files: Files, context: &frontseat_plugin_test::TestContext| {
             plugin.analyze(&TestHost::new(files), context, &["js"])
         };
@@ -291,7 +277,7 @@ mod tests {
         analyze(
             workspace().with(
                 "js/package.json",
-                named(r#""packageManager":"yarn@4.13.0+sha512.abc""#),
+                named(r#""packageManager":"yarn@4.19.0+sha512.abc""#),
             ),
             &context,
         )
@@ -312,7 +298,7 @@ mod tests {
     #[test]
     fn a_package_no_yarn_install_serves_is_refused_by_name() {
         let plugin = TestPlugin::new(crate::served());
-        let context = plugin.context(Profile::Development).tool("yarn", "4.13.0");
+        let context = plugin.context(Profile::Development).tool("yarn", "4.19.0");
         let web = Files::new().with("web/package.json", r#"{"name":"web"}"#);
         let analyze =
             |files: Files, root: &str| plugin.analyze(&TestHost::new(files), &context, &[root]);

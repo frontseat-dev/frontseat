@@ -76,19 +76,15 @@ pub(super) fn of(install: &Install) -> Vec<Action> {
     // Yarn fetches every package the lock names into its cache, checking
     // each against the lock's checksum, and builds nothing: no
     // dependency's code runs with a network. Only the cache is kept.
-    // A Yarn that crashes retrying a request already settled retries
-    // none (Install::retries): a request that fails then fails the fetch,
-    // with what failed, which the next build runs again.
-    let mut fetching = yarn(&["install", "--immutable", "--mode=skip-build"]);
-    if !install.retries {
-        fetching = fetching.env("YARN_HTTP_RETRY", "0");
-    }
-    let fetch = Action::new(FETCH, fetching)
-        .tool("node")
-        .tool("yarn")
-        .inputs(read.clone())
-        .output(Output::optional(CACHE))
-        .fetch();
+    let fetch = Action::new(
+        FETCH,
+        yarn(&["install", "--immutable", "--mode=skip-build"]),
+    )
+    .tool("node")
+    .tool("yarn")
+    .inputs(read.clone())
+    .output(Output::optional(CACHE))
+    .fetch();
     // The install runs offline from that cache, refusing a lock that no
     // longer matches the manifests and a cache that would change. Yarn
     // owns the layout and what it builds; a workspace keeps the packages
