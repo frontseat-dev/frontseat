@@ -148,8 +148,9 @@ mod tests {
 
     /// A Yarn whose fetch can crash retrying a request that has already
     /// settled (before 4.18.1, a pre-release of it among them) is refused
-    /// by name; the control: one that retries safely is installed, and its
-    /// fetch keeps Yarn's own retries.
+    /// by name, and so is one pinned by no exact version, neither
+    /// repeating the pin; the control: one that retries safely is
+    /// installed, and its fetch keeps Yarn's own retries.
     #[test]
     fn a_yarn_whose_fetch_crashes_retrying_is_refused_by_name() {
         let plugin = TestPlugin::new(crate::served());
@@ -157,8 +158,20 @@ mod tests {
             let context = plugin.context(Profile::Development).tool("yarn", yarn);
             plugin.analyze(&TestHost::new(workspace()), &context, &["js"])
         };
-        for yarn in ["4.13.0", "4.18.0", "4.18.1-rc.1"] {
-            analyzed(yarn).refused("unsupported-yarn");
+        for (yarn, reason) in [
+            ("4.13.0", "unsupported-yarn"),
+            ("4.18.0", "unsupported-yarn"),
+            ("4.18.1-rc.1", "unsupported-yarn"),
+            ("4.19", "inexact-yarn"),
+            ("latest", "inexact-yarn"),
+            ("v4.19.0", "inexact-yarn"),
+        ] {
+            let refusal = analyzed(yarn).refused(reason);
+            assert!(
+                !refusal.message.contains(yarn),
+                "{yarn}: {}",
+                refusal.message
+            );
         }
         for yarn in ["4.18.1", "4.19.0", "5.0.0"] {
             let projects: Vec<Project> = analyzed(yarn).projects().into_iter().collect();

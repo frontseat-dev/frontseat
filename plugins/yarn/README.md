@@ -1,7 +1,7 @@
 # yarn
 
 The `yarn` plugin installs a Yarn workspace from its lock, offline, as the
-node-modules linker lays it out. Yarn 2 and later are served; Node and Yarn
+node-modules linker lays it out. Yarn 4.18.1 and later are served; Node and Yarn
 come from the repository's `mise.toml` and checked `mise.lock`. A tool on
 the grid is held to the checksum its lock records, which mise's npm backend
 records none of, so Yarn is pinned as its own npm package's archive, its
@@ -102,7 +102,8 @@ registry by its name and version, which npm never lets be published twice,
 and nothing checks its bytes; a `packageManager` naming another than the
 pinned Yarn as `invalid-package-manager`; a pinned Yarn before 4.18.1,
 whose fetch can crash retrying a request that has already settled (Yarn's
-#7249), as `unsupported-yarn`; and an unpinned Yarn as `unpinned-tool`. A refusal of the lock names its line and never repeats
+#7249), as `unsupported-yarn`; a Yarn pinned by no exact version, whose
+archive cannot be named, as `inexact-yarn`; and an unpinned Yarn as `unpinned-tool`. A refusal of the lock names its line and never repeats
 what is written there.
 
 The lock is read line by line, in the layout Yarn writes, rather than as a
