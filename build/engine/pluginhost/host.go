@@ -141,6 +141,40 @@ func conforms(compiled wazero.CompiledModule) error {
 	return nil
 }
 
+// LoadAll loads modules at once, each as Load does, and returns them in
+// the order given, whichever is loaded first: a later one of a name is
+// the one asked (Named). One that does not load fails them all, by its own
+// refusal, the first given of those that failed, and what did load is let
+// go of.
+func (h *Host) LoadAll(ctx context.Context, modules [][]byte) ([]*Plugin, error) {
+	loaded := make([]*Plugin, len(modules))
+	failures := make([]error, len(modules))
+	var loading sync.WaitGroup
+	for i, module := range modules {
+		loading.Go(func() { loaded[i], failures[i] = h.Load(ctx, module) })
+	}
+	loading.Wait()
+	if err := firstOf(failures); err != nil {
+		for _, plugin := range loaded {
+			if plugin != nil {
+				_ = plugin.Close(ctx)
+			}
+		}
+		return nil, err
+	}
+	return loaded, nil
+}
+
+// firstOf is the first error of several that is one.
+func firstOf(errs []error) error {
+	for _, err := range errs {
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Load compiles a module, holds it to the ABI and asks it what it is. A
 // module that does not export the ABI, or speaks one the host does not
 // load, is refused.

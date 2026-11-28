@@ -13,6 +13,7 @@ import (
 	"syscall"
 
 	"github.com/tetratelabs/wazero"
+	"github.com/tetratelabs/wazero/experimental"
 )
 
 // Wazero 1.12 initializes its process-wide version cache during runtime
@@ -240,6 +241,17 @@ func shared() wazero.CompilationCache {
 	return compilations.cache
 }
 
+// compileWorkers is how many of a module's functions are compiled at once:
+// compiling the largest plugin (backstage, 1.1 MB) took 348–384 ms with
+// one, 162–186 ms with two and 88–105 ms with four, and no less with
+// sixteen, measured 2026-11-28 on an Apple M-series laptop of 16 cores.
+const compileWorkers = 4
+
+// compiling is a context a module is compiled under, by compileWorkers.
+func compiling(ctx context.Context) context.Context {
+	return experimental.WithCompilationWorkers(ctx, compileWorkers)
+}
+
 // configuration is how every runtime of the package runs a module, which
 // is compiled into it: the runtimes that share what is compiled share it.
 func configuration() wazero.RuntimeConfig {
@@ -283,6 +295,7 @@ func hold(module []byte, digest string, cache wazero.CompilationCache) {
 // what is kept on disk only ever saves time. A module that does not
 // compile in memory either is refused as it is.
 func (h *Host) compile(ctx context.Context, module []byte) (wazero.Runtime, wazero.CompiledModule, error) {
+	ctx = compiling(ctx)
 	if !failedOnDisk() {
 		compiled, err := h.rt.CompileModule(ctx, module)
 		if err == nil || !keptOnDisk() {
