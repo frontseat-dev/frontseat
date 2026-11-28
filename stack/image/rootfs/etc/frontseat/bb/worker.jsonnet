@@ -17,7 +17,7 @@ assert egress >= 0 && egress <= concurrency : 'GRID_EGRESS is how many of the sl
 
 // What one action may write: enough for the fetch of a toolchain, which
 // unpacks an archive of a few gigabytes.
-local written = 8 * 1024 * 1024 * 1024;
+local written = 4 * 1024 * 1024 * 1024;
 
 // A runner of the worker's build directory: what every runner advertises
 // and is told.
