@@ -2,6 +2,7 @@ package schedule
 
 import (
 	"context"
+	"github.com/frontseat-dev/frontseat/testsupport/testtelemetry"
 	"sync"
 	"testing"
 
@@ -14,19 +15,11 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-func traceRecorder(t *testing.T) (*sdktrace.TracerProvider, *tracetest.SpanRecorder) {
-	t.Helper()
-	recorder := tracetest.NewSpanRecorder()
-	provider := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder))
-	t.Cleanup(func() { _ = provider.Shutdown(context.Background()) })
-	return provider, recorder
-}
-
 // executing is a context of a span, "execute", that spans records; the
 // span ends and the context is cancelled when the test ends, or at cancel.
 func executing(t *testing.T) (context.Context, context.CancelFunc, trace.Span, *tracetest.SpanRecorder) {
 	t.Helper()
-	provider, spans := traceRecorder(t)
+	provider, spans := testtelemetry.Recorder(t)
 	ctx, parent := provider.Tracer("test").Start(t.Context(), "execute")
 	t.Cleanup(func() { parent.End() })
 	ctx, cancel := context.WithCancel(ctx)
@@ -84,7 +77,7 @@ func checkTaskLinks(t *testing.T, spans []sdktrace.ReadOnlySpan, actions []plan.
 
 func TestTraceKeepsFanInAndSkippedChainsInUnorderedPlans(t *testing.T) {
 	for _, fail := range []bool{false, true} {
-		provider, spans := traceRecorder(t)
+		provider, spans := testtelemetry.Recorder(t)
 		ctx, parent := provider.Tracer("test").Start(t.Context(), "execute")
 		actions := []plan.Action{action("publish", "package"), action("package", "compile", "notice"), action("notice"), action("compile")}
 		All(ctx, actions, 2, &recorder{fails: map[string]bool{"compile": fail}})
@@ -103,7 +96,7 @@ func TestTraceKeepsFanInAndSkippedChainsInUnorderedPlans(t *testing.T) {
 }
 
 func TestRetriesHaveFreshTaskIdentitiesAndNoLinksIntoEarlierAttempts(t *testing.T) {
-	provider, spans := traceRecorder(t)
+	provider, spans := testtelemetry.Recorder(t)
 	ctx, parent := provider.Tracer("test").Start(t.Context(), "execute")
 	defer parent.End()
 	actions := []plan.Action{action("compile", "fetch"), action("fetch")}
@@ -120,7 +113,7 @@ func TestRetriesHaveFreshTaskIdentitiesAndNoLinksIntoEarlierAttempts(t *testing.
 }
 
 func TestConcurrentCommandsKeepTheirOwnDependencyLinks(t *testing.T) {
-	provider, spans := traceRecorder(t)
+	provider, spans := testtelemetry.Recorder(t)
 	actions := []plan.Action{action("compile", "fetch"), action("fetch")}
 	var parents [2]trace.SpanContext
 	var running sync.WaitGroup

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"go.opentelemetry.io/otel/codes"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -12,6 +13,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/frontseat-dev/frontseat/core/telemetry"
+	"github.com/frontseat-dev/frontseat/testsupport/testtelemetry"
 )
 
 // A run nobody traces pays nothing for the spans along its way: they
@@ -106,5 +108,29 @@ func TestWhatWentWrongInASpanIsOneOfAFewKinds(t *testing.T) {
 		if attribute.Key == "error.type" {
 			t.Errorf("run, in which nothing went wrong, says %q went wrong", attribute.Value.AsString())
 		}
+	}
+}
+
+// A part of work done elsewhere is a span beneath the one its context
+// carries, at the times that work reported. One whose time is unknown,
+// or that ends before it begins, is no span. The control: the first.
+func TestAPartOfWorkDoneElsewhereIsASpanAtTheTimesItsWorkSaid(t *testing.T) {
+	provider, recorder := testtelemetry.Recorder(t)
+	ctx, parent := telemetry.Root(context.Background(), provider, "parent")
+	from := time.Date(2026, 11, 28, 12, 0, 0, 0, time.UTC)
+	to := from.Add(3 * time.Second)
+
+	telemetry.Lapse(ctx, "said", from, to)
+	telemetry.Lapse(ctx, "unknown", time.Time{}, to)
+	telemetry.Lapse(ctx, "backwards", to, from)
+	parent.End()
+
+	ended := recorder.Ended()
+	if len(ended) != 2 {
+		t.Fatalf("recorded %d spans; want the part and its parent", len(ended))
+	}
+	said := ended[0]
+	if said.Name() != "said" || !said.StartTime().Equal(from) || !said.EndTime().Equal(to) || said.Parent().SpanID() != parent.SpanContext().SpanID() {
+		t.Errorf("recorded %s from %v to %v beneath %v; want said, from %v to %v, beneath its parent", said.Name(), said.StartTime(), said.EndTime(), said.Parent().SpanID(), from, to)
 	}
 }

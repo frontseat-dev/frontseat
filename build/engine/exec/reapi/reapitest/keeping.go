@@ -6,6 +6,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/bazelbuild/remote-apis-sdks/go/pkg/fakes"
 	repb "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2"
@@ -15,6 +16,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // Keeping is a grid on the loopback that keeps an action's result by the
@@ -32,6 +34,10 @@ type Keeping struct {
 	// is sent to run as one it answered from its cache (cached_result),
 	// whatever it was told.
 	Cached bool
+	// Failing, where set before it serves, has every action it runs end
+	// past its time (DEADLINE_EXCEEDED), saying how the run went all the
+	// same, as Buildbarn does.
+	Failing bool
 
 	mu sync.Mutex
 	// refuses is what its cache answers when asked of an instance, by
@@ -68,14 +74,26 @@ func (k *Keeping) GetActionResult(_ context.Context, request *repb.GetActionResu
 }
 
 // Execute runs an action, which prints nothing and passes, and keeps
-// its result under the instance it was run for, as a worker writes it.
+// its result under the instance it was run for, as a worker writes it,
+// saying when each part of the run was, as a worker says it.
 func (k *Keeping) Execute(request *repb.ExecuteRequest, stream repb.Execution_ExecuteServer) error {
-	result := &repb.ActionResult{}
+	now := time.Now()
+	stamp := func(at time.Duration) *timestamppb.Timestamp { return timestamppb.New(now.Add(at * time.Millisecond)) }
+	result := &repb.ActionResult{ExecutionMetadata: &repb.ExecutedActionMetadata{
+		QueuedTimestamp: stamp(0), WorkerStartTimestamp: stamp(1),
+		InputFetchStartTimestamp: stamp(1), InputFetchCompletedTimestamp: stamp(2),
+		ExecutionStartTimestamp: stamp(2), ExecutionCompletedTimestamp: stamp(3),
+		OutputUploadStartTimestamp: stamp(3), OutputUploadCompletedTimestamp: stamp(4),
+	}}
 	k.mu.Lock()
 	k.executed = append(k.executed, request)
 	k.mu.Unlock()
 	k.Keep(request.GetInstanceName(), request.GetActionDigest().GetHash(), result)
-	response, err := anypb.New(&repb.ExecuteResponse{Result: result, CachedResult: k.Cached})
+	answer := &repb.ExecuteResponse{Result: result, CachedResult: k.Cached}
+	if k.Failing {
+		answer.Status = status.New(codes.DeadlineExceeded, "the action ran past its time").Proto()
+	}
+	response, err := anypb.New(answer)
 	if err != nil {
 		return err
 	}
