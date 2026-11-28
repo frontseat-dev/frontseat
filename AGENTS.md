@@ -469,7 +469,7 @@ the change that fixes it.
   every system, where a build daemon it started keeps its own beneath
   `build/`, in a directory named for the directory it builds, and every
   daemon of its user keeps the plugins it compiled in a directory
-  `compiled` beside theirs, that only its user may write
+  `compiled` beside `build/`, that only its user may write
   (`pluginhost.Compiled`): a plugin is compiled once on a machine, and
   what cannot be read or written there is compiled in memory again,
   never a failure, after which that daemon compiles in memory for the
@@ -482,8 +482,8 @@ the change that fixes it.
   (`core/ports`): the sandbox's one lock (`Lock`), which its supervisor
   holds, the build settings the supervisor writes (`Settings`), and,
   beneath `Builds`, the state of each build daemon the command line
-  starts there, named for the directory it builds as it is outside, and
-  the plugins they compiled (`compiled`).
+  starts there, named for the directory it builds as it is outside, and,
+  beside `Builds`, the plugins they compiled (`compiled`).
   Not held: all of it is the sandbox's user's to write. The settings
   the supervisor writes when it starts hold against an accident, and
   not against a process in the box, which may write others or start a

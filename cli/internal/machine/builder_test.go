@@ -149,9 +149,10 @@ func TestTheBuildDaemonOfADirectoryIsStartedOnceAndFoundAgain(t *testing.T) {
 }
 
 // Every daemon the command line starts is told one directory to keep
-// compiled plugins in, beside their state directories and none of them,
-// so that each plugin is compiled once for the user and not once for
-// each directory built. The control: the daemons are of two directories.
+// compiled plugins in, beside the directory of their state directories
+// and not in it, which holds those alone: each plugin is compiled once
+// for the user and not once for each directory built. The control: the
+// daemons are of two directories.
 func TestEveryBuildDaemonIsToldTheOneDirectoryOfCompiledPlugins(t *testing.T) {
 	s, _ := settled(t)
 	for _, directory := range []string{t.TempDir(), t.TempDir()} {
@@ -163,14 +164,14 @@ func TestEveryBuildDaemonIsToldTheOneDirectoryOfCompiledPlugins(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := filepath.Join(where.state, "compiled")
+	want := filepath.Join(filepath.Dir(where.state), "compiled")
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if len(s.compiled) != 2 || s.compiled[0] != want || s.compiled[1] != want {
 		t.Fatalf("the daemons were told %q; want each told %s", s.compiled, want)
 	}
-	if filepath.Base(where.of(t.TempDir())) == "compiled" {
-		t.Fatal("a directory's daemon would keep its state where compiled plugins are")
+	if filepath.Dir(want) == where.state || strings.HasPrefix(want, where.state+string(filepath.Separator)) {
+		t.Fatalf("compiled plugins are kept in %s, among the daemons' state directories in %s", want, where.state)
 	}
 }
 

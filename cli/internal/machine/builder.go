@@ -232,9 +232,9 @@ const (
 )
 
 // compiled is the directory every build daemon kept here keeps compiled
-// plugins in, beside their state directories, which are named by hex
-// digits and so never it.
-func (k kept) compiled() string { return filepath.Join(k.state, "compiled") }
+// plugins in: beside the directory of their state directories and not
+// in it, which holds those alone and is read so (a box holds one).
+func (k kept) compiled() string { return filepath.Join(filepath.Dir(k.state), "compiled") }
 
 // of is the state directory of a directory's build daemon: beneath the
 // one place they are kept, named by the directory.
