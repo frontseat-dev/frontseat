@@ -79,10 +79,15 @@ var memoryCache = wazero.NewCompilationCache()
 // architecture and system, kept there is removed, as nothing of this
 // version reads it.
 func Compiled(dir string) error {
-	if err := os.Mkdir(dir, 0o700); err != nil && !errors.Is(err, os.ErrExist) {
-		return fmt.Errorf("pluginhost: keeping compiled plugins in %s: %w", dir, err)
+	if err := madeClosed(dir); err != nil {
+		return err
 	}
-	if err := closed(dir); err != nil {
+	// Wazero keys what it keeps by the module, the processor and its own
+	// version, and not by how the runtime is configured, which is
+	// compiled in: the code of one configuration is kept apart from
+	// another's.
+	dir = filepath.Join(dir, configured)
+	if err := madeClosed(dir); err != nil {
 		return err
 	}
 	compilations.mu.Lock()
@@ -91,6 +96,11 @@ func Compiled(dir string) error {
 		return errors.New("pluginhost: told where to keep compiled plugins after a host was made")
 	}
 	version := filepath.Join(dir, versionDirectory())
+	// Held for as long as the process lasts, so that no daemon of
+	// another version removes the directory this one keeps in.
+	if _, err := lockShared(version + ".lock"); err != nil {
+		return fmt.Errorf("pluginhost: keeping compiled plugins in %s: %w", dir, err)
+	}
 	if err := cleared(version); err != nil {
 		return err
 	}
@@ -107,6 +117,15 @@ func Compiled(dir string) error {
 	compilations.onDisk = version
 	removeOtherVersions(dir)
 	return nil
+}
+
+// madeClosed makes a directory compiled plugins are kept in where it is
+// not, and holds it to one only its user may write (closed).
+func madeClosed(dir string) error {
+	if err := os.Mkdir(dir, 0o700); err != nil && !errors.Is(err, os.ErrExist) {
+		return fmt.Errorf("pluginhost: keeping compiled plugins in %s: %w", dir, err)
+	}
+	return closed(dir)
 }
 
 // closed holds a directory compiled plugins are kept in to one that only
@@ -225,10 +244,33 @@ func removeOtherVersions(dir string) {
 	for _, entry := range entries {
 		name := entry.Name()
 		if name != ours && entry.IsDir() && strings.HasPrefix(name, "wazero-") && strings.HasSuffix(name, suffix) {
-			_ = os.RemoveAll(filepath.Join(dir, name))
+			removeUnheld(dir, name)
 		}
 	}
 }
+
+// removeUnheld removes another version's directory where no daemon holds
+// it (lockShared), as frontseat-archive's pruner did: one that does
+// compiles into it still.
+func removeUnheld(dir, name string) {
+	lock := filepath.Join(dir, name+".lock")
+	release, held, err := lockExclusive(lock)
+	if err != nil || held {
+		return
+	}
+	defer release()
+	if err := os.RemoveAll(filepath.Join(dir, name)); err != nil {
+		return
+	}
+	// A daemon that opened the lock before it went holds a file no
+	// longer at its path, and takes it again (lockShared).
+	_ = os.Remove(lock)
+}
+
+// configured names how every runtime of the package is configured
+// (configuration), which what is compiled is compiled with: one changed
+// is named anew, and keeps its code apart.
+const configured = "terminating"
 
 // shared is the cache a host's runtime shares, which is then what it is.
 func shared() wazero.CompilationCache {

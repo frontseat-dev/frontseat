@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -89,7 +90,7 @@ func TestAPluginKeptCompiledOnDiskIsLoadedByAnotherProcessWithoutCompiling(t *te
 // by its path.
 func keptFiles(t *testing.T, directory string) map[string]os.FileInfo {
 	t.Helper()
-	paths, err := filepath.Glob(filepath.Join(directory, "wazero-*", "*"))
+	paths, err := filepath.Glob(filepath.Join(directory, "*", "wazero-*", "*"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +116,7 @@ func TestCompiledCodeOnDiskThatCannotBeUsedFailsNoLoad(t *testing.T) {
 	}
 	directory := filepath.Join(t.TempDir(), "compiled")
 	inAProcessOfItsOwn(t, directory, "keeps")
-	kept, err := filepath.Glob(filepath.Join(directory, "wazero-*", "*"))
+	kept, err := filepath.Glob(filepath.Join(directory, "*", "wazero-*", "*"))
 	if err != nil || len(kept) == 0 {
 		t.Fatalf("nothing was kept on disk (%v)", err)
 	}
@@ -125,7 +126,7 @@ func TestCompiledCodeOnDiskThatCannotBeUsedFailsNoLoad(t *testing.T) {
 		}
 	}
 	ctx := context.Background()
-	cache, err := wazero.NewCompilationCacheWithDir(directory)
+	cache, err := wazero.NewCompilationCacheWithDir(filepath.Dir(filepath.Dir(kept[0])))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -184,20 +185,18 @@ func TestWhatAnotherVersionCompiledForThisMachineIsRemoved(t *testing.T) {
 	}
 	directory := filepath.Join(t.TempDir(), "compiled")
 	inAProcessOfItsOwn(t, directory, "keeps")
-	ours, err := filepath.Glob(filepath.Join(directory, "wazero-*-"+runtime.GOARCH+"-"+runtime.GOOS))
-	if err != nil || len(ours) != 1 {
-		t.Fatalf("this version keeps %v (%v)", ours, err)
-	}
-	older := filepath.Join(directory, "wazero-v0.0.1-"+runtime.GOARCH+"-"+runtime.GOOS)
-	elsewhere := filepath.Join(directory, "wazero-v0.0.1-otherarch-"+runtime.GOOS)
-	notes := filepath.Join(directory, "notes")
+	ours := thisVersion(t, directory)
+	configured := filepath.Dir(ours)
+	older := filepath.Join(configured, "wazero-v0.0.1-"+runtime.GOARCH+"-"+runtime.GOOS)
+	elsewhere := filepath.Join(configured, "wazero-v0.0.1-otherarch-"+runtime.GOOS)
+	notes := filepath.Join(configured, "notes")
 	for _, made := range []string{older, elsewhere, notes} {
 		if err := os.Mkdir(made, 0o700); err != nil {
 			t.Fatal(err)
 		}
 	}
 	inAProcessOfItsOwn(t, directory, "loads again")
-	for path, there := range map[string]bool{older: false, elsewhere: true, notes: true, ours[0]: true} {
+	for path, there := range map[string]bool{older: false, elsewhere: true, notes: true, ours: true} {
 		if _, err := os.Stat(path); (err == nil) != there {
 			t.Errorf("%s: there %v, and was to be %v", filepath.Base(path), err == nil, there)
 		}
@@ -299,4 +298,47 @@ func TestADirectoryThatCannotBeKeptInIsRefusedAndPluginsLoadAllTheSame(t *testin
 	}
 	inAProcessOfItsOwn(t, file, "a file where the directory is")
 	inAProcessOfItsOwn(t, filepath.Join(t.TempDir(), "absent", "compiled"), "beneath a directory that is not there")
+}
+
+// Another version's directory that a daemon holds is not removed, since
+// that daemon compiles into it still; once it lets go, it is. The control
+// is that release.
+func TestAnotherVersionsDirectoryADaemonHoldsIsKept(t *testing.T) {
+	if os.Getenv(compiledRole) != "" {
+		child(t)
+		return
+	}
+	directory := filepath.Join(t.TempDir(), "compiled")
+	inAProcessOfItsOwn(t, directory, "keeps")
+	older := filepath.Join(filepath.Dir(thisVersion(t, directory)), "wazero-v0.0.1-"+runtime.GOARCH+"-"+runtime.GOOS)
+	if err := os.Mkdir(older, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	lock, err := os.OpenFile(older+".lock", os.O_CREATE|os.O_RDONLY, 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_SH); err != nil {
+		t.Fatal(err)
+	}
+	inAProcessOfItsOwn(t, directory, "beside a version a daemon holds")
+	if _, err := os.Stat(older); err != nil {
+		t.Fatalf("a directory a daemon holds was removed: %v", err)
+	}
+	_ = lock.Close()
+	inAProcessOfItsOwn(t, directory, "once it is let go of")
+	if _, err := os.Stat(older); err == nil {
+		t.Fatal("the control: a directory no daemon holds was kept")
+	}
+}
+
+// thisVersion is the one directory this version of wazero keeps its code
+// in for this machine, beneath the directory compiled plugins are kept in.
+func thisVersion(t *testing.T, directory string) string {
+	t.Helper()
+	ours, err := filepath.Glob(filepath.Join(directory, "*", "wazero-*-"+runtime.GOARCH+"-"+runtime.GOOS))
+	if err != nil || len(ours) != 1 {
+		t.Fatalf("this version keeps %v (%v)", ours, err)
+	}
+	return ours[0]
 }
