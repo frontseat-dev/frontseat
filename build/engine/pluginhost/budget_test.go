@@ -25,8 +25,9 @@ func benchmarkAnalysis(b *testing.B, plugin *pluginhost.Plugin, name string, sou
 	}
 }
 
-// BenchmarkLoad is a module made ready to be asked: compiled,
-// instantiated, and asked what it is.
+// BenchmarkLoad is a module made ready to be asked by a host: compiled
+// by the first round alone, then in each round taken from what the
+// process compiled, instantiated, and asked what it is.
 func BenchmarkLoad(b *testing.B) {
 	ctx := context.Background()
 	host, err := pluginhost.New(ctx)
@@ -134,9 +135,19 @@ func BenchmarkAnalyze(b *testing.B) {
 // asking for _initialize only of a module that exports it, analysis
 // takes 790 allocations on arm64 and 791 on amd64. Neither allowance is
 // raised.
+//
+// Measured 2026-11-28 with `go run ./specs/cmd/gate go-test -count=3 -run
+// '^$' -bench 'BenchmarkLoad$' -benchmem ./build/engine/pluginhost`, after
+// a process came to compile each plugin once and every host to load it
+// from what was compiled: loading took 2.0–2.1 ms and 8,267–8,331
+// allocations, where it had taken 58.6–60.1 ms and 34,060–34,113 at main
+// (4cab4f0b), measured the same way. What compiling costs is held by
+// TestBudgetOfCompilingAPlugin. The allowance for loading is lowered to
+// 9,200 allocations (about a tenth more) and 10 ms, about five times what
+// was measured.
 
 func TestBudgetOfLoadingAPlugin(t *testing.T) {
-	testbudget.Hold(t, testbudget.Budget{Time: 280 * time.Millisecond, Allocs: 37600}, BenchmarkLoad)
+	testbudget.Hold(t, testbudget.Budget{Time: 10 * time.Millisecond, Allocs: 9200}, BenchmarkLoad)
 }
 
 func TestBudgetOfAnalyzingAModule(t *testing.T) {

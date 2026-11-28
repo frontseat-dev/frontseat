@@ -41,12 +41,51 @@ type Host struct {
 // compilation and execution remain independent.
 var runtimeCreation sync.Mutex
 
+// compilations is what this process has compiled, shared by every runtime
+// the package makes, each of one configuration: a module is compiled once
+// in a process, and a host made after another has loaded it loads it from
+// here. Wazero keeps a module's machine code only while some runtime holds
+// it, so a runtime of the package's own, never closed, holds each plugin
+// that has loaded, whatever host loaded it and whether or not that host is
+// closed. A daemon holds its plugins for its life all the same; a process
+// that loads many modules, a test's, keeps each one it loaded.
+var compilations = struct {
+	cache  wazero.CompilationCache
+	keeper sync.Once
+	holder wazero.Runtime
+	mu     sync.Mutex
+	held   map[string]bool
+}{cache: wazero.NewCompilationCache(), held: map[string]bool{}}
+
+// configuration is how every runtime of the package runs a module, which
+// is compiled into it: the runtimes that share what is compiled share it.
+func configuration() wazero.RuntimeConfig {
+	return wazero.NewRuntimeConfig().
+		WithMemoryLimitPages(memoryLimitPages).
+		WithCloseOnContextDone(true)
+}
+
 func newRuntime(ctx context.Context) wazero.Runtime {
 	runtimeCreation.Lock()
 	defer runtimeCreation.Unlock()
-	return wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfig().
-		WithMemoryLimitPages(memoryLimitPages).
-		WithCloseOnContextDone(true))
+	return wazero.NewRuntimeWithConfig(ctx, configuration().WithCompilationCache(compilations.cache))
+}
+
+// hold keeps a module that has loaded compiled for as long as the process
+// lasts. Its host holds it as this is called, so compiling it again is
+// taking it from the cache.
+func hold(module []byte, digest string) error {
+	compilations.keeper.Do(func() { compilations.holder = newRuntime(context.Background()) })
+	compilations.mu.Lock()
+	defer compilations.mu.Unlock()
+	if compilations.held[digest] {
+		return nil
+	}
+	if _, err := compilations.holder.CompileModule(context.Background(), module); err != nil {
+		return fmt.Errorf("pluginhost: holding %s compiled: %w", digest[:12], err)
+	}
+	compilations.held[digest] = true
+	return nil
 }
 
 // New returns a host. Close it when done.
@@ -170,6 +209,10 @@ func (h *Host) Load(ctx context.Context, module []byte) (*Plugin, error) {
 		return nil, fmt.Errorf("pluginhost: %s: %w", digest[:12], err)
 	}
 	p.Description = description
+	if err := hold(module, digest); err != nil {
+		_ = compiled.Close(ctx)
+		return nil, err
+	}
 	return p, nil
 }
 
