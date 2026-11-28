@@ -33,64 +33,29 @@ const memoryLimitPages = 4096
 // Host loads plugins.
 type Host struct {
 	rt wazero.Runtime
-}
-
-// Wazero 1.12 initializes its process-wide version cache during runtime
-// construction without synchronization (internal/version.GetWazeroVersion).
-// This package owns every runtime; serialize construction, while each host's
-// compilation and execution remain independent.
-var runtimeCreation sync.Mutex
-
-// compilations is what this process has compiled, shared by every runtime
-// the package makes, each of one configuration: a module is compiled once
-// in a process, and a host made after another has loaded it loads it from
-// here. Wazero keeps a module's machine code only while some runtime holds
-// it, so a runtime of the package's own, never closed, holds each plugin
-// that has loaded, whatever host loaded it and whether or not that host is
-// closed. A daemon holds its plugins for its life all the same; a process
-// that loads many modules, a test's, keeps each one it loaded.
-var compilations = struct {
-	cache  wazero.CompilationCache
-	keeper sync.Once
-	holder wazero.Runtime
+	// cache is what rt shares of what is compiled.
+	cache wazero.CompilationCache
+	// memory is a runtime that compiles in memory alone, made the first
+	// time the compiled code on disk could not be used: a module is then
+	// loaded on it.
 	mu     sync.Mutex
-	held   map[string]bool
-}{cache: wazero.NewCompilationCache(), held: map[string]bool{}}
-
-// configuration is how every runtime of the package runs a module, which
-// is compiled into it: the runtimes that share what is compiled share it.
-func configuration() wazero.RuntimeConfig {
-	return wazero.NewRuntimeConfig().
-		WithMemoryLimitPages(memoryLimitPages).
-		WithCloseOnContextDone(true)
-}
-
-func newRuntime(ctx context.Context) wazero.Runtime {
-	runtimeCreation.Lock()
-	defer runtimeCreation.Unlock()
-	return wazero.NewRuntimeWithConfig(ctx, configuration().WithCompilationCache(compilations.cache))
-}
-
-// hold keeps a module that has loaded compiled for as long as the process
-// lasts. Its host holds it as this is called, so compiling it again is
-// taking it from the cache.
-func hold(module []byte, digest string) error {
-	compilations.keeper.Do(func() { compilations.holder = newRuntime(context.Background()) })
-	compilations.mu.Lock()
-	defer compilations.mu.Unlock()
-	if compilations.held[digest] {
-		return nil
-	}
-	if _, err := compilations.holder.CompileModule(context.Background(), module); err != nil {
-		return fmt.Errorf("pluginhost: holding %s compiled: %w", digest[:12], err)
-	}
-	compilations.held[digest] = true
-	return nil
+	memory wazero.Runtime
 }
 
 // New returns a host. Close it when done.
 func New(ctx context.Context) (*Host, error) {
-	rt := newRuntime(ctx)
+	cache := shared()
+	rt, err := hostRuntime(ctx, cache)
+	if err != nil {
+		return nil, err
+	}
+	return &Host{rt: rt, cache: cache}, nil
+}
+
+// hostRuntime is a runtime a host loads plugins on, sharing what cache
+// says is compiled, with what a plugin imports.
+func hostRuntime(ctx context.Context, cache wazero.CompilationCache) (wazero.Runtime, error) {
+	rt := newRuntime(ctx, cache)
 	if _, err := wasi_snapshot_preview1.Instantiate(ctx, rt); err != nil {
 		_ = rt.Close(ctx)
 		return nil, fmt.Errorf("pluginhost: %w", err)
@@ -99,11 +64,19 @@ func New(ctx context.Context) (*Host, error) {
 		_ = rt.Close(ctx)
 		return nil, fmt.Errorf("pluginhost: %w", err)
 	}
-	return &Host{rt: rt}, nil
+	return rt, nil
 }
 
 // Close releases the host and every plugin it loaded.
-func (h *Host) Close(ctx context.Context) error { return h.rt.Close(ctx) }
+func (h *Host) Close(ctx context.Context) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	err := h.rt.Close(ctx)
+	if h.memory != nil {
+		err = errors.Join(err, h.memory.Close(ctx))
+	}
+	return err
+}
 
 // Plugin is a loaded module.
 type Plugin struct {
@@ -174,7 +147,7 @@ func conforms(compiled wazero.CompiledModule) error {
 func (h *Host) Load(ctx context.Context, module []byte) (*Plugin, error) {
 	sum := sha256.Sum256(module)
 	digest := hex.EncodeToString(sum[:])
-	compiled, err := h.rt.CompileModule(ctx, module)
+	rt, compiled, err := h.compile(ctx, module)
 	if err != nil {
 		return nil, fmt.Errorf("pluginhost: compiling %s: %w", digest[:12], err)
 	}
@@ -182,7 +155,7 @@ func (h *Host) Load(ctx context.Context, module []byte) (*Plugin, error) {
 		_ = compiled.Close(ctx)
 		return nil, fmt.Errorf("pluginhost: %s is not a plugin: %w", digest[:12], err)
 	}
-	p := &Plugin{Digest: digest, rt: h.rt, compiled: compiled, config: instanceConfig(compiled)}
+	p := &Plugin{Digest: digest, rt: rt, compiled: compiled, config: instanceConfig(compiled)}
 	instance, err := p.instantiate(ctx, io.Discard)
 	if err != nil {
 		_ = compiled.Close(ctx)
@@ -209,9 +182,10 @@ func (h *Host) Load(ctx context.Context, module []byte) (*Plugin, error) {
 		return nil, fmt.Errorf("pluginhost: %s: %w", digest[:12], err)
 	}
 	p.Description = description
-	if err := hold(module, digest); err != nil {
-		_ = compiled.Close(ctx)
-		return nil, err
+	if rt == h.rt {
+		hold(module, digest, h.cache)
+	} else {
+		hold(module, digest, compilations.memory)
 	}
 	return p, nil
 }

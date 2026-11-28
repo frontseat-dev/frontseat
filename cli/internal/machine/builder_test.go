@@ -28,6 +28,9 @@ type started struct {
 	t  *testing.T
 	mu sync.Mutex
 	n  int
+	// compiled is where each daemon started was told to keep compiled
+	// plugins.
+	compiled []string
 	// busy is whether the daemons have something in hand.
 	busy atomic.Bool
 }
@@ -38,6 +41,7 @@ const closing = 50 * time.Millisecond
 func (s *started) start(o life.Options) (*begun, error) {
 	s.mu.Lock()
 	s.n++
+	s.compiled = append(s.compiled, o.Compiled)
 	s.mu.Unlock()
 	over, failed := make(chan struct{}), new(atomic.Pointer[error])
 	child := &begun{ended: over, failed: func() bool { return failed.Load() != nil }, printed: func() string {
@@ -141,6 +145,32 @@ func TestTheBuildDaemonOfADirectoryIsStartedOnceAndFoundAgain(t *testing.T) {
 	}
 	if first.Log != filepath.Join(where.of(here), "daemon.log") || again.Log != first.Log || other.Log != filepath.Join(where.of(beside), "daemon.log") {
 		t.Errorf("what the daemons printed is said to be in %q, %q and %q; want each in its own state directory, beneath %s", first.Log, again.Log, other.Log, where.state)
+	}
+}
+
+// Every daemon the command line starts is told one directory to keep
+// compiled plugins in, beside their state directories and none of them,
+// so that each plugin is compiled once for the user and not once for
+// each directory built. The control: the daemons are of two directories.
+func TestEveryBuildDaemonIsToldTheOneDirectoryOfCompiledPlugins(t *testing.T) {
+	s, _ := settled(t)
+	for _, directory := range []string{t.TempDir(), t.TempDir()} {
+		if _, err := BuildDaemon(t.Context(), directory, false); err != nil {
+			t.Fatal(err)
+		}
+	}
+	where, err := keeps(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := filepath.Join(where.state, "compiled")
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if len(s.compiled) != 2 || s.compiled[0] != want || s.compiled[1] != want {
+		t.Fatalf("the daemons were told %q; want each told %s", s.compiled, want)
+	}
+	if filepath.Base(where.of(t.TempDir())) == "compiled" {
+		t.Fatal("a directory's daemon would keep its state where compiled plugins are")
 	}
 }
 

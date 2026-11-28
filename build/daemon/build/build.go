@@ -74,8 +74,12 @@ type Config struct {
 	Mounted   bool
 	// System is the version control system the directory's repositories
 	// are read with.
-	System    directory.System
-	Builds    string
+	System directory.System
+	Builds string
+	// Compiled is the directory compiled plugins are kept in, shared by
+	// every daemon of the user who starts them (pluginhost.Compiled);
+	// none, each daemon compiles its plugins as it starts.
+	Compiled  string
 	Plugins   [][]byte
 	Grid      Grid
 	Platform  map[string]string
@@ -119,6 +123,13 @@ func New(ctx context.Context, config Config) (*Daemon, error) {
 			return nil, err
 		}
 		downloads, closeDownloads = client, func() { _ = client.Close() }
+	}
+	// Compiled plugins kept on disk only ever save time: where they
+	// cannot be, the daemon says why and compiles them in memory.
+	if config.Compiled != "" {
+		if err := pluginhost.Compiled(config.Compiled); err != nil && config.Log != nil {
+			fmt.Fprintf(config.Log, "compiled plugins are not kept on disk, and are compiled as the daemon starts: %v\n", err)
+		}
 	}
 	host, err := pluginhost.New(ctx)
 	if err != nil {

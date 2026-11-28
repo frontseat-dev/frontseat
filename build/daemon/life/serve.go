@@ -48,6 +48,9 @@ type Options struct {
 	Directory, State string
 	// Settings is the file it is told its plugins and its grid in.
 	Settings string
+	// Compiled is the directory it keeps compiled plugins in, which every
+	// daemon its user starts shares; none, it keeps them in memory alone.
+	Compiled string
 	// Version is the program the command that starts it took it for
 	// (Made.Program): a daemon that finds itself another does not start.
 	// Empty, nothing is held to it.
@@ -116,7 +119,7 @@ func Serve(ctx context.Context, o Options) error {
 		return err
 	}
 	ctx = apart(signals.Context(ctx))
-	daemon, err := build.New(ctx, build.Config{Workspace: directory, System: chosen.System(), Plugins: read.Modules, Grid: read.Settings.Grid, Platform: read.Settings.Platform, Telemetry: signals, Builds: filepath.Join(o.State, Builds), Files: filepath.Join(o.State, Files), Program: read.Made.Program, Given: read.Settings.Given, Mounted: alone, Log: os.Stderr, Made: made})
+	daemon, err := build.New(ctx, build.Config{Workspace: directory, System: chosen.System(), Plugins: read.Modules, Grid: read.Settings.Grid, Platform: read.Settings.Platform, Telemetry: signals, Builds: filepath.Join(o.State, Builds), Compiled: o.Compiled, Files: filepath.Join(o.State, Files), Program: read.Made.Program, Given: read.Settings.Given, Mounted: alone, Log: os.Stderr, Made: made})
 	if err != nil {
 		return err
 	}
@@ -337,6 +340,14 @@ func absolute(o Options) (Options, error) {
 			return Options{}, err
 		}
 		*path = whole
+	}
+	// None is none, and never the directory it was started in.
+	if o.Compiled != "" {
+		whole, err := filepath.Abs(o.Compiled)
+		if err != nil {
+			return Options{}, err
+		}
+		o.Compiled = whole
 	}
 	return o, nil
 }
