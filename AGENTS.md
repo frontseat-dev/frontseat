@@ -605,7 +605,7 @@ the change that fixes it.
   (`grid.instance`), then in each other instance it reads, in order
   (`grid.reads`, `docs/build-settings.md`), and runs it only where none
   kept it, and then under its own instance alone: on tenant zero main
-  is `frontseat/p` and reads `frontseat/b`, the instance of branches
+  is `frontseat/main` and reads `frontseat/b`, the instance of branches
   and workspaces, neither a prefix of the other. What another instance
   kept is a result a worker wrote, as every result is, and is trusted
   as one of its own instance's: the owner's accepted trust. It is used
@@ -663,14 +663,28 @@ the change that fixes it.
   branch code; only the release CI makes from main runs them on main's
   workers. That main's misses run on main's workers alone is the grid's
   configuration (frontseat-enterprise's, on tenant zero), and nothing
-  here proves it. The CI job tells a protected ref's build
-  `frontseat/p` reading `frontseat/b`, and any other's `frontseat/b`
-  reading `frontseat/p` (`.github/workflows/frontseat-job.yml`).
-  *Target*: main's worker pool registered at `frontseat/p` alone, its
-  grid socket held to it, and the action cache main reads written by
-  no worker that ran branch code (frontseat-enterprise's second and
-  third steps); the local stack is one instance, its slots shared by
-  every instance.
+  here proves it. There main's pool of workers is registered at
+  `frontseat/main` alone and its grid socket held to it, the branches'
+  at `frontseat/b`, and an instance's lookup reads what was kept under
+  it alone, never under a parent. The CI job tells a protected ref's
+  build `frontseat/main` reading `frontseat/b`, and any other's
+  `frontseat/b` reading `frontseat/main`
+  (`.github/workflows/frontseat-job.yml`). Not held there: what keeps
+  an action of a branch off `frontseat/main` is that the grid asks who
+  executes, and where it does not ask anyone in the grid's network may
+  execute there and write main's action cache; a protected ref is one
+  of any repository of the organisation, whose actions run on main's
+  workers too; both pools' workers present one certificate of the
+  grid's own, so an action that escaped its runner sandbox could
+  execute under `frontseat/main`, take main's actions as a worker and
+  write main's action cache; waiting on or cancelling an operation is
+  held to no instance, so one that knows an operation's name reads its
+  answer; and main's own results were written by main's workers alone
+  only from the cutover, and only as far as nothing executed under
+  `frontseat/main` before it: the shared pool of before held to no
+  instance could have, and the action cache was not emptied, but the
+  grid's traces of before were looked through for it. The local stack is one instance, its slots shared by every
+  instance.
 
 ## Entities
 
