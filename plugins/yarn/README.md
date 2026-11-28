@@ -100,8 +100,9 @@ refused as `invalid-lock`; one Yarn fetches on some platforms only is the
 exception, since Yarn records no checksum for it: it is fetched from npm's
 registry by its name and version, which npm never lets be published twice,
 and nothing checks its bytes; a `packageManager` naming another than the
-pinned Yarn as `invalid-package-manager`; and an unpinned Yarn as
-`unpinned-tool`. A refusal of the lock names its line and never repeats
+pinned Yarn as `invalid-package-manager`; a pinned Yarn before 4.18.1,
+whose fetch can crash retrying a request that has already settled (Yarn's
+#7249), as `unsupported-yarn`; and an unpinned Yarn as `unpinned-tool`. A refusal of the lock names its line and never repeats
 what is written there.
 
 The lock is read line by line, in the layout Yarn writes, rather than as a
