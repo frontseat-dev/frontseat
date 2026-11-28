@@ -230,18 +230,23 @@ description = "Every test, against the local stack: start it first (mise start)"
 # The sandbox specs run over the local stack's OpenShell gateway, which
 # makes every workspace's sandbox.
 #
-# Independent build acceptance tests use t.Parallel with six tests admitted
-# at once. The self-build and the process-environment tests stay
-# sequential. Go waits for the sequential tests before starting their
-# parallel siblings. This admission bound belongs to one test process;
-# independent grid shards still require isolated infrastructure.
+# Independent build acceptance tests use t.Parallel with twelve tests
+# admitted at once, the self-build among them, beside the rest: measured
+# 2026-11-28 on the local stack, warm, on an Apple M-series laptop of 16
+# cores, specs/build took 798 s with six at once and the self-build alone
+# before them, 522 s with twelve and it beside them, and 542 s with
+# sixteen, the grid's eight slots and the machine full. The tests that
+# observe builds through one collector stay sequential. Go waits for the
+# sequential tests before starting their parallel siblings. This admission
+# bound belongs to one test process; independent grid shards still require
+# isolated infrastructure.
 run = [
   "go run ./specs/cmd/gate test -except specs/build -- -count=1 -race -v -timeout 45m",
   # What the comparisons leave behind: their fixture's sandbox is seen gone
   # at the real gateway. Asked for by a flag, as the comparisons are, so
   # that `check`, which runs the same package, makes no sandbox.
   "go run ./specs/cmd/gate go-test -count=1 -race -v -timeout 20m -run '^TestFrontseatComparison' ./specs/compare/ -args -cleanup",
-  "go run ./specs/cmd/gate test -only specs/build -- -count=1 -race -v -parallel 6 -timeout 45m",
+  "go run ./specs/cmd/gate test -only specs/build -- -count=1 -race -v -parallel 12 -timeout 45m",
 ]
 
 # The documentation Backstage's TechDocs shows (mkdocs.yml, docs/). The

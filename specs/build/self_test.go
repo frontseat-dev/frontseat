@@ -30,6 +30,7 @@ import (
 // on. Its tests are run by the spec after this one.
 // Frontseat builds itself / builds this repository's modules and API from its committed configuration.
 func TestBuildsThisRepositorySModulesAndAPIFromItsCommittedConfiguration(t *testing.T) {
+	t.Parallel()
 	spec := newScenario(t)
 
 	workspace := spec.ownCheckout()
@@ -63,6 +64,7 @@ func TestBuildsThisRepositorySModulesAndAPIFromItsCommittedConfiguration(t *test
 // catalog file tells it there is none); `mise run test` runs it.
 // Frontseat builds itself / runs this repository's own tests on the grid.
 func TestRunsThisRepositorysOwnTestsOnTheGrid(t *testing.T) {
+	t.Parallel()
 	spec := newScenario(t)
 
 	workspace := spec.ownCheckout()
