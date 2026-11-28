@@ -81,6 +81,19 @@ func Start(ctx context.Context, name string, attrs ...attribute.KeyValue) (conte
 	return ctx, noop.Span{}
 }
 
+// Lapse records a span of what another said took from one time to another,
+// beneath the span ctx carries: a part of work done elsewhere, whose times
+// that work reported. Nothing is recorded where either time is unknown or
+// it ends before it begins.
+func Lapse(ctx context.Context, name string, from, to time.Time) {
+	tracer := Tracer(ctx)
+	if tracer == nil || from.IsZero() || to.IsZero() || to.Before(from) {
+		return
+	}
+	_, span := tracer.Start(ctx, name, trace.WithTimestamp(from))
+	span.End(trace.WithTimestamp(to))
+}
+
 // Tracer returns the explicitly supplied tracer, or the recording parent's
 // tracer for callers that supply their own SDK. Nil means tracing is disabled.
 func Tracer(ctx context.Context) trace.Tracer {

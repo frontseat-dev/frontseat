@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"github.com/frontseat-dev/frontseat/core/telemetry"
+	"github.com/frontseat-dev/frontseat/testsupport/testtelemetry"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	"path"
 	"strconv"
 	"strings"
@@ -193,26 +193,10 @@ func TestWhatIsHeldDoesNotSitWhereAnInputDoes(t *testing.T) {
 // it costs to ask.
 func TestAnActionTheGridKeptSendsNothingAndRunsNothing(t *testing.T) {
 	grid := dial(t)
-	recorder := tracetest.NewSpanRecorder()
-	provider := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder))
-	defer func() { _ = provider.Shutdown(context.Background()) }()
 	dir := root(t, map[string]string{"word.txt": time.Now().String()})
 	action := shell(dir, "cat word.txt")
 	action.Inputs = []string{"word.txt"}
-	did := func() map[string]sdktrace.ReadOnlySpan {
-		t.Helper()
-		before := len(recorder.Ended())
-		ctx, run := telemetry.Root(context.Background(), provider, "run")
-		if _, err := grid.Execute(ctx, action); err != nil {
-			t.Fatal(err)
-		}
-		telemetry.End(run, nil)
-		named := map[string]sdktrace.ReadOnlySpan{}
-		for _, span := range recorder.Ended()[before:] {
-			named[span.Name()] = span
-		}
-		return named
-	}
+	did := traced(t, grid, action)
 	missing := func(span sdktrace.ReadOnlySpan) int64 {
 		for _, attribute := range span.Attributes() {
 			if attribute.Key == "missing" {
@@ -233,6 +217,46 @@ func TestAnActionTheGridKeptSendsNothingAndRunsNothing(t *testing.T) {
 	}
 	if sent := missing(second["grid.send"]); sent != 0 {
 		t.Errorf("the second time %d blobs were sent, want none", sent)
+	}
+}
+
+// How a run went on the grid is what its worker says, a span for each
+// part of it beneath the run: waiting for a worker, fetching its inputs,
+// running and sending back what it left, in that order and within the
+// run. The control: the same action answered from what the grid kept has
+// none, since it was run for another.
+func TestARunsPartsOnTheGridAreWhatItsWorkerSays(t *testing.T) {
+	grid := dial(t)
+	action := shell(root(t, map[string]string{"word.txt": time.Now().String()}), "cat word.txt")
+	action.Inputs = []string{"word.txt"}
+	parts := []string{"grid.queued", "grid.fetch", "grid.execute", "grid.upload"}
+	did := traced(t, grid, action)
+
+	ran, kept := did(), did()
+
+	run := ran["grid.run"]
+	if run == nil {
+		t.Fatal("the first time it was not run, so this test proves nothing")
+	}
+	var last time.Time
+	for _, name := range parts {
+		part := ran[name]
+		if part == nil {
+			t.Errorf("the run has no %s", name)
+			continue
+		}
+		if part.Parent().SpanID() != run.SpanContext().SpanID() {
+			t.Errorf("%s is not beneath the run", name)
+		}
+		if part.StartTime().Before(last) || part.EndTime().Before(part.StartTime()) {
+			t.Errorf("%s runs from %v to %v, after a part that ended at %v", name, part.StartTime(), part.EndTime(), last)
+		}
+		last = part.EndTime()
+	}
+	for _, name := range parts {
+		if kept[name] != nil {
+			t.Errorf("answered from what was kept, it has a %s", name)
+		}
 	}
 }
 
@@ -329,5 +353,26 @@ func TestAnActionHandedWhatTheGridLetGoSaysSo(t *testing.T) {
 				t.Errorf("exit %d, stderr %q, err %v; want it said that the grid keeps nothing under what the action was handed", result.ExitCode, result.Stderr, err)
 			}
 		})
+	}
+}
+
+// traced asks the grid to run an action each time it is called, in a
+// trace of its own, and returns the spans of that run by name.
+func traced(t *testing.T, grid confining, action exec.Action) func() map[string]sdktrace.ReadOnlySpan {
+	t.Helper()
+	provider, recorder := testtelemetry.Recorder(t)
+	return func() map[string]sdktrace.ReadOnlySpan {
+		t.Helper()
+		before := len(recorder.Ended())
+		ctx, run := telemetry.Root(context.Background(), provider, "run")
+		if _, err := grid.Execute(ctx, action); err != nil {
+			t.Fatal(err)
+		}
+		telemetry.End(run, nil)
+		named := map[string]sdktrace.ReadOnlySpan{}
+		for _, span := range recorder.Ended()[before:] {
+			named[span.Name()] = span
+		}
+		return named
 	}
 }

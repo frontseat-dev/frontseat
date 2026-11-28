@@ -12,6 +12,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"io"
 	"os"
 	"path"
@@ -323,6 +324,9 @@ func (g *Grid) Execute(ctx context.Context, action exec.Action) (result exec.Res
 	if done == nil {
 		running, ran := telemetry.Start(ctx, "grid.run")
 		done, cached, err = g.run(running, action.Label, actionEntry.Digest, action.Fresh)
+		if err == nil && !cached {
+			parts(running, done.GetExecutionMetadata())
+		}
 		telemetry.End(ran, err)
 		if err != nil {
 			return exec.Result{}, err
@@ -351,6 +355,25 @@ func (g *Grid) Execute(ctx context.Context, action exec.Action) (result exec.Res
 	}
 	result.Duration = time.Since(start)
 	return result, nil
+}
+
+// parts records how a run went on the grid, as its worker says, a span
+// for each part of it beneath the run: waiting for a worker once queued,
+// fetching its inputs, running it and sending back what it left. Where a
+// worker said none of it, nothing is recorded.
+func parts(ctx context.Context, ran *repb.ExecutedActionMetadata) {
+	telemetry.Lapse(ctx, "grid.queued", when(ran.GetQueuedTimestamp()), when(ran.GetWorkerStartTimestamp()))
+	telemetry.Lapse(ctx, "grid.fetch", when(ran.GetInputFetchStartTimestamp()), when(ran.GetInputFetchCompletedTimestamp()))
+	telemetry.Lapse(ctx, "grid.execute", when(ran.GetExecutionStartTimestamp()), when(ran.GetExecutionCompletedTimestamp()))
+	telemetry.Lapse(ctx, "grid.upload", when(ran.GetOutputUploadStartTimestamp()), when(ran.GetOutputUploadCompletedTimestamp()))
+}
+
+// when is the time a worker said, or none where it said none.
+func when(stamp *timestamppb.Timestamp) time.Time {
+	if !stamp.IsValid() {
+		return time.Time{}
+	}
+	return stamp.AsTime()
 }
 
 // kept is what the grid's cache kept of an action: under the daemon's
