@@ -107,26 +107,27 @@ func Run(t *testing.T, f Fixture) {
 		return
 	}
 	describes(t, plugin, f, f.Source)
-	// The fixture's request, told what matched of src as a host tells
-	// it: of what a failing source fails beside, what it holds.
-	asked := func(ctx context.Context, src pluginhost.Source) *pluginv1.AnalyzeRequest {
+	// The fixture's request, told what matched of listed as a host tells it.
+	asked := func(ctx context.Context, listed pluginhost.Source) *pluginv1.AnalyzeRequest {
 		t.Helper()
-		if failing, ok := src.(failingSource); ok {
-			src = failing.Source
-		}
 		r := proto.Clone(f.Analyze).(*pluginv1.AnalyzeRequest)
-		if err := pluginhost.Matched(ctx, src, plugin.Description.GetInterests(), r); err != nil {
+		if err := pluginhost.Matched(ctx, listed, plugin.Description.GetInterests(), r); err != nil {
 			t.Fatal(err)
 		}
 		return r
 	}
-	analyze := func(ctx context.Context, src pluginhost.Source) (*pluginv1.AnalyzeResponse, error) {
+	// analyzeOver asks the plugin over src, told what matched of listed:
+	// the same source, but where src fails what listed holds.
+	analyzeOver := func(ctx context.Context, listed, src pluginhost.Source) (*pluginv1.AnalyzeResponse, error) {
 		answer := new(pluginv1.AnalyzeResponse)
-		_, err := plugin.Call(ctx, src, "Analyze", asked(context.WithoutCancel(ctx), src), answer)
+		_, err := plugin.Call(ctx, src, "Analyze", asked(context.WithoutCancel(ctx), listed), answer)
 		if err == nil {
 			err = pluginhost.CheckAnalysis(f.Name, f.Analyze.GetRoots(), answer)
 		}
 		return answer, err
+	}
+	analyze := func(ctx context.Context, src pluginhost.Source) (*pluginv1.AnalyzeResponse, error) {
+		return analyzeOver(ctx, src, src)
 	}
 	observed := new(pluginv1.AnalyzeResponse)
 	reads, err := plugin.Call(t.Context(), f.Source, "Analyze", asked(t.Context(), f.Source), observed)
@@ -408,7 +409,7 @@ func Run(t *testing.T, f Fixture) {
 	t.Run("failed source operations cannot mean absence", func(t *testing.T) {
 		for _, operation := range f.Reads {
 			failed := errors.New("fixture source unavailable")
-			_, err := analyze(t.Context(), failingSource{Source: f.Source, operation: operation, err: failed})
+			_, err := analyzeOver(t.Context(), f.Source, failingSource{Source: f.Source, operation: operation, err: failed})
 			if !errors.Is(err, failed) {
 				t.Fatalf("%+v failure was lost: %v", operation, err)
 			}
