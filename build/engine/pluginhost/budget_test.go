@@ -150,13 +150,6 @@ func TestBudgetOfLoadingAPlugin(t *testing.T) {
 	testbudget.Hold(t, testbudget.Budget{Time: 10 * time.Millisecond, Allocs: 9200}, BenchmarkLoad)
 }
 
-// Measured 2026-11-28 with `go run ./specs/cmd/gate go-test -count=3 -run
-// '^$' -bench 'Benchmark(Analyze|Load)$' -benchmem ./build/engine/pluginhost`,
-// once a module's linear memory came to be reserved from the kernel and not
-// grown on the heap (allocate, as frontseat-archive did in f85d3109):
-// analysis took 151–153 µs, 105 KB and 791 allocations, where it had taken
-// 176–186 µs, 1.22 MB and 790; loading 0.79 MB, where it took 3.0 MB.
-// Neither allowance is raised.
 func TestBudgetOfAnalyzingAModule(t *testing.T) {
 	testbudget.Hold(t, testbudget.Budget{Time: 1500 * time.Microsecond, Allocs: 800}, BenchmarkAnalyze)
 }

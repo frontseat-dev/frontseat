@@ -17,7 +17,6 @@ import (
 	pluginv1 "github.com/frontseat-dev/frontseat/build/engine/pluginapi/frontseat/plugin/v1alpha1"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
-	"github.com/tetratelabs/wazero/experimental"
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
 	"google.golang.org/protobuf/proto"
 )
@@ -261,9 +260,6 @@ func instanceConfig(compiled wazero.CompiledModule) wazero.ModuleConfig {
 // nothing in it of any call before. What the instance prints to
 // standard error is written to stderr.
 func (p *Plugin) instantiate(ctx context.Context, stderr io.Writer) (api.Module, error) {
-	// Its linear memory is reserved from the kernel, not grown on the
-	// heap (allocate): a call's instance is made and let go of each time.
-	ctx = experimental.WithMemoryAllocator(ctx, experimental.MemoryAllocatorFunc(allocate))
 	return p.rt.InstantiateModule(ctx, p.compiled, p.config.WithStderr(stderr))
 }
 

@@ -12,8 +12,8 @@ require (
 	github.com/frontseat-dev/frontseat/common/runner v0.0.0
 	github.com/frontseat-dev/frontseat/common/vcs v0.0.0
 	github.com/frontseat-dev/frontseat/core v0.0.0
-	github.com/frontseat-dev/frontseat/sdk/go v0.0.0
 	github.com/frontseat-dev/frontseat/stack v0.0.0
+	github.com/frontseat-dev/frontseat/sdk/go v0.0.0
 	github.com/frontseat-dev/frontseat/testsupport v0.0.0
 	github.com/go-git/go-git/v5 v5.19.3
 	github.com/google/renameio/v2 v2.0.2
@@ -66,7 +66,7 @@ require (
 	go.opentelemetry.io/proto/otlp v1.11.1 // indirect
 	golang.org/x/net v0.60.0 // indirect
 	golang.org/x/oauth2 v0.38.0 // indirect
-	golang.org/x/sys v0.49.0
+	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20261104224025-d1e00e9f33ab // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
