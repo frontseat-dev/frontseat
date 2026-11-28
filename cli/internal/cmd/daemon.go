@@ -39,6 +39,7 @@ func init() {
 	daemonCmd.Flags().StringVar(&daemonOptions.Directory, "directory", "", "the directory it builds")
 	daemonCmd.Flags().StringVar(&daemonOptions.State, "state", "", "its state directory, which is that directory's alone")
 	daemonCmd.Flags().StringVar(&daemonOptions.Settings, "settings", "", "the file it is told its plugins and its grid in")
+	daemonCmd.Flags().StringVar(&daemonOptions.Compiled, "compiled", "", "the directory it keeps compiled plugins in, its user's alone, which every daemon of that user shares")
 	daemonCmd.Flags().StringVar(&daemonOptions.Version, "version", "", "the program it is, as the command that starts it says")
 	daemonCmd.Flags().DurationVar(&daemonIdle, "idle", 0, "how long it has nothing to do before it ends itself (default: three hours)")
 	rootCmd.AddCommand(daemonCmd)

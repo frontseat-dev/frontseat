@@ -33,25 +33,29 @@ const memoryLimitPages = 4096
 // Host loads plugins.
 type Host struct {
 	rt wazero.Runtime
-}
-
-// Wazero 1.12 initializes its process-wide version cache during runtime
-// construction without synchronization (internal/version.GetWazeroVersion).
-// This package owns every runtime; serialize construction, while each host's
-// compilation and execution remain independent.
-var runtimeCreation sync.Mutex
-
-func newRuntime(ctx context.Context) wazero.Runtime {
-	runtimeCreation.Lock()
-	defer runtimeCreation.Unlock()
-	return wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfig().
-		WithMemoryLimitPages(memoryLimitPages).
-		WithCloseOnContextDone(true))
+	// cache is what rt shares of what is compiled.
+	cache wazero.CompilationCache
+	// memory is a runtime that compiles in memory alone, made the first
+	// time the compiled code on disk could not be used: a module is then
+	// loaded on it.
+	mu     sync.Mutex
+	memory wazero.Runtime
 }
 
 // New returns a host. Close it when done.
 func New(ctx context.Context) (*Host, error) {
-	rt := newRuntime(ctx)
+	cache := shared()
+	rt, err := hostRuntime(ctx, cache)
+	if err != nil {
+		return nil, err
+	}
+	return &Host{rt: rt, cache: cache}, nil
+}
+
+// hostRuntime is a runtime a host loads plugins on, sharing what cache
+// says is compiled, with what a plugin imports.
+func hostRuntime(ctx context.Context, cache wazero.CompilationCache) (wazero.Runtime, error) {
+	rt := newRuntime(ctx, cache)
 	if _, err := wasi_snapshot_preview1.Instantiate(ctx, rt); err != nil {
 		_ = rt.Close(ctx)
 		return nil, fmt.Errorf("pluginhost: %w", err)
@@ -60,11 +64,19 @@ func New(ctx context.Context) (*Host, error) {
 		_ = rt.Close(ctx)
 		return nil, fmt.Errorf("pluginhost: %w", err)
 	}
-	return &Host{rt: rt}, nil
+	return rt, nil
 }
 
 // Close releases the host and every plugin it loaded.
-func (h *Host) Close(ctx context.Context) error { return h.rt.Close(ctx) }
+func (h *Host) Close(ctx context.Context) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	err := h.rt.Close(ctx)
+	if h.memory != nil {
+		err = errors.Join(err, h.memory.Close(ctx))
+	}
+	return err
+}
 
 // Plugin is a loaded module.
 type Plugin struct {
@@ -129,13 +141,63 @@ func conforms(compiled wazero.CompiledModule) error {
 	return nil
 }
 
+// LoadAll loads modules at once, each as Load does, and returns them in
+// the order given, whichever is loaded first: a later one of a name is
+// the one asked (Named). One that does not load fails them all, by its own
+// refusal, the first given of those that failed; the others are stopped,
+// and what did load is let go of.
+func (h *Host) LoadAll(ctx context.Context, modules [][]byte) ([]*Plugin, error) {
+	ctx, stop := context.WithCancel(ctx)
+	defer stop()
+	loaded := make([]*Plugin, len(modules))
+	failures := make([]error, len(modules))
+	// stopped is whether a failure is the stop and nothing else, a module
+	// closed or a compile ended as the others were stopped: it is never
+	// the reason given where one is not.
+	stopped := make([]bool, len(modules))
+	var loading sync.WaitGroup
+	for i, module := range modules {
+		loading.Go(func() {
+			if loaded[i], failures[i] = h.Load(ctx, module); failures[i] != nil {
+				stopped[i] = errors.Is(failures[i], context.Canceled)
+				stop()
+			}
+		})
+	}
+	loading.Wait()
+	if err := firstOf(failures, stopped); err != nil {
+		for _, plugin := range loaded {
+			if plugin != nil {
+				_ = plugin.Close(ctx)
+			}
+		}
+		return nil, err
+	}
+	return loaded, nil
+}
+
+// firstOf is the first of several errors that is not a stop, or, where
+// each is, the first.
+func firstOf(errs []error, stopped []bool) error {
+	var first error
+	for i, err := range errs {
+		if err != nil && !stopped[i] {
+			return err
+		}
+		if first == nil {
+			first = err
+		}
+	}
+	return first
+}
+
 // Load compiles a module, holds it to the ABI and asks it what it is. A
 // module that does not export the ABI, or speaks one the host does not
 // load, is refused.
 func (h *Host) Load(ctx context.Context, module []byte) (*Plugin, error) {
 	sum := sha256.Sum256(module)
 	digest := hex.EncodeToString(sum[:])
-	compiled, err := h.rt.CompileModule(ctx, module)
+	rt, compiled, err := h.compile(ctx, module)
 	if err != nil {
 		return nil, fmt.Errorf("pluginhost: compiling %s: %w", digest[:12], err)
 	}
@@ -143,7 +205,7 @@ func (h *Host) Load(ctx context.Context, module []byte) (*Plugin, error) {
 		_ = compiled.Close(ctx)
 		return nil, fmt.Errorf("pluginhost: %s is not a plugin: %w", digest[:12], err)
 	}
-	p := &Plugin{Digest: digest, rt: h.rt, compiled: compiled, config: instanceConfig(compiled)}
+	p := &Plugin{Digest: digest, rt: rt, compiled: compiled, config: instanceConfig(compiled)}
 	instance, err := p.instantiate(ctx, io.Discard)
 	if err != nil {
 		_ = compiled.Close(ctx)
@@ -170,6 +232,11 @@ func (h *Host) Load(ctx context.Context, module []byte) (*Plugin, error) {
 		return nil, fmt.Errorf("pluginhost: %s: %w", digest[:12], err)
 	}
 	p.Description = description
+	if rt == h.rt {
+		hold(module, digest, h.cache)
+	} else {
+		hold(module, digest, compilations.memory)
+	}
 	return p, nil
 }
 

@@ -467,13 +467,23 @@ the change that fixes it.
   directory: `frontseat-server --state`, `frontseat-runner --state`, and
   the command line's `$XDG_CONFIG_HOME/frontseat` (else `~/.config/frontseat`) on
   every system, where a build daemon it started keeps its own beneath
-  `build/`, in a directory named for the directory it builds. A
+  `build/`, in a directory named for the directory it builds, and every
+  daemon of its user keeps the plugins it compiled in a directory
+  `compiled` beside `build/`, that only its user may write
+  (`pluginhost.Compiled`): a plugin is compiled once on a machine, and
+  what cannot be read or written there is compiled in memory again,
+  never a failure, after which that daemon compiles in memory for the
+  rest of its life. Not held: that a file another user owns is removed
+  (no test is another user), that two daemons starting at once keep
+  what each other keeps, and that a directory refused is said in the
+  daemon's log. A
   workspace's sandbox has no such root: what is kept there is beneath
   `/var/lib/frontseat`, each at one path whatever any program is told
   (`core/ports`): the sandbox's one lock (`Lock`), which its supervisor
   holds, the build settings the supervisor writes (`Settings`), and,
   beneath `Builds`, the state of each build daemon the command line
-  starts there, named for the directory it builds as it is outside.
+  starts there, named for the directory it builds as it is outside, and,
+  beside `Builds`, the plugins they compiled (`compiled`).
   Not held: all of it is the sandbox's user's to write. The settings
   the supervisor writes when it starts hold against an accident, and
   not against a process in the box, which may write others or start a

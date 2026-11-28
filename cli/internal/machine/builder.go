@@ -171,7 +171,7 @@ func BuildDaemon(ctx context.Context, directory string, inside bool) (Builder, e
 		case child != nil:
 			return Builder{}, fmt.Errorf("the build daemon ended as it was started: %s (all it said is in %s)", child.printed(), filepath.Join(state, logFile))
 		default:
-			if child, err = spawn(life.Options{Directory: directory, State: state, Settings: settings, Version: want.Version}); err != nil {
+			if child, err = spawn(life.Options{Directory: directory, State: state, Settings: settings, Compiled: where.compiled(), Version: want.Version}); err != nil {
 				return Builder{}, fmt.Errorf("starting the build daemon: %w", err)
 			}
 		}
@@ -231,6 +231,11 @@ const (
 	logLimit = 4 << 20
 )
 
+// compiled is the directory every build daemon kept here keeps compiled
+// plugins in: beside the directory of their state directories and not
+// in it, which holds those alone and is read so (a box holds one).
+func (k kept) compiled() string { return filepath.Join(filepath.Dir(k.state), "compiled") }
+
 // of is the state directory of a directory's build daemon: beneath the
 // one place they are kept, named by the directory.
 func (k kept) of(directory string) string {
@@ -284,7 +289,7 @@ func detached(o life.Options) (*begun, error) {
 		return nil, err
 	}
 	defer said.Close()
-	command := exec.Command(self, "daemon", "--directory", o.Directory, "--state", o.State, "--settings", o.Settings, "--version", o.Version)
+	command := exec.Command(self, "daemon", "--directory", o.Directory, "--state", o.State, "--settings", o.Settings, "--compiled", o.Compiled, "--version", o.Version)
 	command.Dir = o.Directory
 	command.Stdout, command.Stderr = said, said
 	command.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
