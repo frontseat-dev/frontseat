@@ -12,7 +12,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"google.golang.org/protobuf/types/known/timestamppb"
 	"io"
 	"os"
 	"path"
@@ -38,6 +37,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/frontseat-dev/frontseat/build/engine/exec"
 	"github.com/frontseat-dev/frontseat/build/engine/exec/access"
@@ -324,9 +324,6 @@ func (g *Grid) Execute(ctx context.Context, action exec.Action) (result exec.Res
 	if done == nil {
 		running, ran := telemetry.Start(ctx, "grid.run")
 		done, cached, err = g.run(running, action.Label, actionEntry.Digest, action.Fresh)
-		if err == nil && !cached {
-			parts(running, done.GetExecutionMetadata())
-		}
 		telemetry.End(ran, err)
 		if err != nil {
 			return exec.Result{}, err
@@ -357,10 +354,16 @@ func (g *Grid) Execute(ctx context.Context, action exec.Action) (result exec.Res
 	return result, nil
 }
 
-// parts records how a run went on the grid, as its worker says, a span
-// for each part of it beneath the run: waiting for a worker once queued,
-// fetching its inputs, running it and sending back what it left. Where a
-// worker said none of it, nothing is recorded.
+// parts records how a run went on the grid, as the grid says, a span for
+// each part of it beneath the run: waiting for a worker once queued,
+// fetching its inputs, running it and sending back what it left. The
+// times are the grid's (the scheduler's and the worker's clocks), not the
+// daemon's, and are recorded as said, never moved: on a grid whose clocks
+// differ from the daemon's, or for a run joined to one already under way,
+// whose queued time is the first asker's, a part may lie outside the run.
+// What falls between the parts (a worker setting up before it fetches,
+// and after it has sent back) is in none. Where the grid said none of
+// it, nothing is recorded.
 func parts(ctx context.Context, ran *repb.ExecutedActionMetadata) {
 	telemetry.Lapse(ctx, "grid.queued", when(ran.GetQueuedTimestamp()), when(ran.GetWorkerStartTimestamp()))
 	telemetry.Lapse(ctx, "grid.fetch", when(ran.GetInputFetchStartTimestamp()), when(ran.GetInputFetchCompletedTimestamp()))
@@ -568,6 +571,11 @@ func (g *Grid) run(ctx context.Context, label string, action digest.Digest, fres
 	response := &repb.ExecuteResponse{}
 	if err := operation.GetResponse().UnmarshalTo(response); err != nil {
 		return nil, false, fmt.Errorf("reapi: %s: the grid's answer: %w", label, err)
+	}
+	// How it went is in the answer whether it ran or failed, where it
+	// was run for this answer and not taken from the grid's cache.
+	if !response.GetCachedResult() {
+		parts(ctx, response.GetResult().GetExecutionMetadata())
 	}
 	if said := status.FromProto(response.GetStatus()); said.Code() != codes.OK {
 		if gone(said) {

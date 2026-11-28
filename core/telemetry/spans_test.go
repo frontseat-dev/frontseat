@@ -13,6 +13,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/frontseat-dev/frontseat/core/telemetry"
+	"github.com/frontseat-dev/frontseat/testsupport/testtelemetry"
 )
 
 // A run nobody traces pays nothing for the spans along its way: they
@@ -114,9 +115,7 @@ func TestWhatWentWrongInASpanIsOneOfAFewKinds(t *testing.T) {
 // carries, at the times that work reported. One whose time is unknown,
 // or that ends before it begins, is no span. The control: the first.
 func TestAPartOfWorkDoneElsewhereIsASpanAtTheTimesItsWorkSaid(t *testing.T) {
-	recorder := tracetest.NewSpanRecorder()
-	provider := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder))
-	defer func() { _ = provider.Shutdown(context.Background()) }()
+	provider, recorder := testtelemetry.Recorder(t)
 	ctx, parent := telemetry.Root(context.Background(), provider, "parent")
 	from := time.Date(2026, 11, 28, 12, 0, 0, 0, time.UTC)
 	to := from.Add(3 * time.Second)

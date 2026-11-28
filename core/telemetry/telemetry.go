@@ -82,9 +82,10 @@ func Start(ctx context.Context, name string, attrs ...attribute.KeyValue) (conte
 }
 
 // Lapse records a span of what another said took from one time to another,
-// beneath the span ctx carries: a part of work done elsewhere, whose times
-// that work reported. Nothing is recorded where either time is unknown or
-// it ends before it begins.
+// beneath the span ctx carries: a part of work done elsewhere, at the
+// times that work reported on its own clock, which are not moved to fit
+// the span above, so it may lie outside it. Nothing is recorded where
+// either time is unknown or it ends before it begins.
 func Lapse(ctx context.Context, name string, from, to time.Time) {
 	tracer := Tracer(ctx)
 	if tracer == nil || from.IsZero() || to.IsZero() || to.Before(from) {

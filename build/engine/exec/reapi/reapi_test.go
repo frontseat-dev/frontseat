@@ -222,9 +222,11 @@ func TestAnActionTheGridKeptSendsNothingAndRunsNothing(t *testing.T) {
 
 // How a run went on the grid is what its worker says, a span for each
 // part of it beneath the run: waiting for a worker, fetching its inputs,
-// running and sending back what it left, in that order and within the
-// run. The control: the same action answered from what the grid kept has
-// none, since it was run for another.
+// running and sending back what it left, in that order. Its times are the
+// grid's clocks, which on another machine may differ from the daemon's,
+// so where they lie against the run is not held. The control: the same
+// action answered from what the grid kept has none, since it was run for
+// another.
 func TestARunsPartsOnTheGridAreWhatItsWorkerSays(t *testing.T) {
 	grid := dial(t)
 	action := shell(root(t, map[string]string{"word.txt": time.Now().String()}), "cat word.txt")
@@ -358,21 +360,52 @@ func TestAnActionHandedWhatTheGridLetGoSaysSo(t *testing.T) {
 
 // traced asks the grid to run an action each time it is called, in a
 // trace of its own, and returns the spans of that run by name.
-func traced(t *testing.T, grid confining, action exec.Action) func() map[string]sdktrace.ReadOnlySpan {
+func traced(t *testing.T, grid executing, action exec.Action) func() map[string]sdktrace.ReadOnlySpan {
 	t.Helper()
 	provider, recorder := testtelemetry.Recorder(t)
 	return func() map[string]sdktrace.ReadOnlySpan {
 		t.Helper()
 		before := len(recorder.Ended())
 		ctx, run := telemetry.Root(context.Background(), provider, "run")
-		if _, err := grid.Execute(ctx, action); err != nil {
-			t.Fatal(err)
-		}
+		_, _ = grid.Execute(ctx, action)
 		telemetry.End(run, nil)
 		named := map[string]sdktrace.ReadOnlySpan{}
 		for _, span := range recorder.Ended()[before:] {
 			named[span.Name()] = span
 		}
 		return named
+	}
+}
+
+// executing is a grid an action is run on.
+type executing interface {
+	Execute(context.Context, exec.Action) (exec.Result, error)
+}
+
+// How a run went is recorded where it failed too, and not where the grid
+// answered it from its cache, though the answer says how it went when it
+// was run for another. The control: the same grid answering a run.
+func TestARunsPartsAreRecordedWhereItFailedAndNotWhereTheGridAnsweredFromItsCache(t *testing.T) {
+	parts := []string{"grid.queued", "grid.fetch", "grid.execute", "grid.upload"}
+	for _, c := range []struct {
+		name  string
+		grid  *reapitest.Keeping
+		parts bool
+	}{
+		{"run", &reapitest.Keeping{}, true},
+		{"failed", &reapitest.Keeping{Failing: true}, true},
+		{"from its cache", &reapitest.Keeping{Cached: true}, false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			did := traced(t, served(t, c.grid)("frontseat/b"), anAction(t))()
+			if did["grid.run"] == nil {
+				t.Fatal("it was not run, so this proves nothing")
+			}
+			for _, name := range parts {
+				if (did[name] != nil) != c.parts {
+					t.Errorf("%s recorded: %v, want %v", name, did[name] != nil, c.parts)
+				}
+			}
+		})
 	}
 }
