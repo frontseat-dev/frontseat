@@ -287,11 +287,15 @@ func shared() wazero.CompilationCache {
 // compiling the largest plugin (backstage, 1.1 MB) took 348–384 ms with
 // one, 162–186 ms with two and 88–105 ms with four, and no less with
 // sixteen, measured 2026-11-28 on an Apple M-series laptop of 16 cores.
+// A daemon loads its plugins at once (LoadAll), so a machine of fewer
+// processors is given no more workers than it has: the memory each holds
+// while it compiles is not measured for twelve modules at once.
 const compileWorkers = 4
 
-// compiling is a context a module is compiled under, by compileWorkers.
+// compiling is a context a module is compiled under, by compileWorkers or
+// as many processors as Go runs on, whichever is fewer.
 func compiling(ctx context.Context) context.Context {
-	return experimental.WithCompilationWorkers(ctx, compileWorkers)
+	return experimental.WithCompilationWorkers(ctx, min(compileWorkers, runtime.GOMAXPROCS(0)))
 }
 
 // configuration is how every runtime of the package runs a module, which

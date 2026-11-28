@@ -3,6 +3,8 @@ package pluginhost_test
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"strings"
 	"testing"
 
@@ -49,8 +51,8 @@ func TestPluginsLoadedTogetherAreInTheOrderGiven(t *testing.T) {
 	}
 }
 
-// One module that does not load fails them all, by its own refusal, and
-// what did load is let go of. The control: the same modules without it
+// A module that does not load fails them all, by the refusal of the first
+// given of those that do not. The control: the same modules without them
 // load.
 func TestPluginsLoadedTogetherFailByTheOneThatDoesNotLoad(t *testing.T) {
 	ctx := context.Background()
@@ -63,8 +65,10 @@ func TestPluginsLoadedTogetherFailByTheOneThatDoesNotLoad(t *testing.T) {
 	if _, err := host.LoadAll(ctx, good); err != nil {
 		t.Fatalf("the control: %v", err)
 	}
-	_, err = host.LoadAll(ctx, [][]byte{good[0], []byte("no module"), good[1]})
-	if err == nil || !strings.Contains(err.Error(), "compiling") {
-		t.Fatalf("a module that is none was not refused as one that does not compile: %v", err)
+	first, second := []byte("no module"), []byte("nor this")
+	_, err = host.LoadAll(ctx, [][]byte{good[0], first, good[1], second})
+	digest := sha256.Sum256(first)
+	if err == nil || !strings.Contains(err.Error(), "compiling "+hex.EncodeToString(digest[:])[:12]) {
+		t.Fatalf("not refused by the first given that does not load: %v", err)
 	}
 }

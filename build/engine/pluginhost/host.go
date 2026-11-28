@@ -145,17 +145,28 @@ func conforms(compiled wazero.CompiledModule) error {
 // LoadAll loads modules at once, each as Load does, and returns them in
 // the order given, whichever is loaded first: a later one of a name is
 // the one asked (Named). One that does not load fails them all, by its own
-// refusal, the first given of those that failed, and what did load is let
-// go of.
+// refusal, the first given of those that failed; the others are stopped,
+// and what did load is let go of.
 func (h *Host) LoadAll(ctx context.Context, modules [][]byte) ([]*Plugin, error) {
+	ctx, stop := context.WithCancel(ctx)
+	defer stop()
 	loaded := make([]*Plugin, len(modules))
 	failures := make([]error, len(modules))
+	// stopped is whether a failure is the stop and nothing else, a module
+	// closed or a compile ended as the others were stopped: it is never
+	// the reason given where one is not.
+	stopped := make([]bool, len(modules))
 	var loading sync.WaitGroup
 	for i, module := range modules {
-		loading.Go(func() { loaded[i], failures[i] = h.Load(ctx, module) })
+		loading.Go(func() {
+			if loaded[i], failures[i] = h.Load(ctx, module); failures[i] != nil {
+				stopped[i] = errors.Is(failures[i], context.Canceled)
+				stop()
+			}
+		})
 	}
 	loading.Wait()
-	if err := firstOf(failures); err != nil {
+	if err := firstOf(failures, stopped); err != nil {
 		for _, plugin := range loaded {
 			if plugin != nil {
 				_ = plugin.Close(ctx)
@@ -166,14 +177,19 @@ func (h *Host) LoadAll(ctx context.Context, modules [][]byte) ([]*Plugin, error)
 	return loaded, nil
 }
 
-// firstOf is the first error of several that is one.
-func firstOf(errs []error) error {
-	for _, err := range errs {
-		if err != nil {
+// firstOf is the first of several errors that is not a stop, or, where
+// each is, the first.
+func firstOf(errs []error, stopped []bool) error {
+	var first error
+	for i, err := range errs {
+		if err != nil && !stopped[i] {
 			return err
 		}
+		if first == nil {
+			first = err
+		}
 	}
-	return nil
+	return first
 }
 
 // Load compiles a module, holds it to the ABI and asks it what it is. A

@@ -44,7 +44,7 @@ func BenchmarkCompile(b *testing.B) {
 //
 // Measured 2026-11-28 the same way once a module's functions came to be
 // compiled four at once (compileWorkers): compiling took 19.2–19.9 ms and
-// 72,004–72,320 allocations, 42 MB, where it had taken 57.4–59.5 ms and
+// 72,004–72,817 allocations, 42 MB allocated (not the peak), where it had taken 57.4–59.5 ms and
 // 32,554, 16.9 MB, each worker holding a compiler of its own; two at once
 // took 31.8–32.2 ms and about 50,000. It is paid once on a machine, and
 // once by a job on a runner of its own. The allowance for allocations is
