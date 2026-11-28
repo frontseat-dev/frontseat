@@ -120,13 +120,16 @@ local runner = {
       // What reaches the network from a sandbox goes through OpenShell's
       // proxy, which inspects it with an authority of its own: an action
       // there is told where that authority is, as the sandbox's first
-      // process is. The worker's own, in no action's key.
+      // process is; and Yarn, which names no registry of its own, is told
+      // npm's, the one the sandbox reaches (egress-hosts), as a grid with
+      // a mirror tells it the mirror. The worker's own, in no action's key.
       environmentVariables+: if slot > concurrency - egress then {
         SSL_CERT_FILE: '/run/openshell-supervisor-ca/material/ca-bundle.crt',
         CURL_CA_BUNDLE: '/run/openshell-supervisor-ca/material/ca-bundle.crt',
         GIT_SSL_CAINFO: '/run/openshell-supervisor-ca/material/ca-bundle.crt',
         REQUESTS_CA_BUNDLE: '/run/openshell-supervisor-ca/material/ca-bundle.crt',
         NODE_EXTRA_CA_CERTS: '/run/openshell-supervisor-ca/material/ca.crt',
+        YARN_NPM_REGISTRY_SERVER: 'https://registry.npmjs.org',
       } else {},
       endpoint: { address: 'unix:///var/lib/frontseat/worker/runners/%d' % slot },
       workerId: { host: 'worker', slot: std.toString(slot) },

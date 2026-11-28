@@ -185,6 +185,37 @@ mod tests {
         }
     }
 
+    /// Which registry a fetch reaches is the worker's to say, as it says
+    /// its mirror (Buildbarn sets a worker's variables first, and an
+    /// action's own over them): no action names one. The control: what
+    /// keeps a fetch checked and to itself is still named by the action.
+    #[test]
+    fn a_fetch_leaves_its_registry_to_the_worker() {
+        let plugin = TestPlugin::new(crate::served());
+        let context = plugin.context(Profile::Development).tool("yarn", "4.19.0");
+        let projects: Vec<Project> = plugin
+            .analyze(&TestHost::new(workspace()), &context, &["js"])
+            .projects()
+            .into_iter()
+            .collect();
+        for action in &projects[0].actions {
+            let environment = &action.command.as_ref().unwrap().environment;
+            assert!(
+                !environment.contains_key("YARN_NPM_REGISTRY_SERVER"),
+                "{}",
+                action.name
+            );
+            assert_eq!(
+                environment
+                    .get("YARN_CHECKSUM_BEHAVIOR")
+                    .map(String::as_str),
+                Some("throw"),
+                "{}",
+                action.name
+            );
+        }
+    }
+
     /// What Yarn reads and the plugin does not build yet is refused as not
     /// served, each by its own reason; what is wrong, as invalid; the
     /// control is the workspace, which is built, and its refusals' help is
