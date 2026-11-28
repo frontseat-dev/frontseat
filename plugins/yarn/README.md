@@ -34,7 +34,7 @@ the plugin SDK says which install serves a package). The actions of an install i
 
 | Action | What it does |
 |---|---|
-| `//web:yarn.fetch` | `yarn install --immutable --mode=skip-build`, from npm's registry; retains only Yarn's cache, `.yarn/cache/` |
+| `//web:yarn.fetch` | `yarn install --immutable --mode=skip-build`, from the registry the worker names; retains only Yarn's cache, `.yarn/cache/` |
 | `//web:yarn.install` | `yarn install --immutable --immutable-cache` with Yarn's network off; retains `node_modules/`, the root's and each workspace's |
 
 The install provides `javascript-install:<root package name>` with the
@@ -46,9 +46,14 @@ npm package's.
 Every action runs the Yarn `mise.toml` pins and ignores a release a
 `.yarnrc.yml`'s `yarnPath` vendors (`YARN_IGNORE_PATH`); keeps Yarn's cache
 in the install's own `.yarn/cache` rather than the user's; and fetches from
-`registry.npmjs.org`, which a fetch may reach, since a Yarn lock names no
-registry: Yarn's own name for it, `registry.yarnpkg.com`, is the same
-registry. Every action checks each archive against the lock's checksum
+the registry the grid's worker names (`YARN_NPM_REGISTRY_SERVER` in its own
+environment, which an action's would be set over): npm's on the local
+stack, a mirror of it where the grid has one. Where the worker names none,
+Yarn reads `.yarnrc.yml`, which may name only `registry.npmjs.org` or Yarn's
+own name for it, `registry.yarnpkg.com`, the same registry; a Yarn lock
+names no registry, and every archive is held to its checksum wherever it
+came from. A mirror over plain HTTP is allowed by the worker too
+(`YARN_UNSAFE_HTTP_WHITELIST`). Every action checks each archive against the lock's checksum
 (`YARN_CHECKSUM_BEHAVIOR=throw`) and verifies every certificate
 (`YARN_ENABLE_STRICT_SSL`): a variable of Yarn's own takes the place of what
 `.yarnrc.yml` or `.env.yarn` say. The fetch builds nothing, so no

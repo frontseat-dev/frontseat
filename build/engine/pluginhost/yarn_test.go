@@ -42,7 +42,7 @@ func yarnFixture() conformance.Fixture {
 	yarn := func(arguments ...string) *pluginv1.Command {
 		environment := map[string]string{
 			"YARN_IGNORE_PATH": "1", "YARN_ENABLE_GLOBAL_CACHE": "false", "YARN_CACHE_FOLDER": ".yarn/cache",
-			"YARN_NPM_REGISTRY_SERVER": "https://registry.npmjs.org", "YARN_ENABLE_TELEMETRY": "false",
+			"YARN_ENABLE_TELEMETRY":  "false",
 			"YARN_CHECKSUM_BEHAVIOR": "throw", "YARN_ENABLE_STRICT_SSL": "true",
 		}
 		if arguments[len(arguments)-1] != "--immutable-cache" {

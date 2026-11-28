@@ -13,7 +13,9 @@ const CACHE: &str = ".yarn/cache/";
 
 /// Yarn, as every action runs it: the Yarn mise.toml pins, never a
 /// release `.yarnrc.yml` vendors (`yarnPath`); its cache beside the
-/// install; npm's registry, which a lock of Yarn's names no host of;
+/// install; the registry the worker names, as it names its mirror, since
+/// an action's own variable would be set over the worker's (else what
+/// `.yarnrc.yml` names, which is npm's registry or Yarn's name for it);
 /// every archive checked against the lock's checksum and every
 /// certificate verified, whatever `.yarnrc.yml` or `.env.yarn` say, a
 /// variable of Yarn's own taking the place of both; and nothing sent
@@ -23,7 +25,6 @@ fn yarn(arguments: &[&str]) -> Command {
         ("YARN_IGNORE_PATH", "1"),
         ("YARN_ENABLE_GLOBAL_CACHE", "false"),
         ("YARN_CACHE_FOLDER", CACHE.trim_end_matches('/')),
-        ("YARN_NPM_REGISTRY_SERVER", "https://registry.npmjs.org"),
         ("YARN_ENABLE_TELEMETRY", "false"),
         ("YARN_CHECKSUM_BEHAVIOR", "throw"),
         ("YARN_ENABLE_STRICT_SSL", "true"),
