@@ -19,12 +19,10 @@ pub(super) struct Install {
     pub(super) configured: bool,
 }
 
-/// Whether a Yarn of a version retries a request safely (4.18.1 and
-/// later): the got that Yarn bundled before may retry a request already
-/// settled, and crash ("The `onCancel` handler was attached after the
-/// promise settled", Yarn's #7249). A pre-release comes before its
-/// release, and a version that is not one is taken for one that does not.
-fn retries_safely(version: &str) -> bool {
+/// A version exactly as Yarn releases it: its major, minor and patch,
+/// and whether it is a pre-release. A version that says no patch, or is
+/// no version (`4`, `latest`), is none.
+fn exact(version: &str) -> Option<((u64, u64, u64), bool)> {
     let (core, pre) = match version.split_once(['-', '+']) {
         Some((core, rest)) => (
             core,
@@ -32,14 +30,23 @@ fn retries_safely(version: &str) -> bool {
         ),
         None => (version, false),
     };
-    let parts: Vec<u64> = match core.split('.').map(str::parse).collect() {
-        Ok(parts) => parts,
-        Err(_) => return false,
-    };
+    let parts: Vec<u64> = core
+        .split('.')
+        .map(str::parse)
+        .collect::<Result<_, _>>()
+        .ok()?;
     let [major, minor, patch] = parts[..] else {
-        return false;
+        return None;
     };
-    let release = (major, minor, patch);
+    Some(((major, minor, patch), pre))
+}
+
+/// Whether a Yarn of a release retries a request safely (4.18.1 and
+/// later): the got that Yarn bundled before may retry a request already
+/// settled, and crash ("The `onCancel` handler was attached after the
+/// promise settled", Yarn's #7249). A pre-release comes before its
+/// release.
+fn retries_safely((release, pre): ((u64, u64, u64), bool)) -> bool {
     release > (4, 18, 1) || (release == (4, 18, 1) && !pre)
 }
 
@@ -128,11 +135,19 @@ pub(super) fn read(repo: &Repository, root: &str) -> Result<Option<Install>, Err
             "Pin Yarn 4 in mise.toml and run `yarn install` to write its lock.",
         ));
     }
-    if !retries_safely(yarn) {
+    let Some(release) = exact(yarn) else {
+        return Err(Error::invalid(
+            "inexact-yarn",
+            &path,
+            "the repository pins Yarn by no exact version, which the archive of Yarn it fetches is named by",
+            "Pin Yarn at an exact version, 4.18.1 or later, in mise.toml.",
+        ));
+    };
+    if !retries_safely(release) {
         return Err(Error::invalid(
             "unsupported-yarn",
             &path,
-            format!("the repository pins Yarn {yarn}, whose fetch can crash retrying a request that has already settled"),
+            "the repository pins a Yarn before 4.18.1, whose fetch can crash retrying a request that has already settled",
             "Pin Yarn 4.18.1 or later in mise.toml.",
         ));
     }

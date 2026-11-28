@@ -6,7 +6,7 @@
 
 use frontseat_plugin::prelude::*;
 
-const HELP: &str = "Lock every dependency with `yarn install` and Yarn 2 or later: npm registry packages each with its checksum, the workspace's own packages, and patches of npm packages.";
+const HELP: &str = "Lock every dependency with `yarn install` and Yarn 4.18.1 or later: npm registry packages each with its checksum, the workspace's own packages, and patches of npm packages.";
 
 /// Reads `text`, the lock at `path`, refusing a Yarn 1 lock and any
 /// entry Yarn would install from elsewhere than the npm registry, or
